@@ -1,0 +1,96 @@
+{
+  "status": "pass",
+  "summary": "Static review of the Controls HUD scope amendment and the prior progress-indicator repair finds no blocking code, contract, test, reference, or compilation problems. Labels are hardcoded to match the current default key bindings (E, K, WASD), the HUD is rebuilt fresh every run alongside the rest of Canvas with dedicated idempotency tests, it is a sibling object positioned to avoid the prompt/progress bar, the progress-fill sprite regression fix is intact and covered by an Edit Mode test, no runtime script touches UnityEditor, and no excluded systems or external packages were introduced. Human Play Mode verification of visual layout is still required and cannot be substituted by this review.",
+  "criteria_results": [
+    {
+      "id": "HUD-1: scene builder creates a readable controls panel every time it runs",
+      "status": "pass",
+      "evidence": "DoorPrototypeSceneBuilder.cs:269 calls BuildControlsHud(canvasObject.transform) at the end of every BuildUI() call, and Canvas is in KnownRootNames (line 27) so it is destroyed and rebuilt from scratch on every Build(). Covered by Build_ControlsHud_ExistsSeparateFromPromptAndProgressIndicator in DoorPrototypeSceneBuilderTests.cs:44-55."
+    },
+    {
+      "id": "HUD-2: displayed labels match the actual input implementation",
+      "status": "pass",
+      "evidence": "PlayerInteractionController.cs:9 defaults interactKey=Key.E, DebugDamageControl.cs:11 defaults damageKey=Key.K, PlayerMovement.cs:28-31 reads WASD — all match the hardcoded HUD text 'WASD - Move / Hold E - Open Door / ... K - Take Damage' in DoorPrototypeSceneBuilder.cs:305-309. Build_ControlsHud_TextMatchesActualImplementedControls (DoorPrototypeSceneBuilderTests.cs:58-76) asserts the actual serialized damageKey value's ToString() appears in the HUD text."
+    },
+    {
+      "id": "HUD-3: panel includes WASD movement, Hold E to open, and interruption rule",
+      "status": "pass",
+      "evidence": "DoorPrototypeSceneBuilder.cs:305-309 text literal contains all three; asserted by StringAssert.Contains checks at DoorPrototypeSceneBuilderTests.cs:64-67."
+    },
+    {
+      "id": "HUD-4: debug-only controls omitted or clearly labeled Debug/Test",
+      "status": "pass",
+      "evidence": "HUD text line is '[Debug/Test] K - Take Damage' (DoorPrototypeSceneBuilder.cs:309); DebugDamageControl.cs:6-7 doc-comments it as a testing/demo affordance; test asserts 'Debug' substring present (DoorPrototypeSceneBuilderTests.cs:74-75)."
+    },
+    {
+      "id": "HUD-5: HUD does not replace or obscure the interaction progress UI by design",
+      "status": "pass",
+      "evidence": "ControlsHud is a sibling of InteractPrompt/ProgressFill under Canvas, anchored top-left (0,1)/(16,-16) sized 300x110 (DoorPrototypeSceneBuilder.cs:277-284), while InteractPrompt is anchored (0.5,0.2) and ProgressFill at (0.5,0.12) — non-overlapping by construction. Test Build_ControlsHud_ExistsSeparateFromPromptAndProgressIndicator confirms distinct objects. Actual rendered layout still requires human Play Mode confirmation."
+    },
+    {
+      "id": "HUD-6: repeated scene builds do not duplicate HUD",
+      "status": "pass",
+      "evidence": "Canvas root is fully destroyed and rebuilt every run (ClearExistingObjects, DoorPrototypeSceneBuilder.cs:78-87), and Build_RunTwice_DoesNotDuplicateControlsHud (DoorPrototypeSceneBuilderTests.cs:79-92) asserts exactly one ControlsHud child after two consecutive builds."
+    },
+    {
+      "id": "HUD-7: existing five-second opening and cancellation behavior remain intact",
+      "status": "pass",
+      "evidence": "DoorInteractable.cs (Tick/StartInteraction/CancelInteraction/Complete) and PlayerInteractionController.cs are unchanged by the HUD addition per the implementation summary; DoorInteractionPlayModeTests.cs still covers completion, half-duration progress, release/movement/damage cancellation with no modifications noted."
+    },
+    {
+      "id": "HUD-8: no external package, art, or unrelated mechanic introduced",
+      "status": "pass",
+      "evidence": "HUD background/text use AssetDatabase.GetBuiltinExtraResource<Sprite>('UI/Skin/Background.psd') and Resources.GetBuiltinResource<Font>('LegacyRuntime.ttf'), both already used elsewhere in the builder; Packages/manifest.json contains only the pre-existing dependency set with no new external packages; grep of the DoorPrototype tree found no enemy/NavMesh/ability/door-lock systems (NavMesh* matches in DoorPrototype.unity are standard Unity scene boilerplate fields, not a navigation system)."
+    },
+    {
+      "id": "HUD-9: automated coverage added or updated where practical",
+      "status": "pass",
+      "evidence": "Three new Edit Mode tests added in DoorPrototypeSceneBuilderTests.cs (HUD existence/separation, text-matches-implementation, no-duplication-on-rerun); Tests/Editor asmdef updated to reference Unity.InputSystem so the test can read the actual serialized damageKey."
+    },
+    {
+      "id": "Progress-indicator repair preserved",
+      "status": "pass",
+      "evidence": "DoorPrototypeSceneBuilder.cs:220-235 assigns AssetDatabase.GetBuiltinExtraResource<Sprite>('UI/Skin/UISprite.psd') to the Fill Image (fixing the null-sprite defect described in human_playtest_feedback.md), and Build_ProgressFillImage_HasSpriteAssignedSoFillAmountIsVisible (DoorPrototypeSceneBuilderTests.cs:12-24) regresses on it. DoorInteractionUI.cs:21-24 binding of fillAmount = door.Progress is unchanged."
+    },
+    {
+      "id": "Assembly definitions internally consistent / Editor namespaces confined",
+      "status": "pass",
+      "evidence": "Runtime asmdef has no includePlatforms restriction and no UnityEditor reference; Editor asmdef is Editor-only and references the runtime assembly; Tests.Editor asmdef is Editor-only, references both runtime and Editor assemblies plus Unity.InputSystem for the new SerializedObject-based key check; grep confirmed no runtime script under Scripts/ references UnityEditor."
+    },
+    {
+      "id": "No direct scene YAML authoring",
+      "status": "pass",
+      "evidence": "All hierarchy/UI construction for the HUD and prior fixes is done via C# GameObject/Component calls in DoorPrototypeSceneBuilder.cs; DoorPrototype.unity on disk is a generated artifact (contains ControlsHud/DebugDamageButton object names matching the builder's output), not hand-edited."
+    }
+  ],
+  "blocking_issues": [],
+  "compile_risks": [],
+  "non_blocking_notes": [
+    "HUD control labels for movement (WASD) and interact key (E) are hardcoded string literals, not read from the actual serialized fields at build time — only the debug damage key label is test-verified against the real serialized value (DoorPrototypeSceneBuilderTests.cs:71-73). If interactKey or the movement scheme is ever changed via Inspector or code, the HUD text would silently go stale with no test to catch it. Not blocking since current defaults match, but worth tightening if those fields become configurable in practice.",
+    "Human Play Mode verification is still required to confirm the HUD is actually legible, correctly positioned, and non-overlapping at runtime — this review only confirms non-overlap by anchor/size arithmetic, not rendered layout.",
+    "The checked-in DoorPrototype.unity appears to be a byproduct of a prior scene-builder execution (likely from running the Edit Mode tests, which call DoorPrototypeSceneBuilder.Build() and save to the real scene path); this is expected given the architecture but the human developer should still do a final clean rebuild-and-inspect pass as instructed."
+  ],
+  "files_reviewed": [
+    "AgentCrew/outputs/feature_contract.json",
+    "AgentCrew/outputs/implementation_summary.md",
+    "AgentCrew/inputs/door_feature_brief.md",
+    "AgentCrew/inputs/approved_scope_amendment_controls_hud.md",
+    "AgentCrew/inputs/human_playtest_feedback.md",
+    "CLAUDE.md",
+    "Packages/manifest.json",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractionUI.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DebugDamageControl.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/NoSafeCircle.DoorPrototype.Editor.asmdef",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/NoSafeCircle.DoorPrototype.Tests.asmdef",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NoSafeCircle.DoorPrototype.Tests.Editor.asmdef",
+    "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+  ]
+}

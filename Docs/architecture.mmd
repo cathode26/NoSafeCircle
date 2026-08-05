@@ -1,0 +1,69 @@
+flowchart TD
+    Brief["No Safe Circle door feature brief"]
+    Requirements["Assignment requirements"]
+    Planner["Feature Planning Agent"]
+    Contract["feature_contract.json"]
+
+    Generate["Door and Interaction Agent<br/>Initial implementation"]
+    Code["Unity scripts, scene builder, and tests"]
+    Summary["implementation_summary.md"]
+
+    InitialReview["Unity Validation Agent<br/>Initial static review"]
+    InitialReport["validation_report.json"]
+    InitialGate{"Initial static review passed?"}
+
+    Packager["Submission Packaging Agent"]
+    DraftDocs["Initial README, Mermaid,<br/>run report, and checklist drafts"]
+
+    HumanPlaytest["Human Unity playtest"]
+    GuiDefect["Progress indicator appears static"]
+    Feedback["human_playtest_feedback.md"]
+
+    Repair["Door and Interaction Agent<br/>Targeted progress repair"]
+    RepairReview["Unity Validation Agent<br/>Repair review"]
+
+    HudAmendment["Human-approved controls HUD amendment"]
+    HudPass["Door and Interaction Agent<br/>Targeted HUD enhancement"]
+    HudReview["Unity Validation Agent<br/>HUD review"]
+
+    FinalUnityCheck["Human final Unity verification"]
+    HumanDocReview["Human submission review<br/>Verify and correct documentation"]
+    FinalDocs["Final human-reviewed README<br/>and Mermaid diagram"]
+    Submit["Commit, push, and submit repository"]
+
+    Brief --> Planner
+    Requirements --> Planner
+    Planner --> Contract
+
+    Contract --> Generate
+    Generate --> Code
+    Generate --> Summary
+
+    Contract --> InitialReview
+    Code --> InitialReview
+    Summary --> InitialReview
+    InitialReview --> InitialReport
+    InitialReport --> InitialGate
+
+    InitialGate -- "needs changes" --> Generate
+    InitialGate -- "pass" --> Packager
+    Packager --> DraftDocs
+
+    InitialGate -- "pass" --> HumanPlaytest
+    HumanPlaytest --> GuiDefect
+    GuiDefect --> Feedback
+    Feedback --> Repair
+    Repair --> RepairReview
+    RepairReview --> HumanPlaytest
+
+    HumanPlaytest --> HudAmendment
+    HudAmendment --> HudPass
+    HudPass --> HudReview
+    HudReview --> FinalUnityCheck
+
+    DraftDocs --> HumanDocReview
+    FinalUnityCheck --> HumanDocReview
+    Feedback --> HumanDocReview
+    HudAmendment --> HumanDocReview
+    HumanDocReview --> FinalDocs
+    FinalDocs --> Submit

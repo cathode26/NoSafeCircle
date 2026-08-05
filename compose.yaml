@@ -1,0 +1,18 @@
+﻿services:
+  claude:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      CLAUDE_CONFIG_DIR: /home/agent/.claude
+      DISABLE_AUTOUPDATER: "1"
+    volumes:
+      - .:/workspace
+      - claude-config:/home/agent/.claude
+    command: ["bash"]
+
+volumes:
+  claude-config:

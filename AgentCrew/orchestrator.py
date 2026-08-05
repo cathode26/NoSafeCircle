@@ -1,0 +1,534 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[1]
+AGENT_ROOT = ROOT / "AgentCrew"
+PROMPT_ROOT = AGENT_ROOT / "prompts"
+OUTPUT_ROOT = AGENT_ROOT / "outputs"
+
+MODEL = os.environ.get("CLAUDE_AGENT_MODEL", "sonnet")
+TIMEOUT_SECONDS = int(
+    os.environ.get("CLAUDE_AGENT_TIMEOUT_SECONDS", "1800")
+)
+
+CONTRACT_PATH = OUTPUT_ROOT / "feature_contract.json"
+VALIDATION_PATH = OUTPUT_ROOT / "validation_report.json"
+RUN_LOG_PATH = OUTPUT_ROOT / "crew_run_log.json"
+
+
+PLANNER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "game_name": {"type": "string"},
+        "feature_name": {"type": "string"},
+        "objective": {"type": "string"},
+        "approved_scope": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "out_of_scope": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "acceptance_criteria": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "id": {"type": "string"},
+                    "requirement": {"type": "string"},
+                    "verification": {"type": "string"},
+                },
+                "required": ["id", "requirement", "verification"],
+            },
+        },
+        "required_files": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "path": {"type": "string"},
+                    "purpose": {"type": "string"},
+                    "owner": {"type": "string"},
+                },
+                "required": ["path", "purpose", "owner"],
+            },
+        },
+        "dependencies": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "risks": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "test_cases": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "name": {"type": "string"},
+                    "setup": {"type": "string"},
+                    "action": {"type": "string"},
+                    "expected": {"type": "string"},
+                },
+                "required": ["name", "setup", "action", "expected"],
+            },
+        },
+    },
+    "required": [
+        "game_name",
+        "feature_name",
+        "objective",
+        "approved_scope",
+        "out_of_scope",
+        "acceptance_criteria",
+        "required_files",
+        "dependencies",
+        "risks",
+        "test_cases",
+    ],
+}
+
+
+VALIDATOR_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": ["pass", "needs_changes"],
+        },
+        "summary": {"type": "string"},
+        "criteria_results": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "id": {"type": "string"},
+                    "status": {
+                        "type": "string",
+                        "enum": ["pass", "fail"],
+                    },
+                    "evidence": {"type": "string"},
+                },
+                "required": ["id", "status", "evidence"],
+            },
+        },
+        "blocking_issues": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "file": {"type": "string"},
+                    "issue": {"type": "string"},
+                    "required_fix": {"type": "string"},
+                },
+                "required": ["file", "issue", "required_fix"],
+            },
+        },
+        "compile_risks": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "non_blocking_notes": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "files_reviewed": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    },
+    "required": [
+        "status",
+        "summary",
+        "criteria_results",
+        "blocking_issues",
+        "compile_risks",
+        "non_blocking_notes",
+        "files_reviewed",
+    ],
+}
+
+
+RUN_LOG: dict[str, Any] = {
+    "game": "No Safe Circle",
+    "feature": "Sealed Door Prototype",
+    "orchestration": (
+        "Four independent Claude Code invocations with artifact handoffs"
+    ),
+    "model": MODEL,
+    "started_at_utc": None,
+    "finished_at_utc": None,
+    "status": "not_started",
+    "agents": [],
+}
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def save_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(value, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def save_run_log() -> None:
+    save_json(RUN_LOG_PATH, RUN_LOG)
+
+
+def load_prompt(filename: str) -> str:
+    path = PROMPT_ROOT / filename
+
+    if not path.exists():
+        raise FileNotFoundError(f"Prompt not found: {path}")
+
+    return path.read_text(encoding="utf-8-sig")
+
+
+def run_agent(
+    *,
+    role: str,
+    prompt_filename: str,
+    tools: str,
+    permission_mode: str,
+    max_turns: int,
+    schema: dict[str, Any] | None = None,
+    extra_instructions: str = "",
+) -> dict[str, Any]:
+    prompt = load_prompt(prompt_filename)
+
+    if extra_instructions:
+        prompt += "\n\n# Additional Run Instructions\n\n"
+        prompt += extra_instructions.strip()
+        prompt += "\n"
+
+    command = [
+        "claude",
+        "-p",
+        "--model",
+        MODEL,
+        "--output-format",
+        "json",
+        "--no-session-persistence",
+        "--max-turns",
+        str(max_turns),
+        "--permission-mode",
+        permission_mode,
+        "--tools",
+        tools,
+        "--disallowedTools",
+        "mcp__*",
+    ]
+
+    if schema is not None:
+        compact_schema = json.dumps(
+            schema,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        command.extend(["--json-schema", compact_schema])
+
+    # Supply the prompt through stdin. This avoids Claude CLI option parsing
+    # consuming a trailing positional prompt as another value for list-style
+    # flags such as --disallowedTools.
+    command.extend(["--input-format", "text"])
+
+    print()
+    print("=" * 72)
+    print(f"Starting agent: {role}")
+    print(f"Model: {MODEL}")
+    print(f"Tools: {tools}")
+    print("=" * 72)
+    print("Claude may take several minutes to complete this stage.")
+
+    started_at = utc_now()
+    started_timer = time.monotonic()
+
+    log_entry: dict[str, Any] = {
+        "role": role,
+        "prompt": f"AgentCrew/prompts/{prompt_filename}",
+        "started_at_utc": started_at,
+        "finished_at_utc": None,
+        "status": "running",
+        "duration_seconds": None,
+        "session_id": None,
+        "num_turns": None,
+        "result_excerpt": None,
+    }
+
+    RUN_LOG["agents"].append(log_entry)
+    save_run_log()
+
+    try:
+        process = subprocess.run(
+            command,
+            cwd=ROOT,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        duration = round(time.monotonic() - started_timer, 2)
+        log_entry.update(
+            {
+                "finished_at_utc": utc_now(),
+                "status": "timeout",
+                "duration_seconds": duration,
+                "result_excerpt": str(exc),
+            }
+        )
+        save_run_log()
+        raise RuntimeError(
+            f"{role} exceeded the {TIMEOUT_SECONDS}-second timeout."
+        ) from exc
+
+    duration = round(time.monotonic() - started_timer, 2)
+
+    if process.returncode != 0:
+        error_text = (process.stderr or process.stdout or "").strip()
+
+        log_entry.update(
+            {
+                "finished_at_utc": utc_now(),
+                "status": "failed",
+                "duration_seconds": duration,
+                "result_excerpt": error_text[:2000],
+            }
+        )
+        save_run_log()
+
+        raise RuntimeError(
+            f"{role} failed with exit code {process.returncode}.\n"
+            f"{error_text}"
+        )
+
+    try:
+        payload = json.loads(process.stdout)
+    except json.JSONDecodeError as exc:
+        log_entry.update(
+            {
+                "finished_at_utc": utc_now(),
+                "status": "invalid_json",
+                "duration_seconds": duration,
+                "result_excerpt": process.stdout[:2000],
+            }
+        )
+        save_run_log()
+
+        raise RuntimeError(
+            f"{role} returned output that was not valid Claude JSON."
+        ) from exc
+
+    result_text = str(payload.get("result", "")).strip()
+
+    log_entry.update(
+        {
+            "finished_at_utc": utc_now(),
+            "status": "completed",
+            "duration_seconds": duration,
+            "session_id": payload.get("session_id"),
+            "num_turns": payload.get("num_turns"),
+            "result_excerpt": result_text[:2000],
+        }
+    )
+    save_run_log()
+
+    print(f"Completed agent: {role}")
+    print(f"Duration: {duration} seconds")
+
+    if result_text:
+        print()
+        print(result_text)
+
+    return payload
+
+
+def require_path(path: Path) -> None:
+    if not path.exists():
+        raise RuntimeError(f"Expected output was not created: {path}")
+
+
+def run_pipeline() -> None:
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+
+    RUN_LOG["started_at_utc"] = utc_now()
+    RUN_LOG["status"] = "running"
+    save_run_log()
+
+    planner_result = run_agent(
+        role="Feature Planning Agent",
+        prompt_filename="01_planner.md",
+        tools="Read,Glob,Grep",
+        permission_mode="dontAsk",
+        max_turns=12,
+        schema=PLANNER_SCHEMA,
+    )
+
+    contract = planner_result.get("structured_output")
+
+    if not isinstance(contract, dict):
+        raise RuntimeError(
+            "Planning agent did not return structured_output."
+        )
+
+    if contract.get("game_name") != "No Safe Circle":
+        raise RuntimeError(
+            "Planning contract is not connected to No Safe Circle."
+        )
+
+    save_json(CONTRACT_PATH, contract)
+    print(f"Saved contract: {CONTRACT_PATH.relative_to(ROOT)}")
+
+    validation_passed = False
+
+    for implementation_attempt in range(1, 3):
+        if implementation_attempt == 1:
+            extra = (
+                "This is the initial implementation pass. "
+                "Implement the approved contract completely."
+            )
+        else:
+            extra = (
+                "This is repair pass 2. Read "
+                "AgentCrew/outputs/validation_report.json and correct every "
+                "blocking issue. Preserve behavior that already passed. "
+                "Update implementation_summary.md after repairing the code."
+            )
+
+        run_agent(
+            role=(
+                "Door and Interaction Agent"
+                if implementation_attempt == 1
+                else "Door and Interaction Agent — Repair Pass"
+            ),
+            prompt_filename="02_implementer.md",
+            tools="Read,Glob,Grep,Edit,Write",
+            permission_mode="acceptEdits",
+            max_turns=35,
+            extra_instructions=extra,
+        )
+
+        implementation_root = (
+            ROOT / "Assets" / "NoSafeCircle" / "DoorPrototype"
+        )
+        require_path(implementation_root)
+        require_path(OUTPUT_ROOT / "implementation_summary.md")
+
+        validator_result = run_agent(
+            role=f"Unity Validation Agent — Pass {implementation_attempt}",
+            prompt_filename="03_validator.md",
+            tools="Read,Glob,Grep",
+            permission_mode="dontAsk",
+            max_turns=20,
+            schema=VALIDATOR_SCHEMA,
+        )
+
+        validation = validator_result.get("structured_output")
+
+        if not isinstance(validation, dict):
+            raise RuntimeError(
+                "Validation agent did not return structured_output."
+            )
+
+        save_json(VALIDATION_PATH, validation)
+        print(f"Saved validation: {VALIDATION_PATH.relative_to(ROOT)}")
+
+        if validation.get("status") == "pass":
+            validation_passed = True
+            break
+
+        print()
+        print("Validation requested changes.")
+        print("The implementation agent will receive one repair pass.")
+
+    if not validation_passed:
+        raise RuntimeError(
+            "Validation still reports blocking issues after the repair pass. "
+            "Packaging was correctly stopped."
+        )
+
+    RUN_LOG["status"] = "validation_passed"
+    save_run_log()
+
+    run_agent(
+        role="Submission Packaging Agent",
+        prompt_filename="04_packager.md",
+        tools="Read,Glob,Grep,Edit,Write",
+        permission_mode="acceptEdits",
+        max_turns=24,
+    )
+
+    required_outputs = [
+        ROOT / "README.md",
+        ROOT / "Docs" / "architecture.mmd",
+        OUTPUT_ROOT / "run_report.md",
+        OUTPUT_ROOT / "submission_checklist.md",
+    ]
+
+    for output in required_outputs:
+        require_path(output)
+
+    RUN_LOG["status"] = "success"
+    RUN_LOG["finished_at_utc"] = utc_now()
+    save_run_log()
+
+    print()
+    print("=" * 72)
+    print("FOUR-AGENT PIPELINE COMPLETED SUCCESSFULLY")
+    print("=" * 72)
+    print("Contract: AgentCrew/outputs/feature_contract.json")
+    print("Implementation: Assets/NoSafeCircle/DoorPrototype/")
+    print("Validation: AgentCrew/outputs/validation_report.json")
+    print("Architecture: Docs/architecture.mmd")
+    print("Run report: AgentCrew/outputs/run_report.md")
+    print("Checklist: AgentCrew/outputs/submission_checklist.md")
+    print()
+    print("Next human step: open Unity and compile the generated feature.")
+
+
+def main() -> int:
+    try:
+        run_pipeline()
+        return 0
+    except Exception as exc:
+        RUN_LOG["status"] = "failed"
+        RUN_LOG["finished_at_utc"] = utc_now()
+        RUN_LOG["failure"] = str(exc)
+        save_run_log()
+
+        print()
+        print("=" * 72, file=sys.stderr)
+        print("PIPELINE FAILED", file=sys.stderr)
+        print("=" * 72, file=sys.stderr)
+        print(str(exc), file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+
