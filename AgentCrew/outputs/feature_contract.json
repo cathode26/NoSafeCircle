@@ -1,0 +1,220 @@
+{
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "requirement": "Holding the interact input while stationary, in range, and undamaged for the full configured duration (default 5.0s) opens the door and permits crossing the doorway.",
+      "verification": "Play Mode test: drive the interaction start method on the interaction component, advance simulated time by 5+ seconds without cancelling, assert IsOpen becomes true and progress reaches 1.0."
+    },
+    {
+      "id": "AC-2",
+      "requirement": "Door opening progress is exposed as a public normalized float (0 to 1) that increases monotonically while an uninterrupted interaction is held.",
+      "verification": "Play Mode test: begin interaction, advance time to 2 of 5 seconds, assert progress is approximately 0.4 within tolerance of ±0.05."
+    },
+    {
+      "id": "AC-3",
+      "requirement": "Releasing the interact input before completion cancels the attempt and resets progress to exactly 0.",
+      "verification": "Play Mode test: begin interaction, advance partial time, call the public release/end method, assert progress equals 0 and IsOpen is false."
+    },
+    {
+      "id": "AC-4",
+      "requirement": "Player movement during an active, incomplete interaction cancels the attempt and resets progress to exactly 0.",
+      "verification": "Play Mode test: begin interaction, advance partial time, invoke the public movement-cancellation entry point directly (not via WASD polling), assert progress equals 0 and IsOpen is false."
+    },
+    {
+      "id": "AC-5",
+      "requirement": "Player damage during an active, incomplete interaction cancels the attempt and resets progress to exactly 0.",
+      "verification": "Play Mode test: begin interaction, advance partial time, call the health component's public TakeDamage method, assert progress equals 0 and IsOpen is false."
+    },
+    {
+      "id": "AC-6",
+      "requirement": "Interaction state (start, cancel, progress, completion) is driven entirely through public C# methods/properties that do not require simulated keyboard or Input System device events, so tests can drive it deterministically.",
+      "verification": "Code review of the Play Mode test file: confirm every test calls public methods/properties on the interaction/door components and none inject InputSystem device events or legacy Input calls."
+    },
+    {
+      "id": "AC-7",
+      "requirement": "A visible UI prompt appears while the player is inside the door's interaction trigger zone and is hidden when the player leaves that zone.",
+      "verification": "Manual Unity Play Mode check: move the placeholder player into and out of the trigger zone and observe the prompt UI element's visibility toggle."
+    },
+    {
+      "id": "AC-8",
+      "requirement": "A visible progress indicator (UI Slider or Image with fillAmount) reflects the normalized progress value in real time while the interaction is active.",
+      "verification": "Manual Unity Play Mode check: hold the interact key near the door and observe the indicator animate from empty to full over 5 seconds."
+    },
+    {
+      "id": "AC-9",
+      "requirement": "Interaction duration is a serialized, Inspector-configurable field defaulting to 5.0 seconds, with no duplicate hardcoded duration elsewhere in the completion check.",
+      "verification": "Code review: confirm a single [SerializeField] float duration field with default value 5f is the sole source used in the completion comparison."
+    },
+    {
+      "id": "AC-10",
+      "requirement": "The Editor menu command 'No Safe Circle/Build Door Prototype Scene' generates a complete, playable scene at Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity containing a floor, player placeholder, sealed door/doorway, camera, lighting, interaction UI, and a documented damage-test control, with all serialized references auto-wired.",
+      "verification": "Manual execution: run the menu command from a clean state, inspect the Hierarchy and Inspector for the listed objects and populated references, then run it again and confirm no console errors and no duplicated hierarchy."
+    },
+    {
+      "id": "AC-11",
+      "requirement": "Running the scene-builder command a second time does not create duplicate GameObjects, UI elements, or scenes, and leaves no null-reference errors in the Console.",
+      "verification": "Manual execution: run the menu command twice consecutively from an already-built scene state; diff the Hierarchy object count before and after the second run and confirm it is unchanged."
+    },
+    {
+      "id": "AC-12",
+      "requirement": "Once the door-opening interaction completes, the doorway no longer blocks player movement through it.",
+      "verification": "Manual Play Mode check: complete the interaction, then walk the placeholder player through the doorway and confirm no collision blocking occurs."
+    },
+    {
+      "id": "AC-13",
+      "requirement": "No excluded systems (enemy AI, NavMesh, ranged enemies, Frost Field, Force Wave, Fireball, door locking/durability/breaking, multiple rooms, custom art, external packages) are present anywhere in the delivered feature.",
+      "verification": "Search Assets/NoSafeCircle/DoorPrototype/ for such systems and diff Packages/manifest.json against its pre-implementation contents to confirm it is unchanged."
+    }
+  ],
+  "approved_scope": [
+    "Placeholder player character built from Unity primitives, movable with WASD via the new Input System",
+    "Sealed door GameObject with a trigger-based interaction range zone",
+    "Hold-to-interact input (E key, new Input System) that starts a 5-second (default, Inspector-configurable) uninterrupted timer",
+    "A normalized 0-1 progress value publicly exposed by the door/interaction component",
+    "Deterministic cancellation on: releasing interact input, player movement, player taking damage",
+    "Visible in-range interaction prompt UI element",
+    "Visible progress-fill UI element bound to the normalized progress value",
+    "Door opening on successful completion, permitting the doorway to be crossed",
+    "A minimal, clearly-labeled debug/testing control (key press or debug UI button) to trigger player damage for demonstrating cancellation",
+    "Idempotent Editor menu command that builds or rebuilds the prototype scene with all references wired",
+    "Play Mode automated tests covering completion, movement cancellation, damage cancellation, and release cancellation",
+    "Assembly definitions for runtime, Editor, and test code as needed to support the above"
+  ],
+  "dependencies": [
+    "Unity 6000.1.8f1 editor, matching ProjectSettings/ProjectVersion.txt",
+    "com.unity.inputsystem 1.14.0, already present in Packages/manifest.json — required because ProjectSettings/ProjectSettings.asset has activeInputHandler: 1 (Input System Package (New) only); legacy UnityEngine.Input calls will throw InvalidOperationException at runtime and must not be used anywhere in this feature",
+    "com.unity.ugui 2.0.0, already present, for the interaction prompt and progress-fill UI",
+    "Unity Test Framework for Play Mode tests — the implementer must verify its presence (it is a built-in Editor-only test package, not a new external dependency) before relying on it, and must flag rather than silently skip tests if unavailable",
+    "The Assets/NoSafeCircle/DoorPrototype/ directory tree, which does not yet exist and must be created by the implementer"
+  ],
+  "feature_name": "Sealed Door Prototype",
+  "game_name": "No Safe Circle",
+  "objective": "Implement a small, testable Unity 6000.1.8f1 prototype of the core sealed-door interaction from the No Safe Circle GDD: a player must hold an interact input at a sealed door for five uninterrupted seconds (configurable) to open it, with the attempt cancelled deterministically by releasing input, moving, or taking damage, and with visible in-range prompt and progress feedback — built via a repeatable Editor scene-builder command, verified by Play Mode tests, and contained entirely under Assets/NoSafeCircle/DoorPrototype/.",
+  "out_of_scope": [
+    "Enemy AI of any kind",
+    "NavMesh pursuit or navigation systems",
+    "Ranged enemies",
+    "Frost Field ability",
+    "Force Wave ability",
+    "Fireball ability",
+    "Door locking mechanics",
+    "Door durability or breaking",
+    "Enemies damaging or breaking the door",
+    "Multiple rooms or level layouts",
+    "Final escape sequence content",
+    "Custom art assets or imported models/textures",
+    "Runtime generative AI",
+    "Unity MCP integration",
+    "Any external Unity package beyond those already present in Packages/manifest.json",
+    "Direct hand-editing of .unity scene YAML",
+    "Changes to ProjectSettings"
+  ],
+  "required_files": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+      "purpose": "Core door component: serialized duration (default 5s), normalized progress (0-1), open/closed state, and StartInteraction/CancelInteraction/Tick-style completion logic exposed through a public API independent of raw input polling",
+      "owner": "implementer"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+      "purpose": "Detects proximity to the door's trigger zone, reads interact input via the new Input System, and calls DoorInteractable's public start/cancel API; exposes a public method to signal movement-triggered cancellation",
+      "owner": "implementer"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "purpose": "WASD movement for the placeholder player using the new Input System; notifies PlayerInteractionController when movement occurs so an active interaction can be cancelled",
+      "owner": "implementer"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+      "purpose": "Minimal damage component exposing a public TakeDamage method, used by the debug damage control and by Play Mode tests to trigger interaction cancellation",
+      "owner": "implementer"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractionUI.cs",
+      "purpose": "Binds DoorInteractable's in-range and progress state to the UI prompt and progress-fill elements",
+      "owner": "implementer"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "purpose": "Editor menu command 'No Safe Circle/Build Door Prototype Scene' that idempotently generates DoorPrototype.unity with all required objects, UI, and wired serialized references",
+      "owner": "implementer"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "purpose": "Generated prototype scene, produced only by the scene-builder command and never hand-authored",
+      "owner": "implementer"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs",
+      "purpose": "Play Mode tests covering completion, movement cancellation, damage cancellation, and interaction-release cancellation",
+      "owner": "implementer"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef",
+      "purpose": "Assembly definition for the runtime gameplay scripts",
+      "owner": "implementer"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/NoSafeCircle.DoorPrototype.Editor.asmdef",
+      "purpose": "Assembly definition for the Editor scene-builder script",
+      "owner": "implementer"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/NoSafeCircle.DoorPrototype.Tests.asmdef",
+      "purpose": "Assembly definition for the Play Mode test assembly, referencing the runtime assembly and the Unity Test Framework",
+      "owner": "implementer"
+    },
+    {
+      "path": "AgentCrew/outputs/feature_contract.json",
+      "purpose": "This planning contract; the sole approved source of implementation scope for the next agent",
+      "owner": "planner"
+    },
+    {
+      "path": "AgentCrew/outputs/implementation_summary.md",
+      "purpose": "Implementer's record of files changed, design decisions, scene-generation instructions, test instructions, known limitations, and confirmation that excluded systems were not implemented",
+      "owner": "implementer"
+    }
+  ],
+  "risks": [
+    "activeInputHandler is set to 1 (Input System Package (New) only) in ProjectSettings/ProjectSettings.asset; any use of legacy UnityEngine.Input by the implementer will throw InvalidOperationException at runtime — the implementer must use UnityEngine.InputSystem (e.g., Keyboard.current) exclusively",
+    "Scene-builder idempotency is nontrivial: a naive re-run could duplicate GameObjects, UI canvases, or EventSystems unless the builder explicitly finds-and-replaces known objects by name before creating new ones",
+    "Coupling movement detection to interaction cancellation risks scope creep into a general-purpose player controller; the implementation must stay a small, focused component limited to this prototype's needs",
+    "The debug damage-test control must be clearly labeled as a testing/demo affordance so it is not mistaken for a combat system, which would blur the boundary with out-of-scope enemy/combat content",
+    "The five-second timer must be measured via accumulated Time.deltaTime (not frame counts) so Play Mode tests that advance simulated time remain deterministic and frame-rate independent",
+    "Presence of the Unity Test Framework package is unconfirmed in the provided manifest excerpt; if it is missing, Play Mode tests cannot compile until it is enabled, and the implementer must flag this rather than silently omitting tests",
+    "Scene generation and final visual/interaction correctness are Editor-only concerns that cannot be verified by this planning agent; per CLAUDE.md, human inspection and Play Mode execution remain required before the feature is considered complete"
+  ],
+  "test_cases": [
+    {
+      "name": "Completion opens the door",
+      "setup": "DoorInteractable and PlayerInteractionController exist with the default 5s duration; the player is in range, undamaged, and stationary.",
+      "action": "Call the controller's public BeginInteraction method, then advance simulated time by 5+ seconds without calling any cancel method.",
+      "expected": "DoorInteractable.Progress reaches 1.0 and DoorInteractable.IsOpen becomes true; the doorway no longer blocks a test object moved through it."
+    },
+    {
+      "name": "Movement cancels the attempt",
+      "setup": "Same as above; begin interaction and advance simulated time to approximately 2 seconds (progress ~0.4).",
+      "action": "Call the movement-cancellation entry point (e.g., PlayerInteractionController.OnPlayerMoved) directly.",
+      "expected": "DoorInteractable.Progress resets to 0 and IsOpen remains false."
+    },
+    {
+      "name": "Damage cancels the attempt",
+      "setup": "Same as above; begin interaction and advance simulated time to approximately 2 seconds.",
+      "action": "Call PlayerHealth.TakeDamage with any positive amount on the player's health component.",
+      "expected": "DoorInteractable.Progress resets to 0 and IsOpen remains false."
+    },
+    {
+      "name": "Releasing interaction cancels the attempt",
+      "setup": "Same as above; begin interaction and advance simulated time to approximately 2 seconds.",
+      "action": "Call the controller's public EndInteraction (release) method.",
+      "expected": "DoorInteractable.Progress resets to 0 and IsOpen remains false."
+    },
+    {
+      "name": "Progress reflects normalized elapsed time",
+      "setup": "Default 5s duration; begin interaction.",
+      "action": "Advance simulated time to exactly 2.5 seconds without cancelling.",
+      "expected": "DoorInteractable.Progress is approximately 0.5, within a tolerance of ±0.05."
+    }
+  ]
+}

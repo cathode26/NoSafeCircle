@@ -1,0 +1,108 @@
+{
+  "game": "No Safe Circle",
+  "feature": "Sealed Door Prototype",
+  "orchestration": "Four independent Claude Code invocations with artifact handoffs",
+  "model": "sonnet",
+  "started_at_utc": "2026-08-04T23:49:25.367500+00:00",
+  "finished_at_utc": "2026-08-05T00:02:51.221102+00:00",
+  "status": "success",
+  "agents": [
+    {
+      "role": "Feature Planning Agent",
+      "prompt": "AgentCrew/prompts/01_planner.md",
+      "started_at_utc": "2026-08-04T23:49:25.376832+00:00",
+      "finished_at_utc": "2026-08-04T23:50:42.498208+00:00",
+      "status": "completed",
+      "duration_seconds": 77.12,
+      "session_id": "22dca340-070c-4798-be79-2cf0f7e03f96",
+      "num_turns": 16,
+      "result_excerpt": "{\"acceptance_criteria\":[{\"id\":\"AC-1\",\"requirement\":\"Holding the interact input while stationary, in range, and undamaged for the full configured duration (default 5.0s) opens the door and permits crossing the doorway.\",\"verification\":\"Play Mode test: drive the interaction start method on the interaction component, advance simulated time by 5+ seconds without cancelling, assert IsOpen becomes true and progress reaches 1.0.\"},{\"id\":\"AC-2\",\"requirement\":\"Door opening progress is exposed as a public normalized float (0 to 1) that increases monotonically while an uninterrupted interaction is held.\",\"verification\":\"Play Mode test: begin interaction, advance time to 2 of 5 seconds, assert progress is approximately 0.4 within tolerance of Â±0.05.\"},{\"id\":\"AC-3\",\"requirement\":\"Releasing the interact input before completion cancels the attempt and resets progress to exactly 0.\",\"verification\":\"Play Mode test: begin interaction, advance partial time, call the public release/end method, assert progress equals 0 and IsOpen is false.\"},{\"id\":\"AC-4\",\"requirement\":\"Player movement during an active, incomplete interaction cancels the attempt and resets progress to exactly 0.\",\"verification\":\"Play Mode test: begin interaction, advance partial time, invoke the public movement-cancellation entry point directly (not via WASD polling), assert progress equals 0 and IsOpen is false.\"},{\"id\":\"AC-5\",\"requirement\":\"Player damage during an active, incomplete interaction cancels the attempt and resets progress to exactly 0.\",\"verification\":\"Play Mode test: begin interaction, advance partial time, call the health component's public TakeDamage method, assert progress equals 0 and IsOpen is false.\"},{\"id\":\"AC-6\",\"requirement\":\"Interaction state (start, cancel, progress, completion) is driven entirely through public C# methods/properties that do not require simulated keyboard or Input System device events, so tests can drive it deterministically.\",\"verification\":\"Code review of the Play Mode test fi"
+    },
+    {
+      "role": "Door and Interaction Agent",
+      "prompt": "AgentCrew/prompts/02_implementer.md",
+      "started_at_utc": "2026-08-04T23:50:42.518756+00:00",
+      "finished_at_utc": "2026-08-04T23:58:20.793439+00:00",
+      "status": "completed",
+      "duration_seconds": 458.29,
+      "session_id": "9355a15a-4dc4-49a9-9b5c-77eebf67e5b0",
+      "num_turns": 28,
+      "result_excerpt": "All required files (except the Editor-generated `.unity` scene, which per contract must be produced by running the menu command in Unity) are in place.\n\n## Summary\n\nImplemented the Sealed Door Prototype under `Assets/NoSafeCircle/DoorPrototype/`:\n\n- **Runtime**: `DoorInteractable` (progress/duration/open state + public `Tick()` for deterministic testing), `PlayerInteractionController` (input-independent `BeginInteraction`/`EndInteraction`/`OnPlayerMoved`/range notifications), `PlayerMovement` (WASD via new Input System), `PlayerHealth` (`TakeDamage` + event), `DoorInteractionUI` (prompt/progress binding), `DebugDamageControl` (labeled testing affordance, key + button).\n- **Editor**: `DoorPrototypeSceneBuilder.cs` implementing `No Safe Circle/Build Door Prototype Scene`, idempotently rebuilding the full scene with all references auto-wired via `SerializedObject`.\n- **Tests**: 5 Play Mode tests covering completion, half-duration progress, release/movement/damage cancellation, all driving state through public methods only (no simulated input).\n- **Docs**: `AgentCrew/outputs/implementation_summary.md` written with design decisions, scene-build/test instructions, limitations, and confirmation no excluded systems were added.\n\nNo packages, ProjectSettings, or scene YAML were touched directly. Next step is for a human to open the project in Unity, run the scene-builder menu command, and execute the Play Mode tests — I could not do this myself since I don't have access to the Unity Editor."
+    },
+    {
+      "role": "Unity Validation Agent — Pass 1",
+      "prompt": "AgentCrew/prompts/03_validator.md",
+      "started_at_utc": "2026-08-04T23:58:20.806091+00:00",
+      "finished_at_utc": "2026-08-05T00:01:10.245803+00:00",
+      "status": "completed",
+      "duration_seconds": 169.45,
+      "session_id": "c14504b4-b23f-40a2-bb9a-0f5fc63153a6",
+      "num_turns": 19,
+      "result_excerpt": "{\"blocking_issues\":[],\"compile_risks\":[\"None identified from static review; standard Unity Test Framework asmdef pattern (UnityEditor.TestRunner referenced with no platform restriction) matches Unity's default template and should compile normally.\",\"UnityEditor.Events.UnityEventTools and UnityEditor.SceneManagement are used in DoorPrototypeSceneBuilder.cs without an explicit 'UnityEditor' asmdef reference entry, but these are part of the core UnityEditor assembly which is implicitly available to Editor-platform-restricted asmdefs, so this is expected to compile.\"],\"criteria_results\":[{\"id\":\"AC-1\",\"status\":\"pass\",\"evidence\":\"DoorInteractable.StartInteraction()/Tick(deltaTime) accumulate deltaTime/duration into Progress and call Complete() at >=1; PlayerInteractionController.BeginInteraction() gates on IsInRange/IsOpen before calling StartInteraction. Covered by Completion_OpensDoor_AfterFullDuration test (DoorInteractionPlayModeTests.cs:37-47).\"},{\"id\":\"AC-2\",\"status\":\"pass\",\"evidence\":\"DoorInteractable.Progress is a public get-only float (DoorInteractable.cs:15) updated monotonically in Tick(). Progress_IsApproximatelyHalf_AtHalfDuration test asserts ~0.5 at half duration. Note: contract's acceptance_criteria text for AC-2 describes checking ~0.4 at 2s, while the contract's own test_cases section describes checking ~0.5 at 2.5s (half duration) — these two contract sections are mutually inconsistent; the implementer followed the test_cases version. This is a contract authoring inconsistency, not an implementation defect, and does not block AC-2's substantive requirement (monotonic normalized progress).\"},{\"id\":\"AC-3\",\"status\":\"pass\",\"evidence\":\"PlayerInteractionController.EndInteraction() calls CurrentDoor.CancelInteraction(), which sets IsInteracting=false and Progress=0f exactly. Covered by ReleasingInteraction_CancelsAttempt test.\"},{\"id\":\"AC-4\",\"status\":\"pass\",\"evidence\":\"PlayerInteractionController.OnPlayerMoved() calls EndInteraction() when IsInteracting. Cover"
+    },
+    {
+      "role": "Submission Packaging Agent",
+      "prompt": "AgentCrew/prompts/04_packager.md",
+      "started_at_utc": "2026-08-05T00:01:10.293256+00:00",
+      "finished_at_utc": "2026-08-05T00:02:51.194410+00:00",
+      "status": "completed",
+      "duration_seconds": 100.9,
+      "session_id": "bea1a056-7e28-4a08-928d-c6eaf4e29f18",
+      "num_turns": 22,
+      "result_excerpt": "All four required outputs are complete since the validation gate passed (`status: \"pass\"`, zero blocking issues):\n\n- **`README.md`** — game/assignment overview, agent roles table with explicit inputs/outputs, why each role is necessary, pipeline command, output locations, scene-builder/Play Mode/human verification instructions, known limitations, AI usage statement.\n- **`Docs/architecture.mmd`** — Mermaid flowchart covering the brief â†’ planner â†’ contract â†’ implementer â†’ scripts/tests â†’ summary â†’ validator â†’ report â†’ pass/fail gate (with repair loop back to implementer) â†’ packager â†’ docs â†’ human approval.\n- **`AgentCrew/outputs/run_report.md`** — run timeline, per-agent inputs/outputs, validation result, files produced, coordination mechanism, why each agent is non-removable, and remaining human checks.\n- **`AgentCrew/outputs/submission_checklist.md`** — concise checklist distinguishing completed crew/documentation items from pending human Unity steps (compilation, Play Mode tests, playtesting, repo commit, final review).\n\nNo gameplay code was modified. Nothing was committed or pushed — that remains a human step per the pending checklist items."
+    },
+    {
+      "role": "Door and Interaction Agent — Human Playtest Repair",
+      "prompt": "AgentCrew/prompts/02_implementer.md",
+      "started_at_utc": "2026-08-05T00:15:18.291809+00:00",
+      "finished_at_utc": "2026-08-05T00:18:10.212924+00:00",
+      "status": "completed",
+      "duration_seconds": 171.93,
+      "session_id": "987dcbc0-cb44-4947-8166-d4195656436d",
+      "num_turns": 21,
+      "result_excerpt": "The repair is complete. Summary of the diagnosis and fix:\n\n**Root cause**: The runtime code (`DoorInteractable.Tick`, `DoorInteractionUI.Update`) was already correct — `progressFillImage.fillAmount = door.Progress` runs every frame. The bug was in `DoorPrototypeSceneBuilder.BuildUI`: the progress `Image` was created with `type = Filled` but no `sprite` assigned. Unity's `Image.OnPopulateMesh` silently ignores `fillAmount`/`fillMethod`/`type` and draws a static full rect whenever `sprite == null` — confirmed directly in the checked-in scene YAML (`m_Sprite: {fileID: 0}`, `m_Type: 3`).\n\n**Fix** (`Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs`): split the progress indicator into a background track and a child \"Fill\" image, and assigned the built-in `UI/Skin/UISprite.psd` sprite (via `AssetDatabase.GetBuiltinExtraResource`, no external asset) to the fill image so `fillAmount` now has real geometry to animate.\n\n**New automated coverage**: added an Edit Mode test assembly (`Tests/Editor/`) with tests that run the scene builder and assert the fill image has a non-null sprite with correct `Type`/`FillMethod`, plus an idempotency check that rebuilding twice doesn't duplicate the UI element.\n\n`AgentCrew/outputs/implementation_summary.md` now documents the reported defect, diagnosis, fix, new test coverage, and exact human retest steps. Since I can't run the Unity Editor here, the existing on-disk `DoorPrototype.unity` still reflects the old (buggy) config until you rerun **No Safe Circle â†’ Build Door Prototype Scene**."
+    },
+    {
+      "role": "Unity Validation Agent — Human Repair Review 1",
+      "prompt": "AgentCrew/prompts/03_validator.md",
+      "started_at_utc": "2026-08-05T00:18:10.224450+00:00",
+      "finished_at_utc": "2026-08-05T00:20:22.579820+00:00",
+      "status": "completed",
+      "duration_seconds": 132.36,
+      "session_id": "e664773c-b1c4-4b05-9b46-2a2f9e21c54b",
+      "num_turns": 28,
+      "result_excerpt": "{\"status\":\"pass\",\"summary\":\"Static validation of the targeted progress-indicator repair finds a correctly diagnosed and implemented fix with matching regression coverage. All required repair criteria have concrete static evidence. No blocking code, contract, test, reference, or compilation issues were found. Human Play Mode retest (per the documented steps, including re-running the scene builder) remains required before final sign-off, since the currently committed DoorPrototype.unity on disk still reflects the pre-repair UI configuration.\",\"criteria_results\":[{\"id\":\"R1-ProgressUI-ConfiguredByBuilder\",\"status\":\"pass\",\"evidence\":\"Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs BuildUI() creates a 'ProgressFill' background Image and a nested 'Fill' child Image, assigning UI/Skin/UISprite.psd as the sprite with type=Filled, fillMethod=Horizontal, fillOrigin=Left. This directly fixes the diagnosed root cause (a Filled Image with sprite==null always renders full/solid regardless of fillAmount). New Edit Mode test Build_ProgressFillImage_HasSpriteAssignedSoFillAmountIsVisible in Tests/Editor/DoorPrototypeSceneBuilderTests.cs asserts sprite non-null, type Filled, fillMethod Horizontal after Build().\"},{\"id\":\"R2-UI-ReceivesProgressContinuously\",\"status\":\"pass\",\"evidence\":\"Scripts/DoorInteractionUI.cs Update() runs progressFillImage.fillAmount = door.Progress every frame, unconditionally while progressFillImage is assigned; DoorInteractable.Tick (called from its own Update) mutates Progress every frame during an active interaction, so with a real sprite now assigned the fill will visibly animate continuously.\"},{\"id\":\"R3-Reset-OnRelease-Movement-Damage\",\"status\":\"pass\",\"evidence\":\"DoorInteractable.CancelInteraction() sets Progress = 0f. PlayerInteractionController.EndInteraction() (called from EndInteraction on release, OnPlayerMoved, and HandleDamaged on PlayerHealth.Damaged) invokes CurrentDoor.CancelInteraction(). DoorInteractionUI.Update() re-reads "
+    },
+    {
+      "role": "Door and Interaction Agent — Controls HUD Enhancement",
+      "prompt": "AgentCrew/prompts/02_implementer.md",
+      "started_at_utc": "2026-08-05T00:25:11.708675+00:00",
+      "finished_at_utc": "2026-08-05T00:28:43.127754+00:00",
+      "status": "completed",
+      "duration_seconds": 211.43,
+      "session_id": "01467163-6e63-4043-b26a-b5b79421c047",
+      "num_turns": 28,
+      "result_excerpt": "The summary reads correctly. Work is complete:\n\n**Summary of changes:**\n- `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs` — added `BuildControlsHud`, generating a compact top-left panel under `Canvas` (sibling of `InteractPrompt`/`ProgressFill`) showing `WASD — Move`, `Hold E — Open Door`, the interruption rule, and the debug damage key explicitly labeled `[Debug/Test] K`. Labels were verified against the actual code (`PlayerMovement`, `PlayerInteractionController.interactKey`, `DebugDamageControl.damageKey`), not assumed.\n- Idempotency comes for free: `Canvas` is already destroyed/rebuilt wholesale on every run, so the HUD can't duplicate — no new guard logic needed.\n- `Tests/Editor/DoorPrototypeSceneBuilderTests.cs` — added tests asserting the HUD exists as a distinct object, its text matches the real movement/interact/debug key bindings, and rebuilding twice doesn't duplicate it.\n- `Tests/Editor/NoSafeCircle.DoorPrototype.Tests.Editor.asmdef` — added `Unity.InputSystem` reference needed by the new test.\n- `AgentCrew/outputs/implementation_summary.md` — updated with the scope amendment, design decisions, files changed, and human retest steps.\n\nNo runtime door/interaction/progress code was touched, and the prior progress-indicator repair is preserved. Human verification in the Unity Editor (Play Mode + Test Runner) is still required to confirm visually."
+    },
+    {
+      "role": "Unity Validation Agent — Controls HUD Review 1",
+      "prompt": "AgentCrew/prompts/03_validator.md",
+      "started_at_utc": "2026-08-05T00:28:43.138176+00:00",
+      "finished_at_utc": "2026-08-05T00:30:55.360016+00:00",
+      "status": "completed",
+      "duration_seconds": 132.23,
+      "session_id": "63f2e512-4565-406d-8e1e-1b6b5f4d4938",
+      "num_turns": 31,
+      "result_excerpt": "{\"status\":\"pass\",\"summary\":\"Static review of the Controls HUD scope amendment and the prior progress-indicator repair finds no blocking code, contract, test, reference, or compilation problems. Labels are hardcoded to match the current default key bindings (E, K, WASD), the HUD is rebuilt fresh every run alongside the rest of Canvas with dedicated idempotency tests, it is a sibling object positioned to avoid the prompt/progress bar, the progress-fill sprite regression fix is intact and covered by an Edit Mode test, no runtime script touches UnityEditor, and no excluded systems or external packages were introduced. Human Play Mode verification of visual layout is still required and cannot be substituted by this review.\",\"criteria_results\":[{\"id\":\"HUD-1: scene builder creates a readable controls panel every time it runs\",\"status\":\"pass\",\"evidence\":\"DoorPrototypeSceneBuilder.cs:269 calls BuildControlsHud(canvasObject.transform) at the end of every BuildUI() call, and Canvas is in KnownRootNames (line 27) so it is destroyed and rebuilt from scratch on every Build(). Covered by Build_ControlsHud_ExistsSeparateFromPromptAndProgressIndicator in DoorPrototypeSceneBuilderTests.cs:44-55.\"},{\"id\":\"HUD-2: displayed labels match the actual input implementation\",\"status\":\"pass\",\"evidence\":\"PlayerInteractionController.cs:9 defaults interactKey=Key.E, DebugDamageControl.cs:11 defaults damageKey=Key.K, PlayerMovement.cs:28-31 reads WASD — all match the hardcoded HUD text 'WASD - Move / Hold E - Open Door / ... K - Take Damage' in DoorPrototypeSceneBuilder.cs:305-309. Build_ControlsHud_TextMatchesActualImplementedControls (DoorPrototypeSceneBuilderTests.cs:58-76) asserts the actual serialized damageKey value's ToString() appears in the HUD text.\"},{\"id\":\"HUD-3: panel includes WASD movement, Hold E to open, and interruption rule\",\"status\":\"pass\",\"evidence\":\"DoorPrototypeSceneBuilder.cs:305-309 text literal contains all three; asserted by StringAssert.Contains checks at DoorPrototypeSc"
+    }
+  ],
+  "human_repair_status": "validation_passed",
+  "human_repair_started_at_utc": "2026-08-05T00:15:18.281422+00:00",
+  "human_playtest_feedback_file": "AgentCrew/inputs/human_playtest_feedback.md",
+  "human_repair_finished_at_utc": "2026-08-05T00:20:22.590294+00:00",
+  "targeted_ui_status": "validation_passed",
+  "targeted_ui_started_at_utc": "2026-08-05T00:25:11.699812+00:00",
+  "targeted_ui_scope_amendment": "AgentCrew/inputs/approved_scope_amendment_controls_hud.md",
+  "targeted_ui_finished_at_utc": "2026-08-05T00:30:55.372485+00:00"
+}
+

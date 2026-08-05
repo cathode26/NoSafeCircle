@@ -1,0 +1,23 @@
+{
+    "name": "NoSafeCircle.DoorPrototype.Tests",
+    "rootNamespace": "NoSafeCircle.DoorPrototype.Tests",
+    "references": [
+        "NoSafeCircle.DoorPrototype",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

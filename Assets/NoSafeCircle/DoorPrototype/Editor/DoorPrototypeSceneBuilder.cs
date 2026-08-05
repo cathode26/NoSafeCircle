@@ -1,0 +1,326 @@
+using System.IO;
+using UnityEditor;
+using UnityEditor.Events;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+using Object = UnityEngine.Object;
+
+namespace NoSafeCircle.DoorPrototype.Editor
+{
+    public static class DoorPrototypeSceneBuilder
+    {
+        private const string SceneFolder = "Assets/NoSafeCircle/DoorPrototype/Scenes";
+        private const string ScenePath = SceneFolder + "/DoorPrototype.unity";
+
+        private static readonly string[] KnownRootNames =
+        {
+            "Directional Light",
+            "Main Camera",
+            "Floor",
+            "Walls",
+            "DoorRoot",
+            "Player",
+            "Canvas",
+            "EventSystem"
+        };
+
+        [MenuItem("No Safe Circle/Build Door Prototype Scene")]
+        public static void Build()
+        {
+            EnsureFolder(SceneFolder);
+
+            var scene = File.Exists(ScenePath)
+                ? EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single)
+                : EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            ClearExistingObjects(scene);
+
+            BuildLighting();
+            BuildCamera();
+            BuildFloor();
+
+            var doorRoot = BuildDoor(out var door);
+            BuildWalls(doorRoot.transform.position);
+
+            BuildPlayer(out var movement, out var interactionController, out var health, out var debugControl);
+            SetPrivateField(movement, "interactionController", interactionController);
+
+            BuildUI(door, debugControl);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.Refresh();
+
+            Debug.Log($"Door Prototype scene built at {ScenePath}");
+        }
+
+        private static void EnsureFolder(string path)
+        {
+            if (AssetDatabase.IsValidFolder(path)) return;
+
+            var parts = path.Split('/');
+            var current = parts[0];
+            for (var i = 1; i < parts.Length; i++)
+            {
+                var next = current + "/" + parts[i];
+                if (!AssetDatabase.IsValidFolder(next))
+                {
+                    AssetDatabase.CreateFolder(current, parts[i]);
+                }
+                current = next;
+            }
+        }
+
+        private static void ClearExistingObjects(Scene scene)
+        {
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (System.Array.IndexOf(KnownRootNames, root.name) >= 0)
+                {
+                    Object.DestroyImmediate(root);
+                }
+            }
+        }
+
+        private static void BuildLighting()
+        {
+            var light = new GameObject("Directional Light");
+            var lightComponent = light.AddComponent<Light>();
+            lightComponent.type = LightType.Directional;
+            lightComponent.intensity = 1f;
+            light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+        }
+
+        private static void BuildCamera()
+        {
+            var cameraObject = new GameObject("Main Camera");
+            cameraObject.tag = "MainCamera";
+            cameraObject.AddComponent<Camera>();
+            cameraObject.AddComponent<AudioListener>();
+            cameraObject.transform.position = new Vector3(0f, 8f, -8f);
+            cameraObject.transform.rotation = Quaternion.Euler(45f, 0f, 0f);
+        }
+
+        private static void BuildFloor()
+        {
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "Floor";
+            floor.transform.position = Vector3.zero;
+            floor.transform.localScale = new Vector3(2f, 1f, 2f);
+        }
+
+        private static GameObject BuildDoor(out DoorInteractable door)
+        {
+            var doorRoot = new GameObject("DoorRoot");
+            doorRoot.transform.position = Vector3.zero;
+
+            var rangeTrigger = doorRoot.AddComponent<BoxCollider>();
+            rangeTrigger.isTrigger = true;
+            rangeTrigger.size = new Vector3(3f, 3f, 3f);
+            rangeTrigger.center = new Vector3(0f, 1.5f, 0f);
+
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            visual.name = "DoorVisual";
+            visual.transform.SetParent(doorRoot.transform, false);
+            visual.transform.localPosition = new Vector3(0f, 1.25f, 0f);
+            visual.transform.localScale = new Vector3(2f, 2.5f, 0.3f);
+
+            door = doorRoot.AddComponent<DoorInteractable>();
+            SetPrivateField(door, "doorVisual", visual);
+            SetPrivateField(door, "doorwayBlocker", visual.GetComponent<Collider>());
+
+            return doorRoot;
+        }
+
+        private static void BuildWalls(Vector3 doorPosition)
+        {
+            var walls = new GameObject("Walls");
+
+            var left = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            left.name = "WallLeft";
+            left.transform.SetParent(walls.transform, false);
+            left.transform.position = doorPosition + new Vector3(-2.5f, 1.25f, 0f);
+            left.transform.localScale = new Vector3(3f, 2.5f, 0.3f);
+
+            var right = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            right.name = "WallRight";
+            right.transform.SetParent(walls.transform, false);
+            right.transform.position = doorPosition + new Vector3(2.5f, 1.25f, 0f);
+            right.transform.localScale = new Vector3(3f, 2.5f, 0.3f);
+        }
+
+        private static void BuildPlayer(
+            out PlayerMovement movement,
+            out PlayerInteractionController interactionController,
+            out PlayerHealth health,
+            out DebugDamageControl debugControl)
+        {
+            var player = new GameObject("Player");
+            player.transform.position = new Vector3(0f, 1f, -4f);
+
+            var characterController = player.AddComponent<CharacterController>();
+            characterController.center = new Vector3(0f, 1f, 0f);
+            characterController.height = 2f;
+            characterController.radius = 0.5f;
+
+            var visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            visual.name = "Visual";
+            visual.transform.SetParent(player.transform, false);
+            visual.transform.localPosition = new Vector3(0f, 1f, 0f);
+            Object.DestroyImmediate(visual.GetComponent<Collider>());
+
+            health = player.AddComponent<PlayerHealth>();
+            interactionController = player.AddComponent<PlayerInteractionController>();
+            movement = player.AddComponent<PlayerMovement>();
+            debugControl = player.AddComponent<DebugDamageControl>();
+
+            SetPrivateField(interactionController, "playerHealth", health);
+            SetPrivateField(debugControl, "target", health);
+        }
+
+        private static void BuildUI(DoorInteractable door, DebugDamageControl debugControl)
+        {
+            var canvasObject = new GameObject("Canvas");
+            var canvas = canvasObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvasObject.AddComponent<CanvasScaler>();
+            canvasObject.AddComponent<GraphicRaycaster>();
+
+            var eventSystemObject = new GameObject("EventSystem");
+            eventSystemObject.AddComponent<EventSystem>();
+            eventSystemObject.AddComponent<InputSystemUIInputModule>();
+
+            var promptRoot = new GameObject("InteractPrompt");
+            promptRoot.transform.SetParent(canvasObject.transform, false);
+            var promptRect = promptRoot.AddComponent<RectTransform>();
+            promptRect.anchorMin = new Vector2(0.5f, 0.2f);
+            promptRect.anchorMax = new Vector2(0.5f, 0.2f);
+            promptRect.sizeDelta = new Vector2(400f, 40f);
+            var promptText = promptRoot.AddComponent<Text>();
+            promptText.text = "Hold E to Open";
+            promptText.alignment = TextAnchor.MiddleCenter;
+            promptText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            promptText.color = Color.white;
+
+            var progressObject = new GameObject("ProgressFill");
+            progressObject.transform.SetParent(canvasObject.transform, false);
+            var progressRect = progressObject.AddComponent<RectTransform>();
+            progressRect.anchorMin = new Vector2(0.5f, 0.12f);
+            progressRect.anchorMax = new Vector2(0.5f, 0.12f);
+            progressRect.sizeDelta = new Vector2(300f, 20f);
+            var progressBackgroundImage = progressObject.AddComponent<Image>();
+            progressBackgroundImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+            progressBackgroundImage.type = Image.Type.Sliced;
+            progressBackgroundImage.color = new Color(0.15f, 0.15f, 0.15f, 0.85f);
+
+            var progressFillObject = new GameObject("Fill");
+            progressFillObject.transform.SetParent(progressObject.transform, false);
+            var progressFillRect = progressFillObject.AddComponent<RectTransform>();
+            progressFillRect.anchorMin = Vector2.zero;
+            progressFillRect.anchorMax = Vector2.one;
+            progressFillRect.offsetMin = Vector2.zero;
+            progressFillRect.offsetMax = Vector2.zero;
+            var progressFill = progressFillObject.AddComponent<Image>();
+            // A Filled Image with no sprite bypasses fill geometry and always renders as a full
+            // solid rect, so fillAmount visibly does nothing without a sprite assigned here.
+            progressFill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            progressFill.type = Image.Type.Filled;
+            progressFill.fillMethod = Image.FillMethod.Horizontal;
+            progressFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            progressFill.fillAmount = 0f;
+            progressFill.color = Color.green;
+
+            var uiBinding = canvasObject.AddComponent<DoorInteractionUI>();
+            SetPrivateField(uiBinding, "door", door);
+            SetPrivateField(uiBinding, "promptRoot", promptRoot);
+            SetPrivateField(uiBinding, "progressFillImage", progressFill);
+
+            var buttonObject = new GameObject("DebugDamageButton");
+            buttonObject.transform.SetParent(canvasObject.transform, false);
+            var buttonRect = buttonObject.AddComponent<RectTransform>();
+            buttonRect.anchorMin = new Vector2(0.02f, 0.02f);
+            buttonRect.anchorMax = new Vector2(0.02f, 0.02f);
+            buttonRect.pivot = Vector2.zero;
+            buttonRect.sizeDelta = new Vector2(260f, 40f);
+            var buttonImage = buttonObject.AddComponent<Image>();
+            buttonImage.color = new Color(0.6f, 0.1f, 0.1f);
+            var damageButton = buttonObject.AddComponent<Button>();
+            damageButton.targetGraphic = buttonImage;
+
+            var buttonTextObject = new GameObject("Text");
+            buttonTextObject.transform.SetParent(buttonObject.transform, false);
+            var buttonTextRect = buttonTextObject.AddComponent<RectTransform>();
+            buttonTextRect.anchorMin = Vector2.zero;
+            buttonTextRect.anchorMax = Vector2.one;
+            buttonTextRect.sizeDelta = Vector2.zero;
+            var buttonText = buttonTextObject.AddComponent<Text>();
+            buttonText.text = "DEBUG: Take Damage (K)";
+            buttonText.alignment = TextAnchor.MiddleCenter;
+            buttonText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            buttonText.color = Color.white;
+            buttonText.fontSize = 14;
+
+            UnityEventTools.AddPersistentListener(damageButton.onClick, debugControl.TriggerDebugDamage);
+
+            BuildControlsHud(canvasObject.transform);
+        }
+
+        /// Compact, always-visible controls panel. Kept as a sibling of, not merged
+        /// into, the interaction prompt and progress-fill objects, and positioned in
+        /// the top-left so it never overlaps them or the bottom-left debug button.
+        private static void BuildControlsHud(Transform canvasTransform)
+        {
+            var hudRoot = new GameObject("ControlsHud");
+            hudRoot.transform.SetParent(canvasTransform, false);
+            var hudRect = hudRoot.AddComponent<RectTransform>();
+            hudRect.anchorMin = new Vector2(0f, 1f);
+            hudRect.anchorMax = new Vector2(0f, 1f);
+            hudRect.pivot = new Vector2(0f, 1f);
+            hudRect.anchoredPosition = new Vector2(16f, -16f);
+            hudRect.sizeDelta = new Vector2(300f, 110f);
+
+            var hudBackground = hudRoot.AddComponent<Image>();
+            hudBackground.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+            hudBackground.type = Image.Type.Sliced;
+            hudBackground.color = new Color(0f, 0f, 0f, 0.6f);
+
+            var hudTextObject = new GameObject("Text");
+            hudTextObject.transform.SetParent(hudRoot.transform, false);
+            var hudTextRect = hudTextObject.AddComponent<RectTransform>();
+            hudTextRect.anchorMin = Vector2.zero;
+            hudTextRect.anchorMax = Vector2.one;
+            hudTextRect.offsetMin = new Vector2(10f, 8f);
+            hudTextRect.offsetMax = new Vector2(-10f, -8f);
+            var hudText = hudTextObject.AddComponent<Text>();
+            hudText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            hudText.fontSize = 14;
+            hudText.alignment = TextAnchor.UpperLeft;
+            hudText.color = Color.white;
+            hudText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            hudText.verticalOverflow = VerticalWrapMode.Overflow;
+            hudText.text =
+                "WASD - Move\n" +
+                "Hold E - Open Door\n" +
+                "Moving or taking damage\ncancels the opening attempt\n" +
+                "[Debug/Test] K - Take Damage";
+        }
+
+        private static void SetPrivateField(Object target, string fieldName, Object value)
+        {
+            var serializedObject = new SerializedObject(target);
+            var property = serializedObject.FindProperty(fieldName);
+            if (property == null)
+            {
+                Debug.LogWarning($"Field '{fieldName}' not found on {target.GetType().Name}.");
+                return;
+            }
+
+            property.objectReferenceValue = value;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+    }
+}
