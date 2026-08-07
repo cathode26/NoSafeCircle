@@ -2,23 +2,17 @@
   "schema_version": "1.0",
   "game": "No Safe Circle",
   "output_type": "spell_tooltips",
-  "source_initial_output": "DynamicContentPipeline/outputs/initial/spell_tooltips.json",
-  "source_critic_output": "DynamicContentPipeline/outputs/critic/spell_tooltips_critic.json",
-  "revisor_version": "1.1",
-  "revisor_model": "sonnet",
-  "revised_at_utc": "2026-08-07T02:56:13.091521+00:00",
+  "review_source": "final",
+  "critic_version": "1.2",
+  "critic_model": "sonnet",
+  "reviewed_at_utc": "2026-08-07T03:42:20.399136+00:00",
+  "reviewed_output": "DynamicContentPipeline/outputs/final/spell_tooltips.json",
   "items": [
     {
       "id": "tap_fireball",
       "label": "Fireball — Tap",
-      "trigger": null,
       "query": "What does tap Fireball do, what target situation is it best for, and how does it differ from charging Fireball?",
-      "content_requirements": [
-        "Describe the quick mobile single-target or separated-enemy use.",
-        "Distinguish tap Fireball from charged Fireball without adding numeric values.",
-        "Keep the text concise enough for an in-game tooltip."
-      ],
-      "max_words": 35,
+      "candidate_text": "A quick, mobile shot against a single or separated enemy. Compared to charging, it costs less mana and restricts your movement less—useful for picking off isolated threats rather than damaging clustered groups.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -136,54 +130,29 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": true,
-        "original_text": "A quick, mobile shot against a single or separated enemy. Unlike charging, it costs less mana and doesn't restrict your movement—useful for picking off isolated threats rather than damaging clustered groups.",
-        "final_text": "A quick, mobile shot against a single or separated enemy. Compared to charging, it costs less mana and restricts your movement less—useful for picking off isolated threats rather than damaging clustered groups.",
-        "critic_verdict": "revise",
-        "critic_issues": [
-          {
-            "category": "overstatement",
-            "severity": "medium",
-            "problematic_claim": "it costs less mana and doesn't restrict your movement",
-            "evidence_chunk_ids": [
-              "nsc-gdd-006"
-            ],
-            "explanation": "The evidence only states that charging 'costs more mana and restricts movement further' — the word 'further' is comparative and implies tap already carries some baseline movement constraint, with charging adding more on top. The generated text converts this into an absolute claim that tap has zero movement restriction, which is not directly supported by the retrieved evidence.",
-            "revision_instruction": "Rephrase to a comparative framing (e.g., 'restricts movement less than charging') rather than asserting tap has no movement restriction at all."
-          }
-        ],
-        "changes_made": [
-          "Changed \"doesn't restrict your movement\" to the comparative \"restricts your movement less\" to match the evidence's comparative wording (charging \"restricts movement further\")",
-          "Retained all other original content, including the mana comparison and the isolated-vs-clustered target distinction"
-        ],
-        "reason": "The GDD states charging \"restricts movement further,\" which is a comparative claim implying tap already has some baseline movement restriction. The revised text now frames tap's movement restriction as relatively lower than charging's, rather than asserting tap has none at all.",
-        "run_metadata": {
-          "model": "sonnet",
-          "started_at_utc": "2026-08-07T02:56:13.091811+00:00",
-          "finished_at_utc": "2026-08-07T02:56:22.503951+00:00",
-          "duration_seconds": 9.41,
-          "session_id": "ed6a000b-0451-4b40-bcf4-c85ecead2c8a",
-          "num_turns": 2,
-          "length_repair": {
-            "required": false,
-            "original_word_count": 32,
-            "max_words": 35
-          }
+      "critic": {
+        "content_id": "tap_fireball",
+        "verdict": "pass",
+        "summary": "The tooltip text accurately reflects nsc-gdd-006's tap-vs-charge tradeoff: tap is framed as a quick, mobile option for single/separated targets, with comparatively less mana cost and less movement restriction than charging, and no numeric values or absolute claims are introduced.",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:42:20.399670+00:00",
+        "finished_at_utc": "2026-08-07T03:42:36.052383+00:00",
+        "duration_seconds": 15.65,
+        "session_id": "5f7c8252-b90e-4db3-84c0-ff13a7173f26",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
         }
       }
     },
     {
       "id": "charged_fireball",
       "label": "Fireball — Charged",
-      "trigger": null,
       "query": "What does Charged Fireball do, when is charging useful, and what makes charging unsafe against melee and ranged pressure?",
-      "content_requirements": [
-        "Explain that charging rewards preparation and can damage clustered enemies.",
-        "Mention the movement or positioning tradeoff supported by the retrieved evidence.",
-        "Do not invent exact mana costs, charge times, damage values, or radius values."
-      ],
-      "max_words": 40,
+      "candidate_text": "Charge it to punish enemies who've clustered while chasing you. Melee foes that close the distance make charging risky. Ranged attacks force you to keep moving, cutting your window short—a quick cast is safer but weaker.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -320,28 +289,29 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": false,
-        "original_text": "Charge it to punish enemies who've clustered while chasing you. Melee foes that close the distance make charging risky. Ranged attacks force you to keep moving, cutting your window short—a quick cast is safer but weaker.",
-        "final_text": "Charge it to punish enemies who've clustered while chasing you. Melee foes that close the distance make charging risky. Ranged attacks force you to keep moving, cutting your window short—a quick cast is safer but weaker.",
-        "critic_verdict": "pass",
-        "critic_issues": [],
-        "changes_made": [],
-        "reason": "Critic passed the original text unchanged.",
-        "run_metadata": null
+      "critic": {
+        "content_id": "charged_fireball",
+        "summary": "Generated tooltip text is faithful to the retrieved GDD evidence: it correctly attributes clustering/area-damage value to melee pursuit, the risk of charging when melee closes distance, and the movement pressure imposed by ranged attacks that favors quicker, weaker casts. No exact costs, times, damage, or radius values are invented, and the tense/tactical tone is preserved.",
+        "verdict": "pass",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:42:36.052751+00:00",
+        "finished_at_utc": "2026-08-07T03:43:00.996943+00:00",
+        "duration_seconds": 24.95,
+        "session_id": "26108ce4-9a67-4a6f-9029-b5c77c6f8b20",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
+        }
       }
     },
     {
       "id": "frost_field",
       "label": "Frost Field",
-      "trigger": null,
       "query": "What are Frost Field's interactions and limitations against melee and ranged enemies?",
-      "content_requirements": [
-        "Describe heavy slowing, not freezing or immobilizing.",
-        "Explain its crowd-control or route-protection role.",
-        "Do not claim that it prevents ranged enemies from attacking."
-      ],
-      "max_words": 40,
+      "candidate_text": "A field of icy ground heavily slows enemies caught inside. Strongest against melee groups, stretching their formation—but it costs real mana and won't guarantee a safe charge. Ranged enemies are slowed too, yet can still fire, so keep moving.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -491,65 +461,29 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": true,
-        "original_text": "A field of icy ground heavily slows anything caught inside. Strongest against melee groups—it stretches their formation and buys space to act. Ranged enemies are slowed too, but can still fire, so keep moving to avoid their shots.",
-        "final_text": "A field of icy ground heavily slows enemies caught inside. Strongest against melee groups, stretching their formation—but it costs real mana and won't guarantee a safe charge. Ranged enemies are slowed too, yet can still fire, so keep moving.",
-        "critic_verdict": "revise",
-        "critic_issues": [
-          {
-            "category": "overstatement",
-            "severity": "medium",
-            "problematic_claim": "heavily slows anything caught inside",
-            "evidence_chunk_ids": [
-              "nsc-gdd-010"
-            ],
-            "explanation": "The evidence only supports Frost Field slowing melee pursuit and ranged enemy repositioning. 'Anything caught inside' generalizes the effect beyond enemies (implying the player or other entities are also affected) without support, mirroring the flagged pattern of describing a slow effect as applying to 'anything' unless the player is also a supported target.",
-            "revision_instruction": "Scope the slow to enemies specifically (e.g., 'heavily slows enemies caught inside') rather than 'anything caught inside.'"
-          },
-          {
-            "category": "omitted_limitation",
-            "severity": "medium",
-            "problematic_claim": "Strongest against melee groups—it stretches their formation and buys space to act.",
-            "evidence_chunk_ids": [
-              "nsc-gdd-010"
-            ],
-            "explanation": "The evidence qualifies this benefit: it draws a meaningful share of the shared mana pool, does not guarantee a fully safe charge in every position or against every group, and against a small or loosely spaced group a different action (direct positioning, partial charge, tap Fireball) can be the better resource decision. The generated line presents the melee benefit as an unqualified positive, removing the intentional resource tradeoff.",
-            "revision_instruction": "Add a brief qualifier noting the mana cost and that it doesn't guarantee a safe charge against every group, so the tradeoff isn't lost."
-          }
-        ],
-        "changes_made": [
-          "Changed 'anything caught inside' to 'enemies caught inside' to scope the slow effect to enemies only, not a general area effect",
-          "Added a qualifier noting the mana cost and lack of guaranteed safe charge against melee groups, restoring the intentional resource tradeoff",
-          "Kept the ranged enemy behavior (slowed but can still fire, requiring movement) unchanged since it was already accurate"
-        ],
-        "reason": "The revision scopes the slow effect to enemies as supported by nsc-gdd-010, and reinstates the mana-cost/no-guarantee caveat so the melee benefit reads as a resource tradeoff rather than a free win, matching the evidence exactly.",
-        "run_metadata": {
-          "model": "sonnet",
-          "started_at_utc": "2026-08-07T02:56:22.504293+00:00",
-          "finished_at_utc": "2026-08-07T02:56:36.119338+00:00",
-          "duration_seconds": 13.61,
-          "session_id": "5d7ba6e5-115b-4371-a3cd-6fa25b57c7fb",
-          "num_turns": 2,
-          "length_repair": {
-            "required": false,
-            "original_word_count": 39,
-            "max_words": 40
-          }
+      "critic": {
+        "content_id": "frost_field",
+        "verdict": "pass",
+        "summary": "The tooltip correctly describes heavy slowing (not freezing), retains the mana-cost/no-guarantee caveat for the melee use case, and accurately states ranged enemies are slowed but can still fire, matching nsc-gdd-010 without overstatement.",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:43:00.997198+00:00",
+        "finished_at_utc": "2026-08-07T03:43:21.383368+00:00",
+        "duration_seconds": 20.39,
+        "session_id": "b2df11fd-134e-47aa-a50f-46c9cb4852de",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
         }
       }
     },
     {
       "id": "force_wave",
       "label": "Force Wave",
-      "trigger": null,
       "query": "When should the player use Force Wave, what does it do, and why can it not be used repeatedly?",
-      "content_requirements": [
-        "Describe short-range radial knockback and emergency-space use.",
-        "Preserve the long-cooldown tradeoff.",
-        "Do not invent damage or stun effects."
-      ],
-      "max_words": 40,
+      "candidate_text": "A short-range radial knockback that shoves nearby enemies back, clearing space when you're surrounded or blocked from a door. Its long cooldown typically allows only about one meaningful use per encounter—choose the moment carefully.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -683,40 +617,21 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": true,
-        "original_text": "A short-range radial knockback that shoves nearby enemies back, clearing space when you're surrounded or blocked from a door. Its long cooldown means only one meaningful use per encounter—save it for a true emergency.",
-        "final_text": "A short-range radial knockback that shoves nearby enemies back, clearing space when you're surrounded or blocked from a door. Its long cooldown typically allows only about one meaningful use per encounter—choose the moment carefully.",
-        "critic_verdict": "revise",
-        "critic_issues": [
-          {
-            "category": "overstatement",
-            "severity": "medium",
-            "problematic_claim": "Its long cooldown means only one meaningful use per encounter",
-            "evidence_chunk_ids": [
-              "nsc-gdd-011"
-            ],
-            "explanation": "The evidence states the cooldown 'is tuned so an encounter space typically allows only about one meaningful use' and explicitly frames the choice between an early mid-room use and saving it for the door as 'an intentional resource decision, not proof that either use was wrong.' The generated line drops 'typically' and 'about,' converting an approximate, context-dependent limit into an absolute per-encounter cap, which overstates the certainty of the rule.",
-            "revision_instruction": "Reinsert a qualifier (e.g., 'typically only about one meaningful use') so the cooldown limit reads as approximate rather than an absolute per-encounter cap."
-          }
-        ],
-        "changes_made": [
-          "Reinserted qualifiers ('typically', 'about') on the cooldown limit so it reads as an approximate constraint rather than an absolute per-encounter cap",
-          "Replaced 'save it for a true emergency' with 'choose the moment carefully' to avoid steering the player toward one specific use (mid-room survival vs. the door) when the GDD treats that choice as an intentional, non-prescribed tradeoff"
-        ],
-        "reason": "nsc-gdd-011 states the cooldown 'is tuned so an encounter space typically allows only about one meaningful use' and explicitly calls the mid-room-vs-door choice 'an intentional resource decision, not proof that either use was wrong.' The revision restores the approximate framing and removes wording that implicitly favored reserving the ability for a later use, matching the evidence's neutral treatment of the tradeoff.",
-        "run_metadata": {
-          "model": "sonnet",
-          "started_at_utc": "2026-08-07T02:56:36.119826+00:00",
-          "finished_at_utc": "2026-08-07T02:56:57.472670+00:00",
-          "duration_seconds": 21.35,
-          "session_id": "74ce87a3-b75d-4e23-ac58-be16af684132",
-          "num_turns": 2,
-          "length_repair": {
-            "required": false,
-            "original_word_count": 34,
-            "max_words": 40
-          }
+      "critic": {
+        "content_id": "force_wave",
+        "verdict": "pass",
+        "summary": "The tooltip accurately reflects nsc-gdd-011 and nsc-gdd-007: it describes a short-range radial knockback used for emergency space when surrounded or blocked from a door, preserves the approximate \"about one meaningful use\" cooldown framing rather than overstating it as exact, invents no damage or stun effects, and its closing advice stays neutral without collapsing the intentional mid-room-vs-door tradeoff into a single correct strategy.",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:43:21.383658+00:00",
+        "finished_at_utc": "2026-08-07T03:43:36.110330+00:00",
+        "duration_seconds": 14.73,
+        "session_id": "6e35becc-06fa-4c4f-ab83-00fc25093467",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
         }
       }
     }

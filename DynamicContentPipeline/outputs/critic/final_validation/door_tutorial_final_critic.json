@@ -2,23 +2,17 @@
   "schema_version": "1.0",
   "game": "No Safe Circle",
   "output_type": "door_tutorial",
-  "source_initial_output": "DynamicContentPipeline/outputs/initial/door_tutorial.json",
-  "source_critic_output": "DynamicContentPipeline/outputs/critic/door_tutorial_critic.json",
-  "revisor_version": "1.2",
-  "revisor_model": "sonnet",
-  "revised_at_utc": "2026-08-07T03:47:51.333932+00:00",
+  "review_source": "final",
+  "critic_version": "1.2",
+  "critic_model": "sonnet",
+  "reviewed_at_utc": "2026-08-07T03:48:28.103976+00:00",
+  "reviewed_output": "DynamicContentPipeline/outputs/final/door_tutorial.json",
   "items": [
     {
       "id": "door_opening",
       "label": "Opening a Sealed Door",
-      "trigger": "first_sealed_door_interaction",
       "query": "What is the player action for opening a sealed door, including holding for five seconds and what movement or damage interrupts the attempt?",
-      "content_requirements": [
-        "State the five uninterrupted seconds requirement.",
-        "State that movement or damage cancels or resets the attempt.",
-        "Do not invent a control key unless the retrieved evidence explicitly supports it."
-      ],
-      "max_words": 30,
+      "candidate_text": "Hold position for five uninterrupted seconds to open this door. Moving or taking damage cancels the attempt. Create space from enemies — they may close in again before you finish.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -169,112 +163,29 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": true,
-        "original_text": "Hold your position for five uninterrupted seconds to open this door. Moving or taking damage cancels the attempt — stay still and stay safe.",
-        "final_text": "Hold position for five uninterrupted seconds to open this door. Moving or taking damage cancels the attempt. Create space from enemies — they may close in again before you finish.",
-        "critic_verdict": "revise",
-        "critic_issues": [
-          {
-            "category": "misleading_strategy",
-            "severity": "medium",
-            "problematic_claim": "create space from enemies first, then stay still to open it",
-            "evidence_chunk_ids": [
-              "nsc-gdd-012",
-              "nsc-gdd-002",
-              "nsc-gdd-008"
-            ],
-            "explanation": "The phrasing presents creating space and then holding still as a straightforward, reliable sequence for opening the door. nsc-gdd-012 states that movement alone cannot preserve a completely safe distance indefinitely in later encounters because Melee Enemies gradually close the distance over time, and nsc-gdd-008 notes the door's purpose is specifically to make each exit a 'positioning challenge.' The tooltip's two-step framing omits that created space is temporary and pursuers may close in again before the five-second hold completes, which flattens the intended risk/tradeoff into an implied guaranteed procedure.",
-            "revision_instruction": "Soften the advice so it doesn't read as a guaranteed sequence — e.g., indicate that space must be maintained or that pursuers may close in again, rather than implying 'create space, then stay still' reliably completes the door opening."
-          }
-        ],
-        "changes_made": [
-          "Removed the 'create space first, then stay still' framing that implied a guaranteed two-step recipe",
-          "Added a qualifier noting pursuers may close in again before the hold completes, reflecting that created space is temporary",
-          "Preserved the five-uninterrupted-seconds requirement and the movement/damage cancellation rule unchanged"
-        ],
-        "reason": "The tooltip no longer implies that creating space then holding still is a reliable sequence; it now signals the positioning challenge is ongoing, matching nsc-gdd-012's point that movement alone can't guarantee safe distance indefinitely and nsc-gdd-008's framing of the door as a positioning challenge.",
-        "run_metadata": {
-          "model": "sonnet",
-          "started_at_utc": "2026-08-07T03:40:11.483021+00:00",
-          "finished_at_utc": "2026-08-07T03:40:27.401780+00:00",
-          "duration_seconds": 15.92,
-          "session_id": "5fc4e28c-72b3-4f66-8ada-fd0daec307e7",
-          "num_turns": 2,
-          "length_repair": {
-            "required": false,
-            "original_word_count": 30,
-            "max_words": 30
-          }
-        },
-        "original_critic_issues": [
-          {
-            "category": "overstatement",
-            "severity": "medium",
-            "problematic_claim": "stay still and stay safe",
-            "evidence_chunk_ids": [
-              "nsc-gdd-008",
-              "nsc-gdd-002",
-              "nsc-gdd-012"
-            ],
-            "explanation": "The evidence describes opening a sealed door as 'a positioning challenge' that requires the player to first create space from enemies, and explicitly states that locked doors provide 'recovery time, not permanent safety.' Nothing in the retrieved evidence supports framing the open attempt itself as 'safe' — the player can still be approached and damaged during the hold, which cancels the attempt. Telling the player they will 'stay safe' by standing still gives false reassurance and undercuts the intended tension of the positioning challenge.",
-            "revision_instruction": "Remove or replace 'stay safe' with wording that reflects the risk (e.g., emphasize that the player must already be clear of threats) rather than implying the act of standing still guarantees safety."
-          }
-        ],
-        "refinement_history": [
-          {
-            "source_critic_output": "DynamicContentPipeline/outputs/critic/final_validation/door_tutorial_final_critic.json",
-            "previous_text": "Hold your position for five uninterrupted seconds to open this door. Moving or taking damage cancels the attempt — create space from enemies first, then stay still to open it.",
-            "critic_summary": "The five-second hold and movement/damage cancellation facts are accurately stated and supported. However, the added strategic advice frames \"create space, then stay still\" as a simple two-step recipe for success, without conveying that separation from pursuers is temporary and enemies gradually close distance — the actual source of the \"positioning challenge\" tension the door is designed to create.",
-            "critic_issues": [
-              {
-                "category": "misleading_strategy",
-                "severity": "medium",
-                "problematic_claim": "create space from enemies first, then stay still to open it",
-                "evidence_chunk_ids": [
-                  "nsc-gdd-012",
-                  "nsc-gdd-002",
-                  "nsc-gdd-008"
-                ],
-                "explanation": "The phrasing presents creating space and then holding still as a straightforward, reliable sequence for opening the door. nsc-gdd-012 states that movement alone cannot preserve a completely safe distance indefinitely in later encounters because Melee Enemies gradually close the distance over time, and nsc-gdd-008 notes the door's purpose is specifically to make each exit a 'positioning challenge.' The tooltip's two-step framing omits that created space is temporary and pursuers may close in again before the five-second hold completes, which flattens the intended risk/tradeoff into an implied guaranteed procedure.",
-                "revision_instruction": "Soften the advice so it doesn't read as a guaranteed sequence — e.g., indicate that space must be maintained or that pursuers may close in again, rather than implying 'create space, then stay still' reliably completes the door opening."
-              }
-            ],
-            "final_text": "Hold position for five uninterrupted seconds to open this door. Moving or taking damage cancels the attempt. Create space from enemies — they may close in again before you finish.",
-            "changes_made": [
-              "Removed the 'create space first, then stay still' framing that implied a guaranteed two-step recipe",
-              "Added a qualifier noting pursuers may close in again before the hold completes, reflecting that created space is temporary",
-              "Preserved the five-uninterrupted-seconds requirement and the movement/damage cancellation rule unchanged"
-            ],
-            "reason": "The tooltip no longer implies that creating space then holding still is a reliable sequence; it now signals the positioning challenge is ongoing, matching nsc-gdd-012's point that movement alone can't guarantee safe distance indefinitely and nsc-gdd-008's framing of the door as a positioning challenge.",
-            "run_metadata": {
-              "model": "sonnet",
-              "started_at_utc": "2026-08-07T03:40:11.483021+00:00",
-              "finished_at_utc": "2026-08-07T03:40:27.401780+00:00",
-              "duration_seconds": 15.92,
-              "session_id": "5fc4e28c-72b3-4f66-8ada-fd0daec307e7",
-              "num_turns": 2,
-              "length_repair": {
-                "required": false,
-                "original_word_count": 30,
-                "max_words": 30
-              }
-            }
-          }
-        ]
+      "critic": {
+        "content_id": "door_opening",
+        "verdict": "pass",
+        "summary": "The tooltip accurately states the five-second uninterrupted hold and the movement/damage cancellation rule, matching nsc-gdd-008 and nsc-gdd-021 verbatim in substance. The added closing clause about enemies possibly closing in before the hold finishes is consistent with nsc-gdd-012's point that movement alone cannot guarantee indefinite separation, and it reinforces rather than removes the intended positioning tradeoff. No invented control key, no absolute-safety claim, no unsupported mechanic, and the tense/tactical tone is preserved.",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:48:28.104352+00:00",
+        "finished_at_utc": "2026-08-07T03:49:02.814138+00:00",
+        "duration_seconds": 34.71,
+        "session_id": "d892ee71-6cb0-48dd-8f9f-b8e9c48dc41f",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
+        }
       }
     },
     {
       "id": "door_cross_and_lock",
       "label": "Crossing and Locking",
-      "trigger": "first_door_opened",
       "query": "What happens after the player opens and crosses a door, what does locking it do, and can the player reopen or cross it again?",
-      "content_requirements": [
-        "Explain forward-only progress.",
-        "Explain that locking creates temporary recovery time.",
-        "Do not imply the locked door is permanent safety."
-      ],
-      "max_words": 35,
+      "candidate_text": "Locking a door seals your path forward — it can't be reopened or crossed again. Locking grants brief recovery, but pursuers begin attacking it. Waiting restores mana, though the door loses durability over time.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -403,120 +314,29 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": true,
-        "original_text": "Locking a door seals your path forward — it can't be reopened or crossed again. Locking grants brief recovery, but pursuers immediately attack it. Don't linger; the door won't hold forever.",
-        "final_text": "Locking a door seals your path forward — it can't be reopened or crossed again. Locking grants brief recovery, but pursuers begin attacking it. Waiting restores mana, though the door loses durability over time.",
-        "critic_verdict": "revise",
-        "critic_issues": [
-          {
-            "category": "misleading_strategy",
-            "severity": "low",
-            "problematic_claim": "Don't linger; the door won't hold forever.",
-            "evidence_chunk_ids": [
-              "nsc-gdd-012"
-            ],
-            "explanation": "nsc-gdd-012 states mana regenerates while waiting, and that waiting is a deliberate tradeoff against locked-door durability loss (\"Waiting restores power while locked doors continue losing durability\"). Framing the choice as flatly \"don't linger\" removes that intentional risk/reward decision and presents a single correct strategy rather than a tradeoff.",
-            "revision_instruction": "Soften the advice so it acknowledges the tradeoff (e.g., waiting can restore mana but costs door durability) rather than issuing a blanket instruction not to linger."
-          }
-        ],
-        "changes_made": [
-          "Shortened 'though the door loses durability the longer you wait' to 'though the door loses durability over time' to meet the 35-word limit.",
-          "Preserved the tradeoff framing (waiting restores mana but costs door durability), forward-only progress, brief/temporary recovery, and non-permanent door framing from the prior revision."
-        ],
-        "reason": "Trimmed wording without cutting any required element: forward-only crossing, temporary recovery, pursuers attacking the locked door, and the mana-vs-durability tradeoff from nsc-gdd-012 are all retained at 34 words.",
-        "run_metadata": {
-          "model": "sonnet",
-          "started_at_utc": "2026-08-07T03:47:51.334451+00:00",
-          "finished_at_utc": "2026-08-07T03:48:07.787776+00:00",
-          "duration_seconds": 16.45,
-          "session_id": "cf2f94e7-1077-42b7-b6c5-a84ccb963d7f",
-          "num_turns": 2,
-          "length_repair": {
-            "required": true,
-            "original_word_count": 36,
-            "max_words": 35,
-            "repair_run": {
-              "model": "sonnet",
-              "started_at_utc": "2026-08-07T03:48:07.787998+00:00",
-              "finished_at_utc": "2026-08-07T03:48:22.943112+00:00",
-              "duration_seconds": 15.16,
-              "session_id": "592eb562-ae06-45d9-8e93-fc26b50a5ff2",
-              "num_turns": 2
-            }
-          }
-        },
-        "original_critic_issues": [
-          {
-            "category": "overstatement",
-            "severity": "low",
-            "problematic_claim": "pursuers immediately attack it",
-            "evidence_chunk_ids": [
-              "nsc-gdd-021",
-              "nsc-gdd-008"
-            ],
-            "explanation": "The evidence states enemies that saw the escape 'begin attacking' the door, with no stated timing of immediacy. Adding 'immediately' asserts a specific unsupported detail about response speed that isn't in the retrieved text.",
-            "revision_instruction": "Remove or soften 'immediately' (e.g., 'pursuers attack it' or 'pursuers begin attacking it') to match the evidence without implying instantaneous response."
-          }
-        ],
-        "refinement_history": [
-          {
-            "source_critic_output": "DynamicContentPipeline/outputs/critic/final_validation/door_tutorial_final_critic.json",
-            "previous_text": "Locking a door seals your path forward — it can't be reopened or crossed again. Locking grants brief recovery, but pursuers begin attacking it. Don't linger; the door won't hold forever.",
-            "critic_summary": "Text is largely faithful to the retrieved evidence (forward-only progress, temporary recovery, non-permanent door, no unsupported \"immediately\"), but the closing advice collapses a real risk/reward tradeoff into a single directive.",
-            "critic_issues": [
-              {
-                "category": "misleading_strategy",
-                "severity": "low",
-                "problematic_claim": "Don't linger; the door won't hold forever.",
-                "evidence_chunk_ids": [
-                  "nsc-gdd-012"
-                ],
-                "explanation": "nsc-gdd-012 states mana regenerates while waiting, and that waiting is a deliberate tradeoff against locked-door durability loss (\"Waiting restores power while locked doors continue losing durability\"). Framing the choice as flatly \"don't linger\" removes that intentional risk/reward decision and presents a single correct strategy rather than a tradeoff.",
-                "revision_instruction": "Soften the advice so it acknowledges the tradeoff (e.g., waiting can restore mana but costs door durability) rather than issuing a blanket instruction not to linger."
-              }
-            ],
-            "final_text": "Locking a door seals your path forward — it can't be reopened or crossed again. Locking grants brief recovery, but pursuers begin attacking it. Waiting restores mana, though the door loses durability over time.",
-            "changes_made": [
-              "Shortened 'though the door loses durability the longer you wait' to 'though the door loses durability over time' to meet the 35-word limit.",
-              "Preserved the tradeoff framing (waiting restores mana but costs door durability), forward-only progress, brief/temporary recovery, and non-permanent door framing from the prior revision."
-            ],
-            "reason": "Trimmed wording without cutting any required element: forward-only crossing, temporary recovery, pursuers attacking the locked door, and the mana-vs-durability tradeoff from nsc-gdd-012 are all retained at 34 words.",
-            "run_metadata": {
-              "model": "sonnet",
-              "started_at_utc": "2026-08-07T03:47:51.334451+00:00",
-              "finished_at_utc": "2026-08-07T03:48:07.787776+00:00",
-              "duration_seconds": 16.45,
-              "session_id": "cf2f94e7-1077-42b7-b6c5-a84ccb963d7f",
-              "num_turns": 2,
-              "length_repair": {
-                "required": true,
-                "original_word_count": 36,
-                "max_words": 35,
-                "repair_run": {
-                  "model": "sonnet",
-                  "started_at_utc": "2026-08-07T03:48:07.787998+00:00",
-                  "finished_at_utc": "2026-08-07T03:48:22.943112+00:00",
-                  "duration_seconds": 15.16,
-                  "session_id": "592eb562-ae06-45d9-8e93-fc26b50a5ff2",
-                  "num_turns": 2
-                }
-              }
-            }
-          }
-        ]
+      "critic": {
+        "content_id": "door_cross_and_lock",
+        "verdict": "pass",
+        "summary": "The generated text accurately conveys forward-only progression, temporary recovery upon locking, ongoing pursuer attacks on the door, and the mana-regeneration/durability-loss tradeoff, all consistent with nsc-gdd-021, nsc-gdd-008, and nsc-gdd-012. No unsupported claims, contradictions, or implications of permanent safety were found.",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:49:02.814485+00:00",
+        "finished_at_utc": "2026-08-07T03:49:44.621270+00:00",
+        "duration_seconds": 41.81,
+        "session_id": "18114cb4-ed94-493e-a5cb-f380941780a8",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
+        }
       }
     },
     {
       "id": "door_health_recovery",
       "label": "Locking Recovery",
-      "trigger": "first_door_locked",
       "query": "What health recovery occurs after successfully locking a door, and what limits apply to that recovery?",
-      "content_requirements": [
-        "Describe the recovery as small, fixed, and partial.",
-        "Do not invent an exact health amount."
-      ],
-      "max_words": 25,
+      "candidate_text": "Locking the door restores a small, fixed amount of health — a partial recovery. Old wounds still matter.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -641,28 +461,29 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": false,
-        "original_text": "Locking the door restores a small, fixed amount of health — a partial recovery. Old wounds still matter.",
-        "final_text": "Locking the door restores a small, fixed amount of health — a partial recovery. Old wounds still matter.",
-        "critic_verdict": "pass",
-        "critic_issues": [],
-        "changes_made": [],
-        "reason": "Critic passed the original text unchanged.",
-        "run_metadata": null
+      "critic": {
+        "verdict": "pass",
+        "content_id": "door_health_recovery",
+        "summary": "The generated text accurately reflects the GDD evidence: recovery is described as small, fixed, and partial without inventing an exact amount, and \"old wounds still matter\" faithfully conveys that accumulated damage persists across the run. No unsupported claims, contradictions, absolutes, or tone drift found.",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:49:44.621725+00:00",
+        "finished_at_utc": "2026-08-07T03:49:59.630857+00:00",
+        "duration_seconds": 15.01,
+        "session_id": "84d33293-86f7-4c74-96bb-3bc0e7ef6b74",
+        "num_turns": 3,
+        "validation_retry": {
+          "required": false
+        }
       }
     },
     {
       "id": "door_breach",
       "label": "Door Breach",
-      "trigger": "first_locked_door_near_break",
       "query": "What happens when a locked door breaks, and what can the player and surviving enemies do after the breach?",
-      "content_requirements": [
-        "Explain that the broken door remains open.",
-        "Explain that it cannot be relocked.",
-        "Do not suggest the player can travel backward through it."
-      ],
-      "max_words": 35,
+      "candidate_text": "The door broke. It stays open now, and it can't be locked again. There's no going back through it — whatever survived the fight is coming through.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -800,27 +621,29 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": false,
-        "original_text": "The door broke. It stays open now, and it can't be locked again. There's no going back through it — whatever survived the fight is coming through.",
-        "final_text": "The door broke. It stays open now, and it can't be locked again. There's no going back through it — whatever survived the fight is coming through.",
-        "critic_verdict": "pass",
-        "critic_issues": [],
-        "changes_made": [],
-        "reason": "Critic passed the original text unchanged.",
-        "run_metadata": null
+      "critic": {
+        "content_id": "door_breach",
+        "verdict": "pass",
+        "summary": "The generated text accurately reflects the GDD's door breach rules: it stays open, cannot be relocked, and the player cannot go back through it while surviving enemies proceed forward. No unsupported claims, contradictions, or tone drift found.",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:49:59.631144+00:00",
+        "finished_at_utc": "2026-08-07T03:50:08.958839+00:00",
+        "duration_seconds": 9.33,
+        "session_id": "c9603976-6f82-4570-bbe8-bb00dc8fdb8b",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
+        }
       }
     },
     {
       "id": "persistent_pursuit",
       "label": "Persistent Pursuit",
-      "trigger": "first_pursuer_enters_later_room",
       "query": "How do surviving enemies carry forward as the same persistent enemy objects after doors break, and why do they remain a later threat?",
-      "content_requirements": [
-        "Explain that surviving enemies are persistent pursuers rather than replacement spawns.",
-        "Connect the rule to temporary safety and later pressure."
-      ],
-      "max_words": 35,
+      "candidate_text": "Enemies you leave alive don't vanish. If a door breaks, they follow you forward as the same threat, not a new one. Locked doors buy time — not safety.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -971,17 +794,23 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": false,
-        "original_text": "Enemies you leave alive don't vanish. If a door breaks, they follow you forward as the same threat, not a new one. Locked doors buy time — not safety.",
-        "final_text": "Enemies you leave alive don't vanish. If a door breaks, they follow you forward as the same threat, not a new one. Locked doors buy time — not safety.",
-        "critic_verdict": "pass",
-        "critic_issues": [],
-        "changes_made": [],
-        "reason": "Critic passed the original text unchanged.",
-        "run_metadata": null
+      "critic": {
+        "content_id": "persistent_pursuit",
+        "verdict": "pass",
+        "summary": "The generated text accurately reflects the GDD evidence: surviving enemies persist as the same enemy objects (not new spawns) and carry forward through broken doors, and the text correctly frames locked doors as delaying rather than removing the threat, consistent with the temporary-safety design pillar. No unsupported claims, contradictions, or tone drift found.",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:50:08.959054+00:00",
+        "finished_at_utc": "2026-08-07T03:50:19.944856+00:00",
+        "duration_seconds": 10.99,
+        "session_id": "53d95bad-fd5e-4ef7-bad0-34739bef7b88",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
+        }
       }
     }
-  ],
-  "source_final_validation_critic": "DynamicContentPipeline/outputs/critic/final_validation/door_tutorial_final_critic.json"
+  ]
 }
