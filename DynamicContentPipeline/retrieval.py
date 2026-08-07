@@ -13,9 +13,10 @@ RETRIEVER_VERSION = "1.1"
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)?", re.IGNORECASE)
 
 STOP_WORDS = {
-    "a", "an", "and", "are", "as", "at", "be", "by", "can", "does", "for",
-    "from", "how", "in", "is", "it", "of", "on", "or", "that", "the", "their",
-    "this", "to", "what", "when", "where", "which", "who", "why", "with",
+    "a", "an", "and", "are", "as", "at", "be", "by", "can", "does", "do",
+    "for", "from", "happens", "how", "in", "into", "is", "it", "of", "on",
+    "or", "should", "that", "the", "their", "this", "to", "what", "when",
+    "where", "which", "who", "why", "with", "after",
 }
 
 FIELD_WEIGHTS = {
@@ -27,18 +28,54 @@ FIELD_WEIGHTS = {
     "text": 1.0,
 }
 
+PHRASE_WEIGHTS = {
+    2: 3.5,
+    3: 7.5,
+    4: 12.0,
+}
+
+QUERY_COVERAGE_WEIGHT = 25.0
+
+
+def stem_token(token: str) -> str:
+    """Apply a small deterministic stemmer suitable for this compact GDD."""
+    value = token.lower()
+
+    if len(value) > 4 and value.endswith("ies"):
+        value = value[:-3] + "y"
+
+    if len(value) > 5 and value.endswith("ly"):
+        value = value[:-2]
+
+    if len(value) > 5 and value.endswith("ing"):
+        value = value[:-3]
+    elif len(value) > 4 and value.endswith("ed"):
+        value = value[:-2]
+
+    if len(value) > 4 and value.endswith("es"):
+        value = value[:-2]
+    elif len(value) > 3 and value.endswith("s"):
+        value = value[:-1]
+
+    return value
+
 
 def tokenize(value: str) -> list[str]:
-    """Normalize text into searchable tokens while dropping common stop words."""
+    """Normalize text into searchable stemmed tokens and remove stop words."""
     return [
-        token.lower()
+        stem_token(token)
         for token in TOKEN_PATTERN.findall(value or "")
         if token.lower() not in STOP_WORDS
     ]
 
 
+def raw_tokens(value: str) -> list[str]:
+    """Normalize text for readable contiguous phrase matching."""
+    return [token.lower() for token in TOKEN_PATTERN.findall(value or "")]
+
+
 def normalize_phrase(value: str) -> str:
-    """Normalize a phrase for exact phrase matching."""
+    """Normalize a phrase for metadata matching."""
     return " ".join(tokenize(value))
 
 
@@ -49,6 +86,28 @@ def field_text(chunk: dict[str, Any], field: str) -> str:
     if isinstance(value, list):
         return " ".join(str(item) for item in value)
     return str(value)
+
+
+def build_ngrams(tokens: list[str], minimum: int = 2, maximum: int = 4) -> list[str]:
+    phrases: list[str] = []
+    upper = min(maximum, len(tokens))
+
+    for size in range(minimum, upper + 1):
+        for index in range(len(tokens) - size + 1):
+            phrase_tokens = tokens[index:index + size]
+            content_tokens = [
+                token for token in phrase_tokens if token not in STOP_WORDS
+            ]
+
+            # Avoid noisy phrases such as "the player" or "breaks and".
+            if (
+                len(content_tokens) >= 2
+                and phrase_tokens[0] not in STOP_WORDS
+                and phrase_tokens[-1] not in STOP_WORDS
+            ):
+                phrases.append(" ".join(phrase_tokens))
+
+    return phrases
 
 
 class GDDRetriever:
@@ -103,11 +162,13 @@ class GDDRetriever:
             if chunk.get("domain") == selected_domain
             and (not canonical_only or chunk.get("canonical") is True)
         ]
+
         if not chunks:
             raise ValueError(
                 f"No chunks matched domain={selected_domain!r}, "
                 f"canonical_only={canonical_only}"
             )
+
         return chunks
 
     @staticmethod
@@ -115,32 +176,55 @@ class GDDRetriever:
         chunks: list[dict[str, Any]],
     ) -> Counter[str]:
         frequencies: Counter[str] = Counter()
+
         for chunk in chunks:
             unique_terms: set[str] = set()
             for field in FIELD_WEIGHTS:
                 unique_terms.update(tokenize(field_text(chunk, field)))
             frequencies.update(unique_terms)
+
         return frequencies
 
     @staticmethod
-    def _phrase_boost(query_phrase: str, chunk: dict[str, Any]) -> float:
+    def _metadata_boost(query_phrase: str, chunk: dict[str, Any]) -> float:
         score = 0.0
 
         title = normalize_phrase(field_text(chunk, "title"))
         if title and title in query_phrase:
-            score += 12.0
+            score += 8.0
 
         for entity in chunk.get("entities", []):
             normalized_entity = normalize_phrase(str(entity))
             if normalized_entity and normalized_entity in query_phrase:
-                score += 10.0
+                score += 6.0
 
         for keyword in chunk.get("keywords", []):
             normalized_keyword = normalize_phrase(str(keyword))
             if normalized_keyword and normalized_keyword in query_phrase:
-                score += 6.0
+                score += 4.0
 
         return score
+
+    @staticmethod
+    def _phrase_score(
+        query_phrases: list[str],
+        chunk: dict[str, Any],
+    ) -> tuple[float, list[str]]:
+        combined_text = " ".join(
+            field_text(chunk, field) for field in FIELD_WEIGHTS
+        )
+        normalized_chunk = " ".join(raw_tokens(combined_text))
+
+        score = 0.0
+        matched_phrases: list[str] = []
+
+        for phrase in query_phrases:
+            if phrase in normalized_chunk:
+                phrase_length = len(phrase.split())
+                score += PHRASE_WEIGHTS[phrase_length]
+                matched_phrases.append(phrase)
+
+        return score, matched_phrases
 
     def retrieve(
         self,
@@ -168,11 +252,13 @@ class GDDRetriever:
         document_count = len(chunks)
         normalized_query = normalize_phrase(query)
         query_term_counts = Counter(query_tokens)
+        unique_query_terms = set(query_tokens)
+        query_phrases = build_ngrams(raw_tokens(query))
 
         scored_results: list[dict[str, Any]] = []
 
         for chunk in chunks:
-            score = self._phrase_boost(normalized_query, chunk)
+            score = self._metadata_boost(normalized_query, chunk)
             matched_terms: set[str] = set()
 
             for field, field_weight in FIELD_WEIGHTS.items():
@@ -206,6 +292,19 @@ class GDDRetriever:
                         * query_count
                     )
 
+            phrase_score, matched_phrases = self._phrase_score(
+                query_phrases,
+                chunk,
+            )
+            score += phrase_score
+
+            query_coverage = (
+                len(matched_terms) / len(unique_query_terms)
+                if unique_query_terms
+                else 0.0
+            )
+            score += query_coverage * QUERY_COVERAGE_WEIGHT
+
             if score > 0:
                 scored_results.append(
                     {
@@ -217,6 +316,8 @@ class GDDRetriever:
                         "canonical": chunk["canonical"],
                         "score": round(score, 4),
                         "matched_terms": sorted(matched_terms),
+                        "matched_phrases": matched_phrases,
+                        "query_coverage": round(query_coverage, 4),
                         "source": chunk["source"],
                         "text": chunk["text"],
                     }
@@ -238,7 +339,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Retrieve targeted No Safe Circle GDD chunks."
     )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {RETRIEVER_VERSION}")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {RETRIEVER_VERSION}",
+    )
     parser.add_argument("query", help="Natural-language retrieval query")
     parser.add_argument(
         "--knowledge-base",
@@ -280,6 +385,7 @@ def main() -> int:
         print(
             json.dumps(
                 {
+                    "retriever_version": RETRIEVER_VERSION,
                     "query": args.query,
                     "result_count": len(results),
                     "results": results,
@@ -290,6 +396,7 @@ def main() -> int:
         )
         return 0
 
+    print(f"Retriever version: {RETRIEVER_VERSION}")
     print(f"Query: {args.query}")
     print(f"Results: {len(results)}")
     print()
@@ -303,6 +410,15 @@ def main() -> int:
         if result["subsection"]:
             print(f"   Subsection: {result['subsection']}")
         print(f"   Matched terms: {', '.join(result['matched_terms'])}")
+        print(
+            "   Matched phrases: "
+            + (
+                ", ".join(result["matched_phrases"])
+                if result["matched_phrases"]
+                else "(none)"
+            )
+        )
+        print(f"   Query coverage: {result['query_coverage']:.0%}")
         print(f"   Source: {result['source']['file']}")
         print(f"   Text: {result['text']}")
         print()
