@@ -1,0 +1,723 @@
+{
+  "schema_version": "1.0",
+  "game": "No Safe Circle",
+  "output_type": "spell_tooltips",
+  "source_initial_output": "DynamicContentPipeline/outputs/initial/spell_tooltips.json",
+  "source_critic_output": "DynamicContentPipeline/outputs/critic/spell_tooltips_critic.json",
+  "revisor_version": "1.1",
+  "revisor_model": "sonnet",
+  "revised_at_utc": "2026-08-07T02:37:20.616834+00:00",
+  "items": [
+    {
+      "id": "tap_fireball",
+      "label": "Fireball — Tap",
+      "trigger": null,
+      "query": "What does tap Fireball do, what target situation is it best for, and how does it differ from charging Fireball?",
+      "content_requirements": [
+        "Describe the quick mobile single-target or separated-enemy use.",
+        "Distinguish tap Fireball from charged Fireball without adding numeric values.",
+        "Keep the text concise enough for an in-game tooltip."
+      ],
+      "max_words": 35,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-006",
+            "title": "Player actions: movement and Fireball",
+            "section": "2. Game Mechanics",
+            "subsection": "Player Actions and Systems",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 39.2252,
+            "query_coverage": 0.4286,
+            "matched_terms": [
+              "fireball",
+              "tap",
+              "target"
+            ],
+            "matched_phrases": [
+              "tap fireball"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Player Actions and Systems"
+              ],
+              "start_line": 64,
+              "end_line": 65,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Action: Move and Aim. What the player does: Use WASD to move and the mouse to aim. Purpose: Circle crowds and protect escape routes.\n\nAction: Fireball. What the player does: Tap for a quick, mobile shot against a single or separated enemy. Hold to charge: costs more mana and restricts movement further, rewarding preparation by damaging multiple clustered enemies. Purpose: Rewards distance and preparation; a charge's area advantage matters against groups, not against one target."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-009",
+            "title": "Charged Fireball interactions",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 32.2918,
+            "query_coverage": 0.4286,
+            "matched_terms": [
+              "charg",
+              "fireball",
+              "target"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 75,
+              "end_line": 75,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Charged Fireball. Against Melee Enemies: Melee enemies naturally cluster while pursuing the wizard, making them strong area-damage targets. Charging becomes unsafe once they close the distance. Against Ranged Enemies: Telegraphed ranged attacks force the player to keep moving, reducing the time available for a full charge. Quick shots are safer but provide less damage and area."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-025",
+            "title": "Peer and agent review revision",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Peer and Agent Review Revision",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 25.4996,
+            "query_coverage": 0.4286,
+            "matched_terms": [
+              "fireball",
+              "tap",
+              "target"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Peer and Agent Review Revision"
+              ],
+              "start_line": 144,
+              "end_line": 144,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Peer feedback identified that the earlier draft did not explain how the spells and room layouts produced different tactical decisions. A targeted multi-agent review then tested whether those decisions could collapse into a dominant strategy. This revision clarifies Fireball's tap-versus-charge tradeoff, Frost Field's resource commitment, Force Wave's mid-room-versus-door decision, mixed enemy compositions, persistent-pursuer priority, and room-specific implementation checks without adding mechanics or expanding the required scope."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-014",
+            "title": "Target player experience",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": null,
+            "domain": "game_design",
+            "canonical": true,
+            "score": 23.7188,
+            "query_coverage": 0.2857,
+            "matched_terms": [
+              "fireball",
+              "target"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope"
+              ],
+              "start_line": 98,
+              "end_line": 98,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "The player should feel powerful for a few seconds and vulnerable immediately afterward: control a corridor, charge a Fireball, sprint to a door, and lock it just before the crowd arrives. Pounding from the other side makes the next decision urgent."
+          }
+        ]
+      },
+      "revision": {
+        "revision_required": true,
+        "original_text": "A quick, mobile shot against a single or separated enemy. Unlike charging, it costs less mana and doesn't restrict your movement—useful for picking off isolated threats rather than damaging clustered groups.",
+        "final_text": "A quick, mobile shot against a single or separated enemy. Unlike charging, it costs less mana and restricts your movement less—useful for picking off isolated threats rather than damaging clustered groups.",
+        "critic_verdict": "revise",
+        "critic_issues": [
+          {
+            "category": "overstatement",
+            "severity": "medium",
+            "problematic_claim": "it costs less mana and doesn't restrict your movement",
+            "evidence_chunk_ids": [
+              "nsc-gdd-006"
+            ],
+            "explanation": "The evidence only states that charging 'costs more mana and restricts movement further' — the word 'further' is comparative and implies tap already carries some baseline movement constraint, with charging adding more on top. The generated text converts this into an absolute claim that tap has zero movement restriction, which is not directly supported by the retrieved evidence.",
+            "revision_instruction": "Rephrase to a comparative framing (e.g., 'restricts movement less than charging') rather than asserting tap has no movement restriction at all."
+          }
+        ],
+        "changes_made": [
+          "Changed \"doesn't restrict your movement\" to \"restricts your movement less\" to match the comparative (not absolute) relationship stated in the evidence"
+        ],
+        "reason": "The evidence (nsc-gdd-006) says charging \"restricts movement further,\" a comparative claim implying tap already has some baseline movement restriction that charging adds to. The revised text now frames tap's movement cost relative to charging instead of claiming zero restriction, while preserving all other accurate content.",
+        "run_metadata": {
+          "model": "sonnet",
+          "started_at_utc": "2026-08-07T02:37:20.617073+00:00",
+          "finished_at_utc": "2026-08-07T02:37:30.114690+00:00",
+          "duration_seconds": 9.5,
+          "session_id": "04860c7f-4ed7-4790-a55b-28f8331ef670",
+          "num_turns": 2,
+          "length_repair": {
+            "required": false,
+            "original_word_count": 31,
+            "max_words": 35
+          }
+        }
+      }
+    },
+    {
+      "id": "charged_fireball",
+      "label": "Fireball — Charged",
+      "trigger": null,
+      "query": "What does Charged Fireball do, when is charging useful, and what makes charging unsafe against melee and ranged pressure?",
+      "content_requirements": [
+        "Explain that charging rewards preparation and can damage clustered enemies.",
+        "Mention the movement or positioning tradeoff supported by the retrieved evidence.",
+        "Do not invent exact mana costs, charge times, damage values, or radius values."
+      ],
+      "max_words": 40,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-009",
+            "title": "Charged Fireball interactions",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 82.1292,
+            "query_coverage": 0.7778,
+            "matched_terms": [
+              "against",
+              "charg",
+              "fireball",
+              "mak",
+              "melee",
+              "rang",
+              "unsafe"
+            ],
+            "matched_phrases": [
+              "charged fireball",
+              "against melee"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 75,
+              "end_line": 75,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Charged Fireball. Against Melee Enemies: Melee enemies naturally cluster while pursuing the wizard, making them strong area-damage targets. Charging becomes unsafe once they close the distance. Against Ranged Enemies: Telegraphed ranged attacks force the player to keep moving, reducing the time available for a full charge. Quick shots are safer but provide less damage and area."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-011",
+            "title": "Force Wave interactions and distinct spell roles",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 69.6197,
+            "query_coverage": 0.7778,
+            "matched_terms": [
+              "against",
+              "charg",
+              "fireball",
+              "mak",
+              "melee",
+              "pressure",
+              "rang"
+            ],
+            "matched_phrases": [
+              "charged fireball",
+              "against melee",
+              "ranged pressure"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 77,
+              "end_line": 79,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Force Wave. Against Melee Enemies: The primary emergency response when melee enemies surround the wizard or block access to a door. Its long cooldown prevents repeated use. Against Ranged Enemies: Its short range makes it a poor answer to distant ranged pressure. Reaching a ranged enemy to use it may expose the wizard to the melee group.\n\nThe three spells solve different problems: Frost Field controls pursuit, Force Wave repairs an immediate positioning mistake, and Charged Fireball converts a previously created opening into damage. No single spell reliably answers both enemy types by itself. Force Wave's cooldown is tuned so an encounter space typically allows only about one meaningful use: spending it to escape a mid-room surround may leave none available for that room's door attempt, and saving it for the door means resolving mid-room danger without it. This is an intentional resource decision, not proof that either use was wrong."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-003",
+            "title": "Game facts and conditions",
+            "section": "1. Executive Summary",
+            "subsection": "Game Facts",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 43.6217,
+            "query_coverage": 0.4444,
+            "matched_terms": [
+              "charg",
+              "fireball",
+              "melee",
+              "rang"
+            ],
+            "matched_phrases": [
+              "charged fireball"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "1. Executive Summary",
+                "Game Facts"
+              ],
+              "start_line": 29,
+              "end_line": 36,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Genre: Top-down dark-fantasy survival action. Platform: Windows PC.\n\nPlayable Content: One handcrafted floor; five connected spaces. Player Character: One vulnerable wizard; no class selection.\n\nCore Abilities: Charged Fireball, Frost Field, Force Wave. Core Enemies: Melee Enemy and Ranged Enemy.\n\nWin Condition: Open the final door and escape. Loss Condition: The wizard reaches zero health."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-002",
+            "title": "Executive summary: core survival loop",
+            "section": "1. Executive Summary",
+            "subsection": null,
+            "domain": "game_design",
+            "canonical": true,
+            "score": 31.8615,
+            "query_coverage": 0.3333,
+            "matched_terms": [
+              "against",
+              "charg",
+              "fireball"
+            ],
+            "matched_phrases": [
+              "charged fireball"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "1. Executive Summary"
+              ],
+              "start_line": 21,
+              "end_line": 25,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "No Safe Circle is a single-player, top-down survival action game set on one handcrafted dungeon floor. The player controls a vulnerable wizard who can destroy small groups of monsters with powerful spells but cannot survive being surrounded. The player must control distance, wait for mana to regenerate, and decide when to fight, flee, or risk opening the next sealed door.\n\nEach room ends at a door that takes five uninterrupted seconds to open. Before attempting it, the player must create space by luring enemies away, slowing them with Frost Field, knocking them back with Force Wave, or defeating enough of them to reduce the immediate threat. Enemies can follow the wizard through an open doorway. After crossing, the player can close and lock the door, but surviving pursuers will pound against it and eventually break through.\n\nLocked doors provide recovery time, not permanent safety. In the final room, the player must create enough distance from the pursuing enemies to open the final door and escape. The player wins by passing through the final door and loses if the wizard's health reaches zero."
+          }
+        ]
+      },
+      "revision": {
+        "revision_required": false,
+        "original_text": "Charge it to punish enemies who've clustered while chasing you. Melee foes that close the distance make charging risky. Ranged attacks force you to keep moving, cutting your window short—a quick cast is safer but weaker.",
+        "final_text": "Charge it to punish enemies who've clustered while chasing you. Melee foes that close the distance make charging risky. Ranged attacks force you to keep moving, cutting your window short—a quick cast is safer but weaker.",
+        "critic_verdict": "pass",
+        "critic_issues": [],
+        "changes_made": [],
+        "reason": "Critic passed the original text unchanged.",
+        "run_metadata": null
+      }
+    },
+    {
+      "id": "frost_field",
+      "label": "Frost Field",
+      "trigger": null,
+      "query": "What are Frost Field's interactions and limitations against melee and ranged enemies?",
+      "content_requirements": [
+        "Describe heavy slowing, not freezing or immobilizing.",
+        "Explain its crowd-control or route-protection role.",
+        "Do not claim that it prevents ranged enemies from attacking."
+      ],
+      "max_words": 40,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-010",
+            "title": "Frost Field interactions and limitations",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 86.7766,
+            "query_coverage": 1.0,
+            "matched_terms": [
+              "against",
+              "enemy",
+              "field",
+              "frost",
+              "interaction",
+              "limitation",
+              "melee",
+              "rang",
+              "s"
+            ],
+            "matched_phrases": [
+              "frost field",
+              "against melee",
+              "ranged enemies",
+              "interactions and limitations"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 76,
+              "end_line": 76,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Frost Field. Against Melee Enemies: Strongest against melee groups because it slows direct pursuit, stretches the formation, and creates an opening to charge Fireball or begin opening a door — though it draws a meaningful share of the shared mana pool and does not guarantee a fully safe charge in every position or against every group. Against a small or loosely spaced group, direct positioning, a partial charge, or tap Fireball can be the better resource decision. Against Ranged Enemies: Slows a ranged enemy's repositioning but does not stop its attacks. The player must still move laterally or use room geometry to avoid incoming shots."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-011",
+            "title": "Force Wave interactions and distinct spell roles",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 70.1424,
+            "query_coverage": 0.8889,
+            "matched_terms": [
+              "against",
+              "enemy",
+              "field",
+              "frost",
+              "interaction",
+              "melee",
+              "rang",
+              "s"
+            ],
+            "matched_phrases": [
+              "frost field",
+              "against melee",
+              "ranged enemies"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 77,
+              "end_line": 79,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Force Wave. Against Melee Enemies: The primary emergency response when melee enemies surround the wizard or block access to a door. Its long cooldown prevents repeated use. Against Ranged Enemies: Its short range makes it a poor answer to distant ranged pressure. Reaching a ranged enemy to use it may expose the wizard to the melee group.\n\nThe three spells solve different problems: Frost Field controls pursuit, Force Wave repairs an immediate positioning mistake, and Charged Fireball converts a previously created opening into damage. No single spell reliably answers both enemy types by itself. Force Wave's cooldown is tuned so an encounter space typically allows only about one meaningful use: spending it to escape a mid-room surround may leave none available for that room's door attempt, and saving it for the door means resolving mid-room danger without it. This is an intentional resource decision, not proof that either use was wrong."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-019",
+            "title": "Room 5: Final Room",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Dungeon Floor Structure",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 64.7947,
+            "query_coverage": 0.5556,
+            "matched_terms": [
+              "enemy",
+              "field",
+              "frost",
+              "melee",
+              "rang"
+            ],
+            "matched_phrases": [
+              "frost field",
+              "ranged enemies",
+              "melee and ranged",
+              "melee and ranged enemies"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Dungeon Floor Structure"
+              ],
+              "start_line": 108,
+              "end_line": 108,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Area: 5. Final Room. Layout and Tactical Purpose: A comparatively open chamber with limited cover and one central obstacle, populated by both Melee and Ranged Enemies. The player must combine movement, Frost Field, Force Wave, and Fireball to create the final uninterrupted five-second escape window."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-009",
+            "title": "Charged Fireball interactions",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 49.2161,
+            "query_coverage": 0.5556,
+            "matched_terms": [
+              "against",
+              "enemy",
+              "interaction",
+              "melee",
+              "rang"
+            ],
+            "matched_phrases": [
+              "against melee",
+              "ranged enemies"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 75,
+              "end_line": 75,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Charged Fireball. Against Melee Enemies: Melee enemies naturally cluster while pursuing the wizard, making them strong area-damage targets. Charging becomes unsafe once they close the distance. Against Ranged Enemies: Telegraphed ranged attacks force the player to keep moving, reducing the time available for a full charge. Quick shots are safer but provide less damage and area."
+          }
+        ]
+      },
+      "revision": {
+        "revision_required": true,
+        "original_text": "A field of icy ground heavily slows anything caught inside. Strongest against melee groups—it stretches their formation and buys space to act. Ranged enemies are slowed too, but can still fire, so keep moving to avoid their shots.",
+        "final_text": "Icy ground heavily slows enemies caught inside. Strongest against melee groups—it stretches their formation and creates space to act, though it costs mana and isn't always safe. Ranged enemies are slowed too but keep firing, so keep moving.",
+        "critic_verdict": "revise",
+        "critic_issues": [
+          {
+            "category": "overstatement",
+            "severity": "medium",
+            "problematic_claim": "heavily slows anything caught inside",
+            "evidence_chunk_ids": [
+              "nsc-gdd-010"
+            ],
+            "explanation": "The evidence only supports Frost Field slowing melee pursuit and ranged enemy repositioning. 'Anything caught inside' generalizes the effect beyond enemies (implying the player or other entities are also affected) without support, mirroring the flagged pattern of describing a slow effect as applying to 'anything' unless the player is also a supported target.",
+            "revision_instruction": "Scope the slow to enemies specifically (e.g., 'heavily slows enemies caught inside') rather than 'anything caught inside.'"
+          },
+          {
+            "category": "omitted_limitation",
+            "severity": "medium",
+            "problematic_claim": "Strongest against melee groups—it stretches their formation and buys space to act.",
+            "evidence_chunk_ids": [
+              "nsc-gdd-010"
+            ],
+            "explanation": "The evidence qualifies this benefit: it draws a meaningful share of the shared mana pool, does not guarantee a fully safe charge in every position or against every group, and against a small or loosely spaced group a different action (direct positioning, partial charge, tap Fireball) can be the better resource decision. The generated line presents the melee benefit as an unqualified positive, removing the intentional resource tradeoff.",
+            "revision_instruction": "Add a brief qualifier noting the mana cost and that it doesn't guarantee a safe charge against every group, so the tradeoff isn't lost."
+          }
+        ],
+        "changes_made": [
+          "Changed 'anything caught inside' to 'enemies caught inside' to scope the slow effect correctly",
+          "Added the mana-cost and no-guaranteed-safety caveat to preserve the melee tradeoff instead of presenting it as a free win",
+          "Kept the ranged-enemy limitation (slowed but still fires, player must keep moving) unchanged",
+          "Kept 'creates space to act' phrasing rather than 'clear the area' to preserve the GDD's positioning concept"
+        ],
+        "reason": "The revision scopes the slow effect to enemies only (matching nsc-gdd-010's melee/ranged framing) and restores the mana-cost and no-guaranteed-charge qualifier from nsc-gdd-010, so the melee benefit reads as a resource tradeoff rather than an unqualified win, while keeping the ranged limitation and 'creating space' framing intact.",
+        "run_metadata": {
+          "model": "sonnet",
+          "started_at_utc": "2026-08-07T02:37:30.115031+00:00",
+          "finished_at_utc": "2026-08-07T02:38:01.868449+00:00",
+          "duration_seconds": 31.75,
+          "session_id": "3369499f-2476-4f0e-bd71-26a6d1941226",
+          "num_turns": 2,
+          "length_repair": {
+            "required": false,
+            "original_word_count": 38,
+            "max_words": 40
+          }
+        }
+      }
+    },
+    {
+      "id": "force_wave",
+      "label": "Force Wave",
+      "trigger": null,
+      "query": "When should the player use Force Wave, what does it do, and why can it not be used repeatedly?",
+      "content_requirements": [
+        "Describe short-range radial knockback and emergency-space use.",
+        "Preserve the long-cooldown tradeoff.",
+        "Do not invent damage or stun effects."
+      ],
+      "max_words": 40,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-011",
+            "title": "Force Wave interactions and distinct spell roles",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 43.3481,
+            "query_coverage": 0.7143,
+            "matched_terms": [
+              "force",
+              "not",
+              "repeat",
+              "use",
+              "wave"
+            ],
+            "matched_phrases": [
+              "force wave"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 77,
+              "end_line": 79,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Force Wave. Against Melee Enemies: The primary emergency response when melee enemies surround the wizard or block access to a door. Its long cooldown prevents repeated use. Against Ranged Enemies: Its short range makes it a poor answer to distant ranged pressure. Reaching a ranged enemy to use it may expose the wizard to the melee group.\n\nThe three spells solve different problems: Frost Field controls pursuit, Force Wave repairs an immediate positioning mistake, and Charged Fireball converts a previously created opening into damage. No single spell reliably answers both enemy types by itself. Force Wave's cooldown is tuned so an encounter space typically allows only about one meaningful use: spending it to escape a mid-room surround may leave none available for that room's door attempt, and saving it for the door means resolving mid-room danger without it. This is an intentional resource decision, not proof that either use was wrong."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-005",
+            "title": "Core gameplay loop",
+            "section": "2. Game Mechanics",
+            "subsection": "Core Gameplay Loop",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 41.5611,
+            "query_coverage": 0.5714,
+            "matched_terms": [
+              "force",
+              "player",
+              "use",
+              "wave"
+            ],
+            "matched_phrases": [
+              "use force",
+              "force wave",
+              "use force wave"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Core Gameplay Loop"
+              ],
+              "start_line": 50,
+              "end_line": 58,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "The player moves through connected rooms toward the final door. In each room, the objective is to create five safe seconds, open the next door, cross through it, and lock it before the pursuing monsters arrive.\n\n1. Scout the room, locate the sealed door, and identify a route for luring or slowing enemies.\n\n2. Avoid the group, pull part of it away, or spend mana on a direct fight.\n\n3. Use Frost Field and movement to stretch the chase; charge Fireball when enough distance exists.\n\n4. Use Force Wave if enemies reach the wizard or block the door.\n\n5. Open the door for five uninterrupted seconds, cross through it, lock it, and recover before pursuers break through."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-024",
+            "title": "Player experience success criteria",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Player Experience Success Criteria",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 35.3097,
+            "query_coverage": 0.7143,
+            "matched_terms": [
+              "force",
+              "not",
+              "player",
+              "use",
+              "wave"
+            ],
+            "matched_phrases": [
+              "force wave"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Player Experience Success Criteria"
+              ],
+              "start_line": 137,
+              "end_line": 140,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "A first-time player understands that reaching a door is not enough; five safe seconds are required.\n\nThe player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.\n\nEncounters use three to eight enemies and never exceed fifteen active enemies.\n\nFailure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-007",
+            "title": "Player actions: Frost Field and Force Wave",
+            "section": "2. Game Mechanics",
+            "subsection": "Player Actions and Systems",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 35.1242,
+            "query_coverage": 0.5714,
+            "matched_terms": [
+              "force",
+              "player",
+              "use",
+              "wave"
+            ],
+            "matched_phrases": [
+              "force wave"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Player Actions and Systems"
+              ],
+              "start_line": 66,
+              "end_line": 67,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Action: Frost Field. What the player does: Place a temporary area that heavily slows enemies. Purpose: Divides crowds and protects routes.\n\nAction: Force Wave. What the player does: Use a short-range radial knockback with a long cooldown. Purpose: Creates emergency space."
+          }
+        ]
+      },
+      "revision": {
+        "revision_required": true,
+        "original_text": "A short-range radial knockback that shoves nearby enemies back, clearing space when you're surrounded or blocked from a door. Its long cooldown means only one meaningful use per encounter—save it for a true emergency.",
+        "final_text": "A short-range radial knockback that shoves nearby enemies back, clearing space when you're surrounded or blocked from a door. Its long cooldown typically allows only about one meaningful use per encounter—save it for a true emergency.",
+        "critic_verdict": "revise",
+        "critic_issues": [
+          {
+            "category": "overstatement",
+            "severity": "medium",
+            "problematic_claim": "Its long cooldown means only one meaningful use per encounter",
+            "evidence_chunk_ids": [
+              "nsc-gdd-011"
+            ],
+            "explanation": "The evidence states the cooldown 'is tuned so an encounter space typically allows only about one meaningful use' and explicitly frames the choice between an early mid-room use and saving it for the door as 'an intentional resource decision, not proof that either use was wrong.' The generated line drops 'typically' and 'about,' converting an approximate, context-dependent limit into an absolute per-encounter cap, which overstates the certainty of the rule.",
+            "revision_instruction": "Reinsert a qualifier (e.g., 'typically only about one meaningful use') so the cooldown limit reads as approximate rather than an absolute per-encounter cap."
+          }
+        ],
+        "changes_made": [
+          "Reinserted the GDD's qualifiers ('typically' and 'about') around the cooldown limit so it reads as an approximate, context-dependent limit rather than an absolute per-encounter cap."
+        ],
+        "reason": "The revised cooldown claim now matches nsc-gdd-011, which states the cooldown is tuned so an encounter 'typically allows only about one meaningful use,' preserving the approximate nature of the limit instead of stating it as a hard rule.",
+        "run_metadata": {
+          "model": "sonnet",
+          "started_at_utc": "2026-08-07T02:38:01.868737+00:00",
+          "finished_at_utc": "2026-08-07T02:38:12.027770+00:00",
+          "duration_seconds": 10.16,
+          "session_id": "1164dc70-8693-4157-bb5d-b0ee1a9df001",
+          "num_turns": 2,
+          "length_repair": {
+            "required": false,
+            "original_word_count": 36,
+            "max_words": 40
+          }
+        }
+      }
+    }
+  ]
+}

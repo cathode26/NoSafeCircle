@@ -1,0 +1,180 @@
+{
+  "schema_version": "1.0",
+  "game": "No Safe Circle",
+  "output_type": "spell_tooltips",
+  "game_gap": "The GDD defines the three spell systems and their tactical tradeoffs, but the playable game still needs concise player-facing ability descriptions that communicate what each action does without inventing mechanics.",
+  "retriever_version": "1.1",
+  "generator_model": null,
+  "generated_at_utc": "2026-08-07T01:41:31.017387+00:00",
+  "dry_run": true,
+  "items": [
+    {
+      "id": "frost_field",
+      "label": "Frost Field",
+      "trigger": null,
+      "query": "What are Frost Field's interactions and limitations against melee and ranged enemies?",
+      "top_k": 4,
+      "content_requirements": [
+        "Describe heavy slowing, not freezing or immobilizing.",
+        "Explain its crowd-control or route-protection role.",
+        "Do not claim that it prevents ranged enemies from attacking."
+      ],
+      "max_words": 40,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-010",
+            "title": "Frost Field interactions and limitations",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 86.7766,
+            "query_coverage": 1.0,
+            "matched_terms": [
+              "against",
+              "enemy",
+              "field",
+              "frost",
+              "interaction",
+              "limitation",
+              "melee",
+              "rang",
+              "s"
+            ],
+            "matched_phrases": [
+              "frost field",
+              "against melee",
+              "ranged enemies",
+              "interactions and limitations"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 76,
+              "end_line": 76,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Frost Field. Against Melee Enemies: Strongest against melee groups because it slows direct pursuit, stretches the formation, and creates an opening to charge Fireball or begin opening a door — though it draws a meaningful share of the shared mana pool and does not guarantee a fully safe charge in every position or against every group. Against a small or loosely spaced group, direct positioning, a partial charge, or tap Fireball can be the better resource decision. Against Ranged Enemies: Slows a ranged enemy's repositioning but does not stop its attacks. The player must still move laterally or use room geometry to avoid incoming shots."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-011",
+            "title": "Force Wave interactions and distinct spell roles",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 70.1424,
+            "query_coverage": 0.8889,
+            "matched_terms": [
+              "against",
+              "enemy",
+              "field",
+              "frost",
+              "interaction",
+              "melee",
+              "rang",
+              "s"
+            ],
+            "matched_phrases": [
+              "frost field",
+              "against melee",
+              "ranged enemies"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 77,
+              "end_line": 79,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Force Wave. Against Melee Enemies: The primary emergency response when melee enemies surround the wizard or block access to a door. Its long cooldown prevents repeated use. Against Ranged Enemies: Its short range makes it a poor answer to distant ranged pressure. Reaching a ranged enemy to use it may expose the wizard to the melee group.\n\nThe three spells solve different problems: Frost Field controls pursuit, Force Wave repairs an immediate positioning mistake, and Charged Fireball converts a previously created opening into damage. No single spell reliably answers both enemy types by itself. Force Wave's cooldown is tuned so an encounter space typically allows only about one meaningful use: spending it to escape a mid-room surround may leave none available for that room's door attempt, and saving it for the door means resolving mid-room danger without it. This is an intentional resource decision, not proof that either use was wrong."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-019",
+            "title": "Room 5: Final Room",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Dungeon Floor Structure",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 64.7947,
+            "query_coverage": 0.5556,
+            "matched_terms": [
+              "enemy",
+              "field",
+              "frost",
+              "melee",
+              "rang"
+            ],
+            "matched_phrases": [
+              "frost field",
+              "ranged enemies",
+              "melee and ranged",
+              "melee and ranged enemies"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Dungeon Floor Structure"
+              ],
+              "start_line": 108,
+              "end_line": 108,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Area: 5. Final Room. Layout and Tactical Purpose: A comparatively open chamber with limited cover and one central obstacle, populated by both Melee and Ranged Enemies. The player must combine movement, Frost Field, Force Wave, and Fireball to create the final uninterrupted five-second escape window."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-009",
+            "title": "Charged Fireball interactions",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 49.2161,
+            "query_coverage": 0.5556,
+            "matched_terms": [
+              "against",
+              "enemy",
+              "interaction",
+              "melee",
+              "rang"
+            ],
+            "matched_phrases": [
+              "against melee",
+              "ranged enemies"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 75,
+              "end_line": 75,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Charged Fireball. Against Melee Enemies: Melee enemies naturally cluster while pursuing the wizard, making them strong area-damage targets. Charging becomes unsafe once they close the distance. Against Ranged Enemies: Telegraphed ranged attacks force the player to keep moving, reducing the time available for a full charge. Quick shots are safer but provide less damage and area."
+          }
+        ]
+      },
+      "generation": {
+        "status": "dry_run",
+        "text": "",
+        "reason": "Claude was not invoked."
+      },
+      "run_metadata": null
+    }
+  ]
+}
