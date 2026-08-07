@@ -2,23 +2,17 @@
   "schema_version": "1.0",
   "game": "No Safe Circle",
   "output_type": "failure_hints",
-  "source_initial_output": "DynamicContentPipeline/outputs/initial/failure_hints.json",
-  "source_critic_output": "DynamicContentPipeline/outputs/critic/failure_hints_critic.json",
-  "revisor_version": "1.2",
-  "revisor_model": "sonnet",
-  "revised_at_utc": "2026-08-07T03:51:10.244931+00:00",
+  "review_source": "final",
+  "critic_version": "1.2",
+  "critic_model": "sonnet",
+  "reviewed_at_utc": "2026-08-07T03:51:29.587197+00:00",
+  "reviewed_output": "DynamicContentPipeline/outputs/final/failure_hints.json",
   "items": [
     {
       "id": "poor_positioning",
       "label": "Poor Positioning",
-      "trigger": "death_while_surrounded_or_trapped",
       "query": "What does the GDD say about poor positioning, being surrounded, movement, and creating temporary separation from pursuers?",
-      "content_requirements": [
-        "Teach positioning and space creation without blaming the player.",
-        "Keep the message tactical and concise.",
-        "Do not invent a new defensive mechanic."
-      ],
-      "max_words": 30,
+      "candidate_text": "Open ground fades as Melee Enemies gradually close in. Use turns, obstacles, or Frost Field for separation, or Force Wave to break a surround—though it may cost the door attempt.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -144,149 +138,29 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": true,
-        "original_text": "Open ground closes fast. Use turns, obstacles, or Frost Field to create separation — or Force Wave to break a surround before it traps you.",
-        "final_text": "Open ground fades as Melee Enemies gradually close in. Use turns, obstacles, or Frost Field for separation, or Force Wave to break a surround—though it may cost the door attempt.",
-        "critic_verdict": "revise",
-        "critic_issues": [
-          {
-            "category": "overstatement",
-            "severity": "medium",
-            "problematic_claim": "Open ground won't stay safe long.",
-            "evidence_chunk_ids": [
-              "nsc-gdd-012"
-            ],
-            "explanation": "nsc-gdd-012 qualifies this failure condition: 'Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters.' The generated line drops the 'later encounters' qualifier and states the erosion of safe ground as a universal, immediate fact, turning a scoped rule into an absolute one and undercutting the room loop's stated goal of creating safe seconds.",
-            "revision_instruction": "Qualify the opening line so it reflects that open ground erodes over time or in later encounters, rather than asserting open ground is never safe for long."
-          }
-        ],
-        "changes_made": [
-          "Replaced the absolute opening claim 'Open ground won't stay safe long' with a qualified statement tied specifically to Melee Enemies gradually closing distance, matching the GDD's 'gradually close the distance over time' framing.",
-          "Preserved the Frost Field/turns/obstacles separation guidance and the Force Wave surround-break tradeoff from the original text without alteration."
-        ],
-        "reason": "nsc-gdd-012 states Melee Enemies gradually close distance and that movement alone can't preserve full safety indefinitely 'in later encounters' — the revision reflects this as a gradual, enemy-specific process rather than an immediate universal fact, while nsc-gdd-011's Force Wave tradeoff is kept intact and non-prescriptive.",
-        "run_metadata": {
-          "model": "sonnet",
-          "started_at_utc": "2026-08-07T03:50:43.310732+00:00",
-          "finished_at_utc": "2026-08-07T03:51:04.021794+00:00",
-          "duration_seconds": 20.71,
-          "session_id": "5ca3066f-c688-4db5-8a4f-3e33c2d1407b",
-          "num_turns": 2,
-          "length_repair": {
-            "required": false,
-            "original_word_count": 30,
-            "max_words": 30
-          }
-        },
-        "original_critic_issues": [
-          {
-            "category": "contradiction",
-            "severity": "medium",
-            "problematic_claim": "Open ground closes fast.",
-            "evidence_chunk_ids": [
-              "nsc-gdd-012"
-            ],
-            "explanation": "nsc-gdd-012 specifies that Melee Enemies 'gradually close the distance over time,' explicitly qualifying the pace as gradual rather than fast. Stating that ground 'closes fast' contradicts this qualifier and overstates the urgency, turning a gradual, escalating threat into an immediate one.",
-            "revision_instruction": "Replace 'closes fast' with wording that preserves the gradual/escalating nature described in nsc-gdd-012, e.g. 'Open ground won't stay safe for long' rather than implying rapid closure."
-          },
-          {
-            "category": "omitted_limitation",
-            "severity": "low",
-            "problematic_claim": "or Force Wave to break a surround before it traps you",
-            "evidence_chunk_ids": [
-              "nsc-gdd-011"
-            ],
-            "explanation": "nsc-gdd-011 frames Force Wave's long cooldown as an intentional resource decision: using it to escape a mid-room surround may leave none available for the door attempt. The hint lists Force Wave alongside free, repeatable options (turns, obstacles, Frost Field) without any signal that it is a single-use emergency tool with a real opportunity cost, which risks presenting it as a costless go-to reaction rather than a tradeoff.",
-            "revision_instruction": "Add a brief qualifier signaling Force Wave's limited availability (e.g. 'or, if truly cornered, Force Wave — but its long cooldown means you may not have it for the door') while staying within the word limit."
-          }
-        ],
-        "refinement_history": [
-          {
-            "source_critic_output": "DynamicContentPipeline/outputs/critic/final_validation/failure_hints_final_critic.json",
-            "previous_text": "Open ground won't stay safe for long. Use turns, obstacles, or Frost Field to create separation, or Force Wave to break a surround, though it costs you at the door.",
-            "critic_summary": "Mostly faithful, but the Force Wave clause converts a probabilistic resource tradeoff into a guaranteed cost.",
-            "critic_issues": [
-              {
-                "category": "overstatement",
-                "severity": "medium",
-                "problematic_claim": "or Force Wave to break a surround, though it costs you at the door",
-                "evidence_chunk_ids": [
-                  "nsc-gdd-011"
-                ],
-                "explanation": "nsc-gdd-011 states spending Force Wave on a mid-room surround 'may leave none available for that room's door attempt' — a conditional, encounter-dependent tradeoff, not a guaranteed outcome. The generated line asserts 'it costs you at the door' as a certainty, turning the intentional qualified resource decision into an absolute rule.",
-                "revision_instruction": "Reword to preserve the conditional nature of the tradeoff, e.g. 'though it may leave none for the door' instead of 'though it costs you at the door'."
-              }
-            ],
-            "final_text": "Open ground won't stay safe long. Use turns, obstacles, or Frost Field to create separation, or Force Wave to break a surround, though it may leave none for the door.",
-            "changes_made": [
-              "Replaced the absolute claim 'though it costs you at the door' with the conditional 'though it may leave none for the door', matching nsc-gdd-011's framing that spending Force Wave on a surround 'may leave none available for that room's door attempt' rather than guaranteeing a cost.",
-              "Trimmed 'for long' to 'long' to stay within the 30-word limit while preserving all other content."
-            ],
-            "reason": "nsc-gdd-011 describes the Force Wave tradeoff as probabilistic ('may leave none available'), not a certainty. The revised wording restores this conditional framing while preserving the intentional tradeoff (neither use is prescribed as correct) and the 'create separation' positioning language required elsewhere in the evidence.",
-            "run_metadata": {
-              "model": "sonnet",
-              "started_at_utc": "2026-08-07T03:20:33.600798+00:00",
-              "finished_at_utc": "2026-08-07T03:21:02.968957+00:00",
-              "duration_seconds": 29.37,
-              "session_id": "6d32f6e1-25a0-434e-a1c3-90ab6ee3cdd6",
-              "num_turns": 2,
-              "length_repair": {
-                "required": false,
-                "original_word_count": 30,
-                "max_words": 30
-              }
-            }
-          },
-          {
-            "source_critic_output": "DynamicContentPipeline/outputs/critic/final_validation/failure_hints_final_critic.json",
-            "previous_text": "Open ground won't stay safe long. Use turns, obstacles, or Frost Field to create separation, or Force Wave to break a surround, though it may leave none for the door.",
-            "critic_summary": "The Force Wave/positioning framing is faithful and appropriately conditional, but the opening line overgeneralizes a limitation that the GDD scopes specifically to later encounters.",
-            "critic_issues": [
-              {
-                "category": "overstatement",
-                "severity": "medium",
-                "problematic_claim": "Open ground won't stay safe long.",
-                "evidence_chunk_ids": [
-                  "nsc-gdd-012"
-                ],
-                "explanation": "nsc-gdd-012 qualifies this failure condition: 'Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters.' The generated line drops the 'later encounters' qualifier and states the erosion of safe ground as a universal, immediate fact, turning a scoped rule into an absolute one and undercutting the room loop's stated goal of creating safe seconds.",
-                "revision_instruction": "Qualify the opening line so it reflects that open ground erodes over time or in later encounters, rather than asserting open ground is never safe for long."
-              }
-            ],
-            "final_text": "Open ground fades as Melee Enemies gradually close in. Use turns, obstacles, or Frost Field for separation, or Force Wave to break a surround—though it may cost the door attempt.",
-            "changes_made": [
-              "Replaced the absolute opening claim 'Open ground won't stay safe long' with a qualified statement tied specifically to Melee Enemies gradually closing distance, matching the GDD's 'gradually close the distance over time' framing.",
-              "Preserved the Frost Field/turns/obstacles separation guidance and the Force Wave surround-break tradeoff from the original text without alteration."
-            ],
-            "reason": "nsc-gdd-012 states Melee Enemies gradually close distance and that movement alone can't preserve full safety indefinitely 'in later encounters' — the revision reflects this as a gradual, enemy-specific process rather than an immediate universal fact, while nsc-gdd-011's Force Wave tradeoff is kept intact and non-prescriptive.",
-            "run_metadata": {
-              "model": "sonnet",
-              "started_at_utc": "2026-08-07T03:50:43.310732+00:00",
-              "finished_at_utc": "2026-08-07T03:51:04.021794+00:00",
-              "duration_seconds": 20.71,
-              "session_id": "5ca3066f-c688-4db5-8a4f-3e33c2d1407b",
-              "num_turns": 2,
-              "length_repair": {
-                "required": false,
-                "original_word_count": 30,
-                "max_words": 30
-              }
-            }
-          }
-        ]
+      "critic": {
+        "content_id": "poor_positioning",
+        "verdict": "pass",
+        "summary": "The generated line faithfully reflects nsc-gdd-012's gradual melee-closing mechanic and the turning/obstacles/Frost Field separation tools, and correctly preserves nsc-gdd-011's Force Wave tradeoff (breaking a surround may cost the door attempt) as a hedged, non-absolute possibility rather than a universal solution. No unsupported mechanics, contradictions, or tone drift found.",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:51:29.587727+00:00",
+        "finished_at_utc": "2026-08-07T03:52:06.211872+00:00",
+        "duration_seconds": 36.63,
+        "session_id": "9d597b63-0183-46c1-ad5a-693157351013",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
+        }
       }
     },
     {
       "id": "low_mana",
       "label": "Low Mana",
-      "trigger": "death_or_failed_door_attempt_with_low_mana",
       "query": "What does the GDD say about low mana, mana regeneration, the post-cast delay, and waiting for power to return?",
-      "content_requirements": [
-        "Reinforce that mana returns slowly after a brief post-cast delay.",
-        "Do not invent regeneration rates or exact costs."
-      ],
-      "max_words": 30,
+      "candidate_text": "Out of power. Mana returns slowly after a brief post-cast delay — but locked doors behind you keep losing durability meanwhile, so wait wisely before opening doors or engaging enemies.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -412,56 +286,29 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": true,
-        "original_text": "Out of power. Mana returns slowly after a brief delay following your last cast — wait for it before opening the door or engaging enemies.",
-        "final_text": "Out of power. Mana returns slowly after a brief post-cast delay — but locked doors behind you keep losing durability meanwhile, so wait wisely before opening doors or engaging enemies.",
-        "critic_verdict": "revise",
-        "critic_issues": [
-          {
-            "category": "misleading_strategy",
-            "severity": "medium",
-            "problematic_claim": "wait for it before opening the door or engaging enemies",
-            "evidence_chunk_ids": [
-              "nsc-gdd-012"
-            ],
-            "explanation": "nsc-gdd-012 explicitly pairs mana regeneration with a cost: \"Waiting restores power while locked doors continue losing durability.\" The generated line presents waiting as unqualified good advice before opening the door, dropping the fact that a locked door keeps taking damage during that wait. This removes the intentional risk/reward tradeoff between recovering mana and letting the door's durability drain.",
-            "revision_instruction": "Add a brief qualifier noting the cost of waiting (e.g., that a locked door keeps losing durability while you wait) so the advice preserves the tradeoff instead of presenting waiting as free."
-          }
-        ],
-        "changes_made": [
-          "Added the qualifier that locked doors behind the player keep losing durability while waiting, restoring the risk/reward tradeoff described in the evidence.",
-          "Kept the original guidance about waiting before opening doors or engaging enemies, now framed as a weighed decision rather than free advice.",
-          "Made explicit that the durability loss applies to already-locked doors behind the player, not the sealed door being approached.",
-          "Did not invent any regeneration rate or numeric cost."
-        ],
-        "reason": "The original tooltip presented waiting for mana as unqualified good advice, omitting that locked doors continue losing durability during that wait (nsc-gdd-012). The revision reinstates this cost while keeping door direction unambiguous and staying within the 30-word limit.",
-        "run_metadata": {
-          "model": "sonnet",
-          "started_at_utc": "2026-08-07T03:13:41.234817+00:00",
-          "finished_at_utc": "2026-08-07T03:14:12.437626+00:00",
-          "duration_seconds": 31.21,
-          "session_id": "529302c9-5645-4e4f-b8b6-b875453ab9fa",
-          "num_turns": 2,
-          "length_repair": {
-            "required": false,
-            "original_word_count": 30,
-            "max_words": 30
-          }
+      "critic": {
+        "content_id": "low_mana",
+        "summary": "The tooltip faithfully reflects nsc-gdd-012's statement that mana regenerates slowly after a brief post-cast delay while locked doors continue losing durability during that wait. No rates, costs, or unsupported mechanics are invented, and the tradeoff (wait for mana vs. door decay) is preserved rather than resolved into universal advice.",
+        "verdict": "pass",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:52:06.212168+00:00",
+        "finished_at_utc": "2026-08-07T03:52:33.622952+00:00",
+        "duration_seconds": 27.41,
+        "session_id": "ff63c3f2-f0aa-42bf-ab84-9d9fc2f5f8e5",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
         }
       }
     },
     {
       "id": "force_wave_misuse",
       "label": "Force Wave Timing",
-      "trigger": "death_when_force_wave_on_cooldown",
       "query": "Why can using Force Wave without an immediate threat become a readable failure, and what tradeoff does its long cooldown create?",
-      "content_requirements": [
-        "Teach that Force Wave is an emergency positioning tool.",
-        "Preserve the meaningful-use and long-cooldown tradeoff.",
-        "Do not suggest the previous use was always objectively wrong."
-      ],
-      "max_words": 35,
+      "candidate_text": "Force Wave creates emergency space, but its long cooldown typically allows only about one meaningful use per encounter. Failure is using it without an immediate threat and then lacking it when space is critical.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -618,154 +465,29 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": true,
-        "original_text": "Force Wave clears space in an emergency, but its long cooldown allows only one meaningful use per encounter. Using it once means none remains later — neither choice is wrong, only a tradeoff worth remembering.",
-        "final_text": "Force Wave creates emergency space, but its long cooldown typically allows only about one meaningful use per encounter. Failure is using it without an immediate threat and then lacking it when space is critical.",
-        "critic_verdict": "revise",
-        "critic_issues": [
-          {
-            "category": "contradiction",
-            "severity": "high",
-            "problematic_claim": "Using it without an immediate threat is the failure to avoid.",
-            "evidence_chunk_ids": [
-              "nsc-gdd-024",
-              "nsc-gdd-011"
-            ],
-            "explanation": "nsc-gdd-024 defines the readable failure as the compound event of 'using Force Wave without an immediate threat and leaving it unavailable when critical space is needed' — not merely using it without an immediate threat. The generated line drops the second half of that condition, turning a specific outcome-dependent failure into a blanket rule against any non-emergency use. This also contradicts nsc-gdd-011, which explicitly states the cooldown tradeoff 'is an intentional resource decision, not proof that either use was wrong,' and directly violates the content requirement not to suggest the previous use was always objectively wrong.",
-            "revision_instruction": "Restate the failure condition as the compound one from nsc-gdd-024 (using it without an immediate threat AND then lacking it when space is critically needed), rather than declaring any non-emergency use itself the failure."
-          }
-        ],
-        "changes_made": [
-          "Replaced the absolute closing line 'Using it without an immediate threat is the failure to avoid' with the compound failure condition from nsc-gdd-024: using it without an immediate threat AND then lacking it when space is later critically needed.",
-          "Removed the implication that non-emergency use is itself always wrong, restoring alignment with nsc-gdd-011's statement that this is an intentional resource decision, not proof either use was wrong.",
-          "Kept the long-cooldown/one-meaningful-use tradeoff and emergency-positioning framing intact from the prior revision."
-        ],
-        "reason": "The failure condition is now the compound outcome the GDD actually defines (non-emergency use plus later unavailability), rather than a blanket rule against any non-emergency use, removing the contradiction with the 'intentional resource decision, not proof either use was wrong' statement while preserving the tradeoff and tone.",
-        "run_metadata": {
-          "model": "sonnet",
-          "started_at_utc": "2026-08-07T03:51:10.245280+00:00",
-          "finished_at_utc": "2026-08-07T03:51:24.512642+00:00",
-          "duration_seconds": 14.27,
-          "session_id": "87005d29-7727-40bd-a7ee-d352b9fef5e1",
-          "num_turns": 2,
-          "length_repair": {
-            "required": false,
-            "original_word_count": 34,
-            "max_words": 35
-          }
-        },
-        "original_critic_issues": [
-          {
-            "category": "overstatement",
-            "severity": "medium",
-            "problematic_claim": "its long cooldown allows only one meaningful use per encounter",
-            "evidence_chunk_ids": [
-              "nsc-gdd-011"
-            ],
-            "explanation": "nsc-gdd-011 states the cooldown is 'tuned so an encounter space typically allows only about one meaningful use' — a qualified, approximate rule. The generated text drops 'typically' and 'about', converting it into an absolute guarantee of exactly one use per encounter, which misrepresents the intended variability.",
-            "revision_instruction": "Reintroduce a qualifier (e.g., 'typically only about one meaningful use') instead of stating it as a fixed, guaranteed count."
-          }
-        ],
-        "refinement_history": [
-          {
-            "source_critic_output": "DynamicContentPipeline/outputs/critic/final_validation/failure_hints_final_critic.json",
-            "previous_text": "Force Wave creates emergency space, but its long cooldown typically allows only about one meaningful use per encounter. Using it once means none remains later — neither choice is wrong, only a tradeoff worth remembering.",
-            "critic_summary": "The tradeoff framing borrows nsc-gdd-011's language well, but it drops the 'typically/about' qualifier when stating the consequence of spending Force Wave, and it never conveys the specific misuse case from nsc-gdd-024 (using Force Wave with no immediate threat) that this content is meant to teach.",
-            "critic_issues": [
-              {
-                "category": "overstatement",
-                "severity": "medium",
-                "problematic_claim": "Using it once means none remains later",
-                "evidence_chunk_ids": [
-                  "nsc-gdd-011"
-                ],
-                "explanation": "The source only says the cooldown 'typically' allows 'about one' meaningful use per encounter space — an approximate, non-guaranteed framing. Stating flatly that using it once 'means none remains later' drops that qualifier and turns the approximate resource rule into a certain outcome, similar to the flagged pattern of 'about one' silently becoming 'exactly one'.",
-                "revision_instruction": "Qualify the consequence (e.g., 'often leaves none available later') so it stays consistent with the 'typically/about' framing already used in the first sentence."
-              },
-              {
-                "category": "omitted_limitation",
-                "severity": "medium",
-                "problematic_claim": "Force Wave creates emergency space, but its long cooldown typically allows only about one meaningful use per encounter. Using it once means none remains later — neither choice is wrong, only a tradeoff worth remembering.",
-                "evidence_chunk_ids": [
-                  "nsc-gdd-024"
-                ],
-                "explanation": "This content is meant to teach why using Force Wave without an immediate threat is a readable failure (per nsc-gdd-024, which lists 'using Force Wave without an immediate threat and leaving it unavailable when critical space is needed' as a failure mode). The generated text only contrasts two legitimate emergency uses ('neither choice is wrong') and never mentions that spending it with no immediate threat is itself the misuse case, so it omits the limitation that gives this content its purpose.",
-                "revision_instruction": "Add a brief clause noting that spending Force Wave without an immediate threat is the readable failure being warned about, distinct from choosing between two legitimate emergency uses."
-              }
-            ],
-            "final_text": "Force Wave creates emergency space, but its long cooldown typically allows only about one meaningful use per encounter, often leaving none available when needed. Using it without an immediate threat is the failure to avoid.",
-            "changes_made": [
-              "Replaced the absolute 'using it once means none remains later' with 'often leaving none available when needed,' matching the source's 'typically/about one' approximate framing instead of stating a guaranteed outcome.",
-              "Added an explicit clause identifying that using Force Wave without an immediate threat is itself the readable failure being taught, distinct from choosing between legitimate emergency uses.",
-              "Trimmed 'neither choice is wrong, only a tradeoff worth remembering' to stay within the 35-word limit while keeping the resource-tradeoff idea implicit in the cooldown/availability phrasing."
-            ],
-            "reason": "The revision now qualifies the cooldown consequence with 'often' rather than stating it as certain, matching nsc-gdd-011's 'typically allows only about one meaningful use' framing, and it directly names the misuse case from nsc-gdd-024 ('using Force Wave without an immediate threat... leaving it unavailable when critical space is needed') as the failure to avoid, which the prior draft omitted.",
-            "run_metadata": {
-              "model": "sonnet",
-              "started_at_utc": "2026-08-07T03:26:52.295727+00:00",
-              "finished_at_utc": "2026-08-07T03:27:38.861552+00:00",
-              "duration_seconds": 46.57,
-              "session_id": "78a34ffd-b9d0-45f2-b146-c568a7ad5bce",
-              "num_turns": 2,
-              "length_repair": {
-                "required": false,
-                "original_word_count": 35,
-                "max_words": 35
-              }
-            }
-          },
-          {
-            "source_critic_output": "DynamicContentPipeline/outputs/critic/final_validation/failure_hints_final_critic.json",
-            "previous_text": "Force Wave creates emergency space, but its long cooldown typically allows only about one meaningful use per encounter, often leaving none available when needed. Using it without an immediate threat is the failure to avoid.",
-            "critic_summary": "The cooldown/tradeoff framing is faithfully qualified with \"often,\" but the final sentence collapses the GDD's compound failure condition into an absolute rule and contradicts the GDD's explicit statement that this is a resource decision, not proof either use was wrong.",
-            "critic_issues": [
-              {
-                "category": "contradiction",
-                "severity": "high",
-                "problematic_claim": "Using it without an immediate threat is the failure to avoid.",
-                "evidence_chunk_ids": [
-                  "nsc-gdd-024",
-                  "nsc-gdd-011"
-                ],
-                "explanation": "nsc-gdd-024 defines the readable failure as the compound event of 'using Force Wave without an immediate threat and leaving it unavailable when critical space is needed' — not merely using it without an immediate threat. The generated line drops the second half of that condition, turning a specific outcome-dependent failure into a blanket rule against any non-emergency use. This also contradicts nsc-gdd-011, which explicitly states the cooldown tradeoff 'is an intentional resource decision, not proof that either use was wrong,' and directly violates the content requirement not to suggest the previous use was always objectively wrong.",
-                "revision_instruction": "Restate the failure condition as the compound one from nsc-gdd-024 (using it without an immediate threat AND then lacking it when space is critically needed), rather than declaring any non-emergency use itself the failure."
-              }
-            ],
-            "final_text": "Force Wave creates emergency space, but its long cooldown typically allows only about one meaningful use per encounter. Failure is using it without an immediate threat and then lacking it when space is critical.",
-            "changes_made": [
-              "Replaced the absolute closing line 'Using it without an immediate threat is the failure to avoid' with the compound failure condition from nsc-gdd-024: using it without an immediate threat AND then lacking it when space is later critically needed.",
-              "Removed the implication that non-emergency use is itself always wrong, restoring alignment with nsc-gdd-011's statement that this is an intentional resource decision, not proof either use was wrong.",
-              "Kept the long-cooldown/one-meaningful-use tradeoff and emergency-positioning framing intact from the prior revision."
-            ],
-            "reason": "The failure condition is now the compound outcome the GDD actually defines (non-emergency use plus later unavailability), rather than a blanket rule against any non-emergency use, removing the contradiction with the 'intentional resource decision, not proof either use was wrong' statement while preserving the tradeoff and tone.",
-            "run_metadata": {
-              "model": "sonnet",
-              "started_at_utc": "2026-08-07T03:51:10.245280+00:00",
-              "finished_at_utc": "2026-08-07T03:51:24.512642+00:00",
-              "duration_seconds": 14.27,
-              "session_id": "87005d29-7727-40bd-a7ee-d352b9fef5e1",
-              "num_turns": 2,
-              "length_repair": {
-                "required": false,
-                "original_word_count": 34,
-                "max_words": 35
-              }
-            }
-          }
-        ]
+      "critic": {
+        "content_id": "force_wave_misuse",
+        "summary": "The text accurately preserves the compound failure condition (non-emergency use plus later unavailability) from nsc-gdd-024, keeps the qualified \"about one meaningful use\" language from nsc-gdd-011 rather than overstating it as exact, correctly frames Force Wave's purpose as \"emergency space\" per nsc-gdd-007, and does not imply the earlier use was inherently wrong on its own.",
+        "verdict": "pass",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:52:33.623290+00:00",
+        "finished_at_utc": "2026-08-07T03:52:58.057656+00:00",
+        "duration_seconds": 24.44,
+        "session_id": "fdf2f696-45c0-496e-981c-927b81dab31e",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
+        }
       }
     },
     {
       "id": "waited_too_long",
       "label": "Waiting Too Long",
-      "trigger": "death_after_previous_door_breach",
       "query": "What happens if the player waits too long while a locked door loses durability: when does the locked door break and the surviving group enter the current room?",
-      "content_requirements": [
-        "Connect waiting to door durability and returning persistent pursuers.",
-        "Reinforce that locked doors provide recovery time, not permanent safety."
-      ],
-      "max_words": 35,
+      "candidate_text": "Waiting too long lets a locked door break. The surviving pursuers you left behind will follow into this room. Locked doors buy recovery time — not permanent safety.",
       "retrieval": {
         "retriever_version": "1.1",
         "chunks": [
@@ -932,17 +654,23 @@
           }
         ]
       },
-      "revision": {
-        "revision_required": false,
-        "original_text": "Waiting too long lets a locked door break. The surviving pursuers you left behind will follow into this room. Locked doors buy recovery time — not permanent safety.",
-        "final_text": "Waiting too long lets a locked door break. The surviving pursuers you left behind will follow into this room. Locked doors buy recovery time — not permanent safety.",
-        "critic_verdict": "pass",
-        "critic_issues": [],
-        "changes_made": [],
-        "reason": "Critic passed the original text unchanged.",
-        "run_metadata": null
+      "critic": {
+        "content_id": "waited_too_long",
+        "summary": "The generated text accurately reflects the retrieved evidence: it ties waiting to door breach, correctly describes surviving pursuers entering the room, and reinforces the \"recovery time, not permanent safety\" framing verbatim from nsc-gdd-002. No unsupported claims, contradictions, or tone drift found.",
+        "verdict": "pass",
+        "issues": []
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T03:52:58.058024+00:00",
+        "finished_at_utc": "2026-08-07T03:53:10.442748+00:00",
+        "duration_seconds": 12.38,
+        "session_id": "a5598308-3598-4034-a5f0-2e0173f4f98f",
+        "num_turns": 2,
+        "validation_retry": {
+          "required": false
+        }
       }
     }
-  ],
-  "source_final_validation_critic": "DynamicContentPipeline/outputs/critic/final_validation/failure_hints_final_critic.json"
+  ]
 }

@@ -17,8 +17,9 @@ PROMPT_PATH = PIPELINE_ROOT / "prompts" / "revisor.md"
 INITIAL_ROOT = PIPELINE_ROOT / "outputs" / "initial"
 CRITIC_ROOT = PIPELINE_ROOT / "outputs" / "critic"
 FINAL_ROOT = PIPELINE_ROOT / "outputs" / "final"
+FINAL_VALIDATION_ROOT = CRITIC_ROOT / "final_validation"
 
-REVISOR_VERSION = "1.1"
+REVISOR_VERSION = "1.2"
 MODEL = os.environ.get("CLAUDE_AGENT_MODEL", "sonnet")
 TIMEOUT_SECONDS = int(os.environ.get("CLAUDE_AGENT_TIMEOUT_SECONDS", "900"))
 
@@ -78,32 +79,53 @@ def load_revisor_prompt() -> str:
         raise FileNotFoundError(f"Revisor prompt not found: {PROMPT_PATH}") from exc
 
 
+def get_candidate_text(item: dict[str, Any], source: str) -> str:
+    if source == "initial":
+        return item["generation"]["text"]
+    return item["revision"]["final_text"]
+
+
 def build_revision_prompt(
     base_prompt: str,
-    initial_item: dict[str, Any],
+    source_item: dict[str, Any],
     critic_item: dict[str, Any],
+    source: str,
 ) -> str:
+    original_text = get_candidate_text(source_item, source)
+
     payload = {
-        "content_id": initial_item["id"],
-        "label": initial_item["label"],
-        "query": initial_item["query"],
-        "content_requirements": initial_item["content_requirements"],
-        "max_words": initial_item["max_words"],
-        "original_text": initial_item["generation"]["text"],
-        "retrieved_gdd_evidence": initial_item["retrieval"]["chunks"],
+        "content_id": source_item["id"],
+        "label": source_item["label"],
+        "query": source_item["query"],
+        "content_requirements": source_item["content_requirements"],
+        "max_words": source_item["max_words"],
+        "original_text": original_text,
+        "retrieved_gdd_evidence": source_item["retrieval"]["chunks"],
         "critic_verdict": critic_item["critic"]["verdict"],
         "critic_summary": critic_item["critic"]["summary"],
         "critic_issues": critic_item["critic"]["issues"],
+        "revision_source": source,
     }
+
+    refinement_note = ""
+    if source == "final":
+        refinement_note = (
+            "\nThis is a second-pass refinement of already revised content. "
+            "Preserve corrections that are already faithful. Fix the current "
+            "critic issue without reintroducing earlier errors. Also obey all "
+            "global evidence-preservation rules in the revisor prompt, even if "
+            "the current critic does not repeat every previously learned constraint.\n"
+        )
 
     return (
         base_prompt.rstrip()
         + "\n\n# Revision Package\n\n"
         + json.dumps(payload, indent=2, ensure_ascii=False)
         + "\n\n# Output Contract\n\n"
+        + refinement_note
         + "Set `content_id` and `label` exactly to the supplied values. "
           "Return only the corrected player-facing copy in `text`. "
-          f"Keep `text` at or below {initial_item['max_words']} words. "
+          f"Keep `text` at or below {source_item['max_words']} words. "
           "List the specific corrections you made in `changes_made`. "
           "Use `reason` to explain briefly how the revision now matches the supplied evidence.\n"
     )
@@ -243,18 +265,18 @@ def clean_revision_metadata(result: dict[str, Any]) -> dict[str, Any]:
 
 def validate_revision(
     result: dict[str, Any],
-    initial_item: dict[str, Any],
+    source_item: dict[str, Any],
 ) -> int:
-    if result["content_id"] != initial_item["id"]:
+    if result["content_id"] != source_item["id"]:
         raise RuntimeError(
             f"Revisor returned content_id {result['content_id']!r}; "
-            f"expected {initial_item['id']!r}."
+            f"expected {source_item['id']!r}."
         )
 
-    if result["label"] != initial_item["label"]:
+    if result["label"] != source_item["label"]:
         raise RuntimeError(
             f"Revisor returned label {result['label']!r}; "
-            f"expected {initial_item['label']!r}."
+            f"expected {source_item['label']!r}."
         )
 
     player_text = result["text"]
@@ -271,129 +293,181 @@ def index_by_id(items: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return {item["id"]: item for item in items}
 
 
-def run_revision(output_type: str, item_id: str | None) -> Path:
-    initial_path = INITIAL_ROOT / f"{output_type}.json"
-    critic_path = CRITIC_ROOT / f"{output_type}_critic.json"
+def run_revision(
+    output_type: str,
+    item_id: str | None,
+    source: str,
+) -> Path:
+    if source == "initial":
+        source_path = INITIAL_ROOT / f"{output_type}.json"
+        critic_path = CRITIC_ROOT / f"{output_type}_critic.json"
+    else:
+        source_path = FINAL_ROOT / f"{output_type}.json"
+        critic_path = (
+            FINAL_VALIDATION_ROOT
+            / f"{output_type}_final_critic.json"
+        )
 
-    initial = load_json(initial_path)
+    source_data = load_json(source_path)
     critic = load_json(critic_path)
     base_prompt = load_revisor_prompt()
 
-    initial_items = index_by_id(initial["items"])
+    source_items = index_by_id(source_data["items"])
     critic_items = index_by_id(critic["items"])
 
-    if set(initial_items) != set(critic_items):
+    if set(source_items) != set(critic_items):
         raise RuntimeError(
-            "Initial and critic files contain different item IDs."
+            "Source and critic files contain different item IDs."
         )
 
-    selected_ids = [item_id] if item_id else list(initial_items.keys())
+    selected_ids = [item_id] if item_id else list(source_items.keys())
 
     for selected_id in selected_ids:
-        if selected_id not in initial_items:
-            available = ", ".join(initial_items)
+        if selected_id not in source_items:
+            available = ", ".join(source_items)
             raise ValueError(
                 f"Unknown item {selected_id!r}. Available: {available}"
             )
 
-    final: dict[str, Any] = {
-        "schema_version": "1.0",
-        "game": initial["game"],
-        "output_type": output_type,
-        "source_initial_output": str(
-            initial_path.relative_to(REPO_ROOT)
-        ).replace("\\", "/"),
-        "source_critic_output": str(
+    if source == "initial":
+        final: dict[str, Any] = {
+            "schema_version": "1.0",
+            "game": source_data["game"],
+            "output_type": output_type,
+            "source_initial_output": str(
+                source_path.relative_to(REPO_ROOT)
+            ).replace("\\", "/"),
+            "source_critic_output": str(
+                critic_path.relative_to(REPO_ROOT)
+            ).replace("\\", "/"),
+            "revisor_version": REVISOR_VERSION,
+            "revisor_model": MODEL,
+            "revised_at_utc": utc_now(),
+            "items": [],
+        }
+    else:
+        # Deep-copy the current full final file so targeted refinements update
+        # one item without dropping all of the already-passing items.
+        final = json.loads(json.dumps(source_data))
+        final["revisor_version"] = REVISOR_VERSION
+        final["revisor_model"] = MODEL
+        final["revised_at_utc"] = utc_now()
+        final["source_final_validation_critic"] = str(
             critic_path.relative_to(REPO_ROOT)
-        ).replace("\\", "/"),
-        "revisor_version": REVISOR_VERSION,
-        "revisor_model": MODEL,
-        "revised_at_utc": utc_now(),
-        "items": [],
-    }
+        ).replace("\\", "/")
+
+    final_items = index_by_id(final["items"]) if source == "final" else {}
+
+    revised_count = 0
+    unchanged_count = 0
 
     for current_id in selected_ids:
-        initial_item = initial_items[current_id]
+        source_item = source_items[current_id]
         critic_item = critic_items[current_id]
         verdict = critic_item["critic"]["verdict"]
+        candidate_text = get_candidate_text(source_item, source)
 
         print()
         print("=" * 72)
-        print(f"Revising: {current_id} — {initial_item['label']}")
+        print(f"Revising: {current_id} — {source_item['label']}")
+        print(f"Revision source: {source}")
         print(f"Critic verdict: {verdict}")
-        print(f"Original: {initial_item['generation']['text']}")
+        print(f"Current text: {candidate_text}")
         print("=" * 72)
 
         if verdict == "pass":
-            print("No revision required; preserving original text.")
-            revision_record = {
-                "revision_required": False,
-                "original_text": initial_item["generation"]["text"],
-                "final_text": initial_item["generation"]["text"],
-                "critic_verdict": "pass",
-                "critic_issues": [],
-                "changes_made": [],
-                "reason": "Critic passed the original text unchanged.",
-                "run_metadata": None,
+            print("No revision required; preserving current text.")
+            unchanged_count += 1
+
+            if source == "initial":
+                revision_record = {
+                    "revision_required": False,
+                    "original_text": candidate_text,
+                    "final_text": candidate_text,
+                    "critic_verdict": "pass",
+                    "critic_issues": [],
+                    "changes_made": [],
+                    "reason": "Critic passed the original text unchanged.",
+                    "run_metadata": None,
+                }
+
+                final["items"].append(
+                    {
+                        "id": source_item["id"],
+                        "label": source_item["label"],
+                        "trigger": source_item.get("trigger"),
+                        "query": source_item["query"],
+                        "content_requirements": source_item[
+                            "content_requirements"
+                        ],
+                        "max_words": source_item["max_words"],
+                        "retrieval": source_item["retrieval"],
+                        "revision": revision_record,
+                    }
+                )
+            continue
+
+        prompt = build_revision_prompt(
+            base_prompt,
+            source_item,
+            critic_item,
+            source,
+        )
+        revised, metadata = run_claude(prompt)
+        revised = clean_revision_metadata(revised)
+        word_count = validate_revision(revised, source_item)
+
+        if word_count > int(source_item["max_words"]):
+            print(
+                f"Revision exceeded max_words: "
+                f"{word_count} > {source_item['max_words']}; "
+                "retrying once for length."
+            )
+            repair_prompt = build_length_repair_prompt(
+                prompt,
+                revised,
+                int(source_item["max_words"]),
+                word_count,
+            )
+            repaired, repair_metadata = run_claude(repair_prompt)
+            repaired = clean_revision_metadata(repaired)
+            repaired_count = validate_revision(
+                repaired,
+                source_item,
+            )
+            if repaired_count > int(source_item["max_words"]):
+                raise RuntimeError(
+                    f"Length repair still exceeded max_words: "
+                    f"{repaired_count} > {source_item['max_words']}"
+                )
+            revised = repaired
+            metadata["length_repair"] = {
+                "required": True,
+                "original_word_count": word_count,
+                "max_words": source_item["max_words"],
+                "repair_run": repair_metadata,
             }
         else:
-            prompt = build_revision_prompt(
-                base_prompt,
-                initial_item,
-                critic_item,
-            )
-            revised, metadata = run_claude(prompt)
-            revised = clean_revision_metadata(revised)
-            word_count = validate_revision(revised, initial_item)
+            metadata["length_repair"] = {
+                "required": False,
+                "original_word_count": word_count,
+                "max_words": source_item["max_words"],
+            }
 
-            if word_count > int(initial_item["max_words"]):
-                print(
-                    f"Revision exceeded max_words: "
-                    f"{word_count} > {initial_item['max_words']}; "
-                    "retrying once for length."
-                )
-                repair_prompt = build_length_repair_prompt(
-                    prompt,
-                    revised,
-                    int(initial_item["max_words"]),
-                    word_count,
-                )
-                repaired, repair_metadata = run_claude(repair_prompt)
-                repaired = clean_revision_metadata(repaired)
-                repaired_count = validate_revision(
-                    repaired,
-                    initial_item,
-                )
-                if repaired_count > int(initial_item["max_words"]):
-                    raise RuntimeError(
-                        f"Length repair still exceeded max_words: "
-                        f"{repaired_count} > {initial_item['max_words']}"
-                    )
-                revised = repaired
-                metadata["length_repair"] = {
-                    "required": True,
-                    "original_word_count": word_count,
-                    "max_words": initial_item["max_words"],
-                    "repair_run": repair_metadata,
-                }
-            else:
-                metadata["length_repair"] = {
-                    "required": False,
-                    "original_word_count": word_count,
-                    "max_words": initial_item["max_words"],
-                }
+        print(f"Revised: {revised['text']}")
+        print(
+            f"Word count: "
+            f"{len(revised['text'].split())}/{source_item['max_words']}"
+        )
+        for change in revised["changes_made"]:
+            print(f"  - {change}")
 
-            print(f"Revised: {revised['text']}")
-            print(
-                f"Word count: "
-                f"{len(revised['text'].split())}/{initial_item['max_words']}"
-            )
-            for change in revised["changes_made"]:
-                print(f"  - {change}")
+        revised_count += 1
 
+        if source == "initial":
             revision_record = {
                 "revision_required": True,
-                "original_text": initial_item["generation"]["text"],
+                "original_text": candidate_text,
                 "final_text": revised["text"],
                 "critic_verdict": "revise",
                 "critic_issues": critic_item["critic"]["issues"],
@@ -402,33 +476,69 @@ def run_revision(output_type: str, item_id: str | None) -> Path:
                 "run_metadata": metadata,
             }
 
-        final["items"].append(
-            {
-                "id": initial_item["id"],
-                "label": initial_item["label"],
-                "trigger": initial_item.get("trigger"),
-                "query": initial_item["query"],
-                "content_requirements": initial_item["content_requirements"],
-                "max_words": initial_item["max_words"],
-                "retrieval": initial_item["retrieval"],
-                "revision": revision_record,
-            }
+            final["items"].append(
+                {
+                    "id": source_item["id"],
+                    "label": source_item["label"],
+                    "trigger": source_item.get("trigger"),
+                    "query": source_item["query"],
+                    "content_requirements": source_item[
+                        "content_requirements"
+                    ],
+                    "max_words": source_item["max_words"],
+                    "retrieval": source_item["retrieval"],
+                    "revision": revision_record,
+                }
+            )
+        else:
+            final_item = final_items[current_id]
+            revision_record = final_item["revision"]
+
+            if "original_critic_issues" not in revision_record:
+                revision_record["original_critic_issues"] = list(
+                    revision_record.get("critic_issues", [])
+                )
+
+            history = revision_record.setdefault(
+                "refinement_history",
+                [],
+            )
+            history.append(
+                {
+                    "source_critic_output": str(
+                        critic_path.relative_to(REPO_ROOT)
+                    ).replace("\\", "/"),
+                    "previous_text": candidate_text,
+                    "critic_summary": critic_item["critic"]["summary"],
+                    "critic_issues": critic_item["critic"]["issues"],
+                    "final_text": revised["text"],
+                    "changes_made": revised["changes_made"],
+                    "reason": revised["reason"],
+                    "run_metadata": metadata,
+                }
+            )
+
+            revision_record["revision_required"] = True
+            revision_record["final_text"] = revised["text"]
+            revision_record["critic_verdict"] = "revise"
+            revision_record["critic_issues"] = critic_item["critic"]["issues"]
+            revision_record["changes_made"] = revised["changes_made"]
+            revision_record["reason"] = revised["reason"]
+            revision_record["run_metadata"] = metadata
+
+    if source == "initial":
+        filename = (
+            f"{output_type}_{item_id}_final.json"
+            if item_id
+            else f"{output_type}.json"
         )
+        output_path = FINAL_ROOT / filename
+    else:
+        # Final-source refinements always merge back into the canonical full
+        # output file, even when --item targets a single piece of content.
+        output_path = FINAL_ROOT / f"{output_type}.json"
 
-    filename = (
-        f"{output_type}_{item_id}_final.json"
-        if item_id
-        else f"{output_type}.json"
-    )
-    output_path = FINAL_ROOT / filename
     save_json(output_path, final)
-
-    revised_count = sum(
-        1
-        for item in final["items"]
-        if item["revision"]["revision_required"]
-    )
-    unchanged_count = len(final["items"]) - revised_count
 
     print()
     print(f"Saved: {output_path.relative_to(REPO_ROOT)}")
@@ -456,13 +566,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Revise only one item ID",
     )
+    parser.add_argument(
+        "--source",
+        choices=["initial", "final"],
+        default="initial",
+        help=(
+            "Revise from the original generation/critic or refine the current "
+            "final output using its latest final-validation critic. Default: initial"
+        ),
+    )
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
     try:
-        run_revision(args.output_type, args.item)
+        run_revision(args.output_type, args.item, args.source)
         return 0
     except Exception as exc:
         print()
