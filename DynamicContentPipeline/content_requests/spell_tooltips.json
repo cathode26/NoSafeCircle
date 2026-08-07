@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "output_type": "spell_tooltips",
+  "game": "No Safe Circle",
+  "game_gap": "The GDD defines the three spell systems and their tactical tradeoffs, but the playable game still needs concise player-facing ability descriptions that communicate what each action does without inventing mechanics.",
+  "output_path": "DynamicContentPipeline/outputs/initial/spell_tooltips.json",
+  "items": [
+    {
+      "id": "tap_fireball",
+      "label": "Fireball — Tap",
+      "query": "What does tap Fireball do, what target situation is it best for, and how does it differ from charging Fireball?",
+      "top_k": 4,
+      "content_requirements": [
+        "Describe the quick mobile single-target or separated-enemy use.",
+        "Distinguish tap Fireball from charged Fireball without adding numeric values.",
+        "Keep the text concise enough for an in-game tooltip."
+      ],
+      "max_words": 35
+    },
+    {
+      "id": "charged_fireball",
+      "label": "Fireball — Charged",
+      "query": "What does Charged Fireball do, when is charging useful, and what makes charging unsafe against melee and ranged pressure?",
+      "top_k": 4,
+      "content_requirements": [
+        "Explain that charging rewards preparation and can damage clustered enemies.",
+        "Mention the movement or positioning tradeoff supported by the retrieved evidence.",
+        "Do not invent exact mana costs, charge times, damage values, or radius values."
+      ],
+      "max_words": 40
+    },
+    {
+      "id": "frost_field",
+      "label": "Frost Field",
+      "query": "What are Frost Field's interactions and limitations against melee and ranged enemies?",
+      "top_k": 4,
+      "content_requirements": [
+        "Describe heavy slowing, not freezing or immobilizing.",
+        "Explain its crowd-control or route-protection role.",
+        "Do not claim that it prevents ranged enemies from attacking."
+      ],
+      "max_words": 40
+    },
+    {
+      "id": "force_wave",
+      "label": "Force Wave",
+      "query": "When should the player use Force Wave, what does it do, and why can it not be used repeatedly?",
+      "top_k": 4,
+      "content_requirements": [
+        "Describe short-range radial knockback and emergency-space use.",
+        "Preserve the long-cooldown tradeoff.",
+        "Do not invent damage or stun effects."
+      ],
+      "max_words": 40
+    }
+  ]
+}

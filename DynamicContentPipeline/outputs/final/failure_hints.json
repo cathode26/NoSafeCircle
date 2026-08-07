@@ -1,0 +1,768 @@
+{
+  "schema_version": "1.0",
+  "game": "No Safe Circle",
+  "output_type": "failure_hints",
+  "source_initial_output": "DynamicContentPipeline/outputs/initial/failure_hints.json",
+  "source_critic_output": "DynamicContentPipeline/outputs/critic/failure_hints_critic.json",
+  "revisor_version": "1.1",
+  "revisor_model": "sonnet",
+  "revised_at_utc": "2026-08-07T02:39:01.765480+00:00",
+  "items": [
+    {
+      "id": "poor_positioning",
+      "label": "Poor Positioning",
+      "trigger": "death_while_surrounded_or_trapped",
+      "query": "What does the GDD say about poor positioning, being surrounded, movement, and creating temporary separation from pursuers?",
+      "content_requirements": [
+        "Teach positioning and space creation without blaming the player.",
+        "Keep the message tactical and concise.",
+        "Do not invent a new defensive mechanic."
+      ],
+      "max_words": 30,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-012",
+            "title": "Resources, feedback, and readable failure",
+            "section": "2. Game Mechanics",
+            "subsection": "Resources, Feedback, and Failure",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 52.6052,
+            "query_coverage": 0.4167,
+            "matched_terms": [
+              "creat",
+              "movement",
+              "pursuer",
+              "separation",
+              "temporary"
+            ],
+            "matched_phrases": [
+              "temporary separation",
+              "separation from pursuers",
+              "temporary separation from pursuers"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Resources, Feedback, and Failure"
+              ],
+              "start_line": 83,
+              "end_line": 88,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Health: The wizard survives a few isolated hits but dies quickly when trapped. Health does not regenerate during a room, and does not reset between rooms — it carries across the whole run. Successfully locking a door after crossing restores a small, fixed amount of health before the next room begins; this recovery is partial, so accumulated damage still matters across all five rooms. Exact recovery values will be set during playtesting.\n\nMana: Mana regenerates slowly after a brief post-cast delay. Waiting restores power while locked doors continue losing durability.\n\nMovement: Circling or retreating creates temporary separation from pursuers, but Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters. Sustaining real separation requires turning routes, obstacles, Frost Field, Force Wave, or reducing the threat directly.\n\nForce Wave: A visible long cooldown shows when the emergency escape tool is unavailable.\n\nDoor feedback: Banging, shaking, cracks, and a durability indicator show when a breach is near.\n\nSetbacks: Door-opening attempts reset when movement or damage interrupts them."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-008",
+            "title": "Player actions: opening, crossing, and locking doors",
+            "section": "2. Game Mechanics",
+            "subsection": "Player Actions and Systems",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 23.6418,
+            "query_coverage": 0.3333,
+            "matched_terms": [
+              "creat",
+              "movement",
+              "position",
+              "pursuer"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Player Actions and Systems"
+              ],
+              "start_line": 68,
+              "end_line": 69,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Action: Open Sealed Door. What the player does: Hold for five seconds; movement or damage cancels. Purpose: Makes each exit a positioning challenge.\n\nAction: Close and Lock. What the player does: Shut the door after crossing, restoring a small, fixed amount of health. Once locked, this door cannot be reopened or crossed again (see Door and Pursuit Rules). Purpose: Creates recovery time while pursuers attack it, and marks forward progress as final."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-011",
+            "title": "Force Wave interactions and distinct spell roles",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 21.2771,
+            "query_coverage": 0.4167,
+            "matched_terms": [
+              "about",
+              "creat",
+              "poor",
+              "position",
+              "surround"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 77,
+              "end_line": 79,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Force Wave. Against Melee Enemies: The primary emergency response when melee enemies surround the wizard or block access to a door. Its long cooldown prevents repeated use. Against Ranged Enemies: Its short range makes it a poor answer to distant ranged pressure. Reaching a ranged enemy to use it may expose the wizard to the melee group.\n\nThe three spells solve different problems: Frost Field controls pursuit, Force Wave repairs an immediate positioning mistake, and Charged Fireball converts a previously created opening into damage. No single spell reliably answers both enemy types by itself. Force Wave's cooldown is tuned so an encounter space typically allows only about one meaningful use: spending it to escape a mid-room surround may leave none available for that room's door attempt, and saving it for the door means resolving mid-room danger without it. This is an intentional resource decision, not proof that either use was wrong."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-005",
+            "title": "Core gameplay loop",
+            "section": "2. Game Mechanics",
+            "subsection": "Core Gameplay Loop",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 14.9454,
+            "query_coverage": 0.1667,
+            "matched_terms": [
+              "movement",
+              "pursuer"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Core Gameplay Loop"
+              ],
+              "start_line": 50,
+              "end_line": 58,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "The player moves through connected rooms toward the final door. In each room, the objective is to create five safe seconds, open the next door, cross through it, and lock it before the pursuing monsters arrive.\n\n1. Scout the room, locate the sealed door, and identify a route for luring or slowing enemies.\n\n2. Avoid the group, pull part of it away, or spend mana on a direct fight.\n\n3. Use Frost Field and movement to stretch the chase; charge Fireball when enough distance exists.\n\n4. Use Force Wave if enemies reach the wizard or block the door.\n\n5. Open the door for five uninterrupted seconds, cross through it, lock it, and recover before pursuers break through."
+          }
+        ]
+      },
+      "revision": {
+        "revision_required": true,
+        "original_text": "Open ground closes fast. Use turns, obstacles, or Frost Field to create separation — or Force Wave to break a surround before it traps you.",
+        "final_text": "Open ground won't stay safe for long. Use turns, obstacles, or Frost Field to create separation, or Force Wave if cornered, though its cooldown may cost you at the door.",
+        "critic_verdict": "revise",
+        "critic_issues": [
+          {
+            "category": "contradiction",
+            "severity": "medium",
+            "problematic_claim": "Open ground closes fast.",
+            "evidence_chunk_ids": [
+              "nsc-gdd-012"
+            ],
+            "explanation": "nsc-gdd-012 specifies that Melee Enemies 'gradually close the distance over time,' explicitly qualifying the pace as gradual rather than fast. Stating that ground 'closes fast' contradicts this qualifier and overstates the urgency, turning a gradual, escalating threat into an immediate one.",
+            "revision_instruction": "Replace 'closes fast' with wording that preserves the gradual/escalating nature described in nsc-gdd-012, e.g. 'Open ground won't stay safe for long' rather than implying rapid closure."
+          },
+          {
+            "category": "omitted_limitation",
+            "severity": "low",
+            "problematic_claim": "or Force Wave to break a surround before it traps you",
+            "evidence_chunk_ids": [
+              "nsc-gdd-011"
+            ],
+            "explanation": "nsc-gdd-011 frames Force Wave's long cooldown as an intentional resource decision: using it to escape a mid-room surround may leave none available for the door attempt. The hint lists Force Wave alongside free, repeatable options (turns, obstacles, Frost Field) without any signal that it is a single-use emergency tool with a real opportunity cost, which risks presenting it as a costless go-to reaction rather than a tradeoff.",
+            "revision_instruction": "Add a brief qualifier signaling Force Wave's limited availability (e.g. 'or, if truly cornered, Force Wave — but its long cooldown means you may not have it for the door') while staying within the word limit."
+          }
+        ],
+        "changes_made": [
+          "Replaced 'closes fast' with 'won't stay safe for long' to match the gradual, escalating pace described for Melee Enemies rather than implying rapid closure.",
+          "Added a cooldown-cost qualifier to the Force Wave mention so it reads as a limited, tradeoff-bound emergency option rather than a free go-to reaction alongside terrain and Frost Field.",
+          "Removed the em dash and tightened phrasing ('if cornered' instead of 'if truly cornered'/'or, if cornered,') to bring the count to 30 words without dropping either correction."
+        ],
+        "reason": "The gradual-pacing phrase still aligns with nsc-gdd-012's 'gradually close the distance,' and the retained cooldown qualifier reflects nsc-gdd-011's framing of Force Wave as an intentional resource tradeoff. The 'creating space' framing is intact, and the text is now exactly 30 words.",
+        "run_metadata": {
+          "model": "sonnet",
+          "started_at_utc": "2026-08-07T02:39:01.765767+00:00",
+          "finished_at_utc": "2026-08-07T02:39:16.342886+00:00",
+          "duration_seconds": 14.58,
+          "session_id": "fae7428b-667a-4909-a815-37ac66a4da2e",
+          "num_turns": 2,
+          "length_repair": {
+            "required": true,
+            "original_word_count": 31,
+            "max_words": 30,
+            "repair_run": {
+              "model": "sonnet",
+              "started_at_utc": "2026-08-07T02:39:16.343018+00:00",
+              "finished_at_utc": "2026-08-07T02:39:32.592609+00:00",
+              "duration_seconds": 16.25,
+              "session_id": "0e6c57fb-d298-43c7-947c-b2823eb1a567",
+              "num_turns": 2
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "low_mana",
+      "label": "Low Mana",
+      "trigger": "death_or_failed_door_attempt_with_low_mana",
+      "query": "What does the GDD say about low mana, mana regeneration, the post-cast delay, and waiting for power to return?",
+      "content_requirements": [
+        "Reinforce that mana returns slowly after a brief post-cast delay.",
+        "Do not invent regeneration rates or exact costs."
+      ],
+      "max_words": 30,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-012",
+            "title": "Resources, feedback, and readable failure",
+            "section": "2. Game Mechanics",
+            "subsection": "Resources, Feedback, and Failure",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 52.0249,
+            "query_coverage": 0.4545,
+            "matched_terms": [
+              "delay",
+              "mana",
+              "post-cast",
+              "power",
+              "wait"
+            ],
+            "matched_phrases": [
+              "mana mana",
+              "post-cast delay"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Resources, Feedback, and Failure"
+              ],
+              "start_line": 83,
+              "end_line": 88,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Health: The wizard survives a few isolated hits but dies quickly when trapped. Health does not regenerate during a room, and does not reset between rooms — it carries across the whole run. Successfully locking a door after crossing restores a small, fixed amount of health before the next room begins; this recovery is partial, so accumulated damage still matters across all five rooms. Exact recovery values will be set during playtesting.\n\nMana: Mana regenerates slowly after a brief post-cast delay. Waiting restores power while locked doors continue losing durability.\n\nMovement: Circling or retreating creates temporary separation from pursuers, but Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters. Sustaining real separation requires turning routes, obstacles, Frost Field, Force Wave, or reducing the threat directly.\n\nForce Wave: A visible long cooldown shows when the emergency escape tool is unavailable.\n\nDoor feedback: Banging, shaking, cracks, and a durability indicator show when a breach is near.\n\nSetbacks: Door-opening attempts reset when movement or damage interrupts them."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-002",
+            "title": "Executive summary: core survival loop",
+            "section": "1. Executive Summary",
+            "subsection": null,
+            "domain": "game_design",
+            "canonical": true,
+            "score": 27.1812,
+            "query_coverage": 0.2727,
+            "matched_terms": [
+              "mana",
+              "regeneration",
+              "wait"
+            ],
+            "matched_phrases": [
+              "mana regeneration"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "1. Executive Summary"
+              ],
+              "start_line": 21,
+              "end_line": 25,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "No Safe Circle is a single-player, top-down survival action game set on one handcrafted dungeon floor. The player controls a vulnerable wizard who can destroy small groups of monsters with powerful spells but cannot survive being surrounded. The player must control distance, wait for mana to regenerate, and decide when to fight, flee, or risk opening the next sealed door.\n\nEach room ends at a door that takes five uninterrupted seconds to open. Before attempting it, the player must create space by luring enemies away, slowing them with Frost Field, knocking them back with Force Wave, or defeating enough of them to reduce the immediate threat. Enemies can follow the wizard through an open doorway. After crossing, the player can close and lock the door, but surviving pursuers will pound against it and eventually break through.\n\nLocked doors provide recovery time, not permanent safety. In the final room, the player must create enough distance from the pursuing enemies to open the final door and escape. The player wins by passing through the final door and loses if the wizard's health reaches zero."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-022",
+            "title": "Door and pursuit rules: breach, persistence, and enemy cap",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Door and Pursuit Rules",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 14.5767,
+            "query_coverage": 0.2727,
+            "matched_terms": [
+              "delay",
+              "return",
+              "wait"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Door and Pursuit Rules"
+              ],
+              "start_line": 124,
+              "end_line": 125,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "If the player waits too long, the locked door breaks and the surviving group enters the current room. A broken door remains open and cannot be closed or relocked for the remainder of the run. The player cannot travel backward through an earlier doorway, including after its locked door has been broken; enemies may pass forward through the broken doorway, but it is not a return path for the player.\n\nSurviving enemies carry forward and combine with later encounters as the same persistent enemy objects, not new spawns, and the game never permits more than fifteen active enemies at once. When persistent pursuers and a new encounter would together exceed that limit — most notably in Lower Vault, where a rear breach can coincide with the room's own encounter — activation of the new encounter's additional enemies is delayed or reduced first; enemies already pursuing the player are never removed to make room."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-024",
+            "title": "Player experience success criteria",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Player Experience Success Criteria",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 14.0318,
+            "query_coverage": 0.2727,
+            "matched_terms": [
+              "low",
+              "mana",
+              "wait"
+            ],
+            "matched_phrases": [
+              "low mana"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Player Experience Success Criteria"
+              ],
+              "start_line": 137,
+              "end_line": 140,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "A first-time player understands that reaching a door is not enough; five safe seconds are required.\n\nThe player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.\n\nEncounters use three to eight enemies and never exceed fifteen active enemies.\n\nFailure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long."
+          }
+        ]
+      },
+      "revision": {
+        "revision_required": true,
+        "original_text": "Out of power. Mana returns slowly after a brief delay following your last cast — wait for it before opening the door or engaging enemies.",
+        "final_text": "Out of power. Mana returns slowly after a brief delay following your last cast — but a locked door keeps losing durability while you wait.",
+        "critic_verdict": "revise",
+        "critic_issues": [
+          {
+            "category": "misleading_strategy",
+            "severity": "medium",
+            "problematic_claim": "wait for it before opening the door or engaging enemies",
+            "evidence_chunk_ids": [
+              "nsc-gdd-012"
+            ],
+            "explanation": "nsc-gdd-012 explicitly pairs mana regeneration with a cost: \"Waiting restores power while locked doors continue losing durability.\" The generated line presents waiting as unqualified good advice before opening the door, dropping the fact that a locked door keeps taking damage during that wait. This removes the intentional risk/reward tradeoff between recovering mana and letting the door's durability drain.",
+            "revision_instruction": "Add a brief qualifier noting the cost of waiting (e.g., that a locked door keeps losing durability while you wait) so the advice preserves the tradeoff instead of presenting waiting as free."
+          }
+        ],
+        "changes_made": [
+          "Removed the unqualified advice to 'wait for it before opening the door or engaging enemies', which presented waiting as cost-free.",
+          "Added the tradeoff from nsc-gdd-012 that a locked door keeps losing durability while the player waits for mana."
+        ],
+        "reason": "The revision keeps the accurate post-cast delay and slow regeneration language but now reflects nsc-gdd-012's pairing of mana recovery with ongoing door durability loss, restoring the intended risk/reward tradeoff instead of framing waiting as free.",
+        "run_metadata": {
+          "model": "sonnet",
+          "started_at_utc": "2026-08-07T02:39:32.592932+00:00",
+          "finished_at_utc": "2026-08-07T02:39:41.530831+00:00",
+          "duration_seconds": 8.94,
+          "session_id": "9e3b92ab-41c6-4d95-bee3-ac7dcf380ef9",
+          "num_turns": 2,
+          "length_repair": {
+            "required": false,
+            "original_word_count": 25,
+            "max_words": 30
+          }
+        }
+      }
+    },
+    {
+      "id": "force_wave_misuse",
+      "label": "Force Wave Timing",
+      "trigger": "death_when_force_wave_on_cooldown",
+      "query": "Why can using Force Wave without an immediate threat become a readable failure, and what tradeoff does its long cooldown create?",
+      "content_requirements": [
+        "Teach that Force Wave is an emergency positioning tool.",
+        "Preserve the meaningful-use and long-cooldown tradeoff.",
+        "Do not suggest the previous use was always objectively wrong."
+      ],
+      "max_words": 35,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-024",
+            "title": "Player experience success criteria",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Player Experience Success Criteria",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 130.1582,
+            "query_coverage": 0.6429,
+            "matched_terms": [
+              "failure",
+              "force",
+              "immediate",
+              "long",
+              "readable",
+              "threat",
+              "using",
+              "wave",
+              "without"
+            ],
+            "matched_phrases": [
+              "using force",
+              "force wave",
+              "wave without",
+              "immediate threat",
+              "readable failure",
+              "using force wave",
+              "force wave without",
+              "without an immediate",
+              "using force wave without",
+              "wave without an immediate",
+              "without an immediate threat"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Player Experience Success Criteria"
+              ],
+              "start_line": 137,
+              "end_line": 140,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "A first-time player understands that reaching a door is not enough; five safe seconds are required.\n\nThe player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.\n\nEncounters use three to eight enemies and never exceed fifteen active enemies.\n\nFailure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-011",
+            "title": "Force Wave interactions and distinct spell roles",
+            "section": "2. Game Mechanics",
+            "subsection": "Spell and Enemy Interactions",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 63.1141,
+            "query_coverage": 0.5,
+            "matched_terms": [
+              "cooldown",
+              "force",
+              "immediate",
+              "its",
+              "long",
+              "wave",
+              "without"
+            ],
+            "matched_phrases": [
+              "force wave",
+              "its long",
+              "long cooldown",
+              "its long cooldown"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Spell and Enemy Interactions"
+              ],
+              "start_line": 77,
+              "end_line": 79,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Spell: Force Wave. Against Melee Enemies: The primary emergency response when melee enemies surround the wizard or block access to a door. Its long cooldown prevents repeated use. Against Ranged Enemies: Its short range makes it a poor answer to distant ranged pressure. Reaching a ranged enemy to use it may expose the wizard to the melee group.\n\nThe three spells solve different problems: Frost Field controls pursuit, Force Wave repairs an immediate positioning mistake, and Charged Fireball converts a previously created opening into damage. No single spell reliably answers both enemy types by itself. Force Wave's cooldown is tuned so an encounter space typically allows only about one meaningful use: spending it to escape a mid-room surround may leave none available for that room's door attempt, and saving it for the door means resolving mid-room danger without it. This is an intentional resource decision, not proof that either use was wrong."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-012",
+            "title": "Resources, feedback, and readable failure",
+            "section": "2. Game Mechanics",
+            "subsection": "Resources, Feedback, and Failure",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 55.9215,
+            "query_coverage": 0.5,
+            "matched_terms": [
+              "cooldown",
+              "failure",
+              "force",
+              "long",
+              "readable",
+              "threat",
+              "wave"
+            ],
+            "matched_phrases": [
+              "force wave",
+              "readable failure",
+              "long cooldown"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Resources, Feedback, and Failure"
+              ],
+              "start_line": 83,
+              "end_line": 88,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Health: The wizard survives a few isolated hits but dies quickly when trapped. Health does not regenerate during a room, and does not reset between rooms — it carries across the whole run. Successfully locking a door after crossing restores a small, fixed amount of health before the next room begins; this recovery is partial, so accumulated damage still matters across all five rooms. Exact recovery values will be set during playtesting.\n\nMana: Mana regenerates slowly after a brief post-cast delay. Waiting restores power while locked doors continue losing durability.\n\nMovement: Circling or retreating creates temporary separation from pursuers, but Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters. Sustaining real separation requires turning routes, obstacles, Frost Field, Force Wave, or reducing the threat directly.\n\nForce Wave: A visible long cooldown shows when the emergency escape tool is unavailable.\n\nDoor feedback: Banging, shaking, cracks, and a durability indicator show when a breach is near.\n\nSetbacks: Door-opening attempts reset when movement or damage interrupts them."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-007",
+            "title": "Player actions: Frost Field and Force Wave",
+            "section": "2. Game Mechanics",
+            "subsection": "Player Actions and Systems",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 43.3676,
+            "query_coverage": 0.2857,
+            "matched_terms": [
+              "cooldown",
+              "force",
+              "long",
+              "wave"
+            ],
+            "matched_phrases": [
+              "force wave",
+              "long cooldown"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Player Actions and Systems"
+              ],
+              "start_line": 66,
+              "end_line": 67,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Action: Frost Field. What the player does: Place a temporary area that heavily slows enemies. Purpose: Divides crowds and protects routes.\n\nAction: Force Wave. What the player does: Use a short-range radial knockback with a long cooldown. Purpose: Creates emergency space."
+          }
+        ]
+      },
+      "revision": {
+        "revision_required": true,
+        "original_text": "Force Wave clears space in an emergency, but its long cooldown allows only one meaningful use per encounter. Using it once means none remains later — neither choice is wrong, only a tradeoff worth remembering.",
+        "final_text": "Force Wave creates space in an emergency, but its long cooldown typically allows about one meaningful use per encounter. Spend it now and none may remain later; neither choice is wrong, only a tradeoff.",
+        "critic_verdict": "revise",
+        "critic_issues": [
+          {
+            "category": "overstatement",
+            "severity": "medium",
+            "problematic_claim": "its long cooldown allows only one meaningful use per encounter",
+            "evidence_chunk_ids": [
+              "nsc-gdd-011"
+            ],
+            "explanation": "nsc-gdd-011 states the cooldown is 'tuned so an encounter space typically allows only about one meaningful use' — a qualified, approximate rule. The generated text drops 'typically' and 'about', converting it into an absolute guarantee of exactly one use per encounter, which misrepresents the intended variability.",
+            "revision_instruction": "Reintroduce a qualifier (e.g., 'typically only about one meaningful use') instead of stating it as a fixed, guaranteed count."
+          }
+        ],
+        "changes_made": [
+          "Replaced the absolute claim 'allows only one meaningful use per encounter' with the qualified 'typically allows about one meaningful use per encounter' to match the GDD's approximate framing.",
+          "Kept the emergency-positioning framing and the 'creates space' phrasing rather than 'clear the area.'",
+          "Preserved the neither-choice-is-wrong tradeoff framing from the original text."
+        ],
+        "reason": "nsc-gdd-011 describes the cooldown as tuned so an encounter 'typically allows only about one meaningful use,' an approximate rule, not a guarantee. The original text stated this as an absolute ('only one meaningful use per encounter'); reinstating 'typically' and 'about' aligns the copy with the qualified evidence while keeping the emergency-tool purpose, the tradeoff, and the non-judgmental framing intact.",
+        "run_metadata": {
+          "model": "sonnet",
+          "started_at_utc": "2026-08-07T02:39:41.531158+00:00",
+          "finished_at_utc": "2026-08-07T02:39:57.147941+00:00",
+          "duration_seconds": 15.62,
+          "session_id": "19af2139-74c5-4603-95c6-83d33d130600",
+          "num_turns": 2,
+          "length_repair": {
+            "required": false,
+            "original_word_count": 34,
+            "max_words": 35
+          }
+        }
+      }
+    },
+    {
+      "id": "waited_too_long",
+      "label": "Waiting Too Long",
+      "trigger": "death_after_previous_door_breach",
+      "query": "What happens if the player waits too long while a locked door loses durability: when does the locked door break and the surviving group enter the current room?",
+      "content_requirements": [
+        "Connect waiting to door durability and returning persistent pursuers.",
+        "Reinforce that locked doors provide recovery time, not permanent safety."
+      ],
+      "max_words": 35,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-022",
+            "title": "Door and pursuit rules: breach, persistence, and enemy cap",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Door and Pursuit Rules",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 139.2897,
+            "query_coverage": 0.8125,
+            "matched_terms": [
+              "break",
+              "current",
+              "door",
+              "enter",
+              "group",
+              "if",
+              "lock",
+              "long",
+              "player",
+              "room",
+              "surviv",
+              "too",
+              "wait"
+            ],
+            "matched_phrases": [
+              "player waits",
+              "waits too",
+              "too long",
+              "locked door",
+              "locked door",
+              "door break",
+              "surviving group",
+              "group enter",
+              "current room",
+              "if the player",
+              "player waits too",
+              "waits too long",
+              "locked door break",
+              "surviving group enter",
+              "if the player waits",
+              "player waits too long"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Door and Pursuit Rules"
+              ],
+              "start_line": 124,
+              "end_line": 125,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "If the player waits too long, the locked door breaks and the surviving group enters the current room. A broken door remains open and cannot be closed or relocked for the remainder of the run. The player cannot travel backward through an earlier doorway, including after its locked door has been broken; enemies may pass forward through the broken doorway, but it is not a return path for the player.\n\nSurviving enemies carry forward and combine with later encounters as the same persistent enemy objects, not new spawns, and the game never permits more than fifteen active enemies at once. When persistent pursuers and a new encounter would together exceed that limit — most notably in Lower Vault, where a rear breach can coincide with the room's own encounter — activation of the new encounter's additional enemies is delayed or reduced first; enemies already pursuing the player are never removed to make room."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-021",
+            "title": "Door and pursuit rules: crossing and locking",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Door and Pursuit Rules",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 47.0889,
+            "query_coverage": 0.25,
+            "matched_terms": [
+              "door",
+              "lock",
+              "player",
+              "room"
+            ],
+            "matched_phrases": [
+              "locked door",
+              "locked door"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Door and Pursuit Rules"
+              ],
+              "start_line": 121,
+              "end_line": 123,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Enemies move between rooms through open doors; crossing a doorway does not clear pursuit.\n\nA sealed door requires five uninterrupted seconds. Moving away or taking damage cancels the attempt.\n\nAfter crossing, the player can lock the door. Enemies that saw the escape begin attacking it. Once locked, a door cannot be reopened, unlocked, or crossed again by the player — the floor is a forward-only escape sequence."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-012",
+            "title": "Resources, feedback, and readable failure",
+            "section": "2. Game Mechanics",
+            "subsection": "Resources, Feedback, and Failure",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 46.117,
+            "query_coverage": 0.5625,
+            "matched_terms": [
+              "door",
+              "durability",
+              "lock",
+              "long",
+              "los",
+              "room",
+              "surviv",
+              "wait",
+              "while"
+            ],
+            "matched_phrases": [
+              "locked door",
+              "locked door"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Resources, Feedback, and Failure"
+              ],
+              "start_line": 83,
+              "end_line": 88,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Health: The wizard survives a few isolated hits but dies quickly when trapped. Health does not regenerate during a room, and does not reset between rooms — it carries across the whole run. Successfully locking a door after crossing restores a small, fixed amount of health before the next room begins; this recovery is partial, so accumulated damage still matters across all five rooms. Exact recovery values will be set during playtesting.\n\nMana: Mana regenerates slowly after a brief post-cast delay. Waiting restores power while locked doors continue losing durability.\n\nMovement: Circling or retreating creates temporary separation from pursuers, but Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters. Sustaining real separation requires turning routes, obstacles, Frost Field, Force Wave, or reducing the threat directly.\n\nForce Wave: A visible long cooldown shows when the emergency escape tool is unavailable.\n\nDoor feedback: Banging, shaking, cracks, and a durability indicator show when a breach is near.\n\nSetbacks: Door-opening attempts reset when movement or damage interrupts them."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-002",
+            "title": "Executive summary: core survival loop",
+            "section": "1. Executive Summary",
+            "subsection": null,
+            "domain": "game_design",
+            "canonical": true,
+            "score": 43.345,
+            "query_coverage": 0.625,
+            "matched_terms": [
+              "break",
+              "door",
+              "group",
+              "if",
+              "lock",
+              "los",
+              "player",
+              "room",
+              "surviv",
+              "wait"
+            ],
+            "matched_phrases": [
+              "locked door",
+              "locked door"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "1. Executive Summary"
+              ],
+              "start_line": 21,
+              "end_line": 25,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "No Safe Circle is a single-player, top-down survival action game set on one handcrafted dungeon floor. The player controls a vulnerable wizard who can destroy small groups of monsters with powerful spells but cannot survive being surrounded. The player must control distance, wait for mana to regenerate, and decide when to fight, flee, or risk opening the next sealed door.\n\nEach room ends at a door that takes five uninterrupted seconds to open. Before attempting it, the player must create space by luring enemies away, slowing them with Frost Field, knocking them back with Force Wave, or defeating enough of them to reduce the immediate threat. Enemies can follow the wizard through an open doorway. After crossing, the player can close and lock the door, but surviving pursuers will pound against it and eventually break through.\n\nLocked doors provide recovery time, not permanent safety. In the final room, the player must create enough distance from the pursuing enemies to open the final door and escape. The player wins by passing through the final door and loses if the wizard's health reaches zero."
+          }
+        ]
+      },
+      "revision": {
+        "revision_required": false,
+        "original_text": "Waiting too long lets a locked door break. The surviving pursuers you left behind will follow into this room. Locked doors buy recovery time — not permanent safety.",
+        "final_text": "Waiting too long lets a locked door break. The surviving pursuers you left behind will follow into this room. Locked doors buy recovery time — not permanent safety.",
+        "critic_verdict": "pass",
+        "critic_issues": [],
+        "changes_made": [],
+        "reason": "Critic passed the original text unchanged.",
+        "run_metadata": null
+      }
+    }
+  ]
+}

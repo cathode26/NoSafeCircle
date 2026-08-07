@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "output_type": "door_tutorial",
+  "game": "No Safe Circle",
+  "game_gap": "The GDD requires a first-time player to understand that reaching a door is not enough, that opening can be interrupted, and that locked doors only provide temporary safety. The game therefore needs short tutorial prompts for the door and pursuit loop.",
+  "output_path": "DynamicContentPipeline/outputs/initial/door_tutorial.json",
+  "items": [
+    {
+      "id": "door_opening",
+      "label": "Opening a Sealed Door",
+      "trigger": "first_sealed_door_interaction",
+	  "query": "What is the player action for opening a sealed door, including holding for five seconds and what movement or damage interrupts the attempt?",
+	  "top_k": 4,
+      "content_requirements": [
+        "State the five uninterrupted seconds requirement.",
+        "State that movement or damage cancels or resets the attempt.",
+        "Do not invent a control key unless the retrieved evidence explicitly supports it."
+      ],
+      "max_words": 30
+    },
+    {
+      "id": "door_cross_and_lock",
+      "label": "Crossing and Locking",
+      "trigger": "first_door_opened",
+      "query": "What happens after the player opens and crosses a door, what does locking it do, and can the player reopen or cross it again?",
+      "top_k": 4,
+      "content_requirements": [
+        "Explain forward-only progress.",
+        "Explain that locking creates temporary recovery time.",
+        "Do not imply the locked door is permanent safety."
+      ],
+      "max_words": 35
+    },
+    {
+      "id": "door_health_recovery",
+      "label": "Locking Recovery",
+      "trigger": "first_door_locked",
+      "query": "What health recovery occurs after successfully locking a door, and what limits apply to that recovery?",
+      "top_k": 4,
+      "content_requirements": [
+        "Describe the recovery as small, fixed, and partial.",
+        "Do not invent an exact health amount."
+      ],
+      "max_words": 25
+    },
+    {
+      "id": "door_breach",
+      "label": "Door Breach",
+      "trigger": "first_locked_door_near_break",
+      "query": "What happens when a locked door breaks, and what can the player and surviving enemies do after the breach?",
+      "top_k": 4,
+      "content_requirements": [
+        "Explain that the broken door remains open.",
+        "Explain that it cannot be relocked.",
+        "Do not suggest the player can travel backward through it."
+      ],
+      "max_words": 35
+    },
+    {
+      "id": "persistent_pursuit",
+      "label": "Persistent Pursuit",
+      "trigger": "first_pursuer_enters_later_room",
+      "query": "How do surviving enemies carry forward as the same persistent enemy objects after doors break, and why do they remain a later threat?",
+      "top_k": 4,
+      "content_requirements": [
+        "Explain that surviving enemies are persistent pursuers rather than replacement spawns.",
+        "Connect the rule to temporary safety and later pressure."
+      ],
+      "max_words": 35
+    }
+  ]
+}

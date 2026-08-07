@@ -1,0 +1,865 @@
+{
+  "schema_version": "1.0",
+  "game": "No Safe Circle",
+  "output_type": "door_tutorial",
+  "game_gap": "The GDD requires a first-time player to understand that reaching a door is not enough, that opening can be interrupted, and that locked doors only provide temporary safety. The game therefore needs short tutorial prompts for the door and pursuit loop.",
+  "retriever_version": "1.1",
+  "generator_version": "1.1",
+  "generator_model": "sonnet",
+  "generated_at_utc": "2026-08-07T02:01:08.978672+00:00",
+  "dry_run": false,
+  "items": [
+    {
+      "id": "door_opening",
+      "label": "Opening a Sealed Door",
+      "trigger": "first_sealed_door_interaction",
+      "query": "What is the player action for opening a sealed door, including holding for five seconds and what movement or damage interrupts the attempt?",
+      "top_k": 4,
+      "content_requirements": [
+        "State the five uninterrupted seconds requirement.",
+        "State that movement or damage cancels or resets the attempt.",
+        "Do not invent a control key unless the retrieved evidence explicitly supports it."
+      ],
+      "max_words": 30,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-008",
+            "title": "Player actions: opening, crossing, and locking doors",
+            "section": "2. Game Mechanics",
+            "subsection": "Player Actions and Systems",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 84.5815,
+            "query_coverage": 0.7692,
+            "matched_terms": [
+              "action",
+              "damage",
+              "door",
+              "five",
+              "hold",
+              "movement",
+              "open",
+              "player",
+              "seal",
+              "second"
+            ],
+            "matched_phrases": [
+              "player action",
+              "sealed door",
+              "five seconds",
+              "movement or damage"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Player Actions and Systems"
+              ],
+              "start_line": 68,
+              "end_line": 69,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Action: Open Sealed Door. What the player does: Hold for five seconds; movement or damage cancels. Purpose: Makes each exit a positioning challenge.\n\nAction: Close and Lock. What the player does: Shut the door after crossing, restoring a small, fixed amount of health. Once locked, this door cannot be reopened or crossed again (see Door and Pursuit Rules). Purpose: Creates recovery time while pursuers attack it, and marks forward progress as final."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-021",
+            "title": "Door and pursuit rules: crossing and locking",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Door and Pursuit Rules",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 53.637,
+            "query_coverage": 0.6154,
+            "matched_terms": [
+              "attempt",
+              "damage",
+              "door",
+              "five",
+              "open",
+              "player",
+              "seal",
+              "second"
+            ],
+            "matched_phrases": [
+              "sealed door"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Door and Pursuit Rules"
+              ],
+              "start_line": 121,
+              "end_line": 123,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Enemies move between rooms through open doors; crossing a doorway does not clear pursuit.\n\nA sealed door requires five uninterrupted seconds. Moving away or taking damage cancels the attempt.\n\nAfter crossing, the player can lock the door. Enemies that saw the escape begin attacking it. Once locked, a door cannot be reopened, unlocked, or crossed again by the player — the floor is a forward-only escape sequence."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-012",
+            "title": "Resources, feedback, and readable failure",
+            "section": "2. Game Mechanics",
+            "subsection": "Resources, Feedback, and Failure",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 50.8632,
+            "query_coverage": 0.5385,
+            "matched_terms": [
+              "attempt",
+              "damage",
+              "door",
+              "five",
+              "interrupt",
+              "movement",
+              "open"
+            ],
+            "matched_phrases": [
+              "damage interrupts",
+              "movement or damage",
+              "movement or damage interrupts"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Resources, Feedback, and Failure"
+              ],
+              "start_line": 83,
+              "end_line": 88,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Health: The wizard survives a few isolated hits but dies quickly when trapped. Health does not regenerate during a room, and does not reset between rooms — it carries across the whole run. Successfully locking a door after crossing restores a small, fixed amount of health before the next room begins; this recovery is partial, so accumulated damage still matters across all five rooms. Exact recovery values will be set during playtesting.\n\nMana: Mana regenerates slowly after a brief post-cast delay. Waiting restores power while locked doors continue losing durability.\n\nMovement: Circling or retreating creates temporary separation from pursuers, but Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters. Sustaining real separation requires turning routes, obstacles, Frost Field, Force Wave, or reducing the threat directly.\n\nForce Wave: A visible long cooldown shows when the emergency escape tool is unavailable.\n\nDoor feedback: Banging, shaking, cracks, and a durability indicator show when a breach is near.\n\nSetbacks: Door-opening attempts reset when movement or damage interrupts them."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-002",
+            "title": "Executive summary: core survival loop",
+            "section": "1. Executive Summary",
+            "subsection": null,
+            "domain": "game_design",
+            "canonical": true,
+            "score": 44.6584,
+            "query_coverage": 0.6154,
+            "matched_terms": [
+              "action",
+              "attempt",
+              "door",
+              "five",
+              "open",
+              "player",
+              "seal",
+              "second"
+            ],
+            "matched_phrases": [
+              "sealed door"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "1. Executive Summary"
+              ],
+              "start_line": 21,
+              "end_line": 25,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "No Safe Circle is a single-player, top-down survival action game set on one handcrafted dungeon floor. The player controls a vulnerable wizard who can destroy small groups of monsters with powerful spells but cannot survive being surrounded. The player must control distance, wait for mana to regenerate, and decide when to fight, flee, or risk opening the next sealed door.\n\nEach room ends at a door that takes five uninterrupted seconds to open. Before attempting it, the player must create space by luring enemies away, slowing them with Frost Field, knocking them back with Force Wave, or defeating enough of them to reduce the immediate threat. Enemies can follow the wizard through an open doorway. After crossing, the player can close and lock the door, but surviving pursuers will pound against it and eventually break through.\n\nLocked doors provide recovery time, not permanent safety. In the final room, the player must create enough distance from the pursuing enemies to open the final door and escape. The player wins by passing through the final door and loses if the wizard's health reaches zero."
+          }
+        ]
+      },
+      "generation": {
+        "status": "generated",
+        "content_id": "door_opening",
+        "label": "Opening a Sealed Door",
+        "text": "Hold your position for five uninterrupted seconds to open this door. Moving or taking damage cancels the attempt — stay still and stay safe.",
+        "reason": "nsc-gdd-008 and nsc-gdd-021 confirm opening requires five uninterrupted seconds and that movement or damage cancels the attempt; no control key is stated, so none was invented."
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T02:01:08.985241+00:00",
+        "finished_at_utc": "2026-08-07T02:01:18.264233+00:00",
+        "duration_seconds": 9.28,
+        "session_id": "dff26bc1-a60e-4d2e-9bc4-891bd989004c",
+        "num_turns": 2,
+        "length_repair": {
+          "required": false,
+          "original_word_count": 24,
+          "max_words": 30
+        }
+      }
+    },
+    {
+      "id": "door_cross_and_lock",
+      "label": "Crossing and Locking",
+      "trigger": "first_door_opened",
+      "query": "What happens after the player opens and crosses a door, what does locking it do, and can the player reopen or cross it again?",
+      "top_k": 4,
+      "content_requirements": [
+        "Explain forward-only progress.",
+        "Explain that locking creates temporary recovery time.",
+        "Do not imply the locked door is permanent safety."
+      ],
+      "max_words": 35,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-021",
+            "title": "Door and pursuit rules: crossing and locking",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Door and Pursuit Rules",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 54.4584,
+            "query_coverage": 0.875,
+            "matched_terms": [
+              "again",
+              "cros",
+              "door",
+              "lock",
+              "open",
+              "player",
+              "reopen"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Door and Pursuit Rules"
+              ],
+              "start_line": 121,
+              "end_line": 123,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Enemies move between rooms through open doors; crossing a doorway does not clear pursuit.\n\nA sealed door requires five uninterrupted seconds. Moving away or taking damage cancels the attempt.\n\nAfter crossing, the player can lock the door. Enemies that saw the escape begin attacking it. Once locked, a door cannot be reopened, unlocked, or crossed again by the player — the floor is a forward-only escape sequence."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-008",
+            "title": "Player actions: opening, crossing, and locking doors",
+            "section": "2. Game Mechanics",
+            "subsection": "Player Actions and Systems",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 47.0515,
+            "query_coverage": 0.875,
+            "matched_terms": [
+              "again",
+              "cros",
+              "door",
+              "lock",
+              "open",
+              "player",
+              "reopen"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Player Actions and Systems"
+              ],
+              "start_line": 68,
+              "end_line": 69,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Action: Open Sealed Door. What the player does: Hold for five seconds; movement or damage cancels. Purpose: Makes each exit a positioning challenge.\n\nAction: Close and Lock. What the player does: Shut the door after crossing, restoring a small, fixed amount of health. Once locked, this door cannot be reopened or crossed again (see Door and Pursuit Rules). Purpose: Creates recovery time while pursuers attack it, and marks forward progress as final."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-005",
+            "title": "Core gameplay loop",
+            "section": "2. Game Mechanics",
+            "subsection": "Core Gameplay Loop",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 28.0128,
+            "query_coverage": 0.625,
+            "matched_terms": [
+              "cros",
+              "door",
+              "lock",
+              "open",
+              "player"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Core Gameplay Loop"
+              ],
+              "start_line": 50,
+              "end_line": 58,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "The player moves through connected rooms toward the final door. In each room, the objective is to create five safe seconds, open the next door, cross through it, and lock it before the pursuing monsters arrive.\n\n1. Scout the room, locate the sealed door, and identify a route for luring or slowing enemies.\n\n2. Avoid the group, pull part of it away, or spend mana on a direct fight.\n\n3. Use Frost Field and movement to stretch the chase; charge Fireball when enough distance exists.\n\n4. Use Force Wave if enemies reach the wizard or block the door.\n\n5. Open the door for five uninterrupted seconds, cross through it, lock it, and recover before pursuers break through."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-012",
+            "title": "Resources, feedback, and readable failure",
+            "section": "2. Game Mechanics",
+            "subsection": "Resources, Feedback, and Failure",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 23.916,
+            "query_coverage": 0.5,
+            "matched_terms": [
+              "cros",
+              "door",
+              "lock",
+              "open"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Resources, Feedback, and Failure"
+              ],
+              "start_line": 83,
+              "end_line": 88,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Health: The wizard survives a few isolated hits but dies quickly when trapped. Health does not regenerate during a room, and does not reset between rooms — it carries across the whole run. Successfully locking a door after crossing restores a small, fixed amount of health before the next room begins; this recovery is partial, so accumulated damage still matters across all five rooms. Exact recovery values will be set during playtesting.\n\nMana: Mana regenerates slowly after a brief post-cast delay. Waiting restores power while locked doors continue losing durability.\n\nMovement: Circling or retreating creates temporary separation from pursuers, but Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters. Sustaining real separation requires turning routes, obstacles, Frost Field, Force Wave, or reducing the threat directly.\n\nForce Wave: A visible long cooldown shows when the emergency escape tool is unavailable.\n\nDoor feedback: Banging, shaking, cracks, and a durability indicator show when a breach is near.\n\nSetbacks: Door-opening attempts reset when movement or damage interrupts them."
+          }
+        ]
+      },
+      "generation": {
+        "content_id": "door_cross_and_lock",
+        "label": "Crossing and Locking",
+        "text": "Locking a door seals your path forward — it can't be reopened or crossed again. Locking grants brief recovery, but pursuers immediately attack it. Don't linger; the door won't hold forever.",
+        "reason": "Evidence (nsc-gdd-021, nsc-gdd-008) confirms locked doors cannot be reopened, unlocked, or crossed again, establishing forward-only progress. Locking restores a small fixed amount of health (recovery) while pursuers immediately attack the door, and door feedback/durability indicators (nsc-gdd-012) confirm it can eventually be breached, so safety is temporary, not permanent.",
+        "status": "generated"
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T02:01:18.274153+00:00",
+        "finished_at_utc": "2026-08-07T02:01:28.530564+00:00",
+        "duration_seconds": 10.26,
+        "session_id": "ad385c04-9594-46be-b560-2d5b3d2a0e18",
+        "num_turns": 2,
+        "length_repair": {
+          "required": false,
+          "original_word_count": 31,
+          "max_words": 35
+        }
+      }
+    },
+    {
+      "id": "door_health_recovery",
+      "label": "Locking Recovery",
+      "trigger": "first_door_locked",
+      "query": "What health recovery occurs after successfully locking a door, and what limits apply to that recovery?",
+      "top_k": 4,
+      "content_requirements": [
+        "Describe the recovery as small, fixed, and partial.",
+        "Do not invent an exact health amount."
+      ],
+      "max_words": 25,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-012",
+            "title": "Resources, feedback, and readable failure",
+            "section": "2. Game Mechanics",
+            "subsection": "Resources, Feedback, and Failure",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 79.464,
+            "query_coverage": 0.625,
+            "matched_terms": [
+              "door",
+              "health",
+              "lock",
+              "recovery",
+              "successful"
+            ],
+            "matched_phrases": [
+              "health recovery",
+              "successfully locking",
+              "locking a door",
+              "successfully locking a door"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Resources, Feedback, and Failure"
+              ],
+              "start_line": 83,
+              "end_line": 88,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Health: The wizard survives a few isolated hits but dies quickly when trapped. Health does not regenerate during a room, and does not reset between rooms — it carries across the whole run. Successfully locking a door after crossing restores a small, fixed amount of health before the next room begins; this recovery is partial, so accumulated damage still matters across all five rooms. Exact recovery values will be set during playtesting.\n\nMana: Mana regenerates slowly after a brief post-cast delay. Waiting restores power while locked doors continue losing durability.\n\nMovement: Circling or retreating creates temporary separation from pursuers, but Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters. Sustaining real separation requires turning routes, obstacles, Frost Field, Force Wave, or reducing the threat directly.\n\nForce Wave: A visible long cooldown shows when the emergency escape tool is unavailable.\n\nDoor feedback: Banging, shaking, cracks, and a durability indicator show when a breach is near.\n\nSetbacks: Door-opening attempts reset when movement or damage interrupts them."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-008",
+            "title": "Player actions: opening, crossing, and locking doors",
+            "section": "2. Game Mechanics",
+            "subsection": "Player Actions and Systems",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 34.4755,
+            "query_coverage": 0.5,
+            "matched_terms": [
+              "door",
+              "health",
+              "lock",
+              "recovery"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "2. Game Mechanics",
+                "Player Actions and Systems"
+              ],
+              "start_line": 68,
+              "end_line": 69,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Action: Open Sealed Door. What the player does: Hold for five seconds; movement or damage cancels. Purpose: Makes each exit a positioning challenge.\n\nAction: Close and Lock. What the player does: Shut the door after crossing, restoring a small, fixed amount of health. Once locked, this door cannot be reopened or crossed again (see Door and Pursuit Rules). Purpose: Creates recovery time while pursuers attack it, and marks forward progress as final."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-002",
+            "title": "Executive summary: core survival loop",
+            "section": "1. Executive Summary",
+            "subsection": null,
+            "domain": "game_design",
+            "canonical": true,
+            "score": 25.0996,
+            "query_coverage": 0.5,
+            "matched_terms": [
+              "door",
+              "health",
+              "lock",
+              "recovery"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "1. Executive Summary"
+              ],
+              "start_line": 21,
+              "end_line": 25,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "No Safe Circle is a single-player, top-down survival action game set on one handcrafted dungeon floor. The player controls a vulnerable wizard who can destroy small groups of monsters with powerful spells but cannot survive being surrounded. The player must control distance, wait for mana to regenerate, and decide when to fight, flee, or risk opening the next sealed door.\n\nEach room ends at a door that takes five uninterrupted seconds to open. Before attempting it, the player must create space by luring enemies away, slowing them with Frost Field, knocking them back with Force Wave, or defeating enough of them to reduce the immediate threat. Enemies can follow the wizard through an open doorway. After crossing, the player can close and lock the door, but surviving pursuers will pound against it and eventually break through.\n\nLocked doors provide recovery time, not permanent safety. In the final room, the player must create enough distance from the pursuing enemies to open the final door and escape. The player wins by passing through the final door and loses if the wizard's health reaches zero."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-021",
+            "title": "Door and pursuit rules: crossing and locking",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Door and Pursuit Rules",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 22.5882,
+            "query_coverage": 0.25,
+            "matched_terms": [
+              "door",
+              "lock"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Door and Pursuit Rules"
+              ],
+              "start_line": 121,
+              "end_line": 123,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Enemies move between rooms through open doors; crossing a doorway does not clear pursuit.\n\nA sealed door requires five uninterrupted seconds. Moving away or taking damage cancels the attempt.\n\nAfter crossing, the player can lock the door. Enemies that saw the escape begin attacking it. Once locked, a door cannot be reopened, unlocked, or crossed again by the player — the floor is a forward-only escape sequence."
+          }
+        ]
+      },
+      "generation": {
+        "status": "generated",
+        "content_id": "door_health_recovery",
+        "label": "Locking Recovery",
+        "text": "Locking the door restores a small, fixed amount of health — a partial recovery. Old wounds still matter.",
+        "reason": "Chunks nsc-gdd-012 and nsc-gdd-008 state locking restores \"a small, fixed amount of health,\" partial since \"accumulated damage still matters\"; no exact value is given or invented."
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T02:01:28.539213+00:00",
+        "finished_at_utc": "2026-08-07T02:01:38.195705+00:00",
+        "duration_seconds": 9.66,
+        "session_id": "e9f71357-f375-4469-88f6-ab9296f36b05",
+        "num_turns": 2,
+        "length_repair": {
+          "required": false,
+          "original_word_count": 18,
+          "max_words": 25
+        }
+      }
+    },
+    {
+      "id": "door_breach",
+      "label": "Door Breach",
+      "trigger": "first_locked_door_near_break",
+      "query": "What happens when a locked door breaks, and what can the player and surviving enemies do after the breach?",
+      "top_k": 4,
+      "content_requirements": [
+        "Explain that the broken door remains open.",
+        "Explain that it cannot be relocked.",
+        "Do not suggest the player can travel backward through it."
+      ],
+      "max_words": 35,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-022",
+            "title": "Door and pursuit rules: breach, persistence, and enemy cap",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Door and Pursuit Rules",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 63.5216,
+            "query_coverage": 1.0,
+            "matched_terms": [
+              "breach",
+              "break",
+              "door",
+              "enemy",
+              "lock",
+              "player",
+              "surviv"
+            ],
+            "matched_phrases": [
+              "locked door",
+              "door breaks",
+              "surviving enemies",
+              "locked door breaks"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Door and Pursuit Rules"
+              ],
+              "start_line": 124,
+              "end_line": 125,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "If the player waits too long, the locked door breaks and the surviving group enters the current room. A broken door remains open and cannot be closed or relocked for the remainder of the run. The player cannot travel backward through an earlier doorway, including after its locked door has been broken; enemies may pass forward through the broken doorway, but it is not a return path for the player.\n\nSurviving enemies carry forward and combine with later encounters as the same persistent enemy objects, not new spawns, and the game never permits more than fifteen active enemies at once. When persistent pursuers and a new encounter would together exceed that limit — most notably in Lower Vault, where a rear breach can coincide with the room's own encounter — activation of the new encounter's additional enemies is delayed or reduced first; enemies already pursuing the player are never removed to make room."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-021",
+            "title": "Door and pursuit rules: crossing and locking",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Door and Pursuit Rules",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 47.6786,
+            "query_coverage": 0.5714,
+            "matched_terms": [
+              "door",
+              "enemy",
+              "lock",
+              "player"
+            ],
+            "matched_phrases": [
+              "locked door"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Door and Pursuit Rules"
+              ],
+              "start_line": 121,
+              "end_line": 123,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Enemies move between rooms through open doors; crossing a doorway does not clear pursuit.\n\nA sealed door requires five uninterrupted seconds. Moving away or taking damage cancels the attempt.\n\nAfter crossing, the player can lock the door. Enemies that saw the escape begin attacking it. Once locked, a door cannot be reopened, unlocked, or crossed again by the player — the floor is a forward-only escape sequence."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-002",
+            "title": "Executive summary: core survival loop",
+            "section": "1. Executive Summary",
+            "subsection": null,
+            "domain": "game_design",
+            "canonical": true,
+            "score": 43.0309,
+            "query_coverage": 0.8571,
+            "matched_terms": [
+              "break",
+              "door",
+              "enemy",
+              "lock",
+              "player",
+              "surviv"
+            ],
+            "matched_phrases": [
+              "locked door"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "1. Executive Summary"
+              ],
+              "start_line": 21,
+              "end_line": 25,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "No Safe Circle is a single-player, top-down survival action game set on one handcrafted dungeon floor. The player controls a vulnerable wizard who can destroy small groups of monsters with powerful spells but cannot survive being surrounded. The player must control distance, wait for mana to regenerate, and decide when to fight, flee, or risk opening the next sealed door.\n\nEach room ends at a door that takes five uninterrupted seconds to open. Before attempting it, the player must create space by luring enemies away, slowing them with Frost Field, knocking them back with Force Wave, or defeating enough of them to reduce the immediate threat. Enemies can follow the wizard through an open doorway. After crossing, the player can close and lock the door, but surviving pursuers will pound against it and eventually break through.\n\nLocked doors provide recovery time, not permanent safety. In the final room, the player must create enough distance from the pursuing enemies to open the final door and escape. The player wins by passing through the final door and loses if the wizard's health reaches zero."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-024",
+            "title": "Player experience success criteria",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Player Experience Success Criteria",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 38.5144,
+            "query_coverage": 0.7143,
+            "matched_terms": [
+              "break",
+              "door",
+              "enemy",
+              "lock",
+              "player"
+            ],
+            "matched_phrases": [
+              "door breaks"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Player Experience Success Criteria"
+              ],
+              "start_line": 137,
+              "end_line": 140,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "A first-time player understands that reaching a door is not enough; five safe seconds are required.\n\nThe player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.\n\nEncounters use three to eight enemies and never exceed fifteen active enemies.\n\nFailure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long."
+          }
+        ]
+      },
+      "generation": {
+        "status": "generated",
+        "content_id": "door_breach",
+        "label": "Door Breach",
+        "text": "The door broke. It stays open now, and it can't be locked again. There's no going back through it — whatever survived the fight is coming through.",
+        "reason": "Chunk nsc-gdd-022 confirms a broken door \"remains open and cannot be closed or relocked for the remainder of the run\" and that the player \"cannot travel backward through\" it while surviving enemies \"may pass forward through the broken doorway.\""
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T02:01:38.206158+00:00",
+        "finished_at_utc": "2026-08-07T02:01:49.584268+00:00",
+        "duration_seconds": 11.38,
+        "session_id": "d01e209a-7806-4cbc-b1a4-f9cd23db2501",
+        "num_turns": 2,
+        "length_repair": {
+          "required": false,
+          "original_word_count": 27,
+          "max_words": 35
+        }
+      }
+    },
+    {
+      "id": "persistent_pursuit",
+      "label": "Persistent Pursuit",
+      "trigger": "first_pursuer_enters_later_room",
+      "query": "How do surviving enemies carry forward as the same persistent enemy objects after doors break, and why do they remain a later threat?",
+      "top_k": 4,
+      "content_requirements": [
+        "Explain that surviving enemies are persistent pursuers rather than replacement spawns.",
+        "Connect the rule to temporary safety and later pressure."
+      ],
+      "max_words": 35,
+      "retrieval": {
+        "retriever_version": "1.1",
+        "chunks": [
+          {
+            "rank": 1,
+            "chunk_id": "nsc-gdd-022",
+            "title": "Door and pursuit rules: breach, persistence, and enemy cap",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Door and Pursuit Rules",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 136.0627,
+            "query_coverage": 0.8462,
+            "matched_terms": [
+              "break",
+              "carry",
+              "door",
+              "enemy",
+              "forward",
+              "later",
+              "object",
+              "persistent",
+              "remain",
+              "same",
+              "surviv"
+            ],
+            "matched_phrases": [
+              "surviving enemies",
+              "enemies carry",
+              "carry forward",
+              "same persistent",
+              "persistent enemy",
+              "enemy objects",
+              "surviving enemies carry",
+              "enemies carry forward",
+              "same persistent enemy",
+              "persistent enemy objects",
+              "surviving enemies carry forward",
+              "same persistent enemy objects"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Door and Pursuit Rules"
+              ],
+              "start_line": 124,
+              "end_line": 125,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "If the player waits too long, the locked door breaks and the surviving group enters the current room. A broken door remains open and cannot be closed or relocked for the remainder of the run. The player cannot travel backward through an earlier doorway, including after its locked door has been broken; enemies may pass forward through the broken doorway, but it is not a return path for the player.\n\nSurviving enemies carry forward and combine with later encounters as the same persistent enemy objects, not new spawns, and the game never permits more than fifteen active enemies at once. When persistent pursuers and a new encounter would together exceed that limit — most notably in Lower Vault, where a rear breach can coincide with the room's own encounter — activation of the new encounter's additional enemies is delayed or reduced first; enemies already pursuing the player are never removed to make room."
+          },
+          {
+            "rank": 2,
+            "chunk_id": "nsc-gdd-024",
+            "title": "Player experience success criteria",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Player Experience Success Criteria",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 43.0534,
+            "query_coverage": 0.5385,
+            "matched_terms": [
+              "break",
+              "door",
+              "enemy",
+              "later",
+              "remain",
+              "they",
+              "threat"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Player Experience Success Criteria"
+              ],
+              "start_line": 137,
+              "end_line": 140,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "A first-time player understands that reaching a door is not enough; five safe seconds are required.\n\nThe player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.\n\nEncounters use three to eight enemies and never exceed fifteen active enemies.\n\nFailure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long."
+          },
+          {
+            "rank": 3,
+            "chunk_id": "nsc-gdd-018",
+            "title": "Room 4: Lower Vault",
+            "section": "3. Player Experience and Content Scope",
+            "subsection": "Dungeon Floor Structure",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 39.6474,
+            "query_coverage": 0.3846,
+            "matched_terms": [
+              "break",
+              "enemy",
+              "persistent",
+              "same",
+              "surviv"
+            ],
+            "matched_phrases": [
+              "surviving enemies",
+              "same persistent"
+            ],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "3. Player Experience and Content Scope",
+                "Dungeon Floor Structure"
+              ],
+              "start_line": 107,
+              "end_line": 107,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Area: 4. Lower Vault. Layout and Tactical Purpose: Columns and storage piles create several incomplete loops rather than one safe circuit. The player must watch both the current encounter and the previous doorway, because surviving enemies from earlier rooms are the same persistent pursuers breaking through behind them, not newly spawned enemies."
+          },
+          {
+            "rank": 4,
+            "chunk_id": "nsc-gdd-004",
+            "title": "Design pillars and authoritative scope note",
+            "section": "1. Executive Summary",
+            "subsection": "Design Pillars",
+            "domain": "game_design",
+            "canonical": true,
+            "score": 29.7379,
+            "query_coverage": 0.4615,
+            "matched_terms": [
+              "break",
+              "door",
+              "enemy",
+              "later",
+              "surviv",
+              "threat"
+            ],
+            "matched_phrases": [],
+            "source": {
+              "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+              "heading_path": [
+                "1. Executive Summary",
+                "Design Pillars"
+              ],
+              "start_line": 40,
+              "end_line": 46,
+              "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+            },
+            "text": "Safety is always temporary. Doors delay pursuing enemies but do not remove the threat created by monsters left alive.\n\nMagic creates opportunities rather than constant power. Frost Field slows pursuit, Force Wave creates space, and Charged Fireball rewards the player for preparing a safe moment to attack.\n\nEscape is a valid strategy with lasting consequences. The player is not required to defeat every enemy, but surviving monsters may follow through open doors or break into later rooms.\n\nSee \"Required Scope, Exclusions, and Stretch Goals\" in Section 3 for the authoritative scope list."
+          }
+        ]
+      },
+      "generation": {
+        "status": "generated",
+        "content_id": "persistent_pursuit",
+        "label": "Persistent Pursuit",
+        "text": "Enemies you leave alive don't vanish. If a door breaks, they follow you forward as the same threat, not a new one. Locked doors buy time — not safety.",
+        "reason": "nsc-gdd-022 states surviving enemies \"carry forward and combine with later encounters as the same persistent enemy objects, not new spawns,\" and nsc-gdd-004/024 establish that doors only delay, not remove, the threat."
+      },
+      "run_metadata": {
+        "model": "sonnet",
+        "started_at_utc": "2026-08-07T02:01:49.594308+00:00",
+        "finished_at_utc": "2026-08-07T02:01:58.247889+00:00",
+        "duration_seconds": 8.66,
+        "session_id": "1d6436e2-9dd3-44cb-b5e0-19e4ae80fab2",
+        "num_turns": 2,
+        "length_repair": {
+          "required": false,
+          "original_word_count": 29,
+          "max_words": 35
+        }
+      }
+    }
+  ]
+}

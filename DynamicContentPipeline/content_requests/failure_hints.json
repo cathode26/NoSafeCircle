@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "output_type": "failure_hints",
+  "game": "No Safe Circle",
+  "game_gap": "The GDD explicitly requires failure to be readable and identifies poor positioning, low mana, Force Wave misuse, and waiting too long as understandable causes. The game therefore needs concise post-failure hints that reinforce those intended lessons.",
+  "output_path": "DynamicContentPipeline/outputs/initial/failure_hints.json",
+  "items": [
+    {
+      "id": "poor_positioning",
+      "label": "Poor Positioning",
+      "trigger": "death_while_surrounded_or_trapped",
+      "query": "What does the GDD say about poor positioning, being surrounded, movement, and creating temporary separation from pursuers?",
+      "top_k": 4,
+      "content_requirements": [
+        "Teach positioning and space creation without blaming the player.",
+        "Keep the message tactical and concise.",
+        "Do not invent a new defensive mechanic."
+      ],
+      "max_words": 30
+    },
+    {
+      "id": "low_mana",
+      "label": "Low Mana",
+      "trigger": "death_or_failed_door_attempt_with_low_mana",
+      "query": "What does the GDD say about low mana, mana regeneration, the post-cast delay, and waiting for power to return?",
+      "top_k": 4,
+      "content_requirements": [
+        "Reinforce that mana returns slowly after a brief post-cast delay.",
+        "Do not invent regeneration rates or exact costs."
+      ],
+      "max_words": 30
+    },
+    {
+      "id": "force_wave_misuse",
+      "label": "Force Wave Timing",
+      "trigger": "death_when_force_wave_on_cooldown",
+      "query": "Why can using Force Wave without an immediate threat become a readable failure, and what tradeoff does its long cooldown create?",
+      "top_k": 4,
+      "content_requirements": [
+        "Teach that Force Wave is an emergency positioning tool.",
+        "Preserve the meaningful-use and long-cooldown tradeoff.",
+        "Do not suggest the previous use was always objectively wrong."
+      ],
+      "max_words": 35
+    },
+    {
+      "id": "waited_too_long",
+      "label": "Waiting Too Long",
+      "trigger": "death_after_previous_door_breach",
+      "query": "What happens if the player waits too long while a locked door loses durability: when does the locked door break and the surviving group enter the current room?",
+      "top_k": 4,
+      "content_requirements": [
+        "Connect waiting to door durability and returning persistent pursuers.",
+        "Reinforce that locked doors provide recovery time, not permanent safety."
+      ],
+      "max_words": 35
+    }
+  ]
+}

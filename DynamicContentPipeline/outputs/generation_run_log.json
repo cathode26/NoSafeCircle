@@ -1,0 +1,72 @@
+{
+  "game": "No Safe Circle",
+  "pipeline": "Dynamic Content Pipeline",
+  "runs": [
+    {
+      "request": "spell_tooltips",
+      "item_filter": "frost_field",
+      "dry_run": true,
+      "model": null,
+      "completed_at_utc": "2026-08-07T01:33:07.608216+00:00",
+      "output": "DynamicContentPipeline/outputs/initial/spell_tooltips_dry_run.json",
+      "item_count": 1
+    },
+    {
+      "request": "spell_tooltips",
+      "item_filter": "frost_field",
+      "dry_run": false,
+      "model": "sonnet",
+      "completed_at_utc": "2026-08-07T01:35:06.455139+00:00",
+      "output": "DynamicContentPipeline/outputs/initial/spell_tooltips.json",
+      "item_count": 1
+    },
+    {
+      "request": "spell_tooltips",
+      "item_filter": "frost_field",
+      "dry_run": true,
+      "model": null,
+      "completed_at_utc": "2026-08-07T01:39:36.938671+00:00",
+      "output": "DynamicContentPipeline/outputs/initial/spell_tooltips_dry_run.json",
+      "item_count": 1
+    },
+    {
+      "request": "spell_tooltips",
+      "item_filter": "frost_field",
+      "dry_run": true,
+      "model": null,
+      "completed_at_utc": "2026-08-07T01:41:31.027628+00:00",
+      "output": "DynamicContentPipeline/outputs/initial/spell_tooltips_dry_run.json",
+      "item_count": 1
+    },
+    {
+      "request": "spell_tooltips",
+      "generator_version": "1.1",
+      "item_filter": null,
+      "dry_run": false,
+      "model": "sonnet",
+      "completed_at_utc": "2026-08-07T01:59:01.262968+00:00",
+      "output": "DynamicContentPipeline/outputs/initial/spell_tooltips.json",
+      "item_count": 4
+    },
+    {
+      "request": "door_tutorial",
+      "generator_version": "1.1",
+      "item_filter": null,
+      "dry_run": false,
+      "model": "sonnet",
+      "completed_at_utc": "2026-08-07T02:01:58.267520+00:00",
+      "output": "DynamicContentPipeline/outputs/initial/door_tutorial.json",
+      "item_count": 5
+    },
+    {
+      "request": "failure_hints",
+      "generator_version": "1.1",
+      "item_filter": null,
+      "dry_run": false,
+      "model": "sonnet",
+      "completed_at_utc": "2026-08-07T02:02:49.411468+00:00",
+      "output": "DynamicContentPipeline/outputs/initial/failure_hints.json",
+      "item_count": 4
+    }
+  ]
+}
