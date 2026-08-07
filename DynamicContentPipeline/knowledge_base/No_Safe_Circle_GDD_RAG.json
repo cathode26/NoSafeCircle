@@ -1,0 +1,1537 @@
+{
+  "schema_version": "1.0",
+  "document": {
+    "document_id": "no-safe-circle-gdd-final-2026-07-30",
+    "title": "No Safe Circle",
+    "document_type": "Capstone Game Design Document",
+    "status": "Final Draft",
+    "author": "Vincent Liguori",
+    "original_date": "2026-07-21",
+    "revised_date": "2026-07-30",
+    "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx",
+    "canonical_markdown": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "language": "en",
+    "total_chunks": 39
+  },
+  "chunking": {
+    "strategy": "semantic section-and-entity chunks",
+    "overlap": 0,
+    "rationale": "The GDD is small and highly structured, so each chunk preserves a complete rule, mechanic, room, entity, workflow, or implementation topic without mixing unrelated sections.",
+    "recommended_search_fields": [
+      "title",
+      "section",
+      "subsection",
+      "entities",
+      "keywords",
+      "text"
+    ],
+    "recommended_top_k": 4
+  },
+  "retrieval_guidance": {
+    "canonicality_rule": "Treat retrieved chunk text as authoritative. Generated content may summarize or rephrase it but must not invent, redesign, or contradict game rules.",
+    "assignment4_default_filter": {
+      "domain": "game_design",
+      "canonical": true
+    },
+    "critic_rule": "Challenge the generated output and retrieval sufficiency, not the GDD. Correct unsupported mechanics, lore breaks, omitted limitations, and tone drift.",
+    "suggested_queries": [
+      {
+        "output_type": "spell_tooltip",
+        "entity": "Tap Fireball",
+        "query": "What does tap Fireball do, when is it useful, and what limitations distinguish it from Charged Fireball?",
+        "top_k": 4
+      },
+      {
+        "output_type": "spell_tooltip",
+        "entity": "Charged Fireball",
+        "query": "What does Charged Fireball do, what tactical opening does it require, and how do melee and ranged enemies limit its use?",
+        "top_k": 4
+      },
+      {
+        "output_type": "spell_tooltip",
+        "entity": "Frost Field",
+        "query": "What does Frost Field do, what tactical problem does it solve, what mana tradeoff applies, and what does it not prevent?",
+        "top_k": 4
+      },
+      {
+        "output_type": "spell_tooltip",
+        "entity": "Force Wave",
+        "query": "What does Force Wave do, when should the player use it, and how do its short range and long cooldown limit it?",
+        "top_k": 4
+      },
+      {
+        "output_type": "door_tutorial",
+        "entity": "Sealed and Locked Doors",
+        "query": "What must the player understand about opening, interruption, crossing, locking, health recovery, pursuit, breaking, and forward-only travel?",
+        "top_k": 4
+      },
+      {
+        "output_type": "room_objective_card",
+        "entity": "Ruined Entry",
+        "query": "What is the layout, tactical purpose, enemy pressure, and player lesson of Ruined Entry?",
+        "top_k": 4
+      },
+      {
+        "output_type": "room_objective_card",
+        "entity": "Bone Archive",
+        "query": "What is the layout, tactical purpose, enemy pressure, and player lesson of Bone Archive?",
+        "top_k": 4
+      },
+      {
+        "output_type": "room_objective_card",
+        "entity": "Chapel of Ash",
+        "query": "What is the layout, tactical purpose, enemy pressure, route choice, and player lesson of Chapel of Ash?",
+        "top_k": 4
+      },
+      {
+        "output_type": "room_objective_card",
+        "entity": "Lower Vault",
+        "query": "What is the layout, tactical purpose, persistent-pursuer pressure, and player lesson of Lower Vault?",
+        "top_k": 4
+      },
+      {
+        "output_type": "room_objective_card",
+        "entity": "Final Room",
+        "query": "What is the layout, tactical purpose, mixed-enemy pressure, and final escape objective of the Final Room?",
+        "top_k": 4
+      }
+    ],
+    "query_strategy": "Run one retrieval query per generated item. Use the default top_k of 4 for each spell, room, or tutorial item rather than one broad query that must retrieve every entity at once."
+  },
+  "chunks": [
+    {
+      "chunk_id": "nsc-gdd-001",
+      "order": 1,
+      "title": "Document identity and game premise",
+      "section": "Document Metadata",
+      "subsection": null,
+      "domain": "game_design",
+      "content_type": "premise",
+      "entities": [
+        "No Safe Circle",
+        "wizard",
+        "sealed doors",
+        "dungeon",
+        "pursuit"
+      ],
+      "keywords": [
+        "capstone game design document",
+        "temporary safety",
+        "open sealed doors",
+        "escape dungeon",
+        "monsters pursue"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "No Safe Circle"
+        ],
+        "start_line": 11,
+        "end_line": 17,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "CAPSTONE GAME DESIGN DOCUMENT\n\nNO SAFE CIRCLE\n\nWorking Title | Final Draft | Originally July 21, 2026; revised July 30, 2026 | Vincent Liguori\n\nA wizard must create brief moments of safety, open sealed doors under pressure, and escape a dungeon while the monsters left behind continue to pursue.",
+      "word_count": 49,
+      "sha256": "901187aec1c01d0f214164789c6b6b37279d74ab3097e021a853a9cc2c85c30a"
+    },
+    {
+      "chunk_id": "nsc-gdd-002",
+      "order": 2,
+      "title": "Executive summary: core survival loop",
+      "section": "1. Executive Summary",
+      "subsection": null,
+      "domain": "game_design",
+      "content_type": "premise",
+      "entities": [
+        "wizard",
+        "Frost Field",
+        "Force Wave",
+        "Charged Fireball",
+        "sealed doors",
+        "enemies"
+      ],
+      "keywords": [
+        "top-down survival action",
+        "five uninterrupted seconds",
+        "mana regeneration",
+        "fight or flee",
+        "lock door",
+        "final escape"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "1. Executive Summary"
+        ],
+        "start_line": 21,
+        "end_line": 25,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "No Safe Circle is a single-player, top-down survival action game set on one handcrafted dungeon floor. The player controls a vulnerable wizard who can destroy small groups of monsters with powerful spells but cannot survive being surrounded. The player must control distance, wait for mana to regenerate, and decide when to fight, flee, or risk opening the next sealed door.\n\nEach room ends at a door that takes five uninterrupted seconds to open. Before attempting it, the player must create space by luring enemies away, slowing them with Frost Field, knocking them back with Force Wave, or defeating enough of them to reduce the immediate threat. Enemies can follow the wizard through an open doorway. After crossing, the player can close and lock the door, but surviving pursuers will pound against it and eventually break through.\n\nLocked doors provide recovery time, not permanent safety. In the final room, the player must create enough distance from the pursuing enemies to open the final door and escape. The player wins by passing through the final door and loses if the wizard's health reaches zero.",
+      "word_count": 182,
+      "sha256": "263ba7e7b81df06f9ea5bdbe8d699e8aebbab992e62da5ebb0d7906cdc5fb4c0"
+    },
+    {
+      "chunk_id": "nsc-gdd-003",
+      "order": 3,
+      "title": "Game facts and conditions",
+      "section": "1. Executive Summary",
+      "subsection": "Game Facts",
+      "domain": "game_design",
+      "content_type": "reference",
+      "entities": [
+        "Windows PC",
+        "wizard",
+        "Charged Fireball",
+        "Frost Field",
+        "Force Wave",
+        "Melee Enemy",
+        "Ranged Enemy"
+      ],
+      "keywords": [
+        "genre",
+        "platform",
+        "playable content",
+        "core abilities",
+        "core enemies",
+        "win condition",
+        "loss condition"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "1. Executive Summary",
+          "Game Facts"
+        ],
+        "start_line": 29,
+        "end_line": 36,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Genre: Top-down dark-fantasy survival action. Platform: Windows PC.\n\nPlayable Content: One handcrafted floor; five connected spaces. Player Character: One vulnerable wizard; no class selection.\n\nCore Abilities: Charged Fireball, Frost Field, Force Wave. Core Enemies: Melee Enemy and Ranged Enemy.\n\nWin Condition: Open the final door and escape. Loss Condition: The wizard reaches zero health.",
+      "word_count": 54,
+      "sha256": "2f285146ac2a8c0827c9cc4d96c715dd4e15a8df626c164de90da3f8d83b4cd9"
+    },
+    {
+      "chunk_id": "nsc-gdd-004",
+      "order": 4,
+      "title": "Design pillars and authoritative scope note",
+      "section": "1. Executive Summary",
+      "subsection": "Design Pillars",
+      "domain": "game_design",
+      "content_type": "design_pillars",
+      "entities": [
+        "doors",
+        "Frost Field",
+        "Force Wave",
+        "Charged Fireball",
+        "enemies"
+      ],
+      "keywords": [
+        "safety is temporary",
+        "magic creates opportunities",
+        "escape valid strategy",
+        "lasting consequences",
+        "required scope"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "1. Executive Summary",
+          "Design Pillars"
+        ],
+        "start_line": 40,
+        "end_line": 46,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Safety is always temporary. Doors delay pursuing enemies but do not remove the threat created by monsters left alive.\n\nMagic creates opportunities rather than constant power. Frost Field slows pursuit, Force Wave creates space, and Charged Fireball rewards the player for preparing a safe moment to attack.\n\nEscape is a valid strategy with lasting consequences. The player is not required to defeat every enemy, but surviving monsters may follow through open doors or break into later rooms.\n\nSee \"Required Scope, Exclusions, and Stretch Goals\" in Section 3 for the authoritative scope list.",
+      "word_count": 92,
+      "sha256": "6aad3ca09328bb0bb1ba2f8048c8e8c3a0c9b46178da61f796d61d99079c8079"
+    },
+    {
+      "chunk_id": "nsc-gdd-005",
+      "order": 5,
+      "title": "Core gameplay loop",
+      "section": "2. Game Mechanics",
+      "subsection": "Core Gameplay Loop",
+      "domain": "game_design",
+      "content_type": "gameplay_loop",
+      "entities": [
+        "wizard",
+        "sealed door",
+        "Frost Field",
+        "Force Wave",
+        "Fireball",
+        "pursuers"
+      ],
+      "keywords": [
+        "scout room",
+        "create safe seconds",
+        "stretch chase",
+        "charge Fireball",
+        "open door",
+        "cross and lock"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "2. Game Mechanics",
+          "Core Gameplay Loop"
+        ],
+        "start_line": 50,
+        "end_line": 58,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "The player moves through connected rooms toward the final door. In each room, the objective is to create five safe seconds, open the next door, cross through it, and lock it before the pursuing monsters arrive.\n\n1. Scout the room, locate the sealed door, and identify a route for luring or slowing enemies.\n\n2. Avoid the group, pull part of it away, or spend mana on a direct fight.\n\n3. Use Frost Field and movement to stretch the chase; charge Fireball when enough distance exists.\n\n4. Use Force Wave if enemies reach the wizard or block the door.\n\n5. Open the door for five uninterrupted seconds, cross through it, lock it, and recover before pursuers break through.",
+      "word_count": 117,
+      "sha256": "90bd7e54fd82015c704d9fd7229782b0adf69ee39305fa01c69a19829f2ef519"
+    },
+    {
+      "chunk_id": "nsc-gdd-006",
+      "order": 6,
+      "title": "Player actions: movement and Fireball",
+      "section": "2. Game Mechanics",
+      "subsection": "Player Actions and Systems",
+      "domain": "game_design",
+      "content_type": "player_actions",
+      "entities": [
+        "Move and Aim",
+        "Fireball",
+        "WASD",
+        "mouse"
+      ],
+      "keywords": [
+        "circle crowds",
+        "tap Fireball",
+        "hold to charge",
+        "mobile shot",
+        "area damage",
+        "movement restriction"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "2. Game Mechanics",
+          "Player Actions and Systems"
+        ],
+        "start_line": 64,
+        "end_line": 65,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Action: Move and Aim. What the player does: Use WASD to move and the mouse to aim. Purpose: Circle crowds and protect escape routes.\n\nAction: Fireball. What the player does: Tap for a quick, mobile shot against a single or separated enemy. Hold to charge: costs more mana and restricts movement further, rewarding preparation by damaging multiple clustered enemies. Purpose: Rewards distance and preparation; a charge's area advantage matters against groups, not against one target.",
+      "word_count": 75,
+      "sha256": "25add4ac6a2ee347715ee96f4f1f0a27e4d5e3b2ef0815bb08a3d1f1405349dd"
+    },
+    {
+      "chunk_id": "nsc-gdd-007",
+      "order": 7,
+      "title": "Player actions: Frost Field and Force Wave",
+      "section": "2. Game Mechanics",
+      "subsection": "Player Actions and Systems",
+      "domain": "game_design",
+      "content_type": "player_actions",
+      "entities": [
+        "Frost Field",
+        "Force Wave"
+      ],
+      "keywords": [
+        "temporary area",
+        "heavily slows enemies",
+        "short-range radial knockback",
+        "long cooldown",
+        "emergency space"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "2. Game Mechanics",
+          "Player Actions and Systems"
+        ],
+        "start_line": 66,
+        "end_line": 67,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Action: Frost Field. What the player does: Place a temporary area that heavily slows enemies. Purpose: Divides crowds and protects routes.\n\nAction: Force Wave. What the player does: Use a short-range radial knockback with a long cooldown. Purpose: Creates emergency space.",
+      "word_count": 41,
+      "sha256": "d44d3fd6646d0ef8f2261703cfe7b7373b475943d836531bc32987622ba2745d"
+    },
+    {
+      "chunk_id": "nsc-gdd-008",
+      "order": 8,
+      "title": "Player actions: opening, crossing, and locking doors",
+      "section": "2. Game Mechanics",
+      "subsection": "Player Actions and Systems",
+      "domain": "game_design",
+      "content_type": "door_mechanics",
+      "entities": [
+        "sealed door",
+        "locked door",
+        "wizard",
+        "pursuers"
+      ],
+      "keywords": [
+        "hold five seconds",
+        "movement cancels",
+        "damage cancels",
+        "restore health",
+        "cannot reopen",
+        "forward progress"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "2. Game Mechanics",
+          "Player Actions and Systems"
+        ],
+        "start_line": 68,
+        "end_line": 69,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Action: Open Sealed Door. What the player does: Hold for five seconds; movement or damage cancels. Purpose: Makes each exit a positioning challenge.\n\nAction: Close and Lock. What the player does: Shut the door after crossing, restoring a small, fixed amount of health. Once locked, this door cannot be reopened or crossed again (see Door and Pursuit Rules). Purpose: Creates recovery time while pursuers attack it, and marks forward progress as final.",
+      "word_count": 72,
+      "sha256": "b034df5a6ffdcd96e65a9a5f50d8aa2b187a68b031be71b54e6d67a8cd6f450f"
+    },
+    {
+      "chunk_id": "nsc-gdd-009",
+      "order": 9,
+      "title": "Charged Fireball interactions",
+      "section": "2. Game Mechanics",
+      "subsection": "Spell and Enemy Interactions",
+      "domain": "game_design",
+      "content_type": "spell_rules",
+      "entities": [
+        "Charged Fireball",
+        "Melee Enemy",
+        "Ranged Enemy"
+      ],
+      "keywords": [
+        "clustered melee enemies",
+        "area damage",
+        "unsafe at close distance",
+        "telegraphed ranged attacks",
+        "quick shots"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "2. Game Mechanics",
+          "Spell and Enemy Interactions"
+        ],
+        "start_line": 75,
+        "end_line": 75,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Spell: Charged Fireball. Against Melee Enemies: Melee enemies naturally cluster while pursuing the wizard, making them strong area-damage targets. Charging becomes unsafe once they close the distance. Against Ranged Enemies: Telegraphed ranged attacks force the player to keep moving, reducing the time available for a full charge. Quick shots are safer but provide less damage and area.",
+      "word_count": 57,
+      "sha256": "8563daba5b99c074cc354e7cd226a68837b51c50dea79ed0c93af572feeaccba"
+    },
+    {
+      "chunk_id": "nsc-gdd-010",
+      "order": 10,
+      "title": "Frost Field interactions and limitations",
+      "section": "2. Game Mechanics",
+      "subsection": "Spell and Enemy Interactions",
+      "domain": "game_design",
+      "content_type": "spell_rules",
+      "entities": [
+        "Frost Field",
+        "Melee Enemy",
+        "Ranged Enemy",
+        "Fireball"
+      ],
+      "keywords": [
+        "slow direct pursuit",
+        "stretch formation",
+        "shared mana pool",
+        "does not guarantee safety",
+        "does not stop attacks",
+        "lateral movement"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "2. Game Mechanics",
+          "Spell and Enemy Interactions"
+        ],
+        "start_line": 76,
+        "end_line": 76,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Spell: Frost Field. Against Melee Enemies: Strongest against melee groups because it slows direct pursuit, stretches the formation, and creates an opening to charge Fireball or begin opening a door — though it draws a meaningful share of the shared mana pool and does not guarantee a fully safe charge in every position or against every group. Against a small or loosely spaced group, direct positioning, a partial charge, or tap Fireball can be the better resource decision. Against Ranged Enemies: Slows a ranged enemy's repositioning but does not stop its attacks. The player must still move laterally or use room geometry to avoid incoming shots.",
+      "word_count": 106,
+      "sha256": "9232c9da98eec40ed80f62764abc29e49153e4b9ed9ca50db303eeff6e37ccb1"
+    },
+    {
+      "chunk_id": "nsc-gdd-011",
+      "order": 11,
+      "title": "Force Wave interactions and distinct spell roles",
+      "section": "2. Game Mechanics",
+      "subsection": "Spell and Enemy Interactions",
+      "domain": "game_design",
+      "content_type": "spell_rules",
+      "entities": [
+        "Force Wave",
+        "Frost Field",
+        "Charged Fireball",
+        "Melee Enemy",
+        "Ranged Enemy"
+      ],
+      "keywords": [
+        "emergency response",
+        "long cooldown",
+        "short range",
+        "poor against distant pressure",
+        "one meaningful use",
+        "resource decision"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "2. Game Mechanics",
+          "Spell and Enemy Interactions"
+        ],
+        "start_line": 77,
+        "end_line": 79,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Spell: Force Wave. Against Melee Enemies: The primary emergency response when melee enemies surround the wizard or block access to a door. Its long cooldown prevents repeated use. Against Ranged Enemies: Its short range makes it a poor answer to distant ranged pressure. Reaching a ranged enemy to use it may expose the wizard to the melee group.\n\nThe three spells solve different problems: Frost Field controls pursuit, Force Wave repairs an immediate positioning mistake, and Charged Fireball converts a previously created opening into damage. No single spell reliably answers both enemy types by itself. Force Wave's cooldown is tuned so an encounter space typically allows only about one meaningful use: spending it to escape a mid-room surround may leave none available for that room's door attempt, and saving it for the door means resolving mid-room danger without it. This is an intentional resource decision, not proof that either use was wrong.",
+      "word_count": 152,
+      "sha256": "021125e802cf678749b9a9df793c9f680cab98931194b134985ad073e9472f73"
+    },
+    {
+      "chunk_id": "nsc-gdd-012",
+      "order": 12,
+      "title": "Resources, feedback, and readable failure",
+      "section": "2. Game Mechanics",
+      "subsection": "Resources, Feedback, and Failure",
+      "domain": "game_design",
+      "content_type": "systems_feedback",
+      "entities": [
+        "health",
+        "mana",
+        "Force Wave",
+        "doors",
+        "Melee Enemy"
+      ],
+      "keywords": [
+        "partial health recovery",
+        "post-cast delay",
+        "temporary separation",
+        "cooldown indicator",
+        "door durability",
+        "opening resets"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "2. Game Mechanics",
+          "Resources, Feedback, and Failure"
+        ],
+        "start_line": 83,
+        "end_line": 88,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Health: The wizard survives a few isolated hits but dies quickly when trapped. Health does not regenerate during a room, and does not reset between rooms — it carries across the whole run. Successfully locking a door after crossing restores a small, fixed amount of health before the next room begins; this recovery is partial, so accumulated damage still matters across all five rooms. Exact recovery values will be set during playtesting.\n\nMana: Mana regenerates slowly after a brief post-cast delay. Waiting restores power while locked doors continue losing durability.\n\nMovement: Circling or retreating creates temporary separation from pursuers, but Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters. Sustaining real separation requires turning routes, obstacles, Frost Field, Force Wave, or reducing the threat directly.\n\nForce Wave: A visible long cooldown shows when the emergency escape tool is unavailable.\n\nDoor feedback: Banging, shaking, cracks, and a durability indicator show when a breach is near.\n\nSetbacks: Door-opening attempts reset when movement or damage interrupts them.",
+      "word_count": 175,
+      "sha256": "ec15a07330afd8bb264d842e27809c0d9bce301c76a0f0145b91f222b56468b0"
+    },
+    {
+      "chunk_id": "nsc-gdd-013",
+      "order": 13,
+      "title": "Win, loss, and restart conditions",
+      "section": "2. Game Mechanics",
+      "subsection": "Win and Loss Conditions",
+      "domain": "game_design",
+      "content_type": "conditions",
+      "entities": [
+        "final door",
+        "wizard",
+        "dungeon floor"
+      ],
+      "keywords": [
+        "escape dungeon",
+        "zero health",
+        "restart from beginning",
+        "single-attempt structure"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "2. Game Mechanics",
+          "Win and Loss Conditions"
+        ],
+        "start_line": 92,
+        "end_line": 94,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Win: Open the final door and escape the dungeon.\n\nLoss: Reach zero health. The floor then restarts from the beginning. This is an intentional, single-attempt structure — reaching zero health at any point restarts the entire floor by design, not as a placeholder.",
+      "word_count": 43,
+      "sha256": "d7406dd2ed7d6dabad062a0b4e6eb1f8b89798a3c26a130e5555ea511795970c"
+    },
+    {
+      "chunk_id": "nsc-gdd-014",
+      "order": 14,
+      "title": "Target player experience",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": null,
+      "domain": "game_design",
+      "content_type": "player_experience",
+      "entities": [
+        "wizard",
+        "Frost Field",
+        "Fireball",
+        "door",
+        "crowd"
+      ],
+      "keywords": [
+        "brief power",
+        "immediate vulnerability",
+        "control corridor",
+        "charge Fireball",
+        "urgent decision"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope"
+        ],
+        "start_line": 98,
+        "end_line": 98,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "The player should feel powerful for a few seconds and vulnerable immediately afterward: control a corridor, charge a Fireball, sprint to a door, and lock it just before the crowd arrives. Pounding from the other side makes the next decision urgent.",
+      "word_count": 41,
+      "sha256": "0cf5de6fc1f9572bb00f67d6066f3797d5f06aa476ccac1dbd030cac7489ba32"
+    },
+    {
+      "chunk_id": "nsc-gdd-015",
+      "order": 15,
+      "title": "Room 1: Ruined Entry",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Dungeon Floor Structure",
+      "domain": "game_design",
+      "content_type": "room_design",
+      "entities": [
+        "Ruined Entry",
+        "Melee Enemy",
+        "Fireball"
+      ],
+      "keywords": [
+        "open space",
+        "collapsed rubble",
+        "circle melee enemy",
+        "escape route",
+        "safe charge"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Dungeon Floor Structure"
+        ],
+        "start_line": 104,
+        "end_line": 104,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Area: 1. Ruined Entry. Layout and Tactical Purpose: A mostly open space with a broad route around collapsed rubble. The player learns to circle a melee enemy, preserve an escape route, and recognize when charging Fireball is safe.",
+      "word_count": 38,
+      "sha256": "93addd5613520f55f91b33e0467bdaba2c40e6b6940f880f1f15c879f963ed25"
+    },
+    {
+      "chunk_id": "nsc-gdd-016",
+      "order": 16,
+      "title": "Room 2: Bone Archive",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Dungeon Floor Structure",
+      "domain": "game_design",
+      "content_type": "room_design",
+      "entities": [
+        "Bone Archive",
+        "Frost Field",
+        "Fireball",
+        "Melee Enemy"
+      ],
+      "keywords": [
+        "narrow lanes",
+        "chokepoints",
+        "collapsed archive furniture",
+        "cluster enemies",
+        "wrong aisle"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Dungeon Floor Structure"
+        ],
+        "start_line": 105,
+        "end_line": 105,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Area: 2. Bone Archive. Layout and Tactical Purpose: Tall shelves and collapsed archive furniture create narrow lanes and chokepoints. Melee enemies can be slowed inside a lane with Frost Field and clustered for Fireball, but the player can also be trapped by choosing the wrong aisle.",
+      "word_count": 46,
+      "sha256": "5a63874e233177fe4b169159c423983b28370180bcd2950add44158cec0d0ff9"
+    },
+    {
+      "chunk_id": "nsc-gdd-017",
+      "order": 17,
+      "title": "Room 3: Chapel of Ash",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Dungeon Floor Structure",
+      "domain": "game_design",
+      "content_type": "room_design",
+      "entities": [
+        "Chapel of Ash",
+        "Ranged Enemy",
+        "Melee Enemy"
+      ],
+      "keywords": [
+        "pews",
+        "stone columns",
+        "line-of-sight breaks",
+        "central aisle",
+        "side routes",
+        "cover"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Dungeon Floor Structure"
+        ],
+        "start_line": 106,
+        "end_line": 106,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Area: 3. Chapel of Ash. Layout and Tactical Purpose: Pews and stone columns provide line-of-sight breaks from the newly introduced Ranged Enemy, which appears here alongside Melee Enemy support rather than alone. The central aisle offers the fastest route to the door but leaves the player exposed, while side routes provide cover at the cost of distance.",
+      "word_count": 57,
+      "sha256": "8e85fd7863d08e4debcfc05e26c412323d06ac4242add13fdfa4bd9440443c39"
+    },
+    {
+      "chunk_id": "nsc-gdd-018",
+      "order": 18,
+      "title": "Room 4: Lower Vault",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Dungeon Floor Structure",
+      "domain": "game_design",
+      "content_type": "room_design",
+      "entities": [
+        "Lower Vault",
+        "persistent pursuers"
+      ],
+      "keywords": [
+        "incomplete loops",
+        "storage piles",
+        "previous doorway",
+        "rear pressure",
+        "same persistent enemies"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Dungeon Floor Structure"
+        ],
+        "start_line": 107,
+        "end_line": 107,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Area: 4. Lower Vault. Layout and Tactical Purpose: Columns and storage piles create several incomplete loops rather than one safe circuit. The player must watch both the current encounter and the previous doorway, because surviving enemies from earlier rooms are the same persistent pursuers breaking through behind them, not newly spawned enemies.",
+      "word_count": 52,
+      "sha256": "9e56a84d39a16ed59dc4bbbce8f06777ea19e6d248fb8eec8416b85e9146181f"
+    },
+    {
+      "chunk_id": "nsc-gdd-019",
+      "order": 19,
+      "title": "Room 5: Final Room",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Dungeon Floor Structure",
+      "domain": "game_design",
+      "content_type": "room_design",
+      "entities": [
+        "Final Room",
+        "Melee Enemy",
+        "Ranged Enemy",
+        "Frost Field",
+        "Force Wave",
+        "Fireball"
+      ],
+      "keywords": [
+        "limited cover",
+        "central obstacle",
+        "five-second escape window",
+        "combine spells"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Dungeon Floor Structure"
+        ],
+        "start_line": 108,
+        "end_line": 108,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Area: 5. Final Room. Layout and Tactical Purpose: A comparatively open chamber with limited cover and one central obstacle, populated by both Melee and Ranged Enemies. The player must combine movement, Frost Field, Force Wave, and Fireball to create the final uninterrupted five-second escape window.",
+      "word_count": 45,
+      "sha256": "be411ca3dfeb829f0a2c4f9152149e17785e9e19fb4641e3416c9b1fa88a9889"
+    },
+    {
+      "chunk_id": "nsc-gdd-020",
+      "order": 20,
+      "title": "Enemy roster and mixed encounter rule",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Required Enemy Roster",
+      "domain": "game_design",
+      "content_type": "enemy_rules",
+      "entities": [
+        "Melee Enemy",
+        "Ranged Enemy",
+        "Fireball"
+      ],
+      "keywords": [
+        "close-range attack",
+        "moderate distance",
+        "telegraphed shot",
+        "never isolated encounter",
+        "melee support",
+        "lateral movement"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Required Enemy Roster"
+        ],
+        "start_line": 114,
+        "end_line": 117,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Enemy: Melee Enemy. Basic behavior: Runs at the wizard and attacks at close range. Player effect: Prevents long stationary casts and becomes dangerous in groups.\n\nEnemy: Ranged Enemy. Basic behavior: Keeps moderate distance and fires a slow telegraphed shot. Player effect: Forces lateral movement while Melee Enemies close in.\n\nRanged Enemies never appear as an isolated encounter: every encounter that introduces one also includes at least one Melee Enemy. A Ranged Enemy may still end up fighting alone if the player defeats its Melee support first — tap Fireball, cover, and lateral movement remain effective against a lone survivor.",
+      "word_count": 99,
+      "sha256": "bbce2ae8e850897d03953fa89633bc1cab7a7da4adfa00079c4974223aa73bf7"
+    },
+    {
+      "chunk_id": "nsc-gdd-021",
+      "order": 21,
+      "title": "Door and pursuit rules: crossing and locking",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Door and Pursuit Rules",
+      "domain": "game_design",
+      "content_type": "door_rules",
+      "entities": [
+        "open doors",
+        "sealed door",
+        "locked door",
+        "enemies",
+        "player"
+      ],
+      "keywords": [
+        "pursuit continues",
+        "five uninterrupted seconds",
+        "damage cancels",
+        "cannot reopen",
+        "forward-only escape"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Door and Pursuit Rules"
+        ],
+        "start_line": 121,
+        "end_line": 123,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Enemies move between rooms through open doors; crossing a doorway does not clear pursuit.\n\nA sealed door requires five uninterrupted seconds. Moving away or taking damage cancels the attempt.\n\nAfter crossing, the player can lock the door. Enemies that saw the escape begin attacking it. Once locked, a door cannot be reopened, unlocked, or crossed again by the player — the floor is a forward-only escape sequence.",
+      "word_count": 67,
+      "sha256": "55fba09e0ce5cad9a21a9d5ca7083f33473cf79c4a7897d81dad83165988d3a1"
+    },
+    {
+      "chunk_id": "nsc-gdd-022",
+      "order": 22,
+      "title": "Door and pursuit rules: breach, persistence, and enemy cap",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Door and Pursuit Rules",
+      "domain": "game_design",
+      "content_type": "pursuit_rules",
+      "entities": [
+        "broken door",
+        "persistent pursuers",
+        "Lower Vault"
+      ],
+      "keywords": [
+        "door breaks",
+        "cannot relock",
+        "no backward travel",
+        "same enemy objects",
+        "fifteen active enemies",
+        "delay new encounter"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Door and Pursuit Rules"
+        ],
+        "start_line": 124,
+        "end_line": 125,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "If the player waits too long, the locked door breaks and the surviving group enters the current room. A broken door remains open and cannot be closed or relocked for the remainder of the run. The player cannot travel backward through an earlier doorway, including after its locked door has been broken; enemies may pass forward through the broken doorway, but it is not a return path for the player.\n\nSurviving enemies carry forward and combine with later encounters as the same persistent enemy objects, not new spawns, and the game never permits more than fifteen active enemies at once. When persistent pursuers and a new encounter would together exceed that limit — most notably in Lower Vault, where a rear breach can coincide with the room's own encounter — activation of the new encounter's additional enemies is delayed or reduced first; enemies already pursuing the player are never removed to make room.",
+      "word_count": 153,
+      "sha256": "4d2eed942cea8a712101dfb4b3d31cf8b1542f5789b416c409fe162ef93d6a26"
+    },
+    {
+      "chunk_id": "nsc-gdd-023",
+      "order": 23,
+      "title": "Required scope, exclusions, and stretch goals",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Required Scope, Exclusions, and Stretch Goals",
+      "domain": "game_design",
+      "content_type": "scope",
+      "entities": [
+        "Spectral Decoy",
+        "wizard",
+        "spells",
+        "enemies",
+        "doors"
+      ],
+      "keywords": [
+        "required features",
+        "excluded multiplayer",
+        "no loot",
+        "no procedural generation",
+        "no runtime generative AI",
+        "stretch goals"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Required Scope, Exclusions, and Stretch Goals"
+        ],
+        "start_line": 129,
+        "end_line": 133,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Required: one wizard, one asset-pack floor, five spaces, three spells, two enemies, mana regeneration, sealed doors, pursuit across rooms, death and restart, essential feedback, and a Windows build.\n\nExcluded: multiplayer, classes, equipment, loot, skill trees, quests, vendors, procedural generation, persistent progression, multiple floors, custom character art, and generative AI during play.\n\nStretch goals: Spectral Decoy, a third enemy, Fireball-charge reactions, an awareness indicator, Frost Field slowing a breach, advanced door damage, and one additional room.",
+      "word_count": 75,
+      "sha256": "3ff6eb731921a9bf16c5cf3cfbd645068e5ef12694c4112eaa8866260e80e042"
+    },
+    {
+      "chunk_id": "nsc-gdd-024",
+      "order": 24,
+      "title": "Player experience success criteria",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Player Experience Success Criteria",
+      "domain": "game_design",
+      "content_type": "success_criteria",
+      "entities": [
+        "Force Wave",
+        "doors",
+        "enemies"
+      ],
+      "keywords": [
+        "five safe seconds",
+        "enemies remain threat",
+        "three to eight enemies",
+        "fifteen maximum",
+        "readable failure"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Player Experience Success Criteria"
+        ],
+        "start_line": 137,
+        "end_line": 140,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "A first-time player understands that reaching a door is not enough; five safe seconds are required.\n\nThe player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.\n\nEncounters use three to eight enemies and never exceed fifteen active enemies.\n\nFailure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long.",
+      "word_count": 85,
+      "sha256": "4743997af0662a81f88adde8a66bd9f72f7eb759ea508eff4254f63de26bb0d4"
+    },
+    {
+      "chunk_id": "nsc-gdd-025",
+      "order": 25,
+      "title": "Peer and agent review revision",
+      "section": "3. Player Experience and Content Scope",
+      "subsection": "Peer and Agent Review Revision",
+      "domain": "game_design",
+      "content_type": "revision_history",
+      "entities": [
+        "Fireball",
+        "Frost Field",
+        "Force Wave",
+        "persistent pursuers"
+      ],
+      "keywords": [
+        "dominant strategy",
+        "tap versus charge",
+        "resource commitment",
+        "mixed enemy composition",
+        "room-specific checks"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "3. Player Experience and Content Scope",
+          "Peer and Agent Review Revision"
+        ],
+        "start_line": 144,
+        "end_line": 144,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Peer feedback identified that the earlier draft did not explain how the spells and room layouts produced different tactical decisions. A targeted multi-agent review then tested whether those decisions could collapse into a dominant strategy. This revision clarifies Fireball's tap-versus-charge tradeoff, Frost Field's resource commitment, Force Wave's mid-room-versus-door decision, mixed enemy compositions, persistent-pursuer priority, and room-specific implementation checks without adding mechanics or expanding the required scope.",
+      "word_count": 66,
+      "sha256": "f68800593e9e9e89acc7dc5c18106007add5d22ca67ffbf25770f4a37e0a4a9b"
+    },
+    {
+      "chunk_id": "nsc-gdd-026",
+      "order": 26,
+      "title": "AI architecture purpose and limits",
+      "section": "4. AI Architecture",
+      "subsection": null,
+      "domain": "development_ai",
+      "content_type": "architecture",
+      "entities": [
+        "development agents",
+        "Unity"
+      ],
+      "keywords": [
+        "plan implement review test",
+        "not runtime AI",
+        "acceptance criteria",
+        "Unity test"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "4. AI Architecture"
+        ],
+        "start_line": 148,
+        "end_line": 148,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Development agents help plan, implement, review, and test No Safe Circle; they do not run in the finished game. Each agent owns a visible game feature, receives concrete acceptance criteria, and produces a Unity test or implementation result.",
+      "word_count": 38,
+      "sha256": "3667f531f7ebaca5a0b451c7863e73f8cc68c45236ad62379622ba79cd7c2084"
+    },
+    {
+      "chunk_id": "nsc-gdd-027",
+      "order": 27,
+      "title": "Agent roles: planning and wizard combat",
+      "section": "4. AI Architecture",
+      "subsection": "Development Agent Roles",
+      "domain": "development_ai",
+      "content_type": "agent_roles",
+      "entities": [
+        "Feature Planning Agent",
+        "Wizard Combat Agent",
+        "Enemy Pursuit Agent"
+      ],
+      "keywords": [
+        "acceptance criteria",
+        "file list",
+        "scope control",
+        "player movement",
+        "spells",
+        "health",
+        "mana",
+        "ownership boundary"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "4. AI Architecture",
+          "Development Agent Roles"
+        ],
+        "start_line": 154,
+        "end_line": 155,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Agent: Feature Planning Agent. Plain-English role: Turns one approved feature into acceptance criteria and a file list. Effect on this game: Keeps prompts specific and prevents scope growth.\n\nAgent: Wizard Combat Agent. Plain-English role: Implements player movement, Fireball, Frost Field's casting, mana cost, and feedback, Force Wave, health, mana, cooldowns, and recovery. Frost Field's actual slowdown effect is applied and restored by the Enemy Pursuit Agent, which owns enemy movement and all Ranged Enemy attack behavior; this agent only triggers the Frost Field effect and does not implement Ranged Enemy targeting or attacks. Effect on this game: Creates the tools used to slow, attack, escape, and recover, without editing enemy-movement or enemy-attack code directly.",
+      "word_count": 114,
+      "sha256": "a69661d9be226e138fd77bffa1f15cab7ed96d6fc0af89551235169c067f1efc"
+    },
+    {
+      "chunk_id": "nsc-gdd-028",
+      "order": 28,
+      "title": "Agent roles: doors and enemy pursuit",
+      "section": "4. AI Architecture",
+      "subsection": "Development Agent Roles",
+      "domain": "development_ai",
+      "content_type": "agent_roles",
+      "entities": [
+        "Door and Interaction Agent",
+        "Enemy Pursuit Agent",
+        "Ranged Enemy",
+        "Bone Archive",
+        "Chapel of Ash"
+      ],
+      "keywords": [
+        "door states",
+        "pursuit",
+        "Frost Field slowdown",
+        "line of sight",
+        "projectile occlusion",
+        "NavMesh lanes"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "4. AI Architecture",
+          "Development Agent Roles"
+        ],
+        "start_line": 156,
+        "end_line": 157,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Agent: Door and Interaction Agent. Plain-English role: Implements opening, interruption, crossing, closing, locking, damage, and breaking. Effect on this game: Makes room exits risky and safety temporary.\n\nAgent: Enemy Pursuit Agent. Plain-English role: Implements detection, melee and ranged attacks, pursuit, and movement through open doors, including applying and restoring Frost Field's slowdown effect. Owns Ranged Enemy targeting, attack timing, and line-of-sight/projectile-occlusion checks, so Chapel of Ash's cover actually blocks shots. Validates NavMesh agent radius and lane behavior so Bone Archive's chokepoints hold. Owns the ongoing state of enemies already pursuing the player, including those carried forward from earlier rooms. Effect on this game: Makes enemies left alive remain a visible, persistent consequence, and makes Chapel of Ash's cover and Bone Archive's lanes function as designed.",
+      "word_count": 125,
+      "sha256": "006dc45f2df9803f8ebb76cbe558beaba3e33459018945db1dfa0b9c914e17a2"
+    },
+    {
+      "chunk_id": "nsc-gdd-029",
+      "order": 29,
+      "title": "Agent roles: encounters and validation",
+      "section": "4. AI Architecture",
+      "subsection": "Development Agent Roles",
+      "domain": "development_ai",
+      "content_type": "agent_roles",
+      "entities": [
+        "Dungeon Encounter Agent",
+        "Unity Validation Agent",
+        "Lower Vault",
+        "Final Room"
+      ],
+      "keywords": [
+        "placements",
+        "triggers",
+        "door durability",
+        "enemy cap",
+        "Play Mode checks",
+        "cleanup",
+        "edge cases"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "4. AI Architecture",
+          "Development Agent Roles"
+        ],
+        "start_line": 158,
+        "end_line": 159,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Agent: Dungeon Encounter Agent. Plain-English role: Authors placements, triggers, door durability, and final-room pressure, including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room. Owns encounter activation and enforcement of the fifteen-active-enemy ceiling: when persistent pursuers and a new encounter would together exceed it, this agent delays or reduces the new encounter's enemies first rather than displacing enemies already pursuing the player. Effect on this game: Controls when the player can lure, fight, flee, or become trapped, and ensures carried-forward enemies never push the floor's total active count beyond the stated limit.\n\nAgent: Unity Validation Agent. Plain-English role: Reviews changes and creates Play Mode checks for cleanup, references, and edge cases, including Bone Archive lane pathing, Chapel of Ash occlusion, and Lower Vault enemy-cap priority. Effect on this game: Prevents permanent slowdown, stuck enemies, and incorrect door states.",
+      "word_count": 141,
+      "sha256": "947614b7e14c35e8986229769a67e3824ea3233bda65619f5a0a44c29ab82d0e"
+    },
+    {
+      "chunk_id": "nsc-gdd-030",
+      "order": 30,
+      "title": "Agent-assisted development workflow",
+      "section": "4. AI Architecture",
+      "subsection": "Agent-Assisted Development Workflow",
+      "domain": "development_ai",
+      "content_type": "workflow",
+      "entities": [
+        "Feature Planning Agent",
+        "Wizard Combat Agent",
+        "Enemy Pursuit Agent",
+        "Dungeon Encounter Agent",
+        "Unity Validation Agent"
+      ],
+      "keywords": [
+        "feature briefs",
+        "task dependencies",
+        "parallel work",
+        "sequential work",
+        "review",
+        "Play Mode",
+        "merge"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "4. AI Architecture",
+          "Agent-Assisted Development Workflow"
+        ],
+        "start_line": 163,
+        "end_line": 167,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "1. The developer approves one or more feature briefs describing what the player should see and do.\n\n2. The Feature Planning Agent divides each feature into tasks, identifies dependencies, selects the required files, and removes unapproved additions.\n\n3. The orchestration pipeline may assign independent tasks to multiple agents at the same time. For example, the Wizard Combat Agent can implement a spell while the Enemy Pursuit Agent works on enemy movement and the Dungeon Encounter Agent prepares an encounter layout.\n\n4. Tasks that depend on unfinished work, or that require changes to the same scripts, scenes, or prefabs, are completed sequentially. Agents do not modify the same Unity assets concurrently.\n\n5. Each implementation is reviewed by the Unity Validation Agent. The developer then tests the feature in Play Mode and merges the accepted change into the main project.",
+      "word_count": 138,
+      "sha256": "cccb3840e24a83b6763b062225fe7c6c87b5c1d0df4362b91404d43926057dac"
+    },
+    {
+      "chunk_id": "nsc-gdd-031",
+      "order": 31,
+      "title": "Shared context and coordination rules",
+      "section": "4. AI Architecture",
+      "subsection": "Shared Context and Coordination Rules",
+      "domain": "development_ai",
+      "content_type": "coordination_rules",
+      "entities": [
+        "agents",
+        "human developer",
+        "source control"
+      ],
+      "keywords": [
+        "approved feature brief",
+        "isolated branches",
+        "implementation summary",
+        "known risks",
+        "test checklist",
+        "no redesign",
+        "human responsibility"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "4. AI Architecture",
+          "Shared Context and Coordination Rules"
+        ],
+        "start_line": 171,
+        "end_line": 176,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Agents receive only the approved feature brief, acceptance criteria, relevant files, and necessary scene or prefab information.\n\nIndependent agents work in isolated branches or workspaces so their changes can be reviewed before integration.\n\nEach task produces changed files, an implementation summary, known risks, and a Play Mode test checklist.\n\nSource control commits serve as the handoff between implementation, validation, and integration.\n\nAgents may report a risk or recommend a scope cut, but they cannot redesign the game or add features without developer approval.\n\nThe human developer remains responsible for architecture, merging changes, inspecting Unity scenes and prefabs, playtesting, balance, and final integration.",
+      "word_count": 102,
+      "sha256": "6bd7d851b84d9f01ad2b025bf88e1129394c695c390377d4beef3eaf4332e6be"
+    },
+    {
+      "chunk_id": "nsc-gdd-032",
+      "order": 32,
+      "title": "Example game-specific agent task",
+      "section": "4. AI Architecture",
+      "subsection": "Example Game-Specific Agent Task",
+      "domain": "development_ai",
+      "content_type": "example",
+      "entities": [
+        "Door and Interaction Agent",
+        "Enemy Pursuit Agent",
+        "Dungeon Encounter Agent",
+        "Unity Validation Agent"
+      ],
+      "keywords": [
+        "five-second door",
+        "melee pursuit",
+        "enemy placement",
+        "open doorway",
+        "interruption",
+        "lock after crossing"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "4. AI Architecture",
+          "Example Game-Specific Agent Task"
+        ],
+        "start_line": 180,
+        "end_line": 182,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "While the Door and Interaction Agent implements the five-second door-opening and locking behavior, the Enemy Pursuit Agent can independently implement melee enemies following the wizard through open doors. At the same time, the Dungeon Encounter Agent can define the enemy placement for the first encounter space.\n\nAfter those tasks are complete, the Unity Validation Agent checks that enemies can cross an open doorway, that movement or damage interrupts opening, and that the door can only be locked after the wizard crosses it. The developer then combines and tests the features inside Unity.",
+      "word_count": 92,
+      "sha256": "c937d6582da9f1222b8d02166bcf0cc97cacfaefc11fd7d738f42f32f60656a1"
+    },
+    {
+      "chunk_id": "nsc-gdd-033",
+      "order": 33,
+      "title": "Technical strategy overview",
+      "section": "5. Technical Strategy",
+      "subsection": null,
+      "domain": "technical_strategy",
+      "content_type": "technical_overview",
+      "entities": [
+        "Unity",
+        "C#",
+        "raw Python orchestration pipeline",
+        "Claude Code agents",
+        "Windows"
+      ],
+      "keywords": [
+        "single developer",
+        "raw Python orchestration",
+        "Claude Code agents",
+        "no runtime generative AI",
+        "local systems",
+        "developer approval",
+        "playtesting",
+        "integration"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "5. Technical Strategy"
+        ],
+        "start_line": 186,
+        "end_line": 192,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "No Safe Circle will be developed by one developer in Unity using C#. A raw Python orchestration pipeline using Claude Code agents will coordinate specialized development agents that assist with planning, implementation, review, debugging, and test design. Independent tasks may run at the same time, but tasks that modify the same scripts, scenes, or prefabs will be completed sequentially.\n\nSection 4 defines the six development-agent roles and their effects on the game. This section explains how those agents will be coordinated, constrained, budgeted, and validated during development.\n\nThe finished Windows game will not use generative AI at runtime. Enemy behavior, spell effects, doors, damage, and pursuit will run locally through standard Unity systems. The game will require no external AI service, API key, token usage, or network connection after it is built.\n\nThe developer approves feature briefs, resolves architecture decisions, inspects scenes and prefabs, tests game feel, balances encounters, merges changes, and decides which stretch features are accepted.",
+      "word_count": 158,
+      "sha256": "8cd59ed795bd82c9f7c68f8954b32f0a2dc9210af5af456602b77dae086e63ee"
+    },
+    {
+      "chunk_id": "nsc-gdd-034",
+      "order": 34,
+      "title": "Agent coordination and handoffs",
+      "section": "5. Technical Strategy",
+      "subsection": "Agent Coordination",
+      "domain": "technical_strategy",
+      "content_type": "coordination",
+      "entities": [
+        "orchestration pipeline",
+        "Wizard Combat Agent",
+        "Enemy Pursuit Agent",
+        "Dungeon Encounter Agent",
+        "source control"
+      ],
+      "keywords": [
+        "parallel tasks",
+        "isolated workspaces",
+        "changed files",
+        "implementation summary",
+        "risks",
+        "Play Mode checklist",
+        "commit"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "5. Technical Strategy",
+          "Agent Coordination"
+        ],
+        "start_line": 196,
+        "end_line": 206,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "The orchestration pipeline may run independent tasks in parallel. For example, the Wizard Combat Agent may implement Fireball and Force Wave while the Enemy Pursuit Agent independently implements melee chasing and Ranged Enemy targeting, and the Dungeon Encounter Agent plans an encounter layout. Agent ownership boundaries, including Frost Field's cast-versus-slowdown split between the Wizard Combat Agent and the Enemy Pursuit Agent, are defined in Section 4.\n\nAgents will work in isolated branches or workspaces. Two agents will not modify the same gameplay files or Unity assets at the same time. Each completed task will produce:\n\nChanged files\n\nAn implementation summary\n\nKnown risks or limitations\n\nA Play Mode test checklist\n\nA source-control commit for review\n\nSource control will serve as the handoff between implementation, validation, and final integration.",
+      "word_count": 127,
+      "sha256": "364f295b0943ee979964d874e799f837ae0328afb8e9b9a60e77149dbce35ca0"
+    },
+    {
+      "chunk_id": "nsc-gdd-035",
+      "order": 35,
+      "title": "Runtime implementation: navigation, persistence, and Frost Field",
+      "section": "5. Technical Strategy",
+      "subsection": "Runtime Implementation",
+      "domain": "technical_strategy",
+      "content_type": "runtime_implementation",
+      "entities": [
+        "Unity NavMesh",
+        "Ranged Enemy",
+        "Bone Archive",
+        "Frost Field",
+        "Enemy Pursuit Agent"
+      ],
+      "keywords": [
+        "finite-state components",
+        "line of sight",
+        "single continuous scene",
+        "persistent enemy state",
+        "status effect",
+        "restore speed"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "5. Technical Strategy",
+          "Runtime Implementation"
+        ],
+        "start_line": 210,
+        "end_line": 212,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Unity NavMesh and finite-state components will control enemy movement, pursuit, attacks, and target loss. Ranged Enemy attacks include a line-of-sight/occlusion check, and Bone Archive's lane widths are validated against enemy agent radius, so both rooms' stated tactical geometry holds in practice.\n\nAll five encounter spaces exist inside one continuous Unity scene using a single baked NavMesh. Enemy objects, enemy health, pursuit state, active-enemy bookkeeping, and door state persist naturally as the player advances between rooms; no scene-load or cross-scene state-transfer system is required.\n\nA reusable status-effect component will apply Frost Field slowdown and restore each enemy's normal movement speed afterward, per the Wizard Combat Agent / Enemy Pursuit Agent ownership split defined in Section 4.",
+      "word_count": 115,
+      "sha256": "b9334a59812f1e88bf5a9f8b471731ea0ccac946432fa77bbece1395f66dc70f"
+    },
+    {
+      "chunk_id": "nsc-gdd-036",
+      "order": 36,
+      "title": "Runtime implementation: doors, mana, enemy cap, and assets",
+      "section": "5. Technical Strategy",
+      "subsection": "Runtime Implementation",
+      "domain": "technical_strategy",
+      "content_type": "runtime_implementation",
+      "entities": [
+        "door component",
+        "mana",
+        "Dungeon Encounter Agent",
+        "Enemy Pursuit Agent"
+      ],
+      "keywords": [
+        "door state machine",
+        "mana regeneration after post-cast delay",
+        "fifteen active enemies",
+        "delay new spawns",
+        "existing assets"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "5. Technical Strategy",
+          "Runtime Implementation"
+        ],
+        "start_line": 213,
+        "end_line": 216,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "A reusable door component will control opening, interruption, closing, locking, damage, and breaking; once a door is locked by the player or broken by enemies, it does not return to an earlier state.\n\nMana will regenerate through a local gameplay system after the defined post-cast delay.\n\nThe game enforces a hard maximum of fifteen active enemies; the Dungeon Encounter Agent enforces this ceiling when activating new encounters, delaying or reducing new-encounter spawns first when persistent pursuers and a new encounter would together exceed it, while the Enemy Pursuit Agent tracks the state of enemies already pursuing the player.\n\nExisting environment, character, enemy, animation, sound, and visual-effects assets will be used instead of creating custom models or rigs.",
+      "word_count": 117,
+      "sha256": "9aa4c7e1c9d4a0bf63e903efd83d1b9eab8d8a8815c81dbe315bc2853c3ffd9f"
+    },
+    {
+      "chunk_id": "nsc-gdd-037",
+      "order": 37,
+      "title": "Token budget and failure handling",
+      "section": "5. Technical Strategy",
+      "subsection": "Token Budget",
+      "domain": "technical_strategy",
+      "content_type": "budget",
+      "entities": [
+        "development tasks"
+      ],
+      "keywords": [
+        "1.5 million tokens",
+        "thirty to forty tasks",
+        "focused tasks",
+        "planning budget",
+        "debugging budget",
+        "reduce scope after failure"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "5. Technical Strategy",
+          "Token Budget"
+        ],
+        "start_line": 220,
+        "end_line": 233,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "The project will use a maximum planning budget of 1.5 million combined input and output tokens across approximately thirty to forty development tasks. This is a spending ceiling rather than a required amount.\n\nMost focused tasks will be limited to approximately 15,000–30,000 tokens. Larger context will be reserved for integration, debugging, and reviewing systems that interact with several Unity components.\n\nBudget category: Feature planning and task preparation. Tokens: 150,000.\n\nBudget category: Wizard combat and spells. Tokens: 300,000.\n\nBudget category: Doors and enemy pursuit. Tokens: 400,000.\n\nBudget category: Dungeon encounters and integration. Tokens: 250,000.\n\nBudget category: Review, debugging, and validation. Tokens: 400,000.\n\nBudget category: Total ceiling. Tokens: 1,500,000.\n\nIf a task fails, its scope and context will be reduced before it is attempted again. The entire project will not be repeatedly submitted to an agent for a single bug.",
+      "word_count": 138,
+      "sha256": "4751eef2aac4f31ffb1d4023deee229985e52e04e84b91638f52fef9d9d0f560"
+    },
+    {
+      "chunk_id": "nsc-gdd-038",
+      "order": 38,
+      "title": "API and tool constraints",
+      "section": "5. Technical Strategy",
+      "subsection": "API and Tool Constraints",
+      "domain": "technical_strategy",
+      "content_type": "constraints",
+      "entities": [
+        "API credentials",
+        "Unity",
+        "agents",
+        "C#"
+      ],
+      "keywords": [
+        "development only",
+        "credentials outside source control",
+        "approved GDD rules",
+        "no mechanics additions",
+        "compile requirement",
+        "human inspection",
+        "Play Mode"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "5. Technical Strategy",
+          "API and Tool Constraints"
+        ],
+        "start_line": 237,
+        "end_line": 244,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Generative AI tools are used only during development.\n\nAPI credentials will remain outside the Unity project and source control.\n\nAgents receive only the approved feature brief, relevant GDD rules, and files required for the active task.\n\nAgents cannot add mechanics, redesign the game, or expand the scope without developer approval.\n\nGenerated C# must compile before the task moves to validation.\n\nUnity scenes, prefab references, animations, and Inspector assignments require human inspection.\n\nAgent-generated work is not merged until its Play Mode checklist has been tested.\n\nParallel work is limited to features that do not modify the same files or depend on unfinished systems.",
+      "word_count": 102,
+      "sha256": "ebce0b3de43642c0989a1b0b961fb95074c9f184f2aefaee7ea58ef694b71a3f"
+    },
+    {
+      "chunk_id": "nsc-gdd-039",
+      "order": 39,
+      "title": "Six-week development plan and fallback scope",
+      "section": "5. Technical Strategy",
+      "subsection": "Six-Week Development Plan",
+      "domain": "technical_strategy",
+      "content_type": "schedule",
+      "entities": [
+        "wizard",
+        "Melee Enemy",
+        "Ranged Enemy",
+        "doors"
+      ],
+      "keywords": [
+        "weeks 1-2",
+        "weeks 3-4",
+        "weeks 5-6",
+        "final escape",
+        "balancing",
+        "performance",
+        "fallback scope"
+      ],
+      "canonical": true,
+      "source": {
+        "file": "Docs/GDD/No_Safe_Circle_GDD.md",
+        "heading_path": [
+          "5. Technical Strategy",
+          "Six-Week Development Plan"
+        ],
+        "start_line": 250,
+        "end_line": 254,
+        "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
+      },
+      "text": "Window: Weeks 1–2. Planned work: Wizard movement, health, mana regeneration, three spells, melee enemy, death, and restart.\n\nWindow: Weeks 3–4. Planned work: Door interactions, door-breaking pressure, room-to-room pursuit, ranged enemy, and asset-pack dungeon floor.\n\nWindow: Weeks 5–6. Planned work: Final escape, visual and audio feedback, balancing, performance testing, bug fixes, build, and presentation.\n\nStretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5–6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut.",
+      "word_count": 131,
+      "sha256": "dc795641991b7b78a8f6f6ccc7d2270e2987ca0519e68ddf2f4f9da0f7195c7a"
+    }
+  ]
+}
