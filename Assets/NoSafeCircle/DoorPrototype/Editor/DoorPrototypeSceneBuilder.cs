@@ -46,10 +46,11 @@ namespace NoSafeCircle.DoorPrototype.Editor
             var doorRoot = BuildDoor(out var door);
             BuildWalls(doorRoot.transform.position);
 
-            BuildPlayer(out var movement, out var interactionController, out var health, out var debugControl);
+            BuildPlayer(out var movement, out var interactionController, out var health, out var debugControl,
+                out var mana, out var debugManaControl);
             SetPrivateField(movement, "interactionController", interactionController);
 
-            BuildUI(door, debugControl);
+            BuildUI(door, debugControl, mana, debugManaControl);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -157,7 +158,9 @@ namespace NoSafeCircle.DoorPrototype.Editor
             out PlayerMovement movement,
             out PlayerInteractionController interactionController,
             out PlayerHealth health,
-            out DebugDamageControl debugControl)
+            out DebugDamageControl debugControl,
+            out PlayerMana mana,
+            out DebugManaSpendControl debugManaControl)
         {
             var player = new GameObject("Player");
             player.transform.position = new Vector3(0f, 1f, -4f);
@@ -177,12 +180,16 @@ namespace NoSafeCircle.DoorPrototype.Editor
             interactionController = player.AddComponent<PlayerInteractionController>();
             movement = player.AddComponent<PlayerMovement>();
             debugControl = player.AddComponent<DebugDamageControl>();
+            mana = player.AddComponent<PlayerMana>();
+            debugManaControl = player.AddComponent<DebugManaSpendControl>();
 
             SetPrivateField(interactionController, "playerHealth", health);
             SetPrivateField(debugControl, "target", health);
+            SetPrivateField(debugManaControl, "target", mana);
         }
 
-        private static void BuildUI(DoorInteractable door, DebugDamageControl debugControl)
+        private static void BuildUI(DoorInteractable door, DebugDamageControl debugControl,
+            PlayerMana mana, DebugManaSpendControl debugManaControl)
         {
             var canvasObject = new GameObject("Canvas");
             var canvas = canvasObject.AddComponent<Canvas>();
@@ -266,7 +273,73 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
             UnityEventTools.AddPersistentListener(damageButton.onClick, debugControl.TriggerDebugDamage);
 
+            BuildManaUI(canvasObject, mana, debugManaControl);
+
             BuildControlsHud(canvasObject.transform);
+        }
+
+        /// Mirrors the door's ProgressFill pattern: a background bar with a Filled child
+        /// Image whose fillAmount tracks CurrentMana/MaxMana. Positioned below the door
+        /// progress bar so the two never overlap.
+        private static void BuildManaUI(GameObject canvasObject, PlayerMana mana, DebugManaSpendControl debugManaControl)
+        {
+            var manaBarObject = new GameObject("ManaFill");
+            manaBarObject.transform.SetParent(canvasObject.transform, false);
+            var manaBarRect = manaBarObject.AddComponent<RectTransform>();
+            manaBarRect.anchorMin = new Vector2(0.5f, 0.06f);
+            manaBarRect.anchorMax = new Vector2(0.5f, 0.06f);
+            manaBarRect.sizeDelta = new Vector2(300f, 20f);
+            var manaBarBackgroundImage = manaBarObject.AddComponent<Image>();
+            manaBarBackgroundImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+            manaBarBackgroundImage.type = Image.Type.Sliced;
+            manaBarBackgroundImage.color = new Color(0.15f, 0.15f, 0.15f, 0.85f);
+
+            var manaFillObject = new GameObject("Fill");
+            manaFillObject.transform.SetParent(manaBarObject.transform, false);
+            var manaFillRect = manaFillObject.AddComponent<RectTransform>();
+            manaFillRect.anchorMin = Vector2.zero;
+            manaFillRect.anchorMax = Vector2.one;
+            manaFillRect.offsetMin = Vector2.zero;
+            manaFillRect.offsetMax = Vector2.zero;
+            var manaFill = manaFillObject.AddComponent<Image>();
+            manaFill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            manaFill.type = Image.Type.Filled;
+            manaFill.fillMethod = Image.FillMethod.Horizontal;
+            manaFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            manaFill.fillAmount = 1f;
+            manaFill.color = Color.blue;
+
+            var manaUiBinding = canvasObject.AddComponent<PlayerManaUI>();
+            SetPrivateField(manaUiBinding, "mana", mana);
+            SetPrivateField(manaUiBinding, "fillImage", manaFill);
+
+            var manaButtonObject = new GameObject("DebugManaSpendButton");
+            manaButtonObject.transform.SetParent(canvasObject.transform, false);
+            var manaButtonRect = manaButtonObject.AddComponent<RectTransform>();
+            manaButtonRect.anchorMin = new Vector2(0.02f, 0.02f);
+            manaButtonRect.anchorMax = new Vector2(0.02f, 0.02f);
+            manaButtonRect.pivot = Vector2.zero;
+            manaButtonRect.anchoredPosition = new Vector2(0f, 44f);
+            manaButtonRect.sizeDelta = new Vector2(260f, 40f);
+            var manaButtonImage = manaButtonObject.AddComponent<Image>();
+            manaButtonImage.color = new Color(0.1f, 0.1f, 0.6f);
+            var manaButton = manaButtonObject.AddComponent<Button>();
+            manaButton.targetGraphic = manaButtonImage;
+
+            var manaButtonTextObject = new GameObject("Text");
+            manaButtonTextObject.transform.SetParent(manaButtonObject.transform, false);
+            var manaButtonTextRect = manaButtonTextObject.AddComponent<RectTransform>();
+            manaButtonTextRect.anchorMin = Vector2.zero;
+            manaButtonTextRect.anchorMax = Vector2.one;
+            manaButtonTextRect.sizeDelta = Vector2.zero;
+            var manaButtonText = manaButtonTextObject.AddComponent<Text>();
+            manaButtonText.text = "DEBUG: Spend Mana (L)";
+            manaButtonText.alignment = TextAnchor.MiddleCenter;
+            manaButtonText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            manaButtonText.color = Color.white;
+            manaButtonText.fontSize = 14;
+
+            UnityEventTools.AddPersistentListener(manaButton.onClick, debugManaControl.TriggerDebugSpend);
         }
 
         /// Compact, always-visible controls panel. Kept as a sibling of, not merged
@@ -281,7 +354,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             hudRect.anchorMax = new Vector2(0f, 1f);
             hudRect.pivot = new Vector2(0f, 1f);
             hudRect.anchoredPosition = new Vector2(16f, -16f);
-            hudRect.sizeDelta = new Vector2(300f, 110f);
+            hudRect.sizeDelta = new Vector2(300f, 130f);
 
             var hudBackground = hudRoot.AddComponent<Image>();
             hudBackground.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
@@ -306,7 +379,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 "WASD - Move\n" +
                 "Hold E - Open Door\n" +
                 "Moving or taking damage\ncancels the opening attempt\n" +
-                "[Debug/Test] K - Take Damage";
+                "[Debug/Test] K - Take Damage\n" +
+                "[Debug/Test] L - Spend Mana";
         }
 
         private static void SetPrivateField(Object target, string fieldName, Object value)

@@ -1,0 +1,76 @@
+{
+  "status": "implemented",
+  "selected_goal_name": "Mana Resource System (Pool, Spend, Post-Cast Regen)",
+  "selected_goal_description": "Implement a reusable Mana component (max/current mana, Spend(amount), regeneration that resumes after a fixed post-cast delay), mirroring the existing PlayerHealth pattern, ready for the three required spells (Charged Fireball, Frost Field, Force Wave) to consume.",
+  "implementation_summary": "Added a PlayerMana MonoBehaviour (Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs) mirroring PlayerHealth's structure: MaxMana/CurrentMana properties, a bool Spend(float) that fails and leaves the pool unchanged when insufficient, a public Tick(deltaTime) driven from Update (also directly callable from tests, mirroring DoorInteractable.Tick), and Update-driven regen that only resumes once postCastRegenDelay seconds have elapsed since the last successful spend. Added DebugManaSpendControl.cs mirroring DebugDamageControl's debug-trigger pattern (L key by default) to exercise Spend() without any spell existing yet. Added PlayerManaUI.cs mirroring DoorInteractionUI's progress-fill binding (fillAmount = CurrentMana/MaxMana). Wired all three into DoorPrototypeSceneBuilder.cs: the Player gets PlayerMana + DebugManaSpendControl components, and BuildUI now also builds a ManaFill bar (Image.Type.Filled, same background+fill pattern as the door's ProgressFill, positioned lower on screen so it never overlaps) plus a stacked \"DEBUG: Spend Mana (L)\" button, and the ControlsHud text now documents the L key. No spell-casting logic was added — Spend is only exercised via the debug trigger, matching the candidate's stated implementation_scope exactly.",
+  "files_created": [
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs.meta",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DebugManaSpendControl.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DebugManaSpendControl.cs.meta",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs.meta",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs.meta"
+  ],
+  "files_modified": [
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
+  ],
+  "tests_added": [
+    "PlayerManaPlayModeTests.Spend_ReducesCurrentMana_WhenSufficient",
+    "PlayerManaPlayModeTests.Spend_Fails_WhenAmountExceedsCurrentMana",
+    "PlayerManaPlayModeTests.Mana_DoesNotRegenerate_DuringPostCastDelay",
+    "PlayerManaPlayModeTests.Mana_Regenerates_AfterPostCastDelayElapses",
+    "PlayerManaPlayModeTests.Spend_DuringRegen_ResetsPostCastDelay"
+  ],
+  "validations": [
+    {
+      "name": "Manual code review of PlayerMana.cs, DebugManaSpendControl.cs, PlayerManaUI.cs",
+      "status": "passed",
+      "details": "Verified against PlayerHealth.cs, DebugDamageControl.cs, and DoorInteractionUI.cs patterns line-by-line; namespaces, field styles, event pattern, and public API shape are consistent with existing project conventions."
+    },
+    {
+      "name": "Manual review of DoorPrototypeSceneBuilder.cs diff",
+      "status": "passed",
+      "details": "Ran `git diff --ignore-all-space` (the whole file had pre-existing CRLF/LF whitespace churn unrelated to this session) to isolate the semantic diff: confirmed only the intended additions (BuildPlayer/BuildUI out-params, BuildManaUI method, HUD text line) were made, no unrelated changes."
+    },
+    {
+      "name": "Confirm existing DoorPrototypeSceneBuilderTests.cs untouched",
+      "status": "passed",
+      "details": "`git diff --ignore-all-space` on that test file produced no output, confirming its assertions (HUD substrings, ProgressFill checks) are unaffected by the mana UI additions."
+    },
+    {
+      "name": "C# compilation",
+      "status": "not_available",
+      "details": "No dotnet/mcs/csc compiler present in this container and no Unity executable available, so the code could not be compiled or run. Relied on careful manual syntax/type review instead."
+    },
+    {
+      "name": "Unity Test Runner (Play Mode / Edit Mode)",
+      "status": "not_available",
+      "details": "Unity Editor is not available in this environment; tests were written but not executed."
+    }
+  ],
+  "unity_run_status": "not_available",
+  "manual_unity_validation": [
+    "Open the project in Unity 6000.1.8f1, let it import the new scripts (no compile errors expected).",
+    "Run No Safe Circle > Build Door Prototype Scene from the menu to regenerate DoorPrototype.unity with the new Player mana components and UI wired in.",
+    "Enter Play Mode: confirm a blue ManaFill bar appears near the bottom-center of the screen, starting full.",
+    "Click the 'DEBUG: Spend Mana (L)' button (or press L) repeatedly and confirm CurrentMana drops by 25 each time (button greys out functionally once mana is insufficient, i.e. clicks stop reducing the bar) and Spend refuses below zero.",
+    "After spending, confirm the mana bar stays flat for ~2 seconds (postCastRegenDelay) before refilling; confirm spending again during the refill resets the delay.",
+    "Run the Unity Test Runner (Play Mode) and confirm the 5 new PlayerManaPlayModeTests pass alongside the existing DoorInteractionPlayModeTests and DoorPrototypeSceneBuilderTests (Edit Mode)."
+  ],
+  "requirements_satisfied": [
+    "Reusable PlayerMana component with MaxMana/CurrentMana pool, mirroring PlayerHealth's field/property/Awake pattern.",
+    "Spend(float) method that returns success/failure and leaves the pool unchanged on failure.",
+    "Regeneration resumes only after a fixed, configurable post-cast delay elapses since the last spend, and any new spend resets that delay.",
+    "Update-driven regen loop with a public Tick(deltaTime) for deterministic Play Mode testing, mirroring DoorInteractable's Tick pattern.",
+    "Minimal UI hookup (ManaFill bar bound via PlayerManaUI) mirroring DoorInteractionUI's progress-fill Image.Type.Filled pattern.",
+    "Debug 'Spend Mana' trigger (DebugManaSpendControl, key L) mirroring DebugDamageControl, sufficient to test the pool standalone with no spell-casting logic included.",
+    "No spell-casting logic (Fireball/Frost Field/Force Wave) was implemented — scope stayed to the mana pool only."
+  ],
+  "remaining_work": [
+    "None for the selected goal itself. The three spells (Charged Fireball, Frost Field, Force Wave) that will call PlayerMana.Spend() are separate, out-of-scope future goals per the contract.",
+    "Human/Unity verification of the generated scene and UI layout (bar visibility, button wiring, HUD text) since no Unity executable was available in this container to run it."
+  ],
+  "notes": "The repository's working tree already had widespread CRLF/LF whitespace churn across nearly every tracked file before this session started (visible in the initial git status and confirmed by `git diff --ignore-all-space` showing zero semantic changes on files I didn't touch, e.g. DoorPrototypeSceneBuilderTests.cs). This is pre-existing and unrelated to this implementation; I did not attempt to fix it, per the instruction to avoid unrelated cleanup. New .meta files were hand-authored with the same minimal `fileFormatVersion: 2\\r\\nguid: <hex>` format and CRLF line endings as the existing script .meta files in this repo (verified byte-for-byte), since no Unity Editor was available to generate them automatically.\n\nObserved Assets/ delta during orchestrated run: created=['Assets/NoSafeCircle/DoorPrototype/Scripts/DebugManaSpendControl.cs', 'Assets/NoSafeCircle/DoorPrototype/Scripts/DebugManaSpendControl.cs.meta', 'Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs', 'Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs.meta', 'Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs', 'Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs.meta', 'Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs', 'Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs.meta']; modified=['Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs']; deleted=[]."
+}
