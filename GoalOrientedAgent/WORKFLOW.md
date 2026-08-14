@@ -1,79 +1,87 @@
 # Assignment 5 — Goal-Oriented Coding Agent Workflow
 
-This document records how the Assignment 5 implementation is being built so the process can be repeated later.
+This document records the repeatable process used to build Assignment 5.
 
 ## Assignment Goal
 
-Assignment 5 asks for a goal-oriented coding agent that can:
+The Assignment 5 agent must:
 
-1. Read the Game Design Document (GDD).
+1. Read the GDD.
 2. Scan the existing codebase.
-3. Detect gaps between the GDD and the implementation.
-4. Prioritize the missing features.
-5. Generate code for at least one missing feature.
+3. Detect gaps.
+4. Prioritize the gaps.
+5. Select what to build next.
+6. Generate code for at least one missing feature.
 
-The main learning objective is the **reasoning layer**: how the agent decides what should be built next and why.
+The important new concept is the reasoning layer:
 
-## Relationship to Earlier Assignments
+```text
+Desired State - Current State = Gaps
+```
 
-This repository already contains:
+Then:
 
-- `AgentCrew/` — Assignment 3.
-- `DynamicContentPipeline/` — Assignment 4.
+```text
+Gaps
+→ Evaluate
+→ Prioritize
+→ Choose one goal
+→ Act
+```
 
-Assignment 5 should not replace or modify either project.
+## Existing Repository Work
 
-Useful ideas are reused:
+Prior assignments remain separate:
 
-- Assignment 3 provides a proven Claude Code / Docker invocation pattern.
-- Assignment 4 established the GDD as canonical source material.
-- Assignment 5 adds goal selection: compare the desired game against the current implementation, identify gaps, and choose the next goal.
+```text
+AgentCrew/                Assignment 3
+DynamicContentPipeline/  Assignment 4
+GoalOrientedAgent/       Assignment 5
+```
+
+Assignment 5 may learn from the infrastructure used in Assignment 3 during bootstrap generation, but the actual Assignment 5 analysis is intentionally restricted to:
+
+```text
+Docs/GDD/No_Safe_Circle_GDD.md
+Assets/
+```
 
 ## Branch
 
-Assignment 5 is developed on:
+Work is performed on:
 
 ```text
 assignment-5-goal-oriented-agent
 ```
 
-Before making changes, verify:
+Verify before making changes:
 
 ```powershell
 git status
 ```
 
-Expected result:
+## Files Used to Bootstrap Assignment 5
 
-```text
-On branch assignment-5-goal-oriented-agent
-nothing to commit, working tree clean
-```
-
-## Assignment 5 Folder
-
-The intended structure is:
-
-```text
-GoalOrientedAgent/
-├── goal_agent.py
-├── prompts/
-│   └── analyze.md
-├── outputs/
-│   └── goal_analysis.json
-├── Setup-Assignment5-Analysis.ps1
-└── WORKFLOW.md
-```
-
-The repository root also contains:
+Repository root:
 
 ```text
 Run-Assignment5-Setup.cmd
 ```
 
-`Run-Assignment5-Setup.cmd` exists only as a convenient Windows launcher for the PowerShell setup script.
+Assignment 5 folder:
 
-## Phase 1 — Build the Analysis Harness
+```text
+GoalOrientedAgent/
+├── Setup-Assignment5-Analysis.ps1
+├── WORKFLOW.md
+├── goal_agent.py                 generated
+├── prompts/
+│   └── analyze.md                generated
+└── outputs/
+    └── goal_analysis.json        produced later
+```
+
+## Regenerating the Analysis Harness
 
 Run:
 
@@ -81,107 +89,104 @@ Run:
 Run-Assignment5-Setup.cmd
 ```
 
-You can double-click the file in Windows Explorer, or run it from the repository root.
-
 The launcher executes:
 
 ```text
 GoalOrientedAgent\Setup-Assignment5-Analysis.ps1
 ```
 
-The PowerShell script invokes Claude Code inside the existing Docker environment.
-
-### Important Permission Distinction
-
-There are two separate Claude invocations.
-
-**Setup Claude**
-
-The setup script gives Claude these tools:
+The setup script intentionally deletes these two generated files first:
 
 ```text
-Read, Glob, Grep, Write
+GoalOrientedAgent/goal_agent.py
+GoalOrientedAgent/prompts/analyze.md
 ```
 
-It needs `Write` because its job is to create the Assignment 5 files.
+This forces Claude to regenerate them from the improved instructions rather than patching an earlier attempt.
 
-It is not allowed to use `Edit`.
+## Two Different Claude Roles
 
-**Goal-Oriented Agent — Analysis Phase**
+There are two Claude executions with different permissions and different repository boundaries.
 
-The agent created by the setup step must use only:
+### 1. Bootstrap Claude
+
+The setup script launches Claude with:
 
 ```text
-Read, Glob, Grep
+Read
+Glob
+Grep
+Write
 ```
 
-during analysis.
+This Claude needs `Write` because its job is to create the Assignment 5 harness.
 
-The analysis agent must not have `Write` or `Edit` permission. It is supposed to inspect the project and choose a goal, not alter gameplay code yet.
-
-## Desired State vs. Current State
-
-The core reasoning model for Assignment 5 is:
+It may read:
 
 ```text
-Desired State - Current State = Gaps
+AgentCrew/orchestrator.py
 ```
 
-For this project:
+only to learn the existing repository's subprocess/Claude invocation pattern.
+
+### 2. Goal-Oriented Analysis Claude
+
+The generated `goal_agent.py` must launch the actual analysis agent with:
 
 ```text
-GDD requirements
--
-existing Unity implementation
-=
-missing or partial game features
+--permission-mode dontAsk
+--tools Read,Glob,Grep
+--allowedTools Read,Glob,Grep
+--disallowedTools Edit,Write,mcp__*
 ```
 
-The agent then reasons:
+The analysis agent must not receive:
 
 ```text
-Gaps
-  ↓
-Evaluate
-  ↓
-Prioritize
-  ↓
-Choose one goal
-  ↓
-Act
+Bash
+Write
+Edit
 ```
 
-In Phase 1, the process intentionally stops after **Choose one goal**.
+It must not modify files.
 
-Code generation is added only after the goal-selection behavior has been reviewed.
+Its repository-analysis boundary is:
 
-## What the Analysis Agent Must Inspect
+```text
+Docs/GDD/No_Safe_Circle_GDD.md
+Assets/
+```
 
-### Desired State
+It must not inspect:
 
-The agent reads:
+```text
+AgentCrew/
+DynamicContentPipeline/
+```
+
+## Desired State
+
+The desired state comes from:
 
 ```text
 Docs/GDD/No_Safe_Circle_GDD.md
 ```
 
-The GDD is treated as the desired state.
+The GDD defines what the game is supposed to contain.
 
-### Current State
+## Current State
 
-The agent scans:
+The actual gameplay implementation is determined by scanning:
 
 ```text
 Assets/
 ```
 
-This is the actual Unity implementation.
+Only real gameplay evidence under `Assets/` counts as implementation evidence.
 
-The agent should use repository evidence instead of assuming that a feature exists merely because a similarly named file exists.
+## Gap Detection
 
-## Gap Classification
-
-Required GDD features should be classified as:
+Each required gameplay/code feature should be classified as:
 
 ```text
 implemented
@@ -189,133 +194,194 @@ partial
 missing
 ```
 
-The agent should distinguish required scope from stretch goals.
+The agent must cite actual code evidence.
 
-## Goal Evaluation
+A promising filename is not enough; relevant files should be read.
 
-Missing features should be evaluated using factors such as:
+## Non-Code Requirements
 
-- Dependencies.
-- Whether prerequisites already exist.
-- How many required systems the feature unlocks.
-- Implementation size and risk.
-- Whether the feature is required or merely a stretch goal.
-- Whether it can be implemented and tested as a bounded next step.
+Some GDD requirements may not be assessable from gameplay code under `Assets/`.
 
-The selected feature must not be hard-coded.
+For example:
 
-For example, a human may predict that the mana system is a strong candidate, but the agent must independently choose its goal from GDD and codebase evidence.
+```text
+Windows build
+packaging/build-target requirements
+```
 
-## Required Analysis Output
+These are reported separately in:
 
-Phase 1 should create:
+```text
+non_code_requirements
+```
+
+Allowed statuses are:
+
+```text
+confirmed
+not_assessable_from_assets
+```
+
+A requirement is not automatically `missing` just because Assets/ cannot prove its status.
+
+Unassessable non-code requirements are not coding-goal candidates.
+
+## Candidate Goal Selection
+
+The agent should build at least three strong candidate goals TOTAL from missing or meaningfully partial required gameplay features.
+
+It should not create three candidate goals for every missing feature.
+
+Each candidate is evaluated using:
+
+- dependencies
+- prerequisite readiness
+- unlock value
+- implementation risk and size
+- required-vs-stretch scope
+
+The schema keeps two concepts separate:
+
+```text
+scope
+```
+
+means only:
+
+```text
+required
+stretch
+```
+
+while:
+
+```text
+implementation_scope
+```
+
+describes likely files/components/systems involved.
+
+Then the agent selects exactly one next goal.
+
+No feature is hard-coded as the winner.
+
+## Phase 1 Output Responsibility
+
+The read-only Claude analysis agent does not write files.
+
+It returns structured JSON.
+
+The Python orchestrator receives `structured_output` and writes:
 
 ```text
 GoalOrientedAgent/outputs/goal_analysis.json
 ```
 
-The JSON should include:
+This separation keeps the reasoning phase read-only while still preserving its result.
 
-```text
-desired_state
-current_state
-gaps
-candidate_goals
-selected_goal
-selection_reason
-dependencies
-evidence
-rejected_high_priority_alternatives
-```
+## Bootstrap Self-Validation
 
-The terminal output should also provide a readable explanation of the selected goal.
+The setup prompt requires Claude to reread both generated files before finishing and verify:
+
+- read-only analysis permissions are correct
+- `--allowedTools` is present
+- Bash/Write/Edit are unavailable to the analysis agent
+- the GDD is desired state
+- Assets/ is current state
+- AgentCrew/ and DynamicContentPipeline/ are completely excluded from the analysis pass
+- required/stretch/excluded scope is distinguished
+- at least three candidate goals TOTAL are compared
+- exactly one goal is selected
+- no winner is hard-coded
+- candidate `scope` is strictly `required` or `stretch`
+- `implementation_scope` is separate
+- non-code requirements are reported separately
+- unassessable non-code requirements are not mislabeled as missing
+- the Python orchestrator, not Claude, saves the JSON
+- no Unity, GDD, Assignment 3, or Assignment 4 files were modified
+
+If validation fails, Claude is instructed to correct the generated files and validate again before stopping.
 
 ## Review Gate
 
-After the setup script finishes, do **not** immediately run the generated agent.
-
-First run:
+After regeneration:
 
 ```powershell
 git status
 ```
 
-Then inspect:
+Then review:
 
 ```text
 GoalOrientedAgent/goal_agent.py
 GoalOrientedAgent/prompts/analyze.md
 ```
 
-The important checks are:
+Do not run the goal agent until those files have been reviewed.
 
-1. Analysis uses only read-only tools.
-2. The selected feature is not hard-coded.
-3. The GDD is treated as the desired state.
-4. `Assets/` is scanned as the current implementation.
-5. The agent records evidence for its conclusions.
-6. It chooses exactly one goal.
-7. Analysis does not modify Unity files.
+## Running the Analysis Agent
 
-After that review, the analysis agent can be run.
+After the generated files have been reviewed, run from the repository root:
 
-## Later Phase — Code Generation
-
-Assignment 5 ultimately requires generating code for at least one missing feature.
-
-That will be a separate action phase.
-
-The intended progression is:
-
-```text
-Phase 1
-Analyze → Detect gaps → Prioritize → Select goal
-
-Phase 2
-Selected goal → Plan implementation → Generate code
-
-Phase 3
-Review → Run in Unity → Document result
+```powershell
+docker compose run --rm claude python3 GoalOrientedAgent/goal_agent.py
 ```
 
-Separating analysis from implementation makes the agent's decision process visible and prevents it from changing the Unity project before its reasoning has been inspected.
+The expected output file is:
 
-## Deliverables to Finish
+```text
+GoalOrientedAgent/outputs/goal_analysis.json
+```
 
-Before submission, Assignment 5 needs:
+## Phase 2 — Implementation
 
-- A complete runnable goal-oriented agent.
-- Any configuration required to run it.
-- Code generated for at least one missing feature.
-- A README explaining:
-  - What feature the agent built.
-  - Why the agent selected that feature.
-  - Whether the generated feature was successfully run in the game.
+Once the selected goal is trustworthy, Assignment 5 continues with an action phase:
 
-## Git Workflow
+```text
+Selected goal
+→ Plan implementation
+→ Generate Unity code
+→ Test in Unity
+```
 
-After a meaningful working checkpoint:
+The implementation phase will have different permissions from the analysis phase and should be added deliberately rather than silently giving the analysis agent write access.
+
+## Final Assignment 5 Deliverables
+
+The finished submission needs:
+
+- the runnable goal-oriented agent
+- required configuration
+- generated code for at least one missing feature
+- README explaining:
+  - what feature the agent built
+  - why it selected that feature
+  - whether the feature was successfully run in the game
+
+## Git Checkpoint
+
+After the analysis harness is working:
 
 ```powershell
 git status
 ```
 
-Review the changes, then:
+Then:
 
 ```powershell
 git add GoalOrientedAgent Run-Assignment5-Setup.cmd
 ```
 
-Commit with a descriptive message, for example:
+Commit:
 
 ```powershell
-git commit -m "Add Assignment 5 goal agent analysis harness"
+git commit -m "Add Assignment 5 goal analysis harness"
 ```
 
-Then push:
+Push:
 
 ```powershell
 git push
 ```
 
-Do not merge to `main` until Assignment 5 is working and ready for submission.
+Do not merge into `main` until the assignment is working and ready to submit.

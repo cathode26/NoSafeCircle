@@ -1,0 +1,277 @@
+{
+  "desired_state": {
+    "source": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "required_features": [
+      "One wizard player character controlled with mouse-directed click/hold movement, with the cursor also serving as the aiming/targeting reference for spells",
+      "Charged Fireball (tap for quick shot, hold to charge, costs mana, restricts movement while charging)",
+      "Frost Field (temporary area that heavily slows enemies; cast/mana side owned by Wizard Combat Agent, slowdown application/restoration owned by Enemy Pursuit Agent)",
+      "Force Wave (short-range radial knockback with a long cooldown)",
+      "Mana pool with slow regeneration after a brief post-cast delay",
+      "Melee Enemy (runs at wizard, attacks at close range)",
+      "Ranged Enemy (keeps distance, fires slow telegraphed shot, requires line-of-sight/occlusion checks; never appears without at least one Melee Enemy in its encounter)",
+      "Sealed Door: open by holding 5 uninterrupted seconds; movement or damage cancels and resets progress",
+      "Sealed Door: close-and-lock after crossing, restoring a small fixed amount of health; once locked it cannot be reopened, unlocked, or crossed again",
+      "Sealed Door: durability/breaking under sustained pursuer attack when the player waits too long; a broken door stays open permanently and is not a player return path",
+      "Cross-room pursuit: enemies follow the wizard through open doors as persistent objects (not new spawns), carried forward across rooms",
+      "Hard cap of 15 active enemies at once; new-encounter activation is delayed/reduced first when persistent pursuers plus a new encounter would exceed the cap",
+      "Health persists across the whole run (does not regenerate or reset between rooms except via door-lock recovery)",
+      "Death and restart: reaching zero health restarts the entire floor from the beginning",
+      "One handcrafted, continuous 2.5D isometric dungeon floor with five connected spaces (Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, Final Room), authored primarily with Unity Isometric Tilemaps for floors/walls plus SpriteRenderer prefabs for doors/props/characters, viewed with a fixed isometric camera",
+      "Essential feedback: door banging/shaking/cracks/durability indicator, Force Wave cooldown visibility, and other core status feedback (health, mana, door progress)",
+      "Windows build of the finished game with no runtime AI/network dependency"
+    ]
+  },
+  "current_state": {
+    "source": "Assets/ (Unity project gameplay code)",
+    "implemented_summary": "Only a single self-contained 'Door Prototype' feature exists under Assets/NoSafeCircle/DoorPrototype/. It provides: a CharacterController-based player driven by WASD keyboard input (PlayerMovement.cs) rather than the GDD's mouse-directed click/hold movement; a basic PlayerHealth component with TakeDamage and a Damaged event but no regeneration, cross-room persistence logic, or death/restart handling; a DoorInteractable component implementing only the 'hold 5 seconds to open, cancel on move/damage' behavior (no closing, locking, health-restore-on-lock, durability, or breaking); a DoorInteractionUI showing a prompt and progress-fill bar; a DebugDamageControl that lets a developer manually trigger player damage for testing (explicitly a debug/test affordance, not a combat system); and an Editor script (DoorPrototypeSceneBuilder.cs) that procedurally builds one small test room out of primitive Unity geometry (a Plane floor, two Cube walls, a Cube door visual, a Capsule player visual) with no Tilemap, no isometric camera framing beyond a single fixed test-room camera, and no room layout resembling any of the GDD's five named spaces. No spell scripts, no mana scripts, no enemy/AI scripts, no NavMesh usage, and no Tilemap assets exist anywhere under Assets/. Play Mode and Editor tests exist only for this door-opening/cancel behavior and for scene-builder UI wiring, not for any other GDD system.",
+    "files_reviewed": [
+      "Docs/GDD/No_Safe_Circle_GDD.md",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/DebugDamageControl.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractionUI.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "Glob of Assets/**/* (confirms only Assets/Scenes/SampleScene.unity, Assets/Scenes/DoorPrototype.unity, Assets/InputSystem_Actions.inputactions, and the DoorPrototype folder exist; no other gameplay scripts, Tilemap assets, enemy scripts, or spell scripts anywhere under Assets/)"
+    ]
+  },
+  "gaps": [
+    {
+      "feature": "Mouse-directed click/hold player movement with cursor as spell-aiming reference",
+      "status": "partial",
+      "evidence": "PlayerMovement.cs (Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs) reads WASD keys via Keyboard.current and moves a CharacterController; there is no mouse/cursor input, no click-to-move destination, and no cursor-based aiming reference anywhere in the reviewed scripts."
+    },
+    {
+      "feature": "Charged Fireball spell",
+      "status": "missing",
+      "evidence": "No file, class, or method referencing Fireball exists anywhere under Assets/ (confirmed via Glob of Assets/**/*.cs and full read of all 7 gameplay scripts)."
+    },
+    {
+      "feature": "Frost Field spell",
+      "status": "missing",
+      "evidence": "No FrostField-related script, status-effect component, or slowdown logic exists under Assets/."
+    },
+    {
+      "feature": "Force Wave spell",
+      "status": "missing",
+      "evidence": "No ForceWave-related script, knockback logic, or cooldown component exists under Assets/."
+    },
+    {
+      "feature": "Mana pool with regeneration",
+      "status": "missing",
+      "evidence": "PlayerHealth.cs is the only resource-style component present; there is no Mana class, field, or regeneration coroutine/method anywhere in the reviewed files."
+    },
+    {
+      "feature": "Melee Enemy behavior",
+      "status": "missing",
+      "evidence": "No enemy script, NavMeshAgent usage, or AI state machine exists anywhere under Assets/ (Glob of Assets/**/*.cs returned only the 9 DoorPrototype scripts/tests plus the scene builder)."
+    },
+    {
+      "feature": "Ranged Enemy behavior (incl. line-of-sight/occlusion)",
+      "status": "missing",
+      "evidence": "Same Glob/read coverage as Melee Enemy above; no ranged-attack, projectile, or occlusion-check code exists."
+    },
+    {
+      "feature": "Sealed Door: 5-second hold-to-open with move/damage cancellation",
+      "status": "implemented",
+      "evidence": "DoorInteractable.cs Tick()/StartInteraction()/CancelInteraction()/Complete() implement the timed hold-to-open with Progress reset on cancel; PlayerInteractionController.OnPlayerMoved() and HandleDamaged() call EndInteraction() on movement or PlayerHealth.Damaged, matching the GDD rule. Covered by 5 Play Mode tests in DoorInteractionPlayModeTests.cs."
+    },
+    {
+      "feature": "Sealed Door: close-and-lock after crossing with health restore, one-way permanence",
+      "status": "missing",
+      "evidence": "DoorInteractable.cs only exposes IsOpen (set once, never reset) with no Lock/Close method, no 'crossed' detection, and no health-restore call into PlayerHealth."
+    },
+    {
+      "feature": "Sealed Door: durability/breaking under pursuer attack, breach feedback (banging/shaking/cracks/durability indicator)",
+      "status": "missing",
+      "evidence": "No durability field, TakeDamage-style method for doors, breaking state, or related visual/audio feedback exists in DoorInteractable.cs or DoorInteractionUI.cs."
+    },
+    {
+      "feature": "Cross-room pursuit of persistent enemies through open doors",
+      "status": "missing",
+      "evidence": "No enemy objects exist to pursue, and DoorInteractable.cs has no concept of enemies passing through it; only doorwayBlocker collider toggling on open/close of the door for the player exists."
+    },
+    {
+      "feature": "Active-enemy cap (max 15) with encounter-activation throttling",
+      "status": "missing",
+      "evidence": "No encounter/spawn management script exists anywhere under Assets/; there are no enemies to cap."
+    },
+    {
+      "feature": "Health persists across the run; door-lock restores a small fixed amount",
+      "status": "partial",
+      "evidence": "PlayerHealth.cs tracks CurrentHealth across TakeDamage calls with no reset method (consistent with run-persistence), but there is no restore-on-lock method and no door-lock feature to call it from."
+    },
+    {
+      "feature": "Death and restart at zero health",
+      "status": "missing",
+      "evidence": "PlayerHealth.TakeDamage() clamps CurrentHealth to a minimum of 0 via Mathf.Max but takes no further action; no death event, restart trigger, or scene-reload logic exists in PlayerHealth.cs or elsewhere."
+    },
+    {
+      "feature": "Handcrafted 2.5D isometric floor with five connected spaces (Tilemap-based)",
+      "status": "missing",
+      "evidence": "DoorPrototypeSceneBuilder.cs builds only one generic test room from a primitive Plane and two Cube walls; no Tilemap, Grid, or Tile assets exist under Assets/, and none of the five named GDD spaces (Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, Final Room) appear anywhere."
+    },
+    {
+      "feature": "Essential feedback (health/mana HUD, cooldown indicators, door damage feedback)",
+      "status": "partial",
+      "evidence": "DoorInteractionUI.cs implements a door open prompt and progress-fill bar (and DoorPrototypeSceneBuilderTests.cs verifies the fill sprite/HUD wiring), but there is no health bar, mana bar, spell cooldown indicator, or door-durability/banging feedback anywhere under Assets/."
+    }
+  ],
+  "non_code_requirements": [
+    {
+      "feature": "Windows build of the finished game",
+      "status": "not_assessable_from_assets",
+      "evidence": "Build target/output configuration is not visible from GDD text or Assets/ gameplay files alone; ProjectSettings/build-target status is outside the Assets/ + GDD inspection boundary for this analysis."
+    }
+  ],
+  "candidate_goals": [
+    {
+      "name": "Mouse-Directed Click/Hold Player Movement",
+      "description": "Replace or extend PlayerMovement.cs so the wizard moves via mouse click-to-destination or hold-to-steer-toward-cursor over the gameplay plane, with the cursor established as the shared aiming/targeting reference, matching the GDD's Move-and-Aim specification instead of the current WASD-only scheme.",
+      "scope": "required",
+      "implementation_scope": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs (rework input handling to raycast from the mouse cursor onto a ground plane and drive the existing CharacterController toward that point); minor exposure of an aim-point property other systems could later read.",
+      "dependencies": [
+        "PRE-EXISTING: PlayerMovement.cs and its CharacterController-based movement pipeline",
+        "PRE-EXISTING: existing test-room scene/camera built by DoorPrototypeSceneBuilder.cs for manual verification",
+        "CREATED-IN-GOAL: mouse-to-ground-plane raycast/projection logic"
+      ],
+      "prerequisites_ready": true,
+      "resource_acquisition_readiness": "high",
+      "resource_acquisition_reasoning": "This is a code-only input/movement change; it requires no external art or generated resource, so PixelLab is not relevant here and resource acquisition readiness is high by default.",
+      "prototype_readiness": "high",
+      "integration_readiness": "medium",
+      "systems_unlocked": [
+        "Cursor-based spell aiming reference for future Fireball/Frost Field/Force Wave targeting",
+        "GDD-accurate movement feel for later playtesting"
+      ],
+      "risk_and_size": "Small, low-risk change confined to one existing script; main risk is correctly projecting the cursor ray onto the gameplay plane given the test room's non-final camera angle.",
+      "reasoning": "Fixes a real, evidenced divergence between the current WASD implementation and the GDD's required Move-and-Aim scheme. High readiness on every axis, but its unlock value is bounded because WASD movement already lets the door prototype be exercised end-to-end today — this candidate refines an already-functioning system rather than standing up a wholly missing one."
+    },
+    {
+      "name": "Melee Enemy Chase-and-Attack Prototype",
+      "description": "Add a Melee Enemy prototype (NavMeshAgent-driven) that detects the player within a radius, chases using a baked NavMesh on the existing test-room floor, and deals damage via PlayerHealth.TakeDamage() when in melee range, with a basic attack cooldown. Scoped to single-room chase-and-attack only, not multi-room door pursuit.",
+      "scope": "required",
+      "implementation_scope": "New Assets/NoSafeCircle/DoorPrototype/Scripts/MeleeEnemy.cs (or a new Enemy folder) with NavMeshAgent-based chase/attack state; baking a NavMesh over the existing Floor/Walls primitives; a placeholder capsule/primitive enemy prefab consistent with the project's current primitive-art style; wiring TakeDamage calls into PlayerHealth.cs.",
+      "dependencies": [
+        "PRE-EXISTING: Player GameObject/CharacterController as a chase target (Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs BuildPlayer)",
+        "PRE-EXISTING: PlayerHealth.TakeDamage() as the damage entry point (Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs)",
+        "PRE-EXISTING: Floor/Walls primitive geometry to bake a NavMesh over (DoorPrototypeSceneBuilder.cs BuildFloor/BuildWalls)",
+        "CREATED-IN-GOAL: baked NavMesh, NavMeshAgent component/config, enemy prefab, detection/attack state logic",
+        "ACQUIRED-IN-GOAL (optional, not blocking): PixelLab-generated directional enemy sprite art for later visual polish"
+      ],
+      "prerequisites_ready": true,
+      "resource_acquisition_readiness": "high",
+      "resource_acquisition_reasoning": "No missing external resource blocks prototyping or testing this candidate: a primitive placeholder (matching the existing capsule-based player visual) is sufficient to validate chase/attack behavior. PixelLab is relevant for eventual 4/8-directional enemy sprite art and could supply it later, but that acquisition is not required to implement or test this candidate now, and importing/rigging that art (sorting, animation wiring) would remain separate integration work regardless.",
+      "prototype_readiness": "high",
+      "integration_readiness": "low",
+      "systems_unlocked": [
+        "First functional enemy/combat threat in the project (currently zero enemy code exists anywhere)",
+        "A live damage source to validate PlayerHealth beyond the current debug-only damage trigger",
+        "Foundation for later Frost Field/Force Wave interaction testing",
+        "Foundation for cross-room pursuit and encounter-cap systems"
+      ],
+      "risk_and_size": "Medium: NavMesh baking, detection radius tuning, and attack-cooldown timing are bounded but real risks (e.g., agents getting stuck or attacking through walls); scope is deliberately limited to single-room chase+attack, not door-crossing pursuit, keeping it a coherent, testable slice.",
+      "reasoning": "Every other reviewed candidate extends or refines a system that already has some real implementation (movement, doors, health). No enemy code of any kind exists under Assets/, making this the largest true gap among coherently-sized candidates, and it is directly testable today using pre-existing Player/PlayerHealth/floor geometry without needing any new external resource."
+    },
+    {
+      "name": "Sealed Door Close-and-Lock with Health Restore",
+      "description": "Extend DoorInteractable.cs to add a Close/Lock method usable after the player has crossed through an opened door, restoring a small fixed amount of health via PlayerHealth and permanently preventing the door from reopening or being crossed again.",
+      "scope": "required",
+      "implementation_scope": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs (add crossed/locked state and a Lock() method), Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs (trigger locking after crossing, e.g. on a new trigger zone or interact input), Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs (add a Heal/Restore method).",
+      "dependencies": [
+        "PRE-EXISTING: DoorInteractable.cs open/interaction state machine",
+        "PRE-EXISTING: PlayerHealth.cs TakeDamage pattern to mirror for a Restore method",
+        "PRE-EXISTING: PlayerInteractionController.cs door-range detection",
+        "CREATED-IN-GOAL: locked state, crossing detection, Restore/Heal method"
+      ],
+      "prerequisites_ready": true,
+      "resource_acquisition_readiness": "high",
+      "resource_acquisition_reasoning": "Code-only extension of an existing component; no new external art or generated resource is required, so PixelLab is not relevant to this candidate.",
+      "prototype_readiness": "high",
+      "integration_readiness": "medium",
+      "systems_unlocked": [
+        "Completes the core door-opening loop toward the full 'open, cross, lock, recover' sequence",
+        "Restore-on-lock health mechanic usable by later room-to-room balancing"
+      ],
+      "risk_and_size": "Small-to-medium: mostly additive state on an already-tested component; main design risk is correctly defining 'crossed' without a real multi-room layout to validate against.",
+      "reasoning": "A natural, low-risk extension of the only currently-partial system in the project. Readiness is high across the board, but unlock value is more self-contained than the enemy candidate — locking a door 'against pursuers' has little meaning while zero pursuers exist anywhere in the project."
+    },
+    {
+      "name": "Mana Pool with Post-Cast Regeneration",
+      "description": "Add a Mana resource component mirroring PlayerHealth's pattern (a pool value, a Spend method, and slow regeneration that begins after a short post-cast delay), exposed via a debug spend affordance analogous to DebugDamageControl so regeneration timing can be verified before any spell exists to consume it.",
+      "scope": "required",
+      "implementation_scope": "New Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs, plus a debug test hook analogous to DebugDamageControl.cs for manual verification.",
+      "dependencies": [
+        "PRE-EXISTING: PlayerHealth.cs as an architectural pattern to mirror (pool + event)",
+        "PRE-EXISTING: DebugDamageControl.cs as a debug-hook pattern to mirror for a debug mana-spend affordance",
+        "CREATED-IN-GOAL: regeneration delay/coroutine logic"
+      ],
+      "prerequisites_ready": true,
+      "resource_acquisition_readiness": "high",
+      "resource_acquisition_reasoning": "Code-only resource system; no external art or generated asset is required, so PixelLab is not relevant.",
+      "prototype_readiness": "high",
+      "integration_readiness": "low",
+      "systems_unlocked": [
+        "Shared resource pool that all three required spells (Fireball, Frost Field, Force Wave) will need to cost against"
+      ],
+      "risk_and_size": "Small and low-risk; the regen-after-delay logic is simple and closely mirrors the existing health component.",
+      "reasoning": "High readiness on every axis, but standing alone it produces only an abstract, debug-button-driven bar with no real player-facing behavior yet, since no spell exists to spend it meaningfully — its integration readiness stays low until at least one spell is built to consume it."
+    },
+    {
+      "name": "Death and Restart at Zero Health",
+      "description": "Extend PlayerHealth.cs to raise a Died event when CurrentHealth reaches zero and add a minimal restart handler that reloads/resets the current test scene, closing the GDD's required loss-condition loop.",
+      "scope": "required",
+      "implementation_scope": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs (add a Died event fired once at zero health), a new small RestartController-style script to reload the scene.",
+      "dependencies": [
+        "PRE-EXISTING: PlayerHealth.cs TakeDamage/CurrentHealth clamp-to-zero logic",
+        "PRE-EXISTING: DebugDamageControl.cs as a way to drive health to zero for testing",
+        "CREATED-IN-GOAL: Died event, restart/scene-reload trigger"
+      ],
+      "prerequisites_ready": true,
+      "resource_acquisition_readiness": "high",
+      "resource_acquisition_reasoning": "Code-only; no external resource is needed, so PixelLab is not relevant.",
+      "prototype_readiness": "high",
+      "integration_readiness": "medium",
+      "systems_unlocked": [
+        "Closes the required loss-condition/restart loop"
+      ],
+      "risk_and_size": "Small and low-risk; PlayerHealth already clamps to zero, so this is a narrow, additive change.",
+      "reasoning": "Very cheap and safe, but the lowest unlock value of the candidates reviewed — it closes one isolated required bullet without enabling any other missing system."
+    }
+  ],
+  "selected_goal": {
+    "name": "Melee Enemy Chase-and-Attack Prototype",
+    "description": "Add a Melee Enemy prototype (NavMeshAgent-driven) that detects the player within a radius, chases using a baked NavMesh on the existing test-room floor, and deals damage via PlayerHealth.TakeDamage() on contact, with a basic attack cooldown — scoped to single-room chase-and-attack only."
+  },
+  "selection_reason": "Among the five candidates, this one has the highest unlock value at comparably high readiness: it is the only candidate that stands up an entirely absent required system (zero enemy/AI code exists anywhere under Assets/), whereas the other four candidates all extend or refine systems that already have partial real implementation (movement, doors, health). Its prerequisites are genuinely ready today — the Player GameObject, PlayerHealth.TakeDamage() damage entry point, and Floor/Walls geometry to bake a NavMesh over all already exist from the door prototype — and no external resource blocks prototyping it, since a primitive placeholder enemy (consistent with the project's existing primitive-art style) is sufficient to validate chase-and-attack behavior. Its prototype_readiness is high (fully testable today in the existing single test room with a baked NavMesh), but its integration_readiness is low, since no isometric floor, encounter design, or the other required systems (spells, mana, door pursuit) exist yet to validate the real multi-room tactical context described in the GDD. This tradeoff is acceptable because every reviewed candidate currently has low integration_readiness against the real game context — none of the five spaces or the isometric presentation layer exists yet — so integration_readiness does not meaningfully discriminate between candidates at this stage, while prototype-testable unlock value does, and this candidate maximizes that unlock value by creating the game's first live combat threat rather than incrementally polishing an already-partial system.",
+  "dependencies": [
+    "PRE-EXISTING: Player GameObject/CharacterController target (built by DoorPrototypeSceneBuilder.cs BuildPlayer)",
+    "PRE-EXISTING: PlayerHealth.TakeDamage() damage entry point (Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs)",
+    "PRE-EXISTING: Floor/Walls primitive geometry to bake a NavMesh over (DoorPrototypeSceneBuilder.cs BuildFloor/BuildWalls)",
+    "CREATED-IN-GOAL: baked NavMesh, NavMeshAgent-based enemy prefab, detection radius, attack-cooldown state logic",
+    "ACQUIRED-IN-GOAL (non-blocking): PixelLab-generated directional enemy sprite art for later visual polish"
+  ],
+  "evidence": [
+    "Glob of Assets/**/*.cs returns only 7 gameplay scripts, 2 test scripts, and 1 editor scene-builder script, all under Assets/NoSafeCircle/DoorPrototype/ — no enemy, AI, spell, or mana script exists anywhere.",
+    "PlayerHealth.cs (Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs) already exposes a public TakeDamage(float amount) method and a Damaged event, providing a ready-made damage entry point for an enemy to call.",
+    "DebugDamageControl.cs is explicitly documented in its own source comment as 'Testing/demo affordance only, not a combat system,' confirming there is no real combat/damage source in the project today.",
+    "DoorPrototypeSceneBuilder.cs BuildPlayer() creates a Player GameObject with CharacterController, PlayerHealth, PlayerInteractionController, and PlayerMovement components at Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs lines 156-183, giving a ready-made chase target.",
+    "DoorPrototypeSceneBuilder.cs BuildFloor() (lines 108-114) and BuildWalls() (lines 139-154) create primitive Plane/Cube geometry suitable as NavMesh-bake source geometry.",
+    "GDD Section 3 'Required Enemy Roster' explicitly lists Melee Enemy as a required feature ('Runs at the wizard and attacks at close range... Prevents long stationary casts and becomes dangerous in groups').",
+    "GDD Section 3 'Required Scope' bullet list explicitly includes 'two enemies' among the required scope items.",
+    "GDD Section 5 'Runtime Implementation' states 'Unity navigation and finite-state components will control enemy movement, pursuit, attacks, and target loss,' confirming NavMesh-based enemy AI is the intended technical approach this candidate follows."
+  ],
+  "rejected_high_priority_alternatives": [
+    {
+      "name": "Mouse-Directed Click/Hold Player Movement",
+      "reason_rejected": "This is a real, evidenced gap (PlayerMovement.cs uses WASD via Keyboard.current with no mouse/cursor input at all) and scores high on every readiness axis, but it refines a movement system that already works well enough to exercise the existing door prototype end-to-end. It does not, by itself, unlock any new gameplay system the way standing up the project's first-ever enemy does, since no spell exists yet to make cursor-based aiming meaningful."
+    },
+    {
+      "name": "Sealed Door Close-and-Lock with Health Restore",
+      "reason_rejected": "Also high-readiness and low-risk, since it extends the only already-partially-implemented required system in the project. However, its core rationale — 'locking a door against pursuers' — has no real stakes while zero enemies exist anywhere under Assets/; the pursuit and breach-pressure half of the door loop is meaningless without a pursuer object, so implementing the enemy first creates more real, testable value per the GDD's own design pillars ('safety is always temporary... because of monsters left alive')."
+    }
+  ]
+}
