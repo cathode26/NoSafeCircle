@@ -4,7 +4,7 @@ document_type: "Capstone Game Design Document"
 status: "Final Draft"
 author: "Vincent Liguori"
 original_date: "2026-07-21"
-revised_date: "2026-07-30"
+revised_date: "2026-08-13"
 source_docx: "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
 ---
 
@@ -12,13 +12,13 @@ source_docx: "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
 
 **Capstone Game Design Document**
 
-**Working Title | Final Draft | Originally July 21, 2026; revised July 30, 2026 | Vincent Liguori**
+**Working Title | Final Draft | Originally July 21, 2026; revised August 13, 2026 | Vincent Liguori**
 
 > A wizard must create brief moments of safety, open sealed doors under pressure, and escape a dungeon while the monsters left behind continue to pursue.
 
 ## 1. Executive Summary
 
-No Safe Circle is a single-player, top-down survival action game set on one handcrafted dungeon floor. The player controls a vulnerable wizard who can destroy small groups of monsters with powerful spells but cannot survive being surrounded. The player must control distance, wait for mana to regenerate, and decide when to fight, flee, or risk opening the next sealed door.
+No Safe Circle is a single-player, 2.5D isometric survival action game set on one handcrafted dungeon floor. The presentation is inspired by early isometric action/RPGs such as Diablo 1 and Ultima Online: the camera is fixed, the world is viewed at an angle, and the visible environment is authored as isometric art rather than as a free-rotation 3D space. The player controls a vulnerable wizard who can destroy small groups of monsters with powerful spells but cannot survive being surrounded. The player must control distance, wait for mana to regenerate, and decide when to fight, flee, or risk opening the next sealed door.
 
 Each room ends at a door that takes five uninterrupted seconds to open. Before attempting it, the player must create space by luring enemies away, slowing them with Frost Field, knocking them back with Force Wave, or defeating enough of them to reduce the immediate threat. Enemies can follow the wizard through an open doorway. After crossing, the player can close and lock the door, but surviving pursuers will pound against it and eventually break through.
 
@@ -26,9 +26,9 @@ Locked doors provide recovery time, not permanent safety. In the final room, the
 
 | Field | Value |
 |---|---|
-| Genre | Top-down dark-fantasy survival action |
+| Genre | 2.5D isometric dark-fantasy survival action |
 | Platform | Windows PC |
-| Playable Content | One handcrafted floor; five connected spaces |
+| Playable Content | One handcrafted 2.5D isometric floor; five connected spaces |
 | Player Character | One vulnerable wizard; no class selection |
 | Core Abilities | Charged Fireball, Frost Field, Force Wave |
 | Core Enemies | Melee Enemy and Ranged Enemy |
@@ -61,7 +61,7 @@ The player moves through connected rooms toward the final door. In each room, th
 
 | Action | What the player does | Purpose |
 |---|---|---|
-| Move and Aim | Use WASD to move and the mouse to aim. | Circle crowds and protect escape routes. |
+| Move and Aim | Use mouse-directed movement: click to set a destination or hold to keep steering toward the cursor. The cursor also serves as the aiming and targeting reference for spells and interactions. | Create and preserve escape routes while maintaining the spatial feel of early isometric action/RPG movement. |
 | Fireball | Tap for a quick, mobile shot against a single or separated enemy. Hold to charge: costs more mana and restricts movement further, rewarding preparation by damaging multiple clustered enemies. | Rewards distance and preparation; a charge's area advantage matters against groups, not against one target. |
 | Frost Field | Place a temporary area that heavily slows enemies. | Divides crowds and protects routes. |
 | Force Wave | Use a short-range radial knockback with a long cooldown. | Creates emergency space. |
@@ -126,11 +126,19 @@ Ranged Enemies never appear as an isolated encounter: every encounter that intro
 
 ### Required Scope, Exclusions, and Stretch Goals
 
-**Required:** one wizard, one asset-pack floor, five spaces, three spells, two enemies, mana regeneration, sealed doors, pursuit across rooms, death and restart, essential feedback, and a Windows build.
+**Required:** one wizard, one handcrafted 2.5D isometric floor, five spaces, three spells, two enemies, mana regeneration, sealed doors, pursuit across rooms, death and restart, essential feedback, and a Windows build.
 
-**Excluded:** multiplayer, classes, equipment, loot, skill trees, quests, vendors, procedural generation, persistent progression, multiple floors, custom character art, and generative AI during play.
+**Excluded:** multiplayer, classes, equipment, loot, skill trees, quests, vendors, procedural generation, persistent progression, multiple floors, bespoke 3D character models or rigs, free-rotation 3D camera presentation, and generative AI during play.
 
 **Stretch goals:** Spectral Decoy, a third enemy, Fireball-charge reactions, an awareness indicator, Frost Field slowing a breach, advanced door damage, and one additional room.
+
+### Environment Presentation and Authoring Direction
+
+- The game uses a fixed 2.5D isometric presentation inspired by Diablo 1 and Ultima Online.
+- The primary environment visual layer uses **Unity Isometric Tilemaps** for floors, walls, and repeatable architectural tiles.
+- Taller props, interactive doors, obstacles, decorative set pieces, and independently sorted objects may use **world-space SpriteRenderers and prefabs** instead of being painted directly into a Tilemap.
+- The visible isometric art layer is kept separate from the underlying gameplay representation so art can be revised without redefining core gameplay rules.
+- The gameplay layer still owns walkability, collision, trigger volumes, door state, pursuit logic, and other simulation behavior.
 
 ### Player Experience Success Criteria
 
@@ -156,7 +164,7 @@ Development agents help plan, implement, review, and test No Safe Circle; they d
 | Door and Interaction Agent | Implements opening, interruption, crossing, closing, locking, damage, and breaking. | Makes room exits risky and safety temporary. |
 | Enemy Pursuit Agent | Implements detection, melee and ranged attacks, pursuit, and movement through open doors, including applying and restoring Frost Field's slowdown effect. Owns Ranged Enemy targeting, attack timing, and line-of-sight/projectile-occlusion checks, so Chapel of Ash's cover actually blocks shots. Validates NavMesh agent radius and lane behavior so Bone Archive's chokepoints hold. Owns the ongoing state of enemies already pursuing the player, including those carried forward from earlier rooms. | Makes enemies left alive remain a visible, persistent consequence, and makes Chapel of Ash's cover and Bone Archive's lanes function as designed. |
 | Dungeon Encounter Agent | Authors placements, triggers, door durability, and final-room pressure, including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room. Owns encounter activation and enforcement of the fifteen-active-enemy ceiling: when persistent pursuers and a new encounter would together exceed it, this agent delays or reduces the new encounter's enemies first rather than displacing enemies already pursuing the player. | Controls when the player can lure, fight, flee, or become trapped, and ensures carried-forward enemies never push the floor's total active count beyond the stated limit. |
-| Unity Validation Agent | Reviews changes and creates Play Mode checks for cleanup, references, and edge cases, including Bone Archive lane pathing, Chapel of Ash occlusion, and Lower Vault enemy-cap priority. | Prevents permanent slowdown, stuck enemies, and incorrect door states. |
+| Unity Validation Agent | Reviews changes and creates Play Mode checks for cleanup, references, and edge cases, including Bone Archive lane pathing, Chapel of Ash occlusion, Lower Vault enemy-cap priority, isometric sprite sorting, and alignment between Tilemap visuals and gameplay geometry. | Prevents permanent slowdown, stuck enemies, incorrect door states, and visual/gameplay desynchronization. |
 
 ### Agent-Assisted Development Workflow
 
@@ -187,7 +195,7 @@ No Safe Circle will be developed by one developer in Unity using C#. A raw Pytho
 
 Section 4 defines the six development-agent roles and their effects on the game. This section explains how those agents will be coordinated, constrained, budgeted, and validated during development.
 
-The finished Windows game will not use generative AI at runtime. Enemy behavior, spell effects, doors, damage, and pursuit will run locally through standard Unity systems. The game will require no external AI service, API key, token usage, or network connection after it is built.
+The finished Windows game will not use generative AI at runtime. Enemy behavior, spell effects, doors, damage, and pursuit will run locally through standard Unity systems. The game will require no external AI service, API key, token usage, or network connection after it is built. Development-time generative tools may be used to create isometric tiles, props, and directional sprites, but once imported they behave as ordinary Unity assets.
 
 The developer approves feature briefs, resolves architecture decisions, inspects scenes and prefabs, tests game feel, balances encounters, merges changes, and decides which stretch features are accepted.
 
@@ -205,15 +213,26 @@ Agents will work in isolated branches or workspaces. Two agents will not modify 
 
 Source control will serve as the handoff between implementation, validation, and final integration.
 
+### 2.5D Isometric Visual and World Representation
+
+- The project targets a **hybrid isometric architecture**: Unity **Isometric Tilemaps** are the preferred environment-authoring method for floors, walls, and repeatable architecture, while **SpriteRenderer prefabs** are preferred for doors, props, obstacles, characters, and other independently sorted or interactive objects.
+- A generated or hand-authored visual tile does **not** automatically define gameplay behavior. The simulation layer separately defines collision, door interactions, walkability, trigger zones, and navigation.
+- The visible isometric layer and the gameplay/navigation layer should remain decoupled wherever practical so environment art can be regenerated or replaced without rewriting room logic.
+- The camera is fixed in an isometric presentation; the player does not rotate the world view freely.
+- Mouse-directed click/hold movement is projected onto the gameplay plane, preserving smooth movement similar to early isometric action/RPG controls rather than forcing tile-by-tile stepping.
+
 ### Runtime Implementation
 
-- Unity NavMesh and finite-state components will control enemy movement, pursuit, attacks, and target loss. Ranged Enemy attacks include a line-of-sight/occlusion check, and Bone Archive's lane widths are validated against enemy agent radius, so both rooms' stated tactical geometry holds in practice.
-- All five encounter spaces exist inside one continuous Unity scene using a single baked NavMesh. Enemy objects, enemy health, pursuit state, active-enemy bookkeeping, and door state persist naturally as the player advances between rooms; no scene-load or cross-scene state-transfer system is required.
-- A reusable status-effect component will apply Frost Field slowdown and restore each enemy's normal movement speed afterward, per the Wizard Combat Agent / Enemy Pursuit Agent ownership split defined in Section 4.
+- The primary environment visual layer will use Unity **Isometric Tilemaps** (preferably Isometric Z as Y where useful) for floors, walls, and repeatable architectural tiles. World-space **SpriteRenderer** prefabs will be used for sealed doors, tall props, obstacles, characters, and other independently sorted or interactive objects.
+- The gameplay layer remains separate from the visible art layer. Walkability, collision, trigger zones, doorway logic, and other simulation rules are defined independently from the Tilemap art so generated or swapped visual assets do not automatically change gameplay behavior.
+- Player movement uses mouse-directed click/hold navigation over the gameplay plane. The cursor is also the primary targeting reference for spells and interactions, aligning movement and combat with the isometric presentation.
+- Unity navigation and finite-state components will control enemy movement, pursuit, attacks, and target loss across the floor's spaces. Ranged Enemy attacks include a line-of-sight/occlusion check, and Bone Archive's lane widths are validated against enemy movement/navigation requirements so both rooms' stated tactical geometry holds in practice.
+- All five encounter spaces exist inside one continuous Unity scene or continuous floor representation. Enemy objects, enemy health, pursuit state, active-enemy bookkeeping, and door state persist naturally as the player advances between spaces; no scene-load or cross-scene state-transfer system is required.
+- A reusable status-effect component will apply Frost Field slowdown and restore each enemy's normal movement behavior afterward, per the Wizard Combat Agent / Enemy Pursuit Agent ownership split defined in Section 4.
 - A reusable door component will control opening, interruption, closing, locking, damage, and breaking; once a door is locked by the player or broken by enemies, it does not return to an earlier state.
 - Mana will regenerate through a local gameplay system after the defined post-cast delay.
 - The game enforces a hard maximum of fifteen active enemies; the Dungeon Encounter Agent enforces this ceiling when activating new encounters, delaying or reducing new-encounter spawns first when persistent pursuers and a new encounter would together exceed it, while the Enemy Pursuit Agent tracks the state of enemies already pursuing the player.
-- Existing environment, character, enemy, animation, sound, and visual-effects assets will be used instead of creating custom models or rigs.
+- Development-time art acquisition may use approved tools that can generate isometric tiles, props, and directional sprites. Those outputs are imported into Unity as normal assets; they do not imply automatic prefab creation, collision setup, sorting configuration, or gameplay integration.
 
 ### Token Budget
 
@@ -234,7 +253,7 @@ If a task fails, its scope and context will be reduced before it is attempted ag
 
 ### API and Tool Constraints
 
-- Generative AI tools are used only during development.
+- Generative AI tools are used only during development. Approved development-time asset tools may be used to generate isometric tiles, props, and directional sprite art, but they are not runtime dependencies.
 - API credentials will remain outside the Unity project and source control.
 - Agents receive only the approved feature brief, relevant GDD rules, and files required for the active task.
 - Agents cannot add mechanics, redesign the game, or expand the scope without developer approval.
@@ -248,7 +267,7 @@ If a task fails, its scope and context will be reduced before it is attempted ag
 | Window | Planned work |
 |---|---|
 | Weeks 1–2 | Wizard movement, health, mana regeneration, three spells, melee enemy, death, and restart |
-| Weeks 3–4 | Door interactions, door-breaking pressure, room-to-room pursuit, ranged enemy, and asset-pack dungeon floor |
+| Weeks 3–4 | Door interactions, door-breaking pressure, room-to-room pursuit, ranged enemy, and 2.5D isometric dungeon floor construction |
 | Weeks 5–6 | Final escape, visual and audio feedback, balancing, performance testing, bug fixes, build, and presentation |
 
 Stretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5–6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut.
