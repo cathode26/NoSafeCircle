@@ -36,3 +36,44 @@ Milestone 1 does NOT implement Claude-powered decomposition.
 Milestone 1 only establishes a truthful persistent work graph.
 
 Milestone 2 introduces RAG/scanner context, progressive decomposition, artifact authority, and artifact generation/evaluation.
+
+
+---
+
+
+# Reconciliation Agent — Proposed Files
+
+This package adds a new production-oriented bootstrap agent without modifying Assignment 5.
+
+## Files
+
+- `Pipeline/Reconciliation/reconciliation_agent.py`
+- `Pipeline/Reconciliation/prompts/reconcile.md`
+- `Pipeline/Reconciliation/README.md`
+
+## Runtime outputs
+
+The agent creates:
+
+- `Pipeline/Reconciliation/outputs/reconciliation.json`
+- `Pipeline/Reconciliation/outputs/RECONCILIATION.md`
+
+## Design decisions implemented
+
+- Claude is read-only (`Read,Glob,Grep`).
+- Current GDD + current checkout are primary truth.
+- Assignment 6 / Assignment 5 outputs are optional historical evidence only.
+- The agent creates a coarse hierarchy, not a full backlog.
+- `parent_key` and `depends_on` are separate.
+- Dependencies cannot target feature nodes.
+- Missing design becomes `needs_future_decomposition`; the agent does not invent design or propose artifacts.
+- `complete` is conservative and evidence-backed.
+- Python validates hierarchy, dependency cycles, evidence, statuses, and repository boundaries.
+- Python renders the structured result into a human-reviewable Markdown reconciliation table.
+- No `Tasks/*.yaml` are created yet; that happens only after human review.
+
+## Run
+
+```powershell
+docker compose run --rm claude python3 Pipeline/Reconciliation/reconciliation_agent.py
+```
