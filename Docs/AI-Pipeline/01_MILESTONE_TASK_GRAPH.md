@@ -24,7 +24,7 @@ Progressive AI decomposition belongs to Milestone 2, not this milestone.
 
 ## Pre-Seed Multi-Model Verification
 
-Before the deterministic Work Graph Seeder consumes reconciliation output, the candidate must pass the Reconciliation Verification Crew. The crew uses independent model-diverse GDD coverage, graph-structure, and repository-evidence audits. Findings are unioned rather than majority-voted. A bounded Refiner may produce a new candidate, which is re-verified. Only the human-approved verified candidate may be seeded.
+Before the deterministic Work Graph Seeder consumes reconciliation output, the candidate must pass the Reconciliation Verification Crew. The crew uses independent model-diverse GDD coverage, graph-structure, repository-evidence, and execution-scope audits. Findings are unioned rather than majority-voted. A bounded Refiner may produce a new candidate, which is re-verified. Only the human-approved verified candidate may be seeded.
 
 ## Critical Reconciliation Rule
 
@@ -117,6 +117,9 @@ kind: implementation
 type: gameplay
 status: open
 
+execution_scope: single_agent
+execution_reason: Bounded resource-system implementation with a focused API and direct tests.
+
 source_requirements:
   - GDD-MANA-001
 
@@ -163,6 +166,9 @@ kind: artifact
 type: encounter-design
 status: open
 
+execution_scope: single_agent
+execution_reason: Bounded design-artifact deliverable once authorized; no Unity integration is part of this record.
+
 parent: NSC-130
 
 source_requirements:
@@ -197,6 +203,25 @@ claims: []
 ```
 
 This example is illustrative. Do not create Room 3 artifact work unless the actual project reconciliation shows it is needed.
+
+## Execution Scope Semantics
+
+Execution scope is separate from `decomposition_state`.
+
+- `single_agent` — a focused implementation agent can execute and meaningfully validate the work in one bounded handoff.
+- `needs_execution_decomposition` — approved design is sufficiently concrete, but the implementation record still bundles too many responsibilities/systems/validation targets for one safe handoff.
+- `human_integration_required` — the next meaningful step fundamentally requires human Unity/editor/integration judgment.
+- `not_applicable` — feature/organizational or already-complete work.
+- `unknown` — legacy or insufficiently reviewed work; not safe for autonomous selection.
+
+Do not substitute subjective `easy/medium/hard` scoring for this field. Difficulty and handoff size are different.
+
+The Progressive Decomposer has two distinct jobs later:
+
+1. **design decomposition** when `decomposition_state` says approved design is missing/too coarse;
+2. **execution decomposition** when design is already concrete but `execution_scope: needs_execution_decomposition`.
+
+Execution decomposition may split known implementation responsibilities but cannot invent new mechanics/content.
 
 ## Status Semantics
 
@@ -244,16 +269,19 @@ Detect:
 - invalid `kind`
 - invalid status values
 - malformed required fields
+- invalid `execution_scope` values
+- open executable work incorrectly marked `not_applicable`
 
 ### `ready`
 
-An executable work item is ready when:
+An autonomous-agent executable work item is ready when:
 
 1. it is not complete;
 2. every item in `depends_on` is complete;
-3. its `kind` is `artifact` or `implementation`.
+3. its `kind` is `artifact` or `implementation`;
+4. `execution_scope` is `single_agent`.
 
-Feature nodes are not returned by `taskcontrol ready`.
+Feature nodes, `needs_execution_decomposition`, `human_integration_required`, and `unknown` execution scopes are not returned as autonomous ready work. `taskcontrol` should report those truthfully as separate blocked/decomposition/integration states rather than pretending they are executable.
 
 Eventually support:
 
@@ -350,8 +378,9 @@ But its output must be useful to one.
 Once `taskcontrol ready` works:
 
 1. inspect the ready/near-ready frontier;
-2. if a concrete implementation item is ready, it can later be executed through the Assignment 6 GER pattern;
-3. if only coarse feature work remains, Milestone 2 progressive decomposition is the next requirement.
+2. if a `single_agent` implementation item is ready, it can later be executed through the Assignment 6 GER pattern;
+3. if a concrete item is `needs_execution_decomposition`, Milestone 2 splits implementation responsibilities without inventing design;
+4. if only design-coarse feature work remains, Milestone 2 design decomposition / Artifact Authority is the next requirement.
 
 ## Runtime-Aware Planning Note
 
@@ -385,7 +414,9 @@ It will not authorize new content creation.
 10. Reconciliation reruns create immutable snapshots and cannot directly rewrite `Tasks/*.yaml`.
 11. A deterministic reconciliation diff can classify agreement, proposed additions/changes, and conflicts before graph mutation.
 12. Dependency/status changes cascade through deterministic graph computation, not LLM file rewrites.
-13. The graph can identify at least one real next executable item or truthfully report that progressive decomposition is required.
+13. `taskcontrol ready` returns only `single_agent` executable work.
+14. The graph can distinguish design-decomposition needs, execution-decomposition needs, and human integration from ordinary dependency blocking.
+15. The graph can identify at least one real next executable item or truthfully report why no autonomous one-agent task is ready.
 
 ## Next
 

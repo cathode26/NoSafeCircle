@@ -15,8 +15,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from output_layout import (
+    LATEST_VERIFICATION_POINTER_PATH,
+    verification_root,
+    write_current_view,
+)
+
 from reconciliation_agent import (
     RECONCILIATION_SCHEMA,
+    ensure_execution_scope_defaults,
     build_proposed_graph_delta,
     render_graph_delta_markdown,
     render_markdown,
@@ -30,9 +37,7 @@ ROOT = Path(__file__).resolve().parents[2]
 AGENT_ROOT = ROOT / "Pipeline" / "Reconciliation"
 OUTPUT_DIR = AGENT_ROOT / "outputs"
 RUNS_DIR = OUTPUT_DIR / "runs"
-VERIFICATIONS_DIR = OUTPUT_DIR / "verifications"
 LATEST_POINTER_PATH = OUTPUT_DIR / "LATEST.json"
-LATEST_VERIFICATION_POINTER_PATH = OUTPUT_DIR / "LATEST_VERIFICATION.json"
 PROMPT_DIR = AGENT_ROOT / "prompts" / "verification"
 
 VERIFY_TIMEOUT_SECONDS = int(
@@ -113,6 +118,7 @@ FINDING_SCHEMA: dict[str, Any] = {
                 "non_code_misclassification",
                 "evidence_problem",
                 "shared_capability_hidden",
+                "execution_scope_problem",
                 "other",
             ],
         },
@@ -325,7 +331,7 @@ def sanitize_refiner_input_tracking(payload: dict[str, Any]) -> list[str]:
 def create_verification_paths(source_run_id: str) -> dict[str, Any]:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     verification_run_id = f"{timestamp}-{uuid.uuid4().hex[:8]}"
-    run_dir = VERIFICATIONS_DIR / source_run_id / verification_run_id
+    run_dir = verification_root(source_run_id) / verification_run_id
     run_dir.mkdir(parents=True, exist_ok=False)
 
     return {
@@ -358,7 +364,7 @@ def choose_audit_models(rng: random.Random) -> dict[str, str]:
 
     With two or more models, the two coverage auditors are guaranteed to use
     different requested models. Structure/evidence are also made different
-    when possible. The random seed and exact requested assignments are saved.
+    when possible, and execution scope is varied across the configured pool. The random seed and exact requested assignments are saved.
     """
     if len(MODEL_POOL) == 1:
         only = MODEL_POOL[0]
@@ -367,18 +373,22 @@ def choose_audit_models(rng: random.Random) -> dict[str, str]:
             "coverage_b": only,
             "structure": only,
             "evidence": only,
+            "execution": only,
         }
 
     coverage_a, coverage_b = rng.sample(MODEL_POOL, 2)
     structure = rng.choice(MODEL_POOL)
     evidence_choices = [model for model in MODEL_POOL if model != structure]
     evidence = rng.choice(evidence_choices or MODEL_POOL)
+    execution_choices = [model for model in MODEL_POOL if model != evidence]
+    execution = rng.choice(execution_choices or MODEL_POOL)
 
     return {
         "coverage_a": coverage_a,
         "coverage_b": coverage_b,
         "structure": structure,
         "evidence": evidence,
+        "execution": execution,
     }
 
 
@@ -540,6 +550,12 @@ def run_audit_pass(
             "evidence",
             "Repository Evidence Auditor",
             "evidence_auditor.md",
+            GENERAL_AUDIT_SCHEMA,
+        ),
+        (
+            "execution",
+            "Execution Scope Auditor",
+            "execution_scope_auditor.md",
             GENERAL_AUDIT_SCHEMA,
         ),
     ]
@@ -995,6 +1011,28 @@ def main() -> int:
         save_new_json(paths["summary_json"], summary)
         save_new_text(paths["summary_markdown"], render_verification_markdown(summary))
         write_latest_verification_pointer(paths, status)
+
+        if refinement_performed:
+            current_delta_json = paths["refined_delta_json"]
+            current_delta_markdown = paths["refined_delta_markdown"]
+            current_candidate_markdown = paths["refined_markdown"]
+        else:
+            source_dir = RUNS_DIR / source_run_id
+            current_delta_json = source_dir / "PROPOSED_GRAPH_DELTA.json"
+            current_delta_markdown = source_dir / "PROPOSED_GRAPH_DELTA.md"
+            current_candidate_markdown = source_dir / "RECONCILIATION.md"
+
+        write_current_view(
+            source_reconciliation_run_id=source_run_id,
+            status=status,
+            candidate_json=final_candidate,
+            candidate_markdown=current_candidate_markdown,
+            delta_json=current_delta_json,
+            delta_markdown=current_delta_markdown,
+            verification_run_id=paths["verification_run_id"],
+            verification_summary_json=paths["summary_json"],
+            verification_markdown=paths["summary_markdown"],
+        )
 
         print()
         print("=" * 72)

@@ -161,11 +161,14 @@ Do not send the whole GDD/repo.
 
 Claude is used for semantic decomposition, not dependency bookkeeping.
 
-Given one bounded feature/work item plus its relevant canon, approved artifacts, and current project evidence, the Decomposer determines whether the work is concrete enough to execute.
+Given one near-frontier feature/work item plus its relevant canon, approved artifacts, and current project evidence, the Decomposer first identifies **why** the item is not ready for a one-agent handoff.
 
-If enough information exists, it produces bounded child work.
+There are two different modes:
 
-If information is missing, it identifies the smallest missing design/content artifact needed to continue decomposition.
+1. **Design decomposition** — `decomposition_state` is too coarse / missing approved design. If information is missing, identify the smallest missing design/content artifact needed to continue decomposition.
+2. **Execution decomposition** — design is already concrete, but `execution_scope: needs_execution_decomposition`. Split only the already-approved implementation responsibilities into smaller independently verifiable child work. Do not invent new mechanics/content.
+
+If enough design exists and the work is already bounded, it can remain/transition to `execution_scope: single_agent`.
 
 It must not generate that missing artifact during the same decision.
 
@@ -361,7 +364,7 @@ Replace repeated full-project Claude crawls with:
 1. deterministic graph state;
 2. targeted RAG;
 3. targeted project scanning;
-4. one bounded decomposition call;
+4. one bounded design- or execution-decomposition call;
 5. artifact generation only when missing design actually blocks progress.
 
 The system should not design Room 5 while still building Room 1 unless Room 5 design is truly needed by current work.
@@ -371,12 +374,12 @@ The system should not design Room 5 while still building Room 1 unless Room 5 de
 1. Assignment 4 RAG can be queried locally.
 2. Project scanner produces deterministic state.
 3. Context builder combines work + canon + approved artifact + project evidence.
-4. Progressive Decomposer can distinguish `decomposed` from `needs_artifact`.
+4. Progressive Decomposer can distinguish design gaps (`needs_artifact`) from execution-size gaps (`needs_execution_decomposition`).
 5. Missing design produces an artifact proposal rather than silent invention.
 6. Artifact Authority Gate can authorize/reject/escalate proposals.
 7. Authorized artifacts can be generated and evaluated through GER.
 8. Approved artifacts can re-enter context as trusted design input.
-9. Re-running the Decomposer after artifact approval can produce concrete child work.
+9. Re-running the Decomposer after artifact approval can produce concrete child work, and execution decomposition can split a concrete-but-oversized item without inventing design.
 10. Normal decomposition no longer requires a full GDD/repository crawl.
 
 ## Next

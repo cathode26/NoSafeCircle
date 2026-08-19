@@ -78,18 +78,30 @@ Every run creates a new append-only snapshot directory:
 
 ```text
 Pipeline/Reconciliation/outputs/
+├── current/                         # mutable human-facing convenience view
+│   ├── STATUS.md
+│   ├── CANDIDATE.json
+│   ├── CANDIDATE.md
+│   ├── PROPOSED_GRAPH_DELTA.json
+│   ├── PROPOSED_GRAPH_DELTA.md
+│   ├── VERIFICATION_SUMMARY.json    # when verification exists
+│   └── VERIFICATION.md              # when verification exists
 ├── LATEST.json
+├── LATEST_VERIFICATION.json
 └── runs/
     └── <timestamp>-<run-id>/
         ├── reconciliation.raw.json
         ├── reconciliation.json
         ├── RECONCILIATION.md
         ├── PROPOSED_GRAPH_DELTA.json
-        └── PROPOSED_GRAPH_DELTA.md
+        ├── PROPOSED_GRAPH_DELTA.md
+        └── verifications/
+            └── <verification-run-id>/...
 ```
 
-The files under `runs/<run-id>/` are point-in-time evidence and are never
-overwritten by a later reconciliation run.
+The files under `runs/<run-id>/` are point-in-time evidence and are never overwritten by a later reconciliation run. Verification history is nested beneath the reconciliation run it audited so the provenance relationship is visible in the filesystem.
+
+`outputs/current/` is deliberately mutable. It answers **what should I read right now?** and is never the historical source of truth.
 
 `LATEST.json` is only a convenience pointer to the newest successful snapshot.
 It is mutable metadata, not project truth.
@@ -133,7 +145,8 @@ Each proposed work item contains:
 - proposed durable graph status (`open` / `complete`);
 - repository evidence;
 - real `depends_on` relationships;
-- decomposition state;
+- decomposition state (is approved design specific enough?);
+- execution scope + reason (is this a safe one-agent handoff?);
 - confidence;
 - notes.
 
@@ -142,6 +155,24 @@ Each proposed work item contains:
 `depends_on` means **cannot be executed until**.
 
 They are deliberately separate.
+
+## Design decomposition vs execution scope
+
+These are separate axes.
+
+`decomposition_state` asks whether the approved design is concrete enough to describe the work without inventing missing design.
+
+`execution_scope` asks whether that known work is already small/bounded enough for one focused implementation agent. Values are:
+
+- `single_agent`
+- `needs_execution_decomposition`
+- `human_integration_required`
+- `not_applicable`
+- `unknown`
+
+A task can be `decomposition_state: concrete` while still being `execution_scope: needs_execution_decomposition`. That means the design is known, but the implementation node bundles too much work for one safe handoff. A future Progressive Decomposer may split the implementation work without inventing new game design.
+
+Difficulty is not the classifier: a hard but bounded task can still be `single_agent`.
 
 ## Important rules
 
@@ -181,6 +212,7 @@ Before using the output to seed `Tasks/*.yaml`, verify:
 6. Coarse features were not prematurely exploded into speculative microtasks.
 7. Missing design was not silently invented.
 8. Low-confidence or unresolved items are understood.
+9. Every open executable item has a credible execution-scope classification before autonomous selection.
 
 ## Next step after approval
 
@@ -314,12 +346,13 @@ docker compose run --rm claude python3 Pipeline/Reconciliation/verification_crew
 By default the crew verifies the run referenced by `outputs/LATEST.json`.
 Use `--run-id <id>` to audit a specific immutable reconciliation run.
 
-The crew runs four independent read-only audits:
+The crew runs five independent read-only audits:
 
 1. **GDD Coverage Auditor A** — full requirement-to-graph coverage pass.
 2. **GDD Coverage Auditor B** — a second independent coverage pass using a different model when the configured pool contains at least two models.
 3. **Dependency and Decomposition Auditor** — tests parent/dependency semantics, shared capabilities, and over/under-decomposition.
 4. **Repository Evidence Auditor** — independently challenges `implemented`, `partial`, `missing`, and especially `complete` claims.
+5. **Execution Scope Auditor** — asks whether each open executable node is actually a safe one-agent handoff, needs implementation-only decomposition, or requires human integration.
 
 The auditors do not see one another's findings during the first pass.
 Findings are merged by **union, not majority vote**. One credible material
@@ -343,9 +376,7 @@ Assignments are randomized per verification run and saved to
 `MODEL_ASSIGNMENTS.json`, including the random seed and exact requested model
 for every auditor/refiner.
 
-The two coverage auditors are guaranteed to receive different requested models
-when the pool contains at least two models. Structure and evidence auditors are
-also assigned different models when possible.
+The two coverage auditors are guaranteed to receive different requested models when the pool contains at least two models. Structure, evidence, and execution-scope roles are varied across the configured model pool as well.
 
 Override the pool with:
 
@@ -366,32 +397,33 @@ RECONCILIATION_REPAIR_MODEL=opus
 
 ### Verification outputs
 
-Verification is append-only and stored separately from the immutable source
-snapshot:
+Verification is append-only and stored **under the immutable source reconciliation run**:
 
 ```text
 Pipeline/Reconciliation/outputs/
+├── current/
 ├── LATEST.json
 ├── LATEST_VERIFICATION.json
-├── runs/
-│   └── <reconciliation-run-id>/...
-└── verifications/
+└── runs/
     └── <reconciliation-run-id>/
-        └── <verification-run-id>/
-            ├── MODEL_ASSIGNMENTS.json
-            ├── pass1/
-            │   └── <independent audit results>.json
-            ├── MERGED_FINDINGS_PASS1.json
-            ├── refined_candidate.raw.json          # only when refinement runs
-            ├── refined_candidate.json              # only when refinement runs
-            ├── REFINED_RECONCILIATION.md            # only when refinement runs
-            ├── PROPOSED_REFINED_GRAPH_DELTA.json    # only when refinement runs
-            ├── PROPOSED_REFINED_GRAPH_DELTA.md      # only when refinement runs
-            ├── pass2/                               # unless re-verification skipped
-            │   └── <independent audit results>.json
-            ├── MERGED_FINDINGS_PASS2.json
-            ├── VERIFICATION_SUMMARY.json
-            └── VERIFICATION.md
+        ├── reconciliation.json
+        ├── RECONCILIATION.md
+        └── verifications/
+            └── <verification-run-id>/
+                ├── MODEL_ASSIGNMENTS.json
+                ├── pass1/
+                │   └── <independent audit results>.json
+                ├── MERGED_FINDINGS_PASS1.json
+                ├── refined_candidate.raw.json          # only when refinement runs
+                ├── refined_candidate.json              # only when refinement runs
+                ├── REFINED_RECONCILIATION.md            # only when refinement runs
+                ├── PROPOSED_REFINED_GRAPH_DELTA.json    # only when refinement runs
+                ├── PROPOSED_REFINED_GRAPH_DELTA.md      # only when refinement runs
+                ├── pass2/                               # unless re-verification skipped
+                │   └── <independent audit results>.json
+                ├── MERGED_FINDINGS_PASS2.json
+                ├── VERIFICATION_SUMMARY.json
+                └── VERIFICATION.md
 ```
 
 Neither verification nor refinement mutates `Tasks/*.yaml`.
@@ -440,8 +472,24 @@ This test does not call Claude:
 docker compose run --rm claude python3 Pipeline/Reconciliation/verification_smoke_test.py
 ```
 
-It checks model-diversity assignment behavior and the deterministic required-coverage guard.
+It checks model-diversity assignment behavior, deterministic required-coverage handling, legacy execution-scope normalization, and verification bookkeeping-path sanitization.
 
+
+## Current view and one-time output-layout migration
+
+To rebuild the mutable `outputs/current/` view without calling any model:
+
+```powershell
+docker compose run --rm claude python3 Pipeline/Reconciliation/refresh_current_output.py
+```
+
+Older verification runs created before the nested layout may still live under `outputs/verifications/`. Migrate those directories beneath their source reconciliation runs with:
+
+```powershell
+docker compose run --rm claude python3 Pipeline/Reconciliation/migrate_output_layout.py
+```
+
+The migration changes directory location only, records `LAYOUT_MIGRATION.json`, updates the latest verification pointer, and then refreshes `outputs/current/`. Existing semantic reconciliation/verification artifacts are not rewritten.
 
 ## Verification recovery after post-refiner validation failure
 

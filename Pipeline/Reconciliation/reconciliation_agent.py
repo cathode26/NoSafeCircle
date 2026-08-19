@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from output_layout import write_current_view
+
 
 ROOT = Path(__file__).resolve().parents[2]
 AGENT_ROOT = ROOT / "Pipeline" / "Reconciliation"
@@ -141,6 +143,17 @@ WORK_ITEM_SCHEMA: dict[str, Any] = {
             ],
         },
         "decomposition_reason": {"type": "string"},
+        "execution_scope": {
+            "type": "string",
+            "enum": [
+                "single_agent",
+                "needs_execution_decomposition",
+                "human_integration_required",
+                "not_applicable",
+                "unknown",
+            ],
+        },
+        "execution_reason": {"type": "string"},
         "confidence": {
             "type": "string",
             "enum": ["high", "medium", "low"],
@@ -162,6 +175,8 @@ WORK_ITEM_SCHEMA: dict[str, Any] = {
         "depends_on",
         "decomposition_state",
         "decomposition_reason",
+        "execution_scope",
+        "execution_reason",
         "confidence",
         "notes",
     ],
@@ -581,7 +596,8 @@ Rules:
    speculative backlog.
 7. Do not change unrelated work.
 8. Current repository evidence is required for implemented/partial claims.
-9. Return only the JSON required by the supplied schema.
+9. Added work items must classify `execution_scope` separately from design decomposition and provide `execution_reason`. Use `unknown` rather than guessing when task handoff size cannot be established from this bounded repair.
+10. Return only the JSON required by the supplied schema.
 
 Compact reconciliation context:
 {json.dumps(compact_context, indent=2, ensure_ascii=False)}
@@ -947,6 +963,69 @@ def _validate_evidence_and_status(items_by_key: dict[str, dict[str, Any]]) -> No
                 )
 
 
+def ensure_execution_scope_defaults(payload: dict[str, Any]) -> list[str]:
+    """
+    Upgrade legacy reconciliation candidates that predate execution_scope.
+
+    Features and already-complete work are not execution candidates. Open
+    implementation/artifact work is conservatively marked unknown until an
+    execution-scope audit or human review classifies it.
+    """
+    upgraded: list[str] = []
+    for item in payload.get("work_items", []):
+        if item.get("execution_scope"):
+            if "execution_reason" not in item:
+                item["execution_reason"] = "Execution scope supplied without an explicit reason in a legacy candidate."
+            continue
+
+        kind = item.get("kind")
+        status = item.get("graph_status")
+        if kind == "feature" or status == "complete":
+            item["execution_scope"] = "not_applicable"
+            item["execution_reason"] = "Organizational or already-complete work is not awaiting an implementation-agent handoff."
+        else:
+            item["execution_scope"] = "unknown"
+            item["execution_reason"] = "Legacy candidate predates execution-scope classification; verification or human review is required."
+        upgraded.append(str(item.get("key", "")))
+    return upgraded
+
+
+def _validate_execution_scope(items_by_key: dict[str, dict[str, Any]]) -> None:
+    allowed = {
+        "single_agent",
+        "needs_execution_decomposition",
+        "human_integration_required",
+        "not_applicable",
+        "unknown",
+    }
+    for key, item in items_by_key.items():
+        scope = str(item.get("execution_scope", ""))
+        reason = str(item.get("execution_reason", "")).strip()
+        kind = item.get("kind")
+        status = item.get("graph_status")
+
+        if scope not in allowed:
+            raise RuntimeError(f"{key!r} has invalid execution_scope={scope!r}.")
+        if not reason:
+            raise RuntimeError(f"{key!r} requires a non-empty execution_reason.")
+        if kind == "feature" and scope != "not_applicable":
+            raise RuntimeError(
+                f"Feature {key!r} must use execution_scope='not_applicable'."
+            )
+        if status == "complete" and scope not in {"not_applicable", "single_agent"}:
+            raise RuntimeError(
+                f"Completed work {key!r} cannot require future execution decomposition/integration."
+            )
+        if (
+            kind in {"implementation", "artifact"}
+            and status == "open"
+            and scope == "not_applicable"
+        ):
+            raise RuntimeError(
+                f"Open executable work {key!r} cannot use execution_scope='not_applicable'."
+            )
+
+
 def _validate_unresolved_refs(
     payload: dict[str, Any],
     items_by_key: dict[str, dict[str, Any]],
@@ -961,6 +1040,7 @@ def _validate_unresolved_refs(
 
 
 def run_semantic_validation(payload: dict[str, Any]) -> None:
+    ensure_execution_scope_defaults(payload)
     items = payload.get("work_items", [])
     if not isinstance(items, list) or not items:
         raise RuntimeError("work_items must be a non-empty list.")
@@ -970,6 +1050,7 @@ def run_semantic_validation(payload: dict[str, Any]) -> None:
     _validate_parent_links(items_by_key)
     _validate_dependency_links(items_by_key)
     _validate_evidence_and_status(items_by_key)
+    _validate_execution_scope(items_by_key)
     _validate_unresolved_refs(payload, items_by_key)
     validate_reviewed_paths(payload)
 
@@ -1184,6 +1265,7 @@ def build_proposed_graph_delta(
                     "title": item.get("title"),
                     "kind": item.get("kind"),
                     "proposed_status": item.get("graph_status"),
+                    "execution_scope": item.get("execution_scope", "unknown"),
                     "parent_reconciliation_key": item.get("parent_key"),
                     "depends_on_reconciliation_keys": [
                         dep.get("key")
@@ -1249,10 +1331,10 @@ def render_graph_delta_markdown(delta: dict[str, Any]) -> str:
         lines.append("## Proposed Bootstrap Seed Records")
         lines.append("")
         lines.append(
-            "| Reconciliation key | Kind | Title | Proposed status | Parent | "
+            "| Reconciliation key | Kind | Title | Proposed status | Execution | Parent | "
             "Depends on |"
         )
-        lines.append("|---|---|---|---|---|---|")
+        lines.append("|---|---|---|---|---|---|---|")
         for item in seeds:
             deps = ", ".join(
                 str(value)
@@ -1268,6 +1350,7 @@ def render_graph_delta_markdown(delta: dict[str, Any]) -> str:
                         _cell(item.get("kind")),
                         _cell(item.get("title")),
                         _cell(item.get("proposed_status")),
+                        _cell(item.get("execution_scope")),
                         _cell(item.get("parent_reconciliation_key")),
                         _cell(deps),
                     ]
@@ -1401,10 +1484,10 @@ def render_markdown(payload: dict[str, Any]) -> str:
     lines.append("")
     lines.append(
         "| Key | Parent | Kind | Title | GDD basis | Repo state | "
-        "Graph status | Depends on | Decomposition | Confidence |"
+        "Graph status | Depends on | Decomposition | Execution | Confidence |"
     )
     lines.append(
-        "|---|---|---|---|---|---|---|---|---|---|"
+        "|---|---|---|---|---|---|---|---|---|---|---|"
     )
 
     for item in work_items:
@@ -1421,6 +1504,7 @@ def render_markdown(payload: dict[str, Any]) -> str:
                     _cell(item.get("graph_status")),
                     _cell(_deps_text(item)),
                     _cell(item.get("decomposition_state")),
+                    _cell(item.get("execution_scope")),
                     _cell(item.get("confidence")),
                 ]
             )
@@ -1461,6 +1545,10 @@ def render_markdown(payload: dict[str, Any]) -> str:
             f"- **Decomposition:** "
             f"`{_cell(item.get('decomposition_state'))}` — "
             f"{_cell(item.get('decomposition_reason'))}"
+        )
+        lines.append(
+            f"- **Execution scope:** `{_cell(item.get('execution_scope'))}` — "
+            f"{_cell(item.get('execution_reason'))}"
         )
         lines.append(
             f"- **Confidence:** `{_cell(item.get('confidence'))}`"
@@ -1613,6 +1701,18 @@ def print_summary(
         if item.get("decomposition_state")
         == "needs_future_decomposition"
     ]
+    execution_decomposition = [
+        item for item in items
+        if item.get("execution_scope") == "needs_execution_decomposition"
+    ]
+    human_integration = [
+        item for item in items
+        if item.get("execution_scope") == "human_integration_required"
+    ]
+    unknown_execution = [
+        item for item in items
+        if item.get("execution_scope") == "unknown"
+    ]
     unresolved = payload.get("unresolved_questions", [])
 
     print()
@@ -1629,6 +1729,9 @@ def print_summary(
         "  Needs future progressive decomposition: "
         f"{len(future_decomposition)}"
     )
+    print(f"  Needs execution decomposition: {len(execution_decomposition)}")
+    print(f"  Human integration required: {len(human_integration)}")
+    print(f"  Unknown execution scope: {len(unknown_execution)}")
     print(f"Unresolved questions: {len(unresolved)}")
     print(
         "Seed assessment: "
@@ -1698,6 +1801,14 @@ def main() -> int:
 
         # Only a fully validated successful reconciliation becomes "latest."
         write_latest_pointer(run_paths)
+        write_current_view(
+            source_reconciliation_run_id=run_paths["run_id"],
+            status="unverified_reconciliation",
+            candidate_json=run_paths["json"],
+            candidate_markdown=run_paths["markdown"],
+            delta_json=run_paths["delta_json"],
+            delta_markdown=run_paths["delta_markdown"],
+        )
 
         print_summary(payload, run_paths, delta)
         return 0

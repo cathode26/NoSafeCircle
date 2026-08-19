@@ -66,7 +66,8 @@ You MAY:
 - add/remove/correct real dependencies;
 - correct repository state or graph status;
 - move a requirement between work/non-code/deferred classifications when the GDD supports it;
-- add unresolved questions where evidence is genuinely insufficient.
+- add unresolved questions where evidence is genuinely insufficient;
+- classify `execution_scope` separately from design decomposition. If approved design is concrete but the implementation item is too broad for one bounded agent handoff, use `needs_execution_decomposition` rather than inventing subtask design. Use `human_integration_required` when the next meaningful step fundamentally requires human Unity/editor/integration judgment.
 
 You MUST NOT:
 
@@ -90,6 +91,9 @@ Ensure:
 - implemented/partial claims have current repository evidence;
 - complete implementation claims are genuinely implemented;
 - required GDD behavior is durably represented without speculative microtask explosion;
-- missing design remains marked for future decomposition instead of invented.
+- missing design remains marked for future decomposition instead of invented;
+- every work item has an `execution_scope` and `execution_reason`;
+- feature/organizational and already-complete work uses `not_applicable`;
+- open implementation/artifact work is `single_agent`, `needs_execution_decomposition`, `human_integration_required`, or `unknown` based on evidence rather than subjective difficulty.
 
 Return only the full reconciliation JSON required by the supplied schema.

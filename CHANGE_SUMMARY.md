@@ -331,3 +331,153 @@ real run should be performed in the user's existing Docker/Claude environment.
 - clarify in the Refiner prompt that generated verification artifacts are inputs, not project evidence;
 - add `recover_verification.py` so a preserved run can resume after the completed Refiner and run only the missing second-pass audit;
 - preserve expensive pass-1 and Refiner outputs instead of repeating them.
+
+
+---
+
+
+# Change Summary — Execution Scope + Reconciliation Output Cleanup
+
+## Why this change exists
+
+The latest multi-model verification exposed two architecture problems that are separate from GDD coverage correctness:
+
+1. a work item can be fully specified by the GDD and still be too large/cross-system for one implementation agent;
+2. reconciliation and verification history had become hard to navigate because current candidate files and immutable audit files were mixed across parallel directory trees.
+
+This change addresses both without mutating `Tasks/*.yaml`.
+
+## 1. Add execution-scope semantics
+
+Every new reconciliation work item now records:
+
+- `execution_scope`
+- `execution_reason`
+
+Supported scopes:
+
+- `single_agent`
+- `needs_execution_decomposition`
+- `human_integration_required`
+- `not_applicable`
+- `unknown`
+
+`decomposition_state` still answers whether approved design is sufficiently concrete.
+
+`execution_scope` now independently answers whether the known implementation work is a safe bounded one-agent handoff.
+
+Legacy candidates that predate this field are normalized conservatively:
+
+- feature/already-complete work → `not_applicable`
+- open implementation/artifact work → `unknown`
+
+This keeps old immutable snapshots usable without pretending their execution size was already reviewed.
+
+## 2. Add an Execution Scope Auditor
+
+The multi-model verification crew now runs five independent roles:
+
+1. GDD Coverage Auditor A
+2. GDD Coverage Auditor B
+3. Dependency and Decomposition Auditor
+4. Repository Evidence Auditor
+5. Execution Scope Auditor
+
+The new auditor specifically hunts for concrete-but-oversized tasks, hidden multi-system implementation bundles, human/editor integration work presented as autonomous work, and missing/incorrect execution-scope classifications.
+
+Model assignment remains randomized and findings remain unioned rather than majority-voted.
+
+## 3. Make `taskcontrol ready` execution-aware in the architecture
+
+Milestone 1 documentation now requires autonomous-ready work to satisfy all of these:
+
+- open;
+- kind `artifact` or `implementation`;
+- all dependencies complete;
+- `execution_scope: single_agent`.
+
+`needs_execution_decomposition`, `human_integration_required`, and `unknown` must not be handed to an implementation agent as ordinary ready work.
+
+The Progressive Decomposer will therefore support two distinct future modes:
+
+- design decomposition when approved design is missing/too coarse;
+- execution decomposition when design is concrete but the implementation handoff is too broad.
+
+Execution decomposition may split known implementation responsibilities but cannot invent new game design.
+
+## 4. Add a simple current-output view
+
+`Pipeline/Reconciliation/outputs/current/` is now the mutable human-facing place to look for the latest state:
+
+```text
+current/
+├── STATUS.md
+├── CURRENT.json
+├── CANDIDATE.json
+├── CANDIDATE.md
+├── PROPOSED_GRAPH_DELTA.json
+├── PROPOSED_GRAPH_DELTA.md
+├── VERIFICATION_SUMMARY.json   # when available
+└── VERIFICATION.md             # when available
+```
+
+`STATUS.md` explicitly says whether the candidate is unverified, needs human review, or completed automated verification. It also reports how many open executable records still have `execution_scope: unknown`.
+
+These files are convenience copies only. They are never historical evidence.
+
+## 5. Nest future verification history under its source reconciliation run
+
+New verification runs now use:
+
+```text
+outputs/
+└── runs/
+    └── <reconciliation-run-id>/
+        ├── reconciliation.json
+        ├── RECONCILIATION.md
+        └── verifications/
+            └── <verification-run-id>/
+                ├── pass1/
+                ├── pass2/
+                ├── refined_candidate.json
+                ├── VERIFICATION_SUMMARY.json
+                └── ...
+```
+
+This makes the provenance relationship obvious: the verification belongs to that reconciliation snapshot.
+
+## 6. Add deterministic output maintenance utilities
+
+No model calls are needed for these utilities.
+
+Refresh the latest human-facing current view:
+
+```powershell
+docker compose run --rm claude python3 Pipeline/Reconciliation/refresh_current_output.py
+```
+
+Move legacy top-level `outputs/verifications/` runs under their source reconciliation run and then refresh `current/`:
+
+```powershell
+docker compose run --rm claude python3 Pipeline/Reconciliation/migrate_output_layout.py
+```
+
+The migration moves directories for organization only and records `LAYOUT_MIGRATION.json`; semantic reconciliation/verification artifacts are not rewritten.
+
+Recovery code can resolve both the new nested layout and the old legacy verification layout.
+
+## 7. Validation / smoke coverage
+
+The deterministic smoke test now checks:
+
+- model assignment includes the execution-scope role;
+- coverage auditors remain model-diverse when possible;
+- required coverage gaps still become material findings;
+- verification bookkeeping paths are stripped from repository source tracking;
+- legacy candidates receive conservative execution-scope defaults.
+
+## No graph mutation
+
+This change still does not create or modify `Tasks/*.yaml`.
+
+The current verified/refined candidate remains a candidate until human review and approval.

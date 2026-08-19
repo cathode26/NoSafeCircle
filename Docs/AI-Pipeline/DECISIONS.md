@@ -228,7 +228,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-027 — Reconciliation bootstrap requires independent multi-model verification
 
-**Decision:** A reconciliation snapshot is not eligible for bootstrap seeding merely because the Generator and deterministic schema/graph validators succeeded. Before initial graph seeding, the candidate must be independently audited for GDD coverage, dependency/decomposition structure, and repository evidence. At least two coverage audits use different requested Claude models when the configured model pool permits it.
+**Decision:** A reconciliation snapshot is not eligible for bootstrap seeding merely because the Generator and deterministic schema/graph validators succeeded. Before initial graph seeding, the candidate must be independently audited for GDD coverage, dependency/decomposition structure, repository evidence, and execution-scope suitability. At least two coverage audits use different requested Claude models when the configured model pool permits it.
 
 **Reason:** Deterministic validators catch structural defects but cannot prove semantic completeness. A single model can correctly notice a requirement yet still bury it inside the wrong work item, omit a reusable required capability, or accept its own evidence framing. Independent role-specialized audits reduce correlated semantic failure.
 
@@ -237,3 +237,20 @@ This is a lightweight decision log. Add new entries when a decision materially c
 **Refinement policy:** Material findings may produce a bounded refined candidate, but the original reconciliation snapshot remains immutable. The refined candidate is independently re-verified before human approval.
 
 **Model policy:** Requested model assignments and the random assignment seed are saved with each verification run. Model diversity is an error-discovery technique, not a replacement for deterministic checks or the human approval gate.
+
+
+## ADR-029 — Design decomposition and execution scope are separate axes
+
+**Decision:** Every durable work item distinguishes whether the approved design is sufficiently concrete (`decomposition_state`) from whether the implementation work is a safe bounded one-agent handoff (`execution_scope`).
+
+**Why:** A requirement can be fully designed while still bundling multiple systems, files, integrations, or independently verifiable outcomes. Treating `concrete` as automatically executable would let `taskcontrol ready` hand an oversized task to one agent.
+
+**Consequence:** `taskcontrol ready` eventually returns only open artifact/implementation work with complete dependencies and `execution_scope: single_agent`. `needs_execution_decomposition`, `human_integration_required`, and `unknown` remain non-autonomous states. The Progressive Decomposer may later split concrete implementation responsibilities without inventing new design.
+
+## ADR-030 — Current output view is mutable; run history stays nested and immutable
+
+**Decision:** `Pipeline/Reconciliation/outputs/current/` is the human-facing convenience view. Reconciliation history remains under `outputs/runs/<run-id>/`, and new verification history lives under `outputs/runs/<run-id>/verifications/<verification-id>/`.
+
+**Why:** Separate top-level reconciliation and verification trees made it difficult to know which files were the current answer and which verification belonged to which source snapshot.
+
+**Consequence:** `current/` may be overwritten whenever the latest candidate changes. It is never historical truth. Existing legacy `outputs/verifications/` directories can be moved once with the deterministic layout-migration utility.

@@ -104,4 +104,11 @@ An implementation worker also does not silently create new game design. Missing 
 
 ## Reconciliation now has an independent verification gate
 
-A successful Reconciliation Agent run is a candidate snapshot, not automatic bootstrap truth. Before seeding the persistent graph, run the multi-model Reconciliation Verification Crew. It independently audits GDD coverage, dependency/decomposition semantics, and repository evidence; unions findings; performs bounded refinement when material issues exist; and re-verifies before human approval.
+A successful Reconciliation Agent run is a candidate snapshot, not automatic bootstrap truth. Before seeding the persistent graph, run the multi-model Reconciliation Verification Crew. It independently audits GDD coverage, dependency/decomposition semantics, repository evidence, and whether proposed work is actually small/bounded enough for a one-agent handoff; unions findings; performs bounded refinement when material issues exist; and re-verifies before human approval.
+
+
+## Current-output convention
+
+Use `Pipeline/Reconciliation/outputs/current/` when you want the latest human-facing candidate/status. Treat `outputs/runs/` as immutable audit history. New verification history is nested under the reconciliation run it audited.
+
+Execution readiness is now separate from design completeness: `decomposition_state` answers whether design is specific enough, while `execution_scope` answers whether a focused implementation agent should receive the item as one task.

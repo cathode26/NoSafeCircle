@@ -11,6 +11,7 @@ def main() -> int:
     if len(crew.MODEL_POOL) > 1:
         assert assignments["coverage_a"] != assignments["coverage_b"]
         assert assignments["structure"] != assignments["evidence"]
+        assert "execution" in assignments
 
     audits = [
         {
@@ -54,7 +55,7 @@ def main() -> int:
                 "Docs/GDD/No_Safe_Circle_GDD.md",
                 "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
                 "Pipeline/Reconciliation/outputs/runs/example/reconciliation.json",
-                "Pipeline/Reconciliation/outputs/verifications/example/MERGED_FINDINGS_PASS1.json",
+                "Pipeline/Reconciliation/outputs/runs/example/verifications/v1/MERGED_FINDINGS_PASS1.json",
             ]
         }
     }
@@ -64,6 +65,20 @@ def main() -> int:
         "Docs/GDD/No_Safe_Circle_GDD.md",
         "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
     ]
+
+
+    legacy = {
+        "work_items": [
+            {"key": "root", "kind": "feature", "graph_status": "open"},
+            {"key": "todo", "kind": "implementation", "graph_status": "open"},
+            {"key": "done", "kind": "implementation", "graph_status": "complete"},
+        ]
+    }
+    upgraded = crew.ensure_execution_scope_defaults(legacy)
+    assert set(upgraded) == {"root", "todo", "done"}
+    assert legacy["work_items"][0]["execution_scope"] == "not_applicable"
+    assert legacy["work_items"][1]["execution_scope"] == "unknown"
+    assert legacy["work_items"][2]["execution_scope"] == "not_applicable"
 
     print("verification smoke test passed")
     print(f"model pool: {', '.join(crew.MODEL_POOL)}")

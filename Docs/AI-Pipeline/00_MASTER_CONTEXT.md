@@ -697,4 +697,13 @@ The pipeline should increasingly build No Safe Circle, not become a separate pro
 
 ### Reconciliation verification
 
-Reconciliation is semantic enough that deterministic schema validation is necessary but insufficient. Before bootstrap seeding, run an independent multi-model verification crew: two GDD coverage auditors, a dependency/decomposition auditor, and a repository-evidence auditor. Their first-pass findings are independent and unioned rather than voted. Material findings produce a separate refined candidate and a second independent audit pass. The original snapshot remains immutable and `Tasks/*.yaml` remains untouched until human approval.
+Reconciliation is semantic enough that deterministic schema validation is necessary but insufficient. Before bootstrap seeding, run an independent multi-model verification crew: two GDD coverage auditors, a dependency/decomposition auditor, a repository-evidence auditor, and an execution-scope auditor. Their first-pass findings are independent and unioned rather than voted. Material findings produce a separate refined candidate and a second independent audit pass. The original snapshot remains immutable and `Tasks/*.yaml` remains untouched until human approval.
+
+
+## Execution scope vs design decomposition
+
+The persistent work graph now needs two independent readiness dimensions. `decomposition_state` describes whether approved design/canon is specific enough. `execution_scope` describes whether one focused agent should receive the work as one bounded implementation handoff. Concrete design does not imply `single_agent`. Oversized but well-specified work uses `needs_execution_decomposition`; editor/integration-only next steps use `human_integration_required`; legacy/unreviewed execution size uses `unknown`.
+
+## Reconciliation output layout
+
+Human-facing latest files live in mutable `Pipeline/Reconciliation/outputs/current/`. Immutable reconciliation history remains in `outputs/runs/<run-id>/`, and new verification history is nested at `outputs/runs/<run-id>/verifications/<verification-id>/`. `LATEST*.json` remain convenience pointers.

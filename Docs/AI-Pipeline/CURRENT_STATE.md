@@ -174,7 +174,7 @@ Failed evidence should become structured Refiner input.
 
 1. Inspect current `main`.
 2. Run/read the Reconciliation Agent to create an immutable point-in-time snapshot of GDD requirements versus current repository state.
-3. Run the independent multi-model Reconciliation Verification Crew against that snapshot.
+3. Run/review the independent multi-model Reconciliation Verification Crew against that snapshot, including the Execution Scope Auditor.
 4. Resolve/refine material coverage, dependency/decomposition, and evidence findings, then re-verify.
 5. Human-review the verified candidate and proposed graph delta.
 6. Seed a coarse persistent work graph from approved reconciliation records; do not treat the snapshot itself as the mutable graph.
@@ -277,3 +277,12 @@ Do not implement the Progressive Decomposer yet; Milestone 1 must first establis
 ## Reconciliation Verification Gate
 
 Before the first `Tasks/*.yaml` seed is created, the immutable reconciliation candidate must pass independent multi-model verification. Two independent GDD coverage passes, a dependency/decomposition pass, and a repository-evidence pass run without seeing one another's first-pass findings. Material findings are unioned, optionally refined, and independently re-verified. Human approval is still required.
+
+
+### Execution-scope refinement
+
+The pipeline now tracks whether concrete work is actually a safe one-agent handoff. This is separate from design decomposition. Open executable work may be `single_agent`, `needs_execution_decomposition`, `human_integration_required`, or `unknown`; feature/already-complete work is `not_applicable`. `taskcontrol ready` must eventually expose only `single_agent` items whose dependencies are complete.
+
+### Reconciliation output organization
+
+`outputs/current/` is the mutable place to look for the current candidate, proposed delta, verification report, and status. Immutable history remains under `outputs/runs/<reconciliation-run>/`, with new verification runs nested beneath `verifications/` inside their source reconciliation run.

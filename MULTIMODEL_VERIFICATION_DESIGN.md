@@ -13,16 +13,16 @@ interpretive diversity. Neither diversity nor consensus is treated as proof.
 ```text
                   immutable candidate
                          │
-        ┌────────────────┼────────────────┐
-        │                │                │
- Coverage A          Coverage B        Structure
-  model X             model Y          model X/Y
-        │                │                │
-        └────────────┬───┴────────────┬───┘
-                     │                │
-                Evidence Auditor ─────┘
-                  model X/Y
-                     │
+        ┌────────────────┼────────────────┬────────────────┐
+        │                │                │                │
+ Coverage A          Coverage B        Structure       Evidence
+  model X             model Y          model X/Y       model X/Y
+        │                │                │                │
+        └────────────┬───┴────────────┬───┴────────────┬───┘
+                     │                │                │
+                     └──────── Execution Scope ───────┘
+                              model X/Y
+                                 │
                union findings
                      │
               bounded Refiner
@@ -63,3 +63,8 @@ version without changing the verifier implementation.
 The verification system can produce a refined candidate but cannot approve it
 or create the persistent task graph. Human approval remains the bootstrap
 authority boundary.
+
+
+## Execution-scope audit
+
+The verification crew also asks whether each open executable work item is actually a safe one-agent unit. This is deliberately different from design decomposition. A fully specified cross-system task can still be rejected as too broad and marked `needs_execution_decomposition`.

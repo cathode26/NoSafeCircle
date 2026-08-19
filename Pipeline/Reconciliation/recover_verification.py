@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from output_layout import resolve_verification_dir, write_current_view
+
 from reconciliation_agent import (
     build_proposed_graph_delta,
     render_graph_delta_markdown,
@@ -17,7 +19,6 @@ from reconciliation_agent import (
 from verification_crew import (
     ROOT,
     RUNS_DIR,
-    VERIFICATIONS_DIR,
     create_verification_paths,
     load_json,
     merge_findings,
@@ -66,7 +67,7 @@ def created_at_from_run_id(run_id: str) -> str:
 
 
 def existing_paths(source_run_id: str, verification_run_id: str) -> dict[str, Any]:
-    run_dir = VERIFICATIONS_DIR / source_run_id / verification_run_id
+    run_dir = resolve_verification_dir(source_run_id, verification_run_id)
     if not run_dir.exists():
         raise FileNotFoundError(f"Verification directory not found: {run_dir}")
 
@@ -229,6 +230,17 @@ def main() -> int:
             paths["summary_markdown"], render_verification_markdown(summary)
         )
         write_latest_verification_pointer(paths, status)
+        write_current_view(
+            source_reconciliation_run_id=args.source_run_id,
+            status=status,
+            candidate_json=paths["refined_json"],
+            candidate_markdown=paths["refined_markdown"],
+            delta_json=paths["refined_delta_json"],
+            delta_markdown=paths["refined_delta_markdown"],
+            verification_run_id=args.verification_run_id,
+            verification_summary_json=paths["summary_json"],
+            verification_markdown=paths["summary_markdown"],
+        )
 
         print()
         print("=" * 72)

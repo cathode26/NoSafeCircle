@@ -173,6 +173,8 @@ Do not decompose rooms into encounter details if the design does not define thos
 
 This reconciliation should create the coarse truthful starting graph, not the entire final backlog.
 
+For concrete implementation work, also judge whether the node is a safe one-agent execution unit. Do not force a broad cross-system feature into `single_agent` merely because its design is concrete.
+
 ---
 
 # Work kinds
@@ -326,6 +328,42 @@ Do not fix this by inventing the missing design.
 Decomposition does not meaningfully apply, often because the work is already complete/atomic.
 
 ---
+
+# Execution scope
+
+`decomposition_state` answers whether the work is designed specifically enough.
+
+`execution_scope` answers a different question:
+
+> Is this work item already a bounded unit that one implementation agent can reasonably execute and validate?
+
+Use:
+
+## `single_agent`
+
+The open implementation/artifact is bounded enough for one focused implementation agent with a constrained context and clear validation target.
+
+## `needs_execution_decomposition`
+
+The design may already be concrete, but the work item still spans too many implementation responsibilities, files, systems, or validation concerns to hand to one agent safely.
+
+This is NOT permission to invent new game design. A future Progressive Decomposer may split the known implementation work into smaller execution tasks using already-approved requirements.
+
+## `human_integration_required`
+
+The next meaningful execution step fundamentally requires human Unity/editor/integration judgment rather than an autonomous implementation-agent handoff.
+
+## `not_applicable`
+
+Use for feature/organizational nodes and already-complete work that is not awaiting execution.
+
+## `unknown`
+
+Use only when current evidence is insufficient to judge task handoff size safely. Explain why.
+
+For every work item, provide `execution_reason`.
+
+Do not confuse difficulty with execution scope. A technically difficult task can still be `single_agent` if it is bounded. A straightforward task can require `needs_execution_decomposition` if it bundles several independently verifiable responsibilities.
 
 # Requirement basis
 
