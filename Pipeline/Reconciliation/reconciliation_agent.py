@@ -322,6 +322,11 @@ ALLOWED_PREFIXES = (
     "ProjectSettings/",
 )
 
+FORBIDDEN_PREFIXES = (
+    "AgentCrew/",
+    "DynamicContentPipeline/",
+)
+
 
 def _normalize_path(value: str) -> str:
     return value.replace("\\", "/").lstrip("./")
@@ -332,6 +337,79 @@ def _is_allowed_review_path(value: str) -> bool:
     if path in ALLOWED_EXACT_PATHS:
         return True
     return any(path.startswith(prefix) for prefix in ALLOWED_PREFIXES)
+
+
+def _is_forbidden_path(value: str) -> bool:
+    path = _normalize_path(value)
+    return any(path.startswith(prefix) for prefix in FORBIDDEN_PREFIXES)
+
+
+def sanitize_forbidden_evidence(payload: dict[str, Any]) -> list[str]:
+    """
+    Remove evidence from explicitly forbidden repository areas before semantic
+    validation.
+
+    This is a recovery boundary, not permission for the model to inspect those
+    paths. The prompt still forbids them. We preserve a warning describing what
+    was removed, then validate the remaining evidence normally.
+
+    If removing forbidden evidence leaves an implemented/partial item without
+    valid current-project evidence, normal semantic validation will still fail.
+    """
+    removed: list[str] = []
+
+    sources = payload.setdefault("sources", {})
+
+    history = sources.get("historical_sources_reviewed", [])
+    clean_history = []
+    for value in history:
+        if _is_forbidden_path(str(value)):
+            removed.append(str(value))
+        else:
+            clean_history.append(value)
+    sources["historical_sources_reviewed"] = clean_history
+
+    reviewed = sources.get("files_reviewed", [])
+    clean_reviewed = []
+    for value in reviewed:
+        if _is_forbidden_path(str(value)):
+            removed.append(str(value))
+        else:
+            clean_reviewed.append(value)
+    sources["files_reviewed"] = clean_reviewed
+
+    for item in payload.get("work_items", []):
+        evidence_list = item.get("repository_evidence", [])
+        clean_evidence = []
+        for evidence in evidence_list:
+            path = str(evidence.get("path", ""))
+            if _is_forbidden_path(path):
+                removed.append(path)
+            else:
+                clean_evidence.append(evidence)
+        item["repository_evidence"] = clean_evidence
+
+    if removed:
+        unique_removed = sorted(set(removed))
+        seed = payload.setdefault(
+            "seed_assessment",
+            {"status": "ready_with_warnings", "blockers": [], "warnings": []},
+        )
+        warnings = seed.setdefault("warnings", [])
+        warning = (
+            "Reconciliation model referenced forbidden source path(s); "
+            "the orchestrator removed them before validation: "
+            + ", ".join(unique_removed)
+        )
+        if warning not in warnings:
+            warnings.append(warning)
+
+        if seed.get("status") == "ready":
+            seed["status"] = "ready_with_warnings"
+
+        return unique_removed
+
+    return []
 
 
 def validate_reviewed_paths(payload: dict[str, Any]) -> None:
@@ -1009,6 +1087,14 @@ def main() -> int:
         # artifact for inspection instead of throwing away a several-minute
         # reconciliation run.
         save_json(RAW_OUTPUT_PATH, payload)
+
+        removed_forbidden = sanitize_forbidden_evidence(payload)
+        if removed_forbidden:
+            print(
+                "Warning: removed forbidden reconciliation evidence before "
+                "semantic validation: "
+                + ", ".join(removed_forbidden)
+            )
 
         run_semantic_validation(payload)
 

@@ -77,6 +77,19 @@ A historical artifact saying "implemented" is not enough to mark work complete i
 
 Do not inspect unrelated assignment directories.
 
+## Explicitly forbidden paths
+
+You MUST NEVER Read, Glob, or Grep any path under:
+
+- `AgentCrew/`
+- `DynamicContentPipeline/`
+
+These directories are excluded from reconciliation entirely. Do not use them
+for history, feature scope, implementation evidence, or corroboration.
+
+If useful historical context is needed, you may use ONLY the explicitly
+allowed historical files listed above.
+
 ---
 
 # First: understand desired state

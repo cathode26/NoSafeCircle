@@ -187,3 +187,21 @@ for inspection so a several-minute Claude run is not lost.
 Feature nodes are non-executable, but they may depend on concrete
 `artifact` or `implementation` work. The dependency target may not be another
 `feature` node.
+
+
+## Forbidden-source recovery
+
+The Claude prompt explicitly forbids inspection of:
+
+- `AgentCrew/`
+- `DynamicContentPipeline/`
+
+The Python orchestrator also defensively removes evidence from those paths
+before semantic validation. This prevents an otherwise-valid several-minute
+reconciliation run from failing only because Claude referenced an excluded
+historical source.
+
+The sanitized run is marked `ready_with_warnings` when forbidden evidence was
+removed. Normal evidence validation still applies afterward, so an
+`implemented` or `partial` classification cannot survive if its only evidence
+came from a forbidden source.
