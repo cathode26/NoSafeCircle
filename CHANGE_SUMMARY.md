@@ -77,3 +77,65 @@ The agent creates:
 ```powershell
 docker compose run --rm claude python3 Pipeline/Reconciliation/reconciliation_agent.py
 ```
+
+---
+
+# Immutable Reconciliation Snapshot Update
+
+## Why
+
+The Reconciliation Agent is reusable, not a one-time bootstrap script.
+Therefore its output must not become a mutable project database.
+
+This update separates:
+
+- design truth: GDD;
+- implementation truth: current repository;
+- operational work truth: `Tasks/*.yaml`;
+- reconciliation evidence: immutable point-in-time snapshots.
+
+## Code changes
+
+`Pipeline/Reconciliation/reconciliation_agent.py`
+
+- creates a unique append-only directory for every run;
+- preserves raw and validated output per run;
+- never overwrites an earlier snapshot;
+- writes `PROPOSED_GRAPH_DELTA.json` and `.md`;
+- does not mutate `Tasks/*.yaml`;
+- emits bootstrap seed proposals before the task graph exists;
+- emits `taskctl_diff_required` after a persistent task graph exists;
+- updates only `outputs/LATEST.json` as a mutable convenience pointer;
+- preserves a failed run directory for inspection.
+
+## Output layout
+
+```text
+Pipeline/Reconciliation/outputs/
+├── LATEST.json
+└── runs/
+    └── <timestamp>-<run-id>/
+        ├── reconciliation.raw.json
+        ├── reconciliation.json
+        ├── RECONCILIATION.md
+        ├── PROPOSED_GRAPH_DELTA.json
+        └── PROPOSED_GRAPH_DELTA.md
+```
+
+## Architecture changes
+
+- Added ADR-025: reconciliation results are immutable snapshots.
+- Added ADR-026: reconciliation proposes graph deltas and never directly
+  mutates the persistent graph.
+- Added `reconciliation_key` traceability to the Milestone 1 task schema.
+- Clarified that safe cascades such as dependency completion changing
+  `taskctl ready` are deterministic graph behavior.
+- Clarified that full reconciliation reruns must not cause uncontrolled LLM
+  rewrites of task files.
+
+## Still intentionally deferred
+
+Milestone 1 still needs to implement the deterministic task graph, seeder, and
+reconciliation diff/apply behavior. The Reconciliation Agent now emits the
+correct boundary and proposed-delta artifacts but does not invent that
+unfinished `taskctl` functionality inside the LLM agent.

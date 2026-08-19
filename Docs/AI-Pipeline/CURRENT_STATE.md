@@ -173,21 +173,23 @@ Failed evidence should become structured Refiner input.
 ### Milestone 1 — Persistent Work Graph
 
 1. Inspect current `main`.
-2. Reconcile the actual implemented game state against the GDD and existing assignment artifacts.
-3. Seed a coarse work graph representing No Safe Circle as it exists today.
-4. Support three work kinds:
+2. Run/read the Reconciliation Agent to create an immutable point-in-time snapshot of GDD requirements versus current repository state.
+3. Review the snapshot's proposed graph delta.
+4. Seed a coarse persistent work graph from approved reconciliation records; do not treat the snapshot itself as the mutable graph.
+5. Support three work kinds:
    - `feature`
    - `artifact`
    - `implementation`
-5. Implement local Python `taskctl`.
-6. Implement:
+6. Implement local Python `taskctl`.
+7. Implement:
    - `list`
    - `show`
    - `validate`
    - `ready`
    - `graph`
-7. Seed only work/dependency facts that are supported by the current repository.
-8. Do not fully decompose distant features merely to fill the graph.
+8. Seed only work/dependency facts that are supported by the current repository.
+9. Preserve `reconciliation_key` traceability from seeded work back to the snapshot record that proposed it.
+10. Do not fully decompose distant features merely to fill the graph.
 
 Milestone 1 remains deterministic and should work without an LLM dependency.
 
@@ -238,6 +240,10 @@ GER itself is no longer in this list: the pattern has already been proven in Ass
 ## Known Important Constraints
 
 - Persistent work definitions should be local/versioned.
+- Reconciliation outputs are immutable point-in-time snapshots and must not be edited to reflect later work.
+- A reconciliation rerun creates a new snapshot; it never directly rewrites `Tasks/*.yaml`.
+- Reconciliation-to-graph changes must pass through a deterministic diff/proposed-delta step.
+- Cascading readiness changes are computed by `taskctl`, not by the Reconciliation Agent.
 - Transient worker state should eventually live in the supervisor/GitHub rather than being committed on every worker branch.
 - An implementation task is `complete` only after its implementation is merged to `main`.
 - An artifact task is `complete` only after the artifact is approved by its required evaluators and stored as trusted project input.

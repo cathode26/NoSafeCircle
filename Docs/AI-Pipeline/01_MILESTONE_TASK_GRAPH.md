@@ -24,6 +24,12 @@ Progressive AI decomposition belongs to Milestone 2, not this milestone.
 
 ## Critical Reconciliation Rule
 
+Reconciliation is an immutable input snapshot, not the task database.
+
+Each reconciliation run is versioned. The persistent graph may be seeded or
+updated only from an approved proposed delta. Rerunning reconciliation does not
+directly cascade edits through `Tasks/*.yaml`.
+
 Do not seed this graph directly from old Assignment 5 goal-selection output.
 
 Before assigning status or dependencies:
@@ -101,6 +107,7 @@ Examples:
 ```yaml
 id: NSC-014
 title: Mana Resource System
+reconciliation_key: player-mana
 
 kind: implementation
 type: gameplay
@@ -146,6 +153,7 @@ Generation and evaluation happen later.
 ```yaml
 id: NSC-A130
 title: Room 3 Encounter Specification
+reconciliation_key: room-3-encounter-spec
 
 kind: artifact
 type: encounter-design
@@ -369,7 +377,11 @@ It will not authorize new content creation.
 6. Completing/approving a dependency causes downstream executable work to become ready.
 7. No LLM is required for any of the above.
 8. Seeded state has been reconciled against current `main`, not copied blindly from old assignment output.
-9. The graph can identify at least one real next executable item or truthfully report that progressive decomposition is required.
+9. Seeded records preserve a stable `reconciliation_key` linking operational work back to the reconciliation record that proposed it.
+10. Reconciliation reruns create immutable snapshots and cannot directly rewrite `Tasks/*.yaml`.
+11. A deterministic reconciliation diff can classify agreement, proposed additions/changes, and conflicts before graph mutation.
+12. Dependency/status changes cascade through deterministic graph computation, not LLM file rewrites.
+13. The graph can identify at least one real next executable item or truthfully report that progressive decomposition is required.
 
 ## Next
 

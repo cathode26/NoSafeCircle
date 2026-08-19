@@ -74,13 +74,26 @@ Historical files may help locate prior work or validation history, but they neve
 
 ## Outputs
 
-Running the agent creates:
+Every run creates a new append-only snapshot directory:
 
 ```text
-Pipeline/Reconciliation/outputs/reconciliation.raw.json
-Pipeline/Reconciliation/outputs/reconciliation.json
-Pipeline/Reconciliation/outputs/RECONCILIATION.md
+Pipeline/Reconciliation/outputs/
+├── LATEST.json
+└── runs/
+    └── <timestamp>-<run-id>/
+        ├── reconciliation.raw.json
+        ├── reconciliation.json
+        ├── RECONCILIATION.md
+        ├── PROPOSED_GRAPH_DELTA.json
+        └── PROPOSED_GRAPH_DELTA.md
 ```
+
+The files under `runs/<run-id>/` are point-in-time evidence and are never
+overwritten by a later reconciliation run.
+
+`LATEST.json` is only a convenience pointer to the newest successful snapshot.
+It is mutable metadata, not project truth.
+
 
 `reconciliation.json` is the machine-readable artifact.
 
@@ -225,3 +238,64 @@ The Refiner may either:
 The repaired result is then run through the normal deterministic semantic
 validator. This is a bounded structural GER-style repair, not a second full
 repository reconciliation.
+
+
+## Snapshot Semantics
+
+A reconciliation result is an **immutable observation**, not the living
+project database.
+
+If a snapshot says Fireball was missing on a given run, implementing Fireball
+later does not modify that old snapshot. The persistent `Tasks/*.yaml` graph
+records operational progress.
+
+A later Reconciliation Agent run creates a new snapshot.
+
+```text
+GDD + repository
+      ↓
+Reconciliation Agent
+      ↓
+immutable snapshot
+      ↓
+proposed graph delta
+      ↓
+review / deterministic diff
+      ↓
+Tasks/*.yaml
+```
+
+The Reconciliation Agent never directly rewrites `Tasks/*.yaml`.
+
+### Before the persistent graph exists
+
+`PROPOSED_GRAPH_DELTA.*` contains bootstrap seed proposals derived from the
+snapshot. Human approval and the deterministic Work Graph Seeder are still
+required.
+
+### After the persistent graph exists
+
+The Reconciliation Agent detects that `Tasks/*.yaml` exists and emits
+`status: taskctl_diff_required`.
+
+It does not attempt to cascade changes itself. A deterministic `taskctl`
+reconciliation-diff/apply workflow will own that comparison in Milestone 1.
+
+This prevents an LLM reconciliation run from silently restructuring or
+rewriting the operational graph.
+
+## Safe Cascades
+
+Cascading readiness changes belong to deterministic graph logic, for example:
+
+```text
+Movement becomes complete
+        ↓
+Fireball dependency is satisfied
+        ↓
+taskctl ready changes
+```
+
+That is allowed.
+
+An LLM reconciliation run directly rewriting many task files is not.

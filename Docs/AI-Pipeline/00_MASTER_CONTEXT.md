@@ -459,6 +459,17 @@ Run full planning/reconciliation when:
 
 Normal progress should use the persistent graph.
 
+Full reconciliation is append-only observation, not graph mutation.
+
+Each run produces a new immutable snapshot. The old snapshot remains historically
+true even after later work changes the repository. The persistent work graph is
+the living operational state.
+
+When a later reconciliation disagrees with `Tasks/*.yaml`, the result is a
+proposed graph delta/conflict report. A deterministic reconciliation-diff/apply
+step must decide what changes are safe to apply; the Reconciliation Agent does
+not cascade edits through the graph itself.
+
 As high-level work approaches the frontier, the Progressive Decomposer semantically expands only that bounded area.
 
 Assignment 5's implementation agent can also be reused as a bounded implementer/refiner, as demonstrated by Assignment 6.
@@ -646,17 +657,18 @@ Do not finish the entire autonomous platform before building more of the game.
 
 The next strategy is:
 
-1. Reconcile current `main`.
-2. Implement the minimum persistent work graph.
-3. Seed the graph from actual current project state.
-4. Support `feature`, `artifact`, and `implementation` kinds.
-5. Compute the ready/near-ready frontier.
-6. Begin Milestone 2 only after Milestone 1 works.
-7. Use progressive decomposition only on bounded near-frontier work.
-8. Create artifact proposals when design is missing.
-9. Authorize and evaluate generated artifacts before downstream use.
-10. Execute real implementation work through the proven GER pattern.
-11. Expand infrastructure only when the next real task requires it.
+1. Produce an immutable reconciliation snapshot of current `main` against the GDD.
+2. Review its proposed graph delta.
+3. Implement the minimum persistent work graph.
+4. Seed the graph from approved reconciliation records while preserving traceability.
+5. Support `feature`, `artifact`, and `implementation` kinds.
+6. Compute the ready/near-ready frontier.
+7. Begin Milestone 2 only after Milestone 1 works.
+8. Use progressive decomposition only on bounded near-frontier work.
+9. Create artifact proposals when design is missing.
+10. Authorize and evaluate generated artifacts before downstream use.
+11. Execute real implementation work through the proven GER pattern.
+12. Expand infrastructure only when the next real task requires it.
 
 This keeps pipeline development tied to actual capstone progress.
 

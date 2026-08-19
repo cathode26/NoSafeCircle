@@ -54,6 +54,26 @@ If required design/content is missing, the Decomposer must propose a new artifac
 
 Artifact creation must be authorized before generation.
 
+## Important Reconciliation-Snapshot Lesson
+
+Reconciliation is not the mutable task database.
+
+Each full Reconciliation Agent run produces an immutable point-in-time snapshot
+of GDD requirements versus current repository state. Later implementation work
+updates `Tasks/*.yaml`; it does not rewrite old reconciliation snapshots.
+
+A later reconciliation creates a new snapshot and proposes a graph delta.
+That delta must be reviewed/diffed before it can affect the persistent graph.
+
+Safe cascading readiness changes are deterministic `taskctl` behavior, not
+direct LLM graph rewrites.
+
+See:
+
+- `Docs/AI-Pipeline/01_MILESTONE_TASK_GRAPH.md`
+- `Docs/AI-Pipeline/DECISIONS.md`
+- `Pipeline/Reconciliation/README.md`
+
 See:
 
 - `Docs/AI-Pipeline/00_MASTER_CONTEXT.md`

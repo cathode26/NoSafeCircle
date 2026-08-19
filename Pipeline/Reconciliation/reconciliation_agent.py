@@ -5,6 +5,8 @@ import os
 import subprocess
 import sys
 import time
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -13,9 +15,9 @@ ROOT = Path(__file__).resolve().parents[2]
 AGENT_ROOT = ROOT / "Pipeline" / "Reconciliation"
 PROMPT_PATH = AGENT_ROOT / "prompts" / "reconcile.md"
 OUTPUT_DIR = AGENT_ROOT / "outputs"
-RAW_OUTPUT_PATH = OUTPUT_DIR / "reconciliation.raw.json"
-JSON_OUTPUT_PATH = OUTPUT_DIR / "reconciliation.json"
-MARKDOWN_OUTPUT_PATH = OUTPUT_DIR / "RECONCILIATION.md"
+RUNS_DIR = OUTPUT_DIR / "runs"
+LATEST_POINTER_PATH = OUTPUT_DIR / "LATEST.json"
+TASKS_DIR = ROOT / "Tasks"
 
 MODEL = os.environ.get("RECONCILIATION_MODEL", "sonnet")
 TIMEOUT_SECONDS = int(os.environ.get("RECONCILIATION_TIMEOUT_SECONDS", "1800"))
@@ -983,6 +985,60 @@ def load_prompt() -> str:
     return PROMPT_PATH.read_text(encoding="utf-8-sig")
 
 
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace(
+        "+00:00", "Z"
+    )
+
+
+def create_run_paths() -> dict[str, Any]:
+    """
+    Create a unique append-only output directory for this reconciliation run.
+
+    Snapshot files inside a completed run are never reused by later runs.
+    `outputs/LATEST.json` is only a mutable convenience pointer and is not
+    itself reconciliation truth.
+    """
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    run_id = f"{timestamp}-{uuid.uuid4().hex[:8]}"
+    run_dir = RUNS_DIR / run_id
+
+    if run_dir.exists():
+        raise RuntimeError(
+            f"Refusing to reuse reconciliation run directory: {run_dir}"
+        )
+
+    run_dir.mkdir(parents=True, exist_ok=False)
+
+    return {
+        "run_id": run_id,
+        "created_at_utc": utc_now_iso(),
+        "run_dir": run_dir,
+        "raw": run_dir / "reconciliation.raw.json",
+        "json": run_dir / "reconciliation.json",
+        "markdown": run_dir / "RECONCILIATION.md",
+        "delta_json": run_dir / "PROPOSED_GRAPH_DELTA.json",
+        "delta_markdown": run_dir / "PROPOSED_GRAPH_DELTA.md",
+    }
+
+
+def save_new_json(path: Path, value: Any) -> None:
+    if path.exists():
+        raise RuntimeError(
+            f"Refusing to overwrite immutable reconciliation artifact: {path}"
+        )
+    save_json(path, value)
+
+
+def save_new_text(path: Path, text: str) -> None:
+    if path.exists():
+        raise RuntimeError(
+            f"Refusing to overwrite immutable reconciliation artifact: {path}"
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
 def save_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -1081,6 +1137,184 @@ def run_reconciliation_agent() -> dict[str, Any]:
 
     print(f"Completed reconciliation agent in {duration} seconds.")
     return structured_output
+
+
+# ============================================================
+# RECONCILIATION SNAPSHOT / PROPOSED GRAPH DELTA
+# ============================================================
+
+def build_proposed_graph_delta(
+    payload: dict[str, Any],
+    run_id: str,
+    created_at_utc: str,
+) -> dict[str, Any]:
+    """
+    Describe what this reconciliation proposes relative to the persistent
+    graph WITHOUT changing the graph.
+
+    Milestone 1/taskctl does not exist yet in the current bootstrap state, so
+    this function deliberately does not invent a YAML parser or graph-mutation
+    policy inside the Reconciliation Agent.
+
+    Before Tasks/*.yaml exists, every reconciled work item is a proposed seed
+    record. Once Tasks/*.yaml exists, taskctl must own the deterministic
+    snapshot-vs-graph diff and application workflow.
+    """
+    task_files = sorted(TASKS_DIR.glob("*.yaml")) if TASKS_DIR.exists() else []
+    work_items = payload.get("work_items", [])
+
+    if not task_files:
+        return {
+            "schema_version": "1.0",
+            "reconciliation_run_id": run_id,
+            "created_at_utc": created_at_utc,
+            "status": "bootstrap_seed_proposal",
+            "persistent_graph_present": False,
+            "persistent_graph_mutated": False,
+            "summary": (
+                "No persistent Tasks/*.yaml graph exists yet. This snapshot "
+                "proposes bootstrap seed records only; human approval and the "
+                "deterministic Work Graph Seeder are required before any "
+                "persistent task state is created."
+            ),
+            "proposed_seed_records": [
+                {
+                    "reconciliation_key": item.get("key"),
+                    "title": item.get("title"),
+                    "kind": item.get("kind"),
+                    "proposed_status": item.get("graph_status"),
+                    "parent_reconciliation_key": item.get("parent_key"),
+                    "depends_on_reconciliation_keys": [
+                        dep.get("key")
+                        for dep in item.get("depends_on", [])
+                    ],
+                }
+                for item in work_items
+            ],
+            "proposed_changes": [],
+            "conflicts": [],
+            "next_action": "human_review_then_seed",
+        }
+
+    return {
+        "schema_version": "1.0",
+        "reconciliation_run_id": run_id,
+        "created_at_utc": created_at_utc,
+        "status": "taskctl_diff_required",
+        "persistent_graph_present": True,
+        "persistent_graph_mutated": False,
+        "summary": (
+            "A persistent Tasks/*.yaml graph already exists. The "
+            "Reconciliation Agent does not rewrite it. This snapshot must be "
+            "compared against the graph by deterministic taskctl reconciliation "
+            "diff logic before any approved graph delta is applied."
+        ),
+        "task_files_observed": [
+            str(path.relative_to(ROOT)).replace("\\", "/")
+            for path in task_files
+        ],
+        "proposed_seed_records": [],
+        "proposed_changes": [],
+        "conflicts": [],
+        "next_action": "taskctl_reconciliation_diff",
+    }
+
+
+def render_graph_delta_markdown(delta: dict[str, Any]) -> str:
+    lines: list[str] = []
+    lines.append("# Proposed Persistent-Graph Delta")
+    lines.append("")
+    lines.append(
+        "> This is a proposal generated from an immutable reconciliation "
+        "snapshot. It does not modify `Tasks/*.yaml`."
+    )
+    lines.append("")
+    lines.append(
+        f"- **Reconciliation run:** `{delta.get('reconciliation_run_id', '')}`"
+    )
+    lines.append(f"- **Status:** `{delta.get('status', '')}`")
+    lines.append(
+        "- **Persistent graph mutated:** "
+        f"`{str(delta.get('persistent_graph_mutated', False)).lower()}`"
+    )
+    lines.append("")
+    lines.append("## Summary")
+    lines.append("")
+    lines.append(str(delta.get("summary", "")))
+    lines.append("")
+
+    seeds = delta.get("proposed_seed_records", [])
+    if seeds:
+        lines.append("## Proposed Bootstrap Seed Records")
+        lines.append("")
+        lines.append(
+            "| Reconciliation key | Kind | Title | Proposed status | Parent | "
+            "Depends on |"
+        )
+        lines.append("|---|---|---|---|---|---|")
+        for item in seeds:
+            deps = ", ".join(
+                str(value)
+                for value in item.get(
+                    "depends_on_reconciliation_keys", []
+                )
+            )
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        _cell(item.get("reconciliation_key")),
+                        _cell(item.get("kind")),
+                        _cell(item.get("title")),
+                        _cell(item.get("proposed_status")),
+                        _cell(item.get("parent_reconciliation_key")),
+                        _cell(deps),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+
+    task_files = delta.get("task_files_observed", [])
+    if task_files:
+        lines.append("## Persistent Task Files Observed")
+        lines.append("")
+        for path in task_files:
+            lines.append(f"- `{path}`")
+        lines.append("")
+
+    lines.append("## Next Action")
+    lines.append("")
+    lines.append(f"`{delta.get('next_action', '')}`")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_latest_pointer(run_paths: dict[str, Any]) -> None:
+    pointer = {
+        "schema_version": "1.0",
+        "latest_successful_run_id": run_paths["run_id"],
+        "created_at_utc": run_paths["created_at_utc"],
+        "snapshot_directory": str(
+            run_paths["run_dir"].relative_to(ROOT)
+        ).replace("\\", "/"),
+        "reconciliation_json": str(
+            run_paths["json"].relative_to(ROOT)
+        ).replace("\\", "/"),
+        "reconciliation_markdown": str(
+            run_paths["markdown"].relative_to(ROOT)
+        ).replace("\\", "/"),
+        "proposed_graph_delta_json": str(
+            run_paths["delta_json"].relative_to(ROOT)
+        ).replace("\\", "/"),
+        "proposed_graph_delta_markdown": str(
+            run_paths["delta_markdown"].relative_to(ROOT)
+        ).replace("\\", "/"),
+    }
+
+    # LATEST.json is intentionally mutable metadata. It is not project truth;
+    # the immutable run directory is.
+    save_json(LATEST_POINTER_PATH, pointer)
 
 
 # ============================================================
@@ -1336,10 +1570,11 @@ def render_markdown(payload: dict[str, Any]) -> str:
     lines.append("## Next Step")
     lines.append("")
     lines.append(
-        "Human-review this reconciliation. After approval, use the "
-        "approved records to seed the deterministic Milestone 1 "
-        "`Tasks/*.yaml` graph. Do not automatically promote this output "
-        "without review."
+        "Treat this file as an immutable point-in-time reconciliation "
+        "snapshot. Do not edit it to reflect later implementation progress. "
+        "Review the accompanying `PROPOSED_GRAPH_DELTA.md`; approved changes "
+        "belong in the persistent `Tasks/*.yaml` graph, not back in this "
+        "snapshot."
     )
     lines.append("")
 
@@ -1355,7 +1590,11 @@ def save_markdown(path: Path, payload: dict[str, Any]) -> None:
 # TERMINAL SUMMARY
 # ============================================================
 
-def print_summary(payload: dict[str, Any]) -> None:
+def print_summary(
+    payload: dict[str, Any],
+    run_paths: dict[str, Any],
+    delta: dict[str, Any],
+) -> None:
     items = payload.get("work_items", [])
     by_kind = {
         kind: [item for item in items if item.get("kind") == kind]
@@ -1395,10 +1634,16 @@ def print_summary(payload: dict[str, Any]) -> None:
         f"{payload.get('seed_assessment', {}).get('status')}"
     )
     print()
-    print(f"Saved: {JSON_OUTPUT_PATH.relative_to(ROOT)}")
-    print(f"Saved: {MARKDOWN_OUTPUT_PATH.relative_to(ROOT)}")
+    print(f"Run ID: {run_paths['run_id']}")
+    print(f"Saved immutable snapshot directory: {run_paths['run_dir'].relative_to(ROOT)}")
+    print(f"Saved: {run_paths['json'].relative_to(ROOT)}")
+    print(f"Saved: {run_paths['markdown'].relative_to(ROOT)}")
+    print(f"Saved: {run_paths['delta_json'].relative_to(ROOT)}")
+    print(f"Saved: {run_paths['delta_markdown'].relative_to(ROOT)}")
+    print(f"Updated convenience pointer: {LATEST_POINTER_PATH.relative_to(ROOT)}")
+    print(f"Graph delta status: {delta.get('status')}")
     print()
-    print("Human review is required before seeding Tasks/*.yaml.")
+    print("The reconciliation snapshot did NOT mutate Tasks/*.yaml.")
     print("=" * 72)
 
 
@@ -1407,14 +1652,19 @@ def print_summary(payload: dict[str, Any]) -> None:
 # ============================================================
 
 def main() -> int:
+    run_paths: dict[str, Any] | None = None
+
     try:
+        # Each invocation gets its own append-only run directory. A later run
+        # can never overwrite the evidence from this run.
+        run_paths = create_run_paths()
+
         payload = run_reconciliation_agent()
 
-        # Save Claude's structured output BEFORE semantic validation. If our
-        # deterministic validator rejects a model result, we keep the raw
-        # artifact for inspection instead of throwing away a several-minute
-        # reconciliation run.
-        save_json(RAW_OUTPUT_PATH, payload)
+        # Save Claude's unsanitized structured output before semantic
+        # validation. If validation/refinement fails, the expensive model run
+        # remains inspectable inside this unique run directory.
+        save_new_json(run_paths["raw"], payload)
 
         removed_forbidden = sanitize_forbidden_evidence(payload)
         if removed_forbidden:
@@ -1431,10 +1681,24 @@ def main() -> int:
 
         run_semantic_validation(payload)
 
-        save_json(JSON_OUTPUT_PATH, payload)
-        save_markdown(MARKDOWN_OUTPUT_PATH, payload)
+        delta = build_proposed_graph_delta(
+            payload,
+            run_id=run_paths["run_id"],
+            created_at_utc=run_paths["created_at_utc"],
+        )
 
-        print_summary(payload)
+        save_new_json(run_paths["json"], payload)
+        save_new_text(run_paths["markdown"], render_markdown(payload))
+        save_new_json(run_paths["delta_json"], delta)
+        save_new_text(
+            run_paths["delta_markdown"],
+            render_graph_delta_markdown(delta),
+        )
+
+        # Only a fully validated successful reconciliation becomes "latest."
+        write_latest_pointer(run_paths)
+
+        print_summary(payload, run_paths, delta)
         return 0
 
     except Exception as exc:
@@ -1442,6 +1706,12 @@ def main() -> int:
         print("=" * 72, file=sys.stderr)
         print("RECONCILIATION AGENT FAILED", file=sys.stderr)
         print("=" * 72, file=sys.stderr)
+        if run_paths is not None:
+            print(
+                "Run directory preserved: "
+                f"{run_paths['run_dir'].relative_to(ROOT)}",
+                file=sys.stderr,
+            )
         print(str(exc), file=sys.stderr)
         return 1
 

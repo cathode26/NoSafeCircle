@@ -201,3 +201,25 @@ This is a lightweight decision log. Add new entries when a decision materially c
 **Reason:** Progressive decomposition needs a durable way to carry forward authorized design decisions without forcing later agents to regenerate or reinterpret them.
 
 **Constraint:** Approved artifacts may add detail where canon permits expansion but may not contradict or silently replace GDD canon.
+
+---
+
+## ADR-025 — Reconciliation results are immutable point-in-time snapshots
+
+**Decision:** Every full Reconciliation Agent run creates a new versioned snapshot. A later run never overwrites an earlier reconciliation snapshot, and later gameplay progress never edits old reconciliation results.
+
+**Reason:** Reconciliation answers what the GDD and integrated repository looked like at one moment. Keeping that evidence immutable preserves an audit trail and prevents historical observations from being confused with the living operational work state.
+
+**Implementation note:** `Pipeline/Reconciliation/outputs/LATEST.json` may be overwritten as a convenience pointer, but the snapshot directory it references is append-only.
+
+---
+
+## ADR-026 — Reconciliation proposes graph deltas but never directly mutates the persistent graph
+
+**Decision:** Reconciliation output is compared against `Tasks/*.yaml` through a deterministic diff/review/apply boundary. The Reconciliation Agent may propose new, changed, conflicting, or stale work records, but it does not rewrite the persistent graph itself.
+
+**Reason:** A new LLM interpretation must not trigger uncontrolled cascading edits across the project's operational state. Deterministic graph logic should own dependency satisfaction, readiness propagation, status derivation, and application of approved reconciliation changes.
+
+**Bootstrap clarification:** Before `Tasks/*.yaml` exists, reconciliation emits proposed seed records. Human approval plus the deterministic Work Graph Seeder turns those records into the initial graph.
+
+

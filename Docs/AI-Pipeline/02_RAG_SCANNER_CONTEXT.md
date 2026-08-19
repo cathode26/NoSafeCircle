@@ -384,3 +384,15 @@ The system should not design Room 5 while still building Room 1 unless Room 5 de
 Continue with `03_SUPERVISOR_GIT_GITHUB_CONTEXT.md`.
 
 By the end of this milestone, the persistent graph should be able to expand safely near the actionable frontier without allowing implementation agents to invent missing game design.
+
+## Reconciliation Boundary
+
+Reconciliation snapshots remain immutable after creation.
+
+Milestone 2 context/decomposition may discover new work or new artifact
+dependencies, but those discoveries update/propose changes to the persistent
+work graph. They do not rewrite historical reconciliation snapshots.
+
+If later repository/GDD drift requires a full reconciliation, that run creates
+a new snapshot and enters through the same deterministic graph-delta boundary.
+
