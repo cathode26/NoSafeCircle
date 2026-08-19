@@ -323,3 +323,11 @@ By default it verifies the snapshot referenced by
 
 No live Claude verifier run was executed in the export environment. The first
 real run should be performed in the user's existing Docker/Claude environment.
+
+
+## Post-refiner validation recovery
+
+- normalize verification input paths out of `sources.files_reviewed` without weakening repository evidence validation;
+- clarify in the Refiner prompt that generated verification artifacts are inputs, not project evidence;
+- add `recover_verification.py` so a preserved run can resume after the completed Refiner and run only the missing second-pass audit;
+- preserve expensive pass-1 and Refiner outputs instead of repeating them.

@@ -26,6 +26,21 @@ Never inspect:
 - `AgentCrew/`
 - `DynamicContentPipeline/`
 
+
+## Source tracking rule
+
+The frozen reconciliation candidate and `MERGED_FINDINGS_PASS1.json` are
+**verification inputs**, not GDD/repository evidence.
+
+You may read them to perform refinement, but:
+
+- do NOT append `Pipeline/Reconciliation/outputs/...` paths to
+  `sources.files_reviewed`;
+- do NOT cite verification/reconciliation output files as
+  `repository_evidence`;
+- keep `sources.files_reviewed` limited to the approved GDD/current-project
+  paths that the reconciliation semantic validator accepts.
+
 ## Finding policy
 
 The finding merge uses **union, not majority vote**.

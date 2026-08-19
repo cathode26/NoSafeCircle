@@ -290,6 +290,38 @@ def resolve_source_snapshot(run_id: str | None) -> tuple[str, Path]:
     return latest_run_id, candidate
 
 
+
+def sanitize_refiner_input_tracking(payload: dict[str, Any]) -> list[str]:
+    """
+    Remove verification-pipeline bookkeeping inputs from sources.files_reviewed.
+
+    The Refiner legitimately reads the frozen reconciliation candidate and the
+    merged verifier findings, but those generated Pipeline/Reconciliation/outputs
+    files are NOT project/GDD evidence and must not be reported as reviewed
+    repository source paths.
+
+    Keep semantic validation strict for actual repository_evidence; this helper
+    only normalizes the files_reviewed audit trail.
+    """
+    sources = payload.setdefault("sources", {})
+    reviewed = sources.get("files_reviewed", [])
+    cleaned: list[Any] = []
+    removed: list[str] = []
+
+    internal_prefix = "Pipeline/Reconciliation/outputs/"
+
+    for value in reviewed:
+        path = str(value).replace("\\", "/").lstrip("./")
+        if path.startswith(internal_prefix):
+            removed.append(path)
+        else:
+            cleaned.append(value)
+
+    sources["files_reviewed"] = cleaned
+    return sorted(set(removed))
+
+
+
 def create_verification_paths(source_run_id: str) -> dict[str, Any]:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     verification_run_id = f"{timestamp}-{uuid.uuid4().hex[:8]}"
@@ -894,6 +926,13 @@ def main() -> int:
                 print(
                     "Warning: Refiner returned forbidden evidence that was "
                     "removed before validation: " + ", ".join(removed)
+                )
+
+            removed_tracking = sanitize_refiner_input_tracking(refined_payload)
+            if removed_tracking:
+                print(
+                    "Normalized Refiner bookkeeping paths out of "
+                    "sources.files_reviewed: " + ", ".join(removed_tracking)
                 )
 
             repair_missing_dependency_references(refined_payload)

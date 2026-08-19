@@ -441,3 +441,27 @@ docker compose run --rm claude python3 Pipeline/Reconciliation/verification_smok
 ```
 
 It checks model-diversity assignment behavior and the deterministic required-coverage guard.
+
+
+## Verification recovery after post-refiner validation failure
+
+If a verification run completed its expensive pass-1 auditors and Refiner but
+then failed during deterministic validation, preserve that verification
+directory. Do not rerun pass 1 automatically.
+
+The Refiner is allowed to read the frozen candidate and merged findings, but
+those generated `Pipeline/Reconciliation/outputs/...` files are verification
+inputs, not repository evidence. The verifier now normalizes those bookkeeping
+paths out of `sources.files_reviewed` before semantic validation while keeping
+the normal repository-evidence boundary strict.
+
+For the preserved run from this recovery case:
+
+```powershell
+docker compose run --rm claude python3 Pipeline/Reconciliation/recover_verification.py --source-run-id 20260819T050610Z-f640e5da --verification-run-id 20260819T055056Z-6d51b6a0
+```
+
+Recovery reuses the already-completed pass-1 audits and
+`refined_candidate.raw.json`, validates and saves the refined candidate, then
+runs only the still-missing pass-2 independent verification. It never rewrites
+the original reconciliation snapshot or `Tasks/*.yaml`.
