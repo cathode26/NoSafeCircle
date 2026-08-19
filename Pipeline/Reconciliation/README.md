@@ -77,6 +77,7 @@ Historical files may help locate prior work or validation history, but they neve
 Running the agent creates:
 
 ```text
+Pipeline/Reconciliation/outputs/reconciliation.raw.json
 Pipeline/Reconciliation/outputs/reconciliation.json
 Pipeline/Reconciliation/outputs/RECONCILIATION.md
 ```
@@ -173,3 +174,16 @@ Before using the output to seed `Tasks/*.yaml`, verify:
 Build the deterministic Work Graph Seeder / `taskctl` Milestone 1 implementation.
 
 The Reconciliation Agent is intentionally not the system that writes the final task graph.
+
+
+## Validator recovery behavior
+
+Claude's structured result is written to `reconciliation.raw.json` before
+deterministic semantic validation runs.
+
+If the validator rejects the result, the raw model output remains available
+for inspection so a several-minute Claude run is not lost.
+
+Feature nodes are non-executable, but they may depend on concrete
+`artifact` or `implementation` work. The dependency target may not be another
+`feature` node.

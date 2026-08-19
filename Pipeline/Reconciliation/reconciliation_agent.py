@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 AGENT_ROOT = ROOT / "Pipeline" / "Reconciliation"
 PROMPT_PATH = AGENT_ROOT / "prompts" / "reconcile.md"
 OUTPUT_DIR = AGENT_ROOT / "outputs"
+RAW_OUTPUT_PATH = OUTPUT_DIR / "reconciliation.raw.json"
 JSON_OUTPUT_PATH = OUTPUT_DIR / "reconciliation.json"
 MARKDOWN_OUTPUT_PATH = OUTPUT_DIR / "RECONCILIATION.md"
 
@@ -441,11 +442,10 @@ def _validate_dependency_links(items_by_key: dict[str, dict[str, Any]]) -> None:
     for key, item in items_by_key.items():
         deps = item.get("depends_on", [])
 
-        if item.get("kind") == "feature" and deps:
-            raise RuntimeError(
-                f"Feature node {key!r} must not have executable dependencies."
-            )
-
+        # Feature nodes are not executable and will never be returned by
+        # taskctl ready, but they MAY still depend on concrete artifact or
+        # implementation work. This records real prerequisite relationships
+        # without making the feature itself executable.
         dep_keys: list[str] = []
         for dep in deps:
             dep_key = str(dep.get("key", ""))
@@ -1003,6 +1003,13 @@ def print_summary(payload: dict[str, Any]) -> None:
 def main() -> int:
     try:
         payload = run_reconciliation_agent()
+
+        # Save Claude's structured output BEFORE semantic validation. If our
+        # deterministic validator rejects a model result, we keep the raw
+        # artifact for inspection instead of throwing away a several-minute
+        # reconciliation run.
+        save_json(RAW_OUTPUT_PATH, payload)
+
         run_semantic_validation(payload)
 
         save_json(JSON_OUTPUT_PATH, payload)
