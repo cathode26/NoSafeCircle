@@ -21,6 +21,16 @@ MODEL = os.environ.get("RECONCILIATION_MODEL", "sonnet")
 TIMEOUT_SECONDS = int(os.environ.get("RECONCILIATION_TIMEOUT_SECONDS", "1800"))
 MAX_TURNS = int(os.environ.get("RECONCILIATION_MAX_TURNS", "50"))
 
+REPAIR_TIMEOUT_SECONDS = int(
+    os.environ.get("RECONCILIATION_REPAIR_TIMEOUT_SECONDS", "600")
+)
+REPAIR_MAX_TURNS = int(
+    os.environ.get("RECONCILIATION_REPAIR_MAX_TURNS", "20")
+)
+MAX_STRUCTURAL_REPAIR_PASSES = int(
+    os.environ.get("RECONCILIATION_MAX_STRUCTURAL_REPAIRS", "2")
+)
+
 
 # ============================================================
 # STRUCTURED OUTPUT SCHEMA
@@ -153,6 +163,38 @@ WORK_ITEM_SCHEMA: dict[str, Any] = {
         "notes",
     ],
 }
+
+
+MISSING_DEPENDENCY_REPAIR_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "work_items_to_add": {
+            "type": "array",
+            "items": WORK_ITEM_SCHEMA,
+        },
+        "dependencies_to_remove": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "owner_key": {"type": "string"},
+                    "dependency_key": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["owner_key", "dependency_key", "reason"],
+            },
+        },
+        "reasoning": {"type": "string"},
+    },
+    "required": [
+        "work_items_to_add",
+        "dependencies_to_remove",
+        "reasoning",
+    ],
+}
+
 
 NON_CODE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -439,6 +481,292 @@ def validate_reviewed_paths(payload: dict[str, Any]) -> None:
         raise RuntimeError(
             "historical_sources_reviewed contains unsupported paths: "
             f"{invalid_history}"
+        )
+
+
+# ============================================================
+# STRUCTURAL REPAIR — DANGLING DEPENDENCY REFERENCES
+# ============================================================
+
+def find_missing_dependency_references(
+    payload: dict[str, Any],
+) -> dict[str, list[dict[str, str]]]:
+    keys = {
+        str(item.get("key", ""))
+        for item in payload.get("work_items", [])
+    }
+
+    missing: dict[str, list[dict[str, str]]] = {}
+
+    for item in payload.get("work_items", []):
+        owner_key = str(item.get("key", ""))
+        owner_title = str(item.get("title", ""))
+        for dep in item.get("depends_on", []):
+            dep_key = str(dep.get("key", ""))
+            if dep_key and dep_key not in keys:
+                missing.setdefault(dep_key, []).append(
+                    {
+                        "owner_key": owner_key,
+                        "owner_title": owner_title,
+                        "reason": str(dep.get("reason", "")),
+                        "evidence": str(dep.get("evidence", "")),
+                    }
+                )
+
+    return missing
+
+
+def run_missing_dependency_repair_agent(
+    payload: dict[str, Any],
+    missing: dict[str, list[dict[str, str]]],
+) -> dict[str, Any]:
+    existing_outline = [
+        {
+            "key": item.get("key"),
+            "title": item.get("title"),
+            "kind": item.get("kind"),
+            "parent_key": item.get("parent_key"),
+            "repository_state": item.get("repository_state"),
+            "graph_status": item.get("graph_status"),
+        }
+        for item in payload.get("work_items", [])
+    ]
+
+    compact_context = {
+        "missing_dependency_references": missing,
+        "existing_work_items": existing_outline,
+        "summary": payload.get("summary", {}),
+        "sources": {
+            "gdd": payload.get("sources", {}).get("gdd", ""),
+            "code_root": payload.get("sources", {}).get("code_root", ""),
+            "files_reviewed": payload.get("sources", {}).get(
+                "files_reviewed", []
+            ),
+        },
+    }
+
+    prompt = f"""
+You are the read-only STRUCTURAL REFINER for the No Safe Circle
+Reconciliation Agent.
+
+The main reconciliation completed, but deterministic validation found formal
+dependencies whose keys do not exist in work_items.
+
+Repair ONLY those dangling dependency references.
+
+You may use Read, Glob, and Grep to verify the current GDD/current project.
+
+Primary truth:
+- Docs/GDD/No_Safe_Circle_GDD.md
+- Assets/
+- ProjectSettings/ only when relevant
+
+Explicitly forbidden:
+- AgentCrew/
+- DynamicContentPipeline/
+
+Rules:
+1. If a missing dependency key represents real required/supporting work that
+   should exist in the graph, return a complete work item for that exact key.
+2. Prefer adding the omitted work item when the dependency itself is valid.
+3. Remove a dependency only when the original dependency relationship was
+   incorrect or too speculative to be formalized.
+4. Any added work item's parent_key must reference an EXISTING feature key.
+5. Added work items may depend only on existing artifact/implementation keys
+   or on other work items added in this same repair.
+6. Do not create game design, lore, encounters, room layouts, mechanics, or
+   speculative backlog.
+7. Do not change unrelated work.
+8. Current repository evidence is required for implemented/partial claims.
+9. Return only the JSON required by the supplied schema.
+
+Compact reconciliation context:
+{json.dumps(compact_context, indent=2, ensure_ascii=False)}
+""".strip()
+
+    compact_schema = json.dumps(
+        MISSING_DEPENDENCY_REPAIR_SCHEMA,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+
+    command = [
+        "claude",
+        "-p",
+        "--model",
+        MODEL,
+        "--output-format",
+        "json",
+        "--no-session-persistence",
+        "--max-turns",
+        str(REPAIR_MAX_TURNS),
+        "--permission-mode",
+        "dontAsk",
+        "--tools",
+        "Read,Glob,Grep",
+        "--allowedTools",
+        "Read,Glob,Grep",
+        "--disallowedTools",
+        "Edit,Write,mcp__*",
+        "--json-schema",
+        compact_schema,
+        "--input-format",
+        "text",
+    ]
+
+    print()
+    print(
+        "Structural validation found dangling dependency key(s): "
+        + ", ".join(sorted(missing))
+    )
+    print(
+        "Running targeted reconciliation refiner instead of repeating the "
+        "full repository reconciliation."
+    )
+
+    try:
+        process = subprocess.run(
+            command,
+            cwd=ROOT,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=REPAIR_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            "Targeted reconciliation structural repair exceeded the "
+            f"{REPAIR_TIMEOUT_SECONDS}-second timeout."
+        ) from exc
+
+    if process.returncode != 0:
+        error_text = (process.stderr or process.stdout or "").strip()
+        raise RuntimeError(
+            "Targeted reconciliation structural repair failed with exit "
+            f"code {process.returncode}.\n{error_text}"
+        )
+
+    try:
+        envelope = json.loads(process.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "Targeted reconciliation structural repair did not return "
+            "valid Claude JSON."
+        ) from exc
+
+    structured_output = envelope.get("structured_output")
+    if not isinstance(structured_output, dict):
+        raise RuntimeError(
+            "Targeted reconciliation structural repair did not return "
+            "structured_output."
+        )
+
+    return structured_output
+
+
+def apply_missing_dependency_repair(
+    payload: dict[str, Any],
+    missing: dict[str, list[dict[str, str]]],
+    repair: dict[str, Any],
+) -> None:
+    existing_keys = {
+        str(item.get("key", ""))
+        for item in payload.get("work_items", [])
+    }
+    missing_keys = set(missing)
+
+    added_keys: set[str] = set()
+
+    for item in repair.get("work_items_to_add", []):
+        key = str(item.get("key", ""))
+
+        if key not in missing_keys:
+            raise RuntimeError(
+                "Structural refiner attempted to add unrelated work item "
+                f"{key!r}."
+            )
+        if key in existing_keys or key in added_keys:
+            raise RuntimeError(
+                f"Structural refiner returned duplicate work item {key!r}."
+            )
+
+        payload.setdefault("work_items", []).append(item)
+        added_keys.add(key)
+
+    for removal in repair.get("dependencies_to_remove", []):
+        owner_key = str(removal.get("owner_key", ""))
+        dependency_key = str(removal.get("dependency_key", ""))
+
+        if dependency_key not in missing_keys:
+            raise RuntimeError(
+                "Structural refiner attempted to remove unrelated dependency "
+                f"{dependency_key!r}."
+            )
+
+        owner = next(
+            (
+                item
+                for item in payload.get("work_items", [])
+                if str(item.get("key", "")) == owner_key
+            ),
+            None,
+        )
+        if owner is None:
+            raise RuntimeError(
+                "Structural refiner referenced missing dependency owner "
+                f"{owner_key!r}."
+            )
+
+        before = len(owner.get("depends_on", []))
+        owner["depends_on"] = [
+            dep
+            for dep in owner.get("depends_on", [])
+            if str(dep.get("key", "")) != dependency_key
+        ]
+        if len(owner["depends_on"]) == before:
+            raise RuntimeError(
+                "Structural refiner tried to remove dependency "
+                f"{dependency_key!r} from {owner_key!r}, but it was not "
+                "present."
+            )
+
+    seed = payload.setdefault(
+        "seed_assessment",
+        {"status": "ready_with_warnings", "blockers": [], "warnings": []},
+    )
+    warnings = seed.setdefault("warnings", [])
+    warning = (
+        "Deterministic validation found dangling dependency references and "
+        "a targeted read-only reconciliation refinement repaired them: "
+        + ", ".join(sorted(missing_keys))
+    )
+    if warning not in warnings:
+        warnings.append(warning)
+    if seed.get("status") == "ready":
+        seed["status"] = "ready_with_warnings"
+
+
+def repair_missing_dependency_references(
+    payload: dict[str, Any],
+) -> None:
+    for _ in range(MAX_STRUCTURAL_REPAIR_PASSES):
+        missing = find_missing_dependency_references(payload)
+        if not missing:
+            return
+
+        repair = run_missing_dependency_repair_agent(payload, missing)
+        apply_missing_dependency_repair(payload, missing, repair)
+        sanitize_forbidden_evidence(payload)
+
+    remaining = find_missing_dependency_references(payload)
+    if remaining:
+        raise RuntimeError(
+            "Targeted structural repair could not resolve dangling "
+            "dependency key(s): "
+            + ", ".join(sorted(remaining))
         )
 
 
@@ -1095,6 +1423,11 @@ def main() -> int:
                 "semantic validation: "
                 + ", ".join(removed_forbidden)
             )
+
+        # Referential-integrity defects are repairable model-output mistakes.
+        # Run a small targeted read-only refinement instead of throwing away
+        # the completed full reconciliation.
+        repair_missing_dependency_references(payload)
 
         run_semantic_validation(payload)
 

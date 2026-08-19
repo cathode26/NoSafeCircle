@@ -239,6 +239,15 @@ Do not make `Fireball` depend on the `Combat` feature node merely because Fireba
 
 Dependencies may target only `artifact` or `implementation` work, never `feature` nodes.
 
+## Referential-integrity rule
+
+Before returning your final structured output, perform a dependency-closure check:
+
+- every `depends_on[].key` MUST exactly match the `key` of a work item present in `work_items`;
+- a prerequisite that is already implemented/complete MUST still have its own work item if another item depends on it;
+- never reference a key that you merely intended to create;
+- if a prerequisite is not important enough to represent as a work item, do not use it as a formal dependency.
+
 For every dependency, provide a concrete reason and evidence/basis.
 
 Be conservative.

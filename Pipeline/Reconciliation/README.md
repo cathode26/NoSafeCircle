@@ -205,3 +205,23 @@ The sanitized run is marked `ready_with_warnings` when forbidden evidence was
 removed. Normal evidence validation still applies afterward, so an
 `implemented` or `partial` classification cannot survive if its only evidence
 came from a forbidden source.
+
+
+## Dangling-dependency recovery
+
+The main prompt now requires dependency closure: every `depends_on[].key`
+must match a work item in the same reconciliation output.
+
+If Claude still references an omitted work item, the Python orchestrator does
+not discard the full reconciliation. It launches a small read-only structural
+Refiner that receives the missing key(s), the referencing work, a compact
+work-item outline, and the reconciliation summary.
+
+The Refiner may either:
+
+- add the omitted, evidence-backed work item; or
+- remove the dependency when the dependency relationship itself was invalid.
+
+The repaired result is then run through the normal deterministic semantic
+validator. This is a bounded structural GER-style repair, not a second full
+repository reconciliation.
