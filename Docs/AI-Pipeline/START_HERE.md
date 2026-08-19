@@ -13,20 +13,36 @@ The repository is the source of truth.
 1. Read `Docs/AI-Pipeline/CURRENT_STATE.md`.
 2. Read `Docs/AI-Pipeline/00_MASTER_CONTEXT.md`.
 3. Read the milestone file named by `CURRENT_STATE.md`.
-4. Read `Docs/AI-Pipeline/DECISIONS.md` if the work touches architecture, Git workflow, task semantics, autonomy, RAG, GER, or validation.
+4. Read `Docs/AI-Pipeline/DECISIONS.md` if the work touches architecture, Git workflow, task semantics, autonomy, RAG, GER, evaluation, refinement, or validation.
 5. Inspect the actual repository state before changing anything.
 
-Do **not** read every milestone file unless you need the broader design. Work primarily from the current milestone.
+Do not read every milestone file unless you need the broader design. Work primarily from the current milestone.
 
 ## Milestone Routing Table
 
-| Current work | Read this file |
-|---|---|
-| Persistent tasks, task schema, dependency graph, ready queue | `01_MILESTONE_TASK_GRAPH.md` |
-| Assignment 4 RAG reuse, GDD canon retrieval, Unity/code scanner, context packs | `02_RAG_SCANNER_CONTEXT.md` |
-| Supervisor, task claiming, Git branches, worktrees, GitHub Issues/Projects/PRs | `03_SUPERVISOR_GIT_GITHUB_CONTEXT.md` |
-| Assignment 3 crew, Assignment 6 GER, deterministic tests, Unity validation, repair loop | `04_EXECUTION_GER_VALIDATION_CONTEXT.md` |
-| Continuous autonomous ticket processing, budgets, blockers, parallel workers, planning refresh | `05_CONTINUOUS_AUTONOMY_CONTEXT.md` |
+Current work | Read this file
+--- | ---
+Persistent tasks, task schema, dependency graph, ready queue | `01_MILESTONE_TASK_GRAPH.md`
+Assignment 4 RAG reuse, GDD canon retrieval, Unity/code scanner, context packs | `02_RAG_SCANNER_CONTEXT.md`
+Supervisor, task claiming, Git branches, worktrees, GitHub Issues/Projects/PRs | `03_SUPERVISOR_GIT_GITHUB_CONTEXT.md`
+Assignment 3 crew, Assignment 6 GER, bounded repair loops, deterministic tests, Unity/runtime validation, evaluator specializations | `04_EXECUTION_GER_VALIDATION_CONTEXT.md`
+Continuous autonomous ticket processing, budgets, blockers, parallel workers, planning refresh | `05_CONTINUOUS_AUTONOMY_CONTEXT.md`
+
+## Important Post-Assignment-6 Lesson
+
+Assignment 6 demonstrated that GER is not only a gate for generated content.
+
+For No Safe Circle, the successful loop was:
+
+`bounded task → implement → evaluate → collect validation/runtime feedback → refine → re-evaluate → approve or circuit-break`
+
+The camera implementation passed static evaluation before it was actually usable in Unity. Runtime failures were converted into structured feedback and sent back through the Refiner. Future execution work must therefore treat runtime evidence as first-class validation input rather than assuming source-level success means the feature works.
+
+See:
+
+- `Assignment6GER/README_Assignment6.md`
+- `Docs/AI-Pipeline/00_MASTER_CONTEXT.md`
+- `Docs/AI-Pipeline/DECISIONS.md`
 
 ## End-of-Session Rule
 
@@ -41,6 +57,8 @@ A new AI window should be able to resume by reading the repository without needi
 
 ## Core Principle
 
-**Use deterministic local tools for facts and computation. Use LLMs for judgment and bounded implementation.**
+Use deterministic local tools for facts and computation. Use LLMs for judgment and bounded implementation.
 
 The local supervisor owns the autonomous loop. Claude is a worker operating on one bounded task at a time.
+
+A worker does not declare itself successful. Project evidence does.

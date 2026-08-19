@@ -4,11 +4,34 @@
 
 Build the durable local planning foundation for the No Safe Circle autonomous AI development pipeline.
 
-This milestone should work **without Claude/LLMs**.
+This milestone should work without Claude/LLMs.
+
+It should also become useful quickly enough that the next step is a real gameplay task, not another long stretch of infrastructure-only development.
 
 ## Why
 
-Assignment 5 repeatedly reconstructed what work exists, what depends on what, what is blocked, and what is ready. That is expensive and ephemeral. The project should remember this locally.
+Assignment 5 repeatedly reconstructed what work exists, what depends on what, what is blocked, and what is ready. That is expensive and ephemeral.
+
+The project should remember this locally.
+
+Assignment 6 added a second lesson: once a real task is selected, a bounded GER repair loop can implement, evaluate, refine, and eventually approve or escalate it.
+
+Therefore Milestone 1 should answer **what is actually ready now**, so the proven execution loop can be used on real game development.
+
+## Critical Reconciliation Rule
+
+Do not seed this graph directly from old Assignment 5 goal-selection output.
+
+Before assigning task status or dependencies:
+
+1. inspect the current `main` branch;
+2. inspect current GDD requirements;
+3. use prior assignment artifacts as evidence/history;
+4. mark a task complete only if the integrated repository state supports it.
+
+Assignment 6 treated Mana as already completed for lightweight reselection, but that does not remove the need to verify merge state when building the durable graph.
+
+The Assignment 6 fixed isometric camera work is the newest known implementation slice and should also be reconciled against current `main`.
 
 ## Deliverables
 
@@ -63,11 +86,33 @@ claims: []
 
 Do not over-design the schema before the first working version.
 
+### Future Validation Metadata
+
+Later, a task may need to declare validation/evaluator requirements, for example:
+
+```yaml
+validation:
+  - unity_editmode
+  - unity_playmode
+  - gdd_semantic
+```
+
+or a style/content evaluator profile.
+
+Do **not** add this to Milestone 1 unless the first real execution ticket proves it is necessary. The task graph must work first.
+
 ## Status Semantics
 
-Durable task files may initially use `open` and `complete`. Operational states such as Claimed/In Progress/Validating should eventually be synchronized through GitHub rather than constantly committed into task files.
+Durable task files may initially use:
+
+- `open`
+- `complete`
+
+Operational states such as Claimed/In Progress/Validating should eventually be synchronized through GitHub rather than constantly committed into task files.
 
 The key local truth is whether a dependency has been completed/merged.
+
+A task is not complete because an assignment output says it was implemented. It is complete when the current integrated project supports that claim.
 
 ## Required `taskctl` Commands
 
@@ -81,7 +126,14 @@ python -m taskctl graph
 
 ### `validate`
 
-Detect duplicate task IDs, missing dependency IDs, self-dependencies, cycles, invalid enum/status values, and malformed required fields.
+Detect:
+
+- duplicate task IDs
+- missing dependency IDs
+- self-dependencies
+- cycles
+- invalid enum/status values
+- malformed required fields
 
 ### `ready`
 
@@ -97,6 +149,8 @@ python -m taskctl ready --json
 
 Text output is enough initially.
 
+Example:
+
 ```text
 NSC-014 Mana [COMPLETE]
   ├─ NSC-021 Fireball [READY]
@@ -104,21 +158,86 @@ NSC-014 Mana [COMPLETE]
   └─ NSC-023 Force Wave [READY]
 ```
 
+This is only an example. Do not assume these exact statuses until reconciliation.
+
 Do not spend time on a fancy visualization until graph logic is correct.
 
 ## Terminology
 
-Use `ready_tasks` or `actionable_tasks`. Avoid “leaf node” because its meaning depends on edge direction.
+Use `ready_tasks` or `actionable_tasks`.
+
+Avoid "leaf node" because its meaning depends on edge direction.
 
 ## Deterministic Ranking
 
-Later allow fields such as `unlock_value` and rank obvious ready tasks locally. Example scoring may use required scope, unlock value, foundation value, risk, and effort. The exact weights matter less than avoiding an LLM call for obvious comparisons.
+Later allow fields such as `unlock_value` and rank obvious ready tasks locally.
 
-## Seed Tasks
+Example scoring may use:
 
-Reasonable initial tasks to reconcile against the current GDD/project include fixed isometric camera, mouse-directed movement, Tilemap world foundation, navigation foundation, mana, three spells, melee/ranged enemy, door lifecycle, death/restart, and five-room encounter/content work.
+- required scope
+- unlock value
+- foundation value
+- risk
+- effort
 
-Do not assume exact dependencies without checking the current GDD/project when implementing this milestone.
+The exact weights matter less than avoiding an LLM call for obvious comparisons.
+
+Do not add ranking until deterministic readiness works.
+
+## Seed Task Candidates
+
+Reasonable initial tasks to reconcile against the current GDD/project include:
+
+- fixed isometric camera
+- mouse-directed movement
+- Tilemap world foundation
+- navigation foundation
+- mana
+- Fireball
+- Frost Field
+- Force Wave
+- melee enemy
+- ranged enemy
+- door lifecycle
+- death/restart
+- five-room encounter/content work
+
+These are **candidates**, not truth.
+
+Do not assume exact dependencies or status without checking the current GDD/project.
+
+## Post-Assignment-6 Execution Hand-off
+
+Milestone 1 does not need to implement the production GER supervisor.
+
+But its output must be useful to one.
+
+Once `taskctl ready` works:
+
+1. choose one actual ready gameplay task;
+2. construct a bounded task contract from the task artifact;
+3. use the Assignment 6 GER pattern to implement/refine that task;
+4. validate it using the strongest relevant evidence;
+5. after merge, mark the task complete;
+6. run `taskctl ready` again and observe the new frontier.
+
+This is the first practical bridge from persistent planning to autonomous game development.
+
+## Runtime-Aware Planning Note
+
+Task acceptance criteria should be written so that later validation can distinguish "code exists" from "feature works."
+
+For interactive Unity tasks, avoid acceptance criteria that can only be satisfied by source inspection if the intended behavior is visual, timing-dependent, or runtime-dependent.
+
+Assignment 6 demonstrated why this matters: the camera satisfied static criteria before the game was actually usable.
+
+## Assignment 7 Note
+
+Do not add style-guide tasks merely because Assignment 7 exists.
+
+When a real player-facing content feature is ready, style constraints can become a specialized evaluator/validation profile inside GER.
+
+Until then, the graph should represent real No Safe Circle work and real dependencies.
 
 ## Completion Criteria
 
@@ -127,7 +246,11 @@ Do not assume exact dependencies without checking the current GDD/project when i
 3. `ready` is deterministic.
 4. Completing a dependency causes downstream tasks to become ready.
 5. No LLM is required for any of the above.
+6. Seeded task state has been reconciled against current `main`, not copied blindly from old assignment output.
+7. The graph can identify at least one real next gameplay task or truthfully report why none is ready.
 
 ## Next
 
-Continue with `02_RAG_SCANNER_CONTEXT.md`.
+After Milestone 1 works, use the ready frontier to select a real game task and exercise the proven GER pattern.
+
+Then continue with `02_RAG_SCANNER_CONTEXT.md` when the next execution slice needs durable canon/code scanning and compact context construction.
