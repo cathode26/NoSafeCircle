@@ -1,0 +1,119 @@
+{
+  "game_name": "No Safe Circle",
+  "source_assignment_5": "GoalOrientedAgent/outputs/next_goal_selection.json",
+  "selected_goal": {
+    "name": "Fixed Isometric Camera and Projection Setup",
+    "description": "Replace the disposable perspective test camera with a fixed orthographic isometric camera configuration matching the GDD's Diablo-1/Ultima-Online-inspired fixed 2.5D isometric presentation."
+  },
+  "selected_candidate": {
+    "name": "Fixed Isometric Camera and Projection Setup",
+    "description": "Replace the disposable perspective test camera with a fixed orthographic isometric camera configuration matching the GDD's Diablo-1/Ultima-Online-inspired fixed 2.5D isometric presentation.",
+    "scope": "required",
+    "implementation_scope": "Configure the Main Camera to orthographic projection at the correct isometric angle/orthographic size, and fix its position/rotation so it cannot rotate freely. Verify visually against the existing test room. Single behavior: correct fixed isometric camera setup only; no Tilemap authoring or sprite-sorting configuration included.",
+    "dependencies": [
+      {
+        "name": "Main Camera GameObject",
+        "strength": "supporting_dependency",
+        "state": "present_incompatible",
+        "evidence": "DoorPrototypeSceneBuilder.BuildCamera() sets a perspective camera at (0,8,-8) rotated (45,0,0); confirmed serialized in DoorPrototype.unity.",
+        "reasoning": "This is the object being corrected by the candidate itself, not a blocking external prerequisite.",
+        "required_gdd_work": false,
+        "independently_testable": false,
+        "should_promote_to_candidate": false,
+        "promoted_candidate_name": ""
+      },
+      {
+        "name": "Disposable primitive test Floor/Walls",
+        "strength": "supporting_dependency",
+        "state": "present_incompatible",
+        "evidence": "BuildFloor()/BuildWalls() use CreatePrimitive(Plane/Cube); no Tilemap exists yet.",
+        "reasoning": "Sufficient as a disposable rendering target to visually confirm the camera's isometric framing; not a hard blocker for validating camera projection itself.",
+        "required_gdd_work": false,
+        "independently_testable": false,
+        "should_promote_to_candidate": false,
+        "promoted_candidate_name": ""
+      }
+    ],
+    "prerequisites_ready": true,
+    "resource_acquisition_readiness": "high",
+    "resource_acquisition_reasoning": "No external art/resource is needed; this is a Unity camera component/transform configuration change only. PixelLab is not relevant.",
+    "prototype_readiness": "high",
+    "integration_readiness": "medium",
+    "foundation_compatibility": "compatible",
+    "foundation_reasoning": "This candidate is itself the focused correction/replacement of the known-incompatible perspective test camera; once corrected, the camera component directly matches the GDD's required fixed orthographic isometric presentation with no remaining incompatible foundation underneath it.",
+    "expected_rework_risk": "low",
+    "implementation_risk": "low",
+    "unlock_value": "medium",
+    "unlock_reasoning": "Camera correctness is a hard prerequisite for later visual/art-authoring validation (Tilemap alignment, sprite sorting), but the GDD explicitly decouples the visible isometric layer from the gameplay/simulation layer, so no required gameplay-code feature (movement, doors, spells, enemies) is mechanically blocked by an imperfect camera today; its unlock is real but scoped to the visual layer rather than gameplay-code systems.",
+    "is_focused_slice": true,
+    "decomposition_reasoning": "Single testable behavior (camera projection/fixed framing); no Tilemap, sprite, or gameplay logic included.",
+    "systems_unlocked": [
+      "Isometric Tilemap world authoring",
+      "sprite sorting configuration",
+      "future isometric art integration"
+    ],
+    "risk_and_size": "Very small, single-component configuration change; quick to verify visually.",
+    "reasoning": "Low-risk, self-contained correction of a known-incompatible foundation, but its unlock is concentrated in the visual/art-authoring layer rather than required gameplay-code systems."
+  },
+  "selection_reason": "With Mana now complete, Fixed Isometric Camera and Door Close-Lock-Break Lifecycle Extension are tied on every top-tier readiness/risk dimension: prerequisites_ready=true, resource_acquisition_readiness=high, prototype_readiness=high, foundation_compatibility=compatible, expected_rework_risk=low, implementation_risk=low, and both are labeled unlock_value=medium. The tiebreaker is what that medium unlock actually connects to. Door's own saved reasoning explicitly flags it as a leaf feature that \"nothing else depends on.\" Camera, by contrast, is named directly in the Isometric Tilemap World Foundation candidate's dependency list as a shared_future_dependency (should_promote_to_candidate=true, promoted_candidate_name=\"Fixed Isometric Camera and Projection Setup\") -- it was carved out specifically because the project's single highest-unlock required candidate (Tilemap Foundation: enemy navigation, remaining four rooms, encounter placement) benefits from a correct camera for alignment and sprite-sorting validation. Camera is also the smallest saved risk_and_size (\"very small, single-component configuration change\") of any remaining candidate, versus Door's \"small, single-file extension.\" Tradeoff acknowledged: Camera's unlock is scoped to the visual/art-authoring layer, which the GDD explicitly decouples from gameplay/simulation logic, so it does not unblock any required gameplay-code system today the way Door's close/lock/break state conceptually feeds into future Dungeon Encounter Agent door-pressure mechanics. But Door's own metadata concedes it has zero downstream dependents, while Camera is a concrete, near-zero-risk stepping stone toward the largest remaining required milestone. That makes Camera the better next pick despite the tie in raw readiness scores.",
+  "gdd_source": "Docs/GDD/No_Safe_Circle_GDD.md",
+  "gdd_section": "2. Game Mechanics > 2.5D Isometric Presentation and Controls; 5. Technical Strategy > Runtime Implementation",
+  "gdd_rule_id": "gdd-fixed-orthographic-isometric-camera",
+  "gdd_rule": "No Safe Circle uses a fixed orthographic isometric camera. The runtime implementation presents the world from a consistent isometric angle with no free camera rotation.",
+  "acceptance_criteria": [
+    {
+      "id": "orthographic_projection",
+      "requirement": "The gameplay Main Camera is configured to use orthographic projection.",
+      "verification": "Inspect the current camera/scene-builder implementation and cite the code that sets or preserves Camera.orthographic = true."
+    },
+    {
+      "id": "consistent_isometric_presentation",
+      "requirement": "The implementation establishes a consistent isometric viewing orientation/framing appropriate to the GDD's 2.5D presentation instead of leaving the old perspective test-camera setup.",
+      "verification": "Cite the camera transform/projection configuration and explain how it preserves a consistent isometric viewpoint."
+    },
+    {
+      "id": "no_free_camera_rotation",
+      "requirement": "The player cannot freely rotate the world view during play.",
+      "verification": "Inspect relevant camera/input scripts for player-controlled camera rotation and cite evidence that none is introduced."
+    },
+    {
+      "id": "selected_goal_scope",
+      "requirement": "The implementation stays within Assignment 5's camera/projection slice and does not absorb Tilemap authoring, sprite-sorting systems, spells, enemies, or unrelated missing features.",
+      "verification": "Compare changed files and behavior against selected_goal.implementation_scope. Camera translation/follow needed to make the selected camera usable is still camera scope."
+    }
+  ],
+  "failure_definition": [
+    "The camera remains perspective.",
+    "The generated implementation allows free player-controlled camera rotation.",
+    "The generated implementation does not establish a consistent isometric presentation.",
+    "The implementation broadens into unrelated missing No Safe Circle features.",
+    "Human Unity runtime validation reports a selected-camera integration failure that the refinement does not address."
+  ],
+  "ger_mapping": {
+    "generator": "Assignment 5 Goal-Oriented Implementation Agent",
+    "evaluator": "Assignment 3 agent runner + Unity Validation Agent pattern",
+    "refiner": "Assignment 5 Goal-Oriented Implementation Agent, re-invoked with evaluator/runtime feedback",
+    "circuit_breaker": "Assignment 6 bounded retry/escalation logic"
+  },
+  "runtime_feedback": {
+    "status": "needs_changes",
+    "source": "human_unity_runtime_validation",
+    "summary": "The second camera implementation still fails in Unity. The camera follows the player, but its viewing side/framing is wrong and the starting door is no longer properly visible.",
+    "developer_interpretation": "The camera should remain a separate Main Camera with a target reference to the player. It should follow the player by maintaining a stable world-space isometric offset rather than continually deriving its position so that camera.forward points directly at the player. The fixed offset and viewing orientation must frame the player and the gameplay space ahead, including the starting door.",
+    "blocking_issues": [
+      {
+        "issue": "The camera is positioned on the wrong side of the player and no longer frames the starting door correctly.",
+        "required_fix": "Choose the correct stable isometric world-space offset/orientation so that the player and the starting door/gameplay space are visible from the intended side."
+      },
+      {
+        "issue": "The follow implementation derives camera position from camera rotation so that camera.forward points directly at the player. This satisfies the static direction test but produces incorrect gameplay framing.",
+        "required_fix": "Use a stable world-space follow offset from the player. Translate that offset with the player while keeping orthographic projection and isometric rotation unchanged."
+      },
+      {
+        "issue": "The evaluator test that verifies camera.forward points at the player is insufficient to establish correct gameplay framing.",
+        "required_fix": "Replace or supplement that test with checks for a stable player-to-camera offset and fixed rotation. Runtime framing of the player and door must still be confirmed in Unity."
+      }
+    ]
+  },
+  "runtime_feedback_policy": "Human Unity runtime feedback is an approved integration constraint for refining the already-selected goal. It may clarify how the selected feature must behave in the real game, but it does not authorize unrelated scope expansion or a new goal."
+}

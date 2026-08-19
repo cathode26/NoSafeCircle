@@ -1,0 +1,16 @@
+{
+  "status": "needs_changes",
+  "source": "human_unity_runtime_validation",
+  "summary": "The orthographic camera implementation passed static evaluation but failed when tested in Unity: the view points in the wrong direction and the stationary camera makes gameplay unusable as the player moves.",
+  "developer_interpretation": "For this implementation, preserve orthographic projection, a consistent isometric viewing orientation, and no free player-controlled rotation. Do not require the camera to stay at one absolute world-space position if translation/follow behavior is needed to keep gameplay visible.",
+  "blocking_issues": [
+    {
+      "issue": "The rebuilt orthographic camera faces the wrong direction.",
+      "required_fix": "Correct the isometric viewing direction/framing while preserving orthographic projection and a consistent isometric orientation."
+    },
+    {
+      "issue": "The camera remains stationary while the player moves, causing the player/gameplay area to leave the useful view and crippling gameplay.",
+      "required_fix": "Keep the player/gameplay area visible through camera translation or follow behavior while preserving the fixed isometric orientation and preventing free player-controlled camera rotation."
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "status": "pass",
+  "summary": "Pass-4 refinement of the Fixed Isometric Camera goal is verified against the current code. The camera-position/rotation math that resolves the human runtime_feedback (stable world-space offset (10,10,-10) decoupled from rotation, fixed (30,-45,0) orientation, viewport-framing test replacing the flawed forward-points-at-player test) was already independently re-verified by the prior evaluation pass and remains byte-for-byte unchanged in this pass. This pass's own concrete delta — a build-order comment, a null-follow-target Debug.LogWarning fallback in BuildCamera, and a new regression test (BuildCamera_NullFollowTarget_LogsWarningInsteadOfSilentlyMisframing) — is present in the actual files, matches implementation_result.json's claims exactly, and is camera-scoped only. All four acceptance criteria pass with concrete evidence, no free-rotation code exists anywhere in Assets/, no scope expansion into Tilemap/sprite-sorting/spells/enemies is present, and the GDD's 'fixed isometric, no free player rotation' rule (No_Safe_Circle_GDD.md:221) is preserved while the camera-follow translation stays within the allowed camera slice per the contract's own scope note.",
+  "criteria_results": [
+    {
+      "id": "orthographic_projection",
+      "status": "pass",
+      "evidence": "DoorPrototypeSceneBuilder.BuildCamera() sets camera.orthographic = true and camera.orthographicSize = IsometricOrthographicSize (8f) at Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs:136-137. IsometricCameraFollow.cs (the only other script that touches the camera GameObject) only ever writes transform.position in LateUpdate (IsometricCameraFollow.cs:25-30) and never touches the Camera component's orthographic flag."
+    },
+    {
+      "id": "consistent_isometric_presentation",
+      "status": "pass",
+      "evidence": "cameraObject.transform.rotation = Quaternion.Euler(IsometricCameraEulerAngles) with IsometricCameraEulerAngles = (30,-45,0) is set once in BuildCamera() (DoorPrototypeSceneBuilder.cs:22,139) and never modified afterward; IsometricCameraFollow.LateUpdate only writes position (IsometricCameraFollow.cs:25-30). Position is targetPosition + a plain constant IsometricCameraOffset (10,10,-10) (DoorPrototypeSceneBuilder.cs:29,149) captured once by IsometricCameraFollow.Initialize and reapplied every frame (IsometricCameraFollow.cs:19-23,29), so position is decoupled from rotation rather than derived from camera.forward, which was the specific human runtime_feedback defect. This offset/rotation combination was independently hand-verified against the player (0,1,-4) and door (0,0,0) positions in the prior evaluation pass, landing both inside the required 0.1-0.9 viewport bounds with positive depth, and is exercised at runtime by the still-present Build_MainCamera_FramesPlayerAndStartingDoorInView test (DoorPrototypeSceneBuilderTests.cs:132-156). Neither the offset, rotation constants, nor this test were touched in this pass."
+    },
+    {
+      "id": "no_free_camera_rotation",
+      "status": "pass",
+      "evidence": "Grepped every script under Assets/NoSafeCircle/DoorPrototype/Scripts for Camera/Rotate/mouseX/mouseY/Input.GetAxis references; only IsometricCameraFollow.cs matches, and it exclusively writes transform.position in LateUpdate (IsometricCameraFollow.cs:25-30), never rotation. Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed (DoorPrototypeSceneBuilderTests.cs:174-197) asserts rotation is byte-for-byte unchanged after the player moves and LateUpdate runs. No input-driven or orbit-style rotation code exists anywhere in the project."
+    },
+    {
+      "id": "selected_goal_scope",
+      "status": "pass",
+      "evidence": "implementation_result.json's files_modified for this pass are limited to DoorPrototypeSceneBuilder.cs and DoorPrototypeSceneBuilderTests.cs; direct inspection confirms the only substantive change is a build-order comment (lines 66-69), a null-target Debug.LogWarning fallback inside BuildCamera (lines 141-146), and one new test (BuildCamera_NullFollowTarget_LogsWarningInsteadOfSilentlyMisframing, tests file lines 199-222). No Tilemap authoring, sprite-sorting, spell, or enemy code appears anywhere in the diffed files. The camera-follow translation behavior (IsometricCameraFollow) predates this pass and is explicitly permitted camera scope per ger_contract.json's own verification note."
+    }
+  ],
+  "blocking_issues": [],
+  "compile_risks": [
+    "None newly introduced this pass. The new test's LogAssert.Expect call relies on UnityEngine.TestTools, which the test asmdef already references via UnityEngine.TestRunner (NoSafeCircle.DoorPrototype.Tests.Editor.asmdef); the file's `using UnityEngine.TestTools;` import (line 7) is present and consistent. IsometricCameraFollow (unqualified reference at DoorPrototypeSceneBuilder.cs:151) resolves via C#'s enclosing-namespace lookup from NoSafeCircle.DoorPrototype.Editor up to NoSafeCircle.DoorPrototype, the same pattern already used for PlayerMovement/PlayerHealth/etc. in this file, so no new using-directive risk exists.",
+    "Unverifiable without a real Unity Editor: actual compilation and EditMode Test Runner execution were not run in this environment (correctly disclosed as unity_run_status = not_available)."
+  ],
+  "non_blocking_notes": [
+    "The checked-in DoorPrototype.unity scene is stale relative to the current builder script per the project's no-hand-edited-scene-YAML rule; implementation_result.json correctly discloses this as remaining_work requiring a human to run 'No Safe Circle/Build Door Prototype Scene' and the EditMode/Play Mode Test Runner in real Unity.",
+    "This pass's claim that the pre-existing pass-3 camera math was already correct is consistent with the independent viewport-math verification recorded in evaluation_pass_3.json, so relying on that prior verification here (rather than re-deriving it) is reasonable and not an unsupported claim.",
+    "No claim of Unity compilation, Play Mode, or Test Runner execution is made anywhere in implementation_result.json; all such items are honestly marked not_available/remaining_work, consistent with the GER instructions."
+  ],
+  "files_reviewed": [
+    "Assignment6GER/outputs/ger_contract.json",
+    "Assignment6GER/outputs/implementation_result.json",
+    "Assignment6GER/outputs/evaluation_pass_3.json",
+    "Assignment6GER/outputs/implementation_pass_3.json",
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NoSafeCircle.DoorPrototype.Tests.Editor.asmdef",
+    "Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef"
+  ]
+}

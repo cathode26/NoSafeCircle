@@ -1,0 +1,20 @@
+{
+  "status": "needs_changes",
+  "source": "human_unity_runtime_validation",
+  "summary": "The second camera implementation still fails in Unity. The camera follows the player, but its viewing side/framing is wrong and the starting door is no longer properly visible.",
+  "developer_interpretation": "The camera should remain a separate Main Camera with a target reference to the player. It should follow the player by maintaining a stable world-space isometric offset rather than continually deriving its position so that camera.forward points directly at the player. The fixed offset and viewing orientation must frame the player and the gameplay space ahead, including the starting door.",
+  "blocking_issues": [
+    {
+      "issue": "The camera is positioned on the wrong side of the player and no longer frames the starting door correctly.",
+      "required_fix": "Choose the correct stable isometric world-space offset/orientation so that the player and the starting door/gameplay space are visible from the intended side."
+    },
+    {
+      "issue": "The follow implementation derives camera position from camera rotation so that camera.forward points directly at the player. This satisfies the static direction test but produces incorrect gameplay framing.",
+      "required_fix": "Use a stable world-space follow offset from the player. Translate that offset with the player while keeping orthographic projection and isometric rotation unchanged."
+    },
+    {
+      "issue": "The evaluator test that verifies camera.forward points at the player is insufficient to establish correct gameplay framing.",
+      "required_fix": "Replace or supplement that test with checks for a stable player-to-camera offset and fixed rotation. Runtime framing of the player and door must still be confirmed in Unity."
+    }
+  ]
+}

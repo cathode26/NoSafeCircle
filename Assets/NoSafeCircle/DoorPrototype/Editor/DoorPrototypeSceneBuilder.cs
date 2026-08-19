@@ -16,6 +16,20 @@ namespace NoSafeCircle.DoorPrototype.Editor
         private const string SceneFolder = "Assets/NoSafeCircle/DoorPrototype/Scenes";
         private const string ScenePath = SceneFolder + "/DoorPrototype.unity";
 
+        // Classic 2:1 dimetric isometric camera angle (rotate -45 degrees around Y to face
+        // a corner, then tilt 30 degrees down) matching Diablo 1 / Ultima Online-style
+        // fixed isometric presentation.
+        private static readonly Vector3 IsometricCameraEulerAngles = new Vector3(30f, -45f, 0f);
+
+        // Fixed, hand-picked world-space offset from the follow target to the camera. This is
+        // a plain constant - NOT derived by rotating a local vector through the camera's own
+        // rotation - so the camera's framing is decoupled from its orientation. Paired with
+        // IsometricCameraEulerAngles above, it keeps the player and the starting door in view
+        // from the intended side rather than merely pointing camera.forward at the player.
+        private static readonly Vector3 IsometricCameraOffset = new Vector3(10f, 10f, -10f);
+
+        private const float IsometricOrthographicSize = 8f;
+
         private static readonly string[] KnownRootNames =
         {
             "Directional Light",
@@ -40,7 +54,6 @@ namespace NoSafeCircle.DoorPrototype.Editor
             ClearExistingObjects(scene);
 
             BuildLighting();
-            BuildCamera();
             BuildFloor();
 
             var doorRoot = BuildDoor(out var door);
@@ -49,6 +62,12 @@ namespace NoSafeCircle.DoorPrototype.Editor
             BuildPlayer(out var movement, out var interactionController, out var health, out var debugControl,
                 out var mana, out var debugManaControl);
             SetPrivateField(movement, "interactionController", interactionController);
+
+            // BuildCamera reads followTarget.position immediately (not as a live reference)
+            // to place the camera at its initial isometric framing, so BuildPlayer must run
+            // first. If this ordering is ever changed, BuildCamera's null-target warning below
+            // will fire rather than silently producing an unframed camera at the world origin.
+            BuildCamera(movement.transform);
 
             BuildUI(door, debugControl, mana, debugManaControl);
 
@@ -96,14 +115,41 @@ namespace NoSafeCircle.DoorPrototype.Editor
             light.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
         }
 
-        private static void BuildCamera()
+        // Fixed 2.5D isometric presentation per the GDD (Diablo 1 / Ultima Online-style):
+        // orthographic projection, no free rotation, at the classic 30/45 dimetric angle
+        // used by Unity's isometric ("Z as Y") authoring conventions. The camera's position
+        // is the follow target plus a fixed, hand-picked world-space offset - it is
+        // deliberately NOT computed by rotating a local vector through the camera's own
+        // rotation, since that couples the position to the rotation and produces a camera
+        // whose forward axis always points exactly at the target regardless of whether that
+        // actually frames the gameplay space well. An IsometricCameraFollow component then
+        // translates the camera by that same fixed offset every frame while its rotation is
+        // never touched again, so the fixed isometric orientation is preserved and the
+        // gameplay area (including the starting door) stays in view as the player moves.
+        private static void BuildCamera(Transform followTarget)
         {
             var cameraObject = new GameObject("Main Camera");
             cameraObject.tag = "MainCamera";
-            cameraObject.AddComponent<Camera>();
+            var camera = cameraObject.AddComponent<Camera>();
             cameraObject.AddComponent<AudioListener>();
-            cameraObject.transform.position = new Vector3(0f, 8f, -8f);
-            cameraObject.transform.rotation = Quaternion.Euler(45f, 0f, 0f);
+
+            camera.orthographic = true;
+            camera.orthographicSize = IsometricOrthographicSize;
+
+            cameraObject.transform.rotation = Quaternion.Euler(IsometricCameraEulerAngles);
+
+            if (followTarget == null)
+            {
+                Debug.LogWarning("DoorPrototypeSceneBuilder.BuildCamera called with a null follow target; " +
+                    "the camera will be placed at the world origin plus its isometric offset instead of " +
+                    "framing the player, which will fail the fixed isometric framing requirement.");
+            }
+
+            var targetPosition = followTarget != null ? followTarget.position : Vector3.zero;
+            cameraObject.transform.position = targetPosition + IsometricCameraOffset;
+
+            var follow = cameraObject.AddComponent<IsometricCameraFollow>();
+            follow.Initialize(followTarget);
         }
 
         private static void BuildFloor()

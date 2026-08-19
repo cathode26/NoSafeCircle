@@ -1,8 +1,10 @@
+using System.Reflection;
 using NUnit.Framework;
 using NoSafeCircle.DoorPrototype.Editor;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.TestTools;
 using UnityEngine.UI;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor
@@ -89,6 +91,134 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             }
 
             Assert.AreEqual(1, hudCount, "Re-running the scene builder must not duplicate the ControlsHud panel.");
+        }
+
+        [Test]
+        public void Build_MainCamera_IsFixedOrthographicIsometric()
+        {
+            DoorPrototypeSceneBuilder.Build();
+
+            var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
+            Assert.IsNotNull(camera, "Expected a 'Main Camera' with a Camera component.");
+
+            Assert.IsTrue(camera.orthographic,
+                "Camera must be orthographic for the GDD's fixed 2.5D isometric presentation, not perspective.");
+            Assert.Greater(camera.orthographicSize, 0f);
+
+            var expectedRotation = Quaternion.Euler(30f, -45f, 0f);
+            Assert.Less(Quaternion.Angle(expectedRotation, camera.transform.rotation), 0.01f,
+                "Camera rotation must match the fixed isometric angle and not the old perspective test angle.");
+
+            var noRotationComponents = camera.GetComponentsInParent<Behaviour>();
+            foreach (var behaviour in noRotationComponents)
+            {
+                Assert.IsFalse(behaviour.GetType().Name.Contains("Rotate") || behaviour.GetType().Name.Contains("Orbit"),
+                    "Main Camera must not have any free-rotation/orbit component attached; the isometric view is fixed.");
+            }
+        }
+
+        [Test]
+        public void Build_RunTwice_MainCameraStaysSingleAndFixed()
+        {
+            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.Build();
+
+            var cameras = Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, cameras.Length, "Re-running the scene builder must not duplicate the Main Camera.");
+            Assert.IsTrue(cameras[0].orthographic);
+        }
+
+        [Test]
+        public void Build_MainCamera_FramesPlayerAndStartingDoorInView()
+        {
+            // Camera.forward pointing exactly at the player is not itself a meaningful framing
+            // check - a camera can satisfy that and still be positioned on the wrong side, or
+            // frame the gameplay space badly. What actually matters is that the player and the
+            // starting door both land comfortably inside the camera's viewport.
+            DoorPrototypeSceneBuilder.Build();
+
+            var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
+            var player = GameObject.Find("Player");
+            var door = GameObject.Find("DoorRoot");
+            Assert.IsNotNull(camera);
+            Assert.IsNotNull(player);
+            Assert.IsNotNull(door);
+
+            var playerViewport = camera.WorldToViewportPoint(player.transform.position);
+            var doorViewport = camera.WorldToViewportPoint(door.transform.position);
+
+            Assert.IsTrue(playerViewport.x > 0.1f && playerViewport.x < 0.9f
+                          && playerViewport.y > 0.1f && playerViewport.y < 0.9f && playerViewport.z > 0f,
+                $"Player must be comfortably inside the camera view at scene start, was viewport {playerViewport}.");
+            Assert.IsTrue(doorViewport.x > 0.1f && doorViewport.x < 0.9f
+                          && doorViewport.y > 0.1f && doorViewport.y < 0.9f && doorViewport.z > 0f,
+                $"Starting door must be comfortably inside the camera view at scene start, was viewport {doorViewport}.");
+        }
+
+        [Test]
+        public void Build_MainCamera_HasFollowComponentTargetingPlayer()
+        {
+            DoorPrototypeSceneBuilder.Build();
+
+            var camera = GameObject.Find("Main Camera");
+            var follow = camera?.GetComponent<IsometricCameraFollow>();
+            Assert.IsNotNull(follow,
+                "Expected an IsometricCameraFollow component on the Main Camera so it tracks the player instead of staying static.");
+
+            var target = new SerializedObject(follow).FindProperty("target").objectReferenceValue as Transform;
+            Assert.IsNotNull(target, "IsometricCameraFollow.target must be wired up by the scene builder.");
+            Assert.AreEqual("Player", target.name);
+        }
+
+        [Test]
+        public void Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed()
+        {
+            DoorPrototypeSceneBuilder.Build();
+
+            var cameraObject = GameObject.Find("Main Camera");
+            var player = GameObject.Find("Player");
+            var follow = cameraObject.GetComponent<IsometricCameraFollow>();
+
+            var rotationBefore = cameraObject.transform.rotation;
+            var offsetBefore = cameraObject.transform.position - player.transform.position;
+
+            player.transform.position += new Vector3(5f, 0f, 3f);
+
+            var lateUpdate = typeof(IsometricCameraFollow).GetMethod("LateUpdate",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            lateUpdate.Invoke(follow, null);
+
+            Assert.AreEqual(offsetBefore, cameraObject.transform.position - player.transform.position,
+                "Camera must keep the same relative offset while translating to follow the player, so the " +
+                "gameplay area stays framed as the player moves.");
+            Assert.AreEqual(rotationBefore, cameraObject.transform.rotation,
+                "Camera rotation must never change while following the player - the isometric orientation is " +
+                "fixed and there is no free player-controlled rotation.");
+        }
+
+        [Test]
+        public void BuildCamera_NullFollowTarget_LogsWarningInsteadOfSilentlyMisframing()
+        {
+            // BuildCamera's initial placement depends on Build() calling BuildPlayer() first so a
+            // real follow target exists. This locks in the fallback: if that ordering is ever
+            // broken, BuildCamera must warn rather than silently place the camera at the world
+            // origin with no indication the framing requirement was violated.
+            var buildCamera = typeof(DoorPrototypeSceneBuilder).GetMethod("BuildCamera",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(buildCamera, "Expected a private static BuildCamera(Transform) method.");
+
+            // Isolate from any "Main Camera" left over by other tests in this run, since this
+            // test invokes BuildCamera directly rather than through Build()'s scene clearing.
+            var existingCamera = GameObject.Find("Main Camera");
+            if (existingCamera != null) Object.DestroyImmediate(existingCamera);
+
+            LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("null follow target"));
+
+            buildCamera.Invoke(null, new object[] { null });
+
+            var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
+            Assert.IsNotNull(camera, "BuildCamera must still create a Main Camera even without a follow target.");
+            Assert.IsTrue(camera.orthographic);
         }
     }
 }
