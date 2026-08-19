@@ -19,6 +19,13 @@ A work item can be `decomposition_state: concrete` and still require `execution_
 
 Do not score subjective difficulty. Evaluate execution boundaries.
 
+Also keep concurrency separate from execution size:
+
+- `execution_scope` asks whether ONE agent can own the task.
+- `exclusive_resources` asks whether TWO otherwise-ready tasks can run at the same time.
+
+A task can legitimately be `single_agent` while requiring one or more exclusive resource locks. Do not mark a task `needs_execution_decomposition` merely because it shares a scene, prefab, or source file with another task.
+
 ## Expected execution-scope values
 
 - `single_agent` — bounded enough for one focused implementation agent and a clear validation target.
@@ -36,13 +43,16 @@ Do not score subjective difficulty. Evaluate execution boundaries.
 - nodes marked `single_agent` even though a focused agent could not reasonably finish and validate them in one bounded context;
 - nodes marked `needs_execution_decomposition` when they are actually already a clean one-agent unit;
 - human/editor-only integration being incorrectly presented as autonomous-agent work;
-- missing/unknown execution-scope metadata.
+- missing/unknown execution-scope metadata;
+- a task being treated as oversized when the real issue is only a shared exclusive resource;
+- obvious shared scene/prefab/file integration collisions that should be expressed as `exclusive_resources` instead of hidden inside execution-scope reasoning.
 
 Do not decompose the game into speculative microtasks and do not invent missing design. If a work item is too broad, report that fact and describe the boundary problem. A later Progressive Decomposer can perform the actual bounded split using approved design.
 
 ## Findings
 
 Use `category: execution_scope_problem` for execution-size/handoff problems.
+Use `category: exclusive_resource_problem` when the task size is acceptable but concurrency metadata is unsafe or missing.
 
 Use blocker/error only when the bad scope would make automated task selection unsafe. Use warning/suggestion for improvements that do not prevent safe bootstrap review.
 

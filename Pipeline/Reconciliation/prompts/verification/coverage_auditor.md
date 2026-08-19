@@ -56,6 +56,106 @@ Examples of the kind of question to ask, without assuming any answer:
 
 These are audit patterns, not conclusions. Derive findings from the actual GDD and candidate.
 
+## Requirement representation taxonomy
+
+Your job is to determine whether each GDD requirement is represented in the
+RIGHT WAY, not whether every required sentence has its own task.
+
+Use these representation values:
+
+### `work_item`
+
+Use when the requirement is itself a distinct feature, artifact, reusable
+foundation, or executable implementation responsibility that needs independent
+graph state.
+
+### `acceptance_criterion`
+
+Use when the requirement is required behavior/constraint owned by an existing
+mapped work item and does not need a separate executable node.
+
+Examples:
+
+- click/hold behavior on player movement;
+- an encounter-size range on encounter work;
+- "Ranged Enemy is not introduced alone" on encounter activation/authoring;
+- spell-specific cooldown or interruption semantics on the spell/door owner.
+
+Map `mapped_keys` to the owning work item(s).
+
+### `validation_requirement`
+
+Use when the requirement describes a check, test, inspection, or evidence
+needed to validate mapped work rather than a distinct implementation
+responsibility.
+
+Examples from this GDD include Bone Archive lane/pathing checks, Chapel of Ash
+occlusion checks, Lower Vault active-enemy-cap priority checks, isometric
+sprite-sorting checks, and visual/gameplay alignment checks.
+
+Map `mapped_keys` to the work being validated. Do not create a gameplay task
+merely because a Play Mode check is required.
+
+### `non_code_requirement`
+
+Use for a required non-code obligation recorded in the candidate's
+`non_code_requirements` section that is neither primarily a build/delivery
+artifact nor a development-pipeline invariant.
+
+### `delivery_requirement`
+
+Use for a required deliverable/build obligation such as producing the required
+Windows build. It should be durably represented as non-code/delivery scope, not
+invented as a gameplay system.
+
+### `pipeline_constraint`
+
+Use for required development-process invariants such as agent/tool boundaries,
+human integration gates, or "do not modify the same Unity asset concurrently."
+These constrain the development pipeline; they are not gameplay work items.
+
+### `deferred_design`
+
+Use when required game scope is known but approved design is intentionally not
+specific enough for concrete implementation/authoring yet. It must map to a
+work/feature key whose decomposition state preserves that deferred design.
+
+This is not the same as stretch scope.
+
+### `deferred_or_excluded`
+
+Use for stretch or explicitly excluded scope represented in the candidate's
+deferred/excluded section.
+
+### `unrepresented`
+
+Use only when the requirement genuinely has no durable representation.
+
+### `ambiguous`
+
+Use only when the candidate does not let you determine which representation is
+correct. Ambiguity is a human-review/coverage problem. It is NOT evidence that a
+new work item must be created.
+
+## Mapping rules
+
+- `work_item`, `acceptance_criterion`, `validation_requirement`, and
+  `deferred_design` must map to at least one candidate work key.
+- `delivery_requirement`, `non_code_requirement`, and `pipeline_constraint`
+  may legitimately have no work key because they are not executable gameplay
+  nodes.
+- Do not downgrade a requirement to `work_item` merely because it is important.
+- Do not treat explicit validation language as implementation scope by default.
+- Do not treat process constraints as gameplay scope.
+- Do not require one work item per GDD sentence.
+
+Before reporting `missing_required_work`, first ask whether the missing thing is
+actually a work item, acceptance criterion, validation requirement, delivery
+requirement, pipeline constraint, or deferred-design marker.
+
+If the representation type is the problem rather than missing executable work,
+use `category: requirement_representation_problem`.
+
 ## Finding severity
 
 Use:
@@ -66,6 +166,8 @@ Use:
 - `suggestion`: optional clarity improvement; not required for correctness.
 
 Every required requirement classified as `unrepresented` must have a material finding.
+
+Every required requirement classified as `ambiguous` must also be surfaced, but do not label it missing work unless you independently establish that the correct representation is `work_item`.
 
 If a requirement is represented by a broader work item, map it to that work item and explain why the grouping is sufficient.
 

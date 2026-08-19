@@ -123,6 +123,8 @@ FINDING_SCHEMA: dict[str, Any] = {
                 "evidence_problem",
                 "shared_capability_hidden",
                 "execution_scope_problem",
+                "requirement_representation_problem",
+                "exclusive_resource_problem",
                 "other",
             ],
         },
@@ -189,7 +191,12 @@ COVERAGE_REQUIREMENT_SCHEMA: dict[str, Any] = {
             "type": "string",
             "enum": [
                 "work_item",
+                "acceptance_criterion",
+                "validation_requirement",
                 "non_code_requirement",
+                "delivery_requirement",
+                "pipeline_constraint",
+                "deferred_design",
                 "deferred_or_excluded",
                 "unrepresented",
                 "ambiguous",
@@ -604,6 +611,33 @@ def run_audit_pass(
 def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     generated: list[dict[str, Any]] = []
 
+    allowed_by_classification = {
+        "required_gameplay": {
+            "work_item",
+            "acceptance_criterion",
+            "validation_requirement",
+            "deferred_design",
+        },
+        "required_non_code": {
+            "non_code_requirement",
+            "delivery_requirement",
+        },
+        "required_process": {
+            "pipeline_constraint",
+            "validation_requirement",
+            "non_code_requirement",
+        },
+        "stretch": {"deferred_or_excluded"},
+        "excluded": {"deferred_or_excluded"},
+    }
+
+    mapped_key_representations = {
+        "work_item",
+        "acceptance_criterion",
+        "validation_requirement",
+        "deferred_design",
+    }
+
     for audit in audits:
         agent = str(audit.get("agent", ""))
         result = audit.get("result", {})
@@ -614,44 +648,108 @@ def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, A
         for requirement in requirements:
             classification = str(requirement.get("classification", ""))
             representation = str(requirement.get("representation", ""))
-            if classification.startswith("required_") and representation in {
-                "unrepresented",
-                "ambiguous",
-            }:
-                generated.append(
-                    {
-                        "source_agent": "Deterministic Coverage Check",
-                        "source_model": "python",
-                        "finding": {
-                            "finding_id": (
-                                "deterministic-coverage-"
-                                + str(requirement.get("requirement_id", "unknown"))
-                            ),
-                            "severity": "error",
-                            "category": "missing_required_work",
-                            "title": "Required GDD requirement is not safely represented",
-                            "description": (
-                                f"{agent} classified required requirement "
-                                f"{requirement.get('requirement_id')} as "
-                                f"{representation}."
-                            ),
-                            "affected_keys": list(requirement.get("mapped_keys", [])),
-                            "gdd_evidence": [
-                                {
-                                    "reference": str(requirement.get("reference", "")),
-                                    "requirement": str(requirement.get("requirement", "")),
-                                }
-                            ],
-                            "repository_evidence": [],
-                            "recommended_change": (
-                                "Resolve the coverage gap explicitly before graph seeding."
-                            ),
-                            "requires_human_review": representation == "ambiguous",
-                        },
-                    }
-                )
+            mapped_keys = [
+                str(value)
+                for value in requirement.get("mapped_keys", [])
+                if str(value).strip()
+            ]
+
+            problem: str | None = None
+            category = "requirement_representation_problem"
+            title = "Required GDD requirement has an unsafe representation"
+            requires_human_review = False
+
+            if classification.startswith("required_"):
+                if representation == "unrepresented":
+                    problem = (
+                        "A required GDD statement has no durable representation."
+                    )
+                    title = "Required GDD requirement is unrepresented"
+                elif representation == "ambiguous":
+                    problem = (
+                        "A required GDD statement has ambiguous representation. "
+                        "Ambiguity is a coverage problem, not proof that a new "
+                        "work item is required."
+                    )
+                    title = "Required GDD requirement has ambiguous representation"
+                    requires_human_review = True
+                elif representation not in allowed_by_classification.get(
+                    classification, set()
+                ):
+                    problem = (
+                        f"{representation!r} is not a valid representation for "
+                        f"{classification!r}."
+                    )
+                elif (
+                    representation in mapped_key_representations
+                    and not mapped_keys
+                ):
+                    problem = (
+                        f"{representation!r} requires at least one mapped work "
+                        "key so the requirement cannot be silently lost."
+                    )
+
+            elif classification in {"stretch", "excluded"}:
+                if representation not in {
+                    "deferred_or_excluded",
+                    "unrepresented",
+                }:
+                    problem = (
+                        f"{classification!r} scope is represented as "
+                        f"{representation!r}, which risks leaking optional/"
+                        "excluded scope into required work."
+                    )
+                    category = "scope_leak"
+                    title = "Stretch/excluded scope has an unsafe representation"
+
+            if problem is None:
+                continue
+
+            generated.append(
+                {
+                    "source_agent": "Deterministic Coverage Check",
+                    "source_model": "python",
+                    "finding": {
+                        "finding_id": (
+                            "deterministic-representation-"
+                            + str(requirement.get("requirement_id", "unknown"))
+                        ),
+                        "severity": "error",
+                        "category": category,
+                        "title": title,
+                        "description": (
+                            f"{agent} classified requirement "
+                            f"{requirement.get('requirement_id')} as "
+                            f"{classification}/{representation}. {problem}"
+                        ),
+                        "affected_keys": mapped_keys,
+                        "gdd_evidence": [
+                            {
+                                "reference": str(
+                                    requirement.get("reference", "")
+                                ),
+                                "requirement": str(
+                                    requirement.get("requirement", "")
+                                ),
+                            }
+                        ],
+                        "repository_evidence": [],
+                        "recommended_change": (
+                            "Classify the requirement by representation semantics "
+                            "before changing the graph. Create a new work item only "
+                            "when the requirement is a distinct feature/artifact/"
+                            "implementation responsibility. Otherwise map it as an "
+                            "acceptance criterion, validation requirement, non-code/"
+                            "delivery requirement, pipeline constraint, or deferred "
+                            "design as appropriate."
+                        ),
+                        "requires_human_review": requires_human_review,
+                    },
+                }
+            )
 
     return generated
+
 
 
 def merge_findings(audits: list[dict[str, Any]]) -> dict[str, Any]:

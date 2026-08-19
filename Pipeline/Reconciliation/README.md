@@ -147,12 +147,15 @@ Each proposed work item contains:
 - parent hierarchy;
 - requirement basis;
 - GDD evidence;
+- first-class acceptance criteria;
+- first-class validation requirements;
 - current repository state;
 - proposed durable graph status (`open` / `complete`);
 - repository evidence;
 - real `depends_on` relationships;
 - decomposition state (is approved design specific enough?);
 - execution scope + reason (is this a safe one-agent handoff?);
+- exclusive resources (can this otherwise-ready work run concurrently?);
 - confidence;
 - notes.
 
@@ -179,6 +182,70 @@ These are separate axes.
 A task can be `decomposition_state: concrete` while still being `execution_scope: needs_execution_decomposition`. That means the design is known, but the implementation node bundles too much work for one safe handoff. A future Progressive Decomposer may split the implementation work without inventing new game design.
 
 Difficulty is not the classifier: a hard but bounded task can still be `single_agent`.
+
+## Requirement representation taxonomy
+
+A required GDD sentence does not automatically become a task.
+
+The reconciliation/verification pipeline distinguishes:
+
+- `work_item` — a distinct feature/artifact/implementation responsibility;
+- `acceptance_criterion` — behavior/constraint owned by an existing task;
+- `validation_requirement` — a test/check/inspection of mapped work;
+- `non_code_requirement` — a required non-code obligation;
+- `delivery_requirement` — a required build/delivery obligation;
+- `pipeline_constraint` — a development-process invariant;
+- `deferred_design` — required scope whose approved design is intentionally not
+  concrete enough yet;
+- `deferred_or_excluded` — stretch or explicitly excluded scope.
+
+Work items carry `acceptance_criteria` and `validation_requirements` as
+first-class structured fields so these requirements survive graph seeding
+without becoming garbage microtasks.
+
+The deterministic coverage check now reports ambiguous/misclassified
+representation as `requirement_representation_problem`. It no longer equates
+"required + ambiguous" with "missing task." A new task is created only after the
+representation is established as `work_item`.
+
+Examples:
+
+- isometric sprite sorting check -> `validation_requirement`;
+- Bone Archive lane/pathing check -> `validation_requirement`;
+- Chapel of Ash occlusion check -> `validation_requirement`;
+- encounter size 3–8 -> `acceptance_criterion`;
+- Ranged Enemy not introduced alone -> `acceptance_criterion`;
+- Windows build -> `delivery_requirement`;
+- no concurrent edits to one Unity asset -> `pipeline_constraint`.
+
+## Exclusive resources and concurrency
+
+Execution readiness and parallel safety are separate.
+
+`exclusive_resources` records non-merge-safe resources that an open executable
+task expects to modify or integrate against exclusively. Two tasks can both be
+dependency-ready and `single_agent` while still requiring sequential dispatch.
+
+Canonical lock keys use:
+
+- `repo-file:<repository-relative path>`
+- `unity-scene:<repository-relative Assets/... path>`
+- `unity-prefab:<repository-relative Assets/... path>`
+- `logical:<stable-lowercase-slug>` only when the shared integration resource
+  is established but no concrete path exists yet
+
+For example, two tasks that both modify
+`Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs` should
+both carry the exact same `repo-file:` lock key.
+
+These locks are **not dependencies**. `taskcontrol ready` may still consider
+both tasks ready. The future dispatcher must acquire all declared exclusive
+resource locks before starting a task and must not run two tasks concurrently
+when their lock sets intersect.
+
+Reconciliation records only coarse, evidence-backed locks. A later Feature
+Planning / Progressive Decomposition step may add more exact file/scene/prefab
+locks as the implementation file list becomes concrete.
 
 
 ## Verification refiner sizing and recovery
@@ -234,6 +301,8 @@ Before using the output to seed `Tasks/*.yaml`, verify:
 7. Missing design was not silently invented.
 8. Low-confidence or unresolved items are understood.
 9. Every open executable item has a credible execution-scope classification before autonomous selection.
+10. Obvious shared file/scene/prefab integration surfaces are represented by identical `exclusive_resources` keys so otherwise-ready tasks cannot be dispatched concurrently against the same non-merge-safe resource.
+11. Required GDD statements are represented at the correct level: work item, acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design.
 
 ## Next step after approval
 

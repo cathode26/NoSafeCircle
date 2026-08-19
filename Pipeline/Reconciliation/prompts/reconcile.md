@@ -366,6 +366,47 @@ For every work item, provide `execution_reason`.
 
 Do not confuse difficulty with execution scope. A technically difficult task can still be `single_agent` if it is bounded. A straightforward task can require `needs_execution_decomposition` if it bundles several independently verifiable responsibilities.
 
+# Exclusive resources
+
+`exclusive_resources` answers a fourth, separate question:
+
+> Can this otherwise-ready work execute at the same time as another task without both agents writing or integrating against the same non-merge-safe resource?
+
+This is NOT a dependency and it is NOT execution scope.
+
+Two tasks can both be dependency-ready and `execution_scope: single_agent` while still being unsafe to dispatch concurrently because they share an exclusive resource.
+
+Use an exclusive resource only for a resource the task is expected to **modify, regenerate, configure, or integrate against exclusively**. Do not lock files merely because the agent needs to read them.
+
+Every resource entry contains:
+
+- `key` — canonical lock identity;
+- `reason` — why simultaneous execution would be unsafe;
+- `evidence` — repository/GDD/architecture basis for the lock.
+
+Canonical key formats:
+
+- `repo-file:<repository-relative path>` for a specific shared source/editor file;
+- `unity-scene:<repository-relative Assets/... scene path>` for a known Unity scene;
+- `unity-prefab:<repository-relative Assets/... prefab path>` for a known prefab;
+- `logical:<stable-lowercase-slug>` only when a shared future integration resource is clearly required but no repository path exists yet.
+
+Examples:
+
+- `repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs`
+- `unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity`
+- `logical:main-floor-scene`
+
+Rules:
+
+1. If two open executable items are expected to modify the same resource, use the exact SAME resource key on both.
+2. Prefer a concrete repository path when one is known.
+3. Do not guess a future path; use `logical:` only when the shared resource itself is established.
+4. Feature/organizational nodes should use an empty list.
+5. Already-complete work normally uses an empty list because it is not awaiting dispatch.
+6. A shared exclusive resource does not imply either task depends on the other. It means the scheduler must acquire the lock before dispatch and run colliding tasks sequentially.
+7. Be conservative. Do not turn broad domains such as `combat` or `enemies` into global locks.
+
 # Requirement basis
 
 Use:
@@ -394,6 +435,81 @@ Do not put stretch/excluded work into `work_items`.
 Report it under `deferred_or_excluded`.
 
 ---
+
+# Requirement representation inside work items
+
+Do not confuse a required GDD statement with a requirement for a separate graph
+node.
+
+For every work item, use these three fields deliberately:
+
+## `gdd_evidence`
+
+Answers:
+
+> Why does this work item exist?
+
+Use it as requirement provenance/basis.
+
+## `acceptance_criteria`
+
+Answers:
+
+> What required behavior or constraint must be true for this work item to be
+> considered correctly implemented?
+
+Use acceptance criteria for requirements that belong to an existing owner and
+do not need a separate executable node.
+
+Examples:
+
+- click/hold semantics can be acceptance criteria on player movement;
+- "Ranged Enemy is never introduced alone" can be an acceptance criterion on
+  encounter activation/authoring;
+- the three-to-eight-enemy encounter range can be an acceptance criterion on
+  encounter work;
+- a spell's cooldown/behavioral restriction can be an acceptance criterion on
+  that spell rather than a separate task.
+
+## `validation_requirements`
+
+Answers:
+
+> What explicit test, inspection, runtime check, or evidence must validate the
+> work?
+
+Use this for checks rather than implementation responsibilities.
+
+Examples from the current GDD include:
+
+- Bone Archive lane/pathing validation;
+- Chapel of Ash projectile-occlusion validation;
+- Lower Vault active-enemy-cap priority validation;
+- isometric sprite-sorting checks;
+- visual/gameplay alignment checks.
+
+Those requirements may cause implementation changes if a test fails, but the
+check itself is not automatically a separate gameplay work item.
+
+## Representation rule
+
+A GDD statement should become a separate `work_item` only when it describes a
+distinct feature, artifact, reusable foundation, or executable implementation
+responsibility that must be tracked independently.
+
+Do NOT create a work item merely because a sentence is required.
+
+Required statements may instead be represented as:
+
+- acceptance criteria on an owning work item;
+- validation requirements on an owning work item;
+- non-code/delivery requirements under `non_code_requirements`;
+- development/pipeline constraints under `non_code_requirements`;
+- intentionally deferred design through a feature marked
+  `needs_future_decomposition`;
+- stretch/excluded scope under `deferred_or_excluded`.
+
+The goal is durable requirement coverage without garbage microtasks.
 
 # Evidence requirements
 
@@ -448,6 +564,11 @@ Use:
 - `unknown`
 
 Do not turn them into coding tasks merely because they exist in the GDD.
+
+Required delivery obligations (for example, producing the Windows build) and
+development-process invariants (for example, agents not modifying the same
+Unity asset concurrently) belong here when they are not themselves executable
+gameplay implementation work.
 
 ---
 

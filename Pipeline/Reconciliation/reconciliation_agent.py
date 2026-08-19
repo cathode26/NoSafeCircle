@@ -83,6 +83,17 @@ DEPENDENCY_SCHEMA: dict[str, Any] = {
     "required": ["key", "reason", "evidence"],
 }
 
+EXCLUSIVE_RESOURCE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "key": {"type": "string"},
+        "reason": {"type": "string"},
+        "evidence": {"type": "string"},
+    },
+    "required": ["key", "reason", "evidence"],
+}
+
 WORK_ITEM_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -111,6 +122,14 @@ WORK_ITEM_SCHEMA: dict[str, Any] = {
             "type": "array",
             "items": GDD_EVIDENCE_SCHEMA,
         },
+        "acceptance_criteria": {
+            "type": "array",
+            "items": GDD_EVIDENCE_SCHEMA,
+        },
+        "validation_requirements": {
+            "type": "array",
+            "items": GDD_EVIDENCE_SCHEMA,
+        },
         "repository_state": {
             "type": "string",
             "enum": [
@@ -132,6 +151,10 @@ WORK_ITEM_SCHEMA: dict[str, Any] = {
         "depends_on": {
             "type": "array",
             "items": DEPENDENCY_SCHEMA,
+        },
+        "exclusive_resources": {
+            "type": "array",
+            "items": EXCLUSIVE_RESOURCE_SCHEMA,
         },
         "decomposition_state": {
             "type": "string",
@@ -169,10 +192,13 @@ WORK_ITEM_SCHEMA: dict[str, Any] = {
         "basis",
         "source_scope",
         "gdd_evidence",
+        "acceptance_criteria",
+        "validation_requirements",
         "repository_state",
         "graph_status",
         "repository_evidence",
         "depends_on",
+        "exclusive_resources",
         "decomposition_state",
         "decomposition_reason",
         "execution_scope",
@@ -600,8 +626,14 @@ Rules:
    speculative backlog.
 7. Do not change unrelated work.
 8. Current repository evidence is required for implemented/partial claims.
+9. Added work items must distinguish requirement provenance from completion rules:
+   - `gdd_evidence` explains why the work item exists;
+   - `acceptance_criteria` records required behavior/constraints the implementation must satisfy;
+   - `validation_requirements` records explicit checks/evidence needed to validate it.
+   Do not create extra work items merely to represent acceptance or validation statements.
 9. Added work items must classify `execution_scope` separately from design decomposition and provide `execution_reason`. Use `unknown` rather than guessing when task handoff size cannot be established from this bounded repair.
-10. Return only the JSON required by the supplied schema.
+10. Added work items must include `exclusive_resources`. Use an empty list unless a concrete shared write/integration resource is established by the current repository or approved architecture.
+11. Return only the JSON required by the supplied schema.
 
 Compact reconciliation context:
 {json.dumps(compact_context, indent=2, ensure_ascii=False)}
@@ -967,6 +999,24 @@ def _validate_evidence_and_status(items_by_key: dict[str, dict[str, Any]]) -> No
                 )
 
 
+def ensure_requirement_detail_defaults(
+    payload: dict[str, Any],
+) -> list[str]:
+    # Upgrade legacy candidates that predate first-class requirement-detail fields.
+    upgraded: list[str] = []
+    for item in payload.get("work_items", []):
+        changed = False
+        if "acceptance_criteria" not in item:
+            item["acceptance_criteria"] = []
+            changed = True
+        if "validation_requirements" not in item:
+            item["validation_requirements"] = []
+            changed = True
+        if changed:
+            upgraded.append(str(item.get("key", "")))
+    return upgraded
+
+
 def ensure_execution_scope_defaults(payload: dict[str, Any]) -> list[str]:
     """
     Upgrade legacy reconciliation candidates that predate execution_scope.
@@ -1030,6 +1080,156 @@ def _validate_execution_scope(items_by_key: dict[str, dict[str, Any]]) -> None:
             )
 
 
+def ensure_exclusive_resource_defaults(payload: dict[str, Any]) -> list[str]:
+    # Upgrade legacy candidates that predate exclusive_resources.
+    upgraded: list[str] = []
+    for item in payload.get("work_items", []):
+        if "exclusive_resources" in item:
+            continue
+        item["exclusive_resources"] = []
+        upgraded.append(str(item.get("key", "")))
+    return upgraded
+
+
+def _validate_exclusive_resources(
+    items_by_key: dict[str, dict[str, Any]],
+) -> None:
+    allowed_prefixes = {
+        "repo-file",
+        "unity-scene",
+        "unity-prefab",
+        "logical",
+    }
+
+    for key, item in items_by_key.items():
+        resources = item.get("exclusive_resources", [])
+        if not isinstance(resources, list):
+            raise RuntimeError(
+                f"{key!r} exclusive_resources must be a list."
+            )
+
+        if item.get("kind") == "feature" and resources:
+            raise RuntimeError(
+                f"Feature {key!r} is non-executable and must not own "
+                "exclusive resource locks."
+            )
+
+        seen: set[str] = set()
+
+        for resource in resources:
+            if not isinstance(resource, dict):
+                raise RuntimeError(
+                    f"{key!r} has a malformed exclusive resource entry."
+                )
+
+            resource_key = str(resource.get("key", "")).strip()
+            reason = str(resource.get("reason", "")).strip()
+            evidence = str(resource.get("evidence", "")).strip()
+
+            if not resource_key or ":" not in resource_key:
+                raise RuntimeError(
+                    f"{key!r} has invalid exclusive resource key "
+                    f"{resource_key!r}."
+                )
+
+            prefix, value = resource_key.split(":", 1)
+            if prefix not in allowed_prefixes:
+                raise RuntimeError(
+                    f"{key!r} has unsupported exclusive resource prefix "
+                    f"{prefix!r}."
+                )
+
+            if resource_key in seen:
+                raise RuntimeError(
+                    f"{key!r} lists duplicate exclusive resource "
+                    f"{resource_key!r}."
+                )
+            seen.add(resource_key)
+
+            if not reason:
+                raise RuntimeError(
+                    f"{key!r} exclusive resource {resource_key!r} requires "
+                    "a non-empty reason."
+                )
+            if not evidence:
+                raise RuntimeError(
+                    f"{key!r} exclusive resource {resource_key!r} requires "
+                    "non-empty evidence/basis."
+                )
+
+            if prefix == "logical":
+                slug = value.strip()
+                if (
+                    not slug
+                    or slug != slug.lower()
+                    or any(
+                        not (ch.isalnum() or ch in "-_.")
+                        for ch in slug
+                    )
+                ):
+                    raise RuntimeError(
+                        f"{key!r} logical exclusive resource must use a "
+                        f"stable lowercase slug: {resource_key!r}."
+                    )
+                continue
+
+            normalized = _normalize_path(value.strip())
+            if not normalized or ".." in normalized.split("/"):
+                raise RuntimeError(
+                    f"{key!r} has unsafe exclusive resource path "
+                    f"{resource_key!r}."
+                )
+
+            if _is_forbidden_path(normalized):
+                raise RuntimeError(
+                    f"{key!r} exclusive resource references forbidden "
+                    f"project area: {resource_key!r}."
+                )
+
+            if normalized.startswith("Pipeline/Reconciliation/outputs/"):
+                raise RuntimeError(
+                    f"{key!r} cannot lock generated reconciliation output "
+                    f"as a project resource: {resource_key!r}."
+                )
+
+            if prefix in {"unity-scene", "unity-prefab"} and not normalized.startswith(
+                "Assets/"
+            ):
+                raise RuntimeError(
+                    f"{key!r} {prefix} resource must use a repository-relative "
+                    f"Assets/ path: {resource_key!r}."
+                )
+
+
+def build_exclusive_resource_groups(
+    work_items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    # Shared locks are valid; they force sequential dispatch.
+    owners: dict[str, list[str]] = {}
+
+    for item in work_items:
+        if item.get("kind") not in {"implementation", "artifact"}:
+            continue
+        if item.get("graph_status") != "open":
+            continue
+
+        item_key = str(item.get("key", ""))
+        for resource in item.get("exclusive_resources", []):
+            resource_key = str(resource.get("key", "")).strip()
+            if not resource_key:
+                continue
+            owners.setdefault(resource_key, []).append(item_key)
+
+    return [
+        {
+            "resource_key": resource_key,
+            "work_keys": sorted(set(work_keys)),
+        }
+        for resource_key, work_keys in sorted(owners.items())
+        if len(set(work_keys)) > 1
+    ]
+
+
 def _validate_unresolved_refs(
     payload: dict[str, Any],
     items_by_key: dict[str, dict[str, Any]],
@@ -1044,7 +1244,9 @@ def _validate_unresolved_refs(
 
 
 def run_semantic_validation(payload: dict[str, Any]) -> None:
+    ensure_requirement_detail_defaults(payload)
     ensure_execution_scope_defaults(payload)
+    ensure_exclusive_resource_defaults(payload)
     items = payload.get("work_items", [])
     if not isinstance(items, list) or not items:
         raise RuntimeError("work_items must be a non-empty list.")
@@ -1055,6 +1257,7 @@ def run_semantic_validation(payload: dict[str, Any]) -> None:
     _validate_dependency_links(items_by_key)
     _validate_evidence_and_status(items_by_key)
     _validate_execution_scope(items_by_key)
+    _validate_exclusive_resources(items_by_key)
     _validate_unresolved_refs(payload, items_by_key)
     validate_reviewed_paths(payload)
 
@@ -1268,8 +1471,16 @@ def build_proposed_graph_delta(
                     "reconciliation_key": item.get("key"),
                     "title": item.get("title"),
                     "kind": item.get("kind"),
+                    "acceptance_criteria": item.get("acceptance_criteria", []),
+                    "validation_requirements": item.get(
+                        "validation_requirements", []
+                    ),
                     "proposed_status": item.get("graph_status"),
                     "execution_scope": item.get("execution_scope", "unknown"),
+                    "exclusive_resource_keys": [
+                        resource.get("key")
+                        for resource in item.get("exclusive_resources", [])
+                    ],
                     "parent_reconciliation_key": item.get("parent_key"),
                     "depends_on_reconciliation_keys": [
                         dep.get("key")
@@ -1278,6 +1489,9 @@ def build_proposed_graph_delta(
                 }
                 for item in work_items
             ],
+            "exclusive_resource_groups": build_exclusive_resource_groups(
+                work_items
+            ),
             "proposed_changes": [],
             "conflicts": [],
             "next_action": "human_review_then_seed",
@@ -1301,6 +1515,7 @@ def build_proposed_graph_delta(
             for path in task_files
         ],
         "proposed_seed_records": [],
+        "exclusive_resource_groups": build_exclusive_resource_groups(work_items),
         "proposed_changes": [],
         "conflicts": [],
         "next_action": "taskcontrol_reconciliation_diff",
@@ -1335,10 +1550,10 @@ def render_graph_delta_markdown(delta: dict[str, Any]) -> str:
         lines.append("## Proposed Bootstrap Seed Records")
         lines.append("")
         lines.append(
-            "| Reconciliation key | Kind | Title | Proposed status | Execution | Parent | "
-            "Depends on |"
+            "| Reconciliation key | Kind | Title | Proposed status | Execution | "
+            "Exclusive resources | Parent | Depends on |"
         )
-        lines.append("|---|---|---|---|---|---|---|")
+        lines.append("|---|---|---|---|---|---|---|---|")
         for item in seeds:
             deps = ", ".join(
                 str(value)
@@ -1355,6 +1570,10 @@ def render_graph_delta_markdown(delta: dict[str, Any]) -> str:
                         _cell(item.get("title")),
                         _cell(item.get("proposed_status")),
                         _cell(item.get("execution_scope")),
+                        _cell(", ".join(
+                            str(value)
+                            for value in item.get("exclusive_resource_keys", [])
+                        )),
                         _cell(item.get("parent_reconciliation_key")),
                         _cell(deps),
                     ]
@@ -1488,10 +1707,11 @@ def render_markdown(payload: dict[str, Any]) -> str:
     lines.append("")
     lines.append(
         "| Key | Parent | Kind | Title | GDD basis | Repo state | "
-        "Graph status | Depends on | Decomposition | Execution | Confidence |"
+        "Graph status | Depends on | Exclusive resources | Decomposition | "
+        "Execution | Confidence |"
     )
     lines.append(
-        "|---|---|---|---|---|---|---|---|---|---|---|"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|"
     )
 
     for item in work_items:
@@ -1507,6 +1727,10 @@ def render_markdown(payload: dict[str, Any]) -> str:
                     _cell(item.get("repository_state")),
                     _cell(item.get("graph_status")),
                     _cell(_deps_text(item)),
+                    _cell(", ".join(
+                        str(resource.get("key", ""))
+                        for resource in item.get("exclusive_resources", [])
+                    )),
                     _cell(item.get("decomposition_state")),
                     _cell(item.get("execution_scope")),
                     _cell(item.get("confidence")),
@@ -1570,6 +1794,28 @@ def render_markdown(payload: dict[str, Any]) -> str:
                 )
             lines.append("")
 
+        acceptance = item.get("acceptance_criteria", [])
+        if acceptance:
+            lines.append("**Acceptance criteria**")
+            lines.append("")
+            for criterion in acceptance:
+                lines.append(
+                    f"- `{_cell(criterion.get('reference'))}` — "
+                    f"{_cell(criterion.get('requirement'))}"
+                )
+            lines.append("")
+
+        validation = item.get("validation_requirements", [])
+        if validation:
+            lines.append("**Validation requirements**")
+            lines.append("")
+            for requirement in validation:
+                lines.append(
+                    f"- `{_cell(requirement.get('reference'))}` — "
+                    f"{_cell(requirement.get('requirement'))}"
+                )
+            lines.append("")
+
         repo_evidence = item.get("repository_evidence", [])
         if repo_evidence:
             lines.append("**Repository evidence**")
@@ -1579,6 +1825,18 @@ def render_markdown(payload: dict[str, Any]) -> str:
                     f"- `{_cell(evidence.get('path'))}` "
                     f"(`{_cell(evidence.get('evidence_type'))}`) — "
                     f"{_cell(evidence.get('observation'))}"
+                )
+            lines.append("")
+
+        resources = item.get("exclusive_resources", [])
+        if resources:
+            lines.append("**Exclusive resources**")
+            lines.append("")
+            for resource in resources:
+                lines.append(
+                    f"- `{_cell(resource.get('key'))}` — "
+                    f"{_cell(resource.get('reason'))} "
+                    f"Evidence/basis: {_cell(resource.get('evidence'))}"
                 )
             lines.append("")
 

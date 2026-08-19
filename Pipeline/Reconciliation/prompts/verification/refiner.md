@@ -60,6 +60,38 @@ For every `blocker` or `error`:
 Warnings may be corrected when the correction is clearly supported and does not expand scope.
 Suggestions are optional.
 
+## Requirement-representation repair policy
+
+A coverage error does NOT automatically authorize a new work item.
+
+When a finding says a required GDD statement is missing, ambiguous, or
+misrepresented, classify the statement first:
+
+- distinct executable/organizational responsibility -> `work_item`;
+- behavior/constraint owned by an existing item -> `acceptance_criterion`;
+- explicit test/check/inspection -> `validation_requirement`;
+- required non-code obligation -> `non_code_requirement`;
+- build/delivery obligation -> `delivery_requirement`;
+- development-process invariant -> `pipeline_constraint`;
+- required but intentionally underspecified design -> `deferred_design`;
+- stretch/excluded scope -> `deferred_or_excluded`.
+
+For acceptance criteria, add/correct the requirement under the mapped work
+item's first-class `acceptance_criteria` field.
+
+For validation requirements, add/correct the requirement under the mapped work
+item's first-class `validation_requirements` field.
+
+For delivery/non-code/pipeline constraints, preserve them under
+`non_code_requirements` rather than manufacturing gameplay tasks.
+
+For deferred design, keep the owning feature/work represented and use
+`decomposition_state: needs_future_decomposition` when appropriate. Do not
+invent the missing design.
+
+Only add a new work item after establishing that `work_item` is the correct
+representation type.
+
 ## Refinement boundaries
 
 You MAY:
@@ -71,7 +103,8 @@ You MAY:
 - correct repository state or graph status;
 - move a requirement between work/non-code/deferred classifications when the GDD supports it;
 - add unresolved questions where evidence is genuinely insufficient;
-- classify `execution_scope` separately from design decomposition. If approved design is concrete but the implementation item is too broad for one bounded agent handoff, use `needs_execution_decomposition` rather than inventing subtask design. Use `human_integration_required` when the next meaningful step fundamentally requires human Unity/editor/integration judgment.
+- classify `execution_scope` separately from design decomposition. If approved design is concrete but the implementation item is too broad for one bounded agent handoff, use `needs_execution_decomposition` rather than inventing subtask design. Use `human_integration_required` when the next meaningful step fundamentally requires human Unity/editor/integration judgment;
+- add, remove, or normalize `exclusive_resources` when current repository/GDD/architecture evidence establishes that otherwise-ready tasks would modify the same non-merge-safe source file, Unity scene, prefab, builder, or logical integration surface. Shared resource locks are scheduling constraints, not dependencies.
 
 You MUST NOT:
 
@@ -96,7 +129,10 @@ Ensure:
 - complete implementation claims are genuinely implemented;
 - required GDD behavior is durably represented without speculative microtask explosion;
 - missing design remains marked for future decomposition instead of invented;
-- every work item has an `execution_scope` and `execution_reason`;
+- every work item has `acceptance_criteria`, `validation_requirements`, an `execution_scope`, `execution_reason`, and `exclusive_resources`;
+- feature/organizational work has no exclusive resource locks;
+- tasks expected to modify the same non-merge-safe resource use an identical canonical resource key;
+- exclusive resources are not misrepresented as dependency ordering;
 - feature/organizational and already-complete work uses `not_applicable`;
 - open implementation/artifact work is `single_agent`, `needs_execution_decomposition`, `human_integration_required`, or `unknown` based on evidence rather than subjective difficulty.
 
