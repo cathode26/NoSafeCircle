@@ -245,6 +245,14 @@ NON_CODE_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
     "properties": {
         "title": {"type": "string"},
+        "requirement_type": {
+            "type": "string",
+            "enum": [
+                "non_code_requirement",
+                "delivery_requirement",
+                "pipeline_constraint",
+            ],
+        },
         "status": {
             "type": "string",
             "enum": ["confirmed", "not_assessable", "unknown"],
@@ -252,7 +260,13 @@ NON_CODE_SCHEMA: dict[str, Any] = {
         "gdd_evidence": {"type": "array", "items": GDD_EVIDENCE_SCHEMA},
         "evidence": {"type": "string"},
     },
-    "required": ["title", "status", "gdd_evidence", "evidence"],
+    "required": [
+        "title",
+        "requirement_type",
+        "status",
+        "gdd_evidence",
+        "evidence",
+    ],
 }
 
 DEFERRED_SCHEMA: dict[str, Any] = {
@@ -999,6 +1013,19 @@ def _validate_evidence_and_status(items_by_key: dict[str, dict[str, Any]]) -> No
                 )
 
 
+def ensure_non_code_requirement_type_defaults(
+    payload: dict[str, Any],
+) -> list[str]:
+    # Upgrade legacy reconciliation candidates that predate typed non-code records.
+    upgraded: list[str] = []
+    for item in payload.get("non_code_requirements", []):
+        if item.get("requirement_type"):
+            continue
+        item["requirement_type"] = "non_code_requirement"
+        upgraded.append(str(item.get("title", "")))
+    return upgraded
+
+
 def ensure_requirement_detail_defaults(
     payload: dict[str, Any],
 ) -> list[str]:
@@ -1230,6 +1257,46 @@ def build_exclusive_resource_groups(
     ]
 
 
+def _validate_non_code_requirements(payload: dict[str, Any]) -> None:
+    allowed_types = {
+        "non_code_requirement",
+        "delivery_requirement",
+        "pipeline_constraint",
+    }
+    seen_titles: set[str] = set()
+
+    for item in payload.get("non_code_requirements", []):
+        title = str(item.get("title", "")).strip()
+        requirement_type = str(item.get("requirement_type", "")).strip()
+        evidence = str(item.get("evidence", "")).strip()
+        gdd_evidence = item.get("gdd_evidence", [])
+
+        if not title:
+            raise RuntimeError(
+                "Every non-code requirement must have a non-empty title."
+            )
+        if title in seen_titles:
+            raise RuntimeError(
+                f"Duplicate non-code requirement title: {title!r}. "
+                "Titles are mapping identifiers and must be unique."
+            )
+        seen_titles.add(title)
+
+        if requirement_type not in allowed_types:
+            raise RuntimeError(
+                f"{title!r} has invalid requirement_type="
+                f"{requirement_type!r}."
+            )
+        if not gdd_evidence:
+            raise RuntimeError(
+                f"{title!r} requires at least one GDD evidence entry."
+            )
+        if not evidence:
+            raise RuntimeError(
+                f"{title!r} requires non-empty evidence/status rationale."
+            )
+
+
 def _validate_unresolved_refs(
     payload: dict[str, Any],
     items_by_key: dict[str, dict[str, Any]],
@@ -1244,6 +1311,7 @@ def _validate_unresolved_refs(
 
 
 def run_semantic_validation(payload: dict[str, Any]) -> None:
+    ensure_non_code_requirement_type_defaults(payload)
     ensure_requirement_detail_defaults(payload)
     ensure_execution_scope_defaults(payload)
     ensure_exclusive_resource_defaults(payload)
@@ -1258,6 +1326,7 @@ def run_semantic_validation(payload: dict[str, Any]) -> None:
     _validate_evidence_and_status(items_by_key)
     _validate_execution_scope(items_by_key)
     _validate_exclusive_resources(items_by_key)
+    _validate_non_code_requirements(payload)
     _validate_unresolved_refs(payload, items_by_key)
     validate_reviewed_paths(payload)
 
@@ -1451,6 +1520,7 @@ def build_proposed_graph_delta(
     """
     task_files = sorted(TASKS_DIR.glob("*.yaml")) if TASKS_DIR.exists() else []
     work_items = payload.get("work_items", [])
+    non_code_requirements = payload.get("non_code_requirements", [])
 
     if not task_files:
         return {
@@ -1492,6 +1562,16 @@ def build_proposed_graph_delta(
             "exclusive_resource_groups": build_exclusive_resource_groups(
                 work_items
             ),
+            "proposed_non_code_records": [
+                {
+                    "title": item.get("title"),
+                    "requirement_type": item.get("requirement_type"),
+                    "status": item.get("status"),
+                    "gdd_evidence": item.get("gdd_evidence", []),
+                    "evidence": item.get("evidence", ""),
+                }
+                for item in non_code_requirements
+            ],
             "proposed_changes": [],
             "conflicts": [],
             "next_action": "human_review_then_seed",
@@ -1516,6 +1596,16 @@ def build_proposed_graph_delta(
         ],
         "proposed_seed_records": [],
         "exclusive_resource_groups": build_exclusive_resource_groups(work_items),
+        "proposed_non_code_records": [
+            {
+                "title": item.get("title"),
+                "requirement_type": item.get("requirement_type"),
+                "status": item.get("status"),
+                "gdd_evidence": item.get("gdd_evidence", []),
+                "evidence": item.get("evidence", ""),
+            }
+            for item in non_code_requirements
+        ],
         "proposed_changes": [],
         "conflicts": [],
         "next_action": "taskcontrol_reconciliation_diff",
@@ -1576,6 +1666,27 @@ def render_graph_delta_markdown(delta: dict[str, Any]) -> str:
                         )),
                         _cell(item.get("parent_reconciliation_key")),
                         _cell(deps),
+                    ]
+                )
+                + " |"
+            )
+        lines.append("")
+
+    non_code = delta.get("proposed_non_code_records", [])
+    if non_code:
+        lines.append("## Proposed Non-Code / Delivery / Pipeline Records")
+        lines.append("")
+        lines.append("| Type | Title | Status | Evidence / rationale |")
+        lines.append("|---|---|---|---|")
+        for item in non_code:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        _cell(item.get("requirement_type")),
+                        _cell(item.get("title")),
+                        _cell(item.get("status")),
+                        _cell(item.get("evidence")),
                     ]
                 )
                 + " |"
@@ -1862,7 +1973,8 @@ def render_markdown(payload: dict[str, Any]) -> str:
     if non_code:
         for item in non_code:
             lines.append(
-                f"- **[{_cell(item.get('status'))}] "
+                f"- **[{_cell(item.get('requirement_type'))} / "
+                f"{_cell(item.get('status'))}] "
                 f"{_cell(item.get('title'))}:** "
                 f"{_cell(item.get('evidence'))}"
             )

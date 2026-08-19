@@ -83,6 +83,11 @@ Examples:
 
 Map `mapped_keys` to the owning work item(s).
 
+For `non_code_requirement`, `delivery_requirement`, and
+`pipeline_constraint`, set `mapped_non_code_titles` to the exact title(s) of
+the matching typed record(s) in the candidate. For work-item-backed
+representations, use an empty `mapped_non_code_titles` list.
+
 ### `validation_requirement`
 
 Use when the requirement describes a check, test, inspection, or evidence
@@ -143,7 +148,10 @@ new work item must be created.
   `deferred_design` must map to at least one candidate work key.
 - `delivery_requirement`, `non_code_requirement`, and `pipeline_constraint`
   may legitimately have no work key because they are not executable gameplay
-  nodes.
+  nodes, but they MUST map through `mapped_non_code_titles` to one or more
+  actual records in the candidate's `non_code_requirements` array.
+- For those typed non-code representations, the referenced candidate record's
+  `requirement_type` must exactly match the representation value.
 - Do not downgrade a requirement to `work_item` merely because it is important.
 - Do not treat explicit validation language as implementation scope by default.
 - Do not treat process constraints as gameplay scope.

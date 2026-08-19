@@ -218,6 +218,20 @@ Examples:
 - Windows build -> `delivery_requirement`;
 - no concurrent edits to one Unity asset -> `pipeline_constraint`.
 
+
+Non-code requirements are stored as first-class typed records with
+`requirement_type`:
+
+- `non_code_requirement`
+- `delivery_requirement`
+- `pipeline_constraint`
+
+Coverage auditors name the exact stored record through
+`mapped_non_code_titles`; they cannot claim a delivery/process requirement is
+represented merely because the GDD mentions it. The proposed graph delta also
+preserves these typed records so they are not dropped when the persistent work
+graph is seeded or reconciled.
+
 ## Exclusive resources and concurrency
 
 Execution readiness and parallel safety are separate.
@@ -254,13 +268,29 @@ Independent auditors remain model-diverse and randomized. The Refiner is not
 another vote: it is a synthesis step over the union of material findings, so it
 defaults to `opus` for predictable capacity.
 
-Only `blocker` and `error` findings are sent to the Refiner. Warnings and
-suggestions remain preserved in the full pass-1 merge and are reassessed by the
-independent pass-2 auditors.
+All `blocker` and `error` findings are sent to the Refiner. In addition,
+warnings in the narrowly selected structural categories
+`under_decomposition`, `overgrouped_work`, and `shared_capability_hidden` are
+also sent because they can make required work undispatchable or hide real
+prerequisites. Other warnings and suggestions remain preserved in the full
+pass-1 merge and are reassessed by the independent pass-2 auditors.
 
 If a verification run times out during refinement, the completed pass-1 audits
 are not repeated. `recover_verification.py` can rerun only the missing Refiner
 and then continue to pass 2.
+
+## Deferred authoring must not hide known runtime work
+
+`needs_future_decomposition` applies only to the design/content that is truly
+unknown. If the same feature also contains a runtime rule already fully
+specified by the GDD, reconciliation/refinement must split that runtime
+responsibility into an implementation item rather than making it
+undispatchable.
+
+For encounter work this means room-specific placements, trigger positions,
+exact compositions, and durability values may remain deferred, while the
+specified active-enemy-ceiling activation rule is tracked as executable runtime
+work.
 
 ## Important rules
 

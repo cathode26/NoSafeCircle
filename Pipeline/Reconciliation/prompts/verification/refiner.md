@@ -57,7 +57,13 @@ For every `blocker` or `error`:
 - correct it when supported;
 - if credible findings conflict and the sources cannot resolve the conflict, preserve the issue under `unresolved_questions` and avoid false certainty.
 
-Warnings may be corrected when the correction is clearly supported and does not expand scope.
+`REFINER_FINDINGS.json` may also contain selected structural warnings
+(`under_decomposition`, `overgrouped_work`, or `shared_capability_hidden`).
+Those warnings were deliberately included because they can make required work
+undispatchable or hide real prerequisites. Verify and correct every supplied
+structural warning when the GDD/current repository supports the finding.
+Ordinary warnings remain outside Refiner input and are reassessed in pass 2.
+
 Suggestions are optional.
 
 ## Requirement-representation repair policy
@@ -83,7 +89,9 @@ For validation requirements, add/correct the requirement under the mapped work
 item's first-class `validation_requirements` field.
 
 For delivery/non-code/pipeline constraints, preserve them under
-`non_code_requirements` rather than manufacturing gameplay tasks.
+`non_code_requirements` rather than manufacturing gameplay tasks, and set each
+record's `requirement_type` to exactly one of `non_code_requirement`,
+`delivery_requirement`, or `pipeline_constraint`.
 
 For deferred design, keep the owning feature/work represented and use
 `decomposition_state: needs_future_decomposition` when appropriate. Do not
@@ -91,6 +99,30 @@ invent the missing design.
 
 Only add a new work item after establishing that `work_item` is the correct
 representation type.
+
+## Known-runtime / deferred-authoring split invariant
+
+Do not leave a fully specified executable runtime responsibility solely inside
+a feature marked `needs_future_decomposition` just because that feature also
+contains content/authoring details that are still unknown.
+
+When both are mixed:
+
+1. keep the unknown authoring/content scope deferred;
+2. create or preserve a separate implementation item for the already-specified
+   runtime mechanism;
+3. move the runtime acceptance criteria and validation requirements to that
+   implementation item;
+4. give it only concrete dependencies established by canon/current architecture.
+
+Current GDD check: encounter authoring may still need future design for exact
+placements, trigger positions, room compositions, and durability values, but
+the active-enemy ceiling enforcement is already specified. The runtime
+activation mechanism must enforce that when existing pursuers plus a new
+encounter would exceed fifteen active enemies, new encounter activation is
+delayed/reduced first and existing pursuers are never removed. If encounter
+work combines this runtime mechanism with deferred authoring, split them rather
+than making the runtime mechanism undispatchable.
 
 ## Refinement boundaries
 
@@ -129,6 +161,11 @@ Ensure:
 - complete implementation claims are genuinely implemented;
 - required GDD behavior is durably represented without speculative microtask explosion;
 - missing design remains marked for future decomposition instead of invented;
+- every non-code record has the correct `requirement_type`, with build/delivery
+  obligations represented as `delivery_requirement` and development-agent/tool
+  invariants represented as `pipeline_constraint` when supported by the GDD;
+- no fully specified runtime mechanism is hidden only inside a
+  `needs_future_decomposition` authoring/content feature;
 - every work item has `acceptance_criteria`, `validation_requirements`, an `execution_scope`, `execution_reason`, and `exclusive_resources`;
 - feature/organizational work has no exclusive resource locks;
 - tasks expected to modify the same non-merge-safe resource use an identical canonical resource key;

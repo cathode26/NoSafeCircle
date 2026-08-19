@@ -206,6 +206,10 @@ COVERAGE_REQUIREMENT_SCHEMA: dict[str, Any] = {
             "type": "array",
             "items": {"type": "string"},
         },
+        "mapped_non_code_titles": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
         "explanation": {"type": "string"},
     },
     "required": [
@@ -215,6 +219,7 @@ COVERAGE_REQUIREMENT_SCHEMA: dict[str, Any] = {
         "classification",
         "representation",
         "mapped_keys",
+        "mapped_non_code_titles",
         "explanation",
     ],
 }
@@ -637,6 +642,11 @@ def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, A
         "validation_requirement",
         "deferred_design",
     }
+    mapped_non_code_representations = {
+        "non_code_requirement",
+        "delivery_requirement",
+        "pipeline_constraint",
+    }
 
     for audit in audits:
         agent = str(audit.get("agent", ""))
@@ -651,6 +661,11 @@ def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, A
             mapped_keys = [
                 str(value)
                 for value in requirement.get("mapped_keys", [])
+                if str(value).strip()
+            ]
+            mapped_non_code_titles = [
+                str(value)
+                for value in requirement.get("mapped_non_code_titles", [])
                 if str(value).strip()
             ]
 
@@ -687,6 +702,15 @@ def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, A
                     problem = (
                         f"{representation!r} requires at least one mapped work "
                         "key so the requirement cannot be silently lost."
+                    )
+                elif (
+                    representation in mapped_non_code_representations
+                    and not mapped_non_code_titles
+                ):
+                    problem = (
+                        f"{representation!r} requires at least one mapped typed "
+                        "non-code record title so the requirement cannot be "
+                        "silently claimed without durable storage."
                     )
 
             elif classification in {"stretch", "excluded"}:
@@ -796,30 +820,69 @@ def merge_findings(audits: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+REFINER_WARNING_CATEGORIES = {
+    "under_decomposition",
+    "overgrouped_work",
+    "shared_capability_hidden",
+}
+
+
+def is_refiner_relevant_report(report: dict[str, Any]) -> bool:
+    finding = report.get("finding", {})
+    severity = str(finding.get("severity", ""))
+    category = str(finding.get("category", ""))
+
+    if severity in {"blocker", "error"}:
+        return True
+
+    return (
+        severity == "warning"
+        and category in REFINER_WARNING_CATEGORIES
+    )
+
+
+def has_refiner_relevant_findings(merged: dict[str, Any]) -> bool:
+    return any(
+        is_refiner_relevant_report(report)
+        for report in merged.get("findings", [])
+    )
+
+
 def has_material_findings(merged: dict[str, Any]) -> bool:
     return int(merged.get("material_finding_count", 0)) > 0
 
 
 def build_refiner_findings(merged: dict[str, Any]) -> dict[str, Any]:
-    # The Refiner's mandatory job is blocker/error repair. Warnings and
-    # suggestions remain in the full pass-1 merge and are independently
-    # reassessed during pass 2.
-    material = [
+    selected = [
         report
         for report in merged.get("findings", [])
-        if report.get("finding", {}).get("severity") in {"blocker", "error"}
+        if is_refiner_relevant_report(report)
     ]
+    material_count = sum(
+        1
+        for report in selected
+        if report.get("finding", {}).get("severity")
+        in {"blocker", "error"}
+    )
+    selected_warning_count = len(selected) - material_count
+
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "source_finding_count": int(merged.get("finding_count", 0)),
-        "material_finding_count": len(material),
-        "findings": material,
+        "material_finding_count": material_count,
+        "selected_finding_count": len(selected),
+        "selected_structural_warning_count": selected_warning_count,
+        "findings": selected,
         "selection_policy": (
-            "Refiner input contains blocker/error findings only. Warnings and "
-            "suggestions remain in MERGED_FINDINGS_PASS1.json and are checked "
-            "again by independent pass-2 auditors."
+            "Refiner input contains all blocker/error findings plus warnings "
+            "whose categories indicate hidden/overgrouped/under-decomposed "
+            "required work. Ordinary warnings and suggestions remain in "
+            "MERGED_FINDINGS_PASS1.json and are reassessed during pass 2. "
+            "This keeps refinement bounded while ensuring scheduler-relevant "
+            "structural warnings are not invisible to the Refiner."
         ),
     }
+
 
 
 # ============================================================
@@ -844,8 +907,10 @@ def run_refiner(
         + f"- Reconciliation source run: `{source_run_id}`\n"
         + f"- Candidate: `{candidate_rel}`\n"
         + f"- Independent merged findings: `{findings_rel}`\n\n"
-        + "Read both inputs. Resolve every blocker/error finding with the current "
-        + "GDD and repository as primary truth. If credible findings conflict and "
+        + "Read both inputs. Resolve every supplied finding with the current "
+        + "GDD and repository as primary truth. The supplied set contains every "
+        + "blocker/error plus only selected scheduler-relevant structural warnings. "
+        + "If credible findings conflict and "
         + "cannot be resolved from evidence, preserve the uncertainty in "
         + "unresolved_questions instead of inventing certainty.\n"
     )
@@ -1051,7 +1116,7 @@ def main() -> int:
         final_candidate = source_candidate
         final_merged = merged1
 
-        if has_material_findings(merged1) and not args.no_refine:
+        if has_refiner_relevant_findings(merged1) and not args.no_refine:
             refinement_performed = True
 
             refiner_findings = build_refiner_findings(merged1)

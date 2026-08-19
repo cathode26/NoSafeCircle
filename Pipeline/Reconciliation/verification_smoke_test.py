@@ -58,6 +58,7 @@ def main() -> int:
                         "classification": "required_gameplay",
                         "representation": "unrepresented",
                         "mapped_keys": [],
+                        "mapped_non_code_titles": [],
                         "explanation": "Deliberately uncovered for smoke test.",
                     }
                 ],
@@ -93,6 +94,7 @@ def main() -> int:
                         "classification": "required_gameplay",
                         "representation": "acceptance_criterion",
                         "mapped_keys": ["existing-task"],
+                        "mapped_non_code_titles": [],
                         "explanation": "Acceptance criterion.",
                     },
                     {
@@ -102,6 +104,7 @@ def main() -> int:
                         "classification": "required_gameplay",
                         "representation": "validation_requirement",
                         "mapped_keys": ["existing-task"],
+                        "mapped_non_code_titles": [],
                         "explanation": "Validation requirement.",
                     },
                     {
@@ -111,6 +114,7 @@ def main() -> int:
                         "classification": "required_process",
                         "representation": "pipeline_constraint",
                         "mapped_keys": [],
+                        "mapped_non_code_titles": ["No concurrent Unity asset edits"],
                         "explanation": "Pipeline invariant.",
                     },
                     {
@@ -120,13 +124,15 @@ def main() -> int:
                         "classification": "required_non_code",
                         "representation": "delivery_requirement",
                         "mapped_keys": [],
+                        "mapped_non_code_titles": ["Windows build"],
                         "explanation": "Delivery requirement.",
                     },
                 ]
             },
         }
     ]
-    assert crew.deterministic_audit_checks(taxonomy_ok) == []
+    taxonomy_ok_findings = crew.deterministic_audit_checks(taxonomy_ok)
+    assert taxonomy_ok_findings == [], taxonomy_ok_findings
 
     taxonomy_bad = [
         {
@@ -141,6 +147,7 @@ def main() -> int:
                         "classification": "required_gameplay",
                         "representation": "ambiguous",
                         "mapped_keys": [],
+                        "mapped_non_code_titles": [],
                         "explanation": "Ambiguous on purpose.",
                     },
                     {
@@ -150,6 +157,7 @@ def main() -> int:
                         "classification": "required_gameplay",
                         "representation": "pipeline_constraint",
                         "mapped_keys": [],
+                        "mapped_non_code_titles": [],
                         "explanation": "Wrong representation on purpose.",
                     },
                     {
@@ -159,6 +167,7 @@ def main() -> int:
                         "classification": "required_gameplay",
                         "representation": "acceptance_criterion",
                         "mapped_keys": [],
+                        "mapped_non_code_titles": [],
                         "explanation": "Missing owner on purpose.",
                     },
                     {
@@ -168,6 +177,7 @@ def main() -> int:
                         "classification": "stretch",
                         "representation": "work_item",
                         "mapped_keys": ["bad-stretch-task"],
+                        "mapped_non_code_titles": [],
                         "explanation": "Scope leak on purpose.",
                     },
                 ]
@@ -191,18 +201,60 @@ def main() -> int:
 
     refiner_findings = crew.build_refiner_findings(
         {
-            "finding_count": 3,
+            "finding_count": 4,
             "findings": [
-                {"finding": {"severity": "error", "title": "must fix"}},
-                {"finding": {"severity": "warning", "title": "recheck later"}},
-                {"finding": {"severity": "suggestion", "title": "optional"}},
+                {
+                    "finding": {
+                        "severity": "error",
+                        "category": "missing_required_work",
+                        "title": "must fix",
+                    }
+                },
+                {
+                    "finding": {
+                        "severity": "warning",
+                        "category": "under_decomposition",
+                        "title": "structural warning must refine",
+                    }
+                },
+                {
+                    "finding": {
+                        "severity": "warning",
+                        "category": "other",
+                        "title": "ordinary warning waits for pass2",
+                    }
+                },
+                {
+                    "finding": {
+                        "severity": "suggestion",
+                        "category": "other",
+                        "title": "optional",
+                    }
+                },
             ],
         }
     )
-    assert refiner_findings["source_finding_count"] == 3
+    assert refiner_findings["source_finding_count"] == 4
     assert refiner_findings["material_finding_count"] == 1
-    assert len(refiner_findings["findings"]) == 1
-    assert refiner_findings["findings"][0]["finding"]["title"] == "must fix"
+    assert refiner_findings["selected_finding_count"] == 2
+    assert refiner_findings["selected_structural_warning_count"] == 1
+    assert len(refiner_findings["findings"]) == 2
+    assert {
+        item["finding"]["title"]
+        for item in refiner_findings["findings"]
+    } == {"must fix", "structural warning must refine"}
+    assert crew.has_refiner_relevant_findings(
+        {
+            "findings": [
+                {
+                    "finding": {
+                        "severity": "warning",
+                        "category": "under_decomposition",
+                    }
+                }
+            ]
+        }
+    )
     assert crew.choose_refiner_model(random.Random(1), assignments) == crew.REFINER_MODEL
 
     payload = {
@@ -309,6 +361,27 @@ def main() -> int:
     assert requirement_upgraded == ["legacy-requirement-task"]
     assert requirement_legacy["work_items"][0]["acceptance_criteria"] == []
     assert requirement_legacy["work_items"][0]["validation_requirements"] == []
+
+    non_code_legacy = {
+        "non_code_requirements": [
+            {
+                "title": "Legacy requirement",
+                "status": "unknown",
+                "gdd_evidence": [],
+                "evidence": "Legacy candidate",
+            }
+        ]
+    }
+    non_code_upgraded = (
+        reconciliation.ensure_non_code_requirement_type_defaults(
+            non_code_legacy
+        )
+    )
+    assert non_code_upgraded == ["Legacy requirement"]
+    assert (
+        non_code_legacy["non_code_requirements"][0]["requirement_type"]
+        == "non_code_requirement"
+    )
 
     print("verification smoke test passed")
     print(f"model pool: {', '.join(crew.MODEL_POOL)}")

@@ -178,6 +178,34 @@ For concrete implementation work, also judge whether the node is a safe one-agen
 
 ---
 
+# Known runtime behavior vs deferred content authoring
+
+A feature may contain BOTH:
+
+1. a fully specified runtime mechanism that can already be implemented from
+   approved GDD rules; and
+2. content/authoring details whose exact design is still intentionally unknown.
+
+Do not hide (1) behind `needs_future_decomposition` merely because (2) is
+unknown.
+
+When this happens:
+
+- preserve the unknown authoring/content scope as a feature using
+  `needs_future_decomposition`;
+- create a separate concrete/coarse implementation work item for the already
+  specified runtime mechanism;
+- attach the runtime acceptance criteria and validation requirements to that
+  implementation item;
+- use real dependencies only for concrete prerequisites.
+
+Current GDD example: encounter placement/composition/trigger details and exact
+per-door durability values may remain deferred authoring, but the activation
+rule that enforces the fifteen-active-enemy ceiling is already specified:
+new-encounter activation is delayed/reduced first and existing pursuers are
+never removed. That runtime enforcement must not become undispatchable merely
+because room-specific encounter authoring is deferred.
+
 # Work kinds
 
 Use:
@@ -556,6 +584,29 @@ Low-confidence important items should normally appear in `unresolved_questions`.
 # Non-code requirements
 
 Report required non-code/build/delivery requirements separately.
+
+Every non-code record must set `requirement_type`:
+
+- `non_code_requirement` — a required non-code obligation that is neither
+  primarily a build/delivery obligation nor a pipeline invariant;
+- `delivery_requirement` — a required build/submission/delivery obligation such
+  as the Windows build;
+- `pipeline_constraint` — a required development-process invariant such as
+  human inspection gates, source-control/credential constraints, or rules that
+  limit concurrent agent changes.
+
+Do not collapse these categories back into an untyped generic record.
+
+Give every non-code record a concise UNIQUE title. Coverage auditors use the
+exact title as a stable mapping identifier, so two separate requirements must
+not reuse the same title.
+
+Examples:
+
+- `Windows build` -> `delivery_requirement`
+- `No concurrent Unity asset edits` -> `pipeline_constraint`
+- `Credentials outside source control` -> `pipeline_constraint`
+
 
 Use:
 

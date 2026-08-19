@@ -36,6 +36,10 @@ For each work item, independently test:
 6. Has the candidate decomposed beyond approved design and invented speculative work?
 7. Has the candidate failed to decompose a clearly specified reusable foundation or runtime system?
 8. Does a `needs_future_decomposition` node defer only the design that is truly unknown, while preserving concrete foundations that are already required?
+8a. Does any `needs_future_decomposition` feature also contain a fully
+specified runtime mechanism that could already be implemented and validated
+without inventing the deferred content? If so, the runtime mechanism must be
+separated from the deferred authoring/content scope.
 9. Are dependency targets concrete artifact/implementation work rather than organizational features?
 10. Would this graph allow `taskcontrol ready` to expose work before its real prerequisites exist?
 11. Do otherwise-independent tasks that will modify the same source file, Unity scene, prefab, builder, or non-merge-safe integration surface share the same `exclusive_resources` key?
@@ -46,6 +50,20 @@ Be especially alert to cross-system requirements. A capability consumed by movem
 Do not add dependencies merely because two systems interact. Dependencies are execution prerequisites, not conceptual associations.
 
 Likewise, do not invent dependency ordering merely because two tasks share an exclusive resource. A resource collision means both tasks may be ready but must not be dispatched concurrently. Use `category: exclusive_resource_problem` when the scheduling lock metadata is missing, inconsistent, or overbroad.
+
+Treat a fully specified required runtime mechanism becoming
+**undispatchable** solely because it is bundled inside deferred content
+authoring as an `under_decomposition` **error**, not merely a warning. That
+structure can cause `taskcontrol ready` to hide required work indefinitely.
+
+For this GDD, specifically test encounter work for the distinction between:
+
+- deferred per-room placements, trigger positions, exact compositions, and
+  durability authoring; versus
+- the already-specified runtime activation/cap rule that delays or reduces new
+  encounter activation before ever removing persistent pursuers.
+
+Do not invent deferred encounter content while performing this check.
 
 If ordering is uncertain, report it rather than inventing certainty.
 
