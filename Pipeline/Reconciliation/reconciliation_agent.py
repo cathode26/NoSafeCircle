@@ -370,12 +370,18 @@ RECONCILIATION_SCHEMA: dict[str, Any] = {
 # PATH / BOUNDARY VALIDATION
 # ============================================================
 
-ALLOWED_EXACT_PATHS = {
+ALLOWED_CURRENT_EXACT_PATHS = {
     "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Packages/manifest.json",
+}
+
+ALLOWED_HISTORICAL_PATHS = {
     "Assignment6GER/README_Assignment6.md",
     "GoalOrientedAgent/outputs/goal_analysis.json",
     "GoalOrientedAgent/outputs/next_goal_selection.json",
 }
+
+ALLOWED_EXACT_PATHS = ALLOWED_CURRENT_EXACT_PATHS | ALLOWED_HISTORICAL_PATHS
 
 ALLOWED_PREFIXES = (
     "Assets/",
@@ -491,9 +497,7 @@ def validate_reviewed_paths(payload: dict[str, Any]) -> None:
     invalid_history = [
         str(path)
         for path in historical
-        if _normalize_path(str(path)) not in ALLOWED_EXACT_PATHS
-        or _normalize_path(str(path))
-        == "Docs/GDD/No_Safe_Circle_GDD.md"
+        if _normalize_path(str(path)) not in ALLOWED_HISTORICAL_PATHS
     ]
     if invalid_history:
         raise RuntimeError(

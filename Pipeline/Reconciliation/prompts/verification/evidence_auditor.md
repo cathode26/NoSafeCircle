@@ -17,6 +17,10 @@ Then independently inspect current project evidence under:
 
 - `Assets/`
 - `ProjectSettings/` when relevant
+- `Packages/manifest.json` when installed Unity package availability is directly relevant
+
+Do not inspect other files under `Packages/`; only the exact package manifest is
+approved as current-project configuration evidence.
 
 You may use only explicitly allowed historical evidence if the candidate cites it:
 

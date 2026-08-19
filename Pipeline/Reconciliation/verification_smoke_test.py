@@ -2,11 +2,40 @@ from __future__ import annotations
 
 import random
 
+import reconciliation_agent as reconciliation
 import verification_crew as crew
 
 
 def main() -> int:
     assignments = crew.choose_audit_models(random.Random(12345))
+
+    assert reconciliation._is_allowed_review_path("Packages/manifest.json")
+    assert not reconciliation._is_allowed_review_path("Packages/packages-lock.json")
+
+    valid_history = {
+        "sources": {
+            "files_reviewed": ["Packages/manifest.json"],
+            "historical_sources_reviewed": [
+                "Assignment6GER/README_Assignment6.md"
+            ],
+        }
+    }
+    reconciliation.validate_reviewed_paths(valid_history)
+
+    invalid_history = {
+        "sources": {
+            "files_reviewed": ["Packages/manifest.json"],
+            "historical_sources_reviewed": ["Packages/manifest.json"],
+        }
+    }
+    try:
+        reconciliation.validate_reviewed_paths(invalid_history)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError(
+            "Packages/manifest.json must not be accepted as historical evidence."
+        )
 
     if len(crew.MODEL_POOL) > 1:
         assert assignments["coverage_a"] != assignments["coverage_b"]

@@ -18,8 +18,12 @@ Use:
 1. `Docs/GDD/No_Safe_Circle_GDD.md`
 2. current `Assets/`
 3. `ProjectSettings/` when relevant
-4. the original frozen candidate
-5. the merged independent findings
+4. `Packages/manifest.json` when installed Unity package availability is directly relevant
+5. the original frozen candidate
+6. the merged independent findings
+
+Do not inspect other files under `Packages/`; only the exact package manifest is
+approved as current-project configuration evidence.
 
 Never inspect:
 

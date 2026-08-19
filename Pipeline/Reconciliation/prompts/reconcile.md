@@ -56,6 +56,7 @@ You should inspect:
 1. `Docs/GDD/No_Safe_Circle_GDD.md`
 2. `Assets/`
 3. `ProjectSettings/` only when a GDD requirement genuinely depends on project configuration
+4. `Packages/manifest.json` only when installed Unity package availability materially affects a required implementation
 
 The GDD is root design canon.
 

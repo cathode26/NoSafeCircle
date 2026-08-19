@@ -63,6 +63,7 @@ Primary truth:
 - `Docs/GDD/No_Safe_Circle_GDD.md`
 - `Assets/`
 - `ProjectSettings/` when relevant
+- `Packages/manifest.json` when installed package availability is relevant
 
 Optional historical evidence:
 
