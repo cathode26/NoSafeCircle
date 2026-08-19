@@ -1,0 +1,9 @@
+Assignment 6 — Pre-Build Declaration
+Vincent Liguori
+No Safe Circle
+
+1. No Safe Circle will generate Unity implementation code for missing capstone features. Assignment 5's saved goal analysis is used to select the next missing feature instead of choosing one manually. For this run, Assignment 5 selected Fixed Isometric Camera and Projection Setup.
+
+2. The camera implementation must satisfy the GDD's fixed 2.5D isometric presentation. For this selected task, the Main Camera must use orthographic projection with fixed isometric framing and must not allow free world-view rotation.
+
+3. The generated implementation fails if the camera remains perspective, allows free rotation, or otherwise does not establish the required fixed orthographic isometric view. Compiling successfully by itself is not enough to pass.

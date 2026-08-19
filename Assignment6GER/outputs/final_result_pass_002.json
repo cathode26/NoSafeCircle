@@ -1,0 +1,157 @@
+{
+  "game": "No Safe Circle",
+  "selected_goal": {
+    "name": "Fixed Isometric Camera and Projection Setup",
+    "description": "Replace the disposable perspective test camera with a fixed orthographic isometric camera configuration matching the GDD's Diablo-1/Ultima-Online-inspired fixed 2.5D isometric presentation."
+  },
+  "gdd_rule_id": "gdd-fixed-orthographic-isometric-camera",
+  "status": "accepted_static",
+  "reason": "The implementation passed the Assignment 6 static GDD-specific Evaluator. If this run followed human runtime feedback, the developer must now test the refined result again in Unity.",
+  "implementation_passes": 2,
+  "refinements_used": 1,
+  "circuit_breaker": {
+    "max_refinements": 3,
+    "refinements_used": 1,
+    "tripped": false
+  },
+  "latest_implementation": {
+    "status": "implemented",
+    "selected_goal_name": "Fixed Isometric Camera and Projection Setup",
+    "selected_goal_description": "Replace the disposable perspective test camera with a fixed orthographic isometric camera configuration matching the GDD's Diablo-1/Ultima-Online-inspired fixed 2.5D isometric presentation.",
+    "implementation_summary": "This was a refine pass on the previously-implemented orthographic isometric camera, correcting two human-Unity-runtime-reported defects without broadening scope. Root cause of \"faces wrong direction\": BuildCamera() set the camera's rotation (Euler 30,45,0) and its world position offset (10,10,-10) as two independently hand-picked values that did not actually agree - the forward vector produced by that rotation points away from the origin on the X axis rather than back toward it, so the camera's boresight missed the scene. Fix: the camera position is now derived directly from its own rotation (`targetPosition + rotation * new Vector3(0,0,-distance)`), i.e. it is placed by stepping back along its own local -Z axis from the follow target, which mathematically guarantees camera.forward always points exactly at the target regardless of the chosen angle - eliminating the class of bug entirely rather than just re-tuning magic numbers. Distance was kept equal to the original offset's magnitude (sqrt(300)) to preserve the same framing/zoom feel. Root cause of \"stationary camera cripples gameplay\": the camera had a one-time fixed world position with no tracking of the player. Fix: added a new IsometricCameraFollow component that stores a captured offset (camera position minus target position at Initialize time) and re-applies `target.position + offset` every LateUpdate, translating the camera each frame while never touching its rotation - preserving the fixed isometric orientation and preventing any free/player-controlled rotation, per the evaluator's developer_interpretation. BuildCamera() is now called after BuildPlayer() (minimal reordering) so it can wire the player's transform as the follow target, and the follow component is initialized via an explicit `Initialize()` call (not Awake) to avoid a component-lifecycle ordering pitfall where AddComponent invokes Awake before a caller-assigned target field would be set.",
+    "files_created": [
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs.meta"
+    ],
+    "files_modified": [
+      "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs"
+    ],
+    "tests_added": [
+      "Build_MainCamera_ForwardDirectionPointsAtPlayer - asserts the angle between camera.transform.forward and the direction to the player is under 0.5 degrees, directly catching the previous position/rotation mismatch bug",
+      "Build_MainCamera_HasFollowComponentTargetingPlayer - asserts an IsometricCameraFollow component exists on Main Camera and its private target field (read via SerializedObject, matching this test file's existing convention) is the Player transform",
+      "Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed - moves the player, invokes the follow component's private LateUpdate via reflection (Unity does not run Update/LateUpdate outside Play Mode), and asserts the camera keeps the same relative offset to the player while its rotation is byte-for-byte unchanged"
+    ],
+    "validations": [
+      {
+        "name": "Manual math verification of camera-forward-to-target alignment",
+        "status": "passed",
+        "details": "Verified analytically that position = target + rotation*(0,0,-distance) is algebraically equivalent to target - forward*distance (since forward = rotation*(0,0,1) and quaternion rotation distributes over scalar multiples), which guarantees camera.transform.forward points exactly at the target with zero angular error. This directly fixes the reported wrong-direction defect at its root cause."
+      },
+      {
+        "name": "Targeted diff review of changed files",
+        "status": "passed",
+        "details": "Used `git diff --ignore-space-at-eol` scoped to the modified files to review only the semantic changes (ignoring a large pre-existing repo-wide CRLF/LF whitespace-check issue affecting every line of many files, unrelated to and predating this change). Confirmed the diff contains exactly the intended camera fix and follow wiring, no stray edits."
+      },
+      {
+        "name": "Reference/consistency grep for removed API and new component usage",
+        "status": "passed",
+        "details": "grep confirmed no remaining references to the old parameterless BuildCamera() signature or the removed IsometricCameraOffset constant, and that IsometricCameraFollow is referenced consistently across the scene builder, the new script, and the test file."
+      },
+      {
+        "name": "Namespace/asmdef resolution check",
+        "status": "passed",
+        "details": "Confirmed IsometricCameraFollow.cs lives under Assets/NoSafeCircle/DoorPrototype/Scripts, covered by the existing NoSafeCircle.DoorPrototype.asmdef (no new asmdef needed), and that the Tests.Editor asmdef already references that assembly, so the unqualified type name resolves via C#'s enclosing-namespace lookup exactly as the existing DebugDamageControl reference in the same test file does."
+      },
+      {
+        "name": "Unity compile / Test Runner execution",
+        "status": "not_available",
+        "details": "No Unity executable or UnityHub was found in this sandboxed environment (checked PATH and common install locations), so the scene builder could not be run to regenerate DoorPrototype.unity, and the EditMode/PlayMode Test Runner could not be executed."
+      }
+    ],
+    "unity_run_status": "not_available",
+    "manual_unity_validation": [
+      "Open the project in Unity 6000.1.8f1 and run menu 'No Safe Circle/Build Door Prototype Scene' to regenerate DoorPrototype.unity with the corrected camera (this must be done by a human/Unity since no Unity executable was available in this environment).",
+      "Enter Play Mode: confirm the Main Camera view now shows the floor/door/walls centered in frame at the fixed 30/45 isometric angle (not looking off into empty space as before).",
+      "Move the player with WASD and confirm the camera translates to keep the player centered/framed, with no visible rotation or tilt change as it follows.",
+      "Run Window > General > Test Runner > EditMode and confirm all tests in NoSafeCircle.DoorPrototype.Tests.Editor pass, including the three new camera tests.",
+      "Optionally run the existing PlayMode tests (NoSafeCircle.DoorPrototype.Tests) to confirm no regressions from the BuildCamera call-order change (Camera is now built after Player)."
+    ],
+    "requirements_satisfied": [
+      "Camera remains orthographic (unchanged from the passing part of the prior implementation).",
+      "Camera rotation remains the fixed 30/45 dimetric isometric angle and is never modified after scene build, satisfying 'no free player-controlled rotation' and 'consistent isometric viewing orientation'.",
+      "Corrected the camera's world position so it is mathematically derived from its own rotation, fixing the reported 'view points in the wrong direction' defect at its root cause rather than re-guessing offset numbers.",
+      "Added camera translation/follow behavior (IsometricCameraFollow) so the player/gameplay area stays visible as the player moves, fixing the reported 'stationary camera cripples gameplay' defect, while explicitly not adding any rotation logic."
+    ],
+    "remaining_work": [
+      "A human with Unity must run the 'Build Door Prototype Scene' menu command to regenerate the checked-in .unity scene file with this corrected camera setup, since scene YAML cannot be hand-edited per project rules and no Unity executable was available in this sandboxed environment.",
+      "Human/Unity execution of the EditMode and PlayMode test suites to confirm the new tests pass and no existing tests regressed from the BuildCamera call-order change."
+    ],
+    "notes": "Unity was not available in this environment (no Unity/UnityHub executable found), so the code changes could not be compiled or run through the actual Unity Editor/Test Runner. All validation was done via direct source inspection, targeted git diffs of only the changed lines, and manual verification of the vector/quaternion math guaranteeing camera.forward now points exactly at the follow target. Per assignment rules this is reported honestly as unity_run_status = not_available rather than claimed as run.",
+    "assignment6_ger_role": "refiner",
+    "assignment6_pass_number": 2,
+    "observed_assets_delta": {
+      "created": [
+        "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+        "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs.meta"
+      ],
+      "modified": [
+        "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+        "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs"
+      ],
+      "deleted": []
+    }
+  },
+  "latest_evaluation": {
+    "status": "pass",
+    "summary": "The refined camera implementation (pass 2) correctly addresses both human-reported runtime defects while preserving orthographic projection, a fixed isometric orientation, and no free player-controlled rotation, and stays within the selected camera/projection scope.",
+    "criteria_results": [
+      {
+        "id": "orthographic_projection",
+        "status": "pass",
+        "evidence": "DoorPrototypeSceneBuilder.BuildCamera() sets camera.orthographic = true and camera.orthographicSize = IsometricOrthographicSize (8f) at lines 127-128, unchanged by this refine pass."
+      },
+      {
+        "id": "consistent_isometric_presentation",
+        "status": "pass",
+        "evidence": "Camera rotation is fixed to Quaternion.Euler(30f,45f,0f) (IsometricCameraEulerAngles, line 22) and is set once in BuildCamera and never modified afterward (IsometricCameraFollow.LateUpdate only writes transform.position, never transform.rotation). The prior wrong-direction defect is fixed at the root: cameraObject.transform.position is now derived as targetPosition + rotation * new Vector3(0,0,-distance) (line 134), which is algebraically equivalent to targetPosition - camera.forward*distance, guaranteeing camera.forward points exactly at the target for any chosen rotation. A new test (Build_MainCamera_ForwardDirectionPointsAtPlayer) directly asserts the angle between camera.forward and the direction to the player is under 0.5 degrees."
+      },
+      {
+        "id": "no_free_camera_rotation",
+        "status": "pass",
+        "evidence": "IsometricCameraFollow (Scripts/IsometricCameraFollow.cs) only reads target.position and writes transform.position in LateUpdate; it never touches transform.rotation. No PlayerMovement, input, or other script in Assets/NoSafeCircle references camera rotation, and a grep for Orbit/FreeLook/MouseLook/CameraRotate across Assets/NoSafeCircle returns only the pre-existing test assertion that no such component is attached (Build_MainCamera_IsFixedOrthographicIsometric). New test Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed explicitly asserts camera rotation is byte-for-byte unchanged after the player moves and the follow component runs."
+      },
+      {
+        "id": "selected_goal_scope",
+        "status": "pass",
+        "evidence": "Diff for this pass is confined to DoorPrototypeSceneBuilder.cs (camera position/rotation fix + BuildCamera call reordered after BuildPlayer to obtain a follow target + follow-component wiring), a new IsometricCameraFollow.cs script (camera-follow-target scope), and the corresponding test file. No Tilemap, sprite-sorting, spell, enemy, or door-lifecycle code was touched; the camera-follow behavior added is explicitly the translation needed to keep the selected camera usable per the contract's own scope note ('Camera translation/follow needed to make the selected camera usable is still camera scope')."
+      }
+    ],
+    "blocking_issues": [],
+    "compile_risks": [
+      "No Unity executable was available to actually compile/run the project (acknowledged honestly in implementation_result.json as unity_run_status: not_available); static review found no stale references to removed APIs, and the Tests.Editor asmdef already references the NoSafeCircle.DoorPrototype assembly where IsometricCameraFollow lives, so no reference-resolution issue is evident, but this remains unverified by an actual Unity compile."
+    ],
+    "non_blocking_notes": [
+      "The runtime_feedback in ger_contract.json is fully addressed: the wrong-direction defect is fixed by deriving camera position from its own rotation rather than an independently hand-picked offset, and the stationary-camera defect is fixed by IsometricCameraFollow translating (never rotating) the camera to track the player.",
+      "Human Unity execution (Play Mode visual check, Test Runner run) is still required per remaining_work in implementation_result.json and per this GER's own rule that static evaluation is a separate layer from real Unity runtime validation; this pass does not claim otherwise."
+    ],
+    "files_reviewed": [
+      "Assignment6GER/outputs/ger_contract.json",
+      "Assignment6GER/outputs/implementation_result.json",
+      "Docs/GDD/No_Safe_Circle_GDD.md",
+      "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+      "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef",
+      "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NoSafeCircle.DoorPrototype.Tests.Editor.asmdef",
+      "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs"
+    ]
+  },
+  "completed_at_utc": "2026-08-19T00:21:54.769557+00:00",
+  "runtime_feedback_used": {
+    "status": "needs_changes",
+    "source": "human_unity_runtime_validation",
+    "summary": "The orthographic camera implementation passed static evaluation but failed when tested in Unity: the view points in the wrong direction and the stationary camera makes gameplay unusable as the player moves.",
+    "developer_interpretation": "For this implementation, preserve orthographic projection, a consistent isometric viewing orientation, and no free player-controlled rotation. Do not require the camera to stay at one absolute world-space position if translation/follow behavior is needed to keep gameplay visible.",
+    "blocking_issues": [
+      {
+        "issue": "The rebuilt orthographic camera faces the wrong direction.",
+        "required_fix": "Correct the isometric viewing direction/framing while preserving orthographic projection and a consistent isometric orientation."
+      },
+      {
+        "issue": "The camera remains stationary while the player moves, causing the player/gameplay area to leave the useful view and crippling gameplay.",
+        "required_fix": "Keep the player/gameplay area visible through camera translation or follow behavior while preserving the fixed isometric orientation and preventing free player-controlled camera rotation."
+      }
+    ]
+  }
+}

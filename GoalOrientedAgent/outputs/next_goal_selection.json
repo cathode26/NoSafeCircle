@@ -1,0 +1,86 @@
+{
+  "mode": "reuse_saved_goal_analysis",
+  "source_analysis": "GoalOrientedAgent/outputs/goal_analysis.json",
+  "source_implementation_result": "GoalOrientedAgent/outputs/implementation_result.json",
+  "fresh_repository_analysis_performed": false,
+  "snapshot_warning": "This selection reuses the saved Assignment 5 analysis. It does not rescan the current GDD or Assets/, so it is a continuation from that snapshot rather than a fresh current-state analysis.",
+  "completed_goals": [
+    "Mana Resource System (Pool, Spend, Post-Cast Regen)"
+  ],
+  "eligible_goal_names": [
+    "Mouse-Directed Movement and Cursor Targeting",
+    "Fixed Isometric Camera and Projection Setup",
+    "Isometric Tilemap World Foundation (First Room)",
+    "Door Close-Lock-Break Lifecycle Extension",
+    "Death and Floor Restart System"
+  ],
+  "selected_goal": {
+    "name": "Fixed Isometric Camera and Projection Setup",
+    "description": "Replace the disposable perspective test camera with a fixed orthographic isometric camera configuration matching the GDD's Diablo-1/Ultima-Online-inspired fixed 2.5D isometric presentation.",
+    "scope": "required",
+    "implementation_scope": "Configure the Main Camera to orthographic projection at the correct isometric angle/orthographic size, and fix its position/rotation so it cannot rotate freely. Verify visually against the existing test room. Single behavior: correct fixed isometric camera setup only; no Tilemap authoring or sprite-sorting configuration included.",
+    "dependencies": [
+      {
+        "name": "Main Camera GameObject",
+        "strength": "supporting_dependency",
+        "state": "present_incompatible",
+        "evidence": "DoorPrototypeSceneBuilder.BuildCamera() sets a perspective camera at (0,8,-8) rotated (45,0,0); confirmed serialized in DoorPrototype.unity.",
+        "reasoning": "This is the object being corrected by the candidate itself, not a blocking external prerequisite.",
+        "required_gdd_work": false,
+        "independently_testable": false,
+        "should_promote_to_candidate": false,
+        "promoted_candidate_name": ""
+      },
+      {
+        "name": "Disposable primitive test Floor/Walls",
+        "strength": "supporting_dependency",
+        "state": "present_incompatible",
+        "evidence": "BuildFloor()/BuildWalls() use CreatePrimitive(Plane/Cube); no Tilemap exists yet.",
+        "reasoning": "Sufficient as a disposable rendering target to visually confirm the camera's isometric framing; not a hard blocker for validating camera projection itself.",
+        "required_gdd_work": false,
+        "independently_testable": false,
+        "should_promote_to_candidate": false,
+        "promoted_candidate_name": ""
+      }
+    ],
+    "prerequisites_ready": true,
+    "resource_acquisition_readiness": "high",
+    "resource_acquisition_reasoning": "No external art/resource is needed; this is a Unity camera component/transform configuration change only. PixelLab is not relevant.",
+    "prototype_readiness": "high",
+    "integration_readiness": "medium",
+    "foundation_compatibility": "compatible",
+    "foundation_reasoning": "This candidate is itself the focused correction/replacement of the known-incompatible perspective test camera; once corrected, the camera component directly matches the GDD's required fixed orthographic isometric presentation with no remaining incompatible foundation underneath it.",
+    "expected_rework_risk": "low",
+    "implementation_risk": "low",
+    "unlock_value": "medium",
+    "unlock_reasoning": "Camera correctness is a hard prerequisite for later visual/art-authoring validation (Tilemap alignment, sprite sorting), but the GDD explicitly decouples the visible isometric layer from the gameplay/simulation layer, so no required gameplay-code feature (movement, doors, spells, enemies) is mechanically blocked by an imperfect camera today; its unlock is real but scoped to the visual layer rather than gameplay-code systems.",
+    "is_focused_slice": true,
+    "decomposition_reasoning": "Single testable behavior (camera projection/fixed framing); no Tilemap, sprite, or gameplay logic included.",
+    "systems_unlocked": [
+      "Isometric Tilemap world authoring",
+      "sprite sorting configuration",
+      "future isometric art integration"
+    ],
+    "risk_and_size": "Very small, single-component configuration change; quick to verify visually.",
+    "reasoning": "Low-risk, self-contained correction of a known-incompatible foundation, but its unlock is concentrated in the visual/art-authoring layer rather than required gameplay-code systems."
+  },
+  "selection_reason": "With Mana now complete, Fixed Isometric Camera and Door Close-Lock-Break Lifecycle Extension are tied on every top-tier readiness/risk dimension: prerequisites_ready=true, resource_acquisition_readiness=high, prototype_readiness=high, foundation_compatibility=compatible, expected_rework_risk=low, implementation_risk=low, and both are labeled unlock_value=medium. The tiebreaker is what that medium unlock actually connects to. Door's own saved reasoning explicitly flags it as a leaf feature that \"nothing else depends on.\" Camera, by contrast, is named directly in the Isometric Tilemap World Foundation candidate's dependency list as a shared_future_dependency (should_promote_to_candidate=true, promoted_candidate_name=\"Fixed Isometric Camera and Projection Setup\") -- it was carved out specifically because the project's single highest-unlock required candidate (Tilemap Foundation: enemy navigation, remaining four rooms, encounter placement) benefits from a correct camera for alignment and sprite-sorting validation. Camera is also the smallest saved risk_and_size (\"very small, single-component configuration change\") of any remaining candidate, versus Door's \"small, single-file extension.\" Tradeoff acknowledged: Camera's unlock is scoped to the visual/art-authoring layer, which the GDD explicitly decouples from gameplay/simulation logic, so it does not unblock any required gameplay-code system today the way Door's close/lock/break state conceptually feeds into future Dungeon Encounter Agent door-pressure mechanics. But Door's own metadata concedes it has zero downstream dependents, while Camera is a concrete, near-zero-risk stepping stone toward the largest remaining required milestone. That makes Camera the better next pick despite the tie in raw readiness scores.",
+  "alternatives_considered": [
+    {
+      "name": "Door Close-Lock-Break Lifecycle Extension",
+      "reason_not_selected": "Ties Camera on every readiness/risk dimension (prerequisites_ready, resource_acquisition_readiness, prototype_readiness, foundation_compatibility, expected_rework_risk, implementation_risk) and shares the same medium unlock_value, but its own saved reasoning explicitly calls it a leaf feature that no other missing system depends on, whereas Camera is a named dependency of the project's highest-unlock required candidate (Tilemap Foundation)."
+    },
+    {
+      "name": "Mouse-Directed Movement and Cursor Targeting",
+      "reason_not_selected": "High unlock_value (feeds Fireball/Frost Field/Force Wave aiming) but weaker foundation profile than Camera or Door: foundation_compatibility=mixed and expected_rework_risk=medium because it must currently rest on the disposable, known-incompatible perspective test camera as a stand-in."
+    },
+    {
+      "name": "Isometric Tilemap World Foundation (First Room)",
+      "reason_not_selected": "Highest unlock_value of all remaining candidates (hard prerequisite for enemy navigation, the other four rooms, and encounter placement), but its own saved metadata shows integration_readiness=low and expected_rework_risk/implementation_risk=medium as the project's first Tilemap authoring attempt -- and it explicitly lists the incompatible camera as a dependency, making Camera the more sequenced choice to tackle first."
+    },
+    {
+      "name": "Death and Floor Restart System",
+      "reason_not_selected": "Low implementation_risk and required scope, but integration_readiness=low and expected_rework_risk=medium since its real meaning depends on the multi-room persistent run-state architecture that does not exist yet; today's single-room demonstration is likely to need rework later."
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "game": "No Safe Circle",
+  "selected_goal_name": "Fixed Isometric Camera and Projection Setup",
+  "rule_id": "gdd-fixed-orthographic-isometric-camera",
+  "gdd_source": "Docs/GDD/No_Safe_Circle_GDD.md",
+  "gdd_section": "2. Game Mechanics > 2.5D Isometric Presentation and Controls; 5. Technical Strategy > Runtime Implementation",
+  "rule_text": "No Safe Circle uses a fixed orthographic isometric camera. The runtime implementation presents the world from a consistent isometric angle with no free camera rotation.",
+  "required_checks": [
+    {
+      "id": "orthographic_projection",
+      "requirement": "The gameplay Main Camera is configured to use orthographic projection.",
+      "verification": "Inspect the current camera/scene-builder implementation and cite the code that sets or preserves Camera.orthographic = true."
+    },
+    {
+      "id": "consistent_isometric_presentation",
+      "requirement": "The implementation establishes a consistent isometric viewing orientation/framing appropriate to the GDD's 2.5D presentation instead of leaving the old perspective test-camera setup.",
+      "verification": "Cite the camera transform/projection configuration and explain how it preserves a consistent isometric viewpoint."
+    },
+    {
+      "id": "no_free_camera_rotation",
+      "requirement": "The player cannot freely rotate the world view during play.",
+      "verification": "Inspect relevant camera/input scripts for player-controlled camera rotation and cite evidence that none is introduced."
+    },
+    {
+      "id": "selected_goal_scope",
+      "requirement": "The implementation stays within Assignment 5's camera/projection slice and does not absorb Tilemap authoring, sprite-sorting systems, spells, enemies, or unrelated missing features.",
+      "verification": "Compare changed files and behavior against selected_goal.implementation_scope. Camera translation/follow needed to make the selected camera usable is still camera scope."
+    }
+  ],
+  "failure_definition": [
+    "The camera remains perspective.",
+    "The generated implementation allows free player-controlled camera rotation.",
+    "The generated implementation does not establish a consistent isometric presentation.",
+    "The implementation broadens into unrelated missing No Safe Circle features.",
+    "Human Unity runtime validation reports a selected-camera integration failure that the refinement does not address."
+  ]
+}
