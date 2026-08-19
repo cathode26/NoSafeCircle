@@ -50,8 +50,12 @@ VERIFY_MAX_WORKERS = int(
     os.environ.get("RECONCILIATION_VERIFY_MAX_WORKERS", "4")
 )
 REFINER_TIMEOUT_SECONDS = int(
-    os.environ.get("RECONCILIATION_VERIFY_REFINER_TIMEOUT_SECONDS", "1200")
+    os.environ.get("RECONCILIATION_VERIFY_REFINER_TIMEOUT_SECONDS", "1800")
 )
+REFINER_MODEL = os.environ.get(
+    "RECONCILIATION_VERIFY_REFINER_MODEL",
+    "opus",
+).strip() or "opus"
 REFINER_MAX_TURNS = int(
     os.environ.get("RECONCILIATION_VERIFY_REFINER_MAX_TURNS", "35")
 )
@@ -342,6 +346,7 @@ def create_verification_paths(source_run_id: str) -> dict[str, Any]:
         "model_assignments": run_dir / "MODEL_ASSIGNMENTS.json",
         "pass1_dir": run_dir / "pass1",
         "merged_pass1": run_dir / "MERGED_FINDINGS_PASS1.json",
+        "refiner_findings": run_dir / "REFINER_FINDINGS.json",
         "refined_raw": run_dir / "refined_candidate.raw.json",
         "refined_json": run_dir / "refined_candidate.json",
         "refined_markdown": run_dir / "REFINED_RECONCILIATION.md",
@@ -393,11 +398,11 @@ def choose_audit_models(rng: random.Random) -> dict[str, str]:
 
 
 def choose_refiner_model(rng: random.Random, pass1: dict[str, str]) -> str:
-    # Prefer a model that was not used by both coverage auditors when possible.
-    least_used = Counter(pass1.values())
-    min_count = min(least_used.values())
-    candidates = [model for model in MODEL_POOL if least_used.get(model, 0) == min_count]
-    return rng.choice(candidates or MODEL_POOL)
+    # Auditors stay randomized/model-diverse, but synthesis is a different
+    # workload. Use a stable stronger Refiner so a valid pass-1 audit is not
+    # lost to a random slower/weaker synthesis assignment.
+    _ = rng, pass1
+    return REFINER_MODEL
 
 
 # ============================================================
@@ -697,6 +702,28 @@ def has_material_findings(merged: dict[str, Any]) -> bool:
     return int(merged.get("material_finding_count", 0)) > 0
 
 
+def build_refiner_findings(merged: dict[str, Any]) -> dict[str, Any]:
+    # The Refiner's mandatory job is blocker/error repair. Warnings and
+    # suggestions remain in the full pass-1 merge and are independently
+    # reassessed during pass 2.
+    material = [
+        report
+        for report in merged.get("findings", [])
+        if report.get("finding", {}).get("severity") in {"blocker", "error"}
+    ]
+    return {
+        "schema_version": "1.0",
+        "source_finding_count": int(merged.get("finding_count", 0)),
+        "material_finding_count": len(material),
+        "findings": material,
+        "selection_policy": (
+            "Refiner input contains blocker/error findings only. Warnings and "
+            "suggestions remain in MERGED_FINDINGS_PASS1.json and are checked "
+            "again by independent pass-2 auditors."
+        ),
+    }
+
+
 # ============================================================
 # BOUNDED REFINER
 # ============================================================
@@ -928,9 +955,13 @@ def main() -> int:
 
         if has_material_findings(merged1) and not args.no_refine:
             refinement_performed = True
+
+            refiner_findings = build_refiner_findings(merged1)
+            save_new_json(paths["refiner_findings"], refiner_findings)
+
             refiner = run_refiner(
                 source_candidate=source_candidate,
-                merged_findings_path=paths["merged_pass1"],
+                merged_findings_path=paths["refiner_findings"],
                 source_run_id=source_run_id,
                 model=refiner_model,
             )

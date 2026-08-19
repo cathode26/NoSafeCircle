@@ -130,6 +130,11 @@ Optional:
 RECONCILIATION_MODEL=sonnet
 RECONCILIATION_TIMEOUT_SECONDS=1800
 RECONCILIATION_MAX_TURNS=50
+
+# Multi-model verification
+RECONCILIATION_VERIFY_REFINER_MODEL=opus
+RECONCILIATION_VERIFY_REFINER_TIMEOUT_SECONDS=1800
+RECONCILIATION_VERIFY_RECOVERY_REFINER_MODEL=opus
 ```
 
 ## What the agent records
@@ -174,6 +179,21 @@ These are separate axes.
 A task can be `decomposition_state: concrete` while still being `execution_scope: needs_execution_decomposition`. That means the design is known, but the implementation node bundles too much work for one safe handoff. A future Progressive Decomposer may split the implementation work without inventing new game design.
 
 Difficulty is not the classifier: a hard but bounded task can still be `single_agent`.
+
+
+## Verification refiner sizing and recovery
+
+Independent auditors remain model-diverse and randomized. The Refiner is not
+another vote: it is a synthesis step over the union of material findings, so it
+defaults to `opus` for predictable capacity.
+
+Only `blocker` and `error` findings are sent to the Refiner. Warnings and
+suggestions remain preserved in the full pass-1 merge and are reassessed by the
+independent pass-2 auditors.
+
+If a verification run times out during refinement, the completed pass-1 audits
+are not repeated. `recover_verification.py` can rerun only the missing Refiner
+and then continue to pass 2.
 
 ## Important rules
 

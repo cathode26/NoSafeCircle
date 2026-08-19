@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,11 +20,14 @@ from reconciliation_agent import (
 from verification_crew import (
     ROOT,
     RUNS_DIR,
+    REFINER_MODEL,
+    build_refiner_findings,
     create_verification_paths,
     load_json,
     merge_findings,
     render_verification_markdown,
     run_audit_pass,
+    run_refiner,
     sanitize_refiner_input_tracking,
     save_json,
     save_new_json,
@@ -79,6 +83,8 @@ def existing_paths(source_run_id: str, verification_run_id: str) -> dict[str, An
         "model_assignments": run_dir / "MODEL_ASSIGNMENTS.json",
         "pass1_dir": run_dir / "pass1",
         "merged_pass1": run_dir / "MERGED_FINDINGS_PASS1.json",
+        "refiner_findings": run_dir / "REFINER_FINDINGS.json",
+        "recovery_json": run_dir / "RECOVERY.json",
         "refined_raw": run_dir / "refined_candidate.raw.json",
         "refined_json": run_dir / "refined_candidate.json",
         "refined_markdown": run_dir / "REFINED_RECONCILIATION.md",
@@ -107,7 +113,6 @@ def main() -> int:
         for required in (
             paths["model_assignments"],
             paths["merged_pass1"],
-            paths["refined_raw"],
         ):
             if not required.exists():
                 raise FileNotFoundError(
@@ -123,7 +128,6 @@ def main() -> int:
 
         assignments = load_json(paths["model_assignments"])
         merged1 = load_json(paths["merged_pass1"])
-        refined_payload = load_json(paths["refined_raw"])
 
         print()
         print("=" * 72)
@@ -131,8 +135,58 @@ def main() -> int:
         print("=" * 72)
         print(f"Source reconciliation: {args.source_run_id}")
         print(f"Verification run: {args.verification_run_id}")
-        print("Reusing completed pass-1 audits and completed Refiner output.")
-        print("Pass 1 and the Refiner will NOT be rerun.")
+        print("Reusing completed pass-1 audits and merged findings.")
+        print("Pass 1 will NOT be rerun.")
+
+        actual_refiner_model = str(assignments.get("refiner", "")).strip()
+
+        if paths["refined_raw"].exists():
+            refined_payload = load_json(paths["refined_raw"])
+            print("Completed Refiner output exists and will be reused.")
+        else:
+            if not paths["refiner_findings"].exists():
+                save_new_json(
+                    paths["refiner_findings"],
+                    build_refiner_findings(merged1),
+                )
+
+            recovery_model = os.environ.get(
+                "RECONCILIATION_VERIFY_RECOVERY_REFINER_MODEL",
+                REFINER_MODEL,
+            ).strip() or REFINER_MODEL
+            original_model = str(assignments.get("refiner", "")).strip()
+
+            print(
+                "No completed Refiner output exists. This preserved run stopped "
+                "during refinement, so only the Refiner will be rerun."
+            )
+            print(f"Original Refiner assignment: {original_model or '(unknown)'}")
+            print(f"Recovery Refiner model: {recovery_model}")
+
+            refiner = run_refiner(
+                source_candidate=source_candidate,
+                merged_findings_path=paths["refiner_findings"],
+                source_run_id=args.source_run_id,
+                model=recovery_model,
+            )
+            refined_payload = refiner["result"]
+            save_new_json(paths["refined_raw"], refined_payload)
+            actual_refiner_model = recovery_model
+
+            if not paths["recovery_json"].exists():
+                save_new_json(
+                    paths["recovery_json"],
+                    {
+                        "schema_version": "1.0",
+                        "reason": "refiner_timeout_or_missing_refined_raw",
+                        "source_reconciliation_run_id": args.source_run_id,
+                        "verification_run_id": args.verification_run_id,
+                        "pass1_reused": True,
+                        "original_refiner_model": original_model,
+                        "recovery_refiner_model": recovery_model,
+                    },
+                )
+
         print("=" * 72)
 
         removed_forbidden = sanitize_forbidden_evidence(refined_payload)
@@ -214,9 +268,11 @@ def main() -> int:
             "final_candidate": paths["refined_json"].relative_to(ROOT).as_posix(),
             "refinement_performed": True,
             "recovered_from_preserved_run": True,
+            "refiner_recovered": paths["recovery_json"].exists(),
             "model_assignments": {
                 "pass1": assignments.get("pass1"),
-                "refiner": assignments.get("refiner"),
+                "refiner": actual_refiner_model,
+                "original_refiner_assignment": assignments.get("refiner"),
                 "pass2": assignments.get("pass2"),
             },
             "pass1": merged1,

@@ -78,6 +78,22 @@ def main() -> int:
     assert merged["material_finding_count"] == 1
     assert merged["findings"][0]["source_agent"] == "Deterministic Coverage Check"
 
+    refiner_findings = crew.build_refiner_findings(
+        {
+            "finding_count": 3,
+            "findings": [
+                {"finding": {"severity": "error", "title": "must fix"}},
+                {"finding": {"severity": "warning", "title": "recheck later"}},
+                {"finding": {"severity": "suggestion", "title": "optional"}},
+            ],
+        }
+    )
+    assert refiner_findings["source_finding_count"] == 3
+    assert refiner_findings["material_finding_count"] == 1
+    assert len(refiner_findings["findings"]) == 1
+    assert refiner_findings["findings"][0]["finding"]["title"] == "must fix"
+    assert crew.choose_refiner_model(random.Random(1), assignments) == crew.REFINER_MODEL
+
     payload = {
         "sources": {
             "files_reviewed": [
