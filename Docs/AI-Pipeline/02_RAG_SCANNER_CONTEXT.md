@@ -6,7 +6,7 @@ Reduce Claude token usage by making local tools answer factual questions, retrie
 
 This milestone also introduces the Artifact Authority Gate so missing design is never silently invented.
 
-Prerequisite: Context 1's persistent work graph and `taskctl` exist.
+Prerequisite: Context 1's persistent work graph and `taskcontrol` exist.
 
 ## Architecture
 
@@ -140,7 +140,7 @@ Incremental scanning can come later.
 Create something like:
 
 ```text
-python -m taskctl context NSC-014
+python -m taskcontrol context NSC-014
 ```
 
 Output should contain only:

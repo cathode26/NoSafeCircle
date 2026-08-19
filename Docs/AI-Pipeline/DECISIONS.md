@@ -223,3 +223,17 @@ This is a lightweight decision log. Add new entries when a decision materially c
 **Bootstrap clarification:** Before `Tasks/*.yaml` exists, reconciliation emits proposed seed records. Human approval plus the deterministic Work Graph Seeder turns those records into the initial graph.
 
 
+
+---
+
+## ADR-027 — Reconciliation bootstrap requires independent multi-model verification
+
+**Decision:** A reconciliation snapshot is not eligible for bootstrap seeding merely because the Generator and deterministic schema/graph validators succeeded. Before initial graph seeding, the candidate must be independently audited for GDD coverage, dependency/decomposition structure, and repository evidence. At least two coverage audits use different requested Claude models when the configured model pool permits it.
+
+**Reason:** Deterministic validators catch structural defects but cannot prove semantic completeness. A single model can correctly notice a requirement yet still bury it inside the wrong work item, omit a reusable required capability, or accept its own evidence framing. Independent role-specialized audits reduce correlated semantic failure.
+
+**Finding policy:** Verifier findings are unioned, not majority-voted. One credible blocker/error must be resolved or explicitly escalated for human review.
+
+**Refinement policy:** Material findings may produce a bounded refined candidate, but the original reconciliation snapshot remains immutable. The refined candidate is independently re-verified before human approval.
+
+**Model policy:** Requested model assignments and the random assignment seed are saved with each verification run. Model diversity is an error-discovery technique, not a replacement for deterministic checks or the human approval gate.

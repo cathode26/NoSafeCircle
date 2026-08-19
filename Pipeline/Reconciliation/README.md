@@ -184,7 +184,7 @@ Before using the output to seed `Tasks/*.yaml`, verify:
 
 ## Next step after approval
 
-Build the deterministic Work Graph Seeder / `taskctl` Milestone 1 implementation.
+Build the deterministic Work Graph Seeder / `taskcontrol` Milestone 1 implementation.
 
 The Reconciliation Agent is intentionally not the system that writes the final task graph.
 
@@ -276,9 +276,9 @@ required.
 ### After the persistent graph exists
 
 The Reconciliation Agent detects that `Tasks/*.yaml` exists and emits
-`status: taskctl_diff_required`.
+`status: taskcontrol_diff_required`.
 
-It does not attempt to cascade changes itself. A deterministic `taskctl`
+It does not attempt to cascade changes itself. A deterministic `taskcontrol`
 reconciliation-diff/apply workflow will own that comparison in Milestone 1.
 
 This prevents an LLM reconciliation run from silently restructuring or
@@ -293,9 +293,151 @@ Movement becomes complete
         ↓
 Fireball dependency is satisfied
         ↓
-taskctl ready changes
+taskcontrol ready changes
 ```
 
 That is allowed.
 
 An LLM reconciliation run directly rewriting many task files is not.
+
+## Multi-model verification crew
+
+A successful reconciliation run is now treated as a **candidate snapshot**, not
+sufficient proof that the proposed graph is semantically complete.
+
+Before the bootstrap seed is approved, run:
+
+```powershell
+docker compose run --rm claude python3 Pipeline/Reconciliation/verification_crew.py
+```
+
+By default the crew verifies the run referenced by `outputs/LATEST.json`.
+Use `--run-id <id>` to audit a specific immutable reconciliation run.
+
+The crew runs four independent read-only audits:
+
+1. **GDD Coverage Auditor A** — full requirement-to-graph coverage pass.
+2. **GDD Coverage Auditor B** — a second independent coverage pass using a different model when the configured pool contains at least two models.
+3. **Dependency and Decomposition Auditor** — tests parent/dependency semantics, shared capabilities, and over/under-decomposition.
+4. **Repository Evidence Auditor** — independently challenges `implemented`, `partial`, `missing`, and especially `complete` claims.
+
+The auditors do not see one another's findings during the first pass.
+Findings are merged by **union, not majority vote**. One credible material
+finding must be resolved even if the other auditors did not report it.
+
+If pass 1 contains a blocker/error, a bounded Refiner produces a new candidate
+without changing the original immutable reconciliation. The independent audit
+crew then runs again against the refined candidate unless `--no-reverify` is
+specified.
+
+### Model diversity and randomness
+
+The verifier defaults to this Claude Code model pool:
+
+```text
+opus,sonnet
+```
+
+These are model aliases passed directly to Claude Code's `--model` flag.
+Assignments are randomized per verification run and saved to
+`MODEL_ASSIGNMENTS.json`, including the random seed and exact requested model
+for every auditor/refiner.
+
+The two coverage auditors are guaranteed to receive different requested models
+when the pool contains at least two models. Structure and evidence auditors are
+also assigned different models when possible.
+
+Override the pool with:
+
+```text
+RECONCILIATION_VERIFIER_MODELS=opus,sonnet
+```
+
+Additional full Claude model names can be added to the comma-separated pool if
+they are supported by the installed Claude Code environment.
+
+The structural dangling-dependency repair inside the main Reconciliation Agent
+now defaults to `opus` rather than silently reusing the generator's `sonnet`
+model. Override with:
+
+```text
+RECONCILIATION_REPAIR_MODEL=opus
+```
+
+### Verification outputs
+
+Verification is append-only and stored separately from the immutable source
+snapshot:
+
+```text
+Pipeline/Reconciliation/outputs/
+├── LATEST.json
+├── LATEST_VERIFICATION.json
+├── runs/
+│   └── <reconciliation-run-id>/...
+└── verifications/
+    └── <reconciliation-run-id>/
+        └── <verification-run-id>/
+            ├── MODEL_ASSIGNMENTS.json
+            ├── pass1/
+            │   └── <independent audit results>.json
+            ├── MERGED_FINDINGS_PASS1.json
+            ├── refined_candidate.raw.json          # only when refinement runs
+            ├── refined_candidate.json              # only when refinement runs
+            ├── REFINED_RECONCILIATION.md            # only when refinement runs
+            ├── PROPOSED_REFINED_GRAPH_DELTA.json    # only when refinement runs
+            ├── PROPOSED_REFINED_GRAPH_DELTA.md      # only when refinement runs
+            ├── pass2/                               # unless re-verification skipped
+            │   └── <independent audit results>.json
+            ├── MERGED_FINDINGS_PASS2.json
+            ├── VERIFICATION_SUMMARY.json
+            └── VERIFICATION.md
+```
+
+Neither verification nor refinement mutates `Tasks/*.yaml`.
+
+### Deterministic coverage guard
+
+Each GDD Coverage Auditor emits a structured requirement map. Python adds a
+material finding whenever that auditor classifies a required GDD requirement
+as `unrepresented` or `ambiguous`.
+
+This does not make semantic coverage deterministic—the auditor can still miss a
+requirement—which is why two model-diverse coverage passes are used. It does
+make each auditor's own coverage claims mechanically enforceable.
+
+### Human gate
+
+`verified` means **ready for human approval**. It never means automatically
+seed the persistent graph.
+
+The intended bootstrap path is now:
+
+```text
+immutable reconciliation snapshot
+        ↓
+independent multi-model verification
+        ↓
+bounded refinement when required
+        ↓
+independent re-verification
+        ↓
+human approval
+        ↓
+deterministic Work Graph Seeder
+        ↓
+Tasks/*.yaml
+        ↓
+taskcontrol
+```
+
+
+### Deterministic smoke test
+
+This test does not call Claude:
+
+```powershell
+docker compose run --rm claude python3 Pipeline/Reconciliation/verification_smoke_test.py
+```
+
+It checks model-diversity assignment behavior and the deterministic required-coverage guard.

@@ -22,6 +22,10 @@ Milestone 1 therefore stores a coarse truthful work graph and calculates readine
 
 Progressive AI decomposition belongs to Milestone 2, not this milestone.
 
+## Pre-Seed Multi-Model Verification
+
+Before the deterministic Work Graph Seeder consumes reconciliation output, the candidate must pass the Reconciliation Verification Crew. The crew uses independent model-diverse GDD coverage, graph-structure, and repository-evidence audits. Findings are unioned rather than majority-voted. A bounded Refiner may produce a new candidate, which is re-verified. Only the human-approved verified candidate may be seeded.
+
 ## Critical Reconciliation Rule
 
 Reconciliation is an immutable input snapshot, not the task database.
@@ -54,7 +58,7 @@ Tasks/
   ...
 ```
 
-and a local Python CLI called `taskctl`.
+and a local Python CLI called `taskcontrol`.
 
 ## Work Kinds
 
@@ -219,14 +223,14 @@ During Milestone 1 bootstrapping, do not invent approved artifacts merely to sat
 
 A feature may be considered complete when its required child work is complete, but do not implement automatic roll-up unless needed for the first useful graph.
 
-## Required `taskctl` Commands
+## Required `taskcontrol` Commands
 
 ```text
-python -m taskctl list
-python -m taskctl show NSC-014
-python -m taskctl validate
-python -m taskctl ready
-python -m taskctl graph
+python -m taskcontrol list
+python -m taskcontrol show NSC-014
+python -m taskcontrol validate
+python -m taskcontrol ready
+python -m taskcontrol graph
 ```
 
 ### `validate`
@@ -249,12 +253,12 @@ An executable work item is ready when:
 2. every item in `depends_on` is complete;
 3. its `kind` is `artifact` or `implementation`.
 
-Feature nodes are not returned by `taskctl ready`.
+Feature nodes are not returned by `taskcontrol ready`.
 
 Eventually support:
 
 ```text
-python -m taskctl ready --json
+python -m taskcontrol ready --json
 ```
 
 ### `graph`
@@ -343,7 +347,7 @@ Milestone 1 does not need to implement the production GER supervisor.
 
 But its output must be useful to one.
 
-Once `taskctl ready` works:
+Once `taskcontrol ready` works:
 
 1. inspect the ready/near-ready frontier;
 2. if a concrete implementation item is ready, it can later be executed through the Assignment 6 GER pattern;

@@ -20,6 +20,7 @@ LATEST_POINTER_PATH = OUTPUT_DIR / "LATEST.json"
 TASKS_DIR = ROOT / "Tasks"
 
 MODEL = os.environ.get("RECONCILIATION_MODEL", "sonnet")
+REPAIR_MODEL = os.environ.get("RECONCILIATION_REPAIR_MODEL", "opus")
 TIMEOUT_SECONDS = int(os.environ.get("RECONCILIATION_TIMEOUT_SECONDS", "1800"))
 MAX_TURNS = int(os.environ.get("RECONCILIATION_MAX_TURNS", "50"))
 
@@ -596,7 +597,7 @@ Compact reconciliation context:
         "claude",
         "-p",
         "--model",
-        MODEL,
+        REPAIR_MODEL,
         "--output-format",
         "json",
         "--no-session-persistence",
@@ -851,7 +852,7 @@ def _validate_dependency_links(items_by_key: dict[str, dict[str, Any]]) -> None:
         deps = item.get("depends_on", [])
 
         # Feature nodes are not executable and will never be returned by
-        # taskctl ready, but they MAY still depend on concrete artifact or
+        # taskcontrol ready, but they MAY still depend on concrete artifact or
         # implementation work. This records real prerequisite relationships
         # without making the feature itself executable.
         dep_keys: list[str] = []
@@ -1152,12 +1153,12 @@ def build_proposed_graph_delta(
     Describe what this reconciliation proposes relative to the persistent
     graph WITHOUT changing the graph.
 
-    Milestone 1/taskctl does not exist yet in the current bootstrap state, so
+    Milestone 1/taskcontrol does not exist yet in the current bootstrap state, so
     this function deliberately does not invent a YAML parser or graph-mutation
     policy inside the Reconciliation Agent.
 
     Before Tasks/*.yaml exists, every reconciled work item is a proposed seed
-    record. Once Tasks/*.yaml exists, taskctl must own the deterministic
+    record. Once Tasks/*.yaml exists, taskcontrol must own the deterministic
     snapshot-vs-graph diff and application workflow.
     """
     task_files = sorted(TASKS_DIR.glob("*.yaml")) if TASKS_DIR.exists() else []
@@ -1200,13 +1201,13 @@ def build_proposed_graph_delta(
         "schema_version": "1.0",
         "reconciliation_run_id": run_id,
         "created_at_utc": created_at_utc,
-        "status": "taskctl_diff_required",
+        "status": "taskcontrol_diff_required",
         "persistent_graph_present": True,
         "persistent_graph_mutated": False,
         "summary": (
             "A persistent Tasks/*.yaml graph already exists. The "
             "Reconciliation Agent does not rewrite it. This snapshot must be "
-            "compared against the graph by deterministic taskctl reconciliation "
+            "compared against the graph by deterministic taskcontrol reconciliation "
             "diff logic before any approved graph delta is applied."
         ),
         "task_files_observed": [
@@ -1216,7 +1217,7 @@ def build_proposed_graph_delta(
         "proposed_seed_records": [],
         "proposed_changes": [],
         "conflicts": [],
-        "next_action": "taskctl_reconciliation_diff",
+        "next_action": "taskcontrol_reconciliation_diff",
     }
 
 

@@ -65,7 +65,7 @@ updates `Tasks/*.yaml`; it does not rewrite old reconciliation snapshots.
 A later reconciliation creates a new snapshot and proposes a graph delta.
 That delta must be reviewed/diffed before it can affect the persistent graph.
 
-Safe cascading readiness changes are deterministic `taskctl` behavior, not
+Safe cascading readiness changes are deterministic `taskcontrol` behavior, not
 direct LLM graph rewrites.
 
 See:
@@ -100,3 +100,8 @@ The local supervisor owns the autonomous loop. Claude is a bounded worker operat
 A worker does not declare itself successful. Project evidence does.
 
 An implementation worker also does not silently create new game design. Missing design becomes an explicit artifact proposal.
+
+
+## Reconciliation now has an independent verification gate
+
+A successful Reconciliation Agent run is a candidate snapshot, not automatic bootstrap truth. Before seeding the persistent graph, run the multi-model Reconciliation Verification Crew. It independently audits GDD coverage, dependency/decomposition semantics, and repository evidence; unions findings; performs bounded refinement when material issues exist; and re-verifies before human approval.

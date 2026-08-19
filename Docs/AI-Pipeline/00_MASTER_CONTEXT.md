@@ -577,7 +577,7 @@ Conceptually:
 
 ```python
 while game_not_complete:
-    work = taskctl.next_ready()
+    work = taskcontrol.next_ready()
 
     if work is None:
         work = expand_near_ready_feature_or_reconcile()
@@ -674,7 +674,7 @@ This keeps pipeline development tied to actual capstone progress.
 
 ## High-Level Build Milestones
 
-1. Persistent work artifacts + deterministic `taskctl`
+1. Persistent work artifacts + deterministic `taskcontrol`
 2. RAG canon service + Unity/code scanner + context builder + Progressive Decomposer + Artifact Authority Gate
 3. One-ticket autonomous supervisor with branch/worktree/PR
 4. Productionize GER execution + deterministic/Unity/runtime validation + evaluator profiles
@@ -693,3 +693,8 @@ Do not try to implement the full autonomous pipeline in one chat/context or one 
 Each new window should work on one milestone/subsystem and leave durable repository documentation before ending.
 
 The pipeline should increasingly build No Safe Circle, not become a separate project that indefinitely delays No Safe Circle.
+
+
+### Reconciliation verification
+
+Reconciliation is semantic enough that deterministic schema validation is necessary but insufficient. Before bootstrap seeding, run an independent multi-model verification crew: two GDD coverage auditors, a dependency/decomposition auditor, and a repository-evidence auditor. Their first-pass findings are independent and unioned rather than voted. Material findings produce a separate refined candidate and a second independent audit pass. The original snapshot remains immutable and `Tasks/*.yaml` remains untouched until human approval.

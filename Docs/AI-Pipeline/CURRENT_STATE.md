@@ -174,13 +174,15 @@ Failed evidence should become structured Refiner input.
 
 1. Inspect current `main`.
 2. Run/read the Reconciliation Agent to create an immutable point-in-time snapshot of GDD requirements versus current repository state.
-3. Review the snapshot's proposed graph delta.
-4. Seed a coarse persistent work graph from approved reconciliation records; do not treat the snapshot itself as the mutable graph.
+3. Run the independent multi-model Reconciliation Verification Crew against that snapshot.
+4. Resolve/refine material coverage, dependency/decomposition, and evidence findings, then re-verify.
+5. Human-review the verified candidate and proposed graph delta.
+6. Seed a coarse persistent work graph from approved reconciliation records; do not treat the snapshot itself as the mutable graph.
 5. Support three work kinds:
    - `feature`
    - `artifact`
    - `implementation`
-6. Implement local Python `taskctl`.
+6. Implement local Python `taskcontrol`.
 7. Implement:
    - `list`
    - `show`
@@ -243,7 +245,7 @@ GER itself is no longer in this list: the pattern has already been proven in Ass
 - Reconciliation outputs are immutable point-in-time snapshots and must not be edited to reflect later work.
 - A reconciliation rerun creates a new snapshot; it never directly rewrites `Tasks/*.yaml`.
 - Reconciliation-to-graph changes must pass through a deterministic diff/proposed-delta step.
-- Cascading readiness changes are computed by `taskctl`, not by the Reconciliation Agent.
+- Cascading readiness changes are computed by `taskcontrol`, not by the Reconciliation Agent.
 - Transient worker state should eventually live in the supervisor/GitHub rather than being committed on every worker branch.
 - An implementation task is `complete` only after its implementation is merged to `main`.
 - An artifact task is `complete` only after the artifact is approved by its required evaluators and stored as trusted project input.
@@ -270,3 +272,8 @@ Then inspect the current repository and implement the smallest first slice of Mi
 
 Do not use the old Assignment 5 goal-selection snapshot as current project truth.
 Do not implement the Progressive Decomposer yet; Milestone 1 must first establish a truthful deterministic work graph.
+
+
+## Reconciliation Verification Gate
+
+Before the first `Tasks/*.yaml` seed is created, the immutable reconciliation candidate must pass independent multi-model verification. Two independent GDD coverage passes, a dependency/decomposition pass, and a repository-evidence pass run without seeing one another's first-pass findings. Material findings are unioned, optionally refined, and independently re-verified. Human approval is still required.
