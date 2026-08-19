@@ -1071,6 +1071,68 @@ def ensure_execution_scope_defaults(payload: dict[str, Any]) -> list[str]:
     return upgraded
 
 
+def normalize_execution_scope_consistency(
+    payload: dict[str, Any],
+) -> list[str]:
+    normalized: list[str] = []
+
+    for item in payload.get("work_items", []):
+        key = str(item.get("key", ""))
+        kind = item.get("kind")
+        status = item.get("graph_status")
+        scope = str(item.get("execution_scope", ""))
+
+        if kind == "feature":
+            if scope != "not_applicable":
+                item["execution_scope"] = "not_applicable"
+                item["execution_reason"] = (
+                    "Deterministic normalization: feature/organizational work "
+                    "is not an implementation-agent execution unit."
+                )
+                normalized.append(key)
+            continue
+
+        if status == "complete":
+            if scope not in {"not_applicable", "single_agent"}:
+                item["execution_scope"] = "not_applicable"
+                item["execution_reason"] = (
+                    "Deterministic normalization: completed work is not "
+                    "awaiting another implementation-agent handoff."
+                )
+                normalized.append(key)
+            continue
+
+        if (
+            kind in {"implementation", "artifact"}
+            and status == "open"
+            and scope == "not_applicable"
+        ):
+            item["execution_scope"] = "unknown"
+            item["execution_reason"] = (
+                "Deterministic normalization: open executable work cannot be "
+                "not_applicable. Verification or human review must classify "
+                "its execution scope."
+            )
+            normalized.append(key)
+
+    if normalized:
+        seed = payload.setdefault(
+            "seed_assessment",
+            {"status": "ready_with_warnings", "blockers": [], "warnings": []},
+        )
+        warnings = seed.setdefault("warnings", [])
+        warning = (
+            "Deterministic validation normalized contradictory execution_scope "
+            "values for: " + ", ".join(sorted(set(normalized)))
+        )
+        if warning not in warnings:
+            warnings.append(warning)
+        if seed.get("status") == "ready":
+            seed["status"] = "ready_with_warnings"
+
+    return sorted(set(normalized))
+
+
 def _validate_execution_scope(items_by_key: dict[str, dict[str, Any]]) -> None:
     allowed = {
         "single_agent",
@@ -1314,6 +1376,7 @@ def run_semantic_validation(payload: dict[str, Any]) -> None:
     ensure_non_code_requirement_type_defaults(payload)
     ensure_requirement_detail_defaults(payload)
     ensure_execution_scope_defaults(payload)
+    normalize_execution_scope_consistency(payload)
     ensure_exclusive_resource_defaults(payload)
     items = payload.get("work_items", [])
     if not isinstance(items, list) or not items:

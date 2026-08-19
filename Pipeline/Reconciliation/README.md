@@ -262,6 +262,24 @@ Planning / Progressive Decomposition step may add more exact file/scene/prefab
 locks as the implementation file list becomes concrete.
 
 
+## Deterministic execution-scope normalization
+
+The structured-output schema can still produce combinations that are valid
+enum values but structurally contradictory, such as:
+
+`kind: implementation + graph_status: open + execution_scope: not_applicable`
+
+The orchestrator repairs only these mechanical contradictions:
+
+- feature -> `not_applicable`
+- completed work that claims future decomposition/integration ->
+  `not_applicable`
+- open executable + `not_applicable` -> `unknown`
+
+The last case is intentionally conservative. The orchestrator does not guess
+`single_agent` versus decomposition; verification or human review must decide.
+Every normalization is recorded as a seed warning.
+
 ## Verification refiner sizing and recovery
 
 Independent auditors remain model-diverse and randomized. The Refiner is not

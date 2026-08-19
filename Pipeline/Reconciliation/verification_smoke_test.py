@@ -383,6 +383,43 @@ def main() -> int:
         == "non_code_requirement"
     )
 
+    contradictory_scope = {
+        "seed_assessment": {
+            "status": "ready",
+            "blockers": [],
+            "warnings": [],
+        },
+        "work_items": [
+            {
+                "key": "open-task",
+                "kind": "implementation",
+                "graph_status": "open",
+                "execution_scope": "not_applicable",
+                "execution_reason": "Incorrect model classification.",
+            },
+            {
+                "key": "feature-task",
+                "kind": "feature",
+                "graph_status": "open",
+                "execution_scope": "single_agent",
+                "execution_reason": "Incorrect model classification.",
+            },
+        ],
+    }
+    normalized_scope = reconciliation.normalize_execution_scope_consistency(
+        contradictory_scope
+    )
+    assert set(normalized_scope) == {"open-task", "feature-task"}
+    assert contradictory_scope["work_items"][0]["execution_scope"] == "unknown"
+    assert (
+        contradictory_scope["work_items"][1]["execution_scope"]
+        == "not_applicable"
+    )
+    assert (
+        contradictory_scope["seed_assessment"]["status"]
+        == "ready_with_warnings"
+    )
+
     print("verification smoke test passed")
     print(f"model pool: {', '.join(crew.MODEL_POOL)}")
     print(f"sample assignments: {assignments}")

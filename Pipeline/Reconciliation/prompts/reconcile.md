@@ -394,6 +394,20 @@ For every work item, provide `execution_reason`.
 
 Do not confuse difficulty with execution scope. A technically difficult task can still be `single_agent` if it is bounded. A straightforward task can require `needs_execution_decomposition` if it bundles several independently verifiable responsibilities.
 
+## Execution-scope consistency invariant
+
+Before returning:
+
+- every `feature` must use `execution_scope: not_applicable`;
+- every open `implementation` or `artifact` MUST NOT use
+  `execution_scope: not_applicable`;
+- when an open executable item's handoff size cannot be classified safely, use
+  `execution_scope: unknown` and explain why;
+- completed work must not claim that future execution decomposition or human
+  integration is still required.
+
+This is a structural consistency rule, not a judgment about task difficulty.
+
 # Exclusive resources
 
 `exclusive_resources` answers a fourth, separate question:
