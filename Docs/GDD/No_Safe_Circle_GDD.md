@@ -4,7 +4,7 @@ document_type: "Capstone Game Design Document"
 status: "Final Draft"
 author: "Vincent Liguori"
 original_date: "2026-07-21"
-revised_date: "2026-08-13"
+revised_date: "2026-08-19"
 source_docx: "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
 ---
 
@@ -12,7 +12,7 @@ source_docx: "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
 
 **Capstone Game Design Document**
 
-**Working Title | Final Draft | Originally July 21, 2026; revised August 13, 2026 | Vincent Liguori**
+**Working Title | Final Draft | Originally July 21, 2026; revised August 19, 2026 | Vincent Liguori**
 
 > A wizard must create brief moments of safety, open sealed doors under pressure, and escape a dungeon while the monsters left behind continue to pursue.
 
@@ -61,11 +61,11 @@ The player moves through connected rooms toward the final door. In each room, th
 
 | Action | What the player does | Purpose |
 |---|---|---|
-| Move and Aim | Use mouse-directed movement: click to set a destination or hold to keep steering toward the cursor. The cursor also serves as the aiming and targeting reference for spells and interactions. | Create and preserve escape routes while maintaining the spatial feel of early isometric action/RPG movement. |
+| Move and Aim | Use mouse-directed movement: click to set a destination or hold to keep steering toward the cursor. The cursor also serves as the aiming and targeting reference for spells and cursor-targeted interactions such as sealed doors. | Create and preserve escape routes while maintaining the spatial feel of early isometric action/RPG movement. |
 | Fireball | Tap for a quick, mobile shot against a single or separated enemy. Hold to charge: costs more mana and restricts movement further, rewarding preparation by damaging multiple clustered enemies. | Rewards distance and preparation; a charge's area advantage matters against groups, not against one target. |
 | Frost Field | Place a temporary area that heavily slows enemies. | Divides crowds and protects routes. |
 | Force Wave | Use a short-range radial knockback with a long cooldown. | Creates emergency space. |
-| Open Sealed Door | Hold for five seconds; movement or damage cancels. | Makes each exit a positioning challenge. |
+| Open Sealed Door | Target the sealed door with the cursor while within arm's reach, then hold the interaction for five seconds. Once the interaction begins, the selected door remains latched even if the cursor moves off it. Player movement, taking damage, or releasing/canceling the hold resets the attempt. | Makes each exit a positioning challenge without requiring sustained pointer precision after the intended door has already been selected. |
 | Close and Lock | Shut the door after crossing, restoring a small, fixed amount of health. Once locked, this door cannot be reopened or crossed again (see Door and Pursuit Rules). | Creates recovery time while pursuers attack it, and marks forward progress as final. |
 
 ### Spell and Enemy Interactions
@@ -116,11 +116,22 @@ The player should feel powerful for a few seconds and vulnerable immediately aft
 
 Ranged Enemies never appear as an isolated encounter: every encounter that introduces one also includes at least one Melee Enemy. A Ranged Enemy may still end up fighting alone if the player defeats its Melee support first — tap Fireball, cover, and lateral movement remain effective against a lone survivor.
 
+### Enemy Detection, Pursuit, and Target Loss
+
+- Each enemy uses a **Detection Distance** for acquiring the player and a larger **Lose Target Distance** for breaking active pursuit. Detection Distance must be smaller than Lose Target Distance so an enemy does not rapidly alternate between acquiring and losing the player at one boundary.
+- When the player enters Detection Distance, the enemy acquires the wizard as its target and pursues according to its archetype. Crossing an open doorway does not by itself clear that target.
+- When the player moves beyond Lose Target Distance, the enemy stops tracking the player's exact current position and enters a search state using the player's last known position. The distance threshold determines this transition; randomness does not decide whether the enemy forgets the player.
+- The enemy continues toward the last known position. If it reaches that position without reacquiring the player, it performs a short, bounded search/wander using controlled randomness to choose a nearby navigable direction or point, periodically checking for the player again.
+- If the player re-enters Detection Distance during search/wander, the enemy reacquires the wizard and returns to normal pursuit.
+- If the bounded search completes without reacquisition, the enemy clears the target and returns to its local idle/wander behavior. Losing the target does not despawn, replace, or reset the enemy; it remains the same persistent enemy object and can be encountered again later.
+- Exact Detection Distance, Lose Target Distance, search duration, and search/wander weighting are tuning values to be established during playtesting.
+
+
 ### Door and Pursuit Rules
 
-- Enemies move between rooms through open doors; crossing a doorway does not clear pursuit.
-- A sealed door requires five uninterrupted seconds. Moving away or taking damage cancels the attempt.
-- After crossing, the player can lock the door. Enemies that saw the escape begin attacking it. Once locked, a door cannot be reopened, unlocked, or crossed again by the player — the floor is a forward-only escape sequence.
+- Enemies move between rooms through open doors; crossing a doorway does not clear pursuit. Active pursuit is lost only through the distance-and-search behavior defined in **Enemy Detection, Pursuit, and Target Loss**.
+- A sealed door is a cursor-targeted interactable. The player must target the intended door with the cursor while within arm's reach to begin the five-second hold. After the interaction begins, the door remains selected even if the cursor moves off it. Player movement, taking damage, or releasing/canceling the hold resets the attempt.
+- After crossing, the player can lock the door. Enemies actively pursuing the player that witnessed the escape and are blocked by that locked door begin attacking it; an enemy that has already lost the player does not begin attacking a locked door solely because it is nearby. Once locked, a door cannot be reopened, unlocked, or crossed again by the player — the floor is a forward-only escape sequence.
 - If the player waits too long, the locked door breaks and the surviving group enters the current room. A broken door remains open and cannot be closed or relocked for the remainder of the run. The player cannot travel backward through an earlier doorway, including after its locked door has been broken; enemies may pass forward through the broken doorway, but it is not a return path for the player.
 - Surviving enemies carry forward and combine with later encounters as the same persistent enemy objects, not new spawns, and the game never permits more than fifteen active enemies at once. When persistent pursuers and a new encounter would together exceed that limit — most notably in Lower Vault, where a rear breach can coincide with the room's own encounter — activation of the new encounter's additional enemies is delayed or reduced first; enemies already pursuing the player are never removed to make room.
 
@@ -143,13 +154,14 @@ Ranged Enemies never appear as an isolated encounter: every encounter that intro
 ### Player Experience Success Criteria
 
 - A first-time player understands that reaching a door is not enough; five safe seconds are required.
+- Door interaction requires accurate target selection only when the interaction begins; normal cursor drift after the door is selected does not cancel opening.
 - The player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.
 - Encounters use three to eight enemies and never exceed fifteen active enemies.
 - Failure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long.
 
 ### Peer and Agent Review Revision
 
-Peer feedback identified that the earlier draft did not explain how the spells and room layouts produced different tactical decisions. A targeted multi-agent review then tested whether those decisions could collapse into a dominant strategy. This revision clarifies Fireball's tap-versus-charge tradeoff, Frost Field's resource commitment, Force Wave's mid-room-versus-door decision, mixed enemy compositions, persistent-pursuer priority, and room-specific implementation checks without adding mechanics or expanding the required scope.
+Peer feedback identified that the earlier draft did not explain how the spells and room layouts produced different tactical decisions. A targeted multi-agent review then tested whether those decisions could collapse into a dominant strategy. This revision clarifies Fireball's tap-versus-charge tradeoff, Frost Field's resource commitment, Force Wave's mid-room-versus-door decision, mixed enemy compositions, persistent-pursuer priority, room-specific implementation checks, distance-based target loss and search behavior, and accessible cursor-targeted door interaction without expanding the required content scope.
 
 ## 4. AI Architecture
 
@@ -161,10 +173,10 @@ Development agents help plan, implement, review, and test No Safe Circle; they d
 |---|---|---|
 | Feature Planning Agent | Turns one approved feature into acceptance criteria and a file list. | Keeps prompts specific and prevents scope growth. |
 | Wizard Combat Agent | Implements player movement, Fireball, Frost Field's casting, mana cost, and feedback, Force Wave, health, mana, cooldowns, and recovery. Frost Field's actual slowdown effect is applied and restored by the Enemy Pursuit Agent, which owns enemy movement and all Ranged Enemy attack behavior; this agent only triggers the Frost Field effect and does not implement Ranged Enemy targeting or attacks. | Creates the tools used to slow, attack, escape, and recover, without editing enemy-movement or enemy-attack code directly. |
-| Door and Interaction Agent | Implements opening, interruption, crossing, closing, locking, damage, and breaking. | Makes room exits risky and safety temporary. |
-| Enemy Pursuit Agent | Implements detection, melee and ranged attacks, pursuit, and movement through open doors, including applying and restoring Frost Field's slowdown effect. Owns Ranged Enemy targeting, attack timing, and line-of-sight/projectile-occlusion checks, so Chapel of Ash's cover actually blocks shots. Validates NavMesh agent radius and lane behavior so Bone Archive's chokepoints hold. Owns the ongoing state of enemies already pursuing the player, including those carried forward from earlier rooms. It also owns the application of forced enemy displacement requested by abilities such as Force Wave, including returning affected enemies to normal pursuit afterward. | Makes enemies left alive remain a visible, persistent consequence, and makes Chapel of Ash's cover and Bone Archive's lanes function as designed. |
+| Door and Interaction Agent | Implements cursor-targeted door selection, arm's-reach validation, the latched five-second opening interaction, interruption, crossing, closing, locking, damage, and breaking. After a valid opening interaction begins, cursor movement off the selected door does not cancel it; movement, damage, or releasing/canceling the hold does. | Makes room exits risky and safety temporary without requiring sustained pointer precision after selection. |
+| Enemy Pursuit Agent | Implements detection, melee and ranged attacks, pursuit, movement through open doors, distance-based target loss, last-known-position search, bounded randomized search/wander, and reacquisition, including applying and restoring Frost Field's slowdown effect. Detection Distance is smaller than Lose Target Distance; crossing a doorway does not itself clear pursuit. Owns Ranged Enemy targeting, attack timing, and line-of-sight/projectile-occlusion checks, so Chapel of Ash's cover actually blocks shots. Validates NavMesh agent radius and lane behavior so Bone Archive's chokepoints hold. Owns the ongoing state of persistent enemy objects whether they are actively pursuing, searching, or later reacquired. It also owns the application of forced enemy displacement requested by abilities such as Force Wave, including returning affected enemies to the appropriate pursuit/search movement state afterward. | Makes enemies left alive remain a visible, persistent consequence while allowing readable distance-based escape and search behavior, and makes Chapel of Ash's cover and Bone Archive's lanes function as designed. |
 | Dungeon Encounter Agent | Authors placements, triggers, door durability, and final-room pressure, including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room. Owns encounter activation and enforcement of the fifteen-active-enemy ceiling: when persistent pursuers and a new encounter would together exceed it, this agent delays or reduces the new encounter's enemies first rather than displacing enemies already pursuing the player. | Controls when the player can lure, fight, flee, or become trapped, and ensures carried-forward enemies never push the floor's total active count beyond the stated limit. |
-| Unity Validation Agent | Reviews changes and creates Play Mode checks for cleanup, references, and edge cases, including Bone Archive lane pathing, Chapel of Ash occlusion, Lower Vault enemy-cap priority, isometric sprite sorting, and alignment between Tilemap visuals and gameplay geometry. | Prevents permanent slowdown, stuck enemies, incorrect door states, and visual/gameplay desynchronization. |
+| Unity Validation Agent | Reviews changes and creates Play Mode checks for cleanup, references, and edge cases, including Bone Archive lane pathing, Chapel of Ash occlusion, Lower Vault enemy-cap priority, target-loss hysteresis/search and reacquisition, cursor-targeted door range and cursor-drift behavior, isometric sprite sorting, and alignment between Tilemap visuals and gameplay geometry. | Prevents permanent slowdown, stuck enemies, incorrect pursuit/search transitions, inaccessible door interaction behavior, incorrect door states, and visual/gameplay desynchronization. |
 
 ### Agent-Assisted Development Workflow
 
@@ -187,7 +199,7 @@ Development agents help plan, implement, review, and test No Safe Circle; they d
 
 While the Door and Interaction Agent implements the five-second door-opening and locking behavior, the Enemy Pursuit Agent can independently implement melee enemies following the wizard through open doors. At the same time, the Dungeon Encounter Agent can define the enemy placement for the first encounter space.
 
-After those tasks are complete, the Unity Validation Agent checks that enemies can cross an open doorway, that movement or damage interrupts opening, and that the door can only be locked after the wizard crosses it. The developer then combines and tests the features inside Unity.
+After those tasks are complete, the Unity Validation Agent checks that enemies can cross an open doorway without automatically losing the player, that distance-based target loss leads through last-known-position search before target clearing, that movement or damage interrupts opening while cursor drift after selection does not, and that the door can only be locked after the wizard crosses it. The developer then combines and tests the features inside Unity.
 
 ## 5. Technical Strategy
 
@@ -225,8 +237,8 @@ Source control will serve as the handoff between implementation, validation, and
 
 - The primary environment visual layer will use Unity **Isometric Tilemaps** (preferably Isometric Z as Y where useful) for floors, walls, and repeatable architectural tiles. World-space **SpriteRenderer** prefabs will be used for sealed doors, tall props, obstacles, characters, and other independently sorted or interactive objects.
 - The gameplay layer remains separate from the visible art layer. Walkability, collision, trigger zones, doorway logic, and other simulation rules are defined independently from the Tilemap art so generated or swapped visual assets do not automatically change gameplay behavior.
-- Player movement uses mouse-directed click/hold navigation over the gameplay plane. The cursor is also the primary targeting reference for spells and interactions, aligning movement and combat with the isometric presentation.
-- Unity navigation and finite-state components will control enemy movement, pursuit, attacks, and target loss across the floor's spaces. Ranged Enemy attacks include a line-of-sight/occlusion check, and Bone Archive's lane widths are validated against enemy movement/navigation requirements so both rooms' stated tactical geometry holds in practice.
+- Player movement uses mouse-directed click/hold navigation over the gameplay plane. The cursor is also the primary targeting reference for spells and interactions, aligning movement and combat with the isometric presentation. Sealed doors require cursor targeting plus arm's-reach proximity to begin interaction; once the five-second hold has begun, the selected door remains latched and cursor movement off the door does not cancel the attempt.
+- Unity navigation and finite-state components will control enemy movement, pursuit, attacks, target loss, search, and reacquisition across the floor's spaces. Enemies acquire the player inside Detection Distance and use a larger Lose Target Distance to end exact pursuit. Exceeding Lose Target Distance transitions the enemy to the player's last known position, followed by a short bounded randomized search/wander if the player is not immediately reacquired; doorway crossing alone does not clear pursuit. Exact distance thresholds, search duration, and random search weighting are playtesting values. Ranged Enemy attacks include a line-of-sight/occlusion check, and Bone Archive's lane widths are validated against enemy movement/navigation requirements so both rooms' stated tactical geometry holds in practice.
 - Enemy movement is the authoritative owner of enemy locomotion and forced displacement. Player abilities may request changes to enemy motion but do not directly manipulate enemy position or navigation state. Force Wave determines which enemies are affected and the radial knockback to request; the enemy movement system applies that displacement, preserves valid movement/navigation state, and resumes normal pursuit afterward. Temporary movement modifiers such as Frost Field slowdown are applied through the enemy status-effect system and restored when the effect ends.
 - All five encounter spaces exist inside one continuous Unity scene or continuous floor representation. Enemy objects, enemy health, pursuit state, active-enemy bookkeeping, and door state persist naturally as the player advances between spaces; no scene-load or cross-scene state-transfer system is required.
 - A reusable status-effect component will apply Frost Field slowdown and restore each enemy's normal movement behavior afterward, per the Wizard Combat Agent / Enemy Pursuit Agent ownership split defined in Section 4.
