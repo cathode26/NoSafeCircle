@@ -4,7 +4,7 @@
 
 Use this file to start a fresh ChatGPT window when working on the autonomous development pipeline.
 
-Last architecture reconciliation: 2026-08-18, after Assignment 6.
+Last architecture reconciliation: 2026-08-18, after Assignment 6 and progressive-decomposition review.
 
 ## Project
 
@@ -16,8 +16,9 @@ Current course work has produced useful building blocks:
 - Assignment 4: RAG pipeline over the No Safe Circle GDD.
 - Assignment 5: goal-oriented analysis and implementation agent.
 - Assignment 6: working GER implementation — Generator/Implementer → Evaluator → Refiner → Circuit Breaker.
+- Assignment 7: not yet implemented; intended to become a scored Style Evaluator specialization for authorized generated content.
 
-The goal is to evolve these pieces into a practical system that can autonomously continue developing No Safe Circle while keeping project state durable, observable, inexpensive to reason about, resumable after failures, and grounded in real Unity evidence.
+The goal is to evolve these pieces into a practical system that can autonomously continue developing No Safe Circle while keeping project state durable, observable, inexpensive to reason about, resumable after failures, grounded in real Unity evidence, and protected from silent AI invention of missing game design.
 
 ## Core Architectural Decision
 
@@ -25,11 +26,13 @@ The LLM should NOT own project state or the continuous autonomous loop.
 
 A local deterministic supervisor should own the loop.
 
-Claude should be a bounded worker that receives one small task at a time.
+Claude should be a bounded worker that receives one small piece of work at a time.
 
 Persistent project state should live in local/versioned artifacts and GitHub, not in Claude's context window.
 
-The worker may implement or generate work, but it does not get to declare that work complete. Completion is determined by project evidence and merge state.
+The worker may implement or generate work, but it does not get to declare that work complete. Completion is determined by project evidence and merge/approval state.
+
+An implementation worker also does not get to silently invent missing game design. Missing design becomes an explicit artifact proposal.
 
 ## Post-Assignment-6 Architecture Correction
 
@@ -40,7 +43,7 @@ Assignment 6 demonstrated a broader and more useful role.
 GER is the bounded self-correction loop around project work:
 
 ```text
-Selected Bounded Task
+Selected Bounded Work
         ↓
 Implement / Generate
         ↓
@@ -65,21 +68,110 @@ Approve   Structured Feedback
 
 Generated game/content artifacts remain one GER use case. Unity code implementation is another.
 
-The important abstraction is not "generated content." It is "a bounded artifact or implementation that can be evaluated, repaired, and either approved or escalated."
+The important abstraction is not "generated content." It is "a bounded work product that can be evaluated, repaired, and either approved or escalated."
+
+## Progressive Task Decomposition
+
+The task graph does not need to contain the entire game's lowest-level implementation plan in advance.
+
+High-level work should be decomposed just in time as it approaches the actionable frontier.
+
+The Progressive Decomposer asks:
+
+> Is there enough approved design information to produce bounded executable child work?
+
+If yes, it creates concrete child artifact or implementation work.
+
+If no, it identifies the smallest missing design/content artifact needed to continue.
+
+The Decomposer must not generate that missing design during the same decision.
+
+Detecting that design is missing and creating that design are separate actions.
+
+This prevents implementation agents from silently becoming game designers.
+
+## Artifact Authority
+
+A proposed design/content artifact must be authorized before generation.
+
+The Artifact Authority Gate answers:
+
+1. Is this artifact actually necessary to progress the parent work?
+2. Which current GDD requirements or already-approved artifacts justify its creation?
+3. Which design decisions may the artifact make?
+4. Which design areas must it not invent, replace, or contradict?
+
+If the proposal is not authorized, it returns to decomposition or human review.
+
+The Authority Gate decides whether generation is permitted.
+
+It does not decide whether the generated artifact is good.
+
+## Canon and Approved Design Extensions
+
+The GDD is root canon.
+
+Approved artifacts may become project-authorized design extensions.
+
+An AI-generated artifact follows this trust path:
+
+```text
+Proposed Artifact
+    ↓
+Artifact Authority Gate
+    ↓
+Authorized Generation
+    ↓
+Artifact GER
+    ↓
+Required Evaluators Pass
+    ↓
+Approved Artifact
+    ↓
+Trusted downstream design input
+```
+
+An approved artifact may add detail where the GDD leaves room for expansion.
+
+It may not contradict or silently replace GDD canon.
+
+Downstream agents may rely on approved artifacts but not on unapproved generated drafts.
 
 ## Desired End-to-End Loop
 
 ```text
-GDD
+GDD / Root Canon
  ↓
-RAG / Canon Retrieval
+Persistent Work Graph
  ↓
-Persistent Task Artifacts
+Ready / Near-Ready Frontier
  ↓
-Dependency Graph
+Progressive Decomposer
  ↓
-Ready Queue
- ↓
+Enough approved information?
+ ├─ yes → Concrete child work
+ └─ no  → Proposed artifact
+               ↓
+         Artifact Authority Gate
+               ↓
+          Authorized?
+          /       \
+        yes        no
+         ↓          ↓
+   Artifact Generator   Re-plan / Human Review
+         ↓
+      Artifact GER
+         ├─ Canon / Design Evaluator
+         ├─ Completeness Evaluator
+         └─ Style Evaluator when applicable
+                ↑ Assignment 7
+         ↓
+   Approved Artifact
+         ↓
+   Back to Decomposer
+         ↓
+   Concrete Work Item
+         ↓
 Local Supervisor
  ↓
 Claim Ticket
@@ -95,7 +187,7 @@ Bounded Claude Worker / Agent Crew
 ------------------------------
 Implement / Generate
  ↓
-Task/GDD Evaluation
+Task/GDD/Artifact Evaluation
  ↓
 Deterministic Validation
  ↓
@@ -112,18 +204,18 @@ PASS?
  ↓
 Fresh AI Diff Review
  ↓
-PR Merge
+PR Merge / Artifact Approval
  ↓
-Task = Done
+Work = Complete
  ↓
 Dependency Graph Recalculates
  ↓
-New Tasks Become Ready
+New Work Becomes Ready
  ↓
 Repeat
 ```
 
-The exact order of evaluator sub-checks may vary by task, but cheap deterministic failures should be detected before spending model tokens on semantic review whenever practical.
+The exact order of evaluator sub-checks may vary by work type, but cheap deterministic failures should be detected before spending model tokens on semantic review whenever practical.
 
 ## Guiding Principle
 
@@ -146,24 +238,40 @@ Deterministic/local work includes:
 
 LLM work includes:
 
-- semantic decomposition of tasks
+- semantic decomposition of high-level work
+- deciding whether existing information is sufficient to decompose
 - interpreting ambiguous GDD intent
+- evaluating whether proposed design expansion is justified
 - resolving real planning ties
 - bounded implementation planning/coding
 - semantic GDD/task evaluation
 - semantic diff review
-- player-facing content generation
+- authorized content/design generation
+- style evaluation/refinement
 - refinement from structured failure feedback
 
 ## Sources of Truth
 
-### Canon
+### Root Canon
 
 The GDD is canonical game-design information.
 
 Assignment 4 RAG should retrieve only relevant GDD chunks instead of repeatedly sending the whole GDD to the LLM.
 
 Prior assignment artifacts may provide evidence or reusable machinery, but they do not override the current GDD or current `main` branch.
+
+### Approved Design Extensions
+
+Approved artifact outputs may extend root canon with additional project-authorized detail.
+
+They must:
+
+- have passed the Artifact Authority Gate before generation;
+- have passed their required evaluators after generation;
+- retain traceability to the parent work and source requirements;
+- never override contradictory GDD canon.
+
+Unapproved drafts are not trusted design input.
 
 ### Codebase Truth
 
@@ -173,7 +281,7 @@ Old Assignment 5 goal-selection output must not be treated as current codebase t
 
 ### Durable Work Definition
 
-Local task artifacts should define durable work:
+Local work artifacts should define durable work:
 
 ```text
 Tasks/
@@ -182,10 +290,11 @@ Tasks/
   ...
 ```
 
-Each task should define:
+Each work item should define:
 
 - ID
 - title
+- kind
 - type
 - source GDD requirements
 - dependencies
@@ -196,9 +305,24 @@ Each task should define:
 - risk
 - effort
 - optional resource/conflict claims
-- optional parent/epic
+- optional parent/feature
+- optional artifact output path
 
-A task may later also declare which validation/evaluator profiles apply, but do not over-design this before Milestone 1 works.
+Initial work kinds:
+
+```text
+feature
+artifact
+implementation
+```
+
+Definitions:
+
+- `feature`: high-level work that may require progressive decomposition; not directly executable.
+- `artifact`: work whose output is a design/content artifact; complete only after required approval.
+- `implementation`: bounded project work that can be executed by an implementation worker.
+
+A work item may later declare which validation/evaluator profiles apply, but do not over-design this before Milestone 1 works.
 
 ### Operational Status
 
@@ -216,9 +340,28 @@ Do not make transient "Claude is working right now" state part of task-branch co
 
 ## Task Dependencies
 
-A task is ready only when all required dependencies are complete/merged.
+A work item is ready only when all required dependencies are complete/approved and the work kind is executable.
 
-Example candidates from the current design include:
+Feature nodes are not directly returned as ready implementation work.
+
+Example candidate structure:
+
+```text
+Five-Room World [feature]
+   ↓
+Room 3 [feature]
+   ↓
+Room 3 Encounter Specification [artifact]
+   ↓
+Room 3 Layout [implementation]
+Room 3 Enemy Configuration [implementation]
+Room 3 Door Configuration [implementation]
+Room 3 Validation [implementation]
+```
+
+The exact structure is created progressively, not fully in advance.
+
+Existing technical candidates may still include:
 
 ```text
 Fixed Isometric Camera
@@ -246,9 +389,9 @@ The local graph calculates the actionable/ready frontier.
 
 ## Git Model
 
-Never allow autonomous workers to develop directly on `main`.
+Never allow autonomous implementation workers to develop directly on `main`.
 
-For each ticket:
+For each implementation ticket:
 
 ```text
 branch: claude/NSC-014-mana-resource
@@ -263,14 +406,16 @@ Ready → Claimed → In Progress → Validating → PR Ready → Merged → Don
 
 "Done" means merged into `main`, not merely "Claude says it finished."
 
+Artifact tasks may use an equivalent approval lifecycle, but artifact promotion/versioning details should be added only when Milestone 2 is implemented.
+
 Prefer squash merging eventually so `main` has one clean logical commit per ticket. Create a Draft PR early so the human can watch work in progress.
 
 ## Assignment 3 Integration
 
-Assignment 3's crew belongs inside ticket execution:
+Assignment 3's crew belongs inside bounded execution:
 
 ```text
-Task Graph chooses WHAT
+Work Graph chooses WHAT
         ↓
 Planner
         ↓
@@ -287,30 +432,36 @@ The Validator can contribute evidence to the GER evaluation bundle, but it is no
 
 RAG answers:
 
-> What does the GDD say about this task?
+> What does the GDD say about this work?
 
-A context builder should retrieve only the task's relevant canonical chunks.
+A context builder should retrieve only the work item's relevant canonical chunks.
 
 RAG is desired-state/canon retrieval, not codebase truth.
+
+For progressive decomposition, RAG supplies the canonical constraints needed to determine whether more design is required.
 
 For GER, retrieved GDD evidence can be supplied to semantic evaluators and refiners.
 
 ## Assignment 5 Integration
 
-Assignment 5's lesson becomes the persistent planning/task system.
+Assignment 5's lesson becomes the persistent planning/work system plus progressive decomposition.
 
 The expensive full gap-analysis pass should not run before every feature.
 
-Run planning/reconciliation when:
+Run full planning/reconciliation when:
 
 - the GDD materially changes
 - the backlog is empty/low
 - a milestone completes
 - a discovered dependency changes the plan
-- the current repository and task graph disagree
+- the current repository and work graph disagree
 - a human explicitly requests it
 
-Assignment 5's implementation agent can also be reused as a bounded ticket implementer/refiner, as demonstrated by Assignment 6.
+Normal progress should use the persistent graph.
+
+As high-level work approaches the frontier, the Progressive Decomposer semantically expands only that bounded area.
+
+Assignment 5's implementation agent can also be reused as a bounded implementer/refiner, as demonstrated by Assignment 6.
 
 ## Assignment 6 / GER Integration
 
@@ -352,7 +503,7 @@ Reference:
 
 ## Validation Evidence Model
 
-Future ticket execution should build a validation/evidence bundle rather than relying on a single PASS/FAIL source.
+Future execution should build a validation/evidence bundle rather than relying on a single PASS/FAIL source.
 
 Possible evidence sources:
 
@@ -365,13 +516,15 @@ PlayMode tests
 Runtime observations
 Simulation/adversarial-agent results (later)
 Task/GDD semantic evaluator
-Style evaluator for player-facing content (later)
+Artifact canon/design evaluator
+Artifact completeness evaluator
+Style evaluator for player-facing content
 Fresh semantic diff review
 ```
 
-Not every ticket needs every evaluator.
+Not every work item needs every evaluator.
 
-The task type and acceptance criteria determine which evidence is required.
+The work kind, type, source requirements, and acceptance criteria determine which evidence is required.
 
 Failures should be normalized into structured feedback that the Refiner can consume.
 
@@ -379,7 +532,11 @@ Failures should be normalized into structured feedback that the Refiner can cons
 
 Assignment 7 should not become a parallel autonomous architecture.
 
-When the game has an appropriate player-facing content target, its Style Guide Agent should be implemented as an evaluator specialization inside GER:
+Progressive decomposition may identify authorized player-facing or style-sensitive artifact work.
+
+After the Artifact Authority Gate approves creation, the artifact can be generated through GER.
+
+Assignment 7 supplies a specialized scored evaluator:
 
 ```text
 Generator
@@ -393,9 +550,13 @@ Refiner
 Style Evaluator
 ```
 
-The style evaluator must use actual No Safe Circle canon/prior work and should not invent a new universe merely to create style constraints.
+The style evaluator must use actual No Safe Circle canon and approved prior work.
 
-Potential targets should be selected from real game needs as the playable game develops.
+It judges whether authorized generated content matches No Safe Circle.
+
+It does not authorize creation of new canon or design content.
+
+Artifact authority and artifact quality are separate decisions.
 
 ## Autonomous Supervisor
 
@@ -405,39 +566,49 @@ Conceptually:
 
 ```python
 while game_not_complete:
-    task = taskctl.next_ready()
+    work = taskctl.next_ready()
 
-    if task is None:
-        run_reconciliation_or_planning_cycle()
+    if work is None:
+        work = expand_near_ready_feature_or_reconcile()
+
+    if work.kind == "feature":
+        run_progressive_decomposition(work)
         continue
 
-    claim(task)
-    create_branch(task)
-    create_worktree(task)
-    open_draft_pr(task)
+    if work.kind == "artifact":
+        if not artifact_is_authorized(work):
+            authorize_or_escalate(work)
+            continue
+        run_bounded_artifact_ger(work)
+        approve_or_escalate(work)
+        continue
 
-    context = build_context(task)
+    claim(work)
+    create_branch(work)
+    create_worktree(work)
+    open_draft_pr(work)
 
-    result = run_bounded_ger_execution(task, context)
+    context = build_context(work)
+    result = run_bounded_ger_execution(work, context)
 
     if result.escalated:
-        mark_needs_review(task)
+        mark_needs_review(work)
         continue
 
-    run_fresh_ai_diff_review(task)
+    run_fresh_ai_diff_review(work)
 
     if everything_passes:
-        merge(task)
-        mark_done(task)
+        merge(work)
+        mark_done(work)
     else:
-        repair_or_escalate(task)
+        repair_or_escalate(work)
 ```
 
-The implementation of `run_bounded_ger_execution` should choose the relevant evaluator/validation profile for the task rather than running every possible check blindly.
+This is conceptual architecture, not Milestone 1 scope.
 
 ## Safety / Cost Controls
 
-Per-ticket limits should eventually include:
+Per-work limits should eventually include:
 
 - maximum agent runs
 - maximum repair attempts
@@ -449,14 +620,15 @@ Stop/escalate for:
 
 - repeated validation failures
 - GDD ambiguity
+- unauthorized design expansion
 - architecture-changing dependencies
 - Unity scene/prefab merge conflicts
-- task scope expansion
+- work scope expansion
 - budget exhaustion
 - repeated no-op refinement
 - repeated GER failure
 
-Autonomous means "continue safe bounded work," not "spend forever."
+Autonomous means "continue safe bounded work," not "spend forever" or "invent whatever is missing."
 
 ## Parallelism
 
@@ -475,25 +647,30 @@ Do not finish the entire autonomous platform before building more of the game.
 The next strategy is:
 
 1. Reconcile current `main`.
-2. Implement the minimum persistent task graph.
+2. Implement the minimum persistent work graph.
 3. Seed the graph from actual current project state.
-4. Compute the ready frontier.
-5. Select a real ready gameplay task.
-6. Use the proven GER pattern to implement/repair it.
-7. Feed the result back into the graph.
-8. Expand infrastructure only when the next real task requires it.
+4. Support `feature`, `artifact`, and `implementation` kinds.
+5. Compute the ready/near-ready frontier.
+6. Begin Milestone 2 only after Milestone 1 works.
+7. Use progressive decomposition only on bounded near-frontier work.
+8. Create artifact proposals when design is missing.
+9. Authorize and evaluate generated artifacts before downstream use.
+10. Execute real implementation work through the proven GER pattern.
+11. Expand infrastructure only when the next real task requires it.
 
 This keeps pipeline development tied to actual capstone progress.
 
 ## High-Level Build Milestones
 
-1. Persistent task artifacts + `taskctl`
-2. RAG canon service + Unity/code scanner + context builder
+1. Persistent work artifacts + deterministic `taskctl`
+2. RAG canon service + Unity/code scanner + context builder + Progressive Decomposer + Artifact Authority Gate
 3. One-ticket autonomous supervisor with branch/worktree/PR
 4. Productionize GER execution + deterministic/Unity/runtime validation + evaluator profiles
 5. GitHub dashboard sync + continuous scheduling + blocker handling + budgets + eventual parallelism
 
-Assignment 6 has already produced a working prototype of Milestone 4's central repair-loop concept. The milestone is still future work because it has not yet been integrated into the supervisor/task system.
+Assignment 6 has already produced a working prototype of Milestone 4's central repair-loop concept.
+
+Assignment 7 will contribute a reusable evaluator profile used by artifact GER when style-sensitive content appears.
 
 ## Working Rule
 

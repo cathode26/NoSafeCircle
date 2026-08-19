@@ -6,7 +6,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-001 — Repository state beats conversation memory
 
-**Decision:** Persistent pipeline state, task definitions, dependencies, and architectural documentation live in the repository.
+**Decision:** Persistent pipeline state, work definitions, dependencies, and architectural documentation live in the repository.
 
 **Reason:** AI chat contexts are temporary and may not contain all prior detail.
 
@@ -22,7 +22,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-003 — Claude receives one bounded ticket
 
-**Decision:** Normal coding workers receive one task contract rather than the whole project roadmap.
+**Decision:** Normal coding workers receive one work contract rather than the whole project roadmap.
 
 **Reason:** Reduces token use, scope drift, and repeated rediscovery.
 
@@ -30,7 +30,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-004 — Task dependency graph is persistent and local
 
-**Decision:** Work items are stored as local task artifacts with explicit dependencies. Local code calculates ready/actionable tasks.
+**Decision:** Work items are stored as local artifacts with explicit dependencies. Local code calculates ready/actionable work.
 
 **Reason:** Dependency readiness is computation, not something an LLM should reconstruct on every run.
 
@@ -38,7 +38,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-005 — GitHub is the dashboard, not the project brain
 
-**Decision:** Local/versioned task artifacts define durable work. GitHub Issues/Projects/PRs mirror operational state and provide human visibility.
+**Decision:** Local/versioned work artifacts define durable work. GitHub Issues/Projects/PRs mirror operational state and provide human visibility.
 
 **Reason:** Workers need fast deterministic local access, while the user needs a convenient remote dashboard.
 
@@ -54,7 +54,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-007 — Done means merged
 
-**Decision:** A task satisfies downstream dependencies only after its implementation is merged into `main`.
+**Decision:** An implementation task satisfies downstream dependencies only after its implementation is merged into `main`.
 
 **Reason:** Code existing on an unmerged worker branch is not project state.
 
@@ -62,7 +62,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-008 — RAG is the canon retrieval layer
 
-**Decision:** Assignment 4 RAG retrieves relevant GDD evidence for tasks instead of repeatedly sending the entire GDD to an LLM.
+**Decision:** Assignment 4 RAG retrieves relevant GDD evidence for work instead of repeatedly sending the entire GDD to an LLM.
 
 **Reason:** Reduces context size and keeps generated work grounded in canonical design information.
 
@@ -70,7 +70,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-009 — Assignment 3 crew executes tickets
 
-**Decision:** Planner → Implementer → Validator operates inside one selected task.
+**Decision:** Planner → Implementer → Validator operates inside one selected bounded implementation task.
 
 **Reason:** The persistent graph decides WHAT to build; the crew decides HOW to build that bounded work.
 
@@ -88,7 +88,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-011 — Cheap deterministic validation should run before expensive semantic review when practical
 
-**Decision:** Git checks, scope checks, static checks, Unity compilation/tests, and other deterministic validation should detect cheap/objective failures before spending model tokens on fresh semantic review whenever the task allows it.
+**Decision:** Git checks, scope checks, static checks, Unity compilation/tests, and other deterministic validation should detect cheap/objective failures before spending model tokens on fresh semantic review whenever the work allows it.
 
 **Reason:** Do not spend model tokens on failures a local tool can detect.
 
@@ -100,7 +100,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 **Decision:** A worker that discovers a substantial independently-testable prerequisite must stop/block rather than silently absorb it.
 
-**Reason:** Preserves ticket scope and keeps the dependency graph truthful.
+**Reason:** Preserves work scope and keeps the dependency graph truthful.
 
 ---
 
@@ -114,7 +114,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-014 — Every autonomous loop has budgets/circuit breakers
 
-**Decision:** Ticket execution, repair, and GER loops have runtime/retry/cost limits and escalate when exceeded.
+**Decision:** Ticket execution, repair, artifact generation, and GER loops have runtime/retry/cost limits and escalate when exceeded.
 
 **Reason:** Autonomous must mean bounded safe progress, not unlimited token spending.
 
@@ -138,7 +138,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-017 — Validation should produce an evidence/feedback bundle
 
-**Decision:** Ticket validation should aggregate required deterministic, Unity/runtime, and semantic evidence into a form that can either approve work or produce structured Refiner feedback.
+**Decision:** Work validation should aggregate required deterministic, Unity/runtime, and semantic evidence into a form that can either approve work or produce structured Refiner feedback.
 
 **Reason:** Assignment 6 succeeded once Unity observations could be fed back into the same repair loop. A single evaluator result is too narrow for many game-development tasks.
 
@@ -146,7 +146,7 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-018 — Old goal-selection artifacts are not current codebase truth
 
-**Decision:** Saved Assignment 5 planning/goal-selection output may be reused as historical evidence, but task completion and readiness must be reconciled against the current `main` branch before seeding the durable dependency graph.
+**Decision:** Saved Assignment 5 planning/goal-selection output may be reused as historical evidence, but completion and readiness must be reconciled against the current `main` branch before seeding the durable dependency graph.
 
 **Reason:** Assignment outputs can become stale as features are merged or changed. Persistent project state must reflect the repository that actually ships.
 
@@ -154,9 +154,9 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-019 — The pipeline must advance the game while it is being built
 
-**Decision:** After the minimum deterministic task graph exists, pipeline work should be exercised on real ready No Safe Circle gameplay tasks rather than waiting for the entire autonomous platform to be finished.
+**Decision:** After the minimum deterministic work graph exists, pipeline work should be exercised on real ready No Safe Circle gameplay work rather than waiting for the entire autonomous platform to be finished.
 
-**Reason:** The pipeline is infrastructure for developing No Safe Circle, not a separate capstone that should indefinitely block game progress. Real tickets will expose the next infrastructure requirements more accurately than speculative over-building.
+**Reason:** The pipeline is infrastructure for developing No Safe Circle, not a separate capstone that should indefinitely block game progress. Real work will expose the next infrastructure requirements more accurately than speculative over-building.
 
 ---
 
@@ -165,3 +165,39 @@ This is a lightweight decision log. Add new entries when a decision materially c
 **Decision:** When Assignment 7/player-facing content is ready, style enforcement should plug into GER as a specialized scored evaluator that returns `SCORE + REASON` and feeds the Refiner.
 
 **Reason:** Assignment 7 uses the same Generator → Evaluator → Refiner structure already proven by Assignment 6. Reusing the execution architecture avoids parallel pipelines and allows style checks to remain tied to actual No Safe Circle content.
+
+**Clarification:** Style evaluation does not authorize creation of new canon or design content. Artifact creation must already have passed the Artifact Authority Gate before the Style Evaluator is used.
+
+---
+
+## ADR-021 — Task decomposition is progressive and just-in-time
+
+**Decision:** The pipeline does not attempt to fully decompose the entire capstone into low-level implementation tickets in advance. High-level work is expanded as it approaches the actionable frontier.
+
+**Reason:** Distant work often lacks design information, and premature decomposition either wastes LLM reasoning or causes invented requirements.
+
+---
+
+## ADR-022 — Missing design creates an artifact proposal, not silent invention
+
+**Decision:** When work cannot be concretely decomposed because required design/content is missing, the Decomposer proposes a new artifact dependency instead of inventing the missing information during implementation.
+
+**Reason:** Implementation agents must not silently become game designers or turn hallucinated decisions into project requirements.
+
+---
+
+## ADR-023 — Generated design requires authority before generation
+
+**Decision:** A proposed design/content artifact must pass an authority check before generation. The check identifies why the artifact is needed, which existing requirements permit expansion, and which areas are outside its authority.
+
+**Reason:** Evaluating whether generated content is good is different from deciding whether the AI was allowed to invent that content in the first place.
+
+---
+
+## ADR-024 — Approved artifacts may become subordinate project design state
+
+**Decision:** After passing authority and required post-generation evaluators, an approved artifact may become trusted downstream design input subordinate to the GDD.
+
+**Reason:** Progressive decomposition needs a durable way to carry forward authorized design decisions without forcing later agents to regenerate or reinterpret them.
+
+**Constraint:** Approved artifacts may add detail where canon permits expansion but may not contradict or silently replace GDD canon.
