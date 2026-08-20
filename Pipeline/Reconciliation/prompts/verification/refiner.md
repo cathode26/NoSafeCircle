@@ -190,3 +190,74 @@ Ensure:
 - open implementation/artifact work is `single_agent`, `needs_execution_decomposition`, `human_integration_required`, or `unknown` based on evidence rather than subjective difficulty.
 
 Return only the full reconciliation JSON required by the supplied schema.
+---
+
+# Retry hardening: canonical repair rules
+
+When pass-1 findings touch dependencies, shared state, execution scope, or
+requirement representation, refine toward the current GDD's explicit ownership
+model rather than inventing an alternate architecture.
+
+## Dependency repairs
+
+- Remove a dependency whose only purpose is serializing tasks that write the
+  same file/scene/prefab/builder. Preserve or add the appropriate shared
+  `exclusive_resources` lock instead.
+- Add a dependency when a consumer genuinely requires a represented runtime
+  owner/foundation to exist first.
+- Do not use a dependency merely because two systems interact conceptually.
+
+## Canonical shared owners from the current GDD
+
+Preserve these boundaries when they are relevant to a finding:
+
+- Door and Interaction owns shared doorway-crossing state. Door close/lock and
+  final-victory logic consume it rather than implementing independent crossing
+  detectors.
+- Melee and Ranged Enemy attacks consume the shared Player Health damage
+  interface.
+- Enemy Pursuit owns shared Active Enemy Registry bookkeeping for persistent
+  active enemy objects; Dungeon Encounter consumes the registry for admission
+  policy and does not maintain a second count.
+- Enemy locomotion/pursuit consumes a shared gameplay navigation/locomotion
+  foundation. The concrete navigation technology is human-approved.
+- The visual Tilemap/SpriteRenderer world foundation is reusable architecture,
+  not the five-room content-authoring task.
+
+When a finding shows one of these reusable capabilities is absent from the
+candidate, add/narrow a supported work item or dependency as needed rather than
+copying the capability into every consumer.
+
+## Active-enemy refinement
+
+Keep bookkeeping and admission policy conceptually separate:
+
+- registry responsibility: persistent active set/count/capacity and updates on
+  activation/defeat;
+- encounter-admission responsibility: query capacity and delay/reduce new
+  encounter activation before ever removing existing persistent enemies.
+
+Do not make exact room layouts, encounter placements, or trigger authoring a
+prerequisite for the reusable registry foundation.
+
+## Navigation and human integration
+
+If the navigation technology is still unresolved in current repository state,
+repair the candidate so the shared navigation/locomotion foundation reflects
+that human-approved decision and locomotion-dependent work depends on the
+foundation. Do not solve this by making the visual world foundation own every
+room or by silently choosing a navigation package.
+
+## Typed process constraints
+
+If coverage identifies the Development Agent Ownership Invariants as required
+process rules, add/preserve an appropriate typed `pipeline_constraint` record.
+Do not consider the requirement satisfied merely because individual work items
+happen to contain related prose.
+
+## Scope discipline
+
+Do not introduce new mechanics, balance values, room layouts, encounter
+placements, or navigation technology while repairing these findings. The goal
+is to make ownership, prerequisite, resource-lock, and process representation
+match the already-approved GDD.

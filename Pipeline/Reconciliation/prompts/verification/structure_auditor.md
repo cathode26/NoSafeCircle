@@ -80,3 +80,56 @@ Do not invent deferred encounter content while performing this check.
 If ordering is uncertain, report it rather than inventing certainty.
 
 Return only the structured JSON required by the supplied schema.
+---
+
+# Retry hardening: dependency and shared-capability audit
+
+Apply these additional structural checks to the candidate.
+
+## False dependency check
+
+A shared file/scene/prefab/builder collision is not a dependency. Flag a
+`depends_on` edge when its only justification is that two tasks modify the same
+resource. The correct representation for a pure write collision is a shared
+`exclusive_resources` key.
+
+## Shared capability owner check
+
+When multiple tasks consume the same required runtime state/interface, verify
+that the graph has one authoritative owner rather than duplicate hidden
+implementations.
+
+Current GDD ownership examples that should be represented structurally:
+
+- shared doorway-crossing state is owned by Door and Interaction and consumed
+  by close/lock and final victory;
+- enemy attacks consume Player Health;
+- persistent active-enemy bookkeeping is owned by the shared Active Enemy
+  Registry and consumed by encounter admission;
+- enemy pursuit/locomotion consumes the shared gameplay
+  navigation/locomotion layer;
+- visual world authoring foundation is distinct from five-room content
+  authoring.
+
+Flag missing dependencies from a consumer to a required owner when the owner
+must exist first. Also flag an unnecessary dependency when interaction can be
+handled through an already-existing interface plus exclusive-resource locking.
+
+## Foundation/content split check
+
+Do not allow a reusable foundation to absorb deferred content merely because
+both eventually touch the same scene. In particular:
+
+- navigation/walkability foundation must not require completed five-room visual
+  authoring;
+- Tilemap/SpriteRenderer authoring conventions must not claim responsibility
+  for authoring all five room layouts/encounters;
+- Active Enemy Registry bookkeeping must not be hidden behind exact encounter
+  placement/trigger authoring.
+
+## Ownership-invariant process representation
+
+Verify that the GDD's Development Agent Ownership Invariants survive as typed
+`pipeline_constraint` records. If the behaviors are only scattered across work
+items and no durable process constraint represents the mandatory ownership
+boundary, report a requirement-representation problem.

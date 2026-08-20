@@ -310,6 +310,31 @@ Historical validation may strengthen a claim only when the current implementatio
 
 ---
 
+## Feature aggregate repository-state rule
+
+Feature nodes are organizational/aggregate records, so their repository state
+may summarize the current state of represented child work:
+
+- `implemented` may be used when the represented required feature is currently
+  satisfied;
+- `partial` may be used when meaningful represented child work exists but the
+  feature is incomplete;
+- `missing` may be used when the represented feature has no meaningful current
+  implementation;
+- `not_applicable` remains valid when implementation state is not useful for an
+  organizational feature;
+- `unknown` remains valid when the aggregate cannot be classified safely.
+
+Do **not** duplicate child `repository_evidence` entries onto a feature merely
+to justify an aggregate state. A feature may therefore have
+`repository_state: partial` or `implemented` with an empty
+`repository_evidence` list when that state is an aggregate of represented child
+work.
+
+This exception applies only to `kind: feature`. Any `implementation` or
+`artifact` marked `implemented` or `partial` must still provide direct,
+allowed current-project repository evidence supporting that claim.
+
 # Proposed graph status
 
 The durable Milestone 1 graph initially uses:

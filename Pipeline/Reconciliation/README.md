@@ -262,6 +262,22 @@ Planning / Progressive Decomposition step may add more exact file/scene/prefab
 locks as the implementation file list becomes concrete.
 
 
+## Feature aggregate repository state
+
+`feature` nodes are organizational/aggregate records. They may report aggregate
+`implemented`, `partial`, `missing`, `not_applicable`, or `unknown` repository
+state without duplicating repository evidence already owned by their child
+implementation/artifact nodes.
+
+For example, the `no-safe-circle` root may truthfully be `partial` because some
+represented child systems are implemented while others are still open, even
+though the root itself has no source file to cite.
+
+Direct repository evidence remains mandatory for any `implementation` or
+`artifact` classified as `implemented` or `partial`. This preserves the
+evidence safety rule where it matters while avoiding artificial evidence
+duplication on feature groups.
+
 ## Deterministic execution-scope normalization
 
 The structured-output schema can still produce combinations that are valid

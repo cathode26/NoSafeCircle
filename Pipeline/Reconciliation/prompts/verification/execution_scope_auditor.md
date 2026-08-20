@@ -57,3 +57,54 @@ Use `category: exclusive_resource_problem` when the task size is acceptable but 
 Use blocker/error only when the bad scope would make automated task selection unsafe. Use warning/suggestion for improvements that do not prevent safe bootstrap review.
 
 Return only the structured audit result required by the supplied schema.
+---
+
+# Retry hardening: execution-readiness boundaries
+
+Use these additional checks when judging `single_agent`,
+`needs_execution_decomposition`, and `human_integration_required`.
+
+## External integration prerequisite check
+
+A work item is not safely `single_agent` merely because its internal code is
+small. If its acceptance/validation requires a shared runtime capability that
+is not implemented and is not represented as a prerequisite, report an
+execution-scope problem.
+
+Pay special attention to:
+
+- enemy attacks requiring Player Health;
+- enemy pursuit/search requiring a gameplay navigation/locomotion layer;
+- door locking and final victory requiring shared doorway-crossing state;
+- encounter admission requiring Active Enemy Registry bookkeeping.
+
+## Human-approved navigation decision
+
+The current GDD deliberately leaves the concrete Unity navigation technology as
+a human-approved technical choice. If the repository has not established that
+choice, a navigation-foundation item should not be treated as an ordinary
+single-agent coding handoff when the next meaningful step is architectural or
+Unity-editor judgment.
+
+Locomotion-dependent enemy work should remain blocked by that represented
+foundation rather than receiving the unresolved decision implicitly.
+
+## Foundation versus whole-content scope
+
+Flag `single_agent` when a supposedly reusable foundation also claims broad
+content-authoring responsibility such as building all five rooms, all encounter
+layouts, or other independently verifiable content bundles.
+
+A visual Tilemap/SpriteRenderer foundation may establish conventions and
+visual/gameplay separation without authoring all five named room layouts.
+An Active Enemy Registry may establish bookkeeping without authoring encounter
+placements/triggers.
+
+## Validation availability
+
+Do not require a task to own deferred room content solely so a future
+room-specific validation can eventually run. Keep the mechanism bounded and
+record the room-specific check as validation that becomes executable when the
+required content exists. If the task currently claims it can fully validate a
+missing room-specific scenario, flag the scope claim rather than broadening the
+task automatically.

@@ -420,6 +420,54 @@ def main() -> int:
         == "ready_with_warnings"
     )
 
+    # Feature nodes may summarize child progress without duplicating
+    # repository evidence from executable children.
+    aggregate_feature = {
+        "root-feature": {
+            "key": "root-feature",
+            "kind": "feature",
+            "basis": "direct_gdd",
+            "gdd_evidence": [
+                {
+                    "reference": "Section Test",
+                    "requirement": "Aggregate feature requirement.",
+                }
+            ],
+            "repository_state": "partial",
+            "repository_evidence": [],
+            "graph_status": "open",
+        }
+    }
+    reconciliation._validate_evidence_and_status(aggregate_feature)
+
+    # The exemption must not weaken evidence requirements for executable work.
+    executable_without_evidence = {
+        "partial-task": {
+            "key": "partial-task",
+            "kind": "implementation",
+            "basis": "direct_gdd",
+            "gdd_evidence": [
+                {
+                    "reference": "Section Test",
+                    "requirement": "Executable requirement.",
+                }
+            ],
+            "repository_state": "partial",
+            "repository_evidence": [],
+            "graph_status": "open",
+        }
+    }
+    try:
+        reconciliation._validate_evidence_and_status(
+            executable_without_evidence
+        )
+    except RuntimeError as exc:
+        assert "has no repository evidence" in str(exc)
+    else:
+        raise AssertionError(
+            "Partial implementation work must still require repository evidence."
+        )
+
     print("verification smoke test passed")
     print(f"model pool: {', '.join(crew.MODEL_POOL)}")
     print(f"sample assignments: {assignments}")

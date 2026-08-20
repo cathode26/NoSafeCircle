@@ -985,7 +985,13 @@ def _validate_evidence_and_status(items_by_key: dict[str, dict[str, Any]]) -> No
                 f"{key!r} requires at least one GDD evidence entry."
             )
 
-        if repo_state in ("implemented", "partial") and not repo_evidence:
+        # Feature nodes may summarize aggregate progress from their child work.
+        # Direct repository evidence belongs on implementation/artifact nodes.
+        if (
+            kind in {"implementation", "artifact"}
+            and repo_state in ("implemented", "partial")
+            and not repo_evidence
+        ):
             raise RuntimeError(
                 f"{key!r} is {repo_state!r} but has no repository evidence."
             )
