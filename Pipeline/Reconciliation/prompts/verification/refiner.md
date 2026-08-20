@@ -298,8 +298,12 @@ semantics for:
 
 - status-effect/displacement consuming pursuit/search state hand-back;
 - five-room content consuming the reusable visual-world foundation;
-- encounter placement/content consuming authored room spaces and encounter
-  admission/cap behavior;
+- encounter placement/content consuming concrete encounter-admission/cap
+  implementation and, only after decomposition creates one, a concrete
+  authored-room implementation/artifact;
+- the conceptual authored-room -> encounter-content relationship remains
+  decomposition/authoring context while the authored-room target is still a
+  `feature`; never repair it with a feature-target dependency;
 - locomotion-dependent enemy work consuming the shared navigation foundation.
 
 Do not manufacture dependencies for mere file collisions; those remain
@@ -733,3 +737,95 @@ After repairs, re-run:
 - full persistent-owner reset coverage;
 - process-requirement representation checks;
 - execution-scope consistency.
+---
+
+## Final refinement closure: deferred feature prerequisites and evidence-based writer locks
+
+Apply this after all earlier repair rules. This section supersedes any earlier
+instruction that could be read as authorizing a feature-target dependency or a
+blanket scene/builder lock.
+
+### Reject feature-target repairs before mutating the candidate
+
+For every proposed dependency repair:
+
+1. resolve the target work item;
+2. require target `kind` to be `implementation` or `artifact`;
+3. if the target is `feature`, reject the edge even when the GDD describes a
+   conceptual prerequisite;
+4. preserve that prerequisite in decomposition/authoring context until concrete
+   descendants exist.
+
+Specifically, do not add:
+
+```text
+dungeon-encounter-content-authoring
+    -> five-room-content-authoring
+```
+
+while `five-room-content-authoring` is a feature.
+
+If later decomposition produces concrete authored-room and encounter-placement
+work, place the executable edge between those concrete descendants.
+
+### Repair writer locks only from actual write surfaces
+
+Do not normalize a scene/builder lock across every task in a subsystem.
+
+A task receives an exclusive resource only when repository/candidate evidence
+supports that the task itself will modify, regenerate, configure, or integrate
+through the exact resource.
+
+Do not add prototype-scene/builder locks to code/foundation work merely because
+the resulting component will eventually be present in the scene.
+
+In particular, do not automatically add those locks to:
+
+- `active-enemy-registry`;
+- `enemy-health-damage-defeat`;
+- `enemy-pursuit-search-foundation`;
+- `enemy-status-effect-displacement`;
+- `encounter-admission-cap-enforcement`;
+
+unless current evidence identifies the exact shared scene/builder as part of
+that task's own write surface.
+
+### Navigation/world scene-builder collision
+
+When current evidence shows that `gameplay-navigation-locomotion` must configure
+the NavMesh/navigation surface through the same prototype scene and scene
+builder that `world-visual-foundation` modifies, normalize the matching
+exclusive-resource locks across those two writer tasks.
+
+Use the exact resource identities already established by repository evidence,
+including when applicable:
+
+```text
+repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity
+```
+
+This is a concurrency repair, not a dependency edge.
+
+If evidence instead shows navigation can be implemented without modifying those
+resources, do not invent the locks.
+
+### Remove overbroad read-only locks
+
+If a work item only consumes/reads a shared runtime surface and does not write
+it, remove an exclusive-resource lock that was added only by association.
+
+Examples include a locked-door attack that merely consumes walkability and code
+owners that consume locomotion/registry interfaces without modifying their
+implementation surfaces.
+
+### Re-run closure
+
+After these repairs, verify:
+
+- no dependency target is a feature;
+- no dependency cycle was introduced;
+- every exclusive resource corresponds to a supported write/integration
+  surface;
+- known shared writers use identical keys;
+- read-only consumers are not unnecessarily serialized.
