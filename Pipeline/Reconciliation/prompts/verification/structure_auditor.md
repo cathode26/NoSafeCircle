@@ -51,6 +51,18 @@ Do not add dependencies merely because two systems interact. Dependencies are ex
 
 Likewise, do not invent dependency ordering merely because two tasks share an exclusive resource. A resource collision means both tasks may be ready but must not be dispatched concurrently. Use `category: exclusive_resource_problem` when the scheduling lock metadata is missing, inconsistent, or overbroad.
 
+When recommending or correcting exclusive resource keys, use only these
+canonical formats:
+
+- `repo-file:<repository-relative path>`
+- `unity-scene:<repository-relative Assets/... scene path>`
+- `unity-prefab:<repository-relative Assets/... prefab path>`
+- `logical:<stable-lowercase-slug>`
+
+Use `logical:` for an established shared integration surface or subsystem when
+no concrete repository path exists yet. Never invent alternate prefixes such as
+`subsystem:`, `system:`, `feature:`, or `component:`.
+
 Treat a fully specified required runtime mechanism becoming
 **undispatchable** solely because it is bundled inside deferred content
 authoring as an `under_decomposition` **error**, not merely a warning. That

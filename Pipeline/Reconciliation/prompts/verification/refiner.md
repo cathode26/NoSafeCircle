@@ -138,6 +138,22 @@ You MAY:
 - classify `execution_scope` separately from design decomposition. If approved design is concrete but the implementation item is too broad for one bounded agent handoff, use `needs_execution_decomposition` rather than inventing subtask design. Use `human_integration_required` when the next meaningful step fundamentally requires human Unity/editor/integration judgment;
 - add, remove, or normalize `exclusive_resources` when current repository/GDD/architecture evidence establishes that otherwise-ready tasks would modify the same non-merge-safe source file, Unity scene, prefab, builder, or logical integration surface. Shared resource locks are scheduling constraints, not dependencies.
 
+### Exclusive resource key contract
+
+Every `exclusive_resources[].key` MUST use exactly one of these canonical formats:
+
+- `repo-file:<repository-relative path>`
+- `unity-scene:<repository-relative Assets/... scene path>`
+- `unity-prefab:<repository-relative Assets/... prefab path>`
+- `logical:<stable-lowercase-slug>`
+
+Use `logical:` when a shared future integration surface or subsystem is clearly
+established but no concrete repository path exists yet.
+
+Do not invent additional prefixes such as `subsystem:`, `system:`, `feature:`,
+`component:`, or similar aliases. Normalize any such suggestion to one of the
+canonical formats above before returning the refined candidate.
+
 You MUST NOT:
 
 - invent room geometry;

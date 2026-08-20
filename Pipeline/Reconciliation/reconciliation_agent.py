@@ -87,7 +87,10 @@ EXCLUSIVE_RESOURCE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
-        "key": {"type": "string"},
+        "key": {
+            "type": "string",
+            "pattern": "^(repo-file|unity-scene|unity-prefab|logical):.+$",
+        },
         "reason": {"type": "string"},
         "evidence": {"type": "string"},
     },
