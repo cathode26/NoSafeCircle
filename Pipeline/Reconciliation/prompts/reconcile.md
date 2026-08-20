@@ -1532,3 +1532,156 @@ AND all shared write collisions remain represented through exclusive_resources r
 
 Repair the candidate and re-run dependency-kind/cycle validation after any
 change made by this preflight.
+---
+
+## Spell/reset, feedback, and ownership closure preflight
+
+Apply this after the earlier graph-edge closure preflight and before returning
+the candidate.
+
+### Do not assign spell-owned state to Player Mana
+
+Player Mana owns the shared mana resource and its own mana-regeneration timing
+state. It does not become the owner of every spell's cooldown, charge, active
+cast, or other spell-local state merely because all spells spend mana.
+
+For the current GDD:
+
+- `player-mana` owns current mana plus its own post-cast regeneration-delay
+  state and exposes/reset those through its owner-controlled interface;
+- `force-wave` owns its long cooldown state and must expose an owner-controlled
+  floor-run reset for that cooldown;
+- `fireball` owns its tap/charge/cast state and must expose an owner-controlled
+  floor-run reset for any such state that can be active when a restart occurs;
+- `frost-field` owns its Wizard-Combat-side cast/placement/active-field state and
+  must expose an owner-controlled floor-run reset for that owned state;
+- enemy-side Frost slowdown/application/restoration state remains owned by the
+  Enemy Pursuit/status-effect side and is not transferred to the Frost Field
+  casting item.
+
+Do not claim that `player-mana` resets generic "spell cooldowns" unless a
+concrete repository implementation actually places that state inside Player
+Mana and the ownership remains consistent with the GDD.
+
+### Full floor-restart closure includes required spell owners
+
+The staged/current-owner restart task and the full persistent-systems closure
+are different.
+
+The early staged orchestrator may validate only against persistent owners that
+currently exist. The full `floor-run-restart-persistent-closure` cannot be
+complete until every required run-persistent owner exposes a reset contract and
+is invoked through that contract.
+
+When the spell reset interfaces above are still unfinished, preserve formal
+dependencies from the full persistent closure to the concrete spell owners:
+
+- `fireball`;
+- `frost-field`;
+- `force-wave`.
+
+Also preserve the existing dependencies on Player Mana and the other persistent
+owners required by the GDD. The dependency reason should name the unfinished
+owner-side reset capability, not merely say that the systems conceptually
+interact.
+
+Do not add these spell dependencies to an intentionally narrow early-stage
+restart task merely because the future spell work exists.
+
+### Frost Field feedback is required acceptance behavior
+
+The Wizard Combat Agent owns Frost Field casting, mana cost, and feedback.
+
+`frost-field` acceptance criteria must require player-facing feedback that makes
+the cast and/or active field readable to the player. Do not invent a specific
+particle system, color, sound, animation, shader, or other presentation detail
+that the GDD does not specify.
+
+A safe representation is equivalent to:
+
+```text
+Frost Field provides player-facing feedback that makes the cast and active field
+readable while preserving the Enemy Pursuit Agent's ownership of actual
+slowdown application/restoration.
+```
+
+Feedback must be acceptance behavior, not only a validation note.
+
+### Preserve explicit spell/enemy behavior in acceptance criteria
+
+Do not leave these requirements only in GDD evidence:
+
+- `fireball`: cursor-aimed tap/charge casting, with Force Wave remaining the
+  explicit player-centered no-cursor exception;
+- `ranged-enemy`: keeps moderate distance and fires a **slow, telegraphed**
+  ranged shot; line-of-sight/occlusion remains required as already specified.
+
+These are runtime behaviors and belong in acceptance criteria on their owners.
+
+### Player Experience failure readability remains validation scope
+
+Preserve the Section 3 Player Experience Success Criterion that failure is
+readable, including poor positioning, low mana, wasting Force Wave before an
+immediate threat, and waiting too long.
+
+Map the applicable portions to validation requirements on the owning work. Do
+not invent a separate gameplay feature solely to represent the validation
+obligation.
+
+### Door input/selection write surface
+
+When `door-open-interaction` must change the current interaction input/selection
+implementation, inspect repository truth and include
+`Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs` in
+`exclusive_resources` if that file is expected to be modified.
+
+Do not omit the file lock merely because DoorInteractable owns the door state.
+Input/selection wiring and door lifecycle state are separate write surfaces.
+
+### Cursor reference is a shared convention, not automatically Player Movement ownership
+
+The GDD says the cursor is the targeting reference for cursor-aimed spells and
+cursor-targeted interactions. It does not, by that statement alone, assign a
+shared cursor-world-target service to Player Movement.
+
+Therefore:
+
+- do not make Door Interaction, Frost Field, or Fireball depend on Player
+  Movement solely because each needs the cursor targeting/projection
+  convention;
+- do not invent a `player-movement`-owned cursor-world-target interface unless
+  current repository architecture or an explicit approved requirement
+  establishes that ownership;
+- a formal dependency is appropriate only if a concrete represented owner must
+  create an unfinished shared targeting capability first.
+
+This does not change the separate charged-Fireball dependency on Player
+Movement when the movement-restriction interface is unfinished.
+
+### Staged restart execution scope
+
+A narrowly bounded current-owner restart orchestrator may be `single_agent`
+when it only subscribes to the existing zero-health signal and invokes a small,
+known set of already-defined owner reset interfaces.
+
+Do not classify that staged task as `needs_execution_decomposition` solely
+because future persistent owners will later join the full restart closure. The
+full persistent-systems closure may still require broader execution
+decomposition when its actual scope warrants it.
+
+### Final assertion
+
+Before returning JSON, verify:
+
+```text
+Player Mana does not absorb spell-local state by convenience
+AND Force Wave owns/reset its cooldown
+AND Fireball owns/reset its charge/cast state
+AND Frost Field owns/reset its casting-side state
+AND full persistent restart closure depends on unfinished required spell reset owners
+AND Frost Field feedback exists as acceptance behavior
+AND Fireball cursor-aiming is explicit
+AND Ranged Enemy slow/telegraphed attack is explicit
+AND cursor targeting has no invented Player Movement ownership
+AND door interaction locks PlayerInteractionController.cs when it must modify it
+```

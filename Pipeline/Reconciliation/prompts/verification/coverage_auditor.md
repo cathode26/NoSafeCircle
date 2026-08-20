@@ -388,3 +388,103 @@ no finding requests a dependency whose target is kind=feature
 AND "no runtime generative AI / no external AI service" is required_non_code
     mapped to a typed non_code_requirement when that record exists
 ```
+---
+
+## Spell/reset and ownership coverage closure
+
+Apply these mappings before returning material findings.
+
+### Separate restart gameplay from reset-interface architecture
+
+The player-facing requirement "zero health restarts the entire floor" is
+`required_gameplay`.
+
+The technical ownership requirement that each run-persistent owner exposes its
+own reset entry point and that the Floor Run/Restart Orchestrator invokes those
+owned interfaces is `required_implementation`.
+
+Coverage of full restart closure must therefore verify that required
+run-persistent owners are represented. For current required spells:
+
+- Force Wave's long cooldown is spell-owned reset state;
+- Fireball's charge/cast state is Fireball-owned reset state;
+- Frost Field's casting-side active/cast state is Frost-Field-owned reset
+  state;
+- Player Mana owns mana and its own regeneration-delay state, not generic
+  spell-local state.
+
+If the candidate's full persistent restart closure omits unfinished spell-owner
+reset contracts/dependencies, that is a legitimate coverage/structure issue.
+
+Do not demand future spell dependencies on an intentionally narrow staged
+current-owner restart task.
+
+### Frost Field feedback
+
+The Wizard Combat Agent's responsibility for Frost Field casting, mana cost,
+and feedback is runtime gameplay coverage.
+
+Require an acceptance criterion on `frost-field` for readable player-facing
+cast/active-field feedback. Do not require a specific visual/audio treatment
+that the GDD does not choose.
+
+### Ownership invariants are process requirements when auditing the invariant itself
+
+The Section 4 Development Agent Ownership Invariants are mandatory development
+process constraints.
+
+When inventorying the invariant that Wizard Combat triggers Frost Field while
+Enemy Pursuit/status-effect ownership applies and restores enemy slowdown, use:
+
+```text
+classification: required_process
+representation: pipeline_constraint
+```
+
+when the candidate contains the corresponding typed pipeline constraint.
+
+Runtime acceptance criteria on `frost-field` and the enemy status-effect owner
+may additionally embody the behavior split, but do not map the
+`required_process` inventory row to `acceptance_criterion` merely because those
+runtime criteria also exist.
+
+In other words:
+
+```text
+process ownership invariant -> pipeline_constraint
+runtime Frost cast behavior -> acceptance_criterion
+runtime enemy slowdown apply/restore -> acceptance_criterion
+```
+
+Keep those inventory rows conceptually separate.
+
+### Preserve explicit runtime details
+
+Treat these as required gameplay acceptance behavior, not GDD-evidence-only
+context:
+
+- Fireball is cursor-aimed;
+- Ranged Enemy fires a slow, telegraphed shot while maintaining its moderate
+  distance behavior;
+- Frost Field provides readable player-facing casting/field feedback.
+
+### Do not invent cursor ownership
+
+The shared cursor targeting/reference convention does not by itself establish a
+Player Movement-owned implementation interface.
+
+Do not report a missing dependency from cursor-aimed spells or door targeting
+to Player Movement solely because all use the cursor. Require a formal
+dependency only when the candidate/repository contains a concrete shared
+targeting owner whose unfinished capability is actually prerequisite.
+
+The charged-Fireball movement-restriction interface remains a separate,
+legitimate Player Movement dependency when unfinished.
+
+### Player Experience validation
+
+The failure-readability success criterion, including poor positioning, low mana,
+Force Wave misuse/unavailability, and waiting too long, must remain represented
+through validation requirements on the work that owns those behaviors. Do not
+classify the criterion as unrepresented merely because it has no standalone
+work-item node.

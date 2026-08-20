@@ -631,3 +631,105 @@ After any related refinement, re-run the existing assertions:
 - no feature-target dependency was introduced;
 - no dependency cycle was introduced;
 - existing required non-code records remain typed correctly.
+---
+
+## Spell/reset and ownership repair closure
+
+Use these rules when repairing the candidate after verification.
+
+### Repair reset ownership on the real state owner
+
+Do not fix restart findings by putting all player-resource/cooldown reset state
+into `player-mana`.
+
+Preserve ownership as follows:
+
+- Player Mana: mana and Player-Mana-owned regeneration-delay state;
+- Force Wave: Force-Wave-owned long cooldown;
+- Fireball: Fireball-owned charge/cast state;
+- Frost Field: Frost-Field-owned Wizard-Combat-side cast/placement/active-field
+  state;
+- enemy Frost slowdown/restoration: Enemy Pursuit/status-effect owner.
+
+Add/preserve owner-controlled reset acceptance on the corresponding work item.
+
+When those required spell reset interfaces are unfinished, add/preserve
+dependencies from the **full** persistent restart closure to `fireball`,
+`frost-field`, and `force-wave`. Do not add them to a deliberately staged
+current-owner restart task solely because they will exist later.
+
+### Repair Frost Field feedback without inventing presentation
+
+If Frost Field lacks its Wizard-Combat-owned feedback responsibility, add an
+acceptance criterion requiring readable player-facing cast/active-field
+feedback.
+
+Do not invent particle, audio, color, animation, or shader requirements.
+
+### Repair process-invariant mapping instead of rewriting gameplay
+
+If a coverage finding maps the Wizard Combat / Enemy Pursuit Frost ownership
+split as:
+
+```text
+required_process -> acceptance_criterion
+```
+
+preserve the runtime acceptance criteria but correct the process representation
+to the existing typed `pipeline_constraint`.
+
+Do not delete the runtime criteria and do not add duplicate gameplay work solely
+to satisfy the process inventory row.
+
+### Preserve missing explicit runtime criteria
+
+When absent, repair the owner's acceptance criteria so that:
+
+- Fireball is explicitly cursor-aimed;
+- Ranged Enemy explicitly fires a slow, telegraphed shot and keeps moderate
+  distance;
+- Frost Field has player-facing feedback.
+
+### Cursor-targeting dependency discipline
+
+Do not preserve a Door/Frost/Fireball -> Player Movement dependency when the only
+reason is shared cursor targeting/reference.
+
+The GDD's cursor convention does not by itself make Player Movement the owner of
+a shared cursor-world-target service.
+
+Keep Fireball -> Player Movement when the separate movement-restriction
+interface is unfinished.
+
+### Write-surface/resource repair
+
+If Door Open/Interaction changes the existing input/selection implementation,
+add/preserve:
+
+```text
+repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs
+```
+
+as an exclusive resource when repository evidence shows that file is part of
+the write surface.
+
+### Validation and execution-scope cleanup
+
+Preserve the player-experience failure-readability validation obligations,
+including poor positioning.
+
+A bounded staged restart orchestrator that only coordinates current owners may
+be repaired to `single_agent` when that is the truthful current execution
+scope. Do not let future full-reset participants inflate the staged task's
+handoff size.
+
+### Re-run closure
+
+After repairs, re-run:
+
+- dependency target existence/kind checks;
+- dependency cycle checks;
+- exclusive-resource consistency;
+- full persistent-owner reset coverage;
+- process-requirement representation checks;
+- execution-scope consistency.
