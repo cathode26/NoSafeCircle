@@ -493,3 +493,82 @@ edge only if the specific capability needed by the consumer is unfinished.
 - Force Wave is explicitly player-centered radial knockback and does not use
   cursor direction/target selection; remove any stale unresolved aiming-model
   question.
+---
+
+## Final graph-edge and shared-capability repair rules
+
+When pass-1 findings concern the remaining door/victory/movement relationships,
+repair toward these canonical graph semantics.
+
+### Door lifecycle versus door opening
+
+Do not preserve `door-close-lock-break-lifecycle -> door-open-interaction` when
+the only reason is that both edit/integrate with the same DoorInteractable,
+scene, prefab, or logical door runtime. Use matching `exclusive_resources`
+instead.
+
+Keep a formal edge only for a genuinely unfinished capability that the
+lifecycle implementation must consume.
+
+### Extract shared doorway-crossing state when needed
+
+Door and Interaction owns one shared doorway-crossing state. Lock progression
+and final victory consume it.
+
+If crossing state is hidden inside the broad close/lock/durability item,
+extract/preserve an implementation owner such as `doorway-crossing-state` so
+consumers do not depend on unrelated durability/breach work.
+
+Preserve these relationships:
+
+- close/lock lifecycle -> shared doorway-crossing owner;
+- final victory -> shared doorway-crossing owner;
+- no duplicate crossing detector in either consumer;
+- crossing-state reset participates in full floor restart.
+
+### Victory dependency closure
+
+The final-victory implementation disables normal gameplay input, so it must not
+complete before the concrete input consumers it disables exist.
+
+For the current candidate, require `final-escape-victory` to depend on the
+represented executable owners for:
+
+- player movement;
+- door interaction/opening;
+- Fireball;
+- Frost Field;
+- Force Wave;
+- shared doorway-crossing state.
+
+Do not replace these with a speculative new central input system unless the
+current GDD/repository already establishes one.
+
+### Charged Fireball movement restriction ownership
+
+Player Movement owns locomotion. Fireball requests a movement restriction; it
+does not mutate Player Movement internals.
+
+If the current repository lacks the required external restriction/modifier
+interface:
+
+1. add/preserve acceptance on `player-movement` for the owner-controlled
+   request/release interface;
+2. add/preserve `fireball -> player-movement`;
+3. state in Fireball acceptance that charging consumes that interface and
+   releases it when the charge ends.
+
+This is a real dependency while that specific interface is unfinished, even if
+other Player Movement behavior already exists.
+
+### Re-run structural closure
+
+After these repairs, re-run:
+
+- dependency target existence/kind checks;
+- dependency cycle checks;
+- shared-resource lock consistency;
+- execution-scope consistency.
+
+Do not change the GDD, invent mechanics, or add ordering edges for mere source
+collisions.

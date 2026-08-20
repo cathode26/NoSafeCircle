@@ -1413,3 +1413,122 @@ Use the current GDD literally: Force Wave is player-centered radial knockback
 and does not use cursor direction or cursor target selection. Do not create an
 unresolved aiming-model question for Force Wave and do not make it depend on
 cursor targeting solely for aiming.
+---
+
+## Final graph-edge and shared-capability closure preflight
+
+Apply this preflight after all earlier canonical-coverage and semantic-closure
+checks, immediately before returning the final reconciliation candidate.
+
+### Shared file/resource is not a dependency
+
+Do not add or preserve a dependency merely because two work items modify,
+integrate with, or are serialized through the same source file, scene, prefab,
+or logical runtime surface. That relationship belongs in
+`exclusive_resources`.
+
+Current door check:
+
+- `door-close-lock-break-lifecycle` MUST NOT depend on
+  `door-open-interaction` merely because both affect `DoorInteractable` or the
+  same door scene/prefab.
+- Preserve a formal dependency only when the lifecycle work genuinely consumes
+  a still-unfinished capability owned by the opening item.
+- Shared write/integration collision remains represented through identical
+  exclusive-resource locks.
+
+Do not remove the door lifecycle's real dependencies on Player Health,
+navigation/passability, or other concrete prerequisites that it actually
+consumes.
+
+### Shared doorway-crossing state must be independently representable
+
+The GDD assigns shared doorway-crossing state to Door and Interaction, and both
+door close/lock progression and final victory consume it.
+
+Do not bury that shared capability solely inside a broad
+close/lock/durability/breach implementation when doing so makes unrelated
+consumers depend on the entire lifecycle bundle.
+
+Preserve or create a concrete implementation work item such as
+`doorway-crossing-state` when the candidate needs an independently executable
+owner for:
+
+- authoritative detection/state that the player has crossed the active
+  doorway;
+- a stable owner-side interface/event/state consumed by close/lock and victory;
+- reset participation for that crossing state as part of full floor restart.
+
+Then:
+
+- `door-close-lock-break-lifecycle` depends on `doorway-crossing-state`;
+- `final-escape-victory` depends on `doorway-crossing-state`;
+- locked-door enemy attack/durability work continues to depend on the actual
+  door lifecycle/durability owner, not on crossing state unless it genuinely
+  consumes crossing state.
+
+Do not create duplicate crossing detectors in lock logic and victory logic.
+
+### Victory must wait for the concrete input consumers it disables
+
+`final-escape-victory` promises to stop normal gameplay input before showing the
+simple `You Escaped` overlay.
+
+A task cannot truthfully implement or validate disabling a concrete gameplay
+input consumer that does not yet exist.
+
+For the current canonical gameplay set, preserve formal dependencies from
+`final-escape-victory` to the concrete executable owners whose input it must
+disable:
+
+- `player-movement`;
+- `door-open-interaction`;
+- `fireball`;
+- `frost-field`;
+- `force-wave`;
+- the shared `doorway-crossing-state` owner described above.
+
+If a future graph introduces a different shared input-gating owner that
+canonically centralizes these consumers, use that concrete owner instead of
+duplicating unnecessary edges. Do not invent such an owner merely to simplify
+this bootstrap graph.
+
+### Charged Fireball consumes a Player Movement-owned restriction interface
+
+Charged Fireball restricts player movement while charging. Player Movement owns
+movement state and locomotion; Fireball must not directly mutate movement
+internals.
+
+Inspect the current Player Movement implementation.
+
+If no supported external movement-restriction/modifier interface exists yet:
+
+- `player-movement` acceptance criteria must require an owner-controlled
+  interface that allows another gameplay system to request and later release
+  the charged-Fireball movement restriction without taking ownership of
+  locomotion;
+- `fireball` must formally depend on `player-movement`, because the specific
+  interface Fireball needs is unfinished;
+- Fireball acceptance criteria must say it consumes that interface while
+  charging and releases the restriction when charging ends/cancels/fires as
+  required by its own behavior.
+
+If the exact required restriction interface later exists and the remaining
+Player Movement work is unrelated, re-evaluate the dependency under the normal
+existing-interface rule rather than preserving stale ordering forever.
+
+### Final assertion
+
+Before returning JSON, explicitly verify:
+
+```text
+door lifecycle is not ordered behind door opening merely for shared writes
+AND shared doorway-crossing state has one executable owner
+AND lock progression and victory consume that same crossing owner
+AND victory cannot complete before every concrete gameplay-input consumer it disables
+AND charged Fireball cannot execute before the Player Movement-owned restriction interface it needs exists
+AND all shared write collisions remain represented through exclusive_resources rather than fake dependencies
+```
+
+Repair the candidate and re-run dependency-kind/cycle validation after any
+change made by this preflight.
