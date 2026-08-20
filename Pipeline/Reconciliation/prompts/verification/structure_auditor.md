@@ -192,3 +192,24 @@ Likewise verify shared scene-builder/scene, Input System actions, asmdef,
 package-manifest, and build-settings writers when supported by repository/GDD
 evidence.
 
+---
+
+## Final structure checks: restart closure and door passability ownership
+
+Before returning findings, explicitly audit these two cross-system contracts from the current GDD.
+
+### Floor Run/Restart Orchestrator
+
+A graph is structurally incomplete if an early `death-restart`/restart-bootstrap item can close after resetting only today's prototype state while no later concrete work owns full persistent-systems closure.
+
+Require durable closure across all concrete persistent owners: player resources/position, enemy health/defeat, enemy pursuit/search, Active Enemy Registry, door lifecycle/crossing/durability, and encounter activation/admission. Each persistent owner should expose a reset entry point consumed by the orchestrator. It is valid to stage early reset implementation separately so it is not blocked by unwritten room content.
+
+Do not treat 'the interface is extensible' as equivalent to implementing the future reset closure.
+
+### Door passability ownership
+
+The shared navigation/locomotion foundation owns the navigation-side representation of door passability. Door lifecycle owns semantic state and drives that interface. Pursuit consumes it.
+
+A graph is structurally incomplete if 'open/broken traversable, sealed/locked blocked' appears only as an acceptance criterion on pursuit or doors with no owner for translating state into navigation walkability.
+
+Prefer a navigation-foundation acceptance responsibility plus door-side consumption rather than adding a broad pursuit -> door dependency. Use `logical:gameplay-walkability-surface` as a shared exclusive resource where concrete work can write/toggle the passability representation.

@@ -355,3 +355,32 @@ The current GDD explicitly requires:
 
 These statements should not remain `ambiguous` after refinement.
 
+---
+
+## Final refiner closure rules: restart, passability, victory, minimal context
+
+When pass-1 findings touch the following requirements, refine according to the current GDD rather than preserving old ambiguity.
+
+### Restart
+
+Preserve an early/current-systems restart stage when useful, but also preserve/create durable required work for the Floor Run/Restart Orchestrator's full persistent-systems closure. Do not allow the refined graph to reach a state where the bootstrap restart can complete and no later item owns resetting concrete enemy, registry, pursuit/search, door, or encounter state. Persistent-state implementations should expose reset entry points consumed by the orchestrator.
+
+### Door passability
+
+Refine toward the explicit ownership contract:
+
+- Door and Interaction = semantic sealed/open/locked/broken state.
+- Shared navigation/locomotion = translation into enemy walkability.
+- Pursuit/attacks = consumers, not NavMesh/passability owners.
+
+Prefer adding the passability-interface responsibility to the shared navigation foundation and the consumption/update responsibility to door lifecycle work. Add `logical:gameplay-walkability-surface` to concrete writer/toggler resource locks as supported. Do not create a broad pursuit -> door dependency solely to validate locked-door blocking.
+
+### Victory
+
+Do not preserve an unresolved victory-presentation question. The GDD specifies: shared crossing state triggers victory, normal gameplay input stops, and a simple `You Escaped` overlay appears; no further post-victory progression/menu flow is required. Represent this on the final-escape/victory implementation.
+
+### Minimal-context dispatch
+
+Ensure `non_code_requirements` contains a typed `pipeline_constraint` requiring agents to receive only the approved brief, acceptance criteria, relevant GDD rules, and task-required files/scene/prefab context. This is a durable process requirement, not implicit prose.
+
+After making these repairs, rerun the normal dependency-kind preflight and all existing structural invariants before returning the refined candidate.

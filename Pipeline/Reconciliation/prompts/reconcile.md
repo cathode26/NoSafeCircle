@@ -912,3 +912,74 @@ world-space SpriteRenderer visual foundation. Preserve character
 SpriteRenderer/isometric-sorting requirements as acceptance/validation criteria
 of that visual foundation rather than leaving them ambiguous.
 
+---
+
+## Final verification closure rules: restart, door passability, victory, and minimal context
+
+The current GDD resolves four requirements that previously produced verifier ambiguity. Treat these as canonical requirements, not optional interpretations.
+
+### 1. Floor-run restart has a durable closure owner
+
+The GDD now defines a shared **Floor Run/Restart Orchestrator**. It owns coordination of a fresh floor attempt, while each run-persistent system owns a reset entry point for its own state.
+
+Required reset participants, once represented by concrete runtime work, include:
+
+- Player Health;
+- Player Mana/cooldowns;
+- player position/movement state;
+- enemy health/defeat state;
+- enemy pursuit/search state;
+- Active Enemy Registry bookkeeping;
+- door lifecycle/crossing/durability state;
+- encounter activation/admission state.
+
+An early restart implementation that resets only systems already present in the repository is a valid **stage**, but it MUST NOT become the graph's only terminal restart work. The graph must retain durable required work for full persistent-systems restart closure until every implemented persistent-state owner participates.
+
+Acceptable representations include:
+
+- a bootstrap/current-systems restart implementation plus a later concrete persistent-systems-closure implementation; or
+- a decomposable orchestrator item whose concrete descendants include both the current bootstrap and final closure.
+
+Whichever representation is used, the graph must make it impossible for restart to be declared fully complete while implemented persistent state exists that does not expose/participate in reset.
+
+Add a symmetric acceptance responsibility to concrete persistent-state owners: each must expose a reset entry point consumed by the Floor Run/Restart Orchestrator. Do not make the early bootstrap depend on deferred room-content feature nodes merely to achieve this.
+
+### 2. Door semantic state and navigation passability are separate owned halves of one contract
+
+The GDD now defines a shared **door-passability contract**:
+
+- Door and Interaction owns semantic state: `sealed`, `open`, `locked`, `broken`.
+- The shared gameplay navigation/locomotion layer owns translating that state into enemy walkability.
+- sealed/locked blocks enemy traversal;
+- open/broken permits forward enemy traversal;
+- enemy pursuit/attack behavior consumes the navigation result and does not independently manipulate NavMesh or doorway passability.
+
+Represent the navigation-side passability interface as acceptance responsibility of the shared navigation/locomotion implementation (or a genuinely separate concrete shared implementation only if needed by the existing architecture). Door lifecycle work consumes/publishes semantic state through that interface.
+
+Use `logical:gameplay-walkability-surface` as a shared exclusive resource on concrete navigation and door-lifecycle/durability work that can write/toggle that shared passability surface.
+
+Do NOT solve integrated locked-door validation by making the entire pursuit/search foundation depend on a door feature. If the pursuit implementation can be built before lock state exists, stage the locked-door traversal check as a validation requirement that becomes executable when the door lifecycle exists.
+
+### 3. Final victory presentation is specified
+
+The final escape is not ambiguous. When shared doorway-crossing state confirms forward-side crossing of the final door:
+
+- victory is triggered;
+- normal gameplay input stops;
+- a simple player-facing `You Escaped` overlay is displayed;
+- no additional post-victory progression/menu/meta-progression is required.
+
+Map this to the final-escape/victory implementation's acceptance criteria and validation. Do not preserve an unresolved question asking what victory feedback should be.
+
+### 4. Minimal-context dispatch is a required pipeline constraint
+
+The GDD explicitly requires that each agent receive only:
+
+- the approved feature brief;
+- its acceptance criteria;
+- relevant GDD rules;
+- files and scene/prefab information required for the active task.
+
+Unrelated repository/project context is withheld unless the active task genuinely requires it.
+
+This MUST appear as a typed `pipeline_constraint` in `non_code_requirements`. Do not leave it implicit in task scoping or omit it because it is not gameplay code.

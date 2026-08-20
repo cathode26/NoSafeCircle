@@ -207,3 +207,16 @@ Only use `ambiguous` after checking whether the current GDD now assigns the
 requirement to an existing owner, acceptance criterion, validation requirement,
 delivery requirement, or concrete configuration prerequisite.
 
+---
+
+## Final coverage mapping: restart closure, victory feedback, passability, minimal context
+
+Apply these canonical representation semantics from the current GDD during requirement inventory.
+
+1. **Victory feedback is no longer ambiguous.** The final escape requirement includes stopping normal gameplay input and showing a simple `You Escaped` overlay. Map that behavior to the final-escape/victory implementation as acceptance/validation responsibility. Do not classify post-victory flow as ambiguous merely because no larger menu/progression system is specified; the GDD explicitly says none is required.
+
+2. **Minimal-context dispatch is required process scope.** The rule limiting an agent to the approved brief, acceptance criteria, relevant GDD rules, and task-required files/scene/prefab context must map to a typed `pipeline_constraint` in `non_code_requirements`. If that durable record is absent, report it as unrepresented.
+
+3. **Full run restart needs durable implementation ownership.** A staged current-repository reset is not sufficient coverage for the GDD's full Floor Run/Restart Orchestrator contract. Coverage is complete only if the graph retains required work that closes reset participation across every concrete run-persistent system once those systems exist, and those owners expose reset entry points.
+
+4. **Door-state-to-walkability is implementation responsibility, not vague integration.** Door and Interaction owns semantic door state; shared navigation/locomotion owns translation into enemy walkability. Verify both halves have durable representation. Integrated pursuit behavior may carry a later validation requirement without forcing pursuit to depend on door content prematurely.
