@@ -20,7 +20,7 @@ import reconciliation_agent as base
 
 WORKER_MODEL = os.environ.get("RECONCILIATION_WORKER_MODEL", base.MODEL)
 MAX_PARALLEL_WORKERS = int(
-    os.environ.get("RECONCILIATION_PARALLEL_WORKERS", "6")
+    os.environ.get("RECONCILIATION_PARALLEL_WORKERS", "9")
 )
 DEFAULT_WORKER_TIMEOUT_SECONDS = int(
     os.environ.get("RECONCILIATION_WORKER_TIMEOUT_SECONDS", "720")

@@ -27,7 +27,7 @@ from output_layout import write_current_view
 # ============================================================
 
 PARALLEL_MAX_WORKERS = int(
-    __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_MAX_WORKERS", "8")
+    __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_MAX_WORKERS", "15")
 )
 
 COVERAGE_MAX_TURNS = int(
