@@ -416,6 +416,7 @@ RECONCILIATION_SCHEMA: dict[str, Any] = {
 ALLOWED_CURRENT_EXACT_PATHS = {
     "Docs/GDD/No_Safe_Circle_GDD.md",
     "Packages/manifest.json",
+    "Packages/packages-lock.json",
 }
 
 ALLOWED_HISTORICAL_PATHS = {

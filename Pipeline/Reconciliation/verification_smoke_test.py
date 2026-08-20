@@ -10,7 +10,8 @@ def main() -> int:
     assignments = crew.choose_audit_models(random.Random(12345))
 
     assert reconciliation._is_allowed_review_path("Packages/manifest.json")
-    assert not reconciliation._is_allowed_review_path("Packages/packages-lock.json")
+    assert reconciliation._is_allowed_review_path("Packages/packages-lock.json")
+    assert not reconciliation._is_allowed_review_path("Packages/package-cache.json")
 
     # The model must be blocked before forbidden reconciliation sources can enter context.
     assert "Read(AgentCrew/**)" in reconciliation.CLAUDE_DISALLOWED_TOOLS

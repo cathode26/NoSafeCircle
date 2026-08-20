@@ -17,10 +17,11 @@ Then independently inspect current project evidence under:
 
 - `Assets/`
 - `ProjectSettings/` when relevant
-- `Packages/manifest.json` when installed Unity package availability is directly relevant
+- `Packages/manifest.json` when declared Unity package availability is directly relevant
+- `Packages/packages-lock.json` when resolved/locked Unity package availability is directly relevant
 
-Do not inspect other files under `Packages/`; only the exact package manifest is
-approved as current-project configuration evidence.
+Do not inspect other files under `Packages/`; only the exact manifest and
+packages-lock files are approved as current-project configuration evidence.
 
 You may use only explicitly allowed historical evidence if the candidate cites it:
 
@@ -97,10 +98,12 @@ integration check as already complete.
 
 ## Package and build configuration evidence
 
-Read `Packages/manifest.json` exactly when approved package availability is
-relevant. Distinguish built-in modules such as `com.unity.modules.tilemap` or
-`com.unity.modules.ai` from the GDD-approved packages
-`com.unity.2d.tilemap` and `com.unity.ai.navigation`.
+Read `Packages/manifest.json` when declared package availability is
+relevant and `Packages/packages-lock.json` when resolved/locked package state is
+material. Distinguish a direct declaration in the manifest from a resolved
+entry in the lock file. Also distinguish built-in modules such as
+`com.unity.modules.tilemap` or `com.unity.modules.ai` from the GDD-approved
+packages `com.unity.2d.tilemap` and `com.unity.ai.navigation`.
 
 When Windows delivery is assessed, inspect committed
 `ProjectSettings/EditorBuildSettings.asset` when available. Zero registered

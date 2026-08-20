@@ -56,11 +56,29 @@ You should inspect:
 1. `Docs/GDD/No_Safe_Circle_GDD.md`
 2. `Assets/`
 3. `ProjectSettings/` only when a GDD requirement genuinely depends on project configuration
-4. `Packages/manifest.json` only when installed Unity package availability materially affects a required implementation
+4. `Packages/manifest.json` and `Packages/packages-lock.json` only when Unity package declaration or resolved package availability materially affects a required implementation
 
 The GDD is root design canon.
 
 The current checkout is codebase truth for what is integrated.
+
+## Package configuration evidence boundary
+
+When a GDD requirement depends on Unity package availability, the only approved
+current-project files under `Packages/` are:
+
+- `Packages/manifest.json` - evidence of directly declared package dependencies;
+- `Packages/packages-lock.json` - evidence of the package graph Unity actually
+  resolved/locked.
+
+Use `packages-lock.json` only when resolution/transitive package state is
+material to the claim. Do not inspect or cite any other file under `Packages/`
+as reconciliation evidence unless this source-boundary policy is deliberately
+changed later.
+
+A package can be absent from the manifest and absent from the lock file; those
+are two compatible but distinct facts. Do not reject valid lock-file evidence
+merely because the manifest is the primary package declaration file.
 
 ## Optional historical evidence
 
