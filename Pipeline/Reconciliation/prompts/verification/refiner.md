@@ -572,3 +572,62 @@ After these repairs, re-run:
 
 Do not change the GDD, invent mechanics, or add ordering edges for mere source
 collisions.
+---
+
+## Final verifier closure repair: reject illegal feature edges and preserve runtime-AI non-code scope
+
+Use these rules when pass-1 findings request one of the two repairs below.
+
+### Do not add feature-target dependencies
+
+Never repair a finding by adding a `depends_on` edge whose target is a
+`feature`.
+
+In particular, do NOT add:
+
+```text
+dungeon-encounter-content-authoring
+    -> five-room-content-authoring
+```
+
+while `five-room-content-authoring` remains `kind: feature`.
+
+The GDD prerequisite relationship is real, but at this bootstrap level it is
+preserved as deferred decomposition/authoring context. Later concrete
+implementation/artifact descendants may carry the executable edge.
+
+Do not treat this as inconsistent with a feature depending on
+`world-visual-foundation`: that edge is valid because
+`world-visual-foundation` is an `implementation`, not a feature.
+
+If a supplied finding recommends a feature-target dependency, reject that
+recommended graph mutation and preserve the candidate's dependency-kind
+invariant.
+
+### Preserve finished-build runtime-AI prohibition as non-code
+
+If a coverage finding classifies the finished-build prohibition on runtime
+generative AI / external AI services as gameplay, do not convert the candidate
+into gameplay work.
+
+When the candidate already stores the requirement as a typed
+`non_code_requirement`, preserve that representation.
+
+The correct coverage semantics are:
+
+```text
+required_non_code -> non_code_requirement
+```
+
+This is a verifier-classification correction, not a reason to add a new
+implementation node.
+
+### Structural closure
+
+After any related refinement, re-run the existing assertions:
+
+- every dependency target exists;
+- every dependency target is `implementation` or `artifact`;
+- no feature-target dependency was introduced;
+- no dependency cycle was introduced;
+- existing required non-code records remain typed correctly.
