@@ -182,6 +182,7 @@ COVERAGE_REQUIREMENT_SCHEMA: dict[str, Any] = {
             "type": "string",
             "enum": [
                 "required_gameplay",
+                "required_implementation",
                 "required_non_code",
                 "required_process",
                 "stretch",
@@ -619,6 +620,12 @@ def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, A
 
     allowed_by_classification = {
         "required_gameplay": {
+            "work_item",
+            "acceptance_criterion",
+            "validation_requirement",
+            "deferred_design",
+        },
+        "required_implementation": {
             "work_item",
             "acceptance_criterion",
             "validation_requirement",

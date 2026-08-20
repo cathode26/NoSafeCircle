@@ -113,6 +113,16 @@ def main() -> int:
                         "explanation": "Validation requirement.",
                     },
                     {
+                        "requirement_id": "REQ-IMPLEMENTATION",
+                        "reference": "Section Test",
+                        "requirement": "Install a required Unity package",
+                        "classification": "required_implementation",
+                        "representation": "work_item",
+                        "mapped_keys": ["package-configuration"],
+                        "mapped_non_code_titles": [],
+                        "explanation": "Required technical implementation/configuration work.",
+                    },
+                    {
                         "requirement_id": "REQ-PIPELINE",
                         "reference": "Section Test",
                         "requirement": "Do not concurrently modify one Unity asset",

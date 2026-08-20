@@ -1293,3 +1293,123 @@ coverage preflight again before returning JSON.
 
 Do not solve a coverage failure by inventing new game design. Use the current
 GDD's existing ownership, process, validation, and deferred-design rules.
+
+---
+
+## Post-verification semantic closure preflight
+
+This preflight supplements the canonical-coverage preflight above. Apply it
+immediately before returning the candidate.
+
+### Current persistent-state inventory must come from repository truth
+
+Do not hard-code the set of currently-existing run-persistent owners from an
+older reconciliation. Inspect the current project.
+
+If the current DoorInteractable/opening implementation already stores state
+such as opening progress, an opened/latching flag, persistent visual state, or a
+doorway blocker/collider state that survives for the run, then door-opening
+state is already a current run-persistent owner even if the later close/lock/
+break lifecycle is not implemented yet.
+
+In that case:
+
+- `door-open-interaction` must include an owner-controlled reset entry point for
+  the state it currently owns;
+- the Floor Run/Restart Orchestrator's current-owner inventory must include it;
+- the orchestrator must formally depend on the executable reset owner when that
+  reset interface still has to be created.
+
+Do not defer an already-existing persistent door state solely because a broader
+future door-lifecycle item will eventually own additional crossing/durability
+state.
+
+### Required acceptance criteria that must not disappear
+
+Preserve these current-GDD requirements on their actual owners:
+
+- `player-health`: no passive health regeneration during a room or between
+  rooms; health persists across room transitions for the whole run except for
+  owner-controlled damage, the fixed door-lock restore request, and the
+  orchestrator-invoked floor reset.
+- `player-health`: expose an observable zero-health/death transition that the
+  Floor Run/Restart Orchestrator can consume without polling or mutating health
+  internals directly.
+- `melee-enemy`: a retreating player cannot maintain indefinite safety through
+  ordinary movement alone; melee pursuit gradually closes distance over time,
+  with exact speed/tuning left to playtesting. Add a validation requirement for
+  this behavior rather than inventing a fixed speed value.
+- `door-close-lock-break-lifecycle`: required breach feedback is implementation
+  behavior, not validation-only prose. Acceptance must require the player-facing
+  durability indicator and near-breach banging/shaking/crack feedback; retain a
+  corresponding validation requirement.
+- `fireball` and `frost-field`: casting spends mana through the shared Player
+  Mana spend interface. Record that as acceptance behavior.
+
+### Interface consumption is not automatically a dependency
+
+A formal `depends_on` edge means unfinished prerequisite work must complete
+before the consumer can execute or be meaningfully validated.
+
+If an owner-side interface already exists and is usable in the current
+repository, a consumer may reference that interface in acceptance criteria
+without depending on the owner's still-open unrelated work.
+
+Examples:
+
+- if `PlayerHealth.TakeDamage` already exists, Melee/Ranged attacks do not need
+  to wait for unrelated Player Health UI/heal/reset work solely to call damage;
+- if Player Mana's spend interface already exists, Fireball/Frost Field do not
+  need to wait for unrelated Player Mana reset/readability work solely to spend
+  mana.
+
+Add a dependency only when the specific capability the consumer needs is still
+missing or must be changed first. Apply this rule consistently across all
+shared-owner interfaces.
+
+### Repository-state precision
+
+When a work item combines existing implementation with missing required
+behavior, use `partial`, not `missing`.
+
+Current checks include:
+
+- player movement may already have serialized CharacterController locomotion
+  even when click/hold cursor-directed movement and position reset are missing;
+- Player Mana may already have a serialized continuous mana indicator even when
+  reset or denied-cast/post-cast-delay feedback remains incomplete.
+
+State exactly what exists and what is missing.
+
+### Parent hierarchy cleanup
+
+The fixed isometric camera and the shared gameplay navigation/locomotion
+foundation are world/foundation responsibilities. Parent them under the `world`
+feature group rather than Wizard Combat or the Enemies feature merely because
+those systems consume them.
+
+### Camera completion and future integration validation
+
+Do not turn an implementation/integration question into a missing GDD design
+question.
+
+If the current serialized camera satisfies its owned orthographic fixed-angle
+follow behavior, it may remain implemented/complete for that owned requirement.
+Compatibility with the later Tilemap/SpriteRenderer foundation belongs as a
+validation requirement on world/visual integration. Which concrete `.unity`
+scene becomes the final canonical gameplay scene is an implementation/
+integration decision owned by world authoring/build-scene registration, not a
+new gameplay-design requirement.
+
+### Human integration record taxonomy
+
+A required human merge/scene-inspection/Play Mode gate is a development
+pipeline invariant. Represent `Human inspection and final integration authority`
+as `pipeline_constraint`, not a generic `non_code_requirement`.
+
+### Force Wave canon
+
+Use the current GDD literally: Force Wave is player-centered radial knockback
+and does not use cursor direction or cursor target selection. Do not create an
+unresolved aiming-model question for Force Wave and do not make it depend on
+cursor targeting solely for aiming.

@@ -18,12 +18,13 @@ Use:
 1. `Docs/GDD/No_Safe_Circle_GDD.md`
 2. current `Assets/`
 3. `ProjectSettings/` when relevant
-4. `Packages/manifest.json` when installed Unity package availability is directly relevant
-5. the original frozen candidate
-6. the merged independent findings
+4. `Packages/manifest.json` when declared Unity package availability is directly relevant
+5. `Packages/packages-lock.json` when resolved/locked package availability is directly relevant
+6. the original frozen candidate
+7. the merged independent findings
 
-Do not inspect other files under `Packages/`; only the exact package manifest is
-approved as current-project configuration evidence.
+Do not inspect other files under `Packages/`; only the exact package manifest and
+packages-lock files are approved as current-project configuration evidence.
 
 Never inspect:
 
@@ -421,3 +422,74 @@ because an item uses player input if it consumes an existing binding without
 editing the asset.
 
 Before returning the refined candidate, re-audit all four areas above.
+
+---
+
+## Post-verification semantic closure repair rules
+
+When repairing findings from the current verification semantics, apply these
+rules before changing the graph.
+
+### Required technical implementation is not a pipeline constraint
+
+Do not delete or convert legitimate executable/configuration work merely because
+a coverage auditor called it `required_process`.
+
+The verification taxonomy now uses `required_implementation` for mandatory
+technical architecture/configuration such as approved Unity package
+configuration, shared runtime prerequisites, and concrete authoring
+prerequisites. Preserve the matching work item/acceptance/dependency when canon
+supports it.
+
+### Current persistent Door state participates in staged restart
+
+Inspect current DoorInteractable/opening state. If the existing implementation
+already owns run-persistent opening/progress/visual/blocker state, add/preserve
+an owner-controlled reset criterion on `door-open-interaction` and include that
+owner in the Floor Run/Restart Orchestrator's current-stage reset closure. Do
+not pretend only Player Health, Player Mana, and player position currently
+persist when repository evidence shows otherwise.
+
+### Preserve omitted gameplay criteria
+
+Repair the owning acceptance/validation fields when missing:
+
+- Player Health: no passive in-room/between-room regeneration; health persists
+  across the run except owned damage, fixed door-lock restore, and floor reset;
+- Player Health: expose an observable zero-health/death transition consumed by
+  restart orchestration;
+- Melee Enemy: ordinary retreat alone cannot sustain indefinite safety; melee
+  pursuit closes distance over time, with exact tuning deferred to playtesting;
+- Door lifecycle: durability indicator plus near-breach banging/shaking/crack
+  feedback is acceptance behavior as well as something to validate;
+- Fireball/Frost Field: spend through the shared Player Mana spend interface.
+
+### Dependency discipline for already-existing interfaces
+
+Do not block a consumer on an open owner task when the exact interface it needs
+already exists in the current repository and the owner's remaining open work is
+unrelated.
+
+For example, existing Player Health damage and Player Mana spend interfaces may
+be consumed without waiting for unrelated heal/UI/reset work. Add a formal
+edge only if the specific capability needed by the consumer is unfinished.
+
+### Repository-state and hierarchy cleanup
+
+- Existing serialized locomotion plus missing cursor-directed input/reset is
+  `partial`, not `missing`.
+- Include existing serialized mana-UI evidence when present and narrow missing
+  readability work to what is actually absent.
+- Parent fixed camera and shared gameplay navigation/locomotion under `world`.
+- Classify the human final-integration/merge gate as `pipeline_constraint`.
+
+### Do not manufacture integration ambiguity
+
+- The exact canonical `.unity` path is an implementation choice owned by world
+  authoring/build registration; it is not missing game design.
+- Camera compatibility with the future Tilemap/SpriteRenderer foundation is a
+  validation/integration obligation, not a reason by itself to invalidate an
+  otherwise evidenced fixed-camera implementation.
+- Force Wave is explicitly player-centered radial knockback and does not use
+  cursor direction/target selection; remove any stale unresolved aiming-model
+  question.

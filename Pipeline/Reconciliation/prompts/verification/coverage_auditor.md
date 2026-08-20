@@ -242,3 +242,71 @@ Apply these current-GDD mappings consistently when inventorying requirements:
    semantic state through the navigation-owned passability interface. Coverage
    should not invent a second passability feature; dependency/structure audit
    should verify the prerequisite edge when the publication work is bundled.
+
+---
+
+## Required-implementation classification and integration-question rules
+
+The coverage schema includes `required_implementation` in addition to
+`required_gameplay`, `required_non_code`, and `required_process`.
+
+Use the classifications this way:
+
+- `required_gameplay`: player-facing/runtime game behavior and mechanics;
+- `required_implementation`: mandatory technical architecture,
+  configuration, integration prerequisite, or executable authoring constraint
+  required to realize the GDD, but not itself a player-facing mechanic and not
+  a rule about how development agents operate;
+- `required_process`: development-pipeline rules such as agent context limits,
+  isolation, compile/test gates, source-control handoff, or human merge gates;
+- `required_non_code`: delivery or other non-code obligations.
+
+For `required_implementation`, valid durable representations are `work_item`,
+`acceptance_criterion`, `validation_requirement`, or `deferred_design`.
+
+Examples that should normally be `required_implementation`, not
+`required_process`:
+
+- installing/configuring the GDD-approved `com.unity.ai.navigation` package;
+- installing/configuring the GDD-approved `com.unity.2d.tilemap` package;
+- a concrete shared navigation/passability prerequisite between executable
+  systems;
+- concrete room/encounter authoring prerequisites already established by the
+  approved architecture.
+
+A development-process rule is about how work is performed. A required Unity
+package or runtime architecture dependency is technical implementation work.
+
+### Do not invent GDD ambiguity from implementation choices
+
+Coverage audits test whether required behavior is represented. They do not
+require the GDD to pre-decide every repository path or integration detail.
+
+- The exact `.unity` file that ultimately becomes the canonical continuous
+  gameplay scene is an implementation/integration choice already owned by the
+  world/scene-registration work. Do not classify the absence of a preselected
+  scene path as an ambiguous gameplay requirement.
+- Compatibility between an already-implemented fixed isometric camera and a
+  future Tilemap/SpriteRenderer visual foundation is a validation/integration
+  question. Map it to a `validation_requirement` on the relevant world/visual
+  integration work rather than classifying the camera requirement as
+  ambiguous.
+- Current Force Wave canon is explicit: it is player-centered radial knockback
+  and does not use cursor direction or target selection. Map this to the Force
+  Wave owner's acceptance criteria; do not report an aiming-model ambiguity.
+
+### Acceptance versus validation
+
+If the GDD requires visible/player-facing behavior, there must be an acceptance
+criterion obliging some implementation owner to provide it. A validation
+requirement may check the behavior but cannot be the only durable
+representation of required implementation behavior. Door breach feedback is a
+canonical example.
+
+### Existing interface versus unfinished task
+
+Do not infer a missing dependency merely because a consumer uses an interface
+owned by another work item. A dependency is required only when the specific
+owner-side capability needed by the consumer is still unfinished. Existing
+usable damage/spend interfaces may be consumed while unrelated UI/reset/heal
+work on the same owner remains open.
