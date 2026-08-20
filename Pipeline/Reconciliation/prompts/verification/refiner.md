@@ -384,3 +384,40 @@ Do not preserve an unresolved victory-presentation question. The GDD specifies: 
 Ensure `non_code_requirements` contains a typed `pipeline_constraint` requiring agents to receive only the approved brief, acceptance criteria, relevant GDD rules, and task-required files/scene/prefab context. This is a durable process requirement, not implicit prose.
 
 After making these repairs, rerun the normal dependency-kind preflight and all existing structural invariants before returning the refined candidate.
+
+---
+
+## Verification-closure mandatory repair rules
+
+When refining the candidate, preserve these current-GDD invariants even if an
+individual verifier describes the repair differently:
+
+### Health restoration
+- Player Health is the sole owner of current player health.
+- Ensure the Player Health work item owns a restore/heal entry point clamped to
+  maximum health.
+- Executable door work that performs lock healing depends on Player Health and
+  consumes that interface rather than writing health state directly.
+
+### Door passability
+- Navigation/locomotion owns the shared passability interface.
+- If passability publication is bundled into the executable door lifecycle
+  item, that door item depends on the navigation/locomotion owner.
+- If the candidate is execution-decomposed so only a passability integration
+  child consumes the interface, put the dependency on that child instead.
+- Never use an exclusive-resource key as a substitute for required ordering.
+
+### Required process/validation representation
+- Preserve the failed-task reduced-scope/reduced-context retry rule as a typed
+  `pipeline_constraint`.
+- Preserve every Section 3 Player Experience Success Criterion as a
+  `validation_requirement` on the owning work item(s), not merely in notes and
+  not as unnecessary new feature nodes.
+
+### Shared Input Actions asset
+Normalize `repo-file:Assets/InputSystem_Actions.inputactions` across all work
+items that are actually expected to edit that asset. Do not add the lock merely
+because an item uses player input if it consumes an existing binding without
+editing the asset.
+
+Before returning the refined candidate, re-audit all four areas above.

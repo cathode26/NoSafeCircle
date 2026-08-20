@@ -436,6 +436,13 @@ FORBIDDEN_PREFIXES = (
     "DynamicContentPipeline/",
 )
 
+# Hard tool-level source boundary. Read deny rules also keep these paths out of
+# Claude file discovery/search for reconciliation and verification invocations.
+CLAUDE_DISALLOWED_TOOLS = (
+    "Edit,Write,mcp__*,"
+    "Read(AgentCrew/**),Read(DynamicContentPipeline/**)"
+)
+
 
 def _normalize_path(value: str) -> str:
     return value.replace("\\", "/").lstrip("./")
@@ -679,7 +686,7 @@ Compact reconciliation context:
         "--allowedTools",
         "Read,Glob,Grep",
         "--disallowedTools",
-        "Edit,Write,mcp__*",
+        CLAUDE_DISALLOWED_TOOLS,
         "--json-schema",
         compact_schema,
         "--input-format",
@@ -1503,7 +1510,7 @@ def run_reconciliation_agent() -> dict[str, Any]:
         "--allowedTools",
         "Read,Glob,Grep",
         "--disallowedTools",
-        "Edit,Write,mcp__*",
+        CLAUDE_DISALLOWED_TOOLS,
         "--json-schema",
         compact_schema,
         "--input-format",

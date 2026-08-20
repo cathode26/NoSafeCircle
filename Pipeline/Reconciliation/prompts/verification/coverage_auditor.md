@@ -220,3 +220,25 @@ Apply these canonical representation semantics from the current GDD during requi
 3. **Full run restart needs durable implementation ownership.** A staged current-repository reset is not sufficient coverage for the GDD's full Floor Run/Restart Orchestrator contract. Coverage is complete only if the graph retains required work that closes reset participation across every concrete run-persistent system once those systems exist, and those owners expose reset entry points.
 
 4. **Door-state-to-walkability is implementation responsibility, not vague integration.** Door and Interaction owns semantic door state; shared navigation/locomotion owns translation into enemy walkability. Verify both halves have durable representation. Integrated pursuit behavior may carry a later validation requirement without forcing pursuit to depend on door content prematurely.
+
+---
+
+## Verification-closure coverage mappings
+
+Apply these current-GDD mappings consistently when inventorying requirements:
+
+1. `Player Health ownership` is gameplay ownership, not advisory prose. The
+   owner-side restore/heal interface should map to the Player Health work item's
+   acceptance criteria; door lock healing maps to the door lifecycle acceptance
+   criteria and the appropriate dependency relationship.
+2. The failed-task retry rule (`reduce scope and context before retry; do not
+   resubmit the entire project for one bug`) is `required_process` represented
+   as a typed `pipeline_constraint` in `non_code_requirements`.
+3. Every GDD Section 3 `Player Experience Success Criteria` bullet is required
+   and should normally map to one or more `validation_requirement` entries on
+   the work item(s) that own the behavior. Do not mark those criteria
+   `unrepresented` merely because they do not deserve separate work-item nodes.
+4. Door passability publication is already owned: Door/Interaction publishes
+   semantic state through the navigation-owned passability interface. Coverage
+   should not invent a second passability feature; dependency/structure audit
+   should verify the prerequisite edge when the publication work is bundled.

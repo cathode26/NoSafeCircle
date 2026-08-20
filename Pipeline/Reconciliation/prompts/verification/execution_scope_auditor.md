@@ -138,3 +138,20 @@ package changes before merge. Reserve `human_integration_required` for cases
 where the next meaningful step itself cannot be performed without human Unity
 judgment.
 
+---
+
+## Verification-closure interface/decomposition rule
+
+A broad door-lifecycle item may contain work that is independent of navigation
+and a smaller passability-publication responsibility that requires the
+navigation-owned interface. Do not solve that distinction by declaring human
+integration required.
+
+Accept either:
+- a correctly ordered executable item that depends on the navigation owner; or
+- `needs_execution_decomposition` when splitting the independent door work from
+  the passability-publication child would create safer bounded handoffs.
+
+Likewise, health restoration remains owned by Player Health; door work should
+consume that interface rather than absorbing health-state implementation into
+its own scope.

@@ -983,3 +983,82 @@ The GDD explicitly requires that each agent receive only:
 Unrelated repository/project context is withheld unless the active task genuinely requires it.
 
 This MUST appear as a typed `pipeline_constraint` in `non_code_requirements`. Do not leave it implicit in task scoping or omit it because it is not gameplay code.
+
+---
+
+## Verification-closure ownership and representation preflight
+
+Before returning the reconciliation, explicitly audit the following current-GDD
+requirements. These are not optional prompt hints; they are representation and
+dependency rules derived from approved canon.
+
+### Player Health restore ownership
+
+Player Health is the single owner of the wizard's current health. If another
+system restores health, that system consumes an owner-exposed Player Health
+restore interface; it never writes health state directly.
+
+For the current GDD:
+- `player-health` must include an acceptance criterion for an owner-controlled
+  restore/heal entry point, clamped to maximum health;
+- a door lifecycle item that includes lock-and-heal behavior must depend on
+  `player-health` (or on the concrete implementation/artifact that owns that
+  restore interface if the graph uses a different supported key);
+- do not treat a shared-write lock as a substitute for that behavioral
+  dependency.
+
+### Door-to-navigation passability dependency
+
+Door and Interaction owns semantic door state. Gameplay navigation/locomotion
+owns the shared passability interface that translates that state into enemy
+walkability.
+
+If one executable door item includes the acceptance criterion that it publishes
+sealed/open/locked/broken state through the navigation-owned passability
+interface, that item must depend on the represented navigation/locomotion owner.
+
+If Progressive Decomposition has already split non-navigation door lifecycle
+work from passability publication, only the publication/integration child needs
+that dependency. Do not over-serialize unrelated door work, but do not leave an
+interface prerequisite only in prose.
+
+`logical:gameplay-walkability-surface` is an exclusive-resource collision key,
+not an ordering edge.
+
+### Failed-task retry policy
+
+The GDD statement that a failed task is retried with reduced scope/context and
+that the whole project is not repeatedly resubmitted for one bug is a REQUIRED
+process rule. Represent it in `non_code_requirements` as a typed
+`pipeline_constraint` (for example, `Failed-task retry policy`). Do not leave it
+only in summary prose or notes.
+
+### Player Experience Success Criteria
+
+Every bullet under GDD Section 3 `Player Experience Success Criteria` is a
+required validation obligation. Map those criteria into
+`validation_requirements` on the work item(s) that own the underlying behavior.
+Do not create duplicate gameplay features just to represent validation.
+
+At minimum preserve explicit validation coverage for:
+- understanding that a door requires five safe seconds, not merely reaching it;
+- understanding that enemies left alive remain a continuing threat through
+  locked-door pressure/breach/persistence;
+- readable causes of failure, including positioning, mana pressure, Force Wave
+  availability, and waiting too long;
+- the existing cursor-drift and encounter-count/cap success criteria.
+
+### Shared Input Actions writer inventory
+
+`Assets/InputSystem_Actions.inputactions` is a single shared JSON asset. For
+player-input work items, determine whether the implementation must ADD OR MODIFY
+bindings/actions in that asset.
+
+- If yes, include `repo-file:Assets/InputSystem_Actions.inputactions` in
+  `exclusive_resources` and normalize that lock across every item expected to
+  edit the same asset.
+- If an item only consumes an already-existing binding and does not edit the
+  asset, do not invent the lock; explain that fact in the item's evidence/notes
+  when ambiguity would otherwise remain.
+- Re-check Fireball, Frost Field, Force Wave, movement/aim, door interaction,
+  and victory-input shutdown as applicable.

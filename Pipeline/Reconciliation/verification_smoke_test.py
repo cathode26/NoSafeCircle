@@ -12,6 +12,10 @@ def main() -> int:
     assert reconciliation._is_allowed_review_path("Packages/manifest.json")
     assert not reconciliation._is_allowed_review_path("Packages/packages-lock.json")
 
+    # The model must be blocked before forbidden reconciliation sources can enter context.
+    assert "Read(AgentCrew/**)" in reconciliation.CLAUDE_DISALLOWED_TOOLS
+    assert "Read(DynamicContentPipeline/**)" in reconciliation.CLAUDE_DISALLOWED_TOOLS
+
     valid_history = {
         "sources": {
             "files_reviewed": ["Packages/manifest.json"],

@@ -81,6 +81,7 @@ The three spells solve different problems: Frost Field controls pursuit, Force W
 ### Resources, Feedback, and Failure
 
 - Health: The wizard survives a few isolated hits but dies quickly when trapped. Health does not regenerate during a room, and does not reset between rooms — it carries across the whole run. Successfully locking a door after crossing restores a small, fixed amount of health before the next room begins; this recovery is partial, so accumulated damage still matters across all five rooms. Exact recovery values will be set during playtesting.
+- Player Health ownership: The shared Player Health system is the single owner of the wizard's current health. It exposes owner-controlled damage and restore interfaces. Door locking requests the fixed recovery through the Player Health restore interface; restoration is clamped to maximum health, and Door and Interaction never writes player-health state directly.
 - Health feedback: The wizard's current health is continuously visible through a simple player-facing health indicator. Because damage persists across rooms, the player must be able to read accumulated damage and remaining survivability throughout the run.
 - Mana: Mana regenerates slowly after a brief post-cast delay. Waiting restores power while locked doors continue losing durability.
 - Movement: Circling or retreating creates temporary separation from pursuers, but Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters. Sustaining real separation requires turning routes, obstacles, Frost Field, Force Wave, or reducing the threat directly.
@@ -176,7 +177,7 @@ Both enemy archetypes deal damage through the shared **Player Health** system. A
 
 ### Peer and Agent Review Revision
 
-Peer feedback identified that the earlier draft did not explain how the spells and room layouts produced different tactical decisions. A targeted multi-agent review then tested whether those decisions could collapse into a dominant strategy. This revision clarifies Fireball's tap-versus-charge tradeoff, Frost Field's resource commitment, Force Wave's mid-room-versus-door decision, mixed enemy compositions, persistent-pursuer priority, room-specific implementation checks, distance-based target loss and search behavior, accessible cursor-targeted door interaction, shared doorway-crossing ownership, enemy damage through Player Health, active-enemy bookkeeping, and runtime ownership boundaries without expanding the required content scope.
+Peer feedback identified that the earlier draft did not explain how the spells and room layouts produced different tactical decisions. A targeted multi-agent review then tested whether those decisions could collapse into a dominant strategy. This revision clarifies Fireball's tap-versus-charge tradeoff, Frost Field's resource commitment, Force Wave's mid-room-versus-door decision, mixed enemy compositions, persistent-pursuer priority, room-specific implementation checks, distance-based target loss and search behavior, accessible cursor-targeted door interaction, shared doorway-crossing ownership, enemy damage through Player Health, active-enemy bookkeeping, and runtime ownership boundaries, Player Health restoration ownership, door-to-navigation passability prerequisites, player-experience validation obligations, and failed-task retry policy without expanding the required content scope.
 
 ## 4. AI Architecture
 
@@ -201,8 +202,10 @@ The following ownership boundaries are required development-process constraints 
 - **Wizard Combat Agent** owns player movement/resources and spell initiation. It requests enemy effects through enemy-owned interfaces and does not directly manipulate enemy locomotion, status restoration, or forced-displacement state.
 - **Enemy Pursuit Agent** owns enemy pursuit/search state, enemy locomotion behavior, enemy attack behavior, Frost slowdown application/restoration, forced displacement, and shared Active Enemy Registry bookkeeping. Enemy attacks consume the shared Player Health damage interface, enemy locomotion consumes the shared gameplay navigation/locomotion layer, and encounter activation consumes the registry rather than maintaining a separate count. Pursuit and attack behavior consume doorway walkability from the shared navigation layer rather than directly changing NavMesh or door passability.
 - **Door and Interaction Agent** owns door targeting, the latched opening interaction, shared doorway-crossing state, and semantic door lifecycle state. Other systems consume doorway-crossing state rather than implementing their own crossing detector. Door state changes are published through the shared navigation/locomotion passability interface; Door and Interaction does not own the navigation technology that translates those states into enemy walkability.
+- **Door/navigation integration prerequisite:** the navigation-owned shared passability interface must exist before door-state publication through that interface is dispatch-ready. Door lifecycle work that does not require navigation may be decomposed and implemented earlier, but if passability publication remains bundled inside one executable door-lifecycle item, that item depends on the gameplay navigation/locomotion owner. An exclusive-resource lock is not a substitute for this behavioral dependency.
 - **Dungeon Encounter Agent** owns encounter content/activation policy and consumes the shared Active Enemy Registry when admitting new enemies; it does not replace or remove existing persistent pursuers to satisfy the cap.
 - **Unity Validation Agent** verifies integrated behavior and ownership boundaries but does not redefine runtime ownership or silently implement missing gameplay responsibilities.
+- **Player Experience Success Criteria are required validation obligations, not advisory prose.** Each criterion in Section 3 must be represented as a validation requirement on the work item or items that own the underlying behavior. They do not require separate gameplay features when the behavior is already owned.
 - An agent must not bypass another agent's owned runtime interface merely because both systems interact. Shared-write conflicts are sequencing/locking concerns, not proof of a dependency unless one task actually requires behavior another task must create first.
 
 ### Agent-Assisted Development Workflow
@@ -293,7 +296,7 @@ Most focused tasks will be limited to approximately 15,000–30,000 tokens. Larg
 | Review, debugging, and validation | 400,000 |
 | Total ceiling | 1,500,000 |
 
-If a task fails, its scope and context will be reduced before it is attempted again. The entire project will not be repeatedly submitted to an agent for a single bug.
+**Failed-task retry policy is a required pipeline constraint:** If a task fails, its scope and context will be reduced before it is attempted again. The entire project will not be repeatedly submitted to an agent for a single bug.
 
 ### Approved Unity Packages and Windows Build Configuration
 

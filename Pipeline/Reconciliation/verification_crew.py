@@ -22,6 +22,7 @@ from output_layout import (
 )
 
 from reconciliation_agent import (
+    CLAUDE_DISALLOWED_TOOLS,
     RECONCILIATION_SCHEMA,
     ensure_execution_scope_defaults,
     build_proposed_graph_delta,
@@ -455,7 +456,7 @@ def invoke_read_only_agent(
         "--allowedTools",
         "Read,Glob,Grep",
         "--disallowedTools",
-        "Edit,Write,mcp__*",
+        CLAUDE_DISALLOWED_TOOLS,
         "--json-schema",
         compact_schema,
         "--input-format",

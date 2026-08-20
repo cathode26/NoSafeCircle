@@ -213,3 +213,28 @@ The shared navigation/locomotion foundation owns the navigation-side representat
 A graph is structurally incomplete if 'open/broken traversable, sealed/locked blocked' appears only as an acceptance criterion on pursuit or doors with no owner for translating state into navigation walkability.
 
 Prefer a navigation-foundation acceptance responsibility plus door-side consumption rather than adding a broad pursuit -> door dependency. Use `logical:gameplay-walkability-surface` as a shared exclusive resource where concrete work can write/toggle the passability representation.
+
+---
+
+## Verification-closure shared-interface audit
+
+In addition to the general dependency rules, explicitly check these current-GDD
+owner/consumer pairs:
+
+- Door lock healing consumes Player Health's owner-exposed restore interface.
+  The Player Health owner must be required to expose the interface, and the
+  executable door work containing lock-heal must depend on that owner.
+- Door semantic-state publication consumes the gameplay
+  navigation/locomotion-owned passability interface. If that publication is
+  bundled into an executable door lifecycle item, require a dependency on the
+  navigation/locomotion owner. If decomposition separates the integration
+  child, require the edge only on that child.
+- An `exclusive_resources` collision such as
+  `logical:gameplay-walkability-surface` does NOT replace a required behavioral
+  dependency.
+
+Also perform a shared-writer inventory for
+`repo-file:Assets/InputSystem_Actions.inputactions`. If multiple player-input
+items are expected to edit the action asset, they should carry the same
+exclusive-resource key. Do not require the key when evidence establishes that
+an item only consumes an existing binding without modifying the asset.
