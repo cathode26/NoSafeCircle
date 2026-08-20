@@ -261,3 +261,97 @@ Do not introduce new mechanics, balance values, room layouts, encounter
 placements, or navigation technology while repairing these findings. The goal
 is to make ownership, prerequisite, resource-lock, and process representation
 match the already-approved GDD.
+
+---
+
+# Verification-pass hardening: canonical repairs after current GDD clarification
+
+This section supersedes older retry-hardening instructions where they conflict
+with the current GDD.
+
+## Approved package/navigation repair
+
+The current GDD explicitly approves:
+
+- `com.unity.2d.tilemap` for Isometric Tilemap authoring;
+- `com.unity.ai.navigation` for NavMesh-based enemy navigation.
+
+Do not preserve navigation technology as an unresolved human-design question
+and do not silently choose a different package. If the approved package is
+missing from `Packages/manifest.json`, preserve/add concrete configuration work
+and make dependent foundations consume it as appropriate.
+
+## Windows delivery/configuration repair
+
+Keep the Windows build itself represented as a `delivery_requirement`, but if
+committed Build Settings show zero registered gameplay scenes, treat scene/build
+configuration as confirmed missing implementation/configuration work rather
+than collapsing the whole obligation into `not_assessable`. The developer's
+current local active build target may remain unknown separately.
+
+## Dependency closure from prose and hand-back contracts
+
+Promote real prerequisites out of notes and into `depends_on` when the target
+must exist first. In particular, preserve the GDD's now-explicit dependency
+semantics for:
+
+- status-effect/displacement consuming pursuit/search state hand-back;
+- five-room content consuming the reusable visual-world foundation;
+- encounter placement/content consuming authored room spaces and encounter
+  admission/cap behavior;
+- locomotion-dependent enemy work consuming the shared navigation foundation.
+
+Do not manufacture dependencies for mere file collisions; those remain
+exclusive-resource locks.
+
+## Restart repair
+
+The GDD requires full run-persistent reset. If five-room content is not yet
+implemented, refine restart acceptance so the first task resets all currently
+existing run-carrying state and remains extensible to later persistent systems
+without redesign. Add dependencies on concrete persistent-state owners when
+needed to implement their reset contract, and preserve later full-floor
+validation as a validation requirement rather than making the first task
+untruthfully claim it can validate absent content.
+
+## Exclusive-resource normalization
+
+Before returning the refined candidate, inventory all writers of each shared
+resource and normalize locks across all tasks that can be concurrently ready.
+Do not stop after correcting only the pair named in a finding.
+
+Special checks:
+
+- one canonical `logical:enemy-locomotion-runtime` lock across pursuit/search,
+  status/displacement, melee, ranged, and locked-door attack when they share the
+  future locomotion/behavior surface;
+- shared prototype scene and scene-builder locks for tasks that wire new
+  scene-resident components;
+- Input System actions lock if movement/interaction work edits
+  `Assets/InputSystem_Actions.inputactions`;
+- asmdef/package-manifest/build-settings locks for package/configuration work
+  when supported.
+
+## Evidence repair
+
+Do not preserve overbroad negative evidence after discovering a relevant asset.
+If `.inputactions` mouse bindings exist but gameplay does not consume them,
+state exactly that distinction.
+
+For completed scene-integrated claims, preserve current serialized scene/prefab
+or ProjectSettings evidence when available; do not substitute builder
+capability alone.
+
+## Clarified required representations
+
+The current GDD explicitly requires:
+
+- continuous player-facing health feedback: map it to the Player Health owner as
+  an acceptance criterion/responsibility unless a separate UI task is clearly
+  justified;
+- wizard/enemy world-space SpriteRenderer presentation and isometric sorting:
+  map it to the reusable visual-world foundation as acceptance/validation
+  requirements.
+
+These statements should not remain `ambiguous` after refinement.
+

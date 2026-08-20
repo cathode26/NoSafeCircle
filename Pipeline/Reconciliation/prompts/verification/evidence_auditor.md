@@ -63,3 +63,47 @@ Flag evidence that:
 Do not propose architecture changes unless the evidence problem itself requires reclassification.
 
 Return only the structured JSON required by the supplied schema.
+
+---
+
+# Verification-pass hardening: repository evidence completeness
+
+Apply these additional evidence checks.
+
+## Negative-claim search breadth
+
+Before accepting statements such as "no mouse input exists anywhere" or "no
+configuration exists", verify relevant non-C# assets/configuration too. For
+cursor/mouse input, inspect `.inputactions` assets when present. Distinguish:
+
+- bindings/configuration exist but are not consumed by gameplay code; from
+- the required gameplay interface actually exists.
+
+Do not turn an unconsumed Input System asset into proof of completed cursor
+world targeting, but do not erase it from repository truth.
+
+## Serialized integration evidence
+
+When a work item is marked complete and the requirement depends on scene/prefab
+integration, look for current serialized scene/prefab evidence rather than
+relying only on builder code, tests, or historical README claims. Builder
+capability is not current integrated state.
+
+If a completed camera/visual claim has only been tested against primitive
+geometry while its remaining SpriteRenderer/isometric-sorting validation is
+owned by a separate open visual-foundation item, require the candidate to name
+that future validation owner explicitly rather than silently treating the
+integration check as already complete.
+
+## Package and build configuration evidence
+
+Read `Packages/manifest.json` exactly when approved package availability is
+relevant. Distinguish built-in modules such as `com.unity.modules.tilemap` or
+`com.unity.modules.ai` from the GDD-approved packages
+`com.unity.2d.tilemap` and `com.unity.ai.navigation`.
+
+When Windows delivery is assessed, inspect committed
+`ProjectSettings/EditorBuildSettings.asset` when available. Zero registered
+scenes is a known incomplete configuration fact even if the developer's local
+active build target remains unassessable.
+

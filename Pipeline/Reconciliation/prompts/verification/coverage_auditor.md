@@ -180,3 +180,30 @@ Every required requirement classified as `ambiguous` must also be surfaced, but 
 If a requirement is represented by a broader work item, map it to that work item and explain why the grouping is sufficient.
 
 Return only the structured JSON required by the supplied schema.
+
+---
+
+# Verification-pass hardening: explicit representation decisions
+
+Use the current GDD's clarified ownership before classifying a required
+statement as `ambiguous`.
+
+- Continuous player-facing health visibility belongs to the Player Health
+  responsibility as an acceptance criterion unless the candidate deliberately
+  represents a separate health-UI implementation owner.
+- Wizard/enemy world-space SpriteRenderer presentation and isometric sorting
+  belong to the reusable Tilemap/SpriteRenderer visual-world foundation as
+  acceptance/validation requirements, not as an unowned rendering requirement.
+- The Windows build remains a `delivery_requirement`; however, concrete missing
+  repository configuration needed to deliver it (for example no registered
+  gameplay scene in EditorBuildSettings) may also require an open
+  implementation/configuration work item. Do not treat the presence of a
+  delivery record as proof that actionable configuration work is represented.
+- Approved package requirements (`com.unity.2d.tilemap` and
+  `com.unity.ai.navigation`) are required technical configuration, not deferred
+  design. If missing, their required configuration must be represented.
+
+Only use `ambiguous` after checking whether the current GDD now assigns the
+requirement to an existing owner, acceptance criterion, validation requirement,
+delivery requirement, or concrete configuration prerequisite.
+

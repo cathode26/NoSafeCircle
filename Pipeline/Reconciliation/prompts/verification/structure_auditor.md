@@ -133,3 +133,62 @@ Verify that the GDD's Development Agent Ownership Invariants survive as typed
 `pipeline_constraint` records. If the behaviors are only scattered across work
 items and no durable process constraint represents the mandatory ownership
 boundary, report a requirement-representation problem.
+
+---
+
+# Verification-pass hardening: structural closure checks
+
+The current GDD now resolves the navigation-technology decision: Unity AI
+Navigation (`com.unity.ai.navigation`) is approved. Do not preserve an obsolete
+"human must choose navigation technology" blocker. Instead verify that missing
+approved package/configuration work and the shared navigation/locomotion
+foundation are represented as concrete prerequisites.
+
+## Notes are not dependency edges
+
+Flag a prerequisite that appears only in `notes` when the owner genuinely
+cannot be implemented/decomposed meaningfully before that prerequisite.
+Deferred feature nodes may still carry dependencies on concrete
+implementation/artifact foundations.
+
+Current expected relationships include, when represented as separate nodes:
+
+- five-room content -> Tilemap/SpriteRenderer visual foundation;
+- encounter content/placement -> five-room content and encounter admission/cap
+  foundation;
+- status-effect/displacement -> pursuit/search state contract;
+- locomotion-dependent enemy work -> shared navigation/locomotion foundation.
+
+## State hand-back contract
+
+The GDD says status-effect/displacement restores the appropriate pursuit/search
+movement state and consumes the pursuit/search contract. If the candidate
+represents pursuit/search and status/displacement as separate work items, do
+not allow status/displacement to become ready before a stable pursuit/search
+contract exists unless an explicit forward-declared interface contract is
+represented and sufficient for implementation/validation.
+
+## Full-run restart closure
+
+Check that death/restart represents reset of run-persistent state, including
+persistent enemy/registry state and door lifecycle/crossing state as those
+systems come into existence. Do not force the first implementation to depend on
+unwritten five-room content solely to reload a scene; instead verify that its
+acceptance criteria are staged truthfully and that concrete persistent-state
+owners are dependencies when their interfaces must be reset.
+
+## Exclusive-resource writer inventory
+
+For every logical/file/scene/prefab lock, identify all candidate work items that
+may write the same integration surface during overlapping readiness windows.
+Flag uneven lock coverage, not just pairwise collisions already named by the
+candidate.
+
+In particular, when a shared future enemy locomotion surface is represented by
+`logical:enemy-locomotion-runtime`, verify that pursuit/search,
+status/displacement, melee, ranged, and locked-door attack work all use the same
+lock if their implementation boundaries can touch that surface concurrently.
+Likewise verify shared scene-builder/scene, Input System actions, asmdef,
+package-manifest, and build-settings writers when supported by repository/GDD
+evidence.
+

@@ -108,3 +108,33 @@ record the room-specific check as validation that becomes executable when the
 required content exists. If the task currently claims it can fully validate a
 missing room-specific scenario, flag the scope claim rather than broadening the
 task automatically.
+
+---
+
+# Verification-pass hardening: approved navigation and staged validation
+
+This section supersedes the earlier "Human-approved navigation decision"
+retry-hardening language. The current GDD has made the decision:
+
+- enemy navigation uses Unity AI Navigation (`com.unity.ai.navigation`);
+- Isometric Tilemap authoring uses Unity 2D Tilemap Editor
+  (`com.unity.2d.tilemap`).
+
+If an approved package is missing, treat package/configuration as a concrete
+prerequisite. Do not classify the navigation foundation as
+`human_integration_required` merely because the technology is undecided; it is
+no longer undecided. Human inspection before merge is a validation/integration
+constraint, not automatically the execution scope of the whole task.
+
+For death/restart, allow a bounded first-stage `single_agent` item when it can
+reset all persistent run state that currently exists and is explicitly designed
+to absorb later persistent systems without redesign. Flag the item only if its
+acceptance criteria falsely claim full five-room validation that cannot yet run,
+or if it omits already-existing persistent-state owners it must reset.
+
+For required build/package configuration, a small bounded configuration task
+may be `single_agent` even though the developer must inspect ProjectSettings or
+package changes before merge. Reserve `human_integration_required` for cases
+where the next meaningful step itself cannot be performed without human Unity
+judgment.
+

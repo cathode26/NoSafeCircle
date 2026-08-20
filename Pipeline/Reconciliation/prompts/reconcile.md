@@ -729,3 +729,116 @@ DO NOT:
 The desired output is a **truthful, coarse, evidence-backed bootstrap hierarchy**.
 
 Return only the structured JSON required by the supplied schema.
+
+---
+
+# Verification-pass hardening: current approved configuration and evidence rules
+
+This section reflects the current GDD and supersedes older retry-hardening
+language where they conflict.
+
+## Approved Unity packages are no longer unresolved design
+
+The current GDD explicitly approves:
+
+- Unity 2D Tilemap Editor: `com.unity.2d.tilemap`
+- Unity AI Navigation: `com.unity.ai.navigation`
+
+Do not preserve navigation technology as an unresolved human architecture
+question. If an approved package is absent from `Packages/manifest.json`, that
+is a concrete missing project-configuration prerequisite. Represent the
+required configuration work rather than silently treating the package as
+installed or treating the approved technology as undecided.
+
+The gameplay navigation/locomotion foundation consumes Unity AI Navigation and
+locomotion-dependent enemy work depends on that foundation.
+
+## Delivery requirement versus actionable configuration work
+
+A required Windows build remains a `delivery_requirement`, but a concrete
+repository configuration gap needed to satisfy that delivery obligation may
+also require an open implementation/configuration work item.
+
+Example: if `ProjectSettings/EditorBuildSettings.asset` contains no registered
+gameplay scene, do not describe the entire Windows-build requirement as merely
+`not_assessable`. The active local build target may be unassessable, but zero
+registered scenes is a known incomplete configuration fact. Preserve the
+Windows delivery requirement AND represent the actionable build-configuration
+work needed to register the canonical gameplay scene / Windows Standalone
+configuration.
+
+## Dependencies must be structural, not hidden in notes
+
+If a feature or deferred-content node states that it consumes an existing
+implementation/foundation, preserve that prerequisite in `depends_on` when the
+target must exist first. `notes` is not a substitute for a dependency edge.
+Feature nodes may depend on concrete implementation/artifact prerequisites even
+though the feature itself is not dispatchable.
+
+Current examples include:
+
+- five-room content consumes the reusable Tilemap/SpriteRenderer foundation;
+- encounter placement/content consumes the authored room spaces and encounter
+  admission/cap foundation;
+- enemy status-effect/displacement consumes the pursuit/search state contract
+  for restoring the appropriate movement state.
+
+## Staged restart validation
+
+The GDD requires zero health to reset all run-persistent gameplay state. When
+all five rooms do not yet exist, a restart implementation may still be a
+bounded first-stage task if its acceptance criteria are phrased as resetting
+all run-carrying state that currently exists and remaining extensible to newly
+added persistent systems without redesign. Do not claim a missing five-room
+scenario can already be fully validated.
+
+Represent dependencies on persistent-state owners when their interfaces must
+exist to implement/reset them, and keep later full-floor validation as a
+validation requirement when appropriate.
+
+## Writer inventory for exclusive resources
+
+Before returning the candidate, perform a writer inventory for each known
+non-merge-safe resource. Every otherwise-concurrent task expected to modify the
+same resource must carry the identical exclusive-resource key.
+
+Pay particular attention to:
+
+- shared future enemy locomotion/behavior surfaces: use one canonical
+  `logical:` lock across pursuit/search, status/displacement, melee, ranged,
+  and locked-door attack work when they can overlap;
+- the shared prototype scene and `DoorPrototypeSceneBuilder.cs` for tasks that
+  wire new scene-resident runtime components;
+- `Assets/InputSystem_Actions.inputactions` when movement/interaction work will
+  consume or modify the shared Input System actions asset;
+- a shared asmdef when package-dependent implementation will modify it;
+- `Packages/manifest.json` and relevant `ProjectSettings/` files for approved
+  package/build configuration work.
+
+Do not add locks merely for reads. Do not replace true prerequisites with
+locks.
+
+## Evidence discipline for negative and complete claims
+
+Before saying a capability exists "nowhere in the project", inspect relevant
+asset/configuration types as well as `.cs` files. For cursor input specifically,
+inspect `.inputactions` assets if present. Existing mouse bindings are not the
+same thing as an implemented cursor-world-target gameplay interface, but they
+must not be erased by an overbroad negative claim.
+
+For scene-integrated work marked complete, prefer evidence from the actual
+serialized scene/prefab/current ProjectSettings in addition to builder code or
+tests when the requirement depends on integration state. A builder's ability to
+create state is not proof that the current serialized state contains it.
+
+## Required feedback and character presentation
+
+The current GDD explicitly requires continuous player-facing health feedback.
+Represent that as an acceptance criterion/responsibility of the player-health
+system unless a separate UI responsibility is clearly warranted.
+
+The current GDD explicitly places the wizard and enemies in the reusable
+world-space SpriteRenderer visual foundation. Preserve character
+SpriteRenderer/isometric-sorting requirements as acceptance/validation criteria
+of that visual foundation rather than leaving them ambiguous.
+
