@@ -15,6 +15,7 @@ NORMALIZE_PATHS = [
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "coverage_auditor.md",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "refiner.md",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "structure_auditor.md",
+    ROOT / "streaming_verification_refinement_patch" / "resume_streaming_verification.py",
 ]
 
 
@@ -51,6 +52,7 @@ def main() -> int:
     run_script("apply_streaming_v2_guidance.py")
     run_script("apply_streaming_v2_recovery_fix.py")
     run_script("apply_streaming_v2_semantic_list_dedupe.py")
+    run_script("apply_resume_verification_order_fix.py")
     normalize_lf()
     print("All streaming verification + approved closure fixes are installed.")
     print("Clarified Frost Field placement at the shared cursor world target.")
@@ -61,6 +63,7 @@ def main() -> int:
     print("Field repair workers inherit the standard Refiner correctness guidance.")
     print("Fixed streaming v2 recovery bookkeeping for derived in-progress artifacts.")
     print("Deduplicated dependency/resource list edits by durable key rather than prose.")
+    print("Fixed resume verification initialization order.")
     print("Normalized patched text files to LF line endings.")
     return 0
 
