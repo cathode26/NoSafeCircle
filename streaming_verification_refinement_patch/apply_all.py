@@ -7,10 +7,14 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
 NORMALIZE_PATHS = [
+    ROOT / "CLAUDE.md",
     ROOT / "Docs" / "GDD" / "No_Safe_Circle_GDD.md",
+    ROOT / "Pipeline" / "Reconciliation" / "reconciliation_agent.py",
+    ROOT / "Pipeline" / "Reconciliation" / "parallel_reconciliation_agent.py",
     ROOT / "Pipeline" / "Reconciliation" / "verification_crew.py",
     ROOT / "Pipeline" / "Reconciliation" / "parallel_verification_crew.py",
     ROOT / "Pipeline" / "Reconciliation" / "streaming_refinement_v2.py",
+    ROOT / "Pipeline" / "Reconciliation" / "fresh_run_closure_smoke_test.py",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "reconcile.md",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "coverage_auditor.md",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "refiner.md",
@@ -51,6 +55,7 @@ def main() -> int:
     run_script("apply_round2_closure_fixes.py")
     run_script("apply_round3_closure_fixes.py")
     run_script("apply_final_provenance_guard.py")
+    run_script("apply_fresh_run_closure_fixes.py")
     run_script("apply_streaming_verification_refinement.py")
     run_script("apply_streaming_refinement_v2.py")
     run_script("apply_streaming_v2_hardening.py")
@@ -68,6 +73,7 @@ def main() -> int:
     print("Installed six round-2 verification closure rules.")
     print("Installed round-3 evidence integrity, melee-clustering, and stub-scene closure rules.")
     print("Installed final guard against verifier/patch bookkeeping labels being cited as project evidence.")
+    print("Installed fresh-run provenance, navigation-lock, scene-builder-constraint, coverage-boundary, and seed-assessment fixes.")
     print("Installed streaming refinement v2 field-level operations and clustered arbitration.")
     print("Hardened record-level remove/upsert conflict semantics.")
     print("Field repair workers inherit the standard Refiner correctness guidance.")
