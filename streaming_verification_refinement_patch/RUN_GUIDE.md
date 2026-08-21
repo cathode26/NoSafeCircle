@@ -1,33 +1,73 @@
 # Streaming Verification Refinement — Run Guide
 
-This branch combines two changes:
+This branch combines three related changes:
 
 1. approved reconciliation/verification closure fixes from verification run `20260821T043304Z-571ad814`;
-2. streaming verification refinement, where completed pass-1 auditors may immediately launch isolated repair proposals while slower auditors continue running.
+2. second-round closure fixes from verification run `20260821T060257Z-98087458`;
+3. streaming verification refinement v2, where completed pass-1 auditors immediately launch small field-level repair proposals while slower auditors continue running.
 
 ## Approved closure fixes included
 
-The installer updates the working tree so the next reconciliation/verification run uses the agreed rules:
+The installer updates the working tree so reconciliation/refinement uses the agreed rules:
 
-- clarify locked-door attacks: enemies still tracking/pursuing the player attack a locked door that blocks their route; no separate `witnessed escape` state exists;
-- preserve all five named room requirements, including Ruined Entry and Final Room;
-- require actual enemy pursuit through open/broken doorways, not merely target retention across a doorway crossing;
-- honor the GDD's explicit Player Movement ownership of shared cursor-to-gameplay-plane projection and use a dependency while that specific owner-side capability is unfinished;
-- preserve current prototype scene-builder/scene locks for Fireball, Frost Field, and Force Wave when those tasks actually integrate through those write surfaces;
-- make Melee Enemy and Ranged Enemy work own/deliver usable assembled prefab archetypes unless a later concrete architecture establishes a separate composition owner;
-- split runtime behavior from Development Agent Ownership process invariants during coverage classification;
-- allow `requirement_representation_problem` warnings into bounded refinement so required representation gaps can be repaired in pass 1;
-- remove stale reconciliation/coverage/refiner instructions that contradicted the current GDD's explicit shared-pointer ownership.
+- locked-door attacks use current tracking/pursuit state; no separate `witnessed escape` state exists;
+- all five named-room requirements remain represented, including Ruined Entry and Final Room;
+- pursuit explicitly traverses open/broken doorways;
+- Player Movement owns shared cursor-to-gameplay-plane projection;
+- Frost Field is explicitly placed at the current shared cursor world-space target;
+- real pointer-projection dependencies are preserved while the owner-side capability is unfinished;
+- Fireball, Frost Field, and Force Wave explicitly consume Unity Input System/Input Actions rather than direct hardware polling;
+- current prototype builder/scene locks are preserved for spell integration;
+- Player Movement carries current builder/scene locks while its generated scene integration is being changed;
+- Melee/Ranged enemy work owns usable assembled archetype prefabs;
+- enemy restart repositioning is performed through an enemy owner reset/reposition entry point, not by the restart orchestrator mutating enemy movement state;
+- both restart stages share `logical:floor-run-restart-orchestrator`, and persistent restart closure carries the current builder/scene locks;
+- runtime Input System behavior is classified as required implementation/gameplay behavior rather than required development process;
+- `requirement_representation_problem` warnings may enter bounded refinement;
+- stale prompt rules that conflict with current canon are removed/superseded.
 
-## Streaming-refinement safety rules
+## Streaming refinement v2
 
-- the reconciliation candidate remains immutable during pass 1;
-- early repair workers produce proposed deltas only;
-- no early repair delta is applied directly;
-- after all auditors complete, a final conflict/synthesis arbiter reads the complete finding union plus all early repair proposals;
-- only the arbiter's consolidated delta is applied;
-- the existing selective Pass 2 verifier checks the resulting candidate;
-- `Tasks/*.yaml` is never mutated by verification.
+Pass-1 auditors still run independently in parallel. When one returns refiner-relevant findings, its repair worker starts immediately, but v2 no longer asks that worker to rewrite complete existing work-item records.
+
+Early repair workers now emit small operations such as:
+
+```text
+set one field
+append one acceptance criterion
+append one validation requirement
+append/remove one dependency
+append/remove one exclusive-resource lock
+remove an obsolete unresolved question
+create a genuinely new durable record
+```
+
+The reconciliation snapshot remains immutable.
+
+### Deterministic merge
+
+Compatible operations are merged without an LLM arbiter. Examples:
+
+- two independent `append_unique` operations on the same list are compatible;
+- two identical field `set` operations are compatible;
+- exact duplicate operations are deduplicated.
+
+Incompatible edits to the same durable field form a conflict edge. Record removal/replacement conflicts with every field edit on that record.
+
+Only connected conflict components invoke conflict arbiters. Independent conflict components may be arbitrated in parallel. The final projected candidate then runs the normal semantic validator before being converted back to the existing bounded Refiner-delta contract and sent to selective Pass 2.
+
+## Safety rules
+
+- the source reconciliation candidate is immutable;
+- early repairs are operations against that immutable source only;
+- existing records are edited with field operations rather than whole-record upserts;
+- `upsert_record` is reserved for genuinely new durable records;
+- compatible operations merge deterministically;
+- only connected incompatible field clusters invoke an LLM arbiter;
+- failed early repair proposals are recovered independently rather than forcing every auditor to rerun;
+- the projected candidate must pass normal semantic validation;
+- selective Pass 2 remains the final verification check;
+- `Tasks/*.yaml` is never mutated.
 
 ## Install everything
 
@@ -37,67 +77,69 @@ From the NoSafeCircle repository root on this branch:
 python .\streaming_verification_refinement_patch\apply_all.py
 ```
 
-The component installers are idempotent. The combined installer applies the approved closure fixes and then installs streaming refinement.
+The component installers are idempotent.
 
-## Syntax check
-
-```powershell
-docker compose run --rm claude python3 -m py_compile Pipeline/Reconciliation/verification_crew.py Pipeline/Reconciliation/parallel_verification_crew.py
-```
-
-## Important: create a new reconciliation snapshot
-
-Do **not** use the old `20260821T041756Z-cfed7174` snapshot as the test input after these changes. That immutable snapshot was produced before the clarified GDD/prompt rules.
-
-Run a fresh reconciliation:
+## Syntax and smoke checks
 
 ```powershell
-docker compose run --rm claude python3 Pipeline/Reconciliation/parallel_reconciliation_agent.py
+docker compose run --rm claude python3 -m py_compile Pipeline/Reconciliation/verification_crew.py Pipeline/Reconciliation/parallel_verification_crew.py Pipeline/Reconciliation/streaming_refinement_v2.py
 ```
-
-Then verify the new latest reconciliation with the streaming verifier:
 
 ```powershell
-docker compose run --rm claude python3 Pipeline/Reconciliation/parallel_verification_crew.py
+docker compose run --rm claude python3 Pipeline/Reconciliation/streaming_refinement_v2_smoke_test.py
 ```
 
-The verifier defaults to `outputs/LATEST.json`, so no run ID is required unless you deliberately want to verify a specific snapshot.
+## Verification run
 
-## What you should see
+For regression testing against the most recent clean reconciliation snapshot:
 
-When a pass-1 auditor returns refiner-relevant findings, output similar to this should appear before every verifier has finished:
+```powershell
+docker compose run --rm claude python3 Pipeline/Reconciliation/parallel_verification_crew.py --run-id 20260821T055421Z-603b2192
+```
+
+The verifier also defaults to `outputs/LATEST.json` when no run ID is supplied.
+
+## What v2 output should look like
+
+A completed auditor with material/refiner-relevant findings should immediately show submission:
 
 ```text
-[STREAM] coverage_wizard_combat produced refiner-relevant findings; starting an isolated repair proposal now.
+[STREAM] coverage_wizard_combat produced refiner-relevant findings; field repair submitted now.
 ```
 
-When an early proposal completes:
+The completion message is emitted when that repair actually finishes rather than later during collection:
 
 ```text
-[STREAM] Isolated repair proposal complete: coverage_wizard_combat
+[STREAM] Field repair completed: coverage_wizard_combat (84.2s since submission)
 ```
 
-After all pass-1 auditors and outstanding early repairs finish, the pipeline runs:
+At synthesis you should see field-level conflict counts rather than whole-record conflicts:
 
 ```text
 STREAMING REPAIR CONFLICT / SYNTHESIS GATE
+Mechanical field conflicts: 2
+Only connected incompatible field clusters invoke arbiters; the final projection still runs semantic validation.
 ```
 
-The final arbiter then creates the single delta used to produce the refined candidate. Selective Pass 2 proceeds using the existing changed-field routing.
+If there are no incompatible field conflicts, no conflict arbiter should be needed. If conflicts exist, output reports how many connected clusters are being arbitrated.
 
-## New verification artifacts
+## Verification artifacts
 
-Each verification run may additionally contain:
+A v2 verification run may contain:
 
 ```text
 stream_repairs/<audit-key>/REFINER_FINDINGS.json
-stream_repairs/<audit-key>/PROPOSED_REPAIR_DELTA.json
+stream_repairs/<audit-key>/PROPOSED_FIELD_REPAIR.json
+stream_repairs/<audit-key>/RECOVERED_FIELD_REPAIR.json
 STREAM_REPAIR_MANIFEST.json
 STREAM_CONFLICT_REPORT.json
+STREAM_PREARBITER_CANDIDATE.json
+stream_conflicts/cluster_XX/CLUSTER_INPUT.json
+stream_conflicts/cluster_XX/ARBITRATED_FIELD_REPAIR.json
 STREAM_CONFLICT_ARBITER.json
 ```
 
-`STREAM_CONFLICT_REPORT.json` performs a deterministic first check for multiple proposals touching the same durable record. The final arbiter also checks semantic conflicts that cannot be detected by record-key overlap alone, including dependency cycles, ownership contradictions, incompatible resource locks, duplicated responsibility, and execution-scope inconsistencies.
+`STREAM_CONFLICT_REPORT.json` now reports durable **field** conflicts and connected conflict components rather than treating every edit to the same work item as automatically conflicting.
 
 ## Configuration
 
@@ -106,6 +148,7 @@ Optional environment variables:
 ```text
 RECONCILIATION_STREAM_REPAIR_MAX_WORKERS=6
 RECONCILIATION_STREAM_REPAIR_MODEL=sonnet
+RECONCILIATION_STREAM_CONFLICT_MAX_WORKERS=4
 ```
 
 The normal verifier/refiner environment variables continue to apply.
