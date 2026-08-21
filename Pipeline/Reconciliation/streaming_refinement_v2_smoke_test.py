@@ -35,6 +35,7 @@ def main() -> int:
                 "key": "example",
                 "acceptance_criteria": [],
                 "exclusive_resources": [],
+                "depends_on": [],
                 "confidence": "medium",
             }
         ],
@@ -58,6 +59,38 @@ def main() -> int:
     assert len(refined["work_items"][0]["acceptance_criteria"]) == 1
     assert refined["unresolved_questions"] == []
     assert source["work_items"][0]["confidence"] == "medium"
+
+    # Two independent repairs may add the same durable resource/dependency key while
+    # supplying different explanatory prose. They must coalesce to one graph element.
+    duplicate_resource_ops = [
+        op(
+            field="exclusive_resources",
+            value={"key": "repo-file:Builder.cs", "reason": "auditor A", "evidence": "A"},
+        ),
+        op(
+            field="exclusive_resources",
+            value={"key": "repo-file:Builder.cs", "reason": "auditor B", "evidence": "B"},
+        ),
+    ]
+    deduped_ops = stream._dedupe_operations(duplicate_resource_ops)
+    assert len(deduped_ops) == 1
+    resource_refined = stream.apply_stream_operations(source, duplicate_resource_ops)
+    assert len(resource_refined["work_items"][0]["exclusive_resources"]) == 1
+    assert resource_refined["work_items"][0]["exclusive_resources"][0]["key"] == "repo-file:Builder.cs"
+
+    duplicate_dependency_ops = [
+        op(
+            field="depends_on",
+            value={"key": "player-movement", "reason": "auditor A", "evidence": "A"},
+        ),
+        op(
+            field="depends_on",
+            value={"key": "player-movement", "reason": "auditor B", "evidence": "B"},
+        ),
+    ]
+    assert len(stream._dedupe_operations(duplicate_dependency_ops)) == 1
+    dependency_refined = stream.apply_stream_operations(source, duplicate_dependency_ops)
+    assert len(dependency_refined["work_items"][0]["depends_on"]) == 1
 
     append_a = op(value={"reference": "A", "requirement": "one"})
     append_b = op(value={"reference": "B", "requirement": "two"})
