@@ -403,3 +403,8 @@ A restart dependency may coordinate an enemy reset, but it must not make the
 orchestrator the writer of enemy Transform/locomotion state. The enemy
 pursuit/locomotion owner should expose the reset/reposition entry point, preserving
 owner-controlled state boundaries.
+
+## 2026-08-21 FRESH RUN CLOSURE
+
+For the current scene-built prototype architecture, verify `gameplay-navigation-locomotion` against the real writer surface. `DoorPrototypeSceneBuilder.cs` clears/recreates the current `Floor`, `Walls`, and `DoorRoot` and saves the canonical `DoorPrototype.unity` scene. A navigation implementation that adds/configures the NavMesh/walkability representation through those maintained objects therefore shares the builder+scene exclusive-write pair with other current scene-authoring work, in addition to `logical:gameplay-walkability-surface`. This is a lock/concurrency relationship, not a dependency on `world-visual-foundation`. Re-evaluate the locks if the current approved repository architecture later moves navigation authoring to a separately owned asset.
+
