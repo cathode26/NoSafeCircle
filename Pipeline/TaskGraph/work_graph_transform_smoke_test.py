@@ -56,6 +56,8 @@ def seed_record(
 
 
 def make_inputs() -> SimpleNamespace:
+    # Put the root late on purpose. The allocator must still reserve NSC-001 for it,
+    # while preserving approved order for every non-root record.
     seeds = [
         seed_record("player", "Player", "feature", "no-safe-circle", [], "not_applicable"),
         seed_record(
@@ -76,6 +78,7 @@ def make_inputs() -> SimpleNamespace:
             "single_agent",
             ["repo-file:Input.inputactions"],
         ),
+        seed_record("no-safe-circle", "No Safe Circle", "feature", "", [], "not_applicable"),
     ]
     candidate = {
         "work_items": [
@@ -98,6 +101,7 @@ def make_inputs() -> SimpleNamespace:
                 "single_agent",
                 ["repo-file:Input.inputactions"],
             ),
+            candidate_item("no-safe-circle", "No Safe Circle", "feature", "", [], "not_applicable"),
         ]
     }
     return SimpleNamespace(
@@ -120,16 +124,18 @@ def main() -> int:
     plan = build_work_graph_plan(inputs)
 
     assert plan.id_map == {
-        "player": "NSC-001",
-        "player-movement": "NSC-002",
-        "fireball": "NSC-003",
+        "no-safe-circle": "NSC-001",
+        "player": "NSC-002",
+        "player-movement": "NSC-003",
+        "fireball": "NSC-004",
     }
 
     by_key = {task["reconciliation_key"]: task for task in plan.tasks}
-    assert by_key["player"]["parent"] == ""
-    assert by_key["player-movement"]["parent"] == "NSC-001"
-    assert by_key["fireball"]["parent"] == "NSC-001"
-    assert by_key["fireball"]["depends_on"] == ["NSC-002"]
+    assert by_key["no-safe-circle"]["parent"] == ""
+    assert by_key["player"]["parent"] == "NSC-001"
+    assert by_key["player-movement"]["parent"] == "NSC-002"
+    assert by_key["fireball"]["parent"] == "NSC-002"
+    assert by_key["fireball"]["depends_on"] == ["NSC-003"]
     assert by_key["fireball"]["bootstrap_source"] == {
         "reconciliation_run_id": "source-run",
         "verification_run_id": "verification-run",
@@ -138,7 +144,7 @@ def main() -> int:
     assert plan.resource_groups == (
         {
             "resource_key": "repo-file:Input.inputactions",
-            "work_ids": ["NSC-002", "NSC-003"],
+            "work_ids": ["NSC-003", "NSC-004"],
             "reconciliation_keys": ["player-movement", "fireball"],
         },
     )
@@ -169,6 +175,17 @@ def main() -> int:
         assert "execution_scope" in str(exc)
     else:
         raise AssertionError("Expected candidate/delta execution-scope mismatch to be rejected.")
+
+    # The root must remain a true root node.
+    bad_root_inputs = make_inputs()
+    bad_root_inputs.seed_records[3]["parent_reconciliation_key"] = "player"
+    bad_root_inputs.candidate["work_items"][3]["parent_key"] = "player"
+    try:
+        build_work_graph_plan(bad_root_inputs)
+    except WorkGraphTransformError as exc:
+        assert "must not have a parent" in str(exc)
+    else:
+        raise AssertionError("Expected a parented project root to be rejected.")
 
     print("work_graph_transform_smoke_test: PASS")
     return 0
