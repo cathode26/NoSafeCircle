@@ -42,6 +42,16 @@ services:
     tty: true
     environment:
       CODEX_HOME: /home/agent/.codex
+      # The repository is checked out by Git for Windows, while status checks
+      # run under Linux in this container. Match the Windows checkout's line
+      # ending and executable-bit semantics so a clean host tree is also clean
+      # inside Docker. These values are passed to every Git subprocess through
+      # Git's documented environment-config mechanism.
+      GIT_CONFIG_COUNT: "2"
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: "true"
+      GIT_CONFIG_KEY_1: core.filemode
+      GIT_CONFIG_VALUE_1: "false"
     volumes:
       - .:/workspace:ro
       - ./Pipeline/ArchitectureReview/outputs:/workspace/Pipeline/ArchitectureReview/outputs:rw
