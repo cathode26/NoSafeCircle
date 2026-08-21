@@ -50,6 +50,7 @@ def main() -> int:
     run_script("apply_streaming_v2_hardening.py")
     run_script("apply_streaming_v2_guidance.py")
     run_script("apply_streaming_v2_recovery_fix.py")
+    run_script("apply_streaming_v2_semantic_list_dedupe.py")
     normalize_lf()
     print("All streaming verification + approved closure fixes are installed.")
     print("Clarified Frost Field placement at the shared cursor world target.")
@@ -59,6 +60,7 @@ def main() -> int:
     print("Hardened record-level remove/upsert conflict semantics.")
     print("Field repair workers inherit the standard Refiner correctness guidance.")
     print("Fixed streaming v2 recovery bookkeeping for derived in-progress artifacts.")
+    print("Deduplicated dependency/resource list edits by durable key rather than prose.")
     print("Normalized patched text files to LF line endings.")
     return 0
 
