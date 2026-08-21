@@ -114,3 +114,10 @@ active build target remains unassessable.
 
 Evidence provenance is strict. Prompt text, verifier instructions, patch scripts, and internal pipeline-hardening guidance are not repository/GDD evidence. Flag any evidence string that attributes such internal wording to `CLAUDE.md`, the GDD, or another repository file when the attributed content is not actually present. A derived dependency or logical-lock rationale is acceptable only when it is explicitly described as derived from real GDD/repository facts rather than presented as a source quotation.
 
+### Final provenance guard
+
+- VERIFIED CLOSURE labels are pipeline bookkeeping, not GDD evidence.
+- Never emit `VERIFIED CLOSURE`, `2026-08-21 VERIFIED CLOSURE`, `verification-hardening`, or similar verifier/patch-round labels as a GDD reference, repository evidence source, dependency evidence source, or exclusive-resource evidence source unless that exact phrase literally exists in the cited authoritative file.
+- When the underlying behavior is supported by a real GDD passage, cite only that real passage (for example `Door and Pursuit Rules` or `Enemy Detection, Pursuit, and Target Loss`).
+- Pipeline prompts, patch scripts, verification artifacts, and prior repair prose may explain why a correction is being made, but they are never project/GDD evidence.
+

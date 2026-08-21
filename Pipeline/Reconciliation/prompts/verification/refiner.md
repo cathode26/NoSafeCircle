@@ -957,3 +957,10 @@ For `logical:enemy-locomotion-behavior-surface`, legitimate support includes GDD
 - Add/repair `melee-enemy` acceptance and validation so multiple pursuing Melee Enemies naturally cluster enough for the GDD's Charged Fireball area-damage and Frost Field formation-stretching premise to remain meaningful; leave exact avoidance/separation tuning to playtesting.
 - Add/repair a typed `pipeline_constraint` for the GDD's non-canonical stub-scene rule: deletion, retention, or repurposing is a human decision, and agents/reconciliation must not delete or reinterpret stubs merely to clean inventory evidence.
 
+### Final provenance guard
+
+- VERIFIED CLOSURE labels are pipeline bookkeeping, not GDD evidence.
+- Never emit `VERIFIED CLOSURE`, `2026-08-21 VERIFIED CLOSURE`, `verification-hardening`, or similar verifier/patch-round labels as a GDD reference, repository evidence source, dependency evidence source, or exclusive-resource evidence source unless that exact phrase literally exists in the cited authoritative file.
+- When the underlying behavior is supported by a real GDD passage, cite only that real passage (for example `Door and Pursuit Rules` or `Enemy Detection, Pursuit, and Target Loss`).
+- Pipeline prompts, patch scripts, verification artifacts, and prior repair prose may explain why a correction is being made, but they are never project/GDD evidence.
+

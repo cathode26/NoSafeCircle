@@ -1918,3 +1918,10 @@ The GDD explicitly states that Melee Enemies naturally cluster while pursuing an
 
 The GDD's `Current Prototype Scene Evidence` section explicitly says deletion, retention, or repurposing of the non-canonical stub scenes is a **human decision**, and agents/reconciliation must not delete or reinterpret those stubs merely to clean up scene inventory evidence. Represent this as a typed `pipeline_constraint` in `non_code_requirements`; do not leave it only as prose or map it merely to Windows build-scene registration.
 
+### Final provenance guard
+
+- VERIFIED CLOSURE labels are pipeline bookkeeping, not GDD evidence.
+- Never emit `VERIFIED CLOSURE`, `2026-08-21 VERIFIED CLOSURE`, `verification-hardening`, or similar verifier/patch-round labels as a GDD reference, repository evidence source, dependency evidence source, or exclusive-resource evidence source unless that exact phrase literally exists in the cited authoritative file.
+- When the underlying behavior is supported by a real GDD passage, cite only that real passage (for example `Door and Pursuit Rules` or `Enemy Detection, Pursuit, and Target Loss`).
+- Pipeline prompts, patch scripts, verification artifacts, and prior repair prose may explain why a correction is being made, but they are never project/GDD evidence.
+
