@@ -27,16 +27,27 @@ approved by this exception unless the boundary is deliberately expanded later.
 
 def patch_agent() -> bool:
     text = RECON_AGENT.read_text(encoding="utf-8")
-    if '    ".gitignore",\n' in text:
-        return False
+    changed = False
 
-    anchor = '''ALLOWED_CURRENT_EXACT_PATHS = {\n    "Docs/GDD/No_Safe_Circle_GDD.md",\n'''
-    replacement = '''ALLOWED_CURRENT_EXACT_PATHS = {\n    "Docs/GDD/No_Safe_Circle_GDD.md",\n    ".gitignore",\n'''
-    if text.count(anchor) != 1:
-        raise RuntimeError("Unable to locate current exact-path boundary anchor.")
+    if '    ".gitignore",\n' not in text:
+        anchor = '''ALLOWED_CURRENT_EXACT_PATHS = {\n    "Docs/GDD/No_Safe_Circle_GDD.md",\n'''
+        replacement = '''ALLOWED_CURRENT_EXACT_PATHS = {\n    "Docs/GDD/No_Safe_Circle_GDD.md",\n    ".gitignore",\n'''
+        if text.count(anchor) != 1:
+            raise RuntimeError("Unable to locate current exact-path boundary anchor.")
+        text = text.replace(anchor, replacement, 1)
+        changed = True
 
-    RECON_AGENT.write_text(text.replace(anchor, replacement, 1), encoding="utf-8")
-    return True
+    old_normalizer = '''def _normalize_path(value: str) -> str:\n    return value.replace("\\\\", "/").lstrip("./")\n'''
+    new_normalizer = '''def _normalize_path(value: str) -> str:\n    path = value.replace("\\\\", "/")\n    while path.startswith("./"):\n        path = path[2:]\n    if path.startswith("/"):\n        path = path[1:]\n    return path\n'''
+    if old_normalizer in text:
+        text = text.replace(old_normalizer, new_normalizer, 1)
+        changed = True
+    elif new_normalizer not in text:
+        raise RuntimeError("Unable to locate reconciliation path normalizer.")
+
+    if changed:
+        RECON_AGENT.write_text(text, encoding="utf-8")
+    return changed
 
 
 def patch_prompt() -> bool:
@@ -55,6 +66,7 @@ def main() -> int:
         print("Installed narrow .gitignore reconciliation boundary fix.")
         if agent_changed:
             print("  - .gitignore is now an allowed exact current-project review path.")
+            print("  - Path normalization now preserves root dotfiles such as .gitignore.")
         if prompt_changed:
             print("  - Prompt limits .gitignore to source-control/current-checkout metadata.")
     else:
