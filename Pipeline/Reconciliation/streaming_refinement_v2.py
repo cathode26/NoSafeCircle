@@ -208,15 +208,31 @@ def _find_record(
     return collection, index, record
 
 
-def _append_unique(sequence: list[Any], value: Any) -> None:
-    encoded = _canonical(value)
-    if all(_canonical(existing) != encoded for existing in sequence):
+# semantic list identity for keyed graph fields
+def _semantic_list_identity(field: str, value: Any) -> str:
+    # Some graph-list elements have a durable identity independent of explanatory
+    # prose. Two auditors may propose the same dependency/resource key with different
+    # reason/evidence text; that is one semantic element, not two list entries.
+    if field in {"exclusive_resources", "depends_on"} and isinstance(value, dict):
+        key = str(value.get("key", "")).strip()
+        if key:
+            return f"key:{key}"
+    return "value:" + _canonical(value)
+
+
+def _append_unique(sequence: list[Any], value: Any, *, field: str) -> None:
+    identity = _semantic_list_identity(field, value)
+    if all(_semantic_list_identity(field, existing) != identity for existing in sequence):
         sequence.append(copy.deepcopy(value))
 
 
-def _remove_unique(sequence: list[Any], value: Any) -> None:
-    encoded = _canonical(value)
-    sequence[:] = [existing for existing in sequence if _canonical(existing) != encoded]
+def _remove_unique(sequence: list[Any], value: Any, *, field: str) -> None:
+    identity = _semantic_list_identity(field, value)
+    sequence[:] = [
+        existing
+        for existing in sequence
+        if _semantic_list_identity(field, existing) != identity
+    ]
 
 
 def apply_stream_operations(
@@ -244,14 +260,14 @@ def apply_stream_operations(
                     raise StreamRepairError(
                         f"{target_type}.{field} is not a list for append_unique."
                     )
-                _append_unique(sequence, value)
+                _append_unique(sequence, value, field=field)
             elif op == "remove_unique":
                 sequence = target.setdefault(field, [])
                 if not isinstance(sequence, list):
                     raise StreamRepairError(
                         f"{target_type}.{field} is not a list for remove_unique."
                     )
-                _remove_unique(sequence, value)
+                _remove_unique(sequence, value, field=field)
             continue
 
         collection_name, id_field = COLLECTION_SPECS[target_type]
@@ -270,14 +286,11 @@ def apply_stream_operations(
                 for idx, record in enumerate(collection)
                 if str(record.get(id_field, "")).strip() == target_id
             ]
-            if len(existing_indexes) > 1:
-                raise StreamRepairError(
-                    f"Multiple existing {target_type} records for {target_id!r}."
-                )
             if existing_indexes:
-                collection[existing_indexes[0]] = copy.deepcopy(value)
-            else:
-                collection.append(copy.deepcopy(value))
+                raise StreamRepairError(
+                    f"upsert_record is only for genuinely new records; {target_type}:{target_id} already exists."
+                )
+            collection.append(copy.deepcopy(value))
             continue
 
         if op == "remove_record":
@@ -303,14 +316,14 @@ def apply_stream_operations(
                 raise StreamRepairError(
                     f"{target_type}:{target_id}.{field} is not a list for append_unique."
                 )
-            _append_unique(sequence, value)
+            _append_unique(sequence, value, field=field)
         elif op == "remove_unique":
             sequence = record.setdefault(field, [])
             if not isinstance(sequence, list):
                 raise StreamRepairError(
                     f"{target_type}:{target_id}.{field} is not a list for remove_unique."
                 )
-            _remove_unique(sequence, value)
+            _remove_unique(sequence, value, field=field)
 
     return payload
 
@@ -369,11 +382,29 @@ def _field_operations_compatible(operations: list[dict[str, Any]]) -> bool:
     return False
 
 
+def _operation_effect_identity(operation: dict[str, Any]) -> str:
+    op = str(operation.get("op", "")).strip()
+    target_type = str(operation.get("target_type", "")).strip()
+    target_id = str(operation.get("target_id", "")).strip()
+    field = str(operation.get("field", "")).strip()
+    if op in {"append_unique", "remove_unique"}:
+        value = _decode_value(operation)
+        semantic_value = _semantic_list_identity(field, value)
+        return _canonical({
+            "target_type": target_type,
+            "target_id": target_id,
+            "field": field,
+            "op": op,
+            "semantic_value": semantic_value,
+        })
+    return _operation_identity(operation)
+
+
 def _dedupe_operations(operations: list[dict[str, Any]]) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     seen: set[str] = set()
     for operation in operations:
-        identity = _operation_identity(operation)
+        identity = _operation_effect_identity(operation)
         if identity in seen:
             continue
         seen.add(identity)
@@ -469,7 +500,14 @@ def _local_repair_prompt(
 ) -> str:
     candidate_rel = source_candidate.relative_to(base.ROOT).as_posix()
     findings_rel = findings_path.relative_to(base.ROOT).as_posix()
-    return f"""# No Safe Circle Streaming Field Repair Worker
+    # The standard Refiner guidance is inherited by field repair workers so
+    # closure/ownership rules remain centralized in prompts/verification/refiner.md.
+    refiner_guidance = base.load_prompt("refiner.md")
+    return refiner_guidance + f"""
+
+---
+
+# No Safe Circle Streaming Field Repair Worker
 
 You are a READ-ONLY bounded repair worker. One independent verifier completed while
 other auditors may still be running. Propose only the smallest field-level edits
@@ -504,6 +542,7 @@ Operation contract:
 
 For ordinary acceptance criteria, validation requirements, dependencies, exclusive
 resources, evidence, notes, execution scope, confidence, etc., prefer field operations.
+Do not change summary or seed_assessment unless a supplied finding directly targets them.
 Resolve every supplied finding exactly once. A finding may be rejected as unsupported or
 preserved unresolved with zero operations when evidence requires that disposition.
 """
@@ -517,7 +556,12 @@ def _cluster_prompt(
 ) -> str:
     candidate_rel = source_candidate.relative_to(base.ROOT).as_posix()
     cluster_rel = cluster_input.relative_to(base.ROOT).as_posix()
-    return f"""# No Safe Circle Streaming Field Conflict Arbiter
+    refiner_guidance = base.load_prompt("refiner.md")
+    return refiner_guidance + f"""
+
+---
+
+# No Safe Circle Streaming Field Conflict Arbiter
 
 You are resolving one SMALL connected conflict cluster from streaming repair proposals.
 The proposals were independently generated against the same immutable source candidate.
@@ -665,18 +709,49 @@ class StreamingRepairCoordinator:
         conflicting_targets: dict[str, list[str]] = {}
         graph: dict[str, set[str]] = defaultdict(set)
 
-        for target, entries in sorted(operation_entries.items()):
-            operations = [operation for _, operation in entries]
-            audit_keys = sorted({audit_key for audit_key, _ in entries})
-            if len(audit_keys) <= 1:
+        # A record-level remove/upsert conflicts with every field operation on the
+        # same record. Use structured operation fields directly rather than parsing the
+        # human-readable target string; titles/questions may legitimately contain colons.
+        record_entries: dict[tuple[str, str], list[tuple[str, str, dict[str, Any]]]] = defaultdict(list)
+        for entries in operation_entries.values():
+            for audit_key, operation in entries:
+                target_type = str(operation.get("target_type", "")).strip()
+                target_id = str(operation.get("target_id", "")).strip()
+                op_name = str(operation.get("op", "")).strip()
+                field = "*" if op_name in {"remove_record", "upsert_record"} else str(operation.get("field", "")).strip()
+                record_entries[(target_type, target_id)].append((field, audit_key, operation))
+
+        for (target_type, target_id), entries in sorted(record_entries.items()):
+            record_label = f"{target_type}:{target_id}"
+            wildcard_entries = [entry for entry in entries if entry[0] == "*"]
+            if wildcard_entries:
+                audit_keys = sorted({entry[1] for entry in entries})
+                if len(audit_keys) > 1:
+                    target = f"{record_label}:*"
+                    conflicting_targets[target] = audit_keys
+                    for left in audit_keys:
+                        for right in audit_keys:
+                            if left != right:
+                                graph[left].add(right)
                 continue
-            if _field_operations_compatible(operations):
-                continue
-            conflicting_targets[target] = audit_keys
-            for left in audit_keys:
-                for right in audit_keys:
-                    if left != right:
-                        graph[left].add(right)
+
+            by_field: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
+            for field, audit_key, operation in entries:
+                by_field[field].append((audit_key, operation))
+
+            for field, field_entries in sorted(by_field.items()):
+                operations = [operation for _, operation in field_entries]
+                audit_keys = sorted({audit_key for audit_key, _ in field_entries})
+                if len(audit_keys) <= 1:
+                    continue
+                if _field_operations_compatible(operations):
+                    continue
+                target = f"{record_label}:{field}"
+                conflicting_targets[target] = audit_keys
+                for left in audit_keys:
+                    for right in audit_keys:
+                        if left != right:
+                            graph[left].add(right)
 
         components: list[list[str]] = []
         seen: set[str] = set()
@@ -710,7 +785,9 @@ class StreamingRepairCoordinator:
                 "audit components require an LLM arbiter."
             ),
         }
-        base.save_new_json(self.conflict_path, self.conflict_report)
+        # This report is derived while the verification run is still in progress;
+        # a failed local repair may be recovered before synthesis, so refresh it.
+        base.save_json(self.conflict_path, self.conflict_report)
 
     def collect(self) -> None:
         if self._collected:
@@ -843,8 +920,23 @@ class StreamingRepairCoordinator:
                 envelope,
             )
         if self.failures:
+            recovered_failures = sorted(self.failures)
             self.failures.clear()
             self._build_conflict_report()
+            manifest = base.load_json(self.manifest_path)
+            manifest["repairs"] = [
+                {
+                    "audit_key": key,
+                    "requested_model": envelope.get("requested_model"),
+                    "duration_seconds": envelope.get("duration_seconds"),
+                    "repair": envelope.get("result"),
+                }
+                for key, envelope in sorted(self.repairs.items())
+            ]
+            manifest["failures"] = {}
+            manifest["recovered_failures"] = recovered_failures
+            manifest["deterministic_conflict_report"] = self.conflict_report
+            base.save_json(self.manifest_path, manifest)
 
         components = list(self.conflict_report.get("conflict_components", [])) if self.conflict_report else []
         conflicted_audits = {key for component in components for key in component}

@@ -621,6 +621,17 @@ def run_audit_pass(
 # DETERMINISTIC FINDING MERGE
 # ============================================================
 
+def deterministic_auditor_slug(agent: str) -> str:
+    """Return a stable identifier safe for deterministic finding IDs."""
+    slug = "".join(
+        character.lower() if character.isalnum() else "-"
+        for character in str(agent)
+    )
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return slug.strip("-") or "unknown-auditor"
+
+
 def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     generated: list[dict[str, Any]] = []
 
@@ -750,6 +761,8 @@ def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, A
                     "finding": {
                         "finding_id": (
                             "deterministic-representation-"
+                            + deterministic_auditor_slug(agent)
+                            + "-"
                             + str(requirement.get("requirement_id", "unknown"))
                         ),
                         "severity": "error",

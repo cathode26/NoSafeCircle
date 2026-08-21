@@ -529,3 +529,39 @@ merely because the feature says "five rooms" generically.
 Treat actual pursuit through open/broken doorways as required gameplay behavior.
 Treat locked-door attack eligibility as existing tracking/pursuit state plus a
 locked door blocking the route; no separate witness-state requirement exists.
+
+---
+
+## 2026-08-21 VERIFICATION ROUND 2 CLOSURE
+
+### Runtime input is implementation behavior, not development process
+
+Classify the GDD requirement that runtime gameplay input uses Unity Input
+System/Input Actions and avoids direct hardware polling as
+`required_implementation` (or `required_gameplay` only when the statement is
+purely player-visible behavior). It may be represented by acceptance/validation
+requirements on Player Movement, Fireball, Frost Field, Force Wave, and other
+runtime consumers. Do not classify this runtime technical contract as
+`required_process` merely because the GDD also contains Development Agent
+Ownership Invariants nearby.
+
+### Frost Field current canon
+
+If the current GDD explicitly states that Frost Field is placed at the shared
+cursor world-space target exposed by Player Movement, map that as direct required
+implementation/gameplay evidence. An unresolved question asking whether Frost
+Field is cursor-targeted is stale and should be removed by refinement.
+
+### Restart ownership split
+
+Represent "restart returns persistent enemies to their original authored region"
+as behavior owned by an enemy reset/reposition entry point consumed by the Floor
+Run/Restart Orchestrator. Do not map direct enemy Transform movement to the
+orchestrator merely because it coordinates restart.
+
+## 2026-08-21 ROUND 3 VERIFICATION CLOSURE
+
+- Treat the GDD statement that Melee Enemies naturally cluster during pursuit as required gameplay behavior. It may be represented as acceptance/validation on `melee-enemy`; do not require a separate feature node merely for formation tuning.
+- Treat the `Current Prototype Scene Evidence` prohibition on agent-driven deletion/repurposing of non-canonical stubs as `required_process` represented by a typed `pipeline_constraint`/non-code requirement.
+- Do not classify internal verifier, patch, or prompt guidance as a source requirement. Only current GDD and repository content are source evidence.
+
