@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-018",
+  "title": "Doors and Interaction",
+  "reconciliation_key": "doors",
+  "kind": "feature",
+  "type": "feature_group",
+  "status": "open",
+  "execution_scope": "not_applicable",
+  "execution_reason": "Feature/organizational node; not directly dispatchable.",
+  "decomposition_state": "coarse",
+  "decomposition_reason": "The feature is organizational; its three concrete children (door-open-interaction, doorway-crossing-state, door-close-lock-break-lifecycle) already carry the bounded, GDD-specified responsibilities. No further coarse-level design gap needs resolving at this bootstrap stage.",
+  "parent": "NSC-001",
+  "depends_on": [],
+  "exclusive_resources": [],
+  "acceptance_criteria": [],
+  "validation_requirements": [],
+  "gdd_evidence": [
+    {
+      "reference": "Section 1 — Executive Summary / Design Pillars",
+      "requirement": "Each room ends at a door that takes five uninterrupted seconds to open; enemies can follow through it; after crossing it automatically closes and locks and pursuers eventually break through."
+    },
+    {
+      "reference": "Section 2 — Player Actions and Systems (Open Sealed Door, Close and Lock)",
+      "requirement": "Defines cursor-targeted click-to-approach opening with an automatic no-hold timer, and automatic close/lock with a small fixed health restore."
+    },
+    {
+      "reference": "Section 3 — Door and Pursuit Rules",
+      "requirement": "Defines shared doorway-crossing ownership, the door passability contract, locked-door attack/durability ownership, breaking, and forward-only progression."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Aggregate repository_state of partial reflects that door-open-interaction has meaningful (if incomplete) current behavior while doorway-crossing-state and door-close-lock-break-lifecycle are entirely unimplemented.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

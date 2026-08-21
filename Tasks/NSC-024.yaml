@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-024",
+  "title": "Tilemap and AI Navigation Package Configuration",
+  "reconciliation_key": "tilemap-navigation-package-configuration",
+  "kind": "implementation",
+  "type": "world-foundation",
+  "status": "open",
+  "execution_scope": "single_agent",
+  "execution_reason": "Adding two declared package dependencies and confirming resolution is a small, well-bounded configuration change with a clear validation target (manifest + lock file content), not a task that spans multiple implementation responsibilities.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "This is a bounded project-configuration change (adding two named, already-approved package entries) with no missing design.",
+  "parent": "NSC-022",
+  "depends_on": [],
+  "exclusive_resources": [
+    "repo-file:Packages/manifest.json"
+  ],
+  "acceptance_criteria": [
+    {
+      "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+      "requirement": "com.unity.2d.tilemap is declared in Packages/manifest.json."
+    },
+    {
+      "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+      "requirement": "com.unity.ai.navigation is declared in Packages/manifest.json."
+    },
+    {
+      "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+      "requirement": "Both packages resolve successfully (reflected in Packages/packages-lock.json) so downstream Tilemap and NavMesh workflows are actually usable in the editor."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+      "requirement": "The developer inspects the resulting package state after configuration and before merge, per the GDD's requirement that package-manifest changes be developer-inspected."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+      "requirement": "Unity 2D Tilemap Editor (com.unity.2d.tilemap) is approved and required for the intended Isometric Tilemap authoring workflow; if absent from Packages/manifest.json, adding/configuring it is concrete project-configuration work, not deferred design."
+    },
+    {
+      "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+      "requirement": "Unity AI Navigation (com.unity.ai.navigation) is the approved enemy-navigation implementation; if absent from Packages/manifest.json, adding/configuring it is a prerequisite for the gameplay navigation/locomotion layer and locomotion-dependent enemy work."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "com.unity.modules.tilemap (builtin runtime module) already present is a different, lower-level package than the required com.unity.2d.tilemap authoring package and does not satisfy this requirement.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Packages/manifest.json",
+      "evidence_type": "project_setting",
+      "observation": "Dependency list contains com.unity.inputsystem, com.unity.ugui, com.unity.timeline, com.unity.visualscripting, various com.unity.modules.* builtin modules, etc., but no com.unity.2d.tilemap and no com.unity.ai.navigation entry."
+    },
+    {
+      "path": "Packages/packages-lock.json",
+      "evidence_type": "project_setting",
+      "observation": "Resolved dependency graph includes only com.unity.modules.tilemap (the builtin low-level Tilemap runtime module bundled with Unity) and no com.unity.2d.tilemap or com.unity.ai.navigation entry at any depth, confirming neither approved package is currently resolved."
+    }
+  ],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-029",
+  "title": "Five-Room Floor Content Authoring",
+  "reconciliation_key": "five-room-content-authoring",
+  "kind": "feature",
+  "type": "content-authoring",
+  "status": "open",
+  "execution_scope": "not_applicable",
+  "execution_reason": "Deferred content-authoring feature; not yet a bounded dispatchable unit.",
+  "decomposition_state": "needs_future_decomposition",
+  "decomposition_reason": "Exact room geometry, dimensions, prop placement, and chokepoint/cover layout for each of the five named spaces are not specified beyond their stated tactical purpose; inventing that geometry now would fabricate missing design. The named-space tactical requirements are preserved as acceptance context for a future Progressive Decomposer rather than resolved here.",
+  "parent": "NSC-022",
+  "depends_on": [
+    "NSC-026"
+  ],
+  "exclusive_resources": [],
+  "acceptance_criteria": [
+    {
+      "reference": "Section 3 — Dungeon Floor Structure",
+      "requirement": "All five named spaces (Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, Final Room) are authored with their stated tactical layout purpose; none may be dropped or substituted merely because other rooms have more specialized validation cases."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation",
+      "requirement": "All five spaces are authored inside one continuous Unity scene/floor representation rather than separate scenes with cross-scene state transfer."
+    },
+    {
+      "reference": "Section 1 — Executive Summary; Section 2 — Game Mechanics",
+      "requirement": "The five named spaces are connected in a forward-only sequence by authored sealed-door instances positioned at each room's exit, consistent with 'Each room ends at a door' and 'The player moves through connected rooms toward the final door'; the Final Room's exit door is designated as the final door whose crossing the victory capability consumes through the shared doorway-crossing state."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "Section 3 — Dungeon Floor Structure (Bone Archive); Section 5 — Runtime Implementation",
+      "requirement": "Bone Archive's authored lane widths are navigable at the configured enemy navigation agent radius, so the room's narrow-lane/chokepoint geometry holds in practice against the navigation layer's requirements."
+    },
+    {
+      "reference": "Section 3 — Dungeon Floor Structure (Chapel of Ash); Section 4 — Development Agent Roles (Unity Validation Agent)",
+      "requirement": "Chapel of Ash's authored pews and columns present real occluders that block the Ranged Enemy's line-of-sight/projectile-occlusion check from at least one cover position."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Section 3 — Dungeon Floor Structure",
+      "requirement": "Five named tactical spaces are required: 1. Ruined Entry — open space, broad rubble route, teaches circling a melee enemy and safe Fireball charging. 2. Bone Archive — narrow shelf lanes/chokepoints enabling Frost Field lane-slow-and-cluster tactics but risking the player being trapped. 3. Chapel of Ash — pews/columns provide line-of-sight breaks against the newly introduced Ranged Enemy (with Melee support), central aisle vs. side-route cover/distance tradeoff. 4. Lower Vault — incomplete loops; player must watch both the current encounter and the previous doorway because surviving enemies breaking through are the same persistent pursuers, not new spawns. 5. Final Room — comparatively open chamber with one central obstacle, populated by both Melee and Ranged Enemies, requiring combined use of movement, Frost Field, Force Wave, and Fireball for the final escape window."
+    },
+    {
+      "reference": "Section 5 — 2.5D Isometric Visual and World Representation",
+      "requirement": "Five-room visual/content authoring consumes the reusable Tilemap/SpriteRenderer world foundation once it exists; this is a real prerequisite relationship even though the downstream content feature remains deferred."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation",
+      "requirement": "All five encounter spaces exist inside one continuous Unity scene or continuous floor representation; no scene-load or cross-scene state-transfer system is required."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "No formal dependency exists on dungeon-encounter-content-authoring or vice versa; both are deferred organizational features per the GDD-hardening example prohibiting feature-to-feature dependencies. Their consumption relationship (encounter placement consumes authored room spaces) is preserved here in notes only.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

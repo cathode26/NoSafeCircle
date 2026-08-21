@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-013",
+  "title": "Enemy Status-Effect and Forced Displacement",
+  "reconciliation_key": "enemy-status-effect-displacement",
+  "kind": "implementation",
+  "type": "implementation",
+  "status": "open",
+  "execution_scope": "single_agent",
+  "execution_reason": "Although it consumes two other systems' interfaces (pursuit/search contract, navigation layer) and covers two effect types, it is architecturally one reusable component with a clear, bounded validation target (apply/restore semantics for each effect plus a reset entry point); the GDD itself describes it as a single reusable component rather than multiple independently-owned pieces.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The GDD fully specifies this component's two effect types (Frost slowdown apply/restore; forced displacement apply/restore), the explicit Ranged-Enemy-attack-is-unaffected constraint, the pursuit/search hand-back requirement, and reset participation. No missing design blocks a bounded implementation item; the two effect types are explicitly bundled into one reusable component by GDD Section 5.",
+  "parent": "NSC-010",
+  "depends_on": [
+    "NSC-014",
+    "NSC-025"
+  ],
+  "exclusive_resources": [
+    "logical:enemy-locomotion-behavior-surface"
+  ],
+  "acceptance_criteria": [
+    {
+      "reference": "Section 2 — Spell and Enemy Interactions (Frost Field row)",
+      "requirement": "Frost Field slowdown modifies an affected enemy's locomotion/repositioning speed only; it must never suppress, pause, or slow a Ranged Enemy's attack execution/timing."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation",
+      "requirement": "Frost slowdown is restored (movement speed returns to normal) when the effect ends, with no permanent slowdown remaining."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation (enemy movement paragraph)",
+      "requirement": "Applies forced displacement requested by an ability (e.g. Force Wave's radial knockback selection) to the affected enemy while preserving valid movement/navigation state."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation",
+      "requirement": "After displacement or Frost slowdown ends, returns the affected enemy to the appropriate pursuit/search movement state per the pursuit/search state contract, rather than defining a second enemy-state machine."
+    },
+    {
+      "reference": "Section 2 — Spell-local state ownership",
+      "requirement": "Exposes an owner-controlled reset entry point that clears any active Frost slowdown or displacement state for floor restart, invoked by the Floor Run/Restart Orchestrator."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "Section 5 — Runtime Implementation",
+      "requirement": "Verify Frost Field slowdown applies to a pursuing enemy's movement speed and is fully restored when the effect ends, with no permanent slowdown remaining (Unity Validation Agent concern in Section 4)."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation (enemy movement paragraph)",
+      "requirement": "Verify forced displacement (e.g. Force Wave knockback) moves an affected enemy while preserving valid navigation/movement state and that the enemy resumes appropriate pursuit/search behavior afterward rather than becoming stuck."
+    },
+    {
+      "reference": "Section 2 — Spell and Enemy Interactions (Frost Field row)",
+      "requirement": "Verify a Ranged Enemy under active Frost slowdown continues executing its telegraphed attack on schedule while only its repositioning speed is reduced."
+    },
+    {
+      "reference": "Section 2 — Floor-run restart ownership",
+      "requirement": "Verify floor restart clears any active Frost slowdown or displacement state on all enemies through the owner-controlled reset entry point."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Section 2 — Spell-local state ownership",
+      "requirement": "Enemy-side Frost slowdown application/restoration remains owned by Enemy Pursuit/status-effect logic. Each owner exposes a reset entry point for any owned state that can still be active when a floor restart occurs."
+    },
+    {
+      "reference": "Section 2 — Spell and Enemy Interactions (Frost Field row)",
+      "requirement": "Frost Field slows a ranged enemy's repositioning but does not stop its attacks; the player must still move laterally or use room geometry to avoid incoming shots."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation",
+      "requirement": "A reusable status-effect/displacement component will apply Frost Field slowdown, apply enemy-owned forced displacement requests, and restore each enemy to the appropriate pursuit/search movement state afterward. It consumes the pursuit/search state contract rather than defining a second enemy-state machine."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation (enemy movement paragraph)",
+      "requirement": "Enemy movement is the authoritative owner of enemy locomotion and forced displacement. Force Wave determines which enemies are affected and the radial knockback to request; the enemy movement system applies that displacement, preserves valid movement/navigation state, and resumes the appropriate pursuit/search state afterward."
+    },
+    {
+      "reference": "Section 4 — Enemy Pursuit Agent role",
+      "requirement": "Owns the application of forced enemy displacement requested by abilities such as Force Wave, including returning affected enemies to the appropriate pursuit/search movement state afterward, and owns applying/restoring Frost Field's slowdown effect."
+    },
+    {
+      "reference": "Section 5 — 2.5D Isometric Visual and World Representation",
+      "requirement": "Enemy pursuit/search, melee/ranged behavior, status effects, and forced displacement consume the shared gameplay navigation/locomotion layer instead of each selecting or configuring navigation technology or doorway passability independently."
+    },
+    {
+      "reference": "Section 2 — Floor-run restart ownership",
+      "requirement": "Required reset participants include enemy pursuit/search/attack/status/displacement state, restored through the state-owning system's reset entry point."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "A repository-wide grep across Assets/ for 'Frost' and 'Displacement' found no matches; this capability does not exist in any form. Force Wave's request to trigger displacement is a consumer relationship owned by the wizard_combat domain's force-wave item, not a dependency of this item.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-034",
+  "title": "Win/Loss Conditions",
+  "reconciliation_key": "win-loss-conditions",
+  "kind": "feature",
+  "type": "run_lifecycle",
+  "status": "open",
+  "execution_scope": "not_applicable",
+  "execution_reason": "Organizational feature node; not directly dispatchable.",
+  "decomposition_state": "coarse",
+  "decomposition_reason": "The GDD fully specifies both the win trigger and the loss trigger; this feature organizes the concrete victory implementation while the loss trigger's handling is owned by floor-run-restart.",
+  "parent": "NSC-001",
+  "depends_on": [],
+  "exclusive_resources": [],
+  "acceptance_criteria": [],
+  "validation_requirements": [],
+  "gdd_evidence": [
+    {
+      "reference": "Win and Loss Conditions",
+      "requirement": "Win: open the final door and escape via confirmed doorway-crossing state, then stop gameplay input and display a You Escaped overlay. Loss: reach zero health, which restarts the floor."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Loss handling itself is represented under floor-run-restart rather than duplicated here, since the GDD routes zero health directly to the restart orchestrator.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

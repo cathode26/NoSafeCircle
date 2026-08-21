@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-005",
+  "title": "Player Mana Ownership, Restart Reset, and Denied-Cast Feedback",
+  "reconciliation_key": "player-mana",
+  "kind": "implementation",
+  "type": "implementation",
+  "status": "open",
+  "execution_scope": "single_agent",
+  "execution_reason": "Bounded addition to one existing component (PlayerMana.cs) that does not require new scene-wired UI, since the existing PlayerManaUI/fill Image can consume a new denied-cast event without builder changes.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Required reset and denied-cast-signal behavior are fully specified by current GDD text without inventing new design; exact feedback presentation is explicitly an implementation choice.",
+  "parent": "NSC-002",
+  "depends_on": [],
+  "exclusive_resources": [],
+  "acceptance_criteria": [
+    {
+      "reference": "GDD §5 Runtime Implementation",
+      "requirement": "Exposes an owner-controlled reset entry point that restores current mana to full and clears post-cast regeneration-delay timer state for floor restart."
+    },
+    {
+      "reference": "GDD §3 Player Experience Success Criteria — Failure is readable",
+      "requirement": "Exposes a signal (e.g. an event) when a cast attempt is denied due to insufficient mana, distinct from a successful spend, so a consuming spell/UI can present readable low-mana feedback; exact presentation is an implementation choice."
+    },
+    {
+      "reference": "GDD §2 Player Mana ownership",
+      "requirement": "Continues to own only current mana and post-cast regeneration-delay state; does not absorb Fireball/Frost Field/Force Wave spell-local cooldown, charge, cast, placement, or active-field state."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "GDD §2 Resources, Feedback, and Failure",
+      "requirement": "Existing Play Mode coverage of Spend/regen/post-cast-delay behavior (PlayerManaPlayModeTests.cs) continues to pass and is extended to cover the new reset entry point and denied-cast signal."
+    },
+    {
+      "reference": "GDD §3 Player Experience Success Criteria",
+      "requirement": "Validate that failure is readable through low-mana feedback as one of the stated readable failure causes."
+    },
+    {
+      "reference": "Section 3 - Player Experience Success Criteria",
+      "requirement": "Failure caused by low mana is readable to the player through the mana indicator, as part of the required 'failure is readable' success criterion."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "GDD §2 Resources, Feedback, and Failure — Player Mana ownership",
+      "requirement": "The shared Player Mana system is the single owner of current mana and the post-cast regeneration-delay state; spells spend mana through its owner-controlled spend interface; Player Mana does not own spell-local cooldown/charge/cast/placement/active-field state."
+    },
+    {
+      "reference": "GDD §5 Runtime Implementation",
+      "requirement": "Player Mana owns current mana and post-cast regeneration-delay state and exposes an owner-controlled spend/reset interface to spells and restart orchestration."
+    },
+    {
+      "reference": "GDD §2 Loss / Floor-run restart ownership",
+      "requirement": "Player Mana and its regeneration-delay state are required reset participants for the Floor Run/Restart Orchestrator."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Force Wave's 25-mana cost and other spell-local spend amounts remain owned by the individual spells, not this item; this item only owns the shared pool, regen-delay, spend interface, reset, and denied-cast signal.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "evidence_type": "code",
+      "observation": "Implements CurrentMana/MaxMana, Spend(amount) with silent-fail-on-insufficient behavior, Tick-driven post-cast-delay regeneration, and a ManaSpent event; no reset entry point and no denied-cast event exist."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+      "evidence_type": "code",
+      "observation": "Continuously binds a fill Image to CurrentMana/MaxMana every Update, satisfying the GDD's continuous mana indicator requirement."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "evidence_type": "scene",
+      "observation": "Both PlayerMana.cs (guid fd54c6f00e974856b70833ac4771b9ae) and PlayerManaUI.cs (guid 0a03ab321b0847f59d3f91214dabcf5c) are serialized and wired on the Player/Canvas GameObjects, confirming the continuous mana indicator is currently integrated, not just buildable."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+      "evidence_type": "test",
+      "observation": "Real Play Mode tests cover Spend success/failure, post-cast-delay non-regeneration, regeneration after delay, and delay-reset on subsequent spend."
+    }
+  ],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

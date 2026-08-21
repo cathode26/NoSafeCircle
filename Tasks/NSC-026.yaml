@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-026",
+  "title": "Tilemap and SpriteRenderer World Visual Foundation",
+  "reconciliation_key": "world-visual-foundation",
+  "kind": "implementation",
+  "type": "world-foundation",
+  "status": "open",
+  "execution_scope": "needs_execution_decomposition",
+  "execution_reason": "This item bundles multiple independently verifiable responsibilities: introducing Tilemap-based floor/wall authoring, converting the door visual and other builder-generated objects to SpriteRenderer prefabs with sorting configuration, and preserving/validating separation from the existing collision/walkability layer across several already-generated scene objects (Floor, Walls, DoorRoot, Player visual). That combination spans more than one bounded, independently testable unit for a single agent.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The GDD already specifies which object categories use Tilemap versus SpriteRenderer, the sorting-convention requirement, and the visual/gameplay separation principle; no missing design blocks scoping this item at the foundation level. Authoring the five actual room layouts remains separately deferred and out of this item's scope.",
+  "parent": "NSC-022",
+  "depends_on": [
+    "NSC-024"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "Floors, walls, and repeatable architectural tiles are authored using Unity Isometric Tilemaps (com.unity.2d.tilemap)."
+    },
+    {
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "The wizard, enemies, doors, props, obstacles, and other independently sorted/interactive objects use world-space SpriteRenderer prefabs rather than being painted into the Tilemap, following consistent isometric sorting conventions."
+    },
+    {
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "The gameplay/simulation layer (walkability, collision, trigger volumes, door state, pursuit logic) remains defined independently of the visual Tilemap/SpriteRenderer layer so visual assets can be revised without changing gameplay rules."
+    },
+    {
+      "reference": "GDD - Runtime Implementation",
+      "requirement": "The world/floor representation supports all five spaces existing inside one continuous Unity scene with no scene-loading or cross-scene state transfer required."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "GDD - Unity Validation Agent role (Section 4)",
+      "requirement": "Isometric sprite-sorting checks confirming SpriteRenderer objects sort correctly relative to Tilemap geometry and each other."
+    },
+    {
+      "reference": "GDD - Unity Validation Agent role (Section 4)",
+      "requirement": "Alignment checks between Tilemap visuals and gameplay geometry (collision/walkability) so the visible and simulated layouts do not desynchronize."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "The primary environment visual layer uses Unity Isometric Tilemaps for floors, walls, and repeatable architectural tiles; the wizard, enemies, taller props, interactive doors, obstacles, decorative set pieces, and other independently sorted objects use world-space SpriteRenderers and prefabs instead of being painted into a Tilemap."
+    },
+    {
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "The visible isometric art layer is kept separate from the underlying gameplay representation so art can be revised without redefining core gameplay rules; the gameplay layer still owns walkability, collision, trigger volumes, door state, and pursuit logic."
+    },
+    {
+      "reference": "GDD - Runtime Implementation",
+      "requirement": "All five encounter spaces exist inside one continuous Unity scene or continuous floor representation; enemy objects, health, pursuit state, active-enemy bookkeeping, and door state persist naturally as the player advances; no scene-load or cross-scene state-transfer system is required."
+    },
+    {
+      "reference": "GDD - Required feedback and character presentation",
+      "requirement": "The wizard and enemies follow the same isometric sorting conventions as other world-space SpriteRenderers; placeholder character sprites are acceptable during development."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "medium",
+  "notes": "Does not include authoring the five named room layouts or encounter content; those remain a separately deferred content-authoring feature outside this domain that will consume this foundation once built.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "evidence_type": "code",
+      "observation": "BuildFloor creates a primitive Plane with a MeshRenderer; BuildWalls and BuildDoor create primitive Cubes with MeshRenderers. No Tilemap, TilemapRenderer, Grid, or SpriteRenderer component is created anywhere in the builder."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "evidence_type": "scene",
+      "observation": "No Grid/Tilemap/TilemapRenderer serialized objects are present in the scene; door and wall visuals are serialized MeshRenderer/BoxCollider/MeshFilter primitives, not SpriteRenderer prefabs."
+    }
+  ],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

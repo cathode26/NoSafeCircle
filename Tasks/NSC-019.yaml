@@ -1,0 +1,142 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-019",
+  "title": "Cursor-Targeted Door Opening (Click-to-Approach, Arm's-Reach Auto-Timer, Interruption)",
+  "reconciliation_key": "door-open-interaction",
+  "kind": "implementation",
+  "type": "gameplay_system",
+  "status": "open",
+  "execution_scope": "single_agent",
+  "execution_reason": "The work is bounded to a known, small set of files (DoorInteractable.cs, PlayerInteractionController.cs, the scene/builder wiring) implementing one cohesive interaction flow; it is not yet dispatch-ready until player-movement's shared pointer projection exists, but its own scope is not so broad that it needs further execution splitting.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The GDD fully specifies click-to-approach selection, arrival-triggered auto-timing, cursor-drift tolerance, and interruption conditions; no missing design remains for this responsibility.",
+  "parent": "NSC-018",
+  "depends_on": [
+    "NSC-003"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "reference": "Section 2 — Open Sealed Door",
+      "requirement": "Clicking a sealed door issues a combined approach-and-interact request using the shared world-space pointer target exposed by Player Movement; Door and Interaction does not independently project screen-to-world coordinates."
+    },
+    {
+      "reference": "Section 2 — Open Sealed Door; Section 3 — Door and Pursuit Rules",
+      "requirement": "The wizard automatically moves to the door's interaction position; when arm's-reach range is reached, the five-second opening timer starts automatically with no sustained button hold required."
+    },
+    {
+      "reference": "Section 2 — Open Sealed Door",
+      "requirement": "After the door is selected, cursor movement/drift away from the door does not cancel the approach request or the running timer."
+    },
+    {
+      "reference": "Section 2 — Setbacks; Section 3 — Door and Pursuit Rules",
+      "requirement": "Taking damage, moving away once timing has begun, or issuing another command that cancels/replaces the door interaction resets progress to zero."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation",
+      "requirement": "Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+    },
+    {
+      "reference": "Section 2 — Victory/input-shutdown ownership; Section 4 — Final escape/victory coordination; Section 5 — Runtime Implementation (Game Flow/Victory capability)",
+      "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface that immediately cancels an in-progress door approach/opening timer, rejects new door-selection commands while suspended, and can be re-enabled only through an authorized reset/test flow."
+    },
+    {
+      "reference": "Section 2 — Floor-run restart ownership",
+      "requirement": "Exposes an owner-controlled reset entry point that returns its owned interaction/opening state (opening progress, interacting flag, open flag, and doorway-blocker state) to floor-initial values, consumed by the Floor Run/Restart Orchestrator."
+    },
+    {
+      "reference": "Section 2 — Open Sealed Door; Section 3 — Door Passability Contract",
+      "requirement": "Completing five uninterrupted seconds transitions the door's semantic state from sealed to open (player-traversable); door-close-lock-break-lifecycle owns publishing this resulting open state through the shared navigation-owned passability interface."
+    },
+    {
+      "reference": "GDD §2 Floor-run restart ownership",
+      "requirement": "Exposes an owner-controlled reset entry point that returns owned opening state (interaction progress, open flag, doorway-blocker enablement) to floor-initial values, consumed by the Floor Run/Restart Orchestrator rather than having internals mutated externally."
+    },
+    {
+      "reference": "GDD §2 Victory/input-shutdown ownership; §4 Development Agent Ownership Invariants",
+      "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface that immediately stops an in-progress door approach/opening timer, rejects new door-interaction commands while suspended, and can be re-enabled only through an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "Section 3 — Player Experience Success Criteria",
+      "requirement": "Validate that a first-time player understands reaching the door alone is insufficient and that the automatic five-second timer must complete uninterrupted."
+    },
+    {
+      "reference": "Section 4 — Unity Validation Agent row; Example Game-Specific Agent Task",
+      "requirement": "Validate cursor-targeted door range and cursor-drift behavior: drift after selection does not cancel, while damage/moving away during timing does."
+    },
+    {
+      "reference": "Section 3 - Player Experience Success Criteria",
+      "requirement": "A first-time player understands that clicking a door sends the wizard to it, and that reaching the door is not enough — the automatic opening timer still requires five safe, uninterrupted seconds."
+    },
+    {
+      "reference": "Section 3 - Player Experience Success Criteria",
+      "requirement": "Door interaction requires accurate cursor target selection only on the initial click; the wizard's automatic approach, the timer's automatic start on arrival, and tolerance of normal cursor drift after selection are all readable to a first-time player."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Section 2 — Player Actions and Systems, 'Open Sealed Door'",
+      "requirement": "Click the sealed door to request movement to its interaction position; wizard walks there automatically; the five-second timer begins automatically at arm's-reach range with no sustained hold; cursor drift after selection does not matter; damage, moving away, or a cancelling/replacing command resets the attempt."
+    },
+    {
+      "reference": "Section 3 — Door and Pursuit Rules",
+      "requirement": "A sealed door is a cursor-targeted interactable; clicking issues a combined approach-and-interact request; after selection, cursor drift does not cancel the request or timer."
+    },
+    {
+      "reference": "Section 3 — Player Experience Success Criteria",
+      "requirement": "A first-time player understands that clicking sends the wizard to the door and reaching it is not enough — the automatic timer still requires five uninterrupted seconds; accurate target selection is required only on the initial click."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation / Player Movement ownership",
+      "requirement": "Movement, cursor-aimed spells, and Door/Interaction consume the shared world-space pointer target exposed by Player Movement rather than independently projecting screen coordinates; runtime input is routed through Unity Input System/Input Actions rather than direct hardware polling."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Whether this task must itself add/modify bindings in Assets/InputSystem_Actions.inputactions (e.g., a distinct door-select binding) or purely consumes a Point/Click binding added by Player Movement's projection work is not yet resolved by current evidence; see unresolved_questions.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+      "evidence_type": "code",
+      "observation": "Implements arm's-reach range detection via OnTriggerEnter/Exit against PlayerInteractionController, a 5-second Progress timer via StartInteraction/Tick/Complete, and cancellation via CancelInteraction; matches the general timer/interruption shape but has no crossing/close/lock/durability behavior."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+      "evidence_type": "code",
+      "observation": "BeginInteraction/EndInteraction are driven by a keyboard hold of interactKey (default Key.E) read directly from Keyboard.current in Update(), not by a cursor click-to-approach request or the Unity Input System/Input Actions layer; EndInteraction is also called on any player movement and on PlayerHealth.Damaged, matching the GDD's interruption rules for movement/damage."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "evidence_type": "code",
+      "observation": "Movement is pure WASD CharacterController motion; there is no mouse/pointer reading, no cursor-to-gameplay-plane projection, and no click-to-move/approach request of any kind."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "evidence_type": "code",
+      "observation": "BuildUI sets the interaction prompt text to 'Hold E to Open' and the ControlsHud text to 'Hold E - Open Door', confirming the currently integrated interaction model is a sustained keyboard hold, not an automatic no-hold timer."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "evidence_type": "scene",
+      "observation": "DoorInteractable component is serialized on DoorRoot with doorVisual and doorwayBlocker object references wired (fileID 965940337 / 965940338), confirming the simplified door is actually integrated into the canonical scene, not merely buildable."
+    },
+    {
+      "path": "Assets/InputSystem_Actions.inputactions",
+      "evidence_type": "project_setting",
+      "observation": "The 'Player' action map defines Move/Look/Attack/Interact/Crouch/Jump/Previous/Next/Sprint actions; 'Interact' uses a Hold interaction with no visible mouse/pointer binding in the reviewed section. No gameplay-map Point/Click action exists; Point/Click bindings only exist in the separate 'UI' action map used for UI navigation."
+    }
+  ],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}
