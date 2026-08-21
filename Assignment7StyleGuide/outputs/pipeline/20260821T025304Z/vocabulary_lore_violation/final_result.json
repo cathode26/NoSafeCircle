@@ -1,0 +1,104 @@
+{
+  "case_id": "vocabulary_lore_violation",
+  "label": "Force Wave",
+  "style_problem": "vocabulary_lore",
+  "status": "accepted",
+  "reason": "Style Evaluator reached 10/10, meeting the configured acceptance score of 9/10.",
+  "acceptance_score": 9,
+  "original_generated_content": "Thunder Nova: The Archmage of the Ember Order unleashes a radial burst around themself, hurling servants of the Ash King back and carving out emergency breathing room. Whispered to stir the dust of cursed relics. Long cooldown between castings.",
+  "generation_reason": "Kept the tactical core (player-centered short-range radial knockback for emergency space, long cooldown) intact while applying the requested lore mismatch: renamed Force Wave to 'Thunder Nova', relabeled the wizard as 'Archmage of the Ember Order', called enemies 'servants of the Ash King', and added 'cursed relics' flavor text. No additional mechanics (stun, freeze, damage, teleport) or extra unsupported lore were introduced.",
+  "initial_evaluation": {
+    "content_id": "vocabulary_lore_violation",
+    "score": 2,
+    "reason": "The candidate renames Force Wave to \"Thunder Nova\" and buries the mechanic under invented lore (Archmage, Ember Order, Ash King, cursed relics) that the task context does not support, so it reads as generic heroic fantasy rather than No Safe Circle.",
+    "violations": [
+      {
+        "rule_id": "NSC-CANON-01",
+        "severity": "major",
+        "problematic_text": "Thunder Nova",
+        "explanation": "The canonical ability name is Force Wave; renaming it for flavor violates the requirement to use established game terms and the explicit content requirement to use the canonical name.",
+        "revision_instruction": "Replace \"Thunder Nova\" with \"Force Wave\" as the ability name."
+      },
+      {
+        "rule_id": "NSC-CANON-01",
+        "severity": "major",
+        "problematic_text": "The Archmage",
+        "explanation": "The canonical player term is \"wizard\"; \"Archmage\" is an invented player title not established by the GDD or task context.",
+        "revision_instruction": "Replace \"Archmage\" with \"wizard\" or rephrase to avoid naming the player with an invented title."
+      },
+      {
+        "rule_id": "NSC-CANON-02",
+        "severity": "major",
+        "problematic_text": "of the Ember Order",
+        "explanation": "The Ember Order is an invented faction with no support in the supplied task context or canonical GDD.",
+        "revision_instruction": "Remove the reference to the Ember Order entirely."
+      },
+      {
+        "rule_id": "NSC-CANON-02",
+        "severity": "major",
+        "problematic_text": "servants of the Ash King",
+        "explanation": "The Ash King is an invented antagonist/faction not established anywhere in the supplied content requirements or task context.",
+        "revision_instruction": "Replace \"servants of the Ash King\" with the canonical enemy terminology (e.g., Melee Enemy/Ranged Enemy or a generic \"enemies\") without inventing a named antagonist."
+      },
+      {
+        "rule_id": "NSC-CANON-02",
+        "severity": "meaningful",
+        "problematic_text": "Whispered to stir the dust of cursed relics.",
+        "explanation": "This introduces invented lore (cursed relics, whispered legend) with no basis in the supported facts, adding unsupported worldbuilding to a short spell tooltip.",
+        "revision_instruction": "Delete this sentence; it adds unsupported lore and unnecessary flavor to a concise tooltip."
+      }
+    ]
+  },
+  "final_content": "Force Wave: knock enemies back to create emergency space. Short range, centered on you. Long cooldown — use it when you need the opening most.",
+  "final_evaluation": {
+    "content_id": "vocabulary_lore_violation",
+    "score": 10,
+    "reason": "The tooltip uses the canonical ability name, correctly frames Force Wave as a short-range, player-centered knockback for emergency space, preserves the long-cooldown tradeoff, and uses restrained tactical language (\"opening\") consistent with the game's temporary-safety framing, all within the 40-word limit.",
+    "violations": []
+  },
+  "score_history": [
+    2,
+    10
+  ],
+  "refinements_used": 1,
+  "circuit_breaker": {
+    "max_refinements": 3,
+    "refinements_used": 1,
+    "tripped": false
+  },
+  "refinements": [
+    {
+      "refinement_number": 1,
+      "input_score": 2,
+      "output_score": 10,
+      "input_text": "Thunder Nova: The Archmage of the Ember Order unleashes a radial burst around themself, hurling servants of the Ash King back and carving out emergency breathing room. Whispered to stir the dust of cursed relics. Long cooldown between castings.",
+      "output_text": "Force Wave: knock enemies back to create emergency space. Short range, centered on you. Long cooldown — use it when you need the opening most.",
+      "refiner": {
+        "content_id": "vocabulary_lore_violation",
+        "label": "Force Wave",
+        "text": "Force Wave: knock enemies back to create emergency space. Short range, centered on you. Long cooldown — use it when you need the opening most.",
+        "addressed_rule_ids": [
+          "NSC-CANON-01",
+          "NSC-CANON-02"
+        ],
+        "changes_made": [
+          "Replaced invented name \"Thunder Nova\" with the canonical \"Force Wave\".",
+          "Removed \"Archmage\" and rephrased to avoid inventing a player title.",
+          "Removed the invented Ember Order faction reference.",
+          "Removed the invented Ash King antagonist and replaced with generic \"enemies\" per canonical enemy terminology.",
+          "Deleted the unsupported \"cursed relics\" lore sentence.",
+          "Preserved the supported facts: short-range radial knockback centered on the player, creates emergency space, long cooldown."
+        ],
+        "reason": "The revision removes all invented lore (Thunder Nova, Archmage, Ember Order, Ash King, cursed relics) and restores the canonical Force Wave name and wizard-neutral phrasing, while keeping only the task-supported facts: player-centered short-range radial knockback, emergency space, and long cooldown, presented in tense, concise tooltip form within the word limit.",
+        "status": "revised"
+      },
+      "evaluation": {
+        "content_id": "vocabulary_lore_violation",
+        "score": 10,
+        "reason": "The tooltip uses the canonical ability name, correctly frames Force Wave as a short-range, player-centered knockback for emergency space, preserves the long-cooldown tradeoff, and uses restrained tactical language (\"opening\") consistent with the game's temporary-safety framing, all within the 40-word limit.",
+        "violations": []
+      }
+    }
+  ],
+  "demonstration_requirement_met": true
+}

@@ -1,0 +1,49 @@
+{
+  "pass_number": 0,
+  "candidate_text": "Magnificent work, mighty Archmage! The door has sealed shut behind you — you are completely safe now! Those pursuers? No longer a threat at all. Relax, celebrate, and enjoy your permanent sanctuary!",
+  "evaluation": {
+    "content_id": "tone_violation",
+    "score": 2,
+    "reason": "The candidate is dominated by heroic, congratulatory power-fantasy narration, invents a player title, and directly contradicts the supplied requirements by declaring the locked door a permanent sanctuary and the surviving pursuers no longer any threat at all.",
+    "violations": [
+      {
+        "rule_id": "NSC-CANON-01",
+        "severity": "major",
+        "problematic_text": "mighty Archmage",
+        "explanation": "The canonical player term supplied by the task context is 'wizard'. 'Archmage' is an invented player title not established by canon.",
+        "revision_instruction": "Replace 'mighty Archmage' with 'wizard' or remove the title entirely."
+      },
+      {
+        "rule_id": "NSC-TONE-01",
+        "severity": "major",
+        "problematic_text": "Magnificent work, mighty Archmage! ... Relax, celebrate,",
+        "explanation": "This is triumphant, congratulatory, and jokey language celebrating the player, directly opposite to the tense, restrained, tactical tone required.",
+        "revision_instruction": "Remove congratulatory exclamations and celebratory language; state the door-locking outcome plainly using direct tactical language."
+      },
+      {
+        "rule_id": "NSC-TONE-03",
+        "severity": "major",
+        "problematic_text": "you are completely safe now! ... your permanent sanctuary",
+        "explanation": "The content requirements explicitly require framing the locked door as temporary recovery time, not permanent safety. This text asserts complete, permanent safety, the exact phrasing the style guide and task context forbid.",
+        "revision_instruction": "Replace 'completely safe' and 'permanent sanctuary' with language describing temporary recovery time or a short window before pursuers can break through."
+      },
+      {
+        "rule_id": "NSC-MECH-05",
+        "severity": "major",
+        "problematic_text": "Those pursuers? No longer a threat at all.",
+        "explanation": "The task context requires that surviving pursuers remain a continuing threat and can eventually break through the locked door. This line erases that persistent threat entirely, contradicting the supported facts.",
+        "revision_instruction": "State that surviving pursuers can still reach and eventually break through the locked door rather than declaring them no longer a threat."
+      }
+    ]
+  },
+  "metadata": {
+    "role": "style evaluator",
+    "model": "sonnet",
+    "max_turns": 6,
+    "started_at_utc": "2026-08-21T02:53:12.251760+00:00",
+    "finished_at_utc": "2026-08-21T02:53:29.868587+00:00",
+    "duration_seconds": 17.62,
+    "session_id": "7b891daa-3842-4897-9911-b0a198e720a1",
+    "num_turns": 2
+  }
+}

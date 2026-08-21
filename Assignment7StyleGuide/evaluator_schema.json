@@ -1,0 +1,64 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "content_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "pattern": "^NSC-(TONE|CANON|MECH|FORMAT)-[0-9]{2}$"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "minor",
+              "meaningful",
+              "major"
+            ]
+          },
+          "problematic_text": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "revision_instruction": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "rule_id",
+          "severity",
+          "problematic_text",
+          "explanation",
+          "revision_instruction"
+        ]
+      }
+    }
+  },
+  "required": [
+    "content_id",
+    "score",
+    "reason",
+    "violations"
+  ]
+}

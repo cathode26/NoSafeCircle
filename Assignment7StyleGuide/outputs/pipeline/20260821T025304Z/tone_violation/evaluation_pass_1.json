@@ -1,0 +1,21 @@
+{
+  "pass_number": 1,
+  "candidate_text": "The door locks behind you, buying recovery time, not safety. Surviving pursuers can still reach the locked door and may eventually break through, so keep moving.",
+  "previous_score": 2,
+  "evaluation": {
+    "content_id": "tone_violation",
+    "score": 10,
+    "reason": "The candidate correctly frames the locked door as temporary recovery time rather than safety, preserves the \"may eventually break through\" qualifier for surviving threats, uses restrained tactical language (\"keep moving\"), and fits comfortably within the 35-word limit with no invented lore or mechanics.",
+    "violations": []
+  },
+  "metadata": {
+    "role": "style evaluator",
+    "model": "sonnet",
+    "max_turns": 6,
+    "started_at_utc": "2026-08-21T02:53:58.521076+00:00",
+    "finished_at_utc": "2026-08-21T02:54:33.879302+00:00",
+    "duration_seconds": 35.36,
+    "session_id": "df598554-e351-465c-8521-1356e8f8d4d4",
+    "num_turns": 2
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "case": {
+    "id": "tone_violation",
+    "label": "Crossing and Locking",
+    "content_type": "door_tutorial",
+    "style_problem": "tone",
+    "max_words": 35,
+    "require_refinement": true,
+    "content_requirements": [
+      "Explain that locking the crossed door creates only temporary recovery time.",
+      "Preserve that surviving enemies remain a continuing threat and can eventually break through.",
+      "Do not describe the locked door as permanent safety in the corrected final content."
+    ],
+    "task_context": {
+      "canonical_player": "wizard",
+      "door_state": "locked door",
+      "supported_facts": [
+        "After the wizard crosses an opened door, it closes and locks behind the player.",
+        "A locked door creates recovery time rather than permanent safety.",
+        "Surviving pursuers can attack the locked door and eventually break through."
+      ]
+    },
+    "generator_instruction": "Create an intentionally off-style first-time door tutorial. Make it overly cheerful, congratulatory, and heroic. Address the player as a 'mighty Archmage', say they can relax because they are 'completely safe now', and dismiss the pursuing enemies as no longer a threat. Keep it recognizable as a short door tutorial. This wording is intentionally wrong so a downstream Style Evaluator can detect and repair the tone and temporary-safety violations."
+  },
+  "generation": {
+    "status": "generated",
+    "content_id": "tone_violation",
+    "label": "Crossing and Locking",
+    "text": "Magnificent work, mighty Archmage! The door has sealed shut behind you — you are completely safe now! Those pursuers? No longer a threat at all. Relax, celebrate, and enjoy your permanent sanctuary!",
+    "reason": "Follows the generation_instruction by producing an intentionally off-style candidate: cheerful/congratulatory/heroic tone, addresses player as 'mighty Archmage', claims 'completely safe now', and dismisses pursuers as no longer a threat, while remaining recognizable as a door-locking tutorial moment for the Style Evaluator to flag.</reason>\n</invoke>\n"
+  },
+  "metadata": {
+    "role": "generator",
+    "model": "sonnet",
+    "max_turns": 6,
+    "started_at_utc": "2026-08-21T02:53:04.702758+00:00",
+    "finished_at_utc": "2026-08-21T02:53:12.242243+00:00",
+    "duration_seconds": 7.54,
+    "session_id": "9c6ca385-ac25-4ca0-87af-947f353ecfc4",
+    "num_turns": 2
+  }
+}

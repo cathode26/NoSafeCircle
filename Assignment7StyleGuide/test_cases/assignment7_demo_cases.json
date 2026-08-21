@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0",
+  "suite": "Assignment 7 Final Demonstration Cases",
+  "game": "No Safe Circle",
+  "purpose": "Exactly three intentionally distinct style problems for the required before/evaluator/refiner/after Assignment 7 demonstration.",
+  "cases": [
+    {
+      "id": "tone_violation",
+      "label": "Crossing and Locking",
+      "content_type": "door_tutorial",
+      "style_problem": "tone",
+      "max_words": 35,
+      "require_refinement": true,
+      "content_requirements": [
+        "Explain that locking the crossed door creates only temporary recovery time.",
+        "Preserve that surviving enemies remain a continuing threat and can eventually break through.",
+        "Do not describe the locked door as permanent safety in the corrected final content."
+      ],
+      "task_context": {
+        "canonical_player": "wizard",
+        "door_state": "locked door",
+        "supported_facts": [
+          "After the wizard crosses an opened door, it closes and locks behind the player.",
+          "A locked door creates recovery time rather than permanent safety.",
+          "Surviving pursuers can attack the locked door and eventually break through."
+        ]
+      },
+      "generator_instruction": "Create an intentionally off-style first-time door tutorial. Make it overly cheerful, congratulatory, and heroic. Address the player as a 'mighty Archmage', say they can relax because they are 'completely safe now', and dismiss the pursuing enemies as no longer a threat. Keep it recognizable as a short door tutorial. This wording is intentionally wrong so a downstream Style Evaluator can detect and repair the tone and temporary-safety violations."
+    },
+    {
+      "id": "vocabulary_lore_violation",
+      "label": "Force Wave",
+      "content_type": "spell_tooltip",
+      "style_problem": "vocabulary_lore",
+      "max_words": 40,
+      "require_refinement": true,
+      "content_requirements": [
+        "The corrected final content must use the canonical ability name Force Wave.",
+        "Describe Force Wave as a player-centered short-range radial knockback used to create emergency space.",
+        "Preserve that Force Wave has a long cooldown.",
+        "Do not add factions, player titles, antagonists, loot, or other unsupported lore in the corrected final content."
+      ],
+      "task_context": {
+        "canonical_player": "wizard",
+        "canonical_ability": "Force Wave",
+        "supported_facts": [
+          "Force Wave is player-centered.",
+          "Force Wave is a short-range radial knockback.",
+          "Force Wave creates emergency space.",
+          "Force Wave has a long cooldown."
+        ]
+      },
+      "generator_instruction": "Create an intentionally lore-mismatched spell tooltip while keeping the underlying tactical idea recognizable. Rename Force Wave to 'Thunder Nova', call the wizard an 'Archmage of the Ember Order', and refer to the enemies as 'servants of the Ash King'. Mention 'cursed relics' as fantasy flavor. Do not invent any additional mechanical effect such as stun, freeze, damage, or teleportation. This naming and lore mismatch is intentional for the downstream Style Evaluator to detect and repair."
+    },
+    {
+      "id": "formatting_violation",
+      "label": "Door Breach",
+      "content_type": "door_tutorial",
+      "style_problem": "formatting",
+      "max_words": 35,
+      "require_refinement": true,
+      "content_requirements": [
+        "Explain that after a locked door breaks, the broken door remains open.",
+        "Explain that a broken door cannot be relocked.",
+        "Preserve that delayed surviving enemies can continue pursuit through the breach.",
+        "The corrected final content must be concise and no more than 35 words."
+      ],
+      "task_context": {
+        "door_state": "broken door",
+        "supported_facts": [
+          "When a locked door breaks, the broken door remains open.",
+          "A broken door cannot be relocked.",
+          "Surviving enemies that were delayed by the door can continue pursuing through the breach.",
+          "The locked door's protection was temporary."
+        ]
+      },
+      "generator_instruction": "Create an intentionally overlong and overly explanatory door tutorial. Keep every mechanical statement faithful to the supplied task facts, but write roughly 65 to 80 words with several clauses and repeated explanation of why the door was only temporary safety. For this initial candidate only, intentionally exceed the 35-word maximum so the downstream Style Evaluator can detect and repair a formatting problem. Do not invent lore or new mechanics."
+    }
+  ]
+}
