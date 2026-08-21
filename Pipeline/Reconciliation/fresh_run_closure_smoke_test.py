@@ -133,6 +133,29 @@ def check_coverage_metadata_boundary() -> None:
     assert finding["finding_id"].startswith("deterministic-non-gdd-row-")
 
 
+def check_required_representation_suggestion_refinement() -> None:
+    # Regression from verification 20260821T182902Z-47b58eb5: Pass 1 noticed
+    # the Frost/Ranged attack-preservation gap but graded it suggestion-level,
+    # so the Refiner skipped it and Pass 2 promoted the same gap to an error.
+    coverage_suggestion = {
+        "source_agent": "Coverage — Enemy State",
+        "finding": {
+            "severity": "suggestion",
+            "category": "requirement_representation_problem",
+        },
+    }
+    assert verify.is_refiner_relevant_report(coverage_suggestion)
+
+    ordinary_suggestion = {
+        "source_agent": "Evidence — World Run Delivery",
+        "finding": {
+            "severity": "suggestion",
+            "category": "evidence_problem",
+        },
+    }
+    assert not verify.is_refiner_relevant_report(ordinary_suggestion)
+
+
 def check_prompt_closure() -> None:
     reconcile_prompt = (
         ROOT / "Pipeline" / "Reconciliation" / "prompts" / "reconcile.md"
@@ -152,11 +175,17 @@ def check_prompt_closure() -> None:
     assert "requirements` array is a map of **actual current-GDD requirements only**" in coverage_prompt
     assert "`verification-hardening`" not in reconcile_prompt
 
+    assert "2026-08-21 FINAL MATERIAL CONVERGENCE" in reconcile_prompt
+    assert "current GDD does not require the camera to follow the player" in reconcile_prompt
+    assert "does not suppress, pause, or slow Ranged Enemy attack execution" in reconcile_prompt
+    assert "Explicit representation, not evidence-only coverage" in coverage_prompt
+
 
 def main() -> int:
     check_provenance_guard()
     check_seed_assessment_normalization()
     check_coverage_metadata_boundary()
+    check_required_representation_suggestion_refinement()
     check_prompt_closure()
     print("fresh_run_closure_smoke_test: PASS")
     return 0
