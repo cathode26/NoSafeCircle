@@ -44,6 +44,41 @@ def load_repairs(run_dir: Path) -> dict[str, dict]:
     return repairs
 
 
+def remap_preserved_deterministic_resolution_ids(
+    repairs: dict[str, dict],
+) -> list[dict[str, str]]:
+    """Migrate old locally-scoped deterministic IDs without rerunning repair agents."""
+    prefix = "deterministic-representation-"
+    changes: list[dict[str, str]] = []
+    specs_by_key = {spec.key: spec for spec in parallel.SPECS}
+
+    for audit_key, envelope in sorted(repairs.items()):
+        spec = specs_by_key.get(audit_key)
+        if spec is None:
+            continue
+        slug = base.deterministic_auditor_slug(spec.agent_name)
+        expected_prefix = prefix + slug + "-"
+        repair = envelope.get("result", {})
+        for resolution in repair.get("finding_resolutions", []):
+            if str(resolution.get("source_agent", "")) != "Deterministic Coverage Check":
+                continue
+            old_id = str(resolution.get("finding_id", ""))
+            if not old_id.startswith(prefix) or old_id.startswith(expected_prefix):
+                continue
+            local_requirement_id = old_id[len(prefix):]
+            new_id = expected_prefix + local_requirement_id
+            resolution["finding_id"] = new_id
+            changes.append(
+                {
+                    "audit_key": audit_key,
+                    "old_finding_id": old_id,
+                    "new_finding_id": new_id,
+                }
+            )
+
+    return changes
+
+
 def copy_preserved_inputs(
     *,
     failed_dir: Path,
@@ -104,9 +139,16 @@ def main() -> int:
 
     pass1_audits = load_pass1(failed_dir)
     repairs = load_repairs(failed_dir)
+    identity_remaps = remap_preserved_deterministic_resolution_ids(repairs)
     old_assignments = base.load_json(failed_dir / "MODEL_ASSIGNMENTS.json")
 
     paths = base.create_verification_paths(source_run_id)
+    coordinator = stream_v2.StreamingRepairCoordinator(
+        source_candidate=source_candidate,
+        source_run_id=source_run_id,
+        run_dir=paths["run_dir"],
+    )
+    # Coordinator creates stream_repairs before preserved repair subdirectories are copied.
     copy_preserved_inputs(
         failed_dir=failed_dir,
         paths=paths,
@@ -118,13 +160,7 @@ def main() -> int:
     refiner_findings = base.build_refiner_findings(merged1)
     base.save_new_json(paths["refiner_findings"], refiner_findings)
 
-    coordinator = stream_v2.StreamingRepairCoordinator(
-        source_candidate=source_candidate,
-        source_run_id=source_run_id,
-        run_dir=paths["run_dir"],
-    )
-    # The constructor created a fresh empty stream_repairs directory, but the preserved
-    # copies were already placed there. No new local repairs are submitted during resume.
+    # No new local repairs are submitted during resume.
     coordinator.executor.shutdown(wait=False)
     coordinator._collected = True
     coordinator.repairs = copy.deepcopy(repairs)
@@ -140,6 +176,7 @@ def main() -> int:
     print(f"Failed verification reused: {args.verification_run_id}")
     print(f"Preserved pass-1 auditors: {len(pass1_audits)}")
     print(f"Preserved field repairs: {len(repairs)}")
+    print(f"Preserved deterministic finding IDs remapped: {len(identity_remaps)}")
     print(
         "Mechanical field conflicts: "
         f"{coordinator.summary()['mechanical_conflict_count']}"

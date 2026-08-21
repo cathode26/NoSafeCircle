@@ -372,3 +372,34 @@ Apply these additional structural checks:
 - do not introduce any separate `witnessed escape` state: locked-door attack
   eligibility derives from active tracking/pursuit plus the locked door blocking
   the enemy's route to the player.
+
+---
+
+## 2026-08-21 VERIFICATION ROUND 2 CLOSURE
+
+### Current builder/scene writers
+
+Repository evidence currently makes the DoorPrototype scene builder and canonical
+scene positive write/integration surfaces for Player Movement and for restart
+orchestrator wiring. Therefore:
+
+- `player-movement` must carry the builder file and canonical scene locks while
+  converting/wiring the current generated PlayerMovement setup;
+- `floor-run-restart-bootstrap` and
+  `floor-run-restart-persistent-closure` must share
+  `logical:floor-run-restart-orchestrator`;
+- the persistent-closure stage must also carry the builder file and canonical
+  scene locks when it extends the same builder-wired orchestrator with later
+  reset participants.
+
+These locks follow the current repository write surfaces. They may be removed in
+a later reconciliation only when concrete repository architecture moves those
+writes to separately owned assets or self-registration that no longer edits the
+builder/canonical scene.
+
+### Enemy reset ownership
+
+A restart dependency may coordinate an enemy reset, but it must not make the
+orchestrator the writer of enemy Transform/locomotion state. The enemy
+pursuit/locomotion owner should expose the reset/reposition entry point, preserving
+owner-controlled state boundaries.

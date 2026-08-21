@@ -110,3 +110,7 @@ When Windows delivery is assessed, inspect committed
 scenes is a known incomplete configuration fact even if the developer's local
 active build target remains unassessable.
 
+## 2026-08-21 ROUND 3 VERIFICATION CLOSURE
+
+Evidence provenance is strict. Prompt text, verifier instructions, patch scripts, and internal pipeline-hardening guidance are not repository/GDD evidence. Flag any evidence string that attributes such internal wording to `CLAUDE.md`, the GDD, or another repository file when the attributed content is not actually present. A derived dependency or logical-lock rationale is acceptable only when it is explicitly described as derived from real GDD/repository facts rather than presented as a source quotation.
+

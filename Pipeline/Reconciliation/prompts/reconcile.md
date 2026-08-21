@@ -1804,3 +1804,117 @@ negative evidence. Cite the concrete files/configuration actually inspected when
 available, or leave repository evidence empty and describe the absence precisely
 in repository state/notes. The semantic validator intentionally rejects bare
 repository container roots.
+
+---
+
+## 2026-08-21 VERIFICATION ROUND 2 CLOSURE
+
+These rules close verified gaps from verification run
+`20260821T060257Z-98087458`. They refine representation/ownership only and do
+not add new game design.
+
+### Enemy restart reposition ownership
+
+The Floor Run/Restart Orchestrator coordinates restart but does not write enemy
+Transform/locomotion internals itself. The enemy pursuit/locomotion owner must
+expose an owner-controlled restart/reset operation that consumes the original
+authored encounter/spawn-region information, returns that persistent enemy to
+that region, and restores its initial pursuit/search/attack state. The
+orchestrator calls that owner operation. Do not describe enemy repositioning as
+an orchestrator-owned body movement.
+
+### Runtime Input System obligations belong on each spell
+
+Fireball, Frost Field, and Force Wave are runtime input consumers. Their
+acceptance criteria must explicitly preserve the GDD contract that casting is
+routed through the project's Unity Input System/Input Actions layer and does not
+perform independent direct hardware polling. An Input Actions file lock is not
+a substitute for this behavioral acceptance criterion.
+
+### Frost Field cursor placement is now explicit canon
+
+When the current GDD states that Frost Field is placed at the current shared
+world-space pointer target exposed by Player Movement, treat that as direct GDD
+evidence, not inference. Preserve the `frost-field -> player-movement`
+prerequisite while the shared projection capability is unfinished. Do not emit
+or preserve an unresolved question asking whether Frost Field is cursor-targeted
+when that wording is present in current canon.
+
+### Player Movement current builder/scene write surfaces
+
+Under the current DoorPrototype architecture, converting Player Movement to the
+required mouse-directed/Input-System behavior writes integration owned by
+`DoorPrototypeSceneBuilder.cs` and the canonical DoorPrototype scene. In
+addition to its Input Actions resource, `player-movement` must carry these
+exclusive resources while that architecture remains current:
+
+```text
+repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity
+```
+
+This is especially required while the builder creates/configures PlayerMovement
+and player-facing movement/control presentation. Remove these locks only if
+repository evidence later moves those write surfaces elsewhere.
+
+### Full restart closure shares the orchestrator integration surface
+
+`floor-run-restart-bootstrap` and `floor-run-restart-persistent-closure` are two
+stages of one restart orchestrator. Under the current builder-driven scene
+architecture both stages share a logical orchestrator resource:
+
+```text
+logical:floor-run-restart-orchestrator
+```
+
+When either stage creates/wires/extends restart participants through the current
+scene builder, it must also lock:
+
+```text
+repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity
+```
+
+Do not leave the persistent-closure task lock-free merely because its additional
+participants are implemented later.
+
+### Runtime input classification
+
+A requirement such as "runtime gameplay input is routed through Unity Input
+System/Input Actions rather than direct hardware polling" is a
+`required_implementation` runtime/technical contract when mapped to gameplay
+acceptance criteria. Development-agent process rules about who may edit or own
+that work remain separate `required_process -> pipeline_constraint` records.
+Do not classify the runtime input behavior itself as `required_process`.
+
+### Preflight
+
+Before returning a candidate, verify:
+
+```text
+enemy restart repositioning is performed by an enemy owner reset entry point
+AND each spell explicitly consumes Input System/Input Actions
+AND explicit Frost cursor placement is not left unresolved
+AND Player Movement carries current builder/scene locks
+AND both restart stages carry the shared logical orchestrator lock
+AND persistent restart closure carries current builder/scene locks
+```
+
+## 2026-08-21 ROUND 3 VERIFICATION CLOSURE
+
+### Evidence integrity
+
+- Prompt text, verifier instructions, patch/install scripts, and internal pipeline guidance are **not** GDD or repository evidence.
+- Never attribute an internal instruction to `CLAUDE.md`, the GDD, or another repository file unless that wording is actually present in that file.
+- Do not write invented quotations such as `CLAUDE.md — "..."` or `GDD — "..."` merely to justify a graph decision.
+- When a dependency or logical lock is a derived scheduling/ownership decision, label its evidence as a **derived rationale** and cite the real GDD/repository facts from which it follows. Do not turn the derivation itself into a fabricated source quotation.
+- A high confidence value is allowed only when the cited evidence is real and supports the stated graph decision.
+
+### Melee pursuit clustering representation
+
+The GDD explicitly states that Melee Enemies naturally cluster while pursuing and that Frost Field stretches that formation. Preserve this as durable gameplay coverage on `melee-enemy`: ordinary multi-enemy pursuit/avoidance must still allow meaningful natural clustering so Charged Fireball area damage and Frost Field formation stretching remain relevant. Exact avoidance/separation tuning remains a playtesting/implementation detail. Include a validation requirement that exercises multiple pursuing Melee Enemies rather than validating only one pursuer.
+
+### Non-canonical scene preservation
+
+The GDD's `Current Prototype Scene Evidence` section explicitly says deletion, retention, or repurposing of the non-canonical stub scenes is a **human decision**, and agents/reconciliation must not delete or reinterpret those stubs merely to clean up scene inventory evidence. Represent this as a typed `pipeline_constraint` in `non_code_requirements`; do not leave it only as prose or map it merely to Windows build-scene registration.
+

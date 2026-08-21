@@ -910,3 +910,50 @@ When repairing current findings, preserve/correct these established contracts:
 If an early proposed repair conflicts with any of these rules, reject that
 portion and synthesize the correction from the original candidate plus current
 canon/evidence.
+
+---
+
+## 2026-08-21 VERIFICATION ROUND 2 CLOSURE
+
+When the supplied findings touch these verified gaps, prefer the following
+bounded repairs rather than inventing new architecture:
+
+- Enemy restart: keep the Floor Run/Restart Orchestrator as coordinator and make
+  the enemy pursuit/locomotion owner expose the reset/reposition operation that
+  consumes authored spawn-region data and restores initial AI state.
+- Spell input: add explicit Input System/Input Actions acceptance criteria to
+  Fireball, Frost Field, and Force Wave; resource locks alone do not represent
+  runtime behavior.
+- Frost Field: current canon explicitly places it at Player Movement's shared
+  world-space pointer target. Treat that as direct GDD evidence, retain the real
+  prerequisite while that shared projection is unfinished, raise confidence
+  when appropriate, and remove the obsolete unresolved targeting question.
+- Player Movement: under the current builder-driven prototype, add the
+  DoorPrototypeSceneBuilder file lock and canonical DoorPrototype scene lock in
+  addition to the Input Actions lock.
+- Restart closure: add the current builder/scene locks to
+  `floor-run-restart-persistent-closure` and give both restart stages the shared
+  `logical:floor-run-restart-orchestrator` lock.
+- Runtime Input System coverage: correct a `required_process` classification to
+  `required_implementation` instead of weakening the deterministic coverage
+  validator or converting an acceptance criterion into a process record.
+
+Do not preserve a human-review question when current GDD/repository evidence now
+resolves it. Do not loosen deterministic representation rules to make a bad
+classification pass.
+
+## 2026-08-21 ROUND 3 VERIFICATION CLOSURE
+
+### Evidence integrity repair
+
+When correcting evidence, never preserve or create a quotation attributed to `CLAUDE.md`, the GDD, or another repository file unless that quotation actually exists there. Internal verification-hardening instructions, writer-inventory guidance, patch text, or prompt text are not project evidence. Replace fabricated attribution with the actual GDD/repository support, or with clearly labeled derived rationale based on real source facts. Do not discard an otherwise correct dependency/lock/ownership decision solely because its previous evidence string was fabricated; repair the evidence and recalibrate confidence instead.
+
+For enemy-archetype composition, legitimate support includes the required Melee/Ranged roster and the GDD's 2.5D/Runtime Implementation requirement that enemies are world-space SpriteRenderer prefabs consuming shared enemy capabilities. The fact that a concrete archetype task owns/delivers its usable assembled prefab is a graph/ownership derivation, not a quote from `CLAUDE.md`.
+
+For `logical:enemy-locomotion-behavior-surface`, legitimate support includes GDD §5 Agent Coordination (tasks sharing gameplay files/assets may not modify them simultaneously) plus the graph's actual writer inventory showing pursuit/search, melee/ranged, status/displacement, and locked-door behavior touching the shared enemy behavior surface. Describe that as derived scheduling rationale; do not cite nonexistent "verification-hardening" wording.
+
+### Remaining required representations
+
+- Add/repair `melee-enemy` acceptance and validation so multiple pursuing Melee Enemies naturally cluster enough for the GDD's Charged Fireball area-damage and Frost Field formation-stretching premise to remain meaningful; leave exact avoidance/separation tuning to playtesting.
+- Add/repair a typed `pipeline_constraint` for the GDD's non-canonical stub-scene rule: deletion, retention, or repurposing is a human decision, and agents/reconciliation must not delete or reinterpret stubs merely to clean inventory evidence.
+

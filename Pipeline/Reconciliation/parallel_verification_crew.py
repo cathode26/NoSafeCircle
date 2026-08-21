@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import verification_crew as base
+import streaming_refinement_v2 as stream_v2
 from reconciliation_agent import (
     build_proposed_graph_delta,
     render_graph_delta_markdown,
@@ -807,6 +808,16 @@ class StreamingRepairCoordinator:
 
 
 # ============================================================
+# STREAMING REFINEMENT V2 FIELD OPS
+# ============================================================
+# Keep the v1 coordinator above for audit/history compatibility, but route new
+# verification runs through the field-level implementation. Existing main-flow
+# call sites intentionally keep the same coordinator interface.
+LegacyStreamingRepairCoordinator = StreamingRepairCoordinator
+StreamingRepairCoordinator = stream_v2.StreamingRepairCoordinator
+
+
+# ============================================================
 # SELECTIVE PASS 2
 # ============================================================
 
@@ -1100,8 +1111,9 @@ def main() -> int:
             "note": (
                 "Fifteen focused auditors are independently scoped and their findings "
                 "are unioned, never voted. Completed pass-1 auditors may immediately "
-                "launch isolated repair proposals against the immutable candidate. A final "
-                "conflict arbiter consolidates proposals before selective pass 2. A max-turn "
+                "launch field-level repair proposals against the immutable candidate. Compatible "
+                "field operations merge deterministically; only connected incompatible field "
+                "clusters invoke arbiters before selective pass 2. A max-turn "
                 "failure is retried without rerunning successful auditors."
             ),
         }
@@ -1163,7 +1175,7 @@ def main() -> int:
                     "Mechanical direct conflicts: "
                     f"{stream_repairs.summary()['mechanical_conflict_count']}"
                 )
-                print("Final arbiter also checks semantic cross-record conflicts.")
+                print("Only connected incompatible field clusters invoke arbiters; the final projection still runs semantic validation.")
                 print("=" * 72)
                 refiner = stream_repairs.arbitrate(
                     full_findings_path=paths["refiner_findings"],
