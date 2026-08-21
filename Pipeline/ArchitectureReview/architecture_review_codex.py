@@ -11,6 +11,10 @@ from typing import Any
 import architecture_review as base
 
 
+# Preserve the shared prompt builder before configure_base_runner replaces it.
+_shared_common_review_prompt = base.common_review_prompt
+
+
 # Codex/ChatGPT defaults. The shared architecture-review schemas, prompts,
 # orchestration, output layout, and anti-anchoring rules remain in
 # architecture_review.py so the Claude and Codex runners evaluate the same
@@ -71,6 +75,18 @@ def reasoning_effort_for(agent_name: str) -> str:
     if agent_name == "Adversarial Synthesis Critic":
         return ADVERSARY_REASONING_EFFORT
     return REVIEW_REASONING_EFFORT
+
+
+def codex_common_review_prompt(*, role_name: str, role_focus: str, frozen_head: str) -> str:
+    prompt = _shared_common_review_prompt(
+        role_name=role_name,
+        role_focus=role_focus,
+        frozen_head=frozen_head,
+    )
+    return prompt.replace(
+        "Inspect the repository directly using Read/Glob/Grep.",
+        "Inspect the repository directly using read-only shell/file inspection commands such as cat, sed, find, rg, and git show/log/diff as needed.",
+    )
 
 
 def invoke_codex_agent(
@@ -181,11 +197,12 @@ def invoke_codex_agent(
 
 
 def configure_base_runner() -> None:
-    # Keep all shared orchestration identical while swapping only the provider
-    # invocation and model defaults.
+    # Keep all shared orchestration identical while swapping only provider/model
+    # execution details and the one Claude-specific repository-inspection phrase.
     base.MODEL_POOL = MODEL_POOL
     base.SYNTHESIS_MODEL = SYNTHESIS_MODEL
     base.ADVERSARY_MODEL = ADVERSARY_MODEL
+    base.common_review_prompt = codex_common_review_prompt
     base.invoke_read_only_agent = invoke_codex_agent
 
 
