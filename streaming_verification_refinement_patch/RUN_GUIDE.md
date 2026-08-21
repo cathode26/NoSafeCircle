@@ -87,6 +87,12 @@ If all pass-1 auditors and local field repairs completed but synthesis/semantic 
 docker compose run --rm claude python3 streaming_verification_refinement_patch/resume_streaming_verification.py --source-run-id <RECONCILIATION_RUN_ID> --verification-run-id <FAILED_VERIFICATION_RUN_ID>
 ```
 
+For the first v2 regression failure captured during development, the exact resume command is:
+
+```powershell
+docker compose run --rm claude python3 streaming_verification_refinement_patch/resume_streaming_verification.py --source-run-id 20260821T055421Z-603b2192 --verification-run-id 20260821T065948Z-885c8444
+```
+
 Resume behavior:
 
 - creates a new immutable verification run;
