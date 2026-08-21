@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 from pathlib import Path
 
 import reconciliation_agent as recon
@@ -15,20 +14,61 @@ def check_provenance_guard() -> None:
             "major_findings": [
                 "Derived from GDD Shared Context and Coordination Rules plus current builder behavior."
             ]
-        }
+        },
+        "seed_assessment": {
+            "status": "ready",
+            "blockers": [],
+            "warnings": [],
+        },
     }
+    recon.sanitize_non_authoritative_summary_provenance(clean)
     recon.validate_reconciliation_provenance(clean)
 
-    contaminated = copy.deepcopy(clean)
-    contaminated["summary"]["major_findings"] = [
-        "CLAUDE.md explicitly requires this lock."
-    ]
+    # Regression from fresh run 20260821T180232Z-5668749f: the substantive
+    # package finding was valid, but the worker accidentally named an internal
+    # pipeline-hardening label in disposable summary prose. That must not throw
+    # away the entire nine-worker run.
+    summary_slip = {
+        "summary": {
+            "major_findings": [
+                "Neither approved package is installed. Per the GDD's verification-hardening guidance, this is concrete missing configuration work."
+            ]
+        },
+        "seed_assessment": {
+            "status": "ready",
+            "blockers": [],
+            "warnings": [],
+        },
+    }
+    removed = recon.sanitize_non_authoritative_summary_provenance(summary_slip)
+    assert len(removed) == 1
+    assert summary_slip["summary"]["major_findings"] == []
+    assert summary_slip["seed_assessment"]["warnings"]
+    recon.normalize_seed_assessment_consistency(summary_slip)
+    assert summary_slip["seed_assessment"]["status"] == "ready_with_warnings"
+    recon.validate_reconciliation_provenance(summary_slip)
+
+    # Authoritative graph/evidence contamination remains a hard failure.
+    authoritative_contamination = {
+        "work_items": [
+            {
+                "gdd_evidence": [
+                    {
+                        "reference": "CLAUDE.md",
+                        "requirement": "CLAUDE.md explicitly requires this lock.",
+                    }
+                ]
+            }
+        ]
+    }
     try:
-        recon.validate_reconciliation_provenance(contaminated)
+        recon.validate_reconciliation_provenance(authoritative_contamination)
     except RuntimeError:
         pass
     else:
-        raise AssertionError("CLAUDE.md provenance contamination was not rejected.")
+        raise AssertionError(
+            "Authoritative CLAUDE.md provenance contamination was not rejected."
+        )
 
 
 def check_seed_assessment_normalization() -> None:
@@ -110,6 +150,7 @@ def check_prompt_closure() -> None:
     assert "gameplay-navigation-locomotion" in reconcile_prompt
     assert "Current prototype scene-builder exclusive-write lock" in reconcile_prompt
     assert "requirements` array is a map of **actual current-GDD requirements only**" in coverage_prompt
+    assert "`verification-hardening`" not in reconcile_prompt
 
 
 def main() -> int:
