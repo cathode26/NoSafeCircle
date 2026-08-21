@@ -739,16 +739,21 @@ When absent, repair the owner's acceptance criteria so that:
   distance;
 - Frost Field has player-facing feedback.
 
-### Cursor-targeting dependency discipline
+### Shared pointer projection dependency discipline
 
-Do not preserve a Door/Frost/Fireball -> Player Movement dependency when the only
-reason is shared cursor targeting/reference.
+The current GDD explicitly makes Player Movement the owner of the shared
+cursor-to-gameplay-plane projection and exposed world-space pointer target.
+Do not invent a contrary pipeline discipline.
 
-The GDD's cursor convention does not by itself make Player Movement the owner of
-a shared cursor-world-target service.
+When that specific owner-side capability is still unfinished, preserve/add a
+real dependency from a concrete cursor-targeted consumer such as Frost Field,
+Fireball, or Door/Interaction when the consumer cannot execute or validate
+without it. Once the projection capability exists and remaining Player Movement
+work is unrelated, re-evaluate the edge under the normal existing-interface rule.
 
-Keep Fireball -> Player Movement when the separate movement-restriction
-interface is unfinished.
+Force Wave is the player-centered radial exception. Fireball may additionally
+require Player Movement while the separate movement-restriction interface is
+unfinished.
 
 ### Write-surface/resource repair
 
@@ -874,3 +879,34 @@ After these repairs, verify:
   surface;
 - known shared writers use identical keys;
 - read-only consumers are not unnecessarily serialized.
+
+---
+
+## 2026-08-21 VERIFIED CLOSURE
+
+Do not invent named "pipeline disciplines" or dependency-exclusion policies
+that are unsupported by the current GDD, repository evidence, or deterministic
+pipeline invariants. In particular, the GDD explicitly assigns shared
+cursor-to-gameplay-plane projection to Player Movement.
+
+When repairing current findings, preserve/correct these established contracts:
+
+- all five named room requirements, including Ruined Entry and Final Room, must
+  remain durably represented under five-room content work;
+- enemy pursuit must explicitly support forward traversal through open/broken
+  doorways rather than merely saying a doorway crossing does not clear target;
+- a tracking/pursuing enemy blocked from the player by a locked door attacks it;
+  no separate witness flag is required, and pursuit continues after breach;
+- if the Player Movement-owned shared pointer projection is unfinished,
+  cursor-targeted consumers that require it have a real prerequisite on that
+  owner until the specific capability exists;
+- Fireball, Frost Field, and Force Wave receive prototype scene-builder and
+  canonical-scene locks only when current evidence shows their implementation
+  writes/integrates through those resources;
+- Melee Enemy and Ranged Enemy must each have an owner for usable prefab/archetype
+  assembly rather than leaving pursuit, health, attack, and presentation as
+  disconnected responsibilities.
+
+If an early proposed repair conflicts with any of these rules, reject that
+portion and synthesize the correction from the original candidate plus current
+canon/evidence.

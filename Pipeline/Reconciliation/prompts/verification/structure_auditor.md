@@ -351,3 +351,24 @@ every proposed exclusive-resource lock has positive write/integration evidence
 ```
 
 If either assertion fails, do not report that repair as required.
+
+---
+
+## 2026-08-21 VERIFIED CLOSURE
+
+Apply these additional structural checks:
+
+- if Player Movement's canon-owned shared pointer projection is unfinished,
+  verify that concrete cursor-targeted consumers which require that capability
+  have a real dependency on its concrete owner;
+- verify pursuit acceptance includes actual traversal through open/broken
+  doorways, not only target retention across a crossing;
+- verify Melee/Ranged archetype work has a concrete owner for producing usable
+  assembled prefab archetypes consumed by encounter authoring;
+- when Fireball/Frost Field/Force Wave currently integrate through
+  `DoorPrototypeSceneBuilder.cs` and the canonical DoorPrototype scene, verify
+  matching writer locks on those exact resources; do not add those locks if
+  current evidence shows the task no longer writes through them;
+- do not introduce any separate `witnessed escape` state: locked-door attack
+  eligibility derives from active tracking/pursuit plus the locked door blocking
+  the enemy's route to the player.

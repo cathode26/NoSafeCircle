@@ -468,18 +468,20 @@ context:
   distance behavior;
 - Frost Field provides readable player-facing casting/field feedback.
 
-### Do not invent cursor ownership
+### Shared pointer projection ownership is explicit canon
 
-The shared cursor targeting/reference convention does not by itself establish a
-Player Movement-owned implementation interface.
+The current GDD explicitly makes Player Movement the owner of the shared
+cursor-to-gameplay-plane projection and exposed world-space pointer target.
+Cursor-aimed spells and Door/Interaction consume that owner-controlled result.
 
-Do not report a missing dependency from cursor-aimed spells or door targeting
-to Player Movement solely because all use the cursor. Require a formal
-dependency only when the candidate/repository contains a concrete shared
-targeting owner whose unfinished capability is actually prerequisite.
+Do not classify this as merely a cursor convention. If the specific shared
+projection capability is unfinished, a concrete cursor-targeted consumer may
+legitimately require a dependency on `player-movement`. Once that capability is
+implemented, unrelated remaining Player Movement work does not keep the consumer
+blocked. Force Wave remains the player-centered radial exception.
 
-The charged-Fireball movement-restriction interface remains a separate,
-legitimate Player Movement dependency when unfinished.
+The charged-Fireball movement-restriction interface is a separate possible
+Player Movement prerequisite when unfinished.
 
 ### Player Experience validation
 
@@ -488,3 +490,42 @@ Force Wave misuse/unavailability, and waiting too long, must remain represented
 through validation requirements on the work that owns those behaviors. Do not
 classify the criterion as unrepresented merely because it has no standalone
 work-item node.
+
+---
+
+## 2026-08-21 VERIFIED CLOSURE
+
+### Split compound GDD passages by semantic requirement
+
+When one GDD paragraph contains both a runtime owner/consumer contract and a
+development-process ownership invariant, emit separate conceptual requirement
+rows instead of forcing the entire passage into one classification.
+
+Example:
+
+```text
+runtime Frost Field cast/slowdown ownership behavior
+    -> required_gameplay or required_implementation
+    -> acceptance_criterion on the concrete runtime owner(s)
+
+Development Agent Ownership Invariant governing that split
+    -> required_process
+    -> pipeline_constraint
+```
+
+Do not classify a runtime acceptance criterion as `required_process`, and do not
+classify the process invariant as gameplay merely because both originate in the
+same paragraph.
+
+### Required-room inventory
+
+Inventory Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, and Final Room
+individually. All five must have durable representation under five-room content
+work or later concrete descendants. A room's requirement is not represented
+merely because the feature says "five rooms" generically.
+
+### Pursuit/door semantics
+
+Treat actual pursuit through open/broken doorways as required gameplay behavior.
+Treat locked-door attack eligibility as existing tracking/pursuit state plus a
+locked door blocking the route; no separate witness-state requirement exists.
