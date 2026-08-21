@@ -109,6 +109,7 @@ def make_inputs() -> SimpleNamespace:
         candidate=candidate,
         source_reconciliation_run_id="source-run",
         verification_run_id="verification-run",
+        approved_by="Synthetic Test Approver",
         exclusive_resource_groups=[
             {
                 "resource_key": "repo-file:Input.inputactions",
