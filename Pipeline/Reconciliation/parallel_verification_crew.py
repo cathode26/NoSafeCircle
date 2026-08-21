@@ -5,12 +5,15 @@ import json
 import random
 import secrets
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, as_completed, wait
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 import verification_crew as base
+
+# Share the base verifier console lock across every parallel print.
+print = base.thread_safe_print
 import streaming_refinement_v2 as stream_v2
 from reconciliation_agent import (
     build_proposed_graph_delta,
@@ -32,7 +35,7 @@ PARALLEL_MAX_WORKERS = int(
 )
 
 COVERAGE_MAX_TURNS = int(
-    __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_COVERAGE_TURNS", "24")
+    __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_COVERAGE_TURNS", "32")
 )
 EVIDENCE_MAX_TURNS = int(
     __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_EVIDENCE_TURNS", "36")
@@ -44,10 +47,10 @@ MAX_TURN_RECOVERY_ATTEMPTS = int(
     __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_MAX_TURN_RECOVERY_ATTEMPTS", "1")
 )
 STRUCTURE_MAX_TURNS = int(
-    __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_STRUCTURE_TURNS", "24")
+    __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_STRUCTURE_TURNS", "32")
 )
 EXECUTION_MAX_TURNS = int(
-    __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_EXECUTION_TURNS", "24")
+    __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_EXECUTION_TURNS", "32")
 )
 
 STREAM_REPAIR_MAX_WORKERS = int(
@@ -407,171 +410,158 @@ def run_specs(
     on_result: Callable[[AuditSpec, dict[str, Any]], None] | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Run all requested auditors without fail-fast loss.
+    Run requested auditors without fail-fast loss and with immediate bounded recovery.
 
-    Successful auditor outputs are persisted as soon as each future is consumed.
-    A max-turn failure does not abort collection of the other independent
-    auditors. After the first wave finishes, only max-turn failures are retried,
-    with a larger turn budget.
-
-    This matters because independent verification work is expensive and should
-    never be discarded just because one auditor needs a larger tool-use budget.
+    At most PARALLEL_MAX_WORKERS auditor futures are active at once. If an auditor
+    reaches max turns, its recovery attempt is submitted immediately into the slot
+    that just opened, before another queued first-attempt auditor is dispatched.
+    Successful auditor work is persisted as soon as it completes and is never rerun.
     """
     output_dir.mkdir(parents=True, exist_ok=False)
 
     results_by_key: dict[str, dict[str, Any]] = {}
-    first_wave_failures: dict[str, tuple[AuditSpec, Exception]] = {}
+    unrecovered: dict[str, tuple[AuditSpec, Exception]] = {}
+    next_spec_index = 0
 
-    def invoke(spec: AuditSpec, *, max_turns: int) -> dict[str, Any]:
+    def turns_for_attempt(spec: AuditSpec, attempt: int) -> int:
+        return spec.max_turns + ((attempt - 1) * RECOVERY_TURN_BONUS)
+
+    def invoke(
+        spec: AuditSpec,
+        *,
+        attempt: int,
+        max_turns: int,
+    ) -> dict[str, Any]:
+        is_recovery = attempt > 1
+        agent_name = (
+            f"{spec.agent_name} [recovery]"
+            if is_recovery
+            else spec.agent_name
+        )
+        attempt_pass_label = (
+            f"{pass_label}-max-turn-recovery-{attempt - 1}"
+            if is_recovery
+            else pass_label
+        )
+
         result = base.invoke_read_only_agent(
-            agent_name=spec.agent_name,
+            agent_name=agent_name,
             model=assignments[spec.key],
             prompt=build_scoped_prompt(
                 spec=spec,
                 candidate_path=candidate_path,
                 source_run_id=source_run_id,
-                pass_label=pass_label,
+                pass_label=attempt_pass_label,
             ),
             schema=spec.schema,
             timeout_seconds=base.VERIFY_TIMEOUT_SECONDS,
             max_turns=max_turns,
         )
-        result["verification_attempt"] = 1
+
+        # Normalize recovery metadata so merge/final-pass replacement logic treats
+        # a recovered result as the original auditor identity.
+        result["agent"] = spec.agent_name
+        result["verification_attempt"] = attempt
         result["max_turns_used"] = max_turns
+        if is_recovery:
+            result["recovered_from"] = "max_turns"
         return result
 
     max_workers = max(1, min(PARALLEL_MAX_WORKERS, len(specs)))
+    pending: dict[Any, tuple[AuditSpec, int, int]] = {}
 
-    # First wave: never abort the whole wave on one auditor failure.
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_map = {
-            executor.submit(invoke, spec, max_turns=spec.max_turns): spec
-            for spec in specs
-        }
 
-        for future in as_completed(future_map):
-            spec = future_map[future]
-            try:
-                result = future.result()
-            except Exception as exc:
-                first_wave_failures[spec.key] = (spec, exc)
-                base.save_new_json(
-                    output_dir / f"{spec.key}.attempt1.failure.json",
-                    _failure_payload(
-                        spec=spec,
-                        model=assignments[spec.key],
-                        attempt=1,
-                        max_turns=spec.max_turns,
-                        exc=exc,
-                    ),
-                )
-                print(
-                    f"Auditor failed but other auditors will continue: "
-                    f"{spec.agent_name} — {exc}"
-                )
-                continue
-
-            results_by_key[spec.key] = result
-            base.save_new_json(output_dir / f"{spec.key}.json", result)
-            if on_result is not None:
-                on_result(spec, result)
-
-    unrecovered: dict[str, tuple[AuditSpec, Exception]] = {}
-
-    if first_wave_failures:
-        max_turn_failures = {
-            key: value
-            for key, value in first_wave_failures.items()
-            if _is_max_turn_failure(value[1])
-        }
-        non_retriable_failures = {
-            key: value
-            for key, value in first_wave_failures.items()
-            if key not in max_turn_failures
-        }
-        unrecovered.update(non_retriable_failures)
-
-        if max_turn_failures and MAX_TURN_RECOVERY_ATTEMPTS > 0:
-            print()
-            print("=" * 72)
-            print("MAX-TURN RECOVERY")
-            print("=" * 72)
-            print(
-                f"Retrying {len(max_turn_failures)} auditor(s) only; "
-                "successful auditors will NOT be rerun."
+        def submit_attempt(spec: AuditSpec, attempt: int) -> None:
+            max_turns = turns_for_attempt(spec, attempt)
+            future = executor.submit(
+                invoke,
+                spec,
+                attempt=attempt,
+                max_turns=max_turns,
             )
-            for key, (spec, _) in sorted(max_turn_failures.items()):
-                print(
-                    f"  {key}: {spec.max_turns} -> "
-                    f"{spec.max_turns + RECOVERY_TURN_BONUS} turns"
-                )
-            print("=" * 72)
+            pending[future] = (spec, attempt, max_turns)
 
-            # Current policy is one bounded recovery wave. The env setting is
-            # retained so the policy can be expanded without changing the CLI.
-            recovery_specs = [value[0] for value in max_turn_failures.values()]
+        def fill_first_attempt_slots() -> None:
+            nonlocal next_spec_index
+            while (
+                len(pending) < max_workers
+                and next_spec_index < len(specs)
+            ):
+                spec = specs[next_spec_index]
+                next_spec_index += 1
+                submit_attempt(spec, 1)
 
-            def recover(spec: AuditSpec) -> dict[str, Any]:
-                recovery_turns = spec.max_turns + RECOVERY_TURN_BONUS
-                result = base.invoke_read_only_agent(
-                    agent_name=f"{spec.agent_name} [recovery]",
-                    model=assignments[spec.key],
-                    prompt=build_scoped_prompt(
-                        spec=spec,
-                        candidate_path=candidate_path,
-                        source_run_id=source_run_id,
-                        pass_label=f"{pass_label}-max-turn-recovery",
-                    ),
-                    schema=spec.schema,
-                    timeout_seconds=base.VERIFY_TIMEOUT_SECONDS,
-                    max_turns=recovery_turns,
-                )
-                # Normalize the agent name so merge/final-pass replacement logic
-                # treats the recovered result as the original auditor.
-                result["agent"] = spec.agent_name
-                result["verification_attempt"] = 2
-                result["recovered_from"] = "max_turns"
-                result["max_turns_used"] = recovery_turns
-                return result
+        fill_first_attempt_slots()
 
-            recovery_workers = max(
-                1,
-                min(PARALLEL_MAX_WORKERS, len(recovery_specs)),
+        while pending:
+            done, _ = wait(
+                tuple(pending),
+                return_when=FIRST_COMPLETED,
             )
-            with ThreadPoolExecutor(max_workers=recovery_workers) as executor:
-                future_map = {
-                    executor.submit(recover, spec): spec
-                    for spec in recovery_specs
-                }
 
-                for future in as_completed(future_map):
-                    spec = future_map[future]
-                    recovery_turns = spec.max_turns + RECOVERY_TURN_BONUS
-                    try:
-                        result = future.result()
-                    except Exception as exc:
-                        unrecovered[spec.key] = (spec, exc)
-                        base.save_new_json(
-                            output_dir / f"{spec.key}.attempt2.failure.json",
-                            _failure_payload(
-                                spec=spec,
-                                model=assignments[spec.key],
-                                attempt=2,
-                                max_turns=recovery_turns,
-                                exc=exc,
-                            ),
-                        )
-                        continue
+            # Recovery attempts are collected and submitted before unused slots are
+            # filled with queued first attempts. This gives max-turn recovery true
+            # immediate priority without exceeding the configured parallelism cap.
+            immediate_retries: list[tuple[AuditSpec, int]] = []
 
-                    results_by_key[spec.key] = result
+            for future in done:
+                spec, attempt, max_turns = pending.pop(future)
+                try:
+                    result = future.result()
+                except Exception as exc:
                     base.save_new_json(
-                        output_dir / f"{spec.key}.json",
-                        result,
+                        output_dir / f"{spec.key}.attempt{attempt}.failure.json",
+                        _failure_payload(
+                            spec=spec,
+                            model=assignments[spec.key],
+                            attempt=attempt,
+                            max_turns=max_turns,
+                            exc=exc,
+                        ),
                     )
-                    if on_result is not None:
-                        on_result(spec, result)
-        else:
-            unrecovered.update(max_turn_failures)
+
+                    recovery_count_used = attempt - 1
+                    can_recover = (
+                        _is_max_turn_failure(exc)
+                        and recovery_count_used < MAX_TURN_RECOVERY_ATTEMPTS
+                    )
+
+                    if can_recover:
+                        retry_attempt = attempt + 1
+                        retry_turns = turns_for_attempt(spec, retry_attempt)
+                        print()
+                        print("=" * 72)
+                        print("MAX-TURN RECOVERY -- IMMEDIATE")
+                        print("=" * 72)
+                        print(
+                            f"Retrying {spec.key} immediately: "
+                            f"{max_turns} -> {retry_turns} turns"
+                        )
+                        print(
+                            "The retry takes priority in the newly freed slot; "
+                            "successful auditors are not rerun."
+                        )
+                        print("=" * 72)
+                        immediate_retries.append((spec, retry_attempt))
+                    else:
+                        unrecovered[spec.key] = (spec, exc)
+                        print(
+                            "Auditor failed after bounded recovery or with a "
+                            f"non-retriable error: {spec.agent_name} — {exc}"
+                        )
+                    continue
+
+                results_by_key[spec.key] = result
+                base.save_new_json(output_dir / f"{spec.key}.json", result)
+                if on_result is not None:
+                    on_result(spec, result)
+
+            # Submit retries before any queued first-attempt work.
+            for spec, retry_attempt in immediate_retries:
+                submit_attempt(spec, retry_attempt)
+
+            fill_first_attempt_slots()
 
     if unrecovered:
         details = "; ".join(

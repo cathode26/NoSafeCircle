@@ -1953,3 +1953,17 @@ The GDD's `Shared Context and Coordination Rules — Current prototype scene-bui
 
 `seed_assessment.status` is summary metadata, not a new GDD requirement. It must agree with its detail lists: blockers imply `blocked`; warnings/unresolved review state imply `ready_with_warnings`; otherwise use `ready`. Do not invent a GDD requirement from candidate self-assessment metadata.
 
+## 2026-08-21 FINAL MATERIAL CONVERGENCE
+
+### Fixed isometric camera provenance
+
+The GDD requires a fixed isometric presentation and no free world-view rotation. Preserve those as the GDD-backed acceptance obligations for `fixed-isometric-camera`.
+
+The current repository also implements player-follow translation through `IsometricCameraFollow.cs`. That follow behavior is a valid current implementation detail and repository-evidence observation, but the current GDD does not require the camera to follow the player. Do not emit player-follow translation as a GDD-backed acceptance criterion and do not cite `GDD - Runtime Implementation` for it. A completed camera item may remain complete when current evidence satisfies the actual fixed-isometric/no-free-rotation requirement.
+
+### Frost Field versus Ranged Enemy attack behavior
+
+The GDD explicitly requires that Frost Field slows a Ranged Enemy's repositioning but does not stop its attacks. Preserve this behavior durably rather than only as background `gdd_evidence`.
+
+At minimum, `enemy-status-effect-displacement` must have a GDD-backed acceptance criterion stating that Frost slowdown modifies locomotion/repositioning only and does not suppress, pause, or slow Ranged Enemy attack execution. `ranged-enemy` should carry a validation requirement that a slowed Ranged Enemy can continue its normal telegraphed attack behavior while movement/repositioning is slowed. Do not create a new work item for this cross-system behavior.
+

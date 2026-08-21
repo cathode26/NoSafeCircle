@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import builtins
 import copy
 import json
 import os
 import random
 import secrets
 import subprocess
+import threading
 import sys
 import time
 import uuid
@@ -50,7 +52,7 @@ VERIFY_TIMEOUT_SECONDS = int(
     os.environ.get("RECONCILIATION_VERIFY_TIMEOUT_SECONDS", "1200")
 )
 VERIFY_MAX_TURNS = int(
-    os.environ.get("RECONCILIATION_VERIFY_MAX_TURNS", "30")
+    os.environ.get("RECONCILIATION_VERIFY_MAX_TURNS", "32")
 )
 VERIFY_MAX_WORKERS = int(
     os.environ.get("RECONCILIATION_VERIFY_MAX_WORKERS", "4")
@@ -77,6 +79,22 @@ MODEL_POOL = [
 
 if not MODEL_POOL:
     raise RuntimeError("RECONCILIATION_VERIFIER_MODELS must contain a model.")
+
+
+# VERIFIER EXECUTION HARDENING 2026-08-21
+_CONSOLE_PRINT_LOCK = threading.Lock()
+
+
+def thread_safe_print(*args: Any, **kwargs: Any) -> None:
+    """Serialize console writes from parallel verifier threads."""
+    if "flush" not in kwargs:
+        kwargs["flush"] = True
+    with _CONSOLE_PRINT_LOCK:
+        builtins.print(*args, **kwargs)
+
+
+# All legacy print(...) calls in this module now resolve through the shared lock.
+print = thread_safe_print
 
 
 # ============================================================
@@ -924,9 +942,19 @@ def is_refiner_relevant_report(report: dict[str, Any]) -> bool:
     if severity in {"blocker", "error"}:
         return True
 
+    if severity == "warning" and category in REFINER_WARNING_CATEGORIES:
+        return True
+
+    # Coverage auditors sometimes identify a genuine required-scope
+    # representation gap but conservatively grade it as a suggestion because
+    # nearby evidence implies the intended behavior. Let the bounded Refiner
+    # make that cheap explicitness repair now rather than allowing a different
+    # Pass-2 auditor to promote the same gap to a deterministic material error.
+    source_agent = str(report.get("source_agent", ""))
     return (
-        severity == "warning"
-        and category in REFINER_WARNING_CATEGORIES
+        severity == "suggestion"
+        and category == "requirement_representation_problem"
+        and source_agent.startswith("Coverage")
     )
 
 
@@ -963,12 +991,12 @@ def build_refiner_findings(merged: dict[str, Any]) -> dict[str, Any]:
         "selected_structural_warning_count": selected_warning_count,
         "findings": selected,
         "selection_policy": (
-            "Refiner input contains all blocker/error findings plus warnings "
-            "whose categories indicate hidden/overgrouped/under-decomposed "
-            "required work. Ordinary warnings and suggestions remain in "
-            "MERGED_FINDINGS_PASS1.json and are reassessed during pass 2. "
-            "This keeps refinement bounded while ensuring scheduler-relevant "
-            "structural warnings are not invisible to the Refiner."
+            "Refiner input contains all blocker/error findings, warnings whose "
+            "categories indicate scheduler/representation risk, and coverage-origin "
+            "requirement-representation suggestions. Other ordinary warnings and "
+            "suggestions remain in MERGED_FINDINGS_PASS1.json and are reassessed "
+            "during pass 2. This keeps refinement bounded while preventing a required "
+            "coverage gap noticed in Pass 1 from being stranded until Pass 2."
         ),
     }
 

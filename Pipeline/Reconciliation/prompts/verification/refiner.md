@@ -971,3 +971,8 @@ For `logical:enemy-locomotion-behavior-surface`, legitimate support includes GDD
 - Ensure the GDD's `Current prototype scene-builder lock` exists as a typed `pipeline_constraint` in `non_code_requirements`; task-level exclusive-resource entries do not replace that process invariant.
 - Keep `seed_assessment` internally consistent. Candidate self-assessment/bookkeeping is not GDD canon and must never be invented as a coverage requirement.
 
+## 2026-08-21 FINAL MATERIAL CONVERGENCE
+
+- If `fixed-isometric-camera` presents player-follow translation as GDD-backed acceptance, repair provenance: keep the actual fixed-isometric/no-free-rotation GDD acceptance and move follow behavior to repository evidence/notes as a current implementation detail. Do not downgrade a supported completion claim solely because the extra follow clause was mis-sourced.
+- Ensure `enemy-status-effect-displacement` explicitly requires Frost slowdown to affect locomotion/repositioning only without suppressing, pausing, or slowing Ranged Enemy attack execution. Add a Ranged Enemy validation requirement that its normal telegraphed attacks continue while Frost slows movement. This is existing GDD behavior, not new design and not a new work item.
+
