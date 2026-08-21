@@ -115,7 +115,15 @@ def make_inputs() -> SimpleNamespace:
                 "work_keys": ["player-movement", "fireball"],
             }
         ],
-        proposed_non_code_records=[{"title": "Human merge authority"}],
+        proposed_non_code_records=[
+            {
+                "title": "Human merge authority",
+                "requirement_type": "pipeline_constraint",
+                "status": "confirmed",
+                "gdd_evidence": [],
+                "evidence": "Synthetic fixture requirement.",
+            }
+        ],
     )
 
 
