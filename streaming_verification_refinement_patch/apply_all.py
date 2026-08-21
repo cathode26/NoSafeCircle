@@ -15,6 +15,7 @@ NORMALIZE_PATHS = [
     ROOT / "Pipeline" / "Reconciliation" / "parallel_verification_crew.py",
     ROOT / "Pipeline" / "Reconciliation" / "streaming_refinement_v2.py",
     ROOT / "Pipeline" / "Reconciliation" / "fresh_run_closure_smoke_test.py",
+    ROOT / "Pipeline" / "Reconciliation" / "verifier_execution_hardening_smoke_test.py",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "reconcile.md",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "coverage_auditor.md",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "refiner.md",
@@ -68,6 +69,7 @@ def main() -> int:
     run_script("apply_deterministic_finding_identity_fix.py")
     run_script("apply_resume_verification_order_fix.py")
     run_script("apply_resume_deterministic_identity_remap.py")
+    run_script("apply_verifier_execution_hardening.py")
     normalize_lf()
     print("All streaming verification + approved closure fixes are installed.")
     print("Clarified Frost Field placement at the shared cursor world target.")
@@ -89,6 +91,9 @@ def main() -> int:
     print("Installed failed-verification resume support without rerunning Pass 1 repairs.")
     print("Fixed resume verification initialization order.")
     print("Resume now migrates preserved deterministic finding IDs to the global identity format.")
+    print("Verifier coverage/structure/execution defaults now use 32 turns; evidence remains 36.")
+    print("Max-turn recovery is now scheduled immediately with priority in the freed worker slot.")
+    print("Parallel verifier console output now shares one thread-safe print lock.")
     print("Normalized patched text files to LF line endings.")
     return 0
 
