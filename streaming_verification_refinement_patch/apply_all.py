@@ -63,6 +63,7 @@ def main() -> int:
     print("Field repair workers inherit the standard Refiner correctness guidance.")
     print("Fixed streaming v2 recovery bookkeeping for derived in-progress artifacts.")
     print("Deduplicated dependency/resource list edits by durable key rather than prose.")
+    print("Installed failed-verification resume support without rerunning Pass 1 repairs.")
     print("Fixed resume verification initialization order.")
     print("Normalized patched text files to LF line endings.")
     return 0
