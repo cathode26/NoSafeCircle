@@ -1,0 +1,81 @@
+{
+  "agent": "Streaming Field Repair — coverage_doors",
+  "requested_model": "sonnet",
+  "duration_seconds": 75.47,
+  "result": {
+    "operations": [
+      {
+        "target_type": "work_item",
+        "target_id": "door-open-interaction",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Victory/input-shutdown ownership; Section 4 — Final escape/victory coordination; Section 5 — Runtime Implementation (Game Flow/Victory capability)\", \"requirement\": \"Exposes an owner-controlled gameplay-enable/suspend interface that immediately cancels an in-progress door approach/opening timer, rejects new door-selection commands while suspended, and can be re-enabled only through an authorized reset/test flow.\"}",
+        "reason": "DOORS-001/DOOR-R21: the GDD requires Door/Interaction, alongside Player Movement and the three spells, to expose an owner-controlled suspend/re-enable interface consumed by final-escape-victory. No door work item carried this obligation; final-escape-victory already depends on door-open-interaction specifically to stop in-progress door approach/opening, so the durable acceptance criterion belongs on that owner."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "door-open-interaction",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Exposes an owner-controlled reset entry point that returns its owned interaction/opening state (opening progress, interacting flag, open flag, and doorway-blocker state) to floor-initial values, consumed by the Floor Run/Restart Orchestrator.\"}",
+        "reason": "DOORS-002/DOOR-R20: floor-run-restart-bootstrap and floor-run-restart-persistent-closure both depend on door-open-interaction specifically to invoke a reset entry point for its already-run-persistent Progress/IsOpen/doorwayBlocker state, matching the reset criteria already present on doorway-crossing-state and door-close-lock-break-lifecycle, but door-open-interaction itself never carried that obligation."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "door-open-interaction",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Open Sealed Door; Section 3 — Door Passability Contract\", \"requirement\": \"Completing five uninterrupted seconds transitions the door's semantic state from sealed to open (player-traversable); door-close-lock-break-lifecycle owns publishing this resulting open state through the shared navigation-owned passability interface.\"}",
+        "reason": "DOORS-003: the GDD requires an uninterrupted five-second timer to open the door, but door-open-interaction never stated that outcome, and it was unclear which item publishes the resulting 'open' semantic state to the navigation passability interface. door-close-lock-break-lifecycle already carries an acceptance criterion publishing sealed/open/locked/broken through that interface, so this criterion states the transition and cross-references the existing publisher rather than duplicating publication ownership."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "door-close-lock-break-lifecycle",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 4 — Dungeon Encounter Agent\", \"requirement\": \"Exposes a per-door authorable/serialized durability value so Dungeon Encounter can configure it per door, without Dungeon Encounter owning runtime durability state, damage intake, or the locked-to-broken transition.\"}",
+        "reason": "DOORS-005: dungeon-encounter-content-authoring depends on door-close-lock-break-lifecycle specifically to author 'configured per-door durability values' per the GDD's Dungeon Encounter Agent split, but the owner's durability acceptance criteria never stated the value must be per-door configurable, leaving the consumer-side expectation stronger than the owner-side obligation."
+      }
+    ],
+    "finding_resolutions": [
+      {
+        "source_agent": "Coverage — Doors",
+        "finding_id": "DOORS-001",
+        "disposition": "corrected",
+        "explanation": "Added an owner-controlled suspend/re-enable acceptance criterion to door-open-interaction, matching the pattern already present on fireball, frost-field, and force-wave, and giving final-escape-victory's existing dependency a durable owner-side obligation to consume."
+      },
+      {
+        "source_agent": "Coverage — Doors",
+        "finding_id": "DOORS-002",
+        "disposition": "corrected",
+        "explanation": "Added an owner-controlled reset-entry-point acceptance criterion to door-open-interaction, matching the reset criteria already carried by doorway-crossing-state and door-close-lock-break-lifecycle, so both restart stages' existing dependency on door-open-interaction has a real obligation to satisfy."
+      },
+      {
+        "source_agent": "Coverage — Doors",
+        "finding_id": "DOORS-003",
+        "disposition": "corrected",
+        "explanation": "Added an explicit sealed-to-open transition acceptance criterion to door-open-interaction and clarified that door-close-lock-break-lifecycle (which already publishes sealed/open/locked/broken through the navigation passability interface) is the owner that publishes the resulting open state, closing the gap between the two items without duplicating publication ownership."
+      },
+      {
+        "source_agent": "Coverage — Doors",
+        "finding_id": "DOORS-005",
+        "disposition": "corrected",
+        "explanation": "Extended door-close-lock-break-lifecycle's durability acceptance criteria to require a per-door authorable/serialized durability value, matching dungeon-encounter-content-authoring's existing dependency reason that it configures per-door durability values without owning runtime durability state."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-doors-DOOR-R20",
+        "disposition": "corrected",
+        "explanation": "This deterministic finding duplicates DOORS-002; resolved by the same added reset-entry-point acceptance criterion on door-open-interaction, which is the correct representation type (acceptance_criterion on the existing owner, not a new work item)."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-doors-DOOR-R21",
+        "disposition": "corrected",
+        "explanation": "This deterministic finding duplicates DOORS-001; resolved by the same added suspend/re-enable acceptance criterion on door-open-interaction, which is the correct representation type (acceptance_criterion on the existing owner, not a new work item)."
+      }
+    ],
+    "reasoning": "All six supplied findings concern door-open-interaction's and door-close-lock-break-lifecycle's acceptance-criteria coverage, not missing work items, dependencies, or resource locks. door-open-interaction is already the correct owner (final-escape-victory already depends on it for suspend, and both restart stages already depend on it for reset), and door-close-lock-break-lifecycle already partially covers passability publication and durability ownership — the gaps were purely representational (missing acceptance criteria on the already-correct owner), so the minimal correction is to append the missing acceptance_criteria entries rather than restructure the graph, add work items, or change dependencies/locks. The two deterministic findings (DOOR-R20, DOOR-R21) are exact duplicates of DOORS-002 and DOORS-001 respectively and are resolved by the same corrections. No finding required rejection or unresolved-question treatment since all four verifier-identified gaps are directly supported by explicit GDD passages already cited in the candidate's own evidence, and the repairs stay within the existing ownership boundaries (Door/Interaction owns door-side suspend/reset/open-transition; door-close-lock-break-lifecycle remains sole owner of passability publication and runtime durability).",
+    "schema_version": "1.0"
+  }
+}

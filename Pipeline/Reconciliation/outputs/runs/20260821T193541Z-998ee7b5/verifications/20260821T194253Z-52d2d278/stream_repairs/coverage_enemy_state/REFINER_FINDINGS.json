@@ -1,0 +1,188 @@
+{
+  "schema_version": "1.1",
+  "source_finding_count": 8,
+  "material_finding_count": 4,
+  "selected_finding_count": 6,
+  "selected_structural_warning_count": 2,
+  "findings": [
+    {
+      "source_agent": "Coverage — Enemy State",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "ES-F1",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Enemy attack-state reset has no durable owner and is absent from full restart closure",
+        "description": "GDD §2 'Loss' and 'Floor-run restart ownership' both name enemy ATTACK state as a required restart participant ('no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run'; 'enemy pursuit/search/attack/status/displacement state'). In the candidate, enemy attack behavior is deliberately excluded from `enemy-pursuit-search-foundation` (its notes state archetype-specific attack behavior 'stays on the archetype items') and that foundation's reset acceptance criterion only clears 'target/last-known-position/search state'. `melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack` each own real run-persistent attack state (attack cooldowns/windups, in-flight telegraphed shots, an in-progress locked-door attack) but none of the three carries a reset-entry-point acceptance criterion, and `floor-run-restart-persistent-closure` has no dependency edge on any of them. `enemy-status-effect-displacement` covers status/displacement only. An implementer could satisfy every currently mapped criterion while a mid-windup melee swing, a live enemy projectile, or an in-progress door attack survives a restart. The candidate's own unresolved question #4 asks only how pursuit vs. status/displacement reset should be split and does not surface the attack-state gap.",
+        "affected_keys": [
+          "floor-run-restart-persistent-closure",
+          "melee-enemy",
+          "ranged-enemy",
+          "locked-door-enemy-attack",
+          "enemy-pursuit-search-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 — Win and Loss Conditions (Loss)",
+            "requirement": "Restart resets all run-persistent gameplay state ... 'no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run.'"
+          },
+          {
+            "reference": "GDD §2 — Floor-run restart ownership",
+            "requirement": "'Required reset participants include ... enemy pursuit/search/attack/status/displacement state ...' and 'Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns.'"
+          },
+          {
+            "reference": "GDD §3 — Required Enemy Roster / Door and Pursuit Rules",
+            "requirement": "Melee Enemy attacks at close range, Ranged Enemy fires a slow telegraphed shot, and a qualifying blocked pursuer attacks a locked door — all attack behaviors that can be mid-execution when restart occurs."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "Case-insensitive repository search across Assets/ for Enemy/Registry/Defeat/Frost/Displacement/Slow returns no files; no enemy attack implementation exists, so this must be represented as required work rather than assumed already handled."
+          }
+        ],
+        "recommended_change": "Add an explicit owner-controlled attack-state reset acceptance criterion to `melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack` (or explicitly assign attack-state reset to `enemy-pursuit-search-foundation` and widen its reset criterion beyond target/last-known-position/search), and add the corresponding depends_on edges from `floor-run-restart-persistent-closure` to whichever owners are chosen. Extend unresolved question #4 to include attack state.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy State",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "ES-F2",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Defeat outcome (defeated enemy stops being an active threat) is not obliged by any acceptance criterion",
+        "description": "`enemy-health-damage-defeat` requires only that (a) zero health 'triggers a defeat transition exactly once' and (b) defeat 'reports removal through the Active Enemy Registry's owner-controlled unregister interface'. Neither criterion obliges the defeated enemy to actually stop pursuing/attacking or leave play; the registry call updates a count only. `melee-enemy`/`ranged-enemy` only require 'Enemy Health/Defeat participation' in an assembled prefab. An implementer could satisfy all mapped criteria while a defeated enemy keeps chasing and damaging the player through PlayerHealth.TakeDamage. Given that the GDD's core loop lets the player 'defeat enough of them to reduce the immediate threat' and distinguishes 'surviving enemies' from defeated ones, the observable defeat outcome deserves an explicit criterion rather than being inferable from the registry call.",
+        "affected_keys": [
+          "enemy-health-damage-defeat",
+          "melee-enemy",
+          "ranged-enemy"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §1 — Executive Summary",
+            "requirement": "'Before attempting it, the player must create space by luring enemies away, slowing them with Frost Field, knocking them back with Force Wave, or defeating enough of them to reduce the immediate threat.'"
+          },
+          {
+            "reference": "GDD §3 — Enemy health and defeat ownership",
+            "requirement": "'A reusable Enemy Health/Defeat capability owns each persistent enemy object's current health, damage intake, defeat transition, and restartable health/defeat state.'"
+          },
+          {
+            "reference": "GDD §3 — Active Enemy Registry and Encounter Admission",
+            "requirement": "'Enemy activation registers an enemy with the registry; defeat removes that enemy from the active count.'"
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "No enemy health, defeat, or behavior code exists anywhere under Assets/, so the defeat outcome has no existing implementation that could supply the missing obligation."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `enemy-health-damage-defeat` stating that the defeat transition ends the enemy's participation as an active threat (its pursuit/attack behavior ceases and it leaves play) while remaining the same persistent object restorable by the floor-restart reset entry point.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy State",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "ES-F3",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Cross-space persistence of enemy health/defeat state is evidence-only, not an acceptance obligation",
+        "description": "GDD §5 Runtime Implementation requires that 'Enemy objects, enemy health, pursuit state, active-enemy bookkeeping, and door state persist naturally as the player advances between spaces; no scene-load or cross-scene state-transfer system is required.' The candidate represents three of those four explicitly — registry persistence (`active-enemy-registry` criterion: crossing between rooms does not unregister a surviving enemy), pursuit persistence (`enemy-pursuit-search-foundation` criteria on doorway crossing and non-despawn), and the continuous-scene structure (`five-room-content-authoring`) — but the enemy-HEALTH half appears only inside gdd_evidence/ownership prose. `enemy-health-damage-defeat`'s criteria (damage interface, one-shot defeat transition, registry unregister, restart reset) would all still pass if enemy health were re-initialized on a room transition, which would break the GDD's persistent-pursuer premise (Lower Vault: 'the same persistent pursuers ... not newly spawned enemies').",
+        "affected_keys": [
+          "enemy-health-damage-defeat",
+          "active-enemy-registry"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 — Runtime Implementation",
+            "requirement": "'Enemy objects, enemy health, pursuit state, active-enemy bookkeeping, and door state persist naturally as the player advances between spaces; no scene-load or cross-scene state-transfer system is required.'"
+          },
+          {
+            "reference": "GDD §3 — Dungeon Floor Structure (Lower Vault)",
+            "requirement": "'surviving enemies from earlier rooms are the same persistent pursuers breaking through behind them, not newly spawned enemies.'"
+          },
+          {
+            "reference": "GDD §3 — Door and Pursuit Rules",
+            "requirement": "'Surviving enemies carry forward and combine with later encounters as the same persistent enemy objects, not new spawns.'"
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "No enemy health component exists, so the persistence guarantee must come from the work item's acceptance surface rather than existing behavior."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `enemy-health-damage-defeat` that a persistent enemy's health/defeat state changes only through the owner-controlled damage interface and the floor-restart reset entry point — never on room transition, target loss, search, or doorway crossing.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-04",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Enemy State classified requirement REQ-ES-04 as required_gameplay/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §1 — Executive Summary; GDD §3 — Active Enemy Registry and Encounter Admission",
+            "requirement": "Defeating enemies reduces the immediate threat: a defeated enemy ceases to act as an active pursuer/attacker and is removed from play (distinguishing 'surviving enemies' from defeated ones)."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-16",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Enemy State classified requirement REQ-ES-16 as required_gameplay/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 — Runtime Implementation",
+            "requirement": "Enemy objects, enemy health, pursuit state, and active-enemy bookkeeping persist naturally as the player advances between spaces; no scene-load or cross-scene state-transfer system is required."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-26",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Enemy State classified requirement REQ-ES-26 as required_implementation/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 — Win and Loss Conditions (Loss); GDD §2 — Floor-run restart ownership",
+            "requirement": "No enemy ATTACK state carries over from the failed run; enemy attack state is a named required restart participant with an owner-exposed reset entry point."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    }
+  ],
+  "selection_policy": "Refiner input contains all blocker/error findings, warnings whose categories indicate scheduler/representation risk, and coverage-origin requirement-representation suggestions. Other ordinary warnings and suggestions remain in MERGED_FINDINGS_PASS1.json and are reassessed during pass 2. This keeps refinement bounded while preventing a required coverage gap noticed in Pass 1 from being stranded until Pass 2."
+}

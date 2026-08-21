@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.1",
+  "source_finding_count": 5,
+  "material_finding_count": 1,
+  "selected_finding_count": 1,
+  "selected_structural_warning_count": 0,
+  "findings": [
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-global-pipeline-GP-029",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Global Pipeline classified requirement GP-029 as required_process/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Six-Week Development Plan",
+            "requirement": "Stretch features will be removed first if the schedule slips; advanced door visuals and one encounter variation may also be reduced; the three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game; and if Weeks 5-6 required work overruns, the fallback is to reduce final-room encounter density toward the low end of the three-to-eight-enemy range and simplify presentation polish, with required systems not cut."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    }
+  ],
+  "selection_policy": "Refiner input contains all blocker/error findings, warnings whose categories indicate scheduler/representation risk, and coverage-origin requirement-representation suggestions. Other ordinary warnings and suggestions remain in MERGED_FINDINGS_PASS1.json and are reassessed during pass 2. This keeps refinement bounded while preventing a required coverage gap noticed in Pass 1 from being stranded until Pass 2."
+}

@@ -1,0 +1,1642 @@
+{
+  "schema_version": "2.0-field-ops",
+  "field_operation_count": 50,
+  "conflict_component_count": 1,
+  "legacy_delta": {
+    "agent": "Streaming Field Repair Synthesizer",
+    "requested_model": "opus",
+    "duration_seconds": 0,
+    "result": {
+      "summary": {
+        "desired_state_summary": "Player Core Systems: Per the current GDD (Docs/GDD/No_Safe_Circle_GDD.md), Player Movement must own player position/locomotion, movement-restriction state, and a shared cursor-to-gameplay-plane projection producing a world-space pointer target consumed by movement itself, cursor-aimed spells (Fireball, Frost Field), and Door/Interaction (Force Wave is the explicit player-centered exception). Movement must be mouse-directed (click to set a destination or hold to steer toward the cursor) and routed through the project's Unity Input System/Input Actions layer rather than direct hardware polling. Player Movement must expose an owner-controlled movement-restriction interface that Charged Fireball requests/releases without mutating movement internals directly, and must expose an owner-controlled reset entry point for player position/movement state consumed by the Floor Run/Restart Orchestrator. Player Health must remain the single owner of current health, exposing an owner-controlled damage interface (already present) plus an owner-controlled restore/heal interface clamped to max health (consumed by Door's lock-and-heal request), an observable zero-health/death transition consumed by the restart orchestrator without polling or internal mutation, a continuous player-facing health indicator, no passive regeneration, and an owner-controlled floor-restart reset entry point. Player Mana must remain the single owner of current mana and its post-cast regeneration-delay state, exposing the existing spend interface plus an owner-controlled reset entry point for floor restart, while never absorbing spell-local cooldown/charge/cast/placement/active-field state that belongs to Fireball, Frost Field, or Force Wave; denied-cast attempts should surface player-readable feedback given the GDD's failure-readability success criterion (exact presentation is an implementation choice). Wizard Combat and Spells: The GDD requires three spells owned by the Wizard Combat Agent: Charged Fireball (cursor-aimed tap-for-quick-shot / hold-to-charge-for-area-damage against clustered Melee Enemies, consuming a Player-Movement-owned movement-restriction interface while charging and an Enemy-Health/Defeat-owned damage interface to hurt enemies), Frost Field (placed at the Player-Movement-owned shared cursor world-space target, providing readable cast/active-field feedback, and triggering — but not implementing — enemy slowdown through the Enemy Pursuit/status-effect owner), and Force Wave (player-centered radial knockback, no cursor targeting, 25-mana initial cost, long cooldown, requesting enemy displacement through the same enemy-owned status-effect/displacement interface). Each spell owns its own local state (Fireball: tap/charge/cast; Frost Field: Wizard-Combat-side cast/placement/active-field; Force Wave: cooldown) and must expose an owner-controlled floor-restart reset entry point and an owner-controlled gameplay-enable/suspend interface consumed by the victory/game-flow capability. All three spend mana through Player Mana's existing spend interface and must route casting input through Unity Input System/Input Actions rather than independent hardware polling. Enemy State, Persistence, and Shared Effects: The GDD requires three reusable, ownership-scoped enemy capabilities beneath the Enemies feature: (1) a shared Active Enemy Registry that tracks persistent active enemy objects, exposes current count/remaining capacity under a hard 15-enemy cap, registers on activation, unregisters on defeat, and is never depleted by target loss/search/room-crossing/waiting-behind-a-locked-door; (2) a reusable Enemy Health/Defeat capability that owns each persistent enemy's current health, damage intake (consumed by Fireball and other canon damage sources), the defeat transition, and reports defeat-driven removal through the registry's own interface rather than duplicating bookkeeping; (3) a reusable status-effect/displacement component that applies and restores Frost Field slowdown (locomotion/repositioning only — it must never suppress or slow Ranged Enemy attack execution) and applies Force-Wave-requested forced displacement, returning the affected enemy to the correct pursuit/search movement state afterward. All three must expose owner-controlled reset entry points consumed by the Floor Run/Restart Orchestrator (owned by a different domain) rather than being reset by direct internal mutation. Enemy Pursuit and Attack Behavior: The GDD requires a shared detection/pursuit/target-loss/search/reacquisition state machine (Detection Distance smaller than Lose Target Distance; distance-based, non-random loss; last-known-position homing; short bounded randomized search/wander; reacquisition; no target clearing merely from crossing a doorway; explicit continued traversal through open/broken doorways) consumed by two required enemy archetypes: Melee Enemy (rushes and attacks at close range, naturally clusters while pursuing, gradually closes distance so retreat alone cannot preserve indefinite safety) and Ranged Enemy (keeps moderate distance, fires a slow telegraphed shot with line-of-sight/projectile occlusion, continues attacking while slowed by Frost Field even though its repositioning is slowed). Both archetypes deal damage only through the shared Player Health interface and must be delivered as usable assembled world-space SpriteRenderer prefabs integrating pursuit/locomotion, Enemy Health/Defeat, and Active Enemy Registry participation (both owned elsewhere). Separately, the GDD requires that any surviving enemy still actively tracking/pursuing the player and blocked by a newly locked door attacks that door (no separate witness flag) through the Door-owned damage interface, and resumes pursuit through the doorway once it breaks. Doors and Interaction: The GDD requires Door and Interaction to: (1) expose sealed doors as cursor-targeted interactables that trigger a combined approach-and-interact request through Player Movement's shared world-space pointer target, auto-start a five-second timer with no sustained hold once arm's-reach range is reached, ignore cursor drift after selection, and reset on damage/moving-away/interaction-cancelling commands; (2) own authoritative doorway-crossing state (forward-side crossing) as a single owner consumed by close/lock and final victory; (3) automatically close and lock the door after crossing (no second input), request a fixed Player Health restoration through Player Health's owner-controlled restore interface, own runtime durability and an owner-controlled damage-receive interface consumed by enemy attacks, own the locked-to-broken transition, enforce forward-only progression (no reopening/unlocking/re-crossing; a broken door stays open and is not a player return path), publish semantic door state through the navigation-owned passability interface, and provide required breach feedback (banging/shaking/cracks/durability indicator); and (4) expose an owner-controlled reset entry point for door lifecycle/crossing/durability state consumed by the Floor Run/Restart Orchestrator. World and Unity Foundations: The GDD requires: a fixed 2.5D isometric camera with no free world-view rotation; the approved Unity 2D Tilemap Editor (com.unity.2d.tilemap) and Unity AI Navigation (com.unity.ai.navigation) packages configured in the project; a shared gameplay navigation/locomotion layer that owns the walkable movement representation for NavMesh-based enemy movement and that also owns the navigation-side half of the door-passability contract (translating Door and Interaction's semantic sealed/open/locked/broken state into enemy walkability, with sealed/locked blocking and open/broken permitting traversal); and a reusable Tilemap/SpriteRenderer visual-world foundation (Isometric Tilemaps for floors/walls/repeatable architecture, world-space SpriteRenderer prefabs with isometric sorting for the wizard, enemies, doors, and other independently sorted objects) that is decoupled from the gameplay/collision/walkability layer so art can change without redefining gameplay rules, and that supports all five spaces existing inside one continuous scene/floor with no scene-loading or cross-scene state transfer. Room-specific five-space authoring and encounter content remain explicitly out of scope for this foundation and belong to a separate deferred content-authoring feature outside this domain. Floor Content and Encounters: The GDD requires one continuous handcrafted floor with five named tactical spaces (Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, Final Room), each with a specific layout/tactical purpose, built on the reusable Tilemap/SpriteRenderer world foundation. Encounter placement, triggers, per-door durability values, and mixed Melee/Ranged compositions (explicitly required in Chapel of Ash and the Final Room) are authored by the Dungeon Encounter Agent once the room spaces and admission foundation exist, but exact geometry/placement/tuning is intentionally left to later authoring/playtesting. Independently, the GDD already fully specifies a runtime encounter-admission rule that must not be blocked by deferred content: a shared Active Enemy Registry tracks up to fifteen active persistent enemies; when admitting a new encounter would exceed that cap, new encounter enemies are delayed/reduced first and existing persistent pursuers are never removed, with Lower Vault as the explicit validation case. Section 3 also fixes a three-to-eight enemy encounter-size range and the never-isolated-Ranged-Enemy composition rule as durable constraints on future encounter authoring. Run Lifecycle and Victory: The GDD requires two closely related capabilities in this domain. (1) Floor Run/Restart: a shared Floor Run/Restart Orchestrator consumes Player Health's observable zero-health/death transition and coordinates a fresh floor attempt by invoking owner-controlled reset entry points on every run-persistent state owner (Player Health, Player Mana, Player Movement/position, Fireball, Frost Field, Force Wave, enemy health/defeat, enemy pursuit/search/attack/status/displacement, Active Enemy Registry, door lifecycle/crossing/durability, encounter activation/admission). An early implementation may validate only against currently-existing persistent owners, but full closure remains required until every implemented owner participates. (2) Win/Loss Conditions: victory is confirmed only via the shared doorway-crossing state Door and Interaction owns (no separate crossing detector); a reusable Game Flow/Victory capability then owns the won-state transition, displays a simple \"You Escaped\" overlay, and coordinates suspension of Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave through each system's own owner-controlled suspend/re-enable interface rather than mutating their internals. No further post-victory progression is required. Loss is reaching zero health, which triggers the restart orchestrator described above. Delivery, Validation, and Pipeline Constraints: The GDD requires a Windows Standalone build as part of the Required Scope (Section 3) and Technical Strategy (Section 5), with the canonical gameplay scene registered in Unity Build Settings before that delivery obligation can be considered complete. The GDD also defines an extensive set of required development-process invariants governing the AI-assisted pipeline: minimal-context dispatch, isolated-branch/workspace execution with no concurrent edits to the same Unity assets, a scene-builder exclusive-write lock for `DoorPrototypeSceneBuilder.cs`/`DoorPrototype.unity`, compile-before-validation, failed-task scope-reduction retry policy, a planning token-budget ceiling, mandatory human inspection/merge/playtesting authority, agent scope/canon discipline, preservation of non-canonical stub scenes as a human decision, a boundary on what generated development-time art import does and does not imply, credential handling outside source control, and a runtime prohibition on generative AI in the shipped game. Section 3's Player Experience Success Criteria are required validation obligations that must be attached to the concrete work items (owned by other domain workers) that actually implement the underlying behavior, not treated as separate gameplay features. Stretch goals and explicitly excluded systems must be enumerated and kept out of required Milestone 1 work.",
+        "current_state_summary": "Player Core Systems: Current repository state for player-core systems (Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs, PlayerHealth.cs, PlayerMana.cs, PlayerManaUI.cs, plus their scene wiring in DoorPrototype.unity and creation code in DoorPrototypeSceneBuilder.cs): PlayerMovement.cs is a CharacterController-driven WASD keyboard mover that polls Keyboard.current directly every Update; it has no mouse-directed click/hold movement, no cursor-to-gameplay-plane projection/world-space pointer target, no movement-restriction request/release interface, and no floor-restart reset entry point. It does call PlayerInteractionController.OnPlayerMoved() on movement input, which is the one GDD-relevant behavior already present. PlayerHealth.cs exposes CurrentHealth, a clamped TakeDamage(amount) damage interface, and a Damaged event, but has no restore/heal interface, no observable zero-health/death transition, and no reset entry point; there is no PlayerHealth UI component anywhere in the scripts, so the GDD's continuous health indicator is not implemented. PlayerMana.cs exposes CurrentMana/MaxMana, Spend(amount) (fails silently returning false when insufficient), Tick-based post-cast-delay regeneration, and a ManaSpent event; PlayerManaUI.cs already renders a continuous fill-bar tied to CurrentMana/MaxMana (confirmed wired in DoorPrototype.unity via DoorPrototypeSceneBuilder.BuildManaUI). PlayerMana has no reset entry point and no denied-cast feedback signal. All four scripts (PlayerHealth, PlayerMana, PlayerMovement, PlayerManaUI) are confirmed serialized onto the Player/Canvas GameObjects in Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity (verified by matching each script's .meta GUID against the scene file), and DoorPrototypeSceneBuilder.BuildPlayer/BuildUI is the current write surface that creates and wires them. Assets/InputSystem_Actions.inputactions is the unmodified default Unity template (Move/Look/Attack/Interact/Crouch/Jump/etc. plus a UI map with Point/Click); it has no gameplay-plane cursor-projection or click-to-move action, and PlayerMovement.cs does not consume it at all — it bypasses the Input Actions layer entirely via raw Keyboard.current polling, which conflicts with the GDD's explicit \"routed through Unity Input System/Input Actions\" requirement. PlayerManaPlayModeTests.cs and part of DoorInteractionPlayModeTests.cs give real Play Mode test coverage for PlayerMana spend/regen/post-cast-delay behavior and for PlayerHealth's damage-cancels-door-interaction interaction, but no tests exist for movement, cursor projection, health restore, or any reset behavior. Wizard Combat and Spells: Repository inspection confirms Fireball, Frost Field, and Force Wave do not exist anywhere under Assets/ (no matches for those terms, and no dedicated scripts). Only PlayerMana.cs (mana pool + Spend/regen), PlayerHealth.cs (damage), PlayerMovement.cs (WASD-only CharacterController movement, no mouse/cursor projection, no movement-restriction interface), PlayerInteractionController.cs, and DoorInteractable.cs are integrated. No enemy scripts of any kind exist (no health/damage/defeat capability, no status-effect/displacement capability), so any spell-consumed enemy-owned interface is itself an unfinished prerequisite. Assets/InputSystem_Actions.inputactions exists with a generic Player action map (Move/Look/Attack/Interact/Crouch/Jump/Previous/Next/Sprint) but has only one combat-adjacent action (\"Attack\", a plain Button bound to Mouse leftButton with no tap/hold distinction) and no Frost-Field- or Force-Wave-specific actions, so all three spells must add/modify bindings in that shared asset. DoorPrototypeSceneBuilder.cs assembles the Player GameObject (movement, interaction, health, mana, debug controls) and rebuilds/saves the canonical DoorPrototype.unity scene on every run, so attaching any new spell component to the Player requires modifying that builder and re-saving that scene. Enemy State, Persistence, and Shared Effects: The current integrated project contains zero enemy-related code, components, or scene objects. A repository-wide search of Assets/ (Scripts, Tests, and Editor) for Enemy, Registry, Defeat, Frost, and Displacement returned no matches. DoorPrototypeSceneBuilder.cs creates only Floor, Walls, DoorRoot, and player/camera-related objects — no enemy scaffolding. PlayerHealth.cs exists (health/damage only, no death event or restore method) but is outside this domain's ownership. No Active Enemy Registry, Enemy Health/Defeat capability, or status-effect/displacement component exists in any form (not even a builder-capability stub). This domain's required work is therefore entirely missing/open. Enemy Pursuit and Attack Behavior: The current repository contains zero enemy-related code. `Assets/NoSafeCircle/DoorPrototype/Scripts/` only has Door/Player/Camera/UI scripts (DoorInteractable.cs, DoorInteractionUI.cs, PlayerHealth.cs, PlayerInteractionController.cs, PlayerMovement.cs, PlayerMana.cs, PlayerManaUI.cs, IsometricCameraFollow.cs, DebugDamageControl.cs, DebugManaSpendControl.cs); a full `Assets/**/*.cs` glob confirms no file named Enemy/Melee/Ranged/Pursuit exists anywhere. `Packages/manifest.json` does not declare `com.unity.ai.navigation`, so the shared gameplay navigation/locomotion foundation this domain's locomotion depends on is itself unconfigured. `DoorInteractable.cs` currently implements only open/interacting/progress state — no durability, locked, or broken fields and no damage-receive interface exist yet, so the door-side interface locked-door enemy attacks must consume does not exist. `PlayerHealth.cs` already exposes a public `TakeDamage(float)` method, which is a usable existing interface for enemy attacks. Apparent \"NavMesh\"/\"Occlusion\" strings in `DoorPrototype.unity` are generic per-GameObject Unity serialization fields (`m_NavMeshLayer`, occlusion-culling settings), not an actual navigation or line-of-sight implementation. Doors and Interaction: The DoorPrototype scene implements a WASD-movement, arm's-reach-trigger, hold-E interaction model (DoorInteractable.cs + PlayerInteractionController.cs), with a five-second progress timer that resets on release/movement/damage. This is a partial precursor to the GDD's required door contract but is missing cursor-targeted click-to-approach selection, an automatic no-hold timer start, and Unity Input System/Input Actions routing (current code polls Keyboard.current directly). Nothing in the repository implements doorway-crossing detection, automatic close/lock, runtime durability, a damage-receive interface, the locked-to-broken transition, forward-only enforcement, breach feedback, or door-state publication to a navigation/passability layer — none of these exist in any script, the scene, or the builder. PlayerHealth.cs exposes only TakeDamage (no restore/heal interface), and no Unity AI Navigation package/NavMesh gameplay layer exists, confirming that this domain's cross-domain prerequisites (Player Movement's shared pointer projection, Player Health's restore interface, and the gameplay navigation/passability layer) are genuinely unfinished rather than stale ordering. World and Unity Foundations: The only committed canonical gameplay scene is Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity, generated/maintained by Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs. Within that scene: (1) the Main Camera is orthographic, fixed at the classic 30/-45 dimetric isometric rotation, and only ever translated (never rotated) by IsometricCameraFollow.cs, with automated editor tests (DoorPrototypeSceneBuilderTests.cs) directly asserting orthographic mode, the fixed rotation, absence of any Rotate/Orbit component, and that rotation never changes while following the player — this satisfies the GDD's fixed-isometric/no-free-rotation requirement. (2) Packages/manifest.json and Packages/packages-lock.json contain neither com.unity.2d.tilemap nor com.unity.ai.navigation; only the builtin com.unity.modules.tilemap runtime module (a different, lower-level module than the 2D Tilemap Editor authoring package) is present. (3) No Tilemap/Grid GameObjects and no NavMeshAgent/NavMeshSurface/NavMeshObstacle components exist anywhere in the scene; the scene's NavMeshSettings block is Unity's default per-scene stub, not evidence of an implemented navigation layer. (4) The builder currently generates Floor, Walls, and the door visual as plain primitive meshes (Plane/Cube) with MeshRenderers rather than as Isometric Tilemap tiles or world-space SpriteRenderer prefabs, so the reusable Tilemap/SpriteRenderer visual foundation and its sorting/visual-gameplay-separation conventions do not yet exist. Floor Content and Encounters: The current checkout contains only the single-door prototype under Assets/NoSafeCircle/DoorPrototype: a generic Floor plane, two Wall cubes, one DoorRoot/DoorInteractable, a Player object, and UI, all generated by DoorPrototypeSceneBuilder.cs and serialized in DoorPrototype.unity. There is no Tilemap content, no named room (Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, Final Room), no encounter/spawn/trigger authoring, and no Active Enemy Registry, encounter-admission, or enemy code anywhere in Assets/ (confirmed via glob of all NoSafeCircle .cs files and a grep for Encounter/Registry terms, which returned no matches). Five-room content and dungeon encounters are therefore entirely unimplemented, matching their status as GDD-deferred authoring plus one not-yet-built runtime foundation (encounter-admission cap enforcement). Run Lifecycle and Victory: No restart, death-transition, or victory/game-flow code exists anywhere in the current repository. PlayerHealth.cs only exposes CurrentHealth, TakeDamage, and a Damaged event — there is no zero-health/death event, no restore/heal interface, and no reset entry point. PlayerMana.cs and PlayerMovement.cs likewise expose no reset entry points. DoorInteractable.cs implements only the open-timer/interaction lifecycle (Progress, IsOpen, doorwayBlocker disable-on-open) — it has no doorway-crossing detection, no lock/durability/breaking, and no reset entry point either, even though its own Progress/IsOpen/blocker state is already run-persistent. No enemy, spell (Fireball/Frost Field/Force Wave), or navigation code exists in the project at all (confirmed by a repository-wide search), so the eventual full persistent-closure and victory-input-shutdown dependencies on those systems are currently unmet prerequisites rather than already-satisfied interfaces. Delivery, Validation, and Pipeline Constraints: This worker directly inspected only the global_pipeline domain (delivery/build configuration and non-code/pipeline requirements). `ProjectSettings/EditorBuildSettings.asset` contains `m_Scenes: []` — no gameplay scene is registered in Unity Build Settings, confirming the Windows-build delivery obligation has a concrete open configuration gap. `Packages/manifest.json` does not currently declare `com.unity.2d.tilemap` or `com.unity.ai.navigation` (this fact is relevant to the world_foundations domain, not represented as a work item here). `.gitignore` confirms `UserSettings/` and other Unity editor/user-local state are excluded from source control, consistent with the GDD's process expectations. No previous-candidate delivery/pipeline work items were found to be stale; the three routed keys (`no-safe-circle`, `delivery-and-build`, `windows-build-scene-registration`) remain current and required.",
+        "major_findings": [
+          "PlayerMovement.cs implements only WASD keyboard movement via raw Keyboard.current polling with a CharacterController; none of the GDD-required mouse-directed click/hold movement, shared cursor-to-gameplay-plane projection, movement-restriction interface, or floor-restart reset entry point exist. This is the single largest gap in the player-core domain.",
+          "PlayerMovement bypasses the Unity Input System/Input Actions layer entirely (direct Keyboard.current polling) despite `using UnityEngine.InputSystem`, which conflicts with the GDD's explicit 'routed through the project's Unity Input System/Input Actions layer' requirement for both movement and door/spell input.",
+          "Assets/InputSystem_Actions.inputactions is the stock Unity template asset (Move/Look/Attack/Interact/Crouch/Jump/Sprint/etc.) with no cursor-to-gameplay-plane or click-to-move action; implementing mouse-directed movement will require adding/modifying bindings in this shared asset.",
+          "PlayerHealth.cs has a working clamped damage interface and Damaged event but is missing the owner-controlled restore/heal interface, the observable zero-health/death transition, and any reset entry point required for floor-restart participation and Door's lock-and-heal request.",
+          "No PlayerHealth UI/feedback component exists anywhere in the repository, so the GDD's required continuous player-facing health indicator is currently unimplemented (unlike mana, which already has PlayerManaUI wired into the scene).",
+          "PlayerMana.cs's spend/regen/post-cast-delay behavior is implemented and covered by real Play Mode tests, and its continuous mana fill-bar (PlayerManaUI) is already serialized in the canonical scene, but PlayerMana has no floor-restart reset entry point and no denied-cast feedback signal.",
+          "All four current player scripts (PlayerHealth, PlayerMana, PlayerMovement, PlayerManaUI) were confirmed serialized in Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity by matching each script's .meta GUID against the scene contents, not merely inferred from DoorPrototypeSceneBuilder's capability to create them.",
+          "DoorPrototypeSceneBuilder.cs is the current write surface that creates/wires Player, PlayerHealth, PlayerMana, PlayerMovement, and their UI; any player-core work that adds new components (e.g., a health UI) or rewires existing ones must modify this builder and re-save the canonical scene it maintains.",
+          "Fireball, Frost Field, and Force Wave are entirely unimplemented; no matching script, class, or reference exists anywhere under Assets/.",
+          "PlayerMana.Spend(amount) already exists and is a usable owner-controlled spend interface, so per the existing-interface rule none of the three spells need a formal depends_on edge targeting player-mana solely to spend mana.",
+          "PlayerMovement.cs is WASD-only (CharacterController + Keyboard.current polling) with no mouse-directed movement, no cursor-to-gameplay-plane projection/pointer target, no Input System/Input Actions consumption, and no movement-restriction request/release interface. Because Fireball and Frost Field are cursor-targeted and Charged Fireball must consume a movement-restriction interface, both spells have a real unfinished prerequisite on player-movement; Force Wave does not, since it is the explicit player-centered no-cursor exception.",
+          "No enemy scripts exist at all, so the Enemy-Health/Defeat damage interface Fireball must consume and the Enemy Pursuit/status-effect-displacement interface Frost Field (slow trigger) and Force Wave (forced displacement request) must consume are both unfinished prerequisites, producing real dependencies on enemy-health-damage-defeat (Fireball) and enemy-status-effect-displacement (Frost Field, Force Wave).",
+          "Assets/InputSystem_Actions.inputactions has no Fireball/Frost-Field/Force-Wave-specific action and its only combat-adjacent action ('Attack') has no tap-vs-hold interaction configured, so all three spells are expected to add or modify actions/bindings in that single shared asset and must share its exclusive-resource lock.",
+          "DoorPrototypeSceneBuilder.cs constructs the Player GameObject and destructively rebuilds+saves the canonical DoorPrototype.unity scene each run; attaching/wiring any new spell component to that Player object writes through both, so all three spells carry the current builder/scene locks per the repository's established write-surface pattern.",
+          "Per the anti-decomposition instruction ('do not decompose a spell into projectile/VFX/input/damage subtasks'), each spell remains a single concrete implementation work item rather than being split further.",
+          "No enemy code of any kind exists in the repository; this domain's entire required scope is currently missing.",
+          "The GDD explicitly and separately owns three capabilities in this domain: Active Enemy Registry bookkeeping (count/capacity/register/unregister), Enemy Health/Defeat (health/damage/defeat + registry removal reporting), and status-effect/displacement (Frost slowdown apply/restore + forced displacement apply/restore + pursuit/search hand-back).",
+          "Enemy Health/Defeat has a real, GDD-stated dependency on Active Enemy Registry because defeat must report removal through the registry's own unregister interface rather than duplicating the count.",
+          "Status-effect/displacement explicitly consumes the pursuit/search state contract (owned by enemy-behavior domain's enemy-pursuit-search-foundation) and the shared gameplay navigation/locomotion layer (owned by world-foundations domain), per GDD Section 5 Runtime Implementation.",
+          "The GDD explicitly requires that Frost slowdown affect only a Ranged Enemy's repositioning, never its attack execution timing; this is preserved as a direct acceptance criterion on enemy-status-effect-displacement rather than left as background evidence.",
+          "Encounter admission policy (delay/reduce new enemies to respect the 15-cap, Lower Vault priority) is owned by the Dungeon Encounter system in the content_encounters domain and consumes this domain's registry query interface; it is not represented here to avoid duplicating that owner's responsibility.",
+          "All three previously-hinted routing keys (active-enemy-registry, enemy-health-damage-defeat, enemy-status-effect-displacement) remain current and required; none were dropped.",
+          "No enemy-related C# scripts exist anywhere in the repository; a full Assets/**/*.cs glob returns only Door/Player/Camera/UI scripts.",
+          "Packages/manifest.json does not declare com.unity.ai.navigation, so the world-domain gameplay-navigation-locomotion foundation this domain's locomotion must consume is itself not yet configured; enemy-pursuit-search-foundation formally depends on that foundation.",
+          "DoorInteractable.cs currently has no durability/locked/broken state and no damage-receive interface at all (only IsOpen/Progress/interaction-timer fields), so locked-door-enemy-attack's dependency on the doors-domain door-close-lock-break-lifecycle owner is a hard, currently-unmet prerequisite, not a stylistic choice.",
+          "PlayerHealth.cs already exposes a public TakeDamage(float) method, so Melee/Ranged attack acceptance criteria can reference this existing interface directly without a formal dependency on unrelated Player Health work, per the existing-interface consumption rule.",
+          "The apparent NavMesh/Occlusion strings inside DoorPrototype.unity are ordinary Unity per-GameObject serialization boilerplate (m_NavMeshLayer, OcclusionCullingSettings), not evidence of an actual navigation mesh, line-of-sight system, or enemy content; this negative finding is called out explicitly to avoid an overbroad claim being read as a positive one.",
+          "All four routing-hint keys (enemy-pursuit-search-foundation, melee-enemy, ranged-enemy, locked-door-enemy-attack) remain valid, currently-required, and fully missing; none are retired in this refresh.",
+          "door-open-interaction: current code (DoorInteractable.cs, PlayerInteractionController.cs) implements arm's-reach range detection via a trigger collider and a 5-second progress timer that cancels on player-health damage and on any player movement, matching the interruption/timer-progression concept, but it requires a sustained hold of the E key (GDD explicitly requires no sustained hold once the timer auto-starts on arrival) and has no cursor-targeted click-to-approach selection, no consumption of a shared world-space pointer target, and uses raw Keyboard.current polling rather than the Unity Input System/Input Actions layer. Classified partial.",
+          "doorway-crossing-state: no forward-side crossing detection, event, or state exists anywhere in the repository — DoorInteractable.Complete() only disables the door visual/collider and sets IsOpen=true. Classified missing.",
+          "door-close-lock-break-lifecycle: no closing, locking, durability, damage-receive interface, locked-to-broken transition, forward-only enforcement, breach feedback, or navigation-passability publication exists anywhere in the repository. Classified missing.",
+          "PlayerHealth.cs currently exposes only TakeDamage(float) with no restore/heal method, confirming door-close-lock-break-lifecycle's dependency on player-health's still-unfinished restore interface is a real, current prerequisite rather than stale ordering.",
+          "Packages/manifest.json contains no com.unity.ai.navigation dependency and no NavMesh/navigation script exists under Assets/NoSafeCircle, confirming door-close-lock-break-lifecycle's dependency on gameplay-navigation-locomotion for passability publication is real and current.",
+          "PlayerMovement.cs is pure WASD CharacterController motion with no mouse/pointer handling of any kind, confirming door-open-interaction's dependency on player-movement's still-unfinished shared cursor-to-gameplay-plane pointer projection is real and current.",
+          "The DoorPrototype scene serializes DoorInteractable with doorVisual/doorwayBlocker references wired by DoorPrototypeSceneBuilder.cs, confirming the current door is integrated (not merely buildable) but only for the simplified open-only behavior described above.",
+          "InputSystem_Actions.inputactions currently has no Point/Click-style action on the gameplay 'Player' action map (only 'Interact' bound with a Hold interaction, presumed keyboard) — the UI map's Point/Click bindings are for UI navigation, not gameplay cursor targeting, so no existing binding currently satisfies cursor-targeted door selection.",
+          "Fixed isometric camera requirement is fully implemented and test-covered: DoorPrototypeSceneBuilder.BuildCamera sets orthographic=true, orthographicSize=8, and a fixed Quaternion.Euler(30,-45,0) rotation that is never modified again; IsometricCameraFollow.LateUpdate only ever writes transform.position, never rotation. DoorPrototypeSceneBuilderTests.cs directly asserts orthographic mode, the exact fixed rotation, absence of any Rotate/Orbit component, and rotation invariance while following the player.",
+          "Neither approved package (com.unity.2d.tilemap nor com.unity.ai.navigation) appears in Packages/manifest.json or Packages/packages-lock.json. This is concrete missing project-configuration work per the GDD's 'Approved Unity Packages and Windows Build Configuration' section, not deferred design.",
+          "No Tilemap/Grid objects and no NavMesh runtime components (NavMeshAgent/NavMeshSurface/NavMeshObstacle) exist anywhere in the current scene. The scene's NavMeshSettings YAML block is Unity's default per-scene stub present in every scene and is not evidence of an implemented navigation/locomotion layer.",
+          "DoorPrototypeSceneBuilder.cs currently builds Floor, Walls, and the door visual as primitive Unity meshes (Plane/Cube) with MeshRenderer, not as Isometric Tilemap tiles or world-space SpriteRenderer prefabs, so the required Tilemap/SpriteRenderer visual-world foundation does not currently exist.",
+          "Because the future navigation/locomotion layer and the future visual foundation would both need to rebuild the same builder-generated Floor/Walls/DoorRoot objects and the same canonical scene, matching exclusive-resource locks (builder file + canonical scene) are required on both items per the writer-inventory rule, even though the two items have no dependency on each other.",
+          "Both the navigation/locomotion layer and the visual foundation have a real dependency on the package-configuration item, since the GDD states the approved packages must be configured before the layers that consume them (NavMesh-based movement; Isometric Tilemap authoring) can be built.",
+          "No five-room content, encounter, or registry code/scene evidence exists anywhere in the current checkout; the only authored space is the generic single-door prototype room.",
+          "The fifteen-active-enemy admission rule (delay/reduce new activation first, never remove existing pursuers) is fully specified by the GDD independent of room-specific content and is represented as a concrete, currently-dispatchable-once-its-dependency-exists implementation item rather than folded into the deferred encounter-content feature, per the Known Runtime Behavior vs Deferred Content Authoring guidance.",
+          "five-room-content-authoring and dungeon-encounter-content-authoring remain two separate deferred organizational features with no formal dependency edge between them (per the explicit GDD-hardening example), since neither is itself dispatchable; their relationship is preserved in decomposition_reason/notes instead.",
+          "dungeon-encounter-content-authoring is represented as depending on encounter-admission-cap-enforcement (the concrete admission foundation it must consume) and on door-close-lock-break-lifecycle and the melee-enemy/ranged-enemy archetype implementations, because authoring per-door durability values and placing Melee/Ranged compositions genuinely requires those owners' runtime interfaces/archetypes to exist first, per real GDD ownership-split text (Dungeon Encounter Agent role and ownership invariants) rather than any pipeline-prompt closure text.",
+          "Three-to-eight enemy encounter sizing, the never-isolated-Ranged-Enemy rule, and Lower Vault's active-enemy-cap priority validation are preserved as acceptance/validation requirements on the correct owning items rather than invented as new work items.",
+          "Floor Run/Restart has zero current implementation: no orchestrator class, no zero-health event on PlayerHealth, and no reset entry points on any current system (PlayerHealth, PlayerMana, PlayerMovement, DoorInteractable).",
+          "DoorInteractable.cs already owns run-persistent state (Progress, IsOpen, disabled doorwayBlocker) even though the close/lock/durability lifecycle is unimplemented; a bootstrap restart task must reset this existing state, not just health/mana/position.",
+          "Win/Loss Conditions has zero current implementation: no doorway-crossing detector, no Game Flow/Victory capability, no You Escaped overlay, and no suspend/re-enable interfaces on any consumer system.",
+          "Because no enemy, spell, or navigation code exists yet, floor-run-restart-persistent-closure and final-escape-victory both carry multiple currently-unmet cross-domain prerequisites (enemy/door-lifecycle/spell owners) rather than being blocked on ownership ambiguity.",
+          "The routing hint keys (floor-run-restart, floor-run-restart-bootstrap, floor-run-restart-persistent-closure, win-loss-conditions, final-escape-victory) all remain valid current responsibilities under the present GDD and are preserved.",
+          "Per the FRESH RUN CLOSURE and prior verification-round guidance, restart-orchestrator and victory work that wires participants through the current scene builder must carry the DoorPrototypeSceneBuilder.cs/DoorPrototype.unity locks in addition to the logical orchestrator lock.",
+          "EditorBuildSettings.asset confirms zero registered scenes (`m_Scenes: []`), which is a concrete, currently-open build-configuration gap distinct from the general 'produce a Windows build' delivery obligation.",
+          "Packages/manifest.json currently lacks com.unity.2d.tilemap and com.unity.ai.navigation; this is world_foundations-domain evidence and is not represented as a global_pipeline work item, but is noted for cross-domain awareness.",
+          ".gitignore (approved narrow metadata source) confirms UserSettings/ and other Unity editor/user-local state are excluded from the committed repository, consistent with the GDD's process framing; no gameplay/design conclusions were drawn from it.",
+          "All three routed keys from the previous candidate (no-safe-circle, delivery-and-build, windows-build-scene-registration) remain current and required; no stale work was found in this domain.",
+          "Fifteen distinct typed non_code_requirements were identified covering delivery, and pipeline-process/technical constraints scattered across GDD Sections 3, 4, and 5 that were previously only present as prose.",
+          "Seven requirement_overlays were created to attach Section 3 Player Experience Success Criteria validation obligations to concrete owner work items expected to be emitted by other domain workers (doors, enemy_behavior, encounters, player_core, wizard_combat), per the explicit GDD Section 4 instruction that these criteria are required validation obligations on the owning work rather than new features.",
+          "Stretch goals and explicitly excluded systems from Section 3's Required Scope table were each enumerated individually under deferred_or_excluded rather than collapsed into two bulk entries, to make later coverage auditing straightforward."
+        ]
+      },
+      "seed_assessment": {
+        "status": "ready_with_warnings",
+        "blockers": [],
+        "warnings": [
+          "4 unresolved reconciliation question(s) remain for review.",
+          "Deterministic provenance guard removed 1 non-authoritative summary finding(s) containing internal pipeline provenance language. Authoritative graph/evidence fields remain subject to strict provenance validation.",
+          "4 unresolved reconciliation question(s) remain for human/runtime/later-decomposition review."
+        ]
+      },
+      "files_reviewed_add": [],
+      "historical_sources_reviewed_add": [],
+      "work_items_upsert": [
+        {
+          "key": "active-enemy-registry",
+          "title": "Active Enemy Registry",
+          "kind": "implementation",
+          "type": "implementation",
+          "parent_key": "enemies",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+              "requirement": "A shared Active Enemy Registry tracks the persistent enemy objects currently active in the run and exposes the current active count and remaining capacity under the hard limit of fifteen."
+            },
+            {
+              "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+              "requirement": "Enemy activation registers an enemy with the registry; defeat removes that enemy from the active count. Target loss, searching, crossing rooms, or waiting behind a locked door does not remove a surviving persistent enemy from the registry."
+            },
+            {
+              "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+              "requirement": "The registry/bookkeeping responsibility is a reusable runtime foundation and does not require the exact five-room encounter layouts, placements, or trigger authoring to be known first."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Active Enemy Registry bookkeeping is a required reset participant invoked through the registry's own owner-controlled reset entry point during floor restart."
+            },
+            {
+              "reference": "Section 4 — Enemy Pursuit Agent role",
+              "requirement": "Enemy Pursuit Agent owns the shared Active Enemy Registry bookkeeping for persistent active enemy objects; encounter activation consumes that registry rather than maintaining a separate count."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+              "requirement": "Registry exposes the current active enemy count and remaining capacity under the hard cap of fifteen active enemies."
+            },
+            {
+              "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+              "requirement": "Enemy activation registers an enemy; only a defeat-driven unregister call (consumed by Enemy Health/Defeat) removes an enemy from the active count."
+            },
+            {
+              "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+              "requirement": "Target loss, entering search state, crossing between rooms, and waiting behind a locked door do not remove a surviving persistent enemy from the registry."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Registry exposes an owner-controlled reset entry point that returns bookkeeping to the floor's initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating registry internals directly."
+            },
+            {
+              "reference": "Section 2 — Win and Loss Conditions (Loss); Section 3 — Active Enemy Registry and Encounter Admission",
+              "requirement": "After a floor restart, the registry's reported active count and remaining capacity agree with the set of live persistent enemies restored by the enemy-owned resets: an enemy restored to an active state is represented through the normal activation-registration path rather than being independently counted or omitted by restart-side adjustment, so admission gating resumes from accurate bookkeeping."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+              "requirement": "Verify the registry's reported active count and remaining capacity stay accurate as enemies are registered and unregistered, including at the fifteen-enemy hard cap boundary."
+            },
+            {
+              "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+              "requirement": "Verify target loss, search-state transition, room crossing, and waiting behind a locked door do not remove a surviving enemy from the registry's active count."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Verify floor restart returns registry bookkeeping to the floor's initial state through its owner-controlled reset entry point, and that the post-restart active count matches the live set of persistent enemies restored to their initial AI state rather than assuming an empty registry."
+            }
+          ],
+          "repository_state": "missing",
+          "graph_status": "open",
+          "repository_evidence": [],
+          "depends_on": [],
+          "exclusive_resources": [],
+          "decomposition_state": "concrete",
+          "decomposition_reason": "The GDD fully specifies this capability's contract: what it tracks, the hard cap, register/unregister semantics, what does NOT remove an enemy, and reset participation. No missing design blocks turning this into a bounded implementation item.",
+          "execution_scope": "single_agent",
+          "execution_reason": "Self-contained bookkeeping component (count/capacity tracking with register/unregister and a reset entry point) with no other current-repository system to integrate against; a single agent can implement and validate it in isolation.",
+          "confidence": "high",
+          "notes": "A repository-wide grep across Assets/ for 'Registry' found no matches; this component does not exist in any form, including as builder-capability scaffolding."
+        },
+        {
+          "key": "door-close-lock-break-lifecycle",
+          "title": "Door Close/Lock, Health Restore Request, Durability, and Locked-to-Broken Lifecycle",
+          "kind": "implementation",
+          "type": "gameplay_system",
+          "parent_key": "doors",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Section 2 — Player Actions and Systems, 'Close and Lock'",
+              "requirement": "After the wizard crosses to the forward side of an opened door, it automatically closes and locks with no additional input; completing the automatic close-and-lock restores a small fixed amount of health; once locked the door cannot be reopened or crossed again."
+            },
+            {
+              "reference": "Section 2 — Player Health ownership",
+              "requirement": "Door locking requests the fixed recovery through the Player Health restore interface; restoration is clamped to maximum health; Door and Interaction never writes player-health state directly."
+            },
+            {
+              "reference": "Section 2 — Resources, Feedback, and Failure, 'Door feedback'",
+              "requirement": "Banging, shaking, cracks, and a durability indicator show when a breach is near."
+            },
+            {
+              "reference": "Section 3 — Door and Pursuit Rules",
+              "requirement": "Door passability contract: Door and Interaction owns semantic door state (sealed/open/locked/broken); the shared navigation/locomotion layer owns translating that into enemy walkability; door state changes update the navigation layer through that interface. Locked-door attack and durability ownership: Enemy Pursuit owns deciding/executing the attack; Door and Interaction owns durability, the owner-controlled damage-receive interface, and the locked-to-broken transition. If the player waits too long the locked door breaks; a broken door remains open and cannot be closed/relocked; the player cannot travel backward through any earlier doorway including a broken one."
+            },
+            {
+              "reference": "Section 4 — Door/navigation integration prerequisite",
+              "requirement": "The navigation-owned shared passability interface must exist before door-state publication through that interface is dispatch-ready; if passability publication remains bundled inside one executable door-lifecycle item, that item depends on the gameplay navigation/locomotion owner."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Door lifecycle/crossing/durability state is a required reset participant for the Floor Run/Restart Orchestrator."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Section 2 — Close and Lock",
+              "requirement": "After doorway-crossing-state confirms forward-side crossing, the door automatically closes and locks with no additional player input."
+            },
+            {
+              "reference": "Section 2 — Player Health ownership",
+              "requirement": "Completing the automatic close/lock requests the small fixed health restoration through the Player Health owner-controlled restore interface (clamped to max health); this component never writes Player Health state directly."
+            },
+            {
+              "reference": "Section 3 — Door and Pursuit Rules",
+              "requirement": "Once locked, the door cannot be reopened, unlocked, or crossed again by the player; the floor is a forward-only escape sequence, including after any door has broken."
+            },
+            {
+              "reference": "Section 3 — Locked-door attack and durability ownership",
+              "requirement": "Exposes runtime durability and an owner-controlled damage-receive interface that other systems (e.g., enemy locked-door attacks) call to reduce durability; owns the locked-to-broken state transition; requesting systems never write durability or semantic door state directly."
+            },
+            {
+              "reference": "Section 3 — Door and Pursuit Rules",
+              "requirement": "When durability reaches zero the door breaks; a broken door remains open and cannot be closed or relocked for the remainder of the run, permits forward enemy traversal, and is not a return path for the player."
+            },
+            {
+              "reference": "Section 3 — Door passability contract",
+              "requirement": "Publishes semantic door state (sealed/open/locked/broken) through the shared navigation-owned passability interface so sealed/locked blocks enemy traversal and open/broken permits it; this component does not directly manipulate NavMesh or doorway passability itself."
+            },
+            {
+              "reference": "Section 2 — Door feedback",
+              "requirement": "Provides required player-facing breach feedback — banging, shaking, cracks, and a durability indicator — as the door nears breaking; this is implementation behavior, not validation-only prose."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled reset entry point for door lifecycle/crossing/durability state, consumed by the Floor Run/Restart Orchestrator."
+            },
+            {
+              "reference": "Section 4 — Dungeon Encounter Agent",
+              "requirement": "Exposes a per-door authorable/serialized durability value so Dungeon Encounter can configure it per door, without Dungeon Encounter owning runtime durability state, damage intake, or the locked-to-broken transition."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Section 3 — Door and Pursuit Rules",
+              "requirement": "Validate that a surviving enemy still actively tracking/pursuing the player and blocked by the locked door continues attacking it until it breaks, and that pursuit resumes through the doorway once broken (exercised jointly with the enemy_behavior domain's locked-door attack owner)."
+            },
+            {
+              "reference": "Section 3 — Door and Pursuit Rules",
+              "requirement": "Validate that a broken or locked door is never a return path for the player, including after breaking."
+            },
+            {
+              "reference": "Section 2 — Door feedback",
+              "requirement": "Validate that breach feedback (banging/shaking/crack/durability indicator) is player-perceivable before the door actually breaks."
+            },
+            {
+              "reference": "Section 3 - Player Experience Success Criteria",
+              "requirement": "Crossing an opened doorway causes automatic close-and-lock with no second player input required, and this behavior is readable/expected by a first-time player."
+            },
+            {
+              "reference": "Section 3 - Player Experience Success Criteria",
+              "requirement": "Failure caused by waiting too long — allowing a locked door to break under sustained pursuer pressure — is readable to the player through durability/breach feedback."
+            }
+          ],
+          "repository_state": "missing",
+          "graph_status": "open",
+          "repository_evidence": [
+            {
+              "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+              "evidence_type": "code",
+              "observation": "No closing, locking, durability field, damage-receive method, broken state, breach feedback, or navigation-publication code exists; Complete() is a one-way IsOpen=true transition with no further lifecycle."
+            },
+            {
+              "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+              "evidence_type": "code",
+              "observation": "Only exposes TakeDamage(float) and a CurrentHealth getter; there is no restore/heal method, confirming the Player Health restore interface this work must request does not yet exist."
+            },
+            {
+              "path": "Packages/manifest.json",
+              "evidence_type": "project_setting",
+              "observation": "com.unity.ai.navigation is not declared, and no NavMesh-related script exists under Assets/NoSafeCircle, confirming the gameplay navigation/passability layer this work must publish to does not yet exist."
+            }
+          ],
+          "depends_on": [
+            {
+              "key": "doorway-crossing-state",
+              "reason": "Automatic close/lock is explicitly triggered by the shared doorway-crossing state confirming forward-side crossing; that detection/state does not currently exist anywhere in the repository.",
+              "evidence": "GDD Section 3 — Door and Pursuit Rules: 'After the shared doorway-crossing state confirms that the wizard reached the forward side, the door automatically closes and locks'; Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs has no crossing detection."
+            },
+            {
+              "key": "player-health",
+              "reason": "The automatic lock must request a fixed health restoration through Player Health's owner-controlled restore interface, which does not currently exist on PlayerHealth.cs.",
+              "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs exposes only TakeDamage(float), with no restore/heal method."
+            },
+            {
+              "key": "gameplay-navigation-locomotion",
+              "reason": "This item bundles publication of semantic door state through the navigation-owned passability interface; per the GDD's door/navigation integration prerequisite, that publication cannot be dispatch-ready until the navigation-owned passability interface exists, and no navigation/locomotion layer currently exists in the repository.",
+              "evidence": "GDD Section 4 — 'the navigation-owned shared passability interface must exist before door-state publication through that interface is dispatch-ready'; Packages/manifest.json has no com.unity.ai.navigation dependency and no NavMesh code exists under Assets/NoSafeCircle."
+            }
+          ],
+          "exclusive_resources": [
+            {
+              "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+              "reason": "Closing/locking/durability/damage-receive/broken-transition logic is expected to extend the existing DoorInteractable component, and this file is a shared write surface with door-open-interaction and doorway-crossing-state.",
+              "evidence": "DoorInteractable.cs is currently the sole runtime door component in the repository."
+            },
+            {
+              "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+              "reason": "New durability/breach-feedback UI and door-lock behavior on objects the builder generates/maintains requires the exclusive-write lock defined by the GDD's current prototype scene-builder rule.",
+              "evidence": "GDD Section 5 — 'Current prototype scene-builder lock: scene-authoring work that changes objects generated or maintained through DoorPrototypeSceneBuilder.cs must take exclusive-write locks on both that builder and the DoorPrototype scene.'"
+            },
+            {
+              "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+              "reason": "New durability/breach-feedback UI and lock/break state changes on the door and its UI would be serialized into this canonical scene.",
+              "evidence": "DoorPrototypeSceneBuilder.Build() saves Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity after configuring DoorRoot and Canvas objects."
+            },
+            {
+              "key": "logical:gameplay-walkability-surface",
+              "reason": "This work writes/toggles the shared passability surface by publishing sealed/open/locked/broken door state; the navigation/locomotion owner also writes this same shared surface, so both must be sequenced through the same lock.",
+              "evidence": "GDD Section 3 — 'Door state changes update the navigation layer through that interface' and Section 4 — 'Door state changes are published through the shared navigation/locomotion passability interface.'"
+            }
+          ],
+          "decomposition_state": "concrete",
+          "decomposition_reason": "The GDD fully specifies close/lock triggering, health-restore request semantics, durability/damage-interface ownership, the locked-to-broken transition, forward-only enforcement, required breach feedback, and navigation-publication ownership; no missing design remains, only implementation bundling.",
+          "execution_scope": "needs_execution_decomposition",
+          "execution_reason": "This item currently bundles several independently verifiable responsibilities — core close/lock state-machine and durability/damage-API logic, player-facing breach feedback presentation (visual/audio), and navigation-passability publication integration against a not-yet-existing navigation layer — which together span more files, subsystems, and validation concerns than is safe to hand to one implementation agent at once, even though the underlying design is fully concrete.",
+          "confidence": "high",
+          "notes": "Enemy-side decision-making for when a locked-door attack occurs belongs to the enemy_behavior domain's locked-door-enemy-attack owner and is intentionally excluded from this item's acceptance criteria; this item owns only durability, the damage-receive interface, and the locked-to-broken transition that attack requests through."
+        },
+        {
+          "key": "door-open-interaction",
+          "title": "Cursor-Targeted Door Opening (Click-to-Approach, Arm's-Reach Auto-Timer, Interruption)",
+          "kind": "implementation",
+          "type": "gameplay_system",
+          "parent_key": "doors",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Section 2 — Player Actions and Systems, 'Open Sealed Door'",
+              "requirement": "Click the sealed door to request movement to its interaction position; wizard walks there automatically; the five-second timer begins automatically at arm's-reach range with no sustained hold; cursor drift after selection does not matter; damage, moving away, or a cancelling/replacing command resets the attempt."
+            },
+            {
+              "reference": "Section 3 — Door and Pursuit Rules",
+              "requirement": "A sealed door is a cursor-targeted interactable; clicking issues a combined approach-and-interact request; after selection, cursor drift does not cancel the request or timer."
+            },
+            {
+              "reference": "Section 3 — Player Experience Success Criteria",
+              "requirement": "A first-time player understands that clicking sends the wizard to the door and reaching it is not enough — the automatic timer still requires five uninterrupted seconds; accurate target selection is required only on the initial click."
+            },
+            {
+              "reference": "Section 5 — Runtime Implementation / Player Movement ownership",
+              "requirement": "Movement, cursor-aimed spells, and Door/Interaction consume the shared world-space pointer target exposed by Player Movement rather than independently projecting screen coordinates; runtime input is routed through Unity Input System/Input Actions rather than direct hardware polling."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Section 2 — Open Sealed Door",
+              "requirement": "Clicking a sealed door issues a combined approach-and-interact request using the shared world-space pointer target exposed by Player Movement; Door and Interaction does not independently project screen-to-world coordinates."
+            },
+            {
+              "reference": "Section 2 — Open Sealed Door; Section 3 — Door and Pursuit Rules",
+              "requirement": "The wizard automatically moves to the door's interaction position; when arm's-reach range is reached, the five-second opening timer starts automatically with no sustained button hold required."
+            },
+            {
+              "reference": "Section 2 — Open Sealed Door",
+              "requirement": "After the door is selected, cursor movement/drift away from the door does not cancel the approach request or the running timer."
+            },
+            {
+              "reference": "Section 2 — Setbacks; Section 3 — Door and Pursuit Rules",
+              "requirement": "Taking damage, moving away once timing has begun, or issuing another command that cancels/replaces the door interaction resets progress to zero."
+            },
+            {
+              "reference": "Section 5 — Runtime Implementation",
+              "requirement": "Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+            },
+            {
+              "reference": "Section 2 — Victory/input-shutdown ownership; Section 4 — Final escape/victory coordination; Section 5 — Runtime Implementation (Game Flow/Victory capability)",
+              "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface that immediately cancels an in-progress door approach/opening timer, rejects new door-selection commands while suspended, and can be re-enabled only through an authorized reset/test flow."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled reset entry point that returns its owned interaction/opening state (opening progress, interacting flag, open flag, and doorway-blocker state) to floor-initial values, consumed by the Floor Run/Restart Orchestrator."
+            },
+            {
+              "reference": "Section 2 — Open Sealed Door; Section 3 — Door Passability Contract",
+              "requirement": "Completing five uninterrupted seconds transitions the door's semantic state from sealed to open (player-traversable); door-close-lock-break-lifecycle owns publishing this resulting open state through the shared navigation-owned passability interface."
+            },
+            {
+              "reference": "GDD §2 Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled reset entry point that returns owned opening state (interaction progress, open flag, doorway-blocker enablement) to floor-initial values, consumed by the Floor Run/Restart Orchestrator rather than having internals mutated externally."
+            },
+            {
+              "reference": "GDD §2 Victory/input-shutdown ownership; §4 Development Agent Ownership Invariants",
+              "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface that immediately stops an in-progress door approach/opening timer, rejects new door-interaction commands while suspended, and can be re-enabled only through an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Section 3 — Player Experience Success Criteria",
+              "requirement": "Validate that a first-time player understands reaching the door alone is insufficient and that the automatic five-second timer must complete uninterrupted."
+            },
+            {
+              "reference": "Section 4 — Unity Validation Agent row; Example Game-Specific Agent Task",
+              "requirement": "Validate cursor-targeted door range and cursor-drift behavior: drift after selection does not cancel, while damage/moving away during timing does."
+            },
+            {
+              "reference": "Section 3 - Player Experience Success Criteria",
+              "requirement": "A first-time player understands that clicking a door sends the wizard to it, and that reaching the door is not enough — the automatic opening timer still requires five safe, uninterrupted seconds."
+            },
+            {
+              "reference": "Section 3 - Player Experience Success Criteria",
+              "requirement": "Door interaction requires accurate cursor target selection only on the initial click; the wizard's automatic approach, the timer's automatic start on arrival, and tolerance of normal cursor drift after selection are all readable to a first-time player."
+            }
+          ],
+          "repository_state": "partial",
+          "graph_status": "open",
+          "repository_evidence": [
+            {
+              "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+              "evidence_type": "code",
+              "observation": "Implements arm's-reach range detection via OnTriggerEnter/Exit against PlayerInteractionController, a 5-second Progress timer via StartInteraction/Tick/Complete, and cancellation via CancelInteraction; matches the general timer/interruption shape but has no crossing/close/lock/durability behavior."
+            },
+            {
+              "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+              "evidence_type": "code",
+              "observation": "BeginInteraction/EndInteraction are driven by a keyboard hold of interactKey (default Key.E) read directly from Keyboard.current in Update(), not by a cursor click-to-approach request or the Unity Input System/Input Actions layer; EndInteraction is also called on any player movement and on PlayerHealth.Damaged, matching the GDD's interruption rules for movement/damage."
+            },
+            {
+              "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+              "evidence_type": "code",
+              "observation": "Movement is pure WASD CharacterController motion; there is no mouse/pointer reading, no cursor-to-gameplay-plane projection, and no click-to-move/approach request of any kind."
+            },
+            {
+              "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+              "evidence_type": "code",
+              "observation": "BuildUI sets the interaction prompt text to 'Hold E to Open' and the ControlsHud text to 'Hold E - Open Door', confirming the currently integrated interaction model is a sustained keyboard hold, not an automatic no-hold timer."
+            },
+            {
+              "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+              "evidence_type": "scene",
+              "observation": "DoorInteractable component is serialized on DoorRoot with doorVisual and doorwayBlocker object references wired (fileID 965940337 / 965940338), confirming the simplified door is actually integrated into the canonical scene, not merely buildable."
+            },
+            {
+              "path": "Assets/InputSystem_Actions.inputactions",
+              "evidence_type": "project_setting",
+              "observation": "The 'Player' action map defines Move/Look/Attack/Interact/Crouch/Jump/Previous/Next/Sprint actions; 'Interact' uses a Hold interaction with no visible mouse/pointer binding in the reviewed section. No gameplay-map Point/Click action exists; Point/Click bindings only exist in the separate 'UI' action map used for UI navigation."
+            }
+          ],
+          "depends_on": [
+            {
+              "key": "player-movement",
+              "reason": "Cursor-targeted door selection and click-to-approach must consume the shared world-space pointer target that Player Movement owns and exposes; PlayerMovement.cs currently has no pointer/mouse handling of any kind, so this specific capability does not yet exist.",
+              "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs contains only WASD CharacterController motion with no pointer projection."
+            }
+          ],
+          "exclusive_resources": [
+            {
+              "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+              "reason": "Implementation will modify DoorInteractable to accept a click-triggered approach-and-interact request and to switch the timer's start condition from a sustained key hold to automatic arrival, and this file is also a shared write surface with doorway-crossing-state and door-close-lock-break-lifecycle.",
+              "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs currently implements StartInteraction/CancelInteraction/Tick and will need to change alongside the other door-lifecycle work in this same file/component cluster."
+            },
+            {
+              "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+              "reason": "Implementation must replace the current hold-E keyboard consumption with cursor-targeted selection/click-to-approach consumption and Input System routing, directly modifying this file's input-handling and BeginInteraction/EndInteraction logic.",
+              "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs reads Keyboard.current[interactKey] directly in Update() and owns BeginInteraction/EndInteraction."
+            },
+            {
+              "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+              "reason": "The builder currently creates/wires PlayerMovement, PlayerInteractionController, and the door prompt/HUD UI text describing the hold-E interaction; this work must update that wiring and text to match the new click-to-approach/auto-timer behavior.",
+              "evidence": "DoorPrototypeSceneBuilder.cs BuildPlayer()/BuildUI() creates and wires PlayerInteractionController and the 'Hold E to Open' prompt/HUD text, and the builder destructively rebuilds/saves the canonical scene."
+            },
+            {
+              "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+              "reason": "The builder saves this scene on every run and the door/player/UI objects it configures are serialized here; integration work on this task writes through the same scene.",
+              "evidence": "DoorPrototypeSceneBuilder.Build() calls EditorSceneManager.SaveScene(scene, ScenePath) for Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity after configuring Player/DoorRoot/Canvas objects."
+            }
+          ],
+          "decomposition_state": "concrete",
+          "decomposition_reason": "The GDD fully specifies click-to-approach selection, arrival-triggered auto-timing, cursor-drift tolerance, and interruption conditions; no missing design remains for this responsibility.",
+          "execution_scope": "single_agent",
+          "execution_reason": "The work is bounded to a known, small set of files (DoorInteractable.cs, PlayerInteractionController.cs, the scene/builder wiring) implementing one cohesive interaction flow; it is not yet dispatch-ready until player-movement's shared pointer projection exists, but its own scope is not so broad that it needs further execution splitting.",
+          "confidence": "high",
+          "notes": "Whether this task must itself add/modify bindings in Assets/InputSystem_Actions.inputactions (e.g., a distinct door-select binding) or purely consumes a Point/Click binding added by Player Movement's projection work is not yet resolved by current evidence; see unresolved_questions."
+        },
+        {
+          "key": "dungeon-encounter-content-authoring",
+          "title": "Dungeon Encounter Placement and Composition Authoring",
+          "kind": "feature",
+          "type": "content-authoring",
+          "parent_key": "encounters",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Section 4 — Dungeon Encounter Agent",
+              "requirement": "Authors placements, triggers, configured per-door durability values, and final-room pressure, including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room. Does not own runtime door durability state, damage intake, or the locked-to-broken transition."
+            },
+            {
+              "reference": "Section 3 — Required Enemy Roster",
+              "requirement": "Ranged Enemies never appear as an isolated encounter: every encounter that introduces one also includes at least one Melee Enemy. A Ranged Enemy may end up fighting alone only if its Melee support is defeated first."
+            },
+            {
+              "reference": "Section 3 — Player Experience Success Criteria",
+              "requirement": "Encounters use three to eight enemies and never exceed fifteen active enemies."
+            },
+            {
+              "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
+              "requirement": "Room-specific encounter authoring consumes the registry/admission foundation once it exists; it is not itself required to exist before that foundation is built."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Section 3 — Required Enemy Roster",
+              "requirement": "No authored encounter introduces a Ranged Enemy without at least one accompanying Melee Enemy in that same encounter."
+            },
+            {
+              "reference": "Section 3 — Player Experience Success Criteria",
+              "requirement": "Each authored encounter uses between three and eight enemies; the registry-enforced fifteen-active-enemy ceiling remains a separate floor-wide constraint."
+            },
+            {
+              "reference": "Section 4 — Dungeon Encounter Agent",
+              "requirement": "Chapel of Ash and the Final Room are authored with mixed Melee/Ranged compositions as required; Dungeon Encounter authors the per-door durability configuration value but does not implement runtime durability state, damage intake, or the locked-to-broken transition."
+            },
+            {
+              "reference": "Section 3 — Dungeon Floor Structure (Chapel of Ash / Ruined Entry / Bone Archive)",
+              "requirement": "The Ranged Enemy is first introduced in the Chapel of Ash encounter, always alongside Melee Enemy support; the Ruined Entry and Bone Archive encounters remain melee-only."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Section 3 — Player Experience Success Criteria",
+              "requirement": "Verify each authored encounter uses between three and eight enemies; the registry-enforced fifteen-active-enemy floor-wide ceiling is validated separately by encounter-admission-cap-enforcement."
+            }
+          ],
+          "repository_state": "missing",
+          "graph_status": "open",
+          "repository_evidence": [],
+          "depends_on": [
+            {
+              "key": "encounter-admission-cap-enforcement",
+              "reason": "Encounter placement/activation must be authored against an existing admission/cap-enforcement foundation so authored encounters are gated correctly rather than bypassing the registry.",
+              "evidence": "GDD Section 2 — Active Enemy Registry and Encounter Admission: 'The registry/bookkeeping responsibility is a reusable runtime foundation... Room-specific encounter authoring consumes this foundation later.'"
+            },
+            {
+              "key": "door-close-lock-break-lifecycle",
+              "reason": "Authoring a configured per-door durability value requires the runtime door-durability field/mechanism it configures to already exist, since Door and Interaction, not Dungeon Encounter, owns runtime durability state and the locked-to-broken transition.",
+              "evidence": "GDD Section 4 — Dungeon Encounter Agent: 'Authors placements, triggers, configured per-door durability values... It does not own runtime door durability state, damage intake, or the locked-to-broken transition; those remain Door and Interaction responsibilities.'"
+            },
+            {
+              "key": "melee-enemy",
+              "reason": "Placing and composing encounters (including the required mixed Chapel of Ash and Final Room compositions) requires a usable, assembled Melee Enemy archetype to place.",
+              "evidence": "GDD Section 4 — Dungeon Encounter Agent: 'Authors placements... including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room.'"
+            },
+            {
+              "key": "ranged-enemy",
+              "reason": "Placing and composing encounters (including the required mixed Chapel of Ash and Final Room compositions, and the never-isolated-Ranged-Enemy rule) requires a usable, assembled Ranged Enemy archetype to place.",
+              "evidence": "GDD Section 4 — Dungeon Encounter Agent: 'Authors placements... including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room.'"
+            }
+          ],
+          "exclusive_resources": [],
+          "decomposition_state": "needs_future_decomposition",
+          "decomposition_reason": "Exact encounter placements, triggers, per-door durability values, and Final Room pressure composition are explicitly left to later authoring/playtesting by the GDD; only composition/sizing rules (3-8 enemies, never-isolated Ranged Enemy, mixed compositions in two named rooms, Ranged Enemy first introduced in Chapel of Ash) are currently fixed. Inventing exact placements/triggers now would fabricate missing design. Encounter placement/content authoring is a real prerequisite consumer of the room spaces produced by five-room-content-authoring (GDD Section 5 — 2.5D Isometric Visual and World Representation: 'encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation'); once both features gain concrete descendants, a Progressive Decomposer must attach a concrete encounter-placement -> authored-room implementation/artifact dependency between those descendants rather than a feature-to-feature edge.",
+          "execution_scope": "not_applicable",
+          "execution_reason": "Deferred content-authoring feature; not yet a bounded dispatchable unit.",
+          "confidence": "high",
+          "notes": "No formal dependency on five-room-content-authoring (both are deferred organizational features per the GDD-hardening example prohibiting feature-to-feature dependencies); it consumes authored room spaces once five-room-content-authoring produces concrete descendants, preserved here as decomposition context only."
+        },
+        {
+          "key": "encounter-admission-cap-enforcement",
+          "title": "Encounter Admission Active-Enemy-Cap Enforcement",
+          "kind": "implementation",
+          "type": "runtime-system",
+          "parent_key": "encounters",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
+              "requirement": "The registry tracks active persistent enemies under a hard fifteen-enemy cap; the Dungeon Encounter system consumes the registry before activating new encounter enemies, and if activation would exceed fifteen, new encounter enemies are delayed or reduced first while existing persistent pursuers are never removed to make room. This bookkeeping/admission foundation is explicitly reusable and does not require the exact five-room encounter layouts, placements, or trigger authoring to be known first."
+            },
+            {
+              "reference": "Section 2 — Door and Pursuit Rules",
+              "requirement": "Surviving enemies carry forward and combine with later encounters as the same persistent enemy objects, not new spawns, and the game never permits more than fifteen active enemies at once."
+            },
+            {
+              "reference": "Section 4 — Dungeon Encounter Agent / Ownership Invariants",
+              "requirement": "Dungeon Encounter Agent owns encounter-admission policy and consumes the shared Active Enemy Registry when admitting new enemies; it does not replace or remove existing persistent pursuers to satisfy the cap."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
+              "requirement": "Before activating a requested encounter's enemies, query the registry's current active count and remaining capacity under the fifteen-enemy hard limit."
+            },
+            {
+              "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
+              "requirement": "When activating the requested enemies would exceed fifteen active enemies, delay or reduce the new encounter's enemy activation first; never remove or deregister an existing persistent pursuer to make room."
+            },
+            {
+              "reference": "Section 4 — Dungeon Encounter Agent",
+              "requirement": "Consume the Active Enemy Registry's owner-exposed active count/capacity interface rather than maintaining a separate duplicate count."
+            },
+            {
+              "reference": "GDD §2 Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled reset entry point that returns encounter activation/admission state to its floor-initial values, consumed by the Floor Run/Restart Orchestrator rather than having internals mutated externally."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled reset entry point that returns encounter activation/admission bookkeeping — including any delayed or reduced pending activation and admitted-batch state — to the floor's initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating admission internals directly."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
+              "requirement": "Lower Vault is the primary validation case: verify that when a rear breach (surviving pursuers breaking through an earlier locked door) coincides with Lower Vault's own encounter admission request, the persistent pursuers keep priority over admitting the new encounter's enemies."
+            },
+            {
+              "reference": "Section 3 — Player Experience Success Criteria",
+              "requirement": "Verify the floor-wide active-enemy count never exceeds fifteen across combined persistent-pursuer and newly-admitted-encounter enemies."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Verify floor restart returns encounter activation/admission bookkeeping, including any delayed or reduced pending activation and admitted-batch state, to the floor's initial state through the owner-controlled reset entry point."
+            }
+          ],
+          "repository_state": "missing",
+          "graph_status": "open",
+          "repository_evidence": [],
+          "depends_on": [
+            {
+              "key": "active-enemy-registry",
+              "reason": "Admission enforcement gates new encounter activation against the registry's active count and remaining capacity; that registry interface must exist before admission logic can query or be validated against it.",
+              "evidence": "GDD Section 2 — Active Enemy Registry and Encounter Admission: 'The Dungeon Encounter system consumes the registry before activating new encounter enemies... existing persistent pursuers are never removed to make room.'"
+            }
+          ],
+          "exclusive_resources": [],
+          "decomposition_state": "concrete",
+          "decomposition_reason": "The admission rule itself (delay/reduce new activation first, never remove existing pursuers, hard cap of fifteen) is fully specified by current GDD text and does not require any room-specific encounter layout, placement, or trigger design to be known first; the GDD explicitly calls this out as a reusable runtime foundation.",
+          "execution_scope": "single_agent",
+          "execution_reason": "The admission-gating logic (query registry capacity, delay/reduce a requested activation batch, never deregister existing enemies) is a bounded, independently testable runtime responsibility once the Active Enemy Registry interface exists, with a clear validation target (Lower Vault priority case) that does not require full room content to be authored.",
+          "confidence": "high",
+          "notes": "Must not be folded into or blocked by dungeon-encounter-content-authoring's needs_future_decomposition status; this is the 'known runtime behavior' half of the split required by the reconciliation guidance."
+        },
+        {
+          "key": "enemy-health-damage-defeat",
+          "title": "Enemy Health/Defeat",
+          "kind": "implementation",
+          "type": "implementation",
+          "parent_key": "enemies",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Section 3 — Enemy health and defeat ownership",
+              "requirement": "A reusable Enemy Health/Defeat capability owns each persistent enemy object's current health, damage intake, defeat transition, and restartable health/defeat state."
+            },
+            {
+              "reference": "Section 3 — Enemy health and defeat ownership",
+              "requirement": "Fireball and any other canon-required damage source request damage through this owner-controlled interface rather than writing enemy health directly."
+            },
+            {
+              "reference": "Section 3 — Enemy health and defeat ownership",
+              "requirement": "When defeat occurs, the Enemy Health/Defeat owner reports that transition through the Active Enemy Registry owner's removal/unregister interface so the active count is updated without duplicating registry bookkeeping."
+            },
+            {
+              "reference": "Section 3 — Enemy health and defeat ownership",
+              "requirement": "Floor restart restores enemy health/defeat state through the enemy-owned reset entry point; the Floor Run/Restart Orchestrator does not mutate enemy-health internals directly."
+            },
+            {
+              "reference": "Section 5 — Runtime Implementation",
+              "requirement": "A reusable Enemy Health/Defeat runtime capability owns each persistent enemy's current health, damage intake, defeat transition, and floor-restart reset."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Section 3 — Enemy health and defeat ownership",
+              "requirement": "Exposes an owner-controlled damage-intake interface that any canon-required damage source (e.g. Fireball) calls rather than writing enemy health directly."
+            },
+            {
+              "reference": "Section 3 — Enemy health and defeat ownership",
+              "requirement": "Reaching zero health triggers a defeat transition exactly once for that persistent enemy object."
+            },
+            {
+              "reference": "Section 3 — Enemy health and defeat ownership",
+              "requirement": "Defeat reports removal through the Active Enemy Registry's owner-controlled unregister interface rather than the Enemy Health/Defeat component independently decrementing a separate count."
+            },
+            {
+              "reference": "Section 3 — Enemy health and defeat ownership",
+              "requirement": "Exposes an owner-controlled reset entry point that restores health and clears the defeat transition for floor restart, invoked by the Floor Run/Restart Orchestrator rather than by direct internal mutation."
+            },
+            {
+              "reference": "Section 1 — Executive Summary; Section 3 — Active Enemy Registry and Encounter Admission",
+              "requirement": "The defeat transition ends the enemy's participation as an active threat: its pursuit/attack behavior stops and it leaves play, while it remains the same persistent object restorable through the owner-controlled reset entry point."
+            },
+            {
+              "reference": "Section 5 — Runtime Implementation",
+              "requirement": "A persistent enemy's health and defeat state changes only through the owner-controlled damage interface and the floor-restart reset entry point; it is never reinitialized or otherwise mutated by room transition, target loss, search, or doorway crossing."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Section 3 — Enemy health and defeat ownership",
+              "requirement": "Verify a damage source can only reduce a persistent enemy's health through the owner-controlled damage interface and that zero health triggers the defeat transition exactly once."
+            },
+            {
+              "reference": "Section 3 — Enemy health and defeat ownership",
+              "requirement": "Verify defeat reports removal through the Active Enemy Registry's unregister interface without the registry double-counting or the two systems maintaining duplicate bookkeeping."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Verify floor restart returns a previously-damaged/defeated enemy's health and defeat state to its initial value through the owner-controlled reset entry point."
+            },
+            {
+              "reference": "Section 1 — Executive Summary",
+              "requirement": "Verify a defeated enemy's pursuit/attack behavior stops and it leaves play immediately following the defeat transition, while remaining restorable via the floor-restart reset entry point."
+            },
+            {
+              "reference": "Section 5 — Runtime Implementation",
+              "requirement": "Verify a persistent enemy's health/defeat state remains unchanged across room transitions, target loss, search, and doorway crossings, changing only through the damage interface or the reset entry point."
+            }
+          ],
+          "repository_state": "missing",
+          "graph_status": "open",
+          "repository_evidence": [],
+          "depends_on": [
+            {
+              "key": "active-enemy-registry",
+              "reason": "Defeat must report removal through the Active Enemy Registry's own owner-controlled unregister interface rather than duplicating active-count bookkeeping; that interface must exist first.",
+              "evidence": "GDD Section 3 — Enemy health and defeat ownership: 'the Enemy Health/Defeat owner reports that transition through the Active Enemy Registry owner's removal/unregister interface so the active count is updated without duplicating registry bookkeeping.'"
+            }
+          ],
+          "exclusive_resources": [],
+          "decomposition_state": "concrete",
+          "decomposition_reason": "The GDD fully specifies health/damage/defeat ownership, the damage-interface contract, the registry-removal reporting contract, and reset participation. No missing design blocks a bounded implementation item.",
+          "execution_scope": "single_agent",
+          "execution_reason": "A cohesive, bounded component (health tracking, damage interface, defeat transition, one outbound call to the registry's interface, and a reset entry point) that one agent can implement and validate without needing to also implement pursuit, attacks, or navigation.",
+          "confidence": "high",
+          "notes": "A repository-wide grep across Assets/ for 'Defeat' found no matches; this capability does not exist in any form. Fireball's consumption of this interface is out of scope for this domain and belongs to the wizard_combat domain's fireball item."
+        },
+        {
+          "key": "five-room-content-authoring",
+          "title": "Five-Room Floor Content Authoring",
+          "kind": "feature",
+          "type": "content-authoring",
+          "parent_key": "world",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Section 3 — Dungeon Floor Structure",
+              "requirement": "Five named tactical spaces are required: 1. Ruined Entry — open space, broad rubble route, teaches circling a melee enemy and safe Fireball charging. 2. Bone Archive — narrow shelf lanes/chokepoints enabling Frost Field lane-slow-and-cluster tactics but risking the player being trapped. 3. Chapel of Ash — pews/columns provide line-of-sight breaks against the newly introduced Ranged Enemy (with Melee support), central aisle vs. side-route cover/distance tradeoff. 4. Lower Vault — incomplete loops; player must watch both the current encounter and the previous doorway because surviving enemies breaking through are the same persistent pursuers, not new spawns. 5. Final Room — comparatively open chamber with one central obstacle, populated by both Melee and Ranged Enemies, requiring combined use of movement, Frost Field, Force Wave, and Fireball for the final escape window."
+            },
+            {
+              "reference": "Section 5 — 2.5D Isometric Visual and World Representation",
+              "requirement": "Five-room visual/content authoring consumes the reusable Tilemap/SpriteRenderer world foundation once it exists; this is a real prerequisite relationship even though the downstream content feature remains deferred."
+            },
+            {
+              "reference": "Section 5 — Runtime Implementation",
+              "requirement": "All five encounter spaces exist inside one continuous Unity scene or continuous floor representation; no scene-load or cross-scene state-transfer system is required."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Section 3 — Dungeon Floor Structure",
+              "requirement": "All five named spaces (Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, Final Room) are authored with their stated tactical layout purpose; none may be dropped or substituted merely because other rooms have more specialized validation cases."
+            },
+            {
+              "reference": "Section 5 — Runtime Implementation",
+              "requirement": "All five spaces are authored inside one continuous Unity scene/floor representation rather than separate scenes with cross-scene state transfer."
+            },
+            {
+              "reference": "Section 1 — Executive Summary; Section 2 — Game Mechanics",
+              "requirement": "The five named spaces are connected in a forward-only sequence by authored sealed-door instances positioned at each room's exit, consistent with 'Each room ends at a door' and 'The player moves through connected rooms toward the final door'; the Final Room's exit door is designated as the final door whose crossing the victory capability consumes through the shared doorway-crossing state."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Section 3 — Dungeon Floor Structure (Bone Archive); Section 5 — Runtime Implementation",
+              "requirement": "Bone Archive's authored lane widths are navigable at the configured enemy navigation agent radius, so the room's narrow-lane/chokepoint geometry holds in practice against the navigation layer's requirements."
+            },
+            {
+              "reference": "Section 3 — Dungeon Floor Structure (Chapel of Ash); Section 4 — Development Agent Roles (Unity Validation Agent)",
+              "requirement": "Chapel of Ash's authored pews and columns present real occluders that block the Ranged Enemy's line-of-sight/projectile-occlusion check from at least one cover position."
+            }
+          ],
+          "repository_state": "missing",
+          "graph_status": "open",
+          "repository_evidence": [],
+          "depends_on": [
+            {
+              "key": "world-visual-foundation",
+              "reason": "Room authoring must build on the reusable Tilemap/SpriteRenderer conventions and visual/gameplay separation before room-specific geometry and content can be authored on top of it.",
+              "evidence": "GDD Section 5 — 2.5D Isometric Visual and World Representation: 'The reusable visual world foundation (Tilemap/SpriteRenderer conventions and visual/gameplay separation) is distinct from authoring the five named room layouts and encounters. Five-room visual/content authoring consumes this foundation once it exists.'"
+            }
+          ],
+          "exclusive_resources": [],
+          "decomposition_state": "needs_future_decomposition",
+          "decomposition_reason": "Exact room geometry, dimensions, prop placement, and chokepoint/cover layout for each of the five named spaces are not specified beyond their stated tactical purpose; inventing that geometry now would fabricate missing design. The named-space tactical requirements are preserved as acceptance context for a future Progressive Decomposer rather than resolved here.",
+          "execution_scope": "not_applicable",
+          "execution_reason": "Deferred content-authoring feature; not yet a bounded dispatchable unit.",
+          "confidence": "high",
+          "notes": "No formal dependency exists on dungeon-encounter-content-authoring or vice versa; both are deferred organizational features per the GDD-hardening example prohibiting feature-to-feature dependencies. Their consumption relationship (encounter placement consumes authored room spaces) is preserved here in notes only."
+        },
+        {
+          "key": "floor-run-restart-persistent-closure",
+          "title": "Floor Run/Restart Persistent-Systems Closure",
+          "kind": "implementation",
+          "type": "run_lifecycle",
+          "parent_key": "floor-run-restart",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Floor-run restart ownership",
+              "requirement": "Required reset participants include Player Health, Player Mana, Player Movement/player position, Fireball, Frost Field, Force Wave, enemy health/defeat state, enemy pursuit/search/attack/status/displacement state, Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state."
+            },
+            {
+              "reference": "Floor-run restart ownership",
+              "requirement": "Enemy reset returns each persistent enemy to its original authored encounter/spawn region and initial AI state, with no retained target/last-known-position/search/attack/displacement state from the failed run."
+            },
+            {
+              "reference": "Spell-local state ownership",
+              "requirement": "Each spell owner (Fireball, Frost Field, Force Wave) exposes a reset entry point for any owned state that can still be active when a floor restart occurs."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Floor-run restart ownership",
+              "requirement": "Extends the same orchestrator used by the bootstrap stage to additionally invoke reset entry points for every implemented persistent owner beyond the bootstrap set, without redesigning the orchestration contract."
+            },
+            {
+              "reference": "Floor-run restart ownership",
+              "requirement": "Full closure is not considered complete while any implemented run-persistent owner does not yet expose/participate in a reset entry point."
+            },
+            {
+              "reference": "Floor-run restart ownership",
+              "requirement": "Enemy reset consumes an enemy-owned restart/reset operation that returns each persistent enemy to its authored encounter/spawn region and initial pursuit/search/attack state, with no retained target, search, status-effect, or displacement state; the orchestrator does not write enemy Transform/locomotion internals itself."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Floor-run restart ownership",
+              "requirement": "Play Mode check, expanded as each owner is implemented, confirming every implemented persistent-state owner is reset to its floor-initial state after a zero-health restart."
+            },
+            {
+              "reference": "Floor-run restart ownership",
+              "requirement": "Play Mode check confirming a defeated/repositioned enemy returns to its authored spawn region with no carried target/search/displacement/status state."
+            }
+          ],
+          "repository_state": "missing",
+          "graph_status": "open",
+          "repository_evidence": [],
+          "depends_on": [
+            {
+              "key": "floor-run-restart-bootstrap",
+              "reason": "This item extends the same orchestrator the bootstrap stage creates; the orchestrator implementation must exist first.",
+              "evidence": "Derived rationale: GDD describes one Floor Run/Restart Orchestrator extended in stages, not two independent orchestrators."
+            },
+            {
+              "key": "player-health",
+              "reason": "Required reset participant named directly by the GDD restart contract.",
+              "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+            },
+            {
+              "key": "player-mana",
+              "reason": "Required reset participant named directly by the GDD restart contract.",
+              "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+            },
+            {
+              "key": "player-movement",
+              "reason": "Required reset participant named directly by the GDD restart contract.",
+              "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+            },
+            {
+              "key": "door-open-interaction",
+              "reason": "Required reset participant; also currently owns persistent Progress/IsOpen/blocker state.",
+              "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs"
+            },
+            {
+              "key": "doorway-crossing-state",
+              "reason": "Door lifecycle/crossing state is a named required reset participant and is not yet implemented.",
+              "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+            },
+            {
+              "key": "door-close-lock-break-lifecycle",
+              "reason": "Door lifecycle/durability state is a named required reset participant and is not yet implemented.",
+              "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+            },
+            {
+              "key": "enemy-health-damage-defeat",
+              "reason": "Enemy health/defeat state is a named required reset participant and is not yet implemented.",
+              "evidence": "GDD 'Floor-run restart ownership' required-participant list; repository-wide search found no enemy code."
+            },
+            {
+              "key": "enemy-pursuit-search-foundation",
+              "reason": "Enemy pursuit/search/attack state and enemy repositioning to authored spawn regions are named required reset participants and are not yet implemented.",
+              "evidence": "GDD 'Floor-run restart ownership' required-participant list; repository-wide search found no enemy code."
+            },
+            {
+              "key": "enemy-status-effect-displacement",
+              "reason": "Enemy status/displacement state is a named required reset participant and is not yet implemented.",
+              "evidence": "GDD 'Floor-run restart ownership' required-participant list; repository-wide search found no enemy code."
+            },
+            {
+              "key": "active-enemy-registry",
+              "reason": "Active Enemy Registry bookkeeping is a named required reset participant and is not yet implemented.",
+              "evidence": "GDD 'Floor-run restart ownership' required-participant list; repository-wide search found no registry code."
+            },
+            {
+              "key": "encounter-admission-cap-enforcement",
+              "reason": "Encounter activation/admission state is a named required reset participant and is not yet implemented.",
+              "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+            },
+            {
+              "key": "fireball",
+              "reason": "Fireball owns tap/charge/cast state and must expose a reset entry point that full closure invokes; Fireball does not yet exist.",
+              "evidence": "Repository-wide search found no Fireball implementation."
+            },
+            {
+              "key": "frost-field",
+              "reason": "Frost Field owns casting-side cast/placement/active-field state and must expose a reset entry point that full closure invokes; Frost Field does not yet exist.",
+              "evidence": "Repository-wide search found no Frost Field implementation."
+            },
+            {
+              "key": "force-wave",
+              "reason": "Force Wave owns cooldown state and must expose a reset entry point that full closure invokes; Force Wave does not yet exist.",
+              "evidence": "Repository-wide search found no Force Wave implementation."
+            },
+            {
+              "key": "melee-enemy",
+              "reason": "Melee Enemy owns real run-persistent attack cooldown/windup state that must be reset before full closure can claim no attack state carries over from a failed run.",
+              "evidence": "GDD Section 2 — Floor-run restart ownership required-participant list names enemy attack state; melee-enemy now exposes the corresponding attack-state reset entry point."
+            },
+            {
+              "key": "ranged-enemy",
+              "reason": "Ranged Enemy owns real run-persistent attack state (telegraphed windup/in-flight projectile) that must be reset before full closure can claim no attack state carries over from a failed run.",
+              "evidence": "GDD Section 2 — Floor-run restart ownership required-participant list names enemy attack state; ranged-enemy now exposes the corresponding attack-state reset entry point."
+            },
+            {
+              "key": "locked-door-enemy-attack",
+              "reason": "Locked-door enemy attack owns an in-progress door-attack state that must be reset before full closure can claim no attack state carries over from a failed run.",
+              "evidence": "GDD Section 2 — Floor-run restart ownership required-participant list names enemy attack state; locked-door-enemy-attack now exposes the corresponding attack-state reset entry point."
+            }
+          ],
+          "exclusive_resources": [
+            {
+              "key": "logical:floor-run-restart-orchestrator",
+              "reason": "Shares the same orchestrator integration surface as the bootstrap stage.",
+              "evidence": "Derived rationale: GDD describes one orchestrator extended across stages."
+            },
+            {
+              "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+              "reason": "Extending/wiring additional restart participants through the current builder is a shared write surface with other builder-writing tasks.",
+              "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs builds/clears Floor, Walls, and DoorRoot and saves the scene."
+            },
+            {
+              "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+              "reason": "The extended orchestrator wiring is saved into this canonical scene file.",
+              "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs saves DoorPrototype.unity."
+            }
+          ],
+          "decomposition_state": "concrete",
+          "decomposition_reason": "The GDD names the complete required participant list and the exact reset contract for full closure; no missing design remains, though most listed owners do not yet exist.",
+          "execution_scope": "needs_execution_decomposition",
+          "execution_reason": "This item spans wiring reset participation across roughly a dozen independently-owned systems (player systems, three spells, door lifecycle, enemy state, registry, encounters); that breadth exceeds a single bounded agent handoff even though each individual wiring point is simple once its owner exists.",
+          "confidence": "high",
+          "notes": "Most of this item's dependencies are currently missing entirely (not merely unfinished), so this item cannot be dispatched meaningfully until the underlying owners exist."
+        },
+        {
+          "key": "locked-door-enemy-attack",
+          "title": "Locked-Door Enemy Attack Initiation",
+          "kind": "implementation",
+          "type": "enemy_behavior",
+          "parent_key": "enemies",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Door and Pursuit Rules",
+              "requirement": "Any surviving enemy still actively tracking/pursuing the player and whose route is blocked by the newly locked door begins attacking that door; no separate 'witnessed escape' or line-of-sight-to-crossing state is tracked, and an enemy that has already lost the player does not attack a locked door solely because it is nearby. When the door breaks, tracking/pursuing enemies continue pursuit through the now-passable doorway."
+            },
+            {
+              "reference": "Locked-door attack and durability ownership",
+              "requirement": "Enemy Pursuit/attack behavior owns deciding when a qualifying blocked pursuer attacks and executing the attack attempt; Door and Interaction owns durability, the damage-receive interface, and the locked-to-broken transition. Enemy attack code requests door damage through that interface and does not directly write door durability or semantic door state."
+            },
+            {
+              "reference": "Development Agent Ownership Invariants",
+              "requirement": "Enemy Pursuit owns initiating the locked-door attack when a surviving enemy is still actively tracking/pursuing the player and blocked; the attack requests damage through the Door-owned interface rather than mutating door state, and pursuit continues through the doorway after it breaks."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Door and Pursuit Rules",
+              "requirement": "A surviving enemy still actively tracking/pursuing the player and whose route is blocked by a newly locked door begins attacking that door; no separate 'witnessed escape' or line-of-sight-to-crossing flag is tracked."
+            },
+            {
+              "reference": "Door and Pursuit Rules",
+              "requirement": "An enemy that has already lost the player (cleared target) does not attack a locked door merely because it is nearby."
+            },
+            {
+              "reference": "Locked-door attack and durability ownership",
+              "requirement": "The attack requests door damage exclusively through the Door-owned damage-receive interface and never writes door durability or semantic door state directly."
+            },
+            {
+              "reference": "Door and Pursuit Rules",
+              "requirement": "When the door breaks (transitions to broken), the still-tracking/pursuing enemy continues pursuit forward through the now-passable doorway using the shared navigation/locomotion passability result, without independently manipulating door or navigation state."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled attack-state reset entry point that cancels any in-progress locked-door attack attempt when the Floor Run/Restart Orchestrator invokes floor restart, so no partially-executed door-attack state carries over from the failed run."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled restart/reset entry point that clears locked-door attack initiation/in-progress state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Dungeon Floor Structure (Lower Vault) / Door and Pursuit Rules",
+              "requirement": "Verify that after a rear breach, locked-door-attacking pursuers correctly resume forward pursuit through the broken doorway rather than stalling."
+            },
+            {
+              "reference": "Door and Pursuit Rules",
+              "requirement": "Verify an enemy that has already lost the player (post bounded-search target clear) does not initiate a locked-door attack solely from proximity."
+            },
+            {
+              "reference": "Section 3 - Player Experience Success Criteria",
+              "requirement": "The player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Verify an in-progress locked-door attack attempt is cancelled and cleared by floor restart, with no door-attack state surviving into the next run."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Verify floor restart clears locked-door attack initiation/in-progress state through the owner-controlled reset entry point."
+            }
+          ],
+          "repository_state": "missing",
+          "graph_status": "open",
+          "repository_evidence": [],
+          "depends_on": [
+            {
+              "key": "enemy-pursuit-search-foundation",
+              "reason": "Determining whether a blocked enemy is still 'actively tracking/pursuing the player' — the sole qualifying condition for a locked-door attack — requires the tracking/pursuit state owned by the shared pursuit/search foundation; no separate witness flag exists per the GDD, so this state must come from that foundation, which does not yet exist.",
+              "evidence": "GDD Door and Pursuit Rules: 'if the enemy can still track the player, it is already aggroed/pursuing... An enemy that has already lost the player does not begin attacking a locked door.' No pursuit/tracking state currently exists in the repository."
+            },
+            {
+              "key": "door-close-lock-break-lifecycle",
+              "reason": "The attack must request door damage through the Door-owned damage-receive interface and must stop/transition when the door's locked-to-broken state changes; DoorInteractable.cs currently has no durability, locked, or broken state, and no damage-receive method exists at all.",
+              "evidence": "GDD 'Locked-door attack and durability ownership'. Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs currently implements only IsOpen/Progress/interaction-timer fields (StartInteraction/CancelInteraction/Tick) with no durability, locked, broken, or damage-receive members."
+            }
+          ],
+          "exclusive_resources": [
+            {
+              "key": "logical:enemy-locomotion-behavior-surface",
+              "reason": "This behavior extends the same shared enemy-behavior codebase used by pursuit foundation, melee, and ranged work; concurrent edits risk collision.",
+              "evidence": "Derived rationale: same GDD ownership assignment cited on enemy-pursuit-search-foundation; no enemy scripts currently exist so this work extends the same shared codebase."
+            }
+          ],
+          "decomposition_state": "concrete",
+          "decomposition_reason": "The qualifying condition (still tracking/pursuing + blocked by locked door), the damage-interface boundary, and the post-break pursuit continuation are already fully specified by the GDD Door and Pursuit Rules section; nothing further needs to be invented.",
+          "execution_scope": "single_agent",
+          "execution_reason": "A narrowly scoped behavior branch — checking existing tracking state, requesting door damage through one interface, and resuming pursuit after breach — with a small, well-defined validation target once its two prerequisites exist; bounded enough for one implementation agent.",
+          "confidence": "high",
+          "notes": "Does not consume or write the shared gameplay-walkability-surface directly; it only reads the navigation layer's passability result once the door breaks, per GDD's explicit statement that 'pursuit and attack behavior consume doorway walkability... rather than directly changing NavMesh or door passability,' so no logical:gameplay-walkability-surface lock is applied here."
+        },
+        {
+          "key": "melee-enemy",
+          "title": "Melee Enemy Archetype",
+          "kind": "implementation",
+          "type": "enemy_archetype",
+          "parent_key": "enemies",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Required Enemy Roster",
+              "requirement": "Melee Enemy runs at the wizard and attacks at close range; prevents long stationary casts and becomes dangerous in groups."
+            },
+            {
+              "reference": "Resources, Feedback, and Failure",
+              "requirement": "Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters."
+            },
+            {
+              "reference": "Spell and Enemy Interactions",
+              "requirement": "Melee enemies naturally cluster while pursuing the wizard, making them strong area-damage targets for Charged Fireball; Frost Field stretches that formation."
+            },
+            {
+              "reference": "Required Enemy Roster",
+              "requirement": "Both enemy archetypes deal damage through the shared Player Health system rather than maintaining separate copies of player-health state."
+            },
+            {
+              "reference": "Environment Presentation and Authoring Direction / Runtime Implementation",
+              "requirement": "The wizard and enemies use world-space SpriteRenderers and prefabs with the same isometric sorting conventions as other world-space objects."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Required Enemy Roster",
+              "requirement": "Runs at the wizard and attacks at close range once the shared pursuit foundation acquires the player as target."
+            },
+            {
+              "reference": "Required Enemy Roster",
+              "requirement": "Deals damage to the player exclusively through the shared Player Health damage interface (existing PlayerHealth.TakeDamage), never writing separate player-health state."
+            },
+            {
+              "reference": "Resources, Feedback, and Failure",
+              "requirement": "A retreating player cannot maintain indefinite safety through ordinary movement alone; Melee Enemy pursuit gradually closes distance over time, with exact speed/tuning left to playtesting."
+            },
+            {
+              "reference": "Spell and Enemy Interactions",
+              "requirement": "Multiple simultaneously pursuing Melee Enemies exhibit natural clustering while chasing (not rigid uniform spacing), preserving the relevance of Charged Fireball area damage and Frost Field formation-stretching."
+            },
+            {
+              "reference": "Environment Presentation and Authoring Direction",
+              "requirement": "Delivers a usable assembled world-space SpriteRenderer archetype prefab integrating the shared pursuit/locomotion foundation, Enemy Health/Defeat participation, Active Enemy Registry participation, and Melee attack behavior."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled attack-state reset entry point that clears any in-progress attack cooldown/windup and cancels an in-flight melee attack when the Floor Run/Restart Orchestrator invokes floor restart, so no mid-execution attack state carries over from a failed run."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled restart/reset entry point that clears melee attack execution/wind-up state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Spell and Enemy Interactions",
+              "requirement": "Exercise multiple simultaneously pursuing Melee Enemies (not only one) to validate that clustering behavior remains meaningful for area-damage/formation-stretch interactions."
+            },
+            {
+              "reference": "Required Enemy Roster",
+              "requirement": "Verify melee damage is applied only through PlayerHealth.TakeDamage and not through any duplicated health-writing path."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Verify a mid-windup/mid-swing Melee Enemy attack is cancelled and cooldown/windup state is cleared by floor restart, with no attack state surviving into the next run."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Verify floor restart clears melee attack execution/wind-up state through the owner-controlled reset entry point."
+            }
+          ],
+          "repository_state": "missing",
+          "graph_status": "open",
+          "repository_evidence": [],
+          "depends_on": [
+            {
+              "key": "enemy-pursuit-search-foundation",
+              "reason": "Melee Enemy's chase/close-distance behavior is the archetype-specific behavior built directly on the shared detection/pursuit/search/reacquisition state machine, which does not yet exist.",
+              "evidence": "GDD Enemy Detection, Pursuit, and Target Loss + Required Enemy Roster describe Melee Enemy pursuit as an application of the shared contract; no pursuit/search code exists in the repository."
+            },
+            {
+              "key": "enemy-health-damage-defeat",
+              "reason": "The assembled archetype must integrate the reusable Enemy Health/Defeat capability rather than maintaining its own health/damage/defeat state; that capability does not yet exist.",
+              "evidence": "GDD Required Enemy Roster 'Enemy health and defeat ownership' paragraph; no such component exists anywhere in Assets/NoSafeCircle/DoorPrototype/Scripts."
+            },
+            {
+              "key": "active-enemy-registry",
+              "reason": "The archetype must register with and participate in the Active Enemy Registry's active-count bookkeeping so encounter admission and the fifteen-enemy cap function correctly; the registry does not yet exist.",
+              "evidence": "GDD 'Active Enemy Registry and Encounter Admission': enemy activation registers with the registry and defeat removes the enemy from the active count; no registry implementation exists in the repository."
+            },
+            {
+              "key": "world-visual-foundation",
+              "reason": "Melee Enemy's acceptance criteria require delivering a usable assembled world-space SpriteRenderer archetype prefab following the isometric sorting conventions that the reusable visual-world foundation owns; that foundation does not exist yet, so the conventions the archetype must conform to are not established.",
+              "evidence": "GDD Section 5 — Runtime Implementation: 'World-space SpriteRenderer prefabs will be used for sealed doors, tall props, obstacles, the wizard, enemies, and other independently sorted or interactive objects. Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture.' Section 3 — Environment Presentation and Authoring Direction: 'the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers.' world-visual-foundation is repository_state missing; no SpriteRenderer, Grid, or Tilemap component exists anywhere in Assets/."
+            }
+          ],
+          "exclusive_resources": [
+            {
+              "key": "logical:enemy-locomotion-behavior-surface",
+              "reason": "Melee Enemy is built directly on the shared pursuit foundation and shares its behavior surface with ranged-enemy and locked-door-enemy-attack; concurrent edits risk collision.",
+              "evidence": "Derived rationale: same GDD ownership assignment cited on enemy-pursuit-search-foundation; no enemy scripts currently exist so this work extends the same shared codebase."
+            }
+          ],
+          "decomposition_state": "concrete",
+          "decomposition_reason": "Melee Enemy's behavior (rush-and-melee-attack, gradual distance closing, natural clustering) and its role as an assembled archetype integrating existing-to-be-built shared capabilities are already concretely specified by the GDD; no additional design invention is required.",
+          "execution_scope": "needs_execution_decomposition",
+          "execution_reason": "Integrates several distinct subsystem contracts (shared pursuit/locomotion consumption, Enemy Health/Defeat participation, Active Enemy Registry participation, melee attack execution, and SpriteRenderer prefab presentation/sorting) into one assembled archetype; each integration point has its own validation concern, exceeding a single bounded agent handoff.",
+          "confidence": "high",
+          "notes": "Frost Field's slowdown application/restoration is owned by enemy-status-effect-displacement (a different domain); this item only needs to expose a locomotion speed that can be externally modified, and no formal dependency in that direction is added since the GDD makes status-effect the consumer of this behavior, not the reverse."
+        },
+        {
+          "key": "player-movement",
+          "title": "Mouse-Directed Player Movement, Shared Pointer Projection, and Movement Restriction",
+          "kind": "implementation",
+          "type": "implementation",
+          "parent_key": "player",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "GDD §2 Player Actions and Systems — Move and Aim",
+              "requirement": "Mouse-directed movement through the shared Unity Input System/Input Actions layer: click to set a destination or hold to keep steering toward the cursor; Player Movement owns the shared cursor-to-gameplay-plane projection and exposes the resulting world-space pointer target consumed by movement, cursor-aimed spells, and cursor-targeted interactions (Force Wave is the exception)."
+            },
+            {
+              "reference": "GDD §2 Resources, Feedback, and Failure — Player Movement ownership",
+              "requirement": "Player Movement owns position, locomotion, movement-restriction state, and the shared cursor-to-gameplay-plane projection; runtime input is routed through Input System/Input Actions rather than direct hardware polling; Charged Fireball requests/releases its movement restriction through an owner-controlled Player Movement interface without mutating movement internals."
+            },
+            {
+              "reference": "GDD §2 Loss — Floor-run restart ownership",
+              "requirement": "Player Movement/player position is a required reset participant invoked by the Floor Run/Restart Orchestrator through an owner-controlled reset entry point."
+            },
+            {
+              "reference": "Section 2 — Victory/input-shutdown ownership bullet",
+              "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "GDD §2 Move and Aim",
+              "requirement": "Movement is mouse-directed: a click sets a destination the wizard walks toward, and holding continues steering toward the current cursor position, consumed through Unity Input System/Input Actions rather than direct hardware polling."
+            },
+            {
+              "reference": "GDD §2 Player Movement ownership",
+              "requirement": "Exposes a shared world-space pointer target produced by projecting the cursor onto the gameplay plane, consumable by cursor-aimed spells and Door/Interaction without those systems independently projecting screen coordinates."
+            },
+            {
+              "reference": "GDD §2 Player Movement ownership; §4 Development Agent Ownership Invariants",
+              "requirement": "Exposes an owner-controlled movement-restriction request/release interface that Charged Fireball can use to restrict movement while charging without Fireball mutating movement internals directly."
+            },
+            {
+              "reference": "GDD §2 Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled reset entry point that restores player position/movement state to the floor's initial state, consumed by the Floor Run/Restart Orchestrator rather than having position mutated externally."
+            },
+            {
+              "reference": "Section 2 — Victory/input-shutdown ownership bullet; Section 4 — Final escape/victory coordination invariant",
+              "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels any in-progress input-driven movement (including an active click-to-destination approach), rejects new movement commands while suspended, and is re-enabled only through an authorized reset/test flow; consumed by the Game Flow/Victory capability rather than having movement internals mutated directly."
+            },
+            {
+              "reference": "GDD §2 Victory/input-shutdown ownership; §4 Development Agent Ownership Invariants",
+              "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface that immediately stops already-active input-driven movement, rejects new movement commands while suspended, and can be re-enabled only through an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "GDD §2 Move and Aim",
+              "requirement": "Play Mode validation that clicking a location moves the wizard toward it and that holding steers continuously toward the live cursor position."
+            },
+            {
+              "reference": "GDD §2 Player Movement ownership",
+              "requirement": "Validate that the exposed world-space pointer target is correctly consumable by a cursor-aimed spell or Door/Interaction integration once those systems exist."
+            },
+            {
+              "reference": "Victory/input-shutdown ownership",
+              "requirement": "Play Mode check: invoking the suspend interface while movement is active immediately halts the wizard's in-progress movement (including an active click-to-destination approach), and further movement input has no effect until an authorized re-enable/reset flow runs."
+            }
+          ],
+          "repository_state": "partial",
+          "graph_status": "open",
+          "repository_evidence": [
+            {
+              "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+              "evidence_type": "code",
+              "observation": "Implements only CharacterController-driven WASD movement via direct Keyboard.current polling; no mouse-directed movement, cursor projection, movement-restriction interface, or reset entry point exist."
+            },
+            {
+              "path": "Assets/InputSystem_Actions.inputactions",
+              "evidence_type": "project_setting",
+              "observation": "Unmodified stock Unity template action asset; Player map has only WASD/Dpad Move and button actions (Attack/Interact/Crouch/Jump/etc.), no cursor-to-gameplay-plane or click-to-move action, and PlayerMovement.cs does not reference it."
+            },
+            {
+              "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+              "evidence_type": "scene",
+              "observation": "PlayerMovement.cs (guid 356044e6782dd0641a7e69b0abfa5c4a) is serialized on the Player GameObject, confirming current WASD movement is the integrated state, not merely available via the builder."
+            }
+          ],
+          "depends_on": [],
+          "exclusive_resources": [
+            {
+              "key": "repo-file:Assets/InputSystem_Actions.inputactions",
+              "reason": "Adding mouse-directed click/hold movement and cursor-to-gameplay-plane projection through the Input System requires adding or modifying actions/bindings in this single shared actions asset.",
+              "evidence": "GDD §2 Move and Aim requires routing through Unity Input System/Input Actions; current InputSystem_Actions.inputactions has no click-to-move or cursor-projection action for the Player map."
+            },
+            {
+              "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+              "reason": "DoorPrototypeSceneBuilder.BuildPlayer creates and wires PlayerMovement on the canonical Player GameObject; converting to mouse-directed movement requires modifying this builder's player-construction logic.",
+              "evidence": "DoorPrototypeSceneBuilder.cs BuildPlayer() currently adds and configures PlayerMovement, and the builder destructively clears/recreates the Player root each run."
+            },
+            {
+              "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+              "reason": "The builder saves this canonical scene after (re)building the Player hierarchy, so any change to player movement wiring integrates through and re-serializes this scene.",
+              "evidence": "DoorPrototypeSceneBuilder.Build() calls EditorSceneManager.SaveScene against ScenePath = Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity."
+            }
+          ],
+          "decomposition_state": "concrete",
+          "decomposition_reason": "The required behavior (mouse-directed movement via Input System, shared pointer projection, movement-restriction interface, reset entry point) is fully specified by current GDD text without inventing new design.",
+          "execution_scope": "single_agent",
+          "execution_reason": "All required responsibilities are cohesively owned by one system (PlayerMovement.cs) plus its Input Actions and builder/scene wiring; it is a bounded rewrite of one component's input/locomotion model rather than a multi-system integration.",
+          "confidence": "high",
+          "notes": "Exact movement speed/feel tuning is left to playtesting per GDD and is not part of this item's required acceptance surface."
+        },
+        {
+          "key": "ranged-enemy",
+          "title": "Ranged Enemy Archetype",
+          "kind": "implementation",
+          "type": "enemy_archetype",
+          "parent_key": "enemies",
+          "basis": "direct_gdd",
+          "source_scope": "required",
+          "gdd_evidence": [
+            {
+              "reference": "Required Enemy Roster",
+              "requirement": "Ranged Enemy keeps moderate distance and fires a slow telegraphed shot; forces lateral movement while Melee Enemies close in."
+            },
+            {
+              "reference": "Required Enemy Roster",
+              "requirement": "A Ranged Enemy may end up fighting alone if its Melee support is defeated first; tap Fireball, cover, and lateral movement remain effective against a lone survivor."
+            },
+            {
+              "reference": "Runtime Implementation",
+              "requirement": "Ranged Enemy attacks include a line-of-sight/projectile-occlusion check so Chapel of Ash's cover actually blocks shots."
+            },
+            {
+              "reference": "Spell and Enemy Interactions",
+              "requirement": "Frost Field slows a Ranged Enemy's repositioning but does not stop its attacks; the player must still move laterally or use room geometry to avoid incoming shots."
+            },
+            {
+              "reference": "Environment Presentation and Authoring Direction / Runtime Implementation",
+              "requirement": "The wizard and enemies use world-space SpriteRenderers and prefabs with consistent isometric sorting conventions."
+            }
+          ],
+          "acceptance_criteria": [
+            {
+              "reference": "Required Enemy Roster",
+              "requirement": "Keeps moderate distance from the player and fires a slow, telegraphed ranged shot rather than an instantaneous attack."
+            },
+            {
+              "reference": "Runtime Implementation",
+              "requirement": "Attack includes a line-of-sight/projectile-occlusion check so cover (e.g., Chapel of Ash pews/columns) actually blocks shots."
+            },
+            {
+              "reference": "Required Enemy Roster",
+              "requirement": "Deals damage to the player exclusively through the shared Player Health damage interface (existing PlayerHealth.TakeDamage)."
+            },
+            {
+              "reference": "Required Enemy Roster",
+              "requirement": "Functions correctly as a standalone pursuer if it ends up fighting without Melee support, without requiring melee presence to operate."
+            },
+            {
+              "reference": "Spell and Enemy Interactions",
+              "requirement": "Frost Field slowdown affects only the Ranged Enemy's repositioning/locomotion speed and does not suppress, pause, or otherwise slow its telegraphed attack execution."
+            },
+            {
+              "reference": "Environment Presentation and Authoring Direction",
+              "requirement": "Delivers a usable assembled world-space SpriteRenderer archetype prefab integrating the shared pursuit/locomotion foundation (moderate-distance keep-away behavior), Enemy Health/Defeat participation, Active Enemy Registry participation, and Ranged attack/occlusion behavior."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled attack-state reset entry point that clears any in-progress telegraphed-shot windup and cancels/despawns any in-flight projectile when the Floor Run/Restart Orchestrator invokes floor restart, so no mid-execution attack state carries over from a failed run."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Exposes an owner-controlled restart/reset entry point that clears ranged attack/telegraph timing and any in-flight projectile state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly."
+            }
+          ],
+          "validation_requirements": [
+            {
+              "reference": "Dungeon Floor Structure (Chapel of Ash) / Development Agent Roles (Unity Validation Agent)",
+              "requirement": "Chapel of Ash line-of-sight/projectile-occlusion Play Mode validation confirming cover blocks shots."
+            },
+            {
+              "reference": "Spell and Enemy Interactions",
+              "requirement": "Verify a slowed (Frost Field) Ranged Enemy continues its normal telegraphed attack behavior while its repositioning speed is reduced."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Verify an in-progress telegraphed shot or in-flight projectile is cancelled/cleared by floor restart, with no attack state surviving into the next run."
+            },
+            {
+              "reference": "Section 2 — Floor-run restart ownership",
+              "requirement": "Verify floor restart clears ranged attack/telegraph timing and any in-flight projectile state through the owner-controlled reset entry point."
+            }
+          ],
+          "repository_state": "missing",
+          "graph_status": "open",
+          "repository_evidence": [],
+          "depends_on": [
+            {
+              "key": "enemy-pursuit-search-foundation",
+              "reason": "Ranged Enemy's moderate-distance-keeping and target acquisition/loss are built directly on the shared detection/pursuit/search/reacquisition state machine, which does not yet exist.",
+              "evidence": "GDD Enemy Detection, Pursuit, and Target Loss + Required Enemy Roster; no pursuit/search code exists in the repository."
+            },
+            {
+              "key": "enemy-health-damage-defeat",
+              "reason": "The assembled archetype must integrate the reusable Enemy Health/Defeat capability rather than maintaining its own health/damage/defeat state; that capability does not yet exist.",
+              "evidence": "GDD Required Enemy Roster 'Enemy health and defeat ownership' paragraph; no such component exists in the repository."
+            },
+            {
+              "key": "active-enemy-registry",
+              "reason": "The archetype must register with and participate in the Active Enemy Registry's active-count bookkeeping; the registry does not yet exist.",
+              "evidence": "GDD 'Active Enemy Registry and Encounter Admission'; no registry implementation exists in the repository."
+            },
+            {
+              "key": "world-visual-foundation",
+              "reason": "Ranged Enemy's acceptance criteria require delivering a usable assembled world-space SpriteRenderer archetype prefab following the isometric sorting conventions that the reusable visual-world foundation owns; that foundation does not exist yet, so the conventions the archetype must conform to are not established.",
+              "evidence": "GDD Section 5 — Runtime Implementation: 'World-space SpriteRenderer prefabs will be used for sealed doors, tall props, obstacles, the wizard, enemies, and other independently sorted or interactive objects. Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture.' Section 3 — Environment Presentation and Authoring Direction: 'the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers.' world-visual-foundation is repository_state missing; no SpriteRenderer, Grid, or Tilemap component exists anywhere in Assets/."
+            }
+          ],
+          "exclusive_resources": [
+            {
+              "key": "logical:enemy-locomotion-behavior-surface",
+              "reason": "Ranged Enemy is built directly on the shared pursuit foundation and shares its behavior surface with melee-enemy and locked-door-enemy-attack; concurrent edits risk collision.",
+              "evidence": "Derived rationale: same GDD ownership assignment cited on enemy-pursuit-search-foundation; no enemy scripts currently exist so this work extends the same shared codebase."
+            }
+          ],
+          "decomposition_state": "concrete",
+          "decomposition_reason": "Ranged Enemy's behavior (moderate-distance keep-away, slow telegraphed shot, occlusion check, standalone viability, Frost interaction) is already concretely specified by the GDD; no additional design invention is required at this coarse level.",
+          "execution_scope": "needs_execution_decomposition",
+          "execution_reason": "Bundles keep-away positioning logic, telegraphed-attack timing, line-of-sight/occlusion checks, Frost-interaction correctness, plus Enemy Health/Defeat and Active Enemy Registry integration and SpriteRenderer presentation into one archetype; these are independently verifiable responsibilities exceeding a single bounded handoff.",
+          "confidence": "high",
+          "notes": "The GDD's encounter-composition rule that Ranged Enemy never spawns as an isolated encounter is content/authoring policy owned by dungeon-encounter-content-authoring (a different domain), not this archetype's own behavior; this item only needs to remain correct when it happens to end up alone mid-encounter."
+        }
+      ],
+      "work_item_keys_remove": [],
+      "non_code_requirements_upsert": [
+        {
+          "title": "Schedule-slip scope-reduction order",
+          "requirement_type": "pipeline_constraint",
+          "status": "confirmed",
+          "gdd_evidence": [
+            {
+              "reference": "Section 5 — Six-Week Development Plan",
+              "requirement": "Stretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5–6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut."
+            }
+          ],
+          "evidence": "Stated verbatim as a bounded, ordered scope-cut policy in the Section 5 Six-Week Development Plan: stretch features are removed first, then advanced door visuals and one encounter variation may be reduced, then final-room encounter density may be reduced toward the low end of the three-to-eight range with simplified presentation polish; required systems (three spells, two enemy types, door loop, mana regeneration, pursuit, final escape) are never cut."
+        },
+        {
+          "title": "Six-Week schedule fallback and required-scope protection",
+          "requirement_type": "pipeline_constraint",
+          "status": "confirmed",
+          "gdd_evidence": [
+            {
+              "reference": "Section 5 - Six-Week Development Plan",
+              "requirement": "Stretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5-6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut."
+            }
+          ],
+          "evidence": "Directly stated as a required schedule-risk fallback and scope-protection policy in Section 5 Six-Week Development Plan; governs development-process prioritization under schedule pressure (what is reduced/cut first, and what is never cut) rather than being an in-game feature, acceptance criterion, or delivery artifact."
+        }
+      ],
+      "non_code_requirement_titles_remove": [],
+      "deferred_or_excluded_upsert": [],
+      "deferred_or_excluded_titles_remove": [],
+      "unresolved_questions_upsert": [],
+      "unresolved_question_texts_remove": [],
+      "finding_resolutions": [
+        {
+          "source_agent": "Coverage — Content Encounters",
+          "finding_id": "CE-01",
+          "disposition": "corrected",
+          "explanation": "Confirmed against GDD Section 2 (Loss and Floor-run restart ownership), which names 'encounter activation/admission state' as a required reset participant and requires every state owner to expose its own reset entry point. encounter-admission-cap-enforcement was the sole run-persistent owner in the candidate with no owner-side reset criterion while floor-run-restart-persistent-closure already depended on it. Because the parallel Evidence audit (EV-ENEM-003) appended a competing criterion to the same field, I merged both into one acceptance criterion and one validation requirement rather than adding near-duplicates: the CE floor-initial-state contract plus the evidence audit's concrete state enumeration (delayed/reduced pending activation, admitted-batch bookkeeping)."
+        },
+        {
+          "source_agent": "Coverage — Content Encounters",
+          "finding_id": "CE-02",
+          "disposition": "corrected",
+          "explanation": "Confirmed: GDD line 23 ('Each room ends at a door'), line 25 (open the final door and escape), and line 50 ('The player moves through connected rooms toward the final door') require sealed-door connectivity and a designated final door, yet no work item obliged authoring door instances or designating the Final Room's exit — five-room-content-authoring covered only the five named spaces and single-scene continuity. Added the criterion to five-room-content-authoring because room connectivity is a room-geometry property, while dungeon-encounter-content-authoring's own scope ('configured per-door durability values') presupposes door instances already exist and the door items are reusable runtime components. The finding's human-review flag concerned only which deferred content feature hosts the criterion, which is a graph-representation choice within refiner authority; the requirement itself is explicitly specified, so no unresolved question was opened."
+        },
+        {
+          "source_agent": "Coverage — Content Encounters",
+          "finding_id": "CE-03",
+          "disposition": "corrected",
+          "explanation": "Confirmed: GDD Section 5 Runtime Implementation states Bone Archive's lane widths are validated against enemy movement/navigation requirements, and Section 4's Unity Validation Agent lists both 'Bone Archive lane pathing' and 'Chapel of Ash occlusion'. Both are joint checks over runtime configuration and authored geometry, but the candidate owned them only on enemy-pursuit-search-foundation, gameplay-navigation-locomotion, and ranged-enemy. Added the authoring-side halves as validation requirements on five-room-content-authoring so the geometry constraints survive future decomposition."
+        },
+        {
+          "source_agent": "Coverage — Content Encounters",
+          "finding_id": "CE-04",
+          "disposition": "corrected",
+          "explanation": "Confirmed in the GDD Dungeon Floor Structure table: Chapel of Ash contains 'the newly introduced Ranged Enemy, which appears here alongside Melee Enemy support rather than alone', while Ruined Entry and Bone Archive are described purely in melee terms. The pacing existed only as gdd_evidence prose, so the existing composition criteria would have permitted a Ranged Enemy in Ruined Entry. Added it as an obliging acceptance criterion on dungeon-encounter-content-authoring."
+        },
+        {
+          "source_agent": "Coverage — Content Encounters",
+          "finding_id": "CE-05",
+          "disposition": "corrected",
+          "explanation": "Verified the scope-cut paragraph verbatim in Section 5's Six-Week Development Plan, and confirmed no existing non_code_requirement covers it (the nearest, 'Agent scope and canon discipline', only forbids adding scope). Added a new typed pipeline_constraint, 'Schedule-slip scope-reduction order', preserving the ordered reduction policy and the protection of required systems. Classified as pipeline_constraint because it is a development-process invariant, not gameplay work."
+        },
+        {
+          "source_agent": "Coverage — Content Encounters",
+          "finding_id": "CE-06",
+          "disposition": "corrected",
+          "explanation": "Confirmed the Section 5 sentence 'encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation' verbatim. Restated the prerequisite in dungeon-encounter-content-authoring's decomposition_reason (a durable decomposition field rather than free-text notes), instructing a future Progressive Decomposer to attach the concrete descendant-to-descendant edge later. No feature-target dependency was introduced, so the dependency-kind invariant is preserved."
+        },
+        {
+          "source_agent": "Coverage — Content Encounters",
+          "finding_id": "CE-07",
+          "disposition": "corrected",
+          "explanation": "Confirmed encounter-admission-cap-enforcement is deliberately scoped to be dispatchable and testable without authored encounter content, so it cannot exercise per-encounter sizing. Removed the three-to-eight validation requirement from that item and added the matching validation requirement to dungeon-encounter-content-authoring, which owns the 3-8 acceptance criterion. The floor-wide fifteen-enemy ceiling remains validated on the admission item, so the Section 3 Player Experience Success Criterion stays represented on owning work items rather than being dropped."
+        },
+        {
+          "source_agent": "Coverage — Doors",
+          "finding_id": "DOORS-001",
+          "disposition": "corrected",
+          "explanation": "Added an owner-controlled suspend/re-enable acceptance criterion to door-open-interaction, matching the pattern already present on fireball, frost-field, and force-wave, and giving final-escape-victory's existing dependency a durable owner-side obligation to consume."
+        },
+        {
+          "source_agent": "Coverage — Doors",
+          "finding_id": "DOORS-002",
+          "disposition": "corrected",
+          "explanation": "Added an owner-controlled reset-entry-point acceptance criterion to door-open-interaction, matching the reset criteria already carried by doorway-crossing-state and door-close-lock-break-lifecycle, so both restart stages' existing dependency on door-open-interaction has a real obligation to satisfy."
+        },
+        {
+          "source_agent": "Coverage — Doors",
+          "finding_id": "DOORS-003",
+          "disposition": "corrected",
+          "explanation": "Added an explicit sealed-to-open transition acceptance criterion to door-open-interaction and clarified that door-close-lock-break-lifecycle (which already publishes sealed/open/locked/broken through the navigation passability interface) is the owner that publishes the resulting open state, closing the gap between the two items without duplicating publication ownership."
+        },
+        {
+          "source_agent": "Coverage — Doors",
+          "finding_id": "DOORS-005",
+          "disposition": "corrected",
+          "explanation": "Extended door-close-lock-break-lifecycle's durability acceptance criteria to require a per-door authorable/serialized durability value, matching dungeon-encounter-content-authoring's existing dependency reason that it configures per-door durability values without owning runtime durability state."
+        },
+        {
+          "source_agent": "Coverage — Enemy State",
+          "finding_id": "ES-F1",
+          "disposition": "corrected",
+          "explanation": "Added an owner-controlled attack-state reset acceptance criterion (plus matching validation requirement) to melee-enemy, ranged-enemy, and locked-door-enemy-attack, and added depends_on edges from floor-run-restart-persistent-closure to all three so full restart closure cannot complete while any archetype's in-progress attack (windup/in-flight shot/door-attack attempt) still carries over. enemy-pursuit-search-foundation's notes already establish that archetype-specific attack behavior belongs on the archetype items, so ownership is assigned there rather than widening the foundation's reset criterion."
+        },
+        {
+          "source_agent": "Coverage — Enemy State",
+          "finding_id": "ES-F2",
+          "disposition": "corrected",
+          "explanation": "Added an acceptance criterion and matching validation requirement to enemy-health-damage-defeat stating the defeat transition ends the enemy's participation as an active threat (pursuit/attack stops and it leaves play) while remaining the same persistent object restorable via the reset entry point, per GDD §1 Executive Summary and §3 Active Enemy Registry and Encounter Admission."
+        },
+        {
+          "source_agent": "Coverage — Enemy State",
+          "finding_id": "ES-F3",
+          "disposition": "corrected",
+          "explanation": "Added an acceptance criterion and matching validation requirement to enemy-health-damage-defeat that a persistent enemy's health/defeat state changes only through the owner-controlled damage interface and the floor-restart reset entry point, never on room transition, target loss, search, or doorway crossing, per GDD §5 Runtime Implementation and the Lower Vault/Door and Pursuit Rules persistent-pursuer premise."
+        },
+        {
+          "source_agent": "Coverage — Player Core",
+          "finding_id": "PC-F1",
+          "disposition": "corrected",
+          "explanation": "Confirmed against GDD Section 2 (Victory/input-shutdown ownership) and Section 4 (Final escape/victory coordination): Player Movement is explicitly named as an owner-controlled suspend/re-enable interface provider, symmetric with Fireball/Frost Field/Force Wave, but the candidate's player-movement item had no gdd_evidence or acceptance criterion for it. Added a matching gdd_evidence row, an owner-side acceptance criterion, and a mirrored validation requirement to player-movement. final-escape-victory's existing consumption criterion and its dependency on player-movement were left unchanged as instructed."
+        },
+        {
+          "source_agent": "Coverage — Run Lifecycle",
+          "finding_id": "F1",
+          "disposition": "corrected",
+          "explanation": "GDD 'Loss' requires that status-effect and displacement state, alongside target/search state, do not carry over from a failed run. The item's dependency on enemy-status-effect-displacement and its generic full-closure gate already structurally require this, so no obligation was missing, but the specific enemy-reset acceptance criterion only named target/search state. Corrected the criterion text to explicitly enumerate status-effect and displacement clearing for readability, matching the recommended change (a clarity improvement, not a new requirement)."
+        },
+        {
+          "source_agent": "Deterministic Coverage Check",
+          "finding_id": "deterministic-representation-coverage-content-encounters-CE-R16",
+          "disposition": "corrected",
+          "explanation": "Duplicate of CE-04. Classified as an acceptance_criterion (a behavior/constraint owned by an existing item) rather than new work, and resolved by the criterion added to dungeon-encounter-content-authoring requiring Ranged Enemy's first introduction in Chapel of Ash alongside Melee support, with Ruined Entry and Bone Archive remaining melee-only."
+        },
+        {
+          "source_agent": "Deterministic Coverage Check",
+          "finding_id": "deterministic-representation-coverage-content-encounters-CE-R21",
+          "disposition": "corrected",
+          "explanation": "Duplicate of CE-02. Classified as an acceptance_criterion on existing deferred room-authoring work rather than a new work item, and resolved by the five-room-content-authoring criterion requiring forward-only sealed-door connectivity between the five named spaces and designation of the Final Room's exit as the final door consumed through the shared doorway-crossing state."
+        },
+        {
+          "source_agent": "Deterministic Coverage Check",
+          "finding_id": "deterministic-representation-coverage-content-encounters-CE-R22",
+          "disposition": "corrected",
+          "explanation": "Duplicate of CE-05. Classified as required_process -> pipeline_constraint and resolved by the new typed 'Schedule-slip scope-reduction order' non_code_requirement, giving the Section 5 Weeks 5-6 scope-cut fallback a durable typed representation without manufacturing gameplay work."
+        },
+        {
+          "source_agent": "Deterministic Coverage Check",
+          "finding_id": "deterministic-representation-coverage-doors-DOOR-R20",
+          "disposition": "corrected",
+          "explanation": "This deterministic finding duplicates DOORS-002; resolved by the same added reset-entry-point acceptance criterion on door-open-interaction, which is the correct representation type (acceptance_criterion on the existing owner, not a new work item)."
+        },
+        {
+          "source_agent": "Deterministic Coverage Check",
+          "finding_id": "deterministic-representation-coverage-doors-DOOR-R21",
+          "disposition": "corrected",
+          "explanation": "This deterministic finding duplicates DOORS-001; resolved by the same added suspend/re-enable acceptance criterion on door-open-interaction, which is the correct representation type (acceptance_criterion on the existing owner, not a new work item)."
+        },
+        {
+          "source_agent": "Deterministic Coverage Check",
+          "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-04",
+          "disposition": "corrected",
+          "explanation": "Same underlying requirement as ES-F2 (defeated enemies stop being active threats). Resolved by the acceptance criterion added to enemy-health-damage-defeat; no separate work item is needed since this is behavior owned by that existing implementation item."
+        },
+        {
+          "source_agent": "Deterministic Coverage Check",
+          "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-16",
+          "disposition": "corrected",
+          "explanation": "Cross-space persistence for pursuit state and active-enemy bookkeeping were already represented on enemy-pursuit-search-foundation and active-enemy-registry; the missing enemy-health half is resolved by the acceptance criterion added under ES-F3 to enemy-health-damage-defeat, completing the requirement's representation."
+        },
+        {
+          "source_agent": "Deterministic Coverage Check",
+          "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-26",
+          "disposition": "corrected",
+          "explanation": "Same underlying requirement as ES-F1 (enemy attack state as a named restart participant with an owner-exposed reset entry point). Resolved by the attack-state reset acceptance criteria added to melee-enemy, ranged-enemy, and locked-door-enemy-attack plus the new depends_on edges from floor-run-restart-persistent-closure."
+        },
+        {
+          "source_agent": "Deterministic Coverage Check",
+          "finding_id": "deterministic-representation-coverage-global-pipeline-GP-029",
+          "disposition": "corrected",
+          "explanation": "GDD Section 5 - Six-Week Development Plan (verified verbatim against Docs/GDD/No_Safe_Circle_GDD.md) states a schedule-risk fallback policy: stretch features are cut first, advanced door visuals/one encounter variation may be reduced next, the core required systems (three spells, two enemy types, door loop, mana regeneration, pursuit, final escape) are never cut, and if Weeks 5-6 required work overruns the fallback is to reduce final-room encounter density toward the low end of the 3-8 range and simplify presentation polish rather than cutting required systems. This is a development-process/prioritization invariant governing how the project team responds to schedule slippage, not a distinct executable feature, an acceptance criterion of one work item, or a delivery artifact. Per the requirement-representation repair policy this maps to requirement_type=pipeline_constraint. Added as a new non_code_requirements record titled 'Six-Week schedule fallback and required-scope protection' rather than creating a new work item."
+        },
+        {
+          "source_agent": "Deterministic Coverage Check",
+          "finding_id": "deterministic-representation-coverage-player-core-PC-07",
+          "disposition": "corrected",
+          "explanation": "This deterministic finding flags the same PC-07 requirement (Player Movement owner-controlled suspend/re-enable interface) as unrepresented. Classified per the requirement-representation repair policy: this is behavior/constraint owned by an existing implementation item (player-movement), not a distinct executable responsibility, so it is represented as an acceptance criterion (plus matching gdd_evidence and validation_requirements) on player-movement rather than as a new work item, resolving the same coverage gap as PC-F1."
+        },
+        {
+          "source_agent": "Evidence — Enemies Encounters",
+          "finding_id": "EV-ENEM-001",
+          "disposition": "corrected",
+          "explanation": "Confirmed both quoted GDD sentences verbatim: Section 5 Runtime Implementation ('Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture') and Section 3 Environment Presentation and Authoring Direction (wizard and enemy representations follow the same isometric sorting conventions). melee-enemy and ranged-enemy each claim delivery of an assembled SpriteRenderer archetype prefab conforming to conventions owned by world-visual-foundation, which is repository_state missing with no SpriteRenderer/Grid/Tilemap anywhere in Assets/. Added a depends_on edge from each archetype to world-visual-foundation (an implementation-kind target, no cycle introduced) rather than stripping the prefab-assembly criteria, since each archetype must retain an owner for usable prefab assembly."
+        },
+        {
+          "source_agent": "Evidence — Enemies Encounters",
+          "finding_id": "EV-ENEM-002",
+          "disposition": "corrected",
+          "explanation": "Confirmed the GDD names enemy attack state as a reset participant distinctly from pursuit/search and status/displacement, and verified enemy-pursuit-search-foundation's reset criterion covers only target/last-known-position/search state. melee-enemy, ranged-enemy, and locked-door-enemy-attack carried no reset criteria and were absent from floor-run-restart-persistent-closure's participant list, leaving attack-state reset unowned. Added matching reset acceptance criteria and validation requirements to each owner and the three keys to the closure item's depends_on, mirroring the established pattern."
+        },
+        {
+          "source_agent": "Evidence — Enemies Encounters",
+          "finding_id": "EV-ENEM-003",
+          "disposition": "corrected",
+          "explanation": "Confirmed the same gap CE-01 reports, from the evidence side: the item's three acceptance criteria covered only capacity querying, delay/reduce-first behavior, and non-duplication, while the closure item already assumed a reset interface. Because both audits wrote competing text to encounter-admission-cap-enforcement's acceptance_criteria and validation_requirements, I resolved the conflict by synthesizing a single criterion and single validation requirement that retain this finding's concrete state enumeration (pending delayed/reduced activation, admitted-batch bookkeeping) inside CE-01's floor-initial-state contract. No new dependency edge was needed."
+        },
+        {
+          "source_agent": "Evidence — Enemies Encounters",
+          "finding_id": "EV-ENEM-004",
+          "disposition": "corrected",
+          "explanation": "Verified directly in the GDD: Section 2's Loss and Floor-run restart ownership paragraphs state registry bookkeeping resets to the floor's initial state and never say that state is empty, while each persistent enemy is returned to its authored spawn region in its initial AI state. 'Initial empty/starting state' was canon from silence and was replaced with the GDD's actual wording in both the acceptance criterion and validation requirement. Added a re-registration/consistency criterion so post-restart registry count cannot desynchronize from the live set of restored persistent enemies, worded neutrally so it does not assert whether the floor's initial active set is empty — which is deferred encounter-authoring content. No unresolved question was needed because the repair removes the unsupported assumption rather than replacing it with another."
+        },
+        {
+          "source_agent": "Structure — Dependencies Ownership Decomposition",
+          "finding_id": "STRUCT-001",
+          "disposition": "corrected",
+          "explanation": "Confirmed against the frozen candidate: door-open-interaction's 5 acceptance criteria and encounter-admission-cap-enforcement's 3 acceptance criteria contain no reset-entry-point requirement, even though floor-run-restart-bootstrap and floor-run-restart-persistent-closure both depend on them specifically to invoke such an entry point, and every other named persistent owner (player-health, player-mana, player-movement, doorway-crossing-state, door-close-lock-break-lifecycle, active-enemy-registry, enemy-health-damage-defeat, enemy-pursuit-search-foundation, enemy-status-effect-displacement, fireball, frost-field, force-wave) does carry this criterion. Added an owner-side reset-entry-point acceptance criterion to each of door-open-interaction and encounter-admission-cap-enforcement per GDD Floor-run restart ownership, mirroring the phrasing already used on the other listed owners. Existing dependency edges are left unchanged since they become satisfiable once the owners are obligated to expose the interface."
+        },
+        {
+          "source_agent": "Structure — Dependencies Ownership Decomposition",
+          "finding_id": "STRUCT-002",
+          "disposition": "corrected",
+          "explanation": "Confirmed against the frozen candidate: final-escape-victory's depends_on entries for player-movement and door-open-interaction both justify the edge by a required owner-controlled suspend interface, but neither owner's acceptance_criteria contains that requirement, unlike fireball/frost-field/force-wave which already carry the matching criterion. Added a mirrored gameplay-enable/suspend acceptance criterion to player-movement (stopping already-active input-driven movement) and door-open-interaction (stopping an in-progress door approach/opening timer), each requiring rejection of new commands while suspended and re-enable only via an authorized reset/test flow, consumed by the Game Flow/Victory capability. Existing final-escape-victory dependency edges are left unchanged."
+        }
+      ],
+      "reasoning": "Streaming refinement v2 merged compatible field-level repair operations deterministically and arbitrated only connected incompatible field clusters. The resulting projection passed the normal semantic validator before conversion to the legacy bounded Refiner delta contract."
+    }
+  }
+}

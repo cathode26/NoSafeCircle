@@ -1,0 +1,1004 @@
+{
+  "schema_version": "1.1",
+  "source_finding_count": 56,
+  "material_finding_count": 21,
+  "selected_finding_count": 32,
+  "selected_structural_warning_count": 11,
+  "findings": [
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-01",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Encounter activation/admission state has no owner-side floor-restart reset obligation",
+        "description": "The GDD names \"encounter activation/admission state\" as a required floor-restart reset participant and states that every system owning restart-persistent state must expose its own reset entry point invoked by the Floor Run/Restart Orchestrator. The candidate represents this only from the consumer side: `floor-run-restart-persistent-closure` declares a depends_on edge to `encounter-admission-cap-enforcement` with the reason \"Encounter activation/admission state is a named required reset participant\". The owner item itself (`encounter-admission-cap-enforcement`, lines 2280-2307) has three acceptance criteria (query registry capacity, delay/reduce rather than remove pursuers, consume the registry interface) and three validation requirements, none of which mention a reset entry point. Every other run-persistent owner in the candidate received an explicit owner-side criterion of the form \"Exposes an owner-controlled reset entry point...\" (active-enemy-registry line 867, enemy-health-damage-defeat line 941, enemy-status-effect-displacement line 1033, doorway-crossing-state line 1669, door-close-lock-break-lifecycle line 1777, fireball line 501, frost-field line 614, force-wave line 723, player-health line 265, player-mana line 346, player-movement line 171). This one owner is the sole omission, so an implementer could complete and close `encounter-admission-cap-enforcement` against its stated criteria while providing no reset surface, silently deferring the gap to the closure item.",
+        "affected_keys": [
+          "encounter-admission-cap-enforcement",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 - Win and Loss Conditions (Loss)",
+            "requirement": "Restart resets all run-persistent gameplay state to the floor's initial state, including ... Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state."
+          },
+          {
+            "reference": "Section 2 - Floor-run restart ownership",
+            "requirement": "Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns, and the orchestrator invokes those owned reset interfaces. Required reset participants include ... encounter activation/admission state."
+          },
+          {
+            "reference": "Section 5 - Runtime Implementation (Floor Run/Restart Orchestrator)",
+            "requirement": "... Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state must all participate once those systems exist."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "A glob of all Assets/**/*.cs returns only Door/Player/Camera/UI scripts and a grep for Encounter/Registry/Spawn returns no matches, confirming no encounter-admission implementation exists yet, so this criterion can still be added before any implementation work is dispatched."
+          }
+        ],
+        "recommended_change": "Add an explicit acceptance criterion to `encounter-admission-cap-enforcement` requiring an owner-controlled reset entry point that returns encounter activation/admission bookkeeping to its floor-initial state, consumed by the Floor Run/Restart Orchestrator rather than mutated externally, matching the wording pattern already used on every other run-persistent owner. Optionally add the matching restart validation requirement.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-02",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "No work item is obliged to author the sealed-door connections between the five named spaces, including the final door",
+        "description": "The GDD's required content is a floor of \"five connected spaces\" where \"[e]ach room ends at a door\" and the win condition is crossing \"the final door\". In the candidate, the door work items (`door-open-interaction`, `doorway-crossing-state`, `door-close-lock-break-lifecycle`) are reusable runtime component implementations; the `doors` feature has empty acceptance_criteria. `five-room-content-authoring`'s two acceptance criteria cover only (a) all five named spaces authored with their stated tactical purpose and (b) one continuous scene. `dungeon-encounter-content-authoring` authors \"per-door durability values\" — which presupposes door instances exist — but is never obliged to place them, and its acceptance criteria cover only composition/sizing. `final-escape-victory` consumes the crossing state of \"the final door\" without any item being obliged to author that door. An implementer could satisfy every mapped criterion and produce five room layouts in one scene with no doorway connectivity at all, leaving the required forward-only five-door progression and the final escape door unowned in the graph.",
+        "affected_keys": [
+          "five-room-content-authoring",
+          "dungeon-encounter-content-authoring",
+          "doors",
+          "final-escape-victory"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 1 - Executive Summary table (Playable Content)",
+            "requirement": "One handcrafted 2.5D isometric floor; five connected spaces."
+          },
+          {
+            "reference": "Section 1 - Executive Summary",
+            "requirement": "Each room ends at a door that takes five uninterrupted seconds to open. ... In the final room, the player must create enough distance from the pursuing enemies to open the final door and escape."
+          },
+          {
+            "reference": "Section 2 - Game Mechanics",
+            "requirement": "The player moves through connected rooms toward the final door. In each room, the objective is to click the next sealed door, reach its interaction position ..."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+            "observation": "The builder generates a single generic room (BuildFloor plane, BuildWalls two cubes, one DoorRoot/DoorInteractable) and saves it to the one canonical scene; no named-room or multi-door connectivity authoring exists, so this content responsibility is entirely future work with no current owner."
+          }
+        ],
+        "recommended_change": "Add an explicit acceptance criterion to `five-room-content-authoring` (or, if the human prefers, to `dungeon-encounter-content-authoring`) requiring that the five named spaces are connected in a forward-only sequence by authored sealed-door instances, with the Final Room's exit designated as the final escape door consumed by the victory capability. Ownership between the two deferred content features should be confirmed by a human before seeding.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-03",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Room-specific tactical checks are attached only to enemy/navigation owners, never to the room-authoring item that produces the geometry under test",
+        "description": "The GDD requires that Bone Archive's lane widths be validated against enemy movement/navigation requirements \"so both rooms' stated tactical geometry holds in practice\", and that Chapel of Ash's cover actually blocks Ranged Enemy shots. The candidate attaches the Bone Archive lane check to `enemy-pursuit-search-foundation` (line 1150) and `gameplay-navigation-locomotion` (line 2080), and the Chapel of Ash occlusion check to `ranged-enemy` (line 1336). `five-room-content-authoring` — the item that will actually author the lane widths, pews, and columns being validated — has `validation_requirements: []` and only a generic \"authored with their stated tactical layout purpose\" acceptance criterion. Both checks are joint checks over the navigation/attack configuration *and* the authored geometry; with no obligation recorded on the authoring side, the geometry-side constraints (lane width must exceed the navigation agent radius; Chapel cover must present real occluders to the line-of-sight check) can be silently lost when this deferred feature is decomposed into concrete room tasks.",
+        "affected_keys": [
+          "five-room-content-authoring",
+          "enemy-pursuit-search-foundation",
+          "gameplay-navigation-locomotion",
+          "ranged-enemy"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Runtime Implementation",
+            "requirement": "Ranged Enemy attacks include a line-of-sight/occlusion check, and Bone Archive's lane widths are validated against enemy movement/navigation requirements so both rooms' stated tactical geometry holds in practice."
+          },
+          {
+            "reference": "Section 4 - Development Agent Roles (Unity Validation Agent)",
+            "requirement": "Reviews changes and creates Play Mode checks ... including Bone Archive lane pathing, Chapel of Ash occlusion, Lower Vault enemy-cap priority ..."
+          },
+          {
+            "reference": "Section 3 - Dungeon Floor Structure",
+            "requirement": "Bone Archive: tall shelves and collapsed archive furniture create narrow lanes and chokepoints. Chapel of Ash: pews and stone columns provide line-of-sight breaks from the newly introduced Ranged Enemy."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "No named-room geometry, Tilemap content, or occluder authoring exists anywhere under Assets/, so these checks currently have no authored artifact and depend entirely on how the deferred room feature later decomposes."
+          }
+        ],
+        "recommended_change": "Add validation_requirements to `five-room-content-authoring` mirroring the Bone Archive lane-width/pathing check and the Chapel of Ash cover-occlusion check, scoped to the authored geometry side (lanes navigable at the configured agent radius; Chapel cover objects genuinely block the Ranged Enemy line-of-sight check), so the same checks are owned on both the authoring and the runtime side.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-04",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Ranged Enemy's required introduction point (Chapel of Ash) is preserved only as evidence prose, not as an authoring obligation",
+        "description": "The GDD states that Chapel of Ash is where the Ranged Enemy is \"newly introduced\", appearing there alongside Melee Enemy support, and the preceding rooms' tactical purposes are described purely in melee terms (Ruined Entry teaches circling a melee enemy; Bone Archive slows melee enemies in a lane). The candidate carries this sentence inside `five-room-content-authoring`'s gdd_evidence blob but nowhere as an obliging criterion. `dungeon-encounter-content-authoring`'s composition criteria only require that no encounter introduce a Ranged Enemy without Melee support and that Chapel of Ash and the Final Room be mixed. Under those criteria alone, an author could place a Melee+Ranged encounter in Ruined Entry without violating anything mapped, destroying the room-by-room introduction pacing the GDD specifies.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring",
+          "five-room-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 3 - Dungeon Floor Structure (Chapel of Ash)",
+            "requirement": "Pews and stone columns provide line-of-sight breaks from the newly introduced Ranged Enemy, which appears here alongside Melee Enemy support rather than alone."
+          },
+          {
+            "reference": "Section 3 - Dungeon Floor Structure (Ruined Entry / Bone Archive)",
+            "requirement": "Ruined Entry: the player learns to circle a melee enemy ... Bone Archive: melee enemies can be slowed inside a lane with Frost Field and clustered for Fireball."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "No encounter authoring exists in the repository, so this constraint exists only in the candidate's text and can still be added as a durable criterion."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `dungeon-encounter-content-authoring` stating that the Ranged Enemy is first introduced in Chapel of Ash and does not appear in the Ruined Entry or Bone Archive encounters, so the introduction pacing survives future decomposition.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-05",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Encounter-density scope-reduction fallback has no durable representation",
+        "description": "The GDD's Six-Week Development Plan fixes an explicit, bounded scope-cut policy that constrains encounter content: if required Weeks 5-6 work overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish, and required systems are not cut. The candidate has no record of this anywhere: a grep for \"density\", \"fallback\", and \"low end\" matches nothing outside the desired-state summary blob. The nearest typed record, `Agent scope and canon discipline`, only forbids agents from adding mechanics or redesigning the game; it does not preserve the direction of an authorized reduction or the protection of required systems. Without a durable record, a later schedule-pressure decision has no recorded boundary and could cut a required system or drop below three enemies in the Final Room.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring",
+          "encounter-admission-cap-enforcement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Six-Week Development Plan",
+            "requirement": "If required work in Weeks 5-6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut."
+          },
+          {
+            "reference": "Section 5 - Six-Week Development Plan",
+            "requirement": "Stretch features will be removed first if the schedule slips. ... The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Either add a typed `pipeline_constraint` record (e.g. \"Schedule-slip scope-reduction order\") capturing that stretch features are cut first, that the authorized encounter reduction is final-room density toward the low end of the three-to-eight range, and that required systems are never cut; or attach the density half as an acceptance/authoring note on `dungeon-encounter-content-authoring`.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-06",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "\"Encounter content consumes authored room spaces\" prerequisite survives only in the notes field of both deferred features",
+        "description": "The GDD states as a real prerequisite relationship that encounter placement/content consumes the authored room spaces. The candidate correctly declines to create an illegal feature -> feature dependency edge from `dungeon-encounter-content-authoring` to `five-room-content-authoring`, and correctly attaches the legal edge to `encounter-admission-cap-enforcement`. However, the room-space consumption relationship is preserved only in each item's free-text `notes` field, not in `decomposition_reason` or as an authoring criterion. `notes` is the weakest durable field in the record; if Progressive Decomposition consumes decomposition context rather than notes, the relationship could be lost precisely when concrete descendants exist and the real executable edge should be attached.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring",
+          "five-room-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - 2.5D Isometric Visual and World Representation",
+            "requirement": "Five-room visual/content authoring consumes this foundation once it exists; encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation. These are real prerequisite relationships even when the downstream content features remain deferred for future decomposition."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Restate the room-space consumption prerequisite inside `dungeon-encounter-content-authoring`'s `decomposition_reason` (in addition to notes), phrased so a Progressive Decomposer is instructed to attach a concrete encounter-placement -> authored-room implementation/artifact dependency once both features have concrete descendants.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-07",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "Encounter-size validation attached to the admission item cannot be validated by that item's own scope",
+        "description": "`encounter-admission-cap-enforcement` carries the validation requirement \"Encounters use three to eight enemies and never exceed fifteen active enemies at once\" (line 2304-2306). The three-to-eight half of that criterion is an authored-content property owned by `dungeon-encounter-content-authoring` (where it correctly appears as acceptance criterion line 2409). The admission item is deliberately scoped to be dispatchable and testable without any authored encounter content — its own decomposition_reason and execution_reason both state this. Leaving the sizing half attached here risks the item being judged incomplete for a property it does not own and cannot exercise.",
+        "affected_keys": [
+          "encounter-admission-cap-enforcement",
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 3 - Player Experience Success Criteria",
+            "requirement": "Encounters use three to eight enemies and never exceed fifteen active enemies."
+          },
+          {
+            "reference": "Section 2 - Active Enemy Registry and Encounter Admission",
+            "requirement": "The registry/bookkeeping responsibility is a reusable runtime foundation and does not require the exact five-room encounter layouts, placements, or trigger authoring to be known first."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Narrow the admission item's validation requirement to the floor-wide fifteen-active-enemy ceiling and the delay/reduce-first admission behavior, and leave the three-to-eight per-encounter sizing as the authoring item's acceptance criterion (optionally adding a matching validation requirement there).",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "DOORS-001",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Door/Interaction's owner-controlled gameplay-enable/suspend interface has no acceptance owner",
+        "description": "The GDD requires Door/Interaction (alongside Player Movement and the three spells) to expose an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels current input-driven activity (an in-progress door approach or opening timer), rejects new commands while suspended, and can be re-enabled by an authorized reset/test flow. In the candidate, `fireball`, `frost-field`, and `force-wave` each carry an explicit suspend acceptance criterion, but none of the three door work items (`door-open-interaction`, `doorway-crossing-state`, `door-close-lock-break-lifecycle`) contains any suspend/re-enable criterion. The only place the door-side obligation appears is inside `final-escape-victory`'s dependency reason, which is consumer-side prose, not a durable obligation on the owner. An implementer could fully satisfy every mapped door acceptance criterion and never create the suspend entry point, leaving the required victory input-shutdown contract unimplementable without the victory task reaching into door internals, which the GDD explicitly forbids.",
+        "affected_keys": [
+          "door-open-interaction",
+          "final-escape-victory",
+          "doors"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Win and Loss Conditions, 'Victory/input-shutdown ownership'",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow. The victory capability consumes those interfaces rather than mutating another system's internal state."
+          },
+          {
+            "reference": "Section 4 — Development Agent Ownership Invariants, 'Final escape/victory coordination'",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave remain owners of their own active behavior and must expose owner-controlled suspend/re-enable entry points consumed by victory/reset flows. Final escape logic must not reach into movement, door, or spell internals to stop them."
+          },
+          {
+            "reference": "Section 5 — Runtime Implementation (Game Flow/Victory capability)",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave must each provide a suspend/re-enable entry point that stops current input-driven activity as well as future commands."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Exposes StartInteraction/CancelInteraction/Tick and IsOpen/Progress only; there is no enable/suspend gate, so the required owner-side interface genuinely does not exist yet."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+            "observation": "Drives BeginInteraction/EndInteraction from raw Keyboard.current polling each Update with no suspended state; nothing can currently reject or halt door input from an external owner-controlled call."
+          }
+        ],
+        "recommended_change": "Add an explicit acceptance criterion to `door-open-interaction` (the owner of input-driven door approach/opening) requiring an owner-controlled suspend/re-enable entry point that immediately cancels an in-progress approach/opening timer, rejects new door-selection commands while suspended, and is re-enabled only through an authorized reset/test flow, mirroring the criteria already present on the three spells. Keep `final-escape-victory`'s dependency on `door-open-interaction` as the consumer edge.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "DOORS-002",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "door-open-interaction is depended on for a floor-restart reset entry point it is never obliged to provide",
+        "description": "The GDD names door lifecycle/crossing/durability state as a required restart participant, and requires every state owner to expose its own reset entry point invoked by the Floor Run/Restart Orchestrator. The candidate gives `doorway-crossing-state` and `door-close-lock-break-lifecycle` explicit reset-entry-point acceptance criteria, but `door-open-interaction` has none, even though both `floor-run-restart-bootstrap` and `floor-run-restart-persistent-closure` declare dependencies on `door-open-interaction` specifically because DoorInteractable's already-run-persistent state (Progress, IsOpen, disabled doorwayBlocker) has no reset entry point. This is the staged bootstrap's only door participant and it is dispatchable well before the navigation-gated lifecycle item, so the gap sits on the critical path: an implementer could complete `door-open-interaction` to spec and leave the bootstrap orchestrator with no owned reset interface to call, pushing it toward directly mutating door internals in violation of the ownership contract.",
+        "affected_keys": [
+          "door-open-interaction",
+          "floor-run-restart-bootstrap",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Loss / 'Floor-run restart ownership'",
+            "requirement": "Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns, and the orchestrator invokes those owned reset interfaces. Required reset participants include ... door lifecycle/crossing/durability state ..."
+          },
+          {
+            "reference": "Section 2 — Loss",
+            "requirement": "Restart resets all run-persistent gameplay state to the floor's initial state, including ... door lifecycle/crossing/durability state ..."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Progress, IsOpen, IsInteracting and the disabled doorwayBlocker collider persist across a run with no reset method; Complete() is a one-way transition, confirming the missing owner-side reset is real, not stale ordering."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `door-open-interaction` requiring an owner-controlled reset entry point that returns its owned interaction/opening state (opening progress, interacting flag, open flag, and doorway-blocker state) to floor-initial values for consumption by the Floor Run/Restart Orchestrator, matching the reset criteria already carried by `doorway-crossing-state` and `door-close-lock-break-lifecycle`.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "DOORS-003",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "The sealed-to-open transition has no explicit acceptance criterion, and 'open' passability publication sits only on the navigation-gated lifecycle item",
+        "description": "`door-open-interaction`'s acceptance criteria cover selection, approach, arm's-reach auto-start of the five-second timer, cursor-drift tolerance, interruption, and Input System routing, but never state the GDD's outcome that an uninterrupted five seconds actually opens the door (semantic state sealed to open, doorway becomes traversable). Separately, publication of all four semantic states through the navigation-owned passability interface is assigned solely to `door-close-lock-break-lifecycle`, which is dependency-gated behind `doorway-crossing-state`, `player-health`, and `gameplay-navigation-locomotion`. Nothing obliges the item that performs the opening transition to own or hand off the 'open' semantic state, so the graph permits a state where doors open for the player while the passability layer is never told, which is exactly the half of the contract that lets enemies follow the wizard through an open doorway. The behavior is inferable from the item title and the existing repository Complete() implementation, but it is not explicitly obliged anywhere.",
+        "affected_keys": [
+          "door-open-interaction",
+          "door-close-lock-break-lifecycle"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Player Actions and Systems, 'Open Sealed Door'",
+            "requirement": "If uninterrupted for five seconds, the door opens."
+          },
+          {
+            "reference": "Section 3 — Door and Pursuit Rules, 'Door passability contract'",
+            "requirement": "Door and Interaction owns the semantic door state (sealed, open, locked, broken). Sealed and locked doors block enemy traversal; open and broken doors permit forward enemy traversal. Door state changes update the navigation layer through that interface."
+          },
+          {
+            "reference": "Section 3 — Door and Pursuit Rules",
+            "requirement": "Enemies move between rooms through open doors; crossing a doorway does not clear pursuit."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Complete() sets IsOpen = true, hides doorVisual and disables doorwayBlocker; the open transition exists today only as a boolean plus collider toggle, with no semantic state model and no passability publication."
+          }
+        ],
+        "recommended_change": "Add an explicit acceptance criterion to `door-open-interaction` that completing five uninterrupted seconds transitions the door from sealed to open (player-traversable), and state in either that item or `door-close-lock-break-lifecycle` which owner publishes the resulting 'open' semantic state to the navigation passability interface, so the sealed-to-open half of the passability contract cannot be lost between the two items.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "DOORS-005",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "Door durability is not explicitly required to be per-door configurable, though encounter authoring depends on that",
+        "description": "`door-close-lock-break-lifecycle`'s acceptance criteria require exposing runtime durability, a damage-receive interface, and the locked-to-broken transition, but never state that the durability value is per-door configurable. `dungeon-encounter-content-authoring` depends on this item precisely to author 'configured per-door durability values', per the GDD's Dungeon Encounter Agent ownership split, so the consumer-side expectation is currently stronger than the owner-side obligation.",
+        "affected_keys": [
+          "door-close-lock-break-lifecycle",
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 4 — Dungeon Encounter Agent",
+            "requirement": "Authors placements, triggers, configured per-door durability values, and final-room pressure. It does not own runtime door durability state, damage intake, or the locked-to-broken transition; those remain Door and Interaction responsibilities."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Only the opening `duration` is a serialized per-door field; no durability field of any kind exists, so the configurable-durability surface must be created by this work."
+          }
+        ],
+        "recommended_change": "Extend the durability acceptance criterion on `door-close-lock-break-lifecycle` to require a per-door authorable/serialized durability value so encounter authoring can configure it without owning runtime durability state.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy State",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "ES-F1",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Enemy attack-state reset has no durable owner and is absent from full restart closure",
+        "description": "GDD §2 'Loss' and 'Floor-run restart ownership' both name enemy ATTACK state as a required restart participant ('no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run'; 'enemy pursuit/search/attack/status/displacement state'). In the candidate, enemy attack behavior is deliberately excluded from `enemy-pursuit-search-foundation` (its notes state archetype-specific attack behavior 'stays on the archetype items') and that foundation's reset acceptance criterion only clears 'target/last-known-position/search state'. `melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack` each own real run-persistent attack state (attack cooldowns/windups, in-flight telegraphed shots, an in-progress locked-door attack) but none of the three carries a reset-entry-point acceptance criterion, and `floor-run-restart-persistent-closure` has no dependency edge on any of them. `enemy-status-effect-displacement` covers status/displacement only. An implementer could satisfy every currently mapped criterion while a mid-windup melee swing, a live enemy projectile, or an in-progress door attack survives a restart. The candidate's own unresolved question #4 asks only how pursuit vs. status/displacement reset should be split and does not surface the attack-state gap.",
+        "affected_keys": [
+          "floor-run-restart-persistent-closure",
+          "melee-enemy",
+          "ranged-enemy",
+          "locked-door-enemy-attack",
+          "enemy-pursuit-search-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 — Win and Loss Conditions (Loss)",
+            "requirement": "Restart resets all run-persistent gameplay state ... 'no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run.'"
+          },
+          {
+            "reference": "GDD §2 — Floor-run restart ownership",
+            "requirement": "'Required reset participants include ... enemy pursuit/search/attack/status/displacement state ...' and 'Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns.'"
+          },
+          {
+            "reference": "GDD §3 — Required Enemy Roster / Door and Pursuit Rules",
+            "requirement": "Melee Enemy attacks at close range, Ranged Enemy fires a slow telegraphed shot, and a qualifying blocked pursuer attacks a locked door — all attack behaviors that can be mid-execution when restart occurs."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "Case-insensitive repository search across Assets/ for Enemy/Registry/Defeat/Frost/Displacement/Slow returns no files; no enemy attack implementation exists, so this must be represented as required work rather than assumed already handled."
+          }
+        ],
+        "recommended_change": "Add an explicit owner-controlled attack-state reset acceptance criterion to `melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack` (or explicitly assign attack-state reset to `enemy-pursuit-search-foundation` and widen its reset criterion beyond target/last-known-position/search), and add the corresponding depends_on edges from `floor-run-restart-persistent-closure` to whichever owners are chosen. Extend unresolved question #4 to include attack state.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy State",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "ES-F2",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Defeat outcome (defeated enemy stops being an active threat) is not obliged by any acceptance criterion",
+        "description": "`enemy-health-damage-defeat` requires only that (a) zero health 'triggers a defeat transition exactly once' and (b) defeat 'reports removal through the Active Enemy Registry's owner-controlled unregister interface'. Neither criterion obliges the defeated enemy to actually stop pursuing/attacking or leave play; the registry call updates a count only. `melee-enemy`/`ranged-enemy` only require 'Enemy Health/Defeat participation' in an assembled prefab. An implementer could satisfy all mapped criteria while a defeated enemy keeps chasing and damaging the player through PlayerHealth.TakeDamage. Given that the GDD's core loop lets the player 'defeat enough of them to reduce the immediate threat' and distinguishes 'surviving enemies' from defeated ones, the observable defeat outcome deserves an explicit criterion rather than being inferable from the registry call.",
+        "affected_keys": [
+          "enemy-health-damage-defeat",
+          "melee-enemy",
+          "ranged-enemy"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §1 — Executive Summary",
+            "requirement": "'Before attempting it, the player must create space by luring enemies away, slowing them with Frost Field, knocking them back with Force Wave, or defeating enough of them to reduce the immediate threat.'"
+          },
+          {
+            "reference": "GDD §3 — Enemy health and defeat ownership",
+            "requirement": "'A reusable Enemy Health/Defeat capability owns each persistent enemy object's current health, damage intake, defeat transition, and restartable health/defeat state.'"
+          },
+          {
+            "reference": "GDD §3 — Active Enemy Registry and Encounter Admission",
+            "requirement": "'Enemy activation registers an enemy with the registry; defeat removes that enemy from the active count.'"
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "No enemy health, defeat, or behavior code exists anywhere under Assets/, so the defeat outcome has no existing implementation that could supply the missing obligation."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `enemy-health-damage-defeat` stating that the defeat transition ends the enemy's participation as an active threat (its pursuit/attack behavior ceases and it leaves play) while remaining the same persistent object restorable by the floor-restart reset entry point.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy State",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "ES-F3",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Cross-space persistence of enemy health/defeat state is evidence-only, not an acceptance obligation",
+        "description": "GDD §5 Runtime Implementation requires that 'Enemy objects, enemy health, pursuit state, active-enemy bookkeeping, and door state persist naturally as the player advances between spaces; no scene-load or cross-scene state-transfer system is required.' The candidate represents three of those four explicitly — registry persistence (`active-enemy-registry` criterion: crossing between rooms does not unregister a surviving enemy), pursuit persistence (`enemy-pursuit-search-foundation` criteria on doorway crossing and non-despawn), and the continuous-scene structure (`five-room-content-authoring`) — but the enemy-HEALTH half appears only inside gdd_evidence/ownership prose. `enemy-health-damage-defeat`'s criteria (damage interface, one-shot defeat transition, registry unregister, restart reset) would all still pass if enemy health were re-initialized on a room transition, which would break the GDD's persistent-pursuer premise (Lower Vault: 'the same persistent pursuers ... not newly spawned enemies').",
+        "affected_keys": [
+          "enemy-health-damage-defeat",
+          "active-enemy-registry"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 — Runtime Implementation",
+            "requirement": "'Enemy objects, enemy health, pursuit state, active-enemy bookkeeping, and door state persist naturally as the player advances between spaces; no scene-load or cross-scene state-transfer system is required.'"
+          },
+          {
+            "reference": "GDD §3 — Dungeon Floor Structure (Lower Vault)",
+            "requirement": "'surviving enemies from earlier rooms are the same persistent pursuers breaking through behind them, not newly spawned enemies.'"
+          },
+          {
+            "reference": "GDD §3 — Door and Pursuit Rules",
+            "requirement": "'Surviving enemies carry forward and combine with later encounters as the same persistent enemy objects, not new spawns.'"
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "No enemy health component exists, so the persistence guarantee must come from the work item's acceptance surface rather than existing behavior."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `enemy-health-damage-defeat` that a persistent enemy's health/defeat state changes only through the owner-controlled damage interface and the floor-restart reset entry point — never on room transition, target loss, search, or doorway crossing.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Player Core",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "PC-F1",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Player Movement's owner-controlled gameplay-enable/suspend interface has no owner-side representation",
+        "description": "The GDD makes Player Movement an explicit owner of a gameplay-enable/suspend entry point: 'Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow' (Section 2, Victory/input-shutdown ownership), reinforced in Section 4 ('Final escape/victory coordination ... Final escape logic must not reach into movement, door, or spell internals to stop them') and Section 5 Runtime Implementation. In the candidate, `player-movement` carries no gdd_evidence entry, no acceptance criterion, and no validation requirement covering this interface; its four acceptance criteria are mouse-directed movement, the shared pointer target, the movement-restriction interface, and the restart reset entry point. The obligation exists only inside the consumer `final-escape-victory` (acceptance criterion: 'the capability calls owner-controlled suspend entry points on Player Movement, ...') and in its depends_on reason. This is asymmetric with the three spells, which each carry an explicit owner-side suspend acceptance criterion (fireball line 505, frost-field line 618, force-wave line 727). Under minimal-context dispatch (Section 4 Shared Context and Coordination Rules), an agent dispatched on `player-movement` would receive only that item's brief/criteria and could fully satisfy them while shipping no suspend interface, leaving `final-escape-victory` permanently blocked on a capability nobody was told to build. The dependency edge preserves ordering, not the owner-side obligation.",
+        "affected_keys": [
+          "player-movement",
+          "final-escape-victory"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 - Win and Loss Conditions, Victory/input-shutdown ownership",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow."
+          },
+          {
+            "reference": "Section 4 - Development Agent Ownership Invariants, Final escape/victory coordination",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave remain owners of their own active behavior and must expose owner-controlled suspend/re-enable entry points consumed by victory/reset flows. Final escape logic must not reach into movement, door, or spell internals to stop them."
+          },
+          {
+            "reference": "Section 5 - Runtime Implementation",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave must each provide a suspend/re-enable entry point that stops current input-driven activity as well as future commands."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+            "observation": "Update() moves the CharacterController from raw Keyboard.current polling every frame with no enable/suspend gate, no public suspend/re-enable method, and no way to stop already-active movement; the owner-side capability is genuinely missing, not merely unwired."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "player-movement (lines 135-227) lists four acceptance criteria (mouse-directed movement, pointer target, movement-restriction interface, reset entry point) and no suspend/re-enable criterion or evidence row, while fireball/frost-field/force-wave each carry an explicit owner-side suspend acceptance criterion (lines 505, 618, 727)."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `player-movement` (referencing Section 2 Victory/input-shutdown ownership and the Section 4 final-escape/victory invariant) requiring an owner-controlled suspend/re-enable entry point that immediately stops in-progress movement (including an active click-to-destination approach), rejects new movement commands while suspended, and is re-enabled only through an authorized reset/test flow; add the matching gdd_evidence row. Optionally add a validation requirement mirroring final-escape-victory's Play Mode check on the owner side. Do not remove final-escape-victory's consumption criterion or its dependency on player-movement.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Run Lifecycle",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "Enemy-reset acceptance criterion on persistent closure does not explicitly restate status-effect/displacement clearing",
+        "description": "GDD 'Loss' explicitly requires that 'no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run.' The floor-run-restart-persistent-closure work item lists enemy-status-effect-displacement as a dependency and its generic acceptance criterion ('invoke reset entry points for every implemented persistent owner beyond the bootstrap set') covers it structurally, but the item's specific enemy-reset acceptance criterion only names 'no retained target or search state' and omits status-effect/displacement explicitly. This is not currently exploitable as a gap because the dependency edge and generic full-closure gate both require enemy-status-effect-displacement's own reset entry point to be invoked, so an implementer cannot skip it without violating the generic criterion. This is a clarity improvement, not a missing obligation.",
+        "affected_keys": [
+          "floor-run-restart-persistent-closure",
+          "enemy-status-effect-displacement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Win and Loss Conditions — Loss",
+            "requirement": "no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run"
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Optionally expand the enemy-reset acceptance criterion on floor-run-restart-persistent-closure to explicitly name status-effect and displacement clearing alongside target/search state, for readability during future decomposition; not required for correctness given the existing dependency edge and generic closure gate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Evidence — Enemies Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EV-ENEM-001",
+        "severity": "error",
+        "category": "missing_dependency",
+        "title": "Melee/Ranged archetypes require an assembled SpriteRenderer prefab with isometric sorting, but carry no dependency on the missing world-visual-foundation that owns character presentation",
+        "description": "Both `melee-enemy` and `ranged-enemy` carry an acceptance criterion demanding delivery of \"a usable assembled world-space SpriteRenderer archetype prefab\" following isometric sorting conventions, citing 'Environment Presentation and Authoring Direction'. The identical responsibility is already claimed by `world-visual-foundation`, whose own acceptance criterion states that \"the wizard, enemies, doors, props, obstacles, and other independently sorted/interactive objects use world-space SpriteRenderer prefabs ... following consistent isometric sorting conventions\", and whose validation requirements own the isometric sprite-sorting checks. `world-visual-foundation` is repository_state `missing` (verified: the builder creates only primitive Plane/Cube MeshRenderers; no SpriteRenderer, Grid, or Tilemap exists anywhere in Assets/). Neither archetype item declares a depends_on edge to `world-visual-foundation`, so as written the archetype work is expected to invent sorting/presentation conventions that the GDD explicitly assigns to the reusable visual foundation. This is a genuine behavioral prerequisite (the conventions must exist before an archetype prefab can conform to them), not a mere shared-write concern, and it also duplicates ownership of the same deliverable across two items.",
+        "affected_keys": [
+          "melee-enemy",
+          "ranged-enemy",
+          "world-visual-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 — Runtime Implementation",
+            "requirement": "\"World-space SpriteRenderer prefabs will be used for sealed doors, tall props, obstacles, the wizard, enemies, and other independently sorted or interactive objects. Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture.\""
+          },
+          {
+            "reference": "Section 3 — Environment Presentation and Authoring Direction",
+            "requirement": "\"Placeholder character sprites are acceptable during development, but the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+            "observation": "Builds Floor/Walls/door visual as primitive meshes; a repository-wide glob of Assets/**/*.{prefab,asset} returns no .prefab files at all, and no SpriteRenderer/Grid/Tilemap component is created anywhere, confirming no sorting-convention foundation currently exists for an enemy prefab to conform to."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+            "observation": "Case-insensitive search for enemy/melee/ranged/pursuit/registry/frost/displacement/encounter/spawn returns only 'm_IgnoreNormalsForChartDetection' boilerplate — no enemy object or enemy visual representation is serialized, so no existing presentation pattern is available."
+          }
+        ],
+        "recommended_change": "Either add a depends_on edge from `melee-enemy` and `ranged-enemy` to `world-visual-foundation` with the GDD Section 5 'Character presentation is therefore part of the reusable visual-world foundation' text as evidence, or narrow the archetype acceptance criteria to behavior/integration and leave prefab presentation/sorting delivery solely to `world-visual-foundation`. Do not leave the same SpriteRenderer/sorting deliverable asserted on both sides with no ordering relationship.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Evidence — Enemies Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EV-ENEM-002",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Enemy attack-state restart reset participation is unrepresented on every item that owns enemy attack state",
+        "description": "The GDD names enemy \"attack\" state as a required floor-restart reset participant twice, distinctly from pursuit/search and status/displacement state. In the candidate, `enemy-pursuit-search-foundation` carries a reset acceptance criterion for target/last-known-position/search state, `enemy-status-effect-displacement` carries one for slowdown/displacement state, and `enemy-health-damage-defeat` carries one for health/defeat state — but `melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack`, which own melee attack execution, ranged telegraph/attack-timing (and any in-flight projectile), and locked-door attack state respectively, carry no reset acceptance criterion at all. The consequence is visible downstream: `floor-run-restart-persistent-closure`'s depends_on list includes the pursuit foundation, status/displacement, health/defeat, and registry keys but omits `melee-enemy` and `ranged-enemy`, so no work item in the graph is accountable for resetting attack state. The candidate's own unresolved question #4 asks how the enemy reset splits across pursuit and status/displacement and does not consider attack state at all, confirming the omission is unnoticed rather than deliberate.",
+        "affected_keys": [
+          "melee-enemy",
+          "ranged-enemy",
+          "locked-door-enemy-attack",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Win and Loss Conditions (Loss)",
+            "requirement": "\"Restart resets all run-persistent gameplay state to the floor's initial state, including ... persistent enemy objects and enemy health, pursuit/search/status/attack state, Active Enemy Registry bookkeeping ...\""
+          },
+          {
+            "reference": "Section 2 — Floor-run restart ownership",
+            "requirement": "\"Required reset participants include ... enemy health/defeat state, enemy pursuit/search/attack/status/displacement state ...\" and \"Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts",
+            "observation": "A full Assets/**/*.cs glob returns only Door/Player/Camera/UI/Debug scripts; no enemy attack component exists, so there is no current implementation that could be argued to already satisfy attack-state reset."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Tests",
+            "observation": "Only DoorInteractionPlayModeTests, PlayerManaPlayModeTests, and DoorPrototypeSceneBuilderTests exist; no test exercises any enemy state or any reset entry point."
+          }
+        ],
+        "recommended_change": "Add an owner-controlled restart/reset acceptance criterion for attack-side state to `melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack` (citing GDD Section 2 'pursuit/search/status/attack state' and the Floor-run restart ownership paragraph), and correspondingly add those keys as reset participants/dependencies of `floor-run-restart-persistent-closure`, or explicitly state which existing owner absorbs attack-state reset and record that assignment on both sides.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Evidence — Enemies Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EV-ENEM-003",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "encounter-admission-cap-enforcement carries no reset entry point despite the GDD naming encounter activation/admission state as a required restart participant",
+        "description": "The GDD lists \"encounter activation and admission state\" among the run-persistent state that floor restart must reset, and requires each state owner to expose a reset entry point invoked by the orchestrator. `encounter-admission-cap-enforcement` is the only concrete item in the graph that owns admission state (delayed/reduced pending activations, admitted-batch bookkeeping), yet its three acceptance criteria cover only capacity querying, delay/reduce-first behavior, and non-duplication of the registry count. No reset acceptance criterion or validation requirement exists. `floor-run-restart-persistent-closure` nevertheless declares a dependency on this key, so the graph assumes a reset interface the owner item never commits to producing. The same gap does not exist on the sibling enemy items, which all carry explicit reset criteria — so this is an inconsistency within the candidate's own pattern, not a deliberate deferral.",
+        "affected_keys": [
+          "encounter-admission-cap-enforcement",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Win and Loss Conditions (Loss)",
+            "requirement": "\"Restart resets all run-persistent gameplay state to the floor's initial state, including ... door lifecycle/crossing/durability state, and encounter activation/admission state.\""
+          },
+          {
+            "reference": "Section 2 — Floor-run restart ownership",
+            "requirement": "\"Required reset participants include ... Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state\" and each owner \"must expose a reset entry point for the state it owns\"."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts",
+            "observation": "Case-insensitive repository search for 'encounter'/'registry'/'spawn' across Assets/ returns no matches (only 'EditorSceneManagement'/'ChartDetection' false positives), confirming no admission or activation state exists today and the reset contract must be specified as new required work rather than verified against code."
+          }
+        ],
+        "recommended_change": "Add an owner-controlled reset acceptance criterion (and matching validation requirement) to `encounter-admission-cap-enforcement` covering delayed/reduced pending activations and admitted-batch bookkeeping, citing GDD Section 2 'encounter activation/admission state' in the Loss and Floor-run restart ownership paragraphs.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Evidence — Enemies Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EV-ENEM-004",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Registry reset acceptance invents an 'initial empty' state the GDD does not specify, and re-registration of restart-restored enemies is unspecified",
+        "description": "`active-enemy-registry`'s reset acceptance criterion and its matching validation requirement both assert that restart \"returns bookkeeping to its initial empty/starting state\". The GDD says only that Active Enemy Registry bookkeeping is reset to the floor's initial state, while simultaneously requiring that every persistent enemy be returned to its authored encounter/spawn region in its initial AI state. Whether the floor's initial registry state is empty depends on which enemies are active at floor start (an encounter-authoring fact that is explicitly deferred), so 'empty' is an invented specific rather than a GDD-sourced one. More materially, neither `active-enemy-registry` nor `enemy-health-damage-defeat` specifies the handoff: if the registry clears to empty while enemy-owned resets restore previously-defeated enemies, the reported active count can desynchronize from the set of live persistent enemies, which is exactly the duplicate/incorrect bookkeeping the fifteen-enemy cap depends on being correct.",
+        "affected_keys": [
+          "active-enemy-registry",
+          "enemy-health-damage-defeat",
+          "encounter-admission-cap-enforcement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Win and Loss Conditions (Loss)",
+            "requirement": "\"Restart resets all run-persistent gameplay state to the floor's initial state, including ... Active Enemy Registry bookkeeping ... Each persistent enemy is returned to the authored encounter/spawn region associated with its original room and starts again in its initial AI state.\""
+          },
+          {
+            "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+            "requirement": "\"Enemy activation registers an enemy with the registry; defeat removes that enemy from the active count.\" The GDD nowhere states the registry's initial state is empty."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts",
+            "observation": "No registry, enemy-health, or activation code exists in the repository (verified by full Assets/**/*.cs glob plus case-insensitive term search), so the reset semantics rest entirely on the candidate's wording with no implementation to constrain them."
+          }
+        ],
+        "recommended_change": "Restate the registry reset criterion as returning bookkeeping to the floor's initial state (not asserting 'empty'), and add an explicit criterion covering re-registration/consistency between enemy-owned restart restoration and registry active-count state, so the post-restart count provably matches the set of live persistent enemies before admission gating runs again.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Structure — Dependencies Ownership Decomposition",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "STRUCT-001",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Restart orchestrator depends on reset entry points that the named owners are not required to expose",
+        "description": "Both restart items consume owner-controlled reset entry points, and the graph correctly routes those edges to concrete owners. However, two of the named owners carry no acceptance criterion requiring them to expose the reset entry point their dependent invokes.\n\n`floor-run-restart-bootstrap` depends on `door-open-interaction` with the stated reason \"DoorInteractable.cs already owns run-persistent state (Progress, IsOpen, disabled doorwayBlocker) but exposes no reset entry point; the bootstrap orchestrator must invoke one.\" `door-open-interaction`'s five acceptance criteria cover click-to-approach selection, arm's-reach auto-timer, cursor-drift tolerance, interruption, and Input System routing — none require a reset entry point. `floor-run-restart-persistent-closure` repeats the same dependency with the same expectation.\n\n`floor-run-restart-persistent-closure` depends on `encounter-admission-cap-enforcement` because \"Encounter activation/admission state is a named required reset participant.\" That item's three acceptance criteria cover registry query, delay/reduce-first admission, and non-duplication of the count — none require a reset entry point.\n\nEvery other named persistent owner in the graph does carry the reset criterion (`player-health`, `player-mana`, `player-movement`, `doorway-crossing-state`, `door-close-lock-break-lifecycle`, `active-enemy-registry`, `enemy-health-damage-defeat`, `enemy-pursuit-search-foundation`, `enemy-status-effect-displacement`, `fireball`, `frost-field`, `force-wave`), so the gap is specific and inconsistent rather than a deliberate staging choice. As written, both owner items can be implemented, validated, and closed while leaving the restart items' dependencies unsatisfiable — the requirement exists only inside the consumer's `depends_on.reason`, which is not an owner obligation.",
+        "affected_keys": [
+          "door-open-interaction",
+          "encounter-admission-cap-enforcement",
+          "floor-run-restart-bootstrap",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 — Floor-run restart ownership",
+            "requirement": "\"Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns, and the orchestrator invokes those owned reset interfaces. Required reset participants include ... door lifecycle/crossing/durability state, and encounter activation/admission state.\""
+          },
+          {
+            "reference": "GDD §2 — Loss",
+            "requirement": "\"Restart resets all run-persistent gameplay state to the floor's initial state, including ... door lifecycle/crossing/durability state, and encounter activation/admission state.\""
+          },
+          {
+            "reference": "GDD §5 — Runtime Implementation (Floor Run/Restart Orchestrator)",
+            "requirement": "\"It invokes reset entry points owned by each stateful system rather than directly mutating their internals ... door lifecycle/crossing/durability state, and encounter activation/admission state must all participate once those systems exist.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Owns run-persistent `Progress`, `IsOpen`, and a permanently disabled `doorwayBlocker` (set in `Complete()`), with only `StartInteraction`/`CancelInteraction`/`Tick` as public mutators. `CancelInteraction()` clears interaction progress but does not restore `IsOpen` or re-enable the blocker, so no usable reset entry point exists today."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "`door-open-interaction.acceptance_criteria` (5 entries) and `encounter-admission-cap-enforcement.acceptance_criteria` (3 entries) contain no reset-entry-point requirement, while `floor-run-restart-bootstrap.depends_on[door-open-interaction]` and `floor-run-restart-persistent-closure.depends_on[encounter-admission-cap-enforcement]` both justify the edge by that missing interface."
+          }
+        ],
+        "recommended_change": "Add an owner-side acceptance criterion to `door-open-interaction` requiring an owner-controlled reset entry point that returns its owned opening state (interaction progress, open flag, doorway-blocker enablement) to floor-initial values for consumption by the Floor Run/Restart Orchestrator, referencing GDD §2 Floor-run restart ownership. Add the equivalent criterion to `encounter-admission-cap-enforcement` for encounter activation/admission state. Keep the existing dependency edges — they become correct once the owners are required to produce the interface.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Structure — Dependencies Ownership Decomposition",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "STRUCT-002",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Victory capability depends on suspend/re-enable interfaces that Player Movement and Door/Interaction are not required to expose",
+        "description": "`final-escape-victory` carries six dependencies, each justified by the consumed owner-controlled gameplay-enable/suspend interface. Three of the five suspend providers (`fireball`, `frost-field`, `force-wave`) each carry an explicit acceptance criterion requiring that interface. The other two do not.\n\n`player-movement`'s acceptance criteria cover mouse-directed movement, the shared pointer target, the movement-restriction request/release interface, and the restart reset entry point — there is no gameplay-enable/suspend criterion, yet `final-escape-victory.depends_on[player-movement]` states \"Victory must be able to stop already-active movement through an owner-controlled suspend interface.\"\n\n`door-open-interaction` likewise has no suspend criterion, yet `final-escape-victory.depends_on[door-open-interaction]` states \"Victory must be able to stop an in-progress door approach/opening through an owner-controlled suspend interface.\"\n\nThe GDD makes this an explicit five-owner obligation and an ownership invariant: victory must not reach into movement/door internals, so if the owners are never required to expose suspend/re-enable, the only implementable path for `final-escape-victory` violates the invariant. This is an owner/consumer contract represented only in a consumer's dependency prose.",
+        "affected_keys": [
+          "player-movement",
+          "door-open-interaction",
+          "final-escape-victory"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 — Victory/input-shutdown ownership",
+            "requirement": "\"Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow.\""
+          },
+          {
+            "reference": "GDD §4 — Development Agent Ownership Invariants (Final escape/victory coordination)",
+            "requirement": "\"Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave remain owners of their own active behavior and must expose owner-controlled suspend/re-enable entry points consumed by victory/reset flows. Final escape logic must not reach into movement, door, or spell internals to stop them.\""
+          },
+          {
+            "reference": "GDD §5 — Runtime Implementation (Game Flow/Victory)",
+            "requirement": "\"Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave must each provide a suspend/re-enable entry point that stops current input-driven activity as well as future commands.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+            "observation": "`Update()` unconditionally polls `Keyboard.current` and calls `controller.Move(...)`; there is no enable/suspend flag, gating, or public entry point through which an external system could stop active movement."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "`Update()` unconditionally calls `Tick(Time.deltaTime)` and the only external controls are `StartInteraction`/`CancelInteraction`; there is no suspend/re-enable entry point that rejects new interaction commands while suspended."
+          }
+        ],
+        "recommended_change": "Add an owner-side acceptance criterion to `player-movement` and to `door-open-interaction` requiring an owner-controlled gameplay-enable/suspend interface that immediately stops the system's already-active input-driven activity (in-flight movement; in-progress door approach/opening timer), rejects new gameplay commands while suspended, and is re-enabled only through an authorized reset/test flow — mirroring the criteria already present on `fireball`, `frost-field`, and `force-wave`. Retain the existing `final-escape-victory` dependency edges.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R16",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Content Encounters classified requirement CE-R16 as required_gameplay/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 3 - Dungeon Floor Structure (Chapel of Ash)",
+            "requirement": "The Ranged Enemy is newly introduced in Chapel of Ash, appearing there alongside Melee Enemy support rather than alone (the preceding Ruined Entry and Bone Archive encounters are melee-based)."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R21",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Content Encounters classified requirement CE-R21 as required_gameplay/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [
+          "five-room-content-authoring",
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 1 - Executive Summary / Section 2 - Game Mechanics",
+            "requirement": "The five spaces are connected: each room ends at a sealed door the player must open to advance, and the Final Room's exit is the final door whose crossing wins the game."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R22",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Content Encounters classified requirement CE-R22 as required_process/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Six-Week Development Plan",
+            "requirement": "If required Weeks 5-6 work overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut and stretch features are removed first."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-doors-DOOR-R20",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Doors classified requirement DOOR-R20 as required_implementation/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Loss / 'Floor-run restart ownership'",
+            "requirement": "Door opening/interaction state that is run-persistent (opening progress, opened flag, doorway blocker state) must be reset to floor-initial values through an owner-exposed reset entry point."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-doors-DOOR-R21",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Doors classified requirement DOOR-R21 as required_implementation/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — 'Victory/input-shutdown ownership'; Section 4 — 'Final escape/victory coordination'; Section 5 — Runtime Implementation",
+            "requirement": "Door/Interaction exposes an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels current input-driven door activity, rejects new gameplay commands while suspended, and can be re-enabled by an authorized reset/test flow."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-04",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Enemy State classified requirement REQ-ES-04 as required_gameplay/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §1 — Executive Summary; GDD §3 — Active Enemy Registry and Encounter Admission",
+            "requirement": "Defeating enemies reduces the immediate threat: a defeated enemy ceases to act as an active pursuer/attacker and is removed from play (distinguishing 'surviving enemies' from defeated ones)."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-16",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Enemy State classified requirement REQ-ES-16 as required_gameplay/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 — Runtime Implementation",
+            "requirement": "Enemy objects, enemy health, pursuit state, and active-enemy bookkeeping persist naturally as the player advances between spaces; no scene-load or cross-scene state-transfer system is required."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-26",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Enemy State classified requirement REQ-ES-26 as required_implementation/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 — Win and Loss Conditions (Loss); GDD §2 — Floor-run restart ownership",
+            "requirement": "No enemy ATTACK state carries over from the failed run; enemy attack state is a named required restart participant with an owner-exposed reset entry point."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-global-pipeline-GP-029",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Global Pipeline classified requirement GP-029 as required_process/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Six-Week Development Plan",
+            "requirement": "Stretch features will be removed first if the schedule slips; advanced door visuals and one encounter variation may also be reduced; the three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game; and if Weeks 5-6 required work overruns, the fallback is to reduce final-room encounter density toward the low end of the three-to-eight-enemy range and simplify presentation polish, with required systems not cut."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-player-core-PC-07",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Player Core classified requirement PC-07 as required_implementation/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 - Win and Loss Conditions, Victory/input-shutdown ownership; Section 4 - Final escape/victory coordination invariant",
+            "requirement": "Player Movement exposes an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels current input-driven movement, rejects new gameplay commands while suspended, and can be re-enabled by an authorized reset/test flow."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    }
+  ],
+  "selection_policy": "Refiner input contains all blocker/error findings, warnings whose categories indicate scheduler/representation risk, and coverage-origin requirement-representation suggestions. Other ordinary warnings and suggestions remain in MERGED_FINDINGS_PASS1.json and are reassessed during pass 2. This keeps refinement bounded while preventing a required coverage gap noticed in Pass 1 from being stranded until Pass 2."
+}

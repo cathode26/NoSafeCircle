@@ -1,0 +1,234 @@
+{
+  "agent": "Evidence — Player Combat Doors",
+  "requested_model": "opus",
+  "duration_seconds": 451.73,
+  "result": {
+    "verdict": "pass_with_findings",
+    "findings": [
+      {
+        "finding_id": "EVID-PCD-001",
+        "severity": "warning",
+        "category": "evidence_problem",
+        "title": "Overbroad negative claim: gameplay 'Player' action map does contain mouse-click and pointer bindings",
+        "description": "door-open-interaction's repository evidence states that the 'Player' action map has \"no visible mouse/pointer binding in the reviewed section. No gameplay-map Point/Click action exists; Point/Click bindings only exist in the separate 'UI' action map used for UI navigation.\" The same wording is repeated in unresolved_questions. Direct inspection of Assets/InputSystem_Actions.inputactions shows the gameplay 'Player' map DOES contain mouse bindings: 'Attack' is bound to <Mouse>/leftButton (plus gamepad/touch/XR/enter) and 'Look' is bound to <Pointer>/delta. What is genuinely absent is a pointer-POSITION action on the gameplay map (Mouse/position appears only as UI 'Point') and any gameplay consumption of the asset at all. The candidate contradicts itself: the fireball exclusive-resource evidence correctly records \"'Attack' (Button, Mouse leftButton, no Hold interaction configured)\". The hedge \"in the reviewed section\" also signals that the negative claim was made without inspecting the whole asset. This does not change the correct 'partial' classification of door-open-interaction, but it is exactly the class of negative claim the verification pass is required to check: bindings/configuration that exist but are unconsumed must not be erased from repository truth.",
+        "affected_keys": [
+          "door-open-interaction",
+          "player-movement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 Runtime Implementation",
+            "requirement": "\"Player movement uses mouse-directed click/hold navigation through the project's Unity Input System/Input Actions layer... rather than independently polling pointer hardware or projecting screen coordinates.\""
+          },
+          {
+            "reference": "GDD §3 Door and Pursuit Rules",
+            "requirement": "\"A sealed door is a cursor-targeted interactable. Clicking the intended door issues a combined approach-and-interact request...\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/InputSystem_Actions.inputactions",
+            "observation": "Player map action 'Attack' (id 6c2ab1b8...) is bound to <Mouse>/leftButton (binding id 05f6913d...); action 'Look' is bound to <Pointer>/delta (binding id 8c8e490b...). 'Interact' has interactions: \"Hold\" and is bound to <Keyboard>/e and <Gamepad>/buttonNorth — definitively keyboard/gamepad, not 'presumed keyboard'."
+          },
+          {
+            "path": "Assets/InputSystem_Actions.inputactions",
+            "observation": "Mouse POSITION (<Mouse>/position) appears only in the UI map's 'Point' action; there is no pointer-position action on the Player map, and no gameplay script references the asset (PlayerMovement.cs and PlayerInteractionController.cs poll Keyboard.current directly)."
+          }
+        ],
+        "recommended_change": "Restate the evidence precisely: the gameplay 'Player' map already contains mouse-button ('Attack' → <Mouse>/leftButton) and pointer-delta ('Look' → <Pointer>/delta) bindings, but contains no pointer-position/cursor-projection or click-to-move action, and no gameplay code consumes the asset. Replace \"presumed keyboard\" with the literal <Keyboard>/e + <Gamepad>/buttonNorth bindings and drop the \"in the reviewed section\" hedge. Apply the same correction in the corresponding unresolved_question text.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "EVID-PCD-002",
+        "severity": "warning",
+        "category": "exclusive_resource_problem",
+        "title": "door-open-interaction requires Input-System-routed door selection but takes no lock on the shared Input Actions asset",
+        "description": "door-open-interaction carries an acceptance criterion that \"Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling,\" and its exclusive_resources list DoorInteractable.cs, PlayerInteractionController.cs, the builder, and the canonical scene — but not Assets/InputSystem_Actions.inputactions. Every other item in this territory that touches gameplay input (player-movement, fireball, frost-field, force-wave) declares that same single shared asset as an exclusive resource. The candidate defers the question to unresolved_questions ('does door-open-interaction need its own door-select binding or does it consume a binding Player Movement adds?'), which is honest, but the graph as written permits door-open-interaction to be dispatched concurrently with a spell item that holds the lock, and if door selection needs its own binding both agents would write the same non-merge-safe asset. Note also that door-open-interaction depends_on player-movement, so the sequencing hazard is with the three spell items, not with player-movement.",
+        "affected_keys": [
+          "door-open-interaction",
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §4 Agent-Assisted Development Workflow",
+            "requirement": "\"Tasks that depend on unfinished work, or that require changes to the same scripts, scenes, or prefabs, are completed sequentially. Agents do not modify the same Unity assets concurrently.\""
+          },
+          {
+            "reference": "GDD §5 Runtime Implementation",
+            "requirement": "\"Clicking a sealed door requests movement to its interaction position...\" and runtime actions \"are supplied through Unity Input System/Input Actions rather than independent direct hardware polling inside gameplay systems.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/InputSystem_Actions.inputactions",
+            "observation": "A single shared actions asset is the only .inputactions file in Assets/ (glob of Assets/**/*.inputactions returns exactly one file); any new gameplay action or binding must be added here."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+            "observation": "Lines 30-44: Update() reads Keyboard.current[interactKey] directly; converting to Input-System-routed cursor selection requires either a new action/binding in the shared asset or consumption of one added by player-movement."
+          }
+        ],
+        "recommended_change": "Either add repo-file:Assets/InputSystem_Actions.inputactions to door-open-interaction's exclusive_resources (conservative, matching the writer-inventory treatment applied to the three spells and player-movement), or state explicitly in the item that it is consumption-only against a binding owned by player-movement and record that as a contract in player-movement's acceptance criteria. Do not leave the shared-asset write question resolvable only at dispatch time.",
+        "requires_human_review": true
+      },
+      {
+        "finding_id": "EVID-PCD-003",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Click-to-approach movement request interface is not represented on its owner (player-movement)",
+        "description": "The GDD requires that clicking a sealed door issues a combined approach-and-interact request in which \"the wizard moves to that door's interaction position\" automatically, while Section 4 forbids Door and Interaction from reaching into movement internals. Door and Interaction must therefore consume an owner-controlled Player Movement entry point that accepts a destination/approach request. player-movement's acceptance criteria cover mouse click/hold movement, the shared pointer target, the movement-RESTRICTION interface, the reset entry point, and the suspend interface — but nothing about an owner-exposed move-to-position/approach request consumable by Door. door-open-interaction's own ACs likewise only name consumption of the shared pointer target. The dependency edge door-open-interaction → player-movement exists, so ordering is correct; the gap is that the required shared capability is not written down on either side and could be implemented by Door directly driving movement, violating the ownership invariant.",
+        "affected_keys": [
+          "player-movement",
+          "door-open-interaction"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Player Actions and Systems — Open Sealed Door",
+            "requirement": "\"Click the intended sealed door to request movement to its interaction position. The wizard walks there automatically.\""
+          },
+          {
+            "reference": "GDD §4 Development Agent Ownership Invariants",
+            "requirement": "\"Player Movement owns position/locomotion, movement-restriction state, and shared cursor-to-gameplay-plane projection\"; and \"An agent must not bypass another agent's owned runtime interface merely because both systems interact.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+            "observation": "No public API of any kind exists beyond the MonoBehaviour Update loop — no destination/approach request method, no pointer target, no restriction interface; the only cross-system call is interactionController.OnPlayerMoved() (line 44), which currently cancels interaction on ANY movement input and would need redefinition under a click-to-approach model."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+            "observation": "Lines 78-82: OnPlayerMoved() unconditionally ends an in-progress interaction, i.e. the current contract between movement and door interaction is 'any movement cancels', which is incompatible with automatic approach-then-auto-start without an explicit approach-request contract."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to player-movement requiring an owner-controlled approach/move-to-world-position request interface (with completion/arrival observable and cancel-on-replacement semantics) sourced to GDD §2 'Open Sealed Door', and a matching acceptance criterion on door-open-interaction requiring it to consume that interface rather than moving the player itself.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "EVID-PCD-004",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Duplicated acceptance/validation criteria on four player and door items (overlay merge artifact)",
+        "description": "The summary states seven requirement_overlays were created to attach Section 3 Player Experience Success Criteria to owner items, but the candidate has no requirement_overlays section — the overlays appear to have been merged into the work items, producing near-duplicate entries with differing citation formats. player-movement has two acceptance criteria that both require the gameplay-enable/suspend interface (one cited 'Section 2 — Victory/input-shutdown ownership bullet; Section 4...', the other 'GDD §2 Victory/input-shutdown ownership; §4...'). door-open-interaction duplicates both its reset-entry-point AC and its suspend-interface AC, and duplicates the 'first-time player understands clicking sends the wizard to the door' validation requirement. player-health has two validation requirements for the same 'failure is readable' criterion; player-mana has two for the low-mana readability criterion. Duplicates inflate the acceptance surface and create ambiguity about whether two distinct obligations exist.",
+        "affected_keys": [
+          "player-movement",
+          "player-health",
+          "player-mana",
+          "door-open-interaction"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §4 Development Agent Ownership Invariants",
+            "requirement": "\"Player Experience Success Criteria are required validation obligations... Each criterion in Section 3 must be represented as a validation requirement on the work item or items that own the underlying behavior. They do not require separate gameplay features when the behavior is already owned.\""
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "De-duplicate the merged overlay entries: keep one acceptance criterion per obligation and one validation requirement per Section 3 success criterion per owning item, using a single consistent GDD citation format.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "EVID-PCD-005",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Missed repository fact: InputSystem_Actions.inputactions is the registered project-wide Input Actions asset",
+        "description": "The candidate describes Assets/InputSystem_Actions.inputactions only as \"the unmodified default Unity template\" that is not consumed by gameplay code. It omits that ProjectSettings/EditorBuildSettings.asset registers that exact asset (guid 289c1b55c9541489481df5cc06664110) under m_configObjects as com.unity.input.settings.actions — i.e. the project-wide Input Actions layer the GDD requires input to be routed through is already configured at the project level, and this asset is that layer. This is material to every 'route input through Unity Input System/Input Actions' acceptance criterion in this territory and to the exclusive-resource reasoning: it confirms the asset is not an inert leftover template file but the project's registered actions asset. The omission understates, rather than overstates, current state, so no classification changes.",
+        "affected_keys": [
+          "player-movement",
+          "door-open-interaction",
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Resources, Feedback, and Failure — Player Movement ownership",
+            "requirement": "\"Runtime input is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling in gameplay systems.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "ProjectSettings/EditorBuildSettings.asset",
+            "observation": "Line 9: m_configObjects contains 'com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 289c1b55c9541489481df5cc06664110, type: 3}', which is the GUID in Assets/InputSystem_Actions.inputactions.meta — the asset is registered as the project-wide Input Actions asset."
+          },
+          {
+            "path": "Assets/InputSystem_Actions.inputactions.meta",
+            "observation": "guid: 289c1b55c9541489481df5cc06664110, matching the EditorBuildSettings config object reference."
+          }
+        ],
+        "recommended_change": "Add this project-configuration observation to the input-related repository_evidence so the record distinguishes 'project-wide Input Actions layer is registered but contains no gameplay cursor/spell actions and is consumed by no gameplay script' from 'no Input Actions layer exists'.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "EVID-PCD-006",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Prototype scene-builder lock quoted with the wrong GDD section number on two door items",
+        "description": "doorway-crossing-state and door-close-lock-break-lifecycle both attribute the 'Current prototype scene-builder lock' rule to GDD Section 5. The quoted text is genuine and verbatim, but it lives in Section 4 (AI Architecture) under 'Shared Context and Coordination Rules', which ends before '## 5. Technical Strategy'. The candidate's own non_code_requirements entries cite the same rule correctly as 'Section 4 - Shared Context and Coordination Rules', so the graph is internally inconsistent. Given the strict provenance requirements of this verification pass, cited section anchors for lock justifications should resolve exactly.",
+        "affected_keys": [
+          "doorway-crossing-state",
+          "door-close-lock-break-lifecycle"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §4 Shared Context and Coordination Rules",
+            "requirement": "\"Current prototype scene-builder lock: scene-authoring work that changes objects generated or maintained through Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs must take exclusive-write locks on both that builder and Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity. This specifically applies to doorway-crossing work that creates/configures the forward-side crossing trigger...\" — this appears under '## 4. AI Architecture', before '## 5. Technical Strategy'."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+            "observation": "'### Shared Context and Coordination Rules' appears at line 229; '## 5. Technical Strategy' does not begin until line 245, placing the scene-builder lock rule in Section 4."
+          }
+        ],
+        "recommended_change": "Change the two door items' exclusive-resource evidence citations from 'Section 5' to 'Section 4 — Shared Context and Coordination Rules', matching the correct citations already used in non_code_requirements. Lock content itself is correct and should be retained.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "EVID-PCD-007",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "player-mana's denied-cast signal is a derived requirement with no named consumer",
+        "description": "player-mana carries an acceptance criterion requiring an explicit denied-cast signal ('e.g. an event') distinct from a successful spend, cited to GDD §3 'Failure is readable', and major_findings presents its absence as a repository gap. The GDD requires that failure causes including low mana be readable to the player; it does not state that Player Mana must emit a denied-cast event, and the continuous mana indicator required by the GDD already exists and is integrated. As written, the item would be satisfied by exposing an event that no represented item consumes or renders, which would not actually deliver the readability obligation. This is a derived design choice presented as a sourced requirement.",
+        "affected_keys": [
+          "player-mana"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §3 Player Experience Success Criteria",
+            "requirement": "\"Failure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long.\""
+          },
+          {
+            "reference": "GDD §2 Player Mana ownership",
+            "requirement": "Player Mana owns current mana and post-cast regeneration-delay state and exposes an owner-controlled spend interface; it does not state a required denied-cast signal."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+            "observation": "Lines 44-52: Spend() already returns false and leaves CurrentMana unchanged on insufficient mana, so callers can already detect refusal without a new event; only a ManaSpent event exists."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+            "observation": "Lines 11-16: a continuous fill bar bound to CurrentMana/MaxMana already exists and is serialized in DoorPrototype.unity (mana + fillImage references wired), satisfying the continuous mana indicator."
+          }
+        ],
+        "recommended_change": "Either label the denied-cast signal explicitly as derived implementation rationale supporting the 'failure is readable' criterion, or keep it as a requirement and name the consuming presenter (a spell or the existing mana UI) that renders the readable low-mana failure, so the obligation is discharged by an actual player-facing behavior rather than an unconsumed event.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Scope audited: player core (player, player-movement, player-health, player-mana), spells/combat (combat, fireball, frost-field, force-wave), doors/interaction and doorway crossing (doors, door-open-interaction, doorway-crossing-state, door-close-lock-break-lifecycle), and the directly connected prototype scene/input evidence. Enemy, world-foundation (including fixed-isometric-camera), content/encounter, run-lifecycle, and delivery items were read only where needed to evaluate owner/consumer contracts inside this territory, and are not reported on.",
+      "No graph_status: complete claim exists anywhere in this territory; the only 'complete' item in the candidate belongs to world foundations and is outside my assignment.",
+      "Serialized-integration claims in this territory were verified independently, not accepted from builder capability: each cited script .meta GUID was matched against Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity. PlayerMovement (356044e6...), PlayerHealth (ddabb8b1...), PlayerMana (fd54c6f0...), PlayerManaUI (0a03ab32...), PlayerInteractionController (b9176554...), DoorInteractable (16fb5361...) and DoorInteractionUI (3ba93c72...) are all serialized with their object references wired (e.g. DoorInteractable doorVisual/doorwayBlocker at scene lines 1519-1520; PlayerManaUI mana/fillImage at 1080-1081; PlayerMovement interactionController at 2249). The candidate's serialized-state claims hold.",
+      "'Missing' claims were spot-checked against alternative names/paths: a repository-wide content search of Assets/ for fireball|frost|force wave|spell|cooldown|charge|knockback returns only PlayerMana.cs and DebugManaSpendControl.cs comment text, and a search for mouse|pointer|screentoworld|raycast|cross|lock|durab|escap|victory|restart|reset returns only doorwayBlocker fields, a GraphicRaycaster, and an unrelated test name. Assets/ contains no prefabs at all. The missing classifications for the three spells, doorway crossing, and the close/lock/durability lifecycle are correct.",
+      "Test evidence was checked for whether it proves the claimed behavior: PlayerManaPlayModeTests.cs genuinely exercises Spend success/failure, post-cast-delay suppression, regeneration, and delay reset. DoorInteractionPlayModeTests.cs drives controller.BeginInteraction/EndInteraction/OnPlayerMoved and door.Tick() directly, so it proves the timer/cancellation state machine but does NOT exercise the trigger-collider arm's-reach detection, the keyboard input path, or real-frame timing. The candidate does not overstate this coverage, but a future item could; the distinction is worth preserving in the record.",
+      "Debug affordances are correctly not conflated with gameplay: DebugDamageControl and DebugManaSpendControl are documented in-code as testing/demo affordances, and the candidate cites them only as builder-wired player components, never as evidence of an enemy damage source or a spell.",
+      "player-movement's 'partial' repository_state is defensible but generous: the component satisfies none of the GDD-required movement interfaces (no mouse direction, no pointer projection, no restriction interface, no Input Actions consumption, no reset/suspend). The only GDD-relevant behavior present is generic CharacterController locomotion plus the OnPlayerMoved() interaction-cancel hook. Because graph_status is 'open' with all obligations enumerated as acceptance criteria, this does not create a downstream overclaim, so I did not raise it as a finding.",
+      "Minor schema inconsistency noticed across this territory's organizational nodes: 'type' is 'feature' for player, 'feature-group' for combat, and 'feature_group' for doors. Not an evidence defect, but it may affect tooling that groups by type."
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 36
+}

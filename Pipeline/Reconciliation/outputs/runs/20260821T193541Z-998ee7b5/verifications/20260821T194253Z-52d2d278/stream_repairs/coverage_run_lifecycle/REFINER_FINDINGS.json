@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.1",
+  "source_finding_count": 1,
+  "material_finding_count": 0,
+  "selected_finding_count": 1,
+  "selected_structural_warning_count": 1,
+  "findings": [
+    {
+      "source_agent": "Coverage — Run Lifecycle",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "Enemy-reset acceptance criterion on persistent closure does not explicitly restate status-effect/displacement clearing",
+        "description": "GDD 'Loss' explicitly requires that 'no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run.' The floor-run-restart-persistent-closure work item lists enemy-status-effect-displacement as a dependency and its generic acceptance criterion ('invoke reset entry points for every implemented persistent owner beyond the bootstrap set') covers it structurally, but the item's specific enemy-reset acceptance criterion only names 'no retained target or search state' and omits status-effect/displacement explicitly. This is not currently exploitable as a gap because the dependency edge and generic full-closure gate both require enemy-status-effect-displacement's own reset entry point to be invoked, so an implementer cannot skip it without violating the generic criterion. This is a clarity improvement, not a missing obligation.",
+        "affected_keys": [
+          "floor-run-restart-persistent-closure",
+          "enemy-status-effect-displacement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Win and Loss Conditions — Loss",
+            "requirement": "no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run"
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Optionally expand the enemy-reset acceptance criterion on floor-run-restart-persistent-closure to explicitly name status-effect and displacement clearing alongside target/search state, for readability during future decomposition; not required for correctness given the existing dependency edge and generic closure gate.",
+        "requires_human_review": false
+      }
+    }
+  ],
+  "selection_policy": "Refiner input contains all blocker/error findings, warnings whose categories indicate scheduler/representation risk, and coverage-origin requirement-representation suggestions. Other ordinary warnings and suggestions remain in MERGED_FINDINGS_PASS1.json and are reassessed during pass 2. This keeps refinement bounded while preventing a required coverage gap noticed in Pass 1 from being stranded until Pass 2."
+}

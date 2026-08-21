@@ -1,0 +1,67 @@
+{
+  "agent": "Evidence — Player Combat Doors",
+  "requested_model": "sonnet",
+  "duration_seconds": 263.79,
+  "result": {
+    "verdict": "pass_with_findings",
+    "findings": [
+      {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "door-open-interaction's own repository_evidence array omits the directly-relevant DoorInteractionPlayModeTests.cs test file",
+        "description": "The door-open-interaction work item's repository_evidence array cites DoorInteractable.cs, PlayerInteractionController.cs, PlayerMovement.cs, DoorPrototypeSceneBuilder.cs, DoorPrototype.unity, and InputSystem_Actions.inputactions, but does not cite Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs even though that file directly exercises the exact behavior this item is about (BeginInteraction/EndInteraction, timer progress, cancellation on release/movement/damage). The file is listed in the run's top-level files_reviewed and is mentioned in the domain current_state_summary prose ('part of DoorInteractionPlayModeTests.cs give real Play Mode test coverage ... for PlayerHealth's damage-cancels-door-interaction interaction'), so it was reviewed, but the specific work item's own evidence list under-cites it. This test evidence is actually useful here: it proves the current hold-and-release/movement/damage interruption behavior is real and test-covered, and (per the round-3 test-fidelity guidance) that its ReleasingInteraction_CancelsAttempt test validates the old sustained-hold model rather than the GDD's required no-hold auto-timer model, reinforcing rather than weakening the item's 'partial' classification.",
+        "affected_keys": [
+          "door-open-interaction"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Open Sealed Door",
+            "requirement": "Click the sealed door to request movement to its interaction position; the five-second timer begins automatically at arm's-reach with no sustained hold required."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs",
+            "observation": "Contains Completion_OpensDoor_AfterFullDuration, Progress_IsApproximatelyHalf_AtHalfDuration, ReleasingInteraction_CancelsAttempt, PlayerMovement_CancelsAttempt, and PlayerDamage_CancelsAttempt tests that directly exercise DoorInteractable/PlayerInteractionController's current sustained-hold interaction model; not cited in door-open-interaction's own repository_evidence array despite being in the run's files_reviewed list and referenced in the domain summary prose."
+          }
+        ],
+        "recommended_change": "Add DoorInteractionPlayModeTests.cs to door-open-interaction's repository_evidence array, noting that it currently validates the sustained-hold-and-release model (including a passing 'ReleasingInteraction_CancelsAttempt' test) rather than the GDD's required no-hold auto-timer/click-to-approach model, so this coverage will need to be rewritten alongside the reimplementation rather than merely extended.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "F2",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Overstated fidelity claim that current movement-cancellation 'matches' the GDD's interruption rule",
+        "description": "door-open-interaction's repository_evidence for PlayerInteractionController.cs states that 'EndInteraction is also called on any player movement and on PlayerHealth.Damaged, matching the GDD's interruption rules for movement/damage.' This slightly overstates the match: the GDD's rule is specifically that, once the auto-timer has started, 'moving away' cancels progress while cursor drift after the initial click does not — a distinction that presupposes the cursor-targeted click-to-approach model. The current WASD-polling implementation has no cursor-target concept at all and cancels on any movement input (Update() checks input magnitude, not actual displacement or direction relative to the door), which is a coarser trigger than the GDD's 'moving away' condition. The observation's wording could be read as certifying behavioral equivalence with the required interruption semantics rather than mere superficial similarity (both involve movement-triggered cancellation). This does not change the item's correct 'partial' repository_state, since the item is already flagged as missing the entire click-to-approach/cursor-drift-tolerant model.",
+        "affected_keys": [
+          "door-open-interaction"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Setbacks",
+            "requirement": "Once the timer has begun, taking damage, moving away, or issuing another command that cancels/replaces the door interaction resets progress; cursor movement away from the selected door after the initial click does not reset progress."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+            "observation": "OnPlayerMoved() unconditionally calls EndInteraction() whenever PlayerMovement reports any WASD input magnitude above threshold, with no concept of cursor drift vs. moving away, and no distinction based on direction relative to the door."
+          }
+        ],
+        "recommended_change": "Rephrase the evidence observation to state that the current any-movement-cancels behavior is only superficially similar to the GDD's movement-interruption rule, and explicitly note that it does not yet implement the required cursor-drift-tolerant distinction because no cursor-targeting model exists in the current code.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Audit scope: player core (player, player-movement, player-health, player-mana), spells/combat (combat, fireball, frost-field, force-wave), doors/interaction and doorway crossing (doors, door-open-interaction, doorway-crossing-state, door-close-lock-break-lifecycle), plus the directly-connected win/loss and floor-run-restart items that consume these owners (win-loss-conditions, final-escape-victory, floor-run-restart, floor-run-restart-bootstrap, floor-run-restart-persistent-closure). Enemy, world/visual/navigation-foundation, encounter-content, and delivery/build items (including fixed-isometric-camera, which sits under the 'world' feature node) were intentionally not evaluated per the assigned territory boundary, even where cross-referenced as dependencies.",
+      "Independently verified against current repository state: PlayerMovement.cs, PlayerHealth.cs, PlayerMana.cs, PlayerManaUI.cs, DebugDamageControl.cs, DoorInteractable.cs, PlayerInteractionController.cs, DoorPrototypeSceneBuilder.cs, Assets/InputSystem_Actions.inputactions, DoorPrototype.unity (via .meta GUID cross-reference), PlayerManaPlayModeTests.cs, and DoorInteractionPlayModeTests.cs. No Fireball/FrostField/ForceWave/Enemy-named script exists anywhere under Assets/, confirming the candidate's 'missing' classifications for all three spells and its zero-enemy-code claims.",
+      "Every gdd_evidence citation spot-checked in this domain traced to real text in Docs/GDD/No_Safe_Circle_GDD.md; no instance was found of CLAUDE.md, verifier/patch-round labels (e.g. 'VERIFIED CLOSURE'), or other non-GDD pipeline text being misattributed as GDD or repository evidence within this domain's gdd_evidence/repository_evidence/dependency/exclusive-resource fields. One major_findings summary sentence references 'the FRESH RUN CLOSURE and prior verification-round guidance' but does so as an honest label for pipeline process guidance (governing an exclusive-resource lock already independently grounded in real GDD scene-builder-lock text), not as a claimed GDD/repository citation, so it was not flagged as a provenance violation.",
+      "No graph_status:'complete' claims exist anywhere in this domain (all items are 'open'), so no unsupported-completion findings apply here.",
+      "All repository_state values in this domain (partial for player/player-movement/player-health/player-mana/doors/door-open-interaction; missing for combat/fireball/frost-field/force-wave/doorway-crossing-state/door-close-lock-break-lifecycle/floor-run-restart*/win-loss-conditions/final-escape-victory) were independently corroborated against actual code, scene-serialization, package manifest, and test evidence and found accurate."
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 36
+}

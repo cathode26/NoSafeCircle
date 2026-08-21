@@ -1,0 +1,35 @@
+{
+  "agent": "Streaming Field Repair — coverage_run_lifecycle",
+  "requested_model": "sonnet",
+  "duration_seconds": 32.22,
+  "result": {
+    "schema_version": "1.1",
+    "operations": [
+      {
+        "target_type": "work_item",
+        "target_id": "floor-run-restart-persistent-closure",
+        "field": "acceptance_criteria",
+        "op": "remove_unique",
+        "value_json": "{\"reference\": \"Floor-run restart ownership\", \"requirement\": \"Enemy reset consumes an enemy-owned restart/reset operation that returns each persistent enemy to its authored encounter/spawn region and initial pursuit/search/attack state, with no retained target or search state; the orchestrator does not write enemy Transform/locomotion internals itself.\"}",
+        "reason": "F1: replace with a version that explicitly names status-effect and displacement clearing, matching GDD Loss wording, for clarity during future decomposition."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "floor-run-restart-persistent-closure",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Floor-run restart ownership\", \"requirement\": \"Enemy reset consumes an enemy-owned restart/reset operation that returns each persistent enemy to its authored encounter/spawn region and initial pursuit/search/attack state, with no retained target, search, status-effect, or displacement state; the orchestrator does not write enemy Transform/locomotion internals itself.\"}",
+        "reason": "F1: explicitly restate status-effect/displacement clearing alongside target/search state, aligning acceptance criterion wording with GDD §2 Win and Loss Conditions — Loss ('no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run') and the enemy-status-effect-displacement dependency already present on this item."
+      }
+    ],
+    "finding_resolutions": [
+      {
+        "source_agent": "Coverage — Run Lifecycle",
+        "finding_id": "F1",
+        "disposition": "corrected",
+        "explanation": "GDD 'Loss' requires that status-effect and displacement state, alongside target/search state, do not carry over from a failed run. The item's dependency on enemy-status-effect-displacement and its generic full-closure gate already structurally require this, so no obligation was missing, but the specific enemy-reset acceptance criterion only named target/search state. Corrected the criterion text to explicitly enumerate status-effect and displacement clearing for readability, matching the recommended change (a clarity improvement, not a new requirement)."
+      }
+    ],
+    "reasoning": "The only supplied finding (F1) is a low-severity, coverage-origin requirement-representation suggestion noting that the enemy-reset acceptance criterion on floor-run-restart-persistent-closure doesn't explicitly restate status-effect/displacement clearing, even though the dependency edge on enemy-status-effect-displacement and the generic 'full closure' acceptance criterion already structurally cover it. I verified the current candidate text at the affected work item and confirmed the gap is purely textual/clarity, matching the GDD's Loss section wording ('no target, last-known-position, search, attack, status-effect, or displacement state carries over'). I applied the recommended minimal fix: replaced the existing enemy-reset acceptance criterion with a version that explicitly names status-effect and displacement clearing alongside target/search state, using remove_unique + append_unique field operations rather than reproducing the full work-item record. No other fields, dependencies, or structural elements were touched, since this was the only supplied finding and it required no broader graph changes (no new work items, no dependency edits, no resource-lock changes). The selected_structural_warning_count of 1 corresponds to this same F1 entry — the findings array contains exactly one object, so it was resolved once as required."
+  }
+}

@@ -1,0 +1,305 @@
+{
+  "agent": "Streaming Field Conflict Arbiter 1",
+  "requested_model": "opus",
+  "duration_seconds": 308.73,
+  "result": {
+    "schema_version": "2.0-field-ops",
+    "operations": [
+      {
+        "target_type": "work_item",
+        "target_id": "encounter-admission-cap-enforcement",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Exposes an owner-controlled reset entry point that returns encounter activation/admission bookkeeping — including any delayed or reduced pending activation and admitted-batch state — to the floor's initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating admission internals directly.\"}",
+        "reason": "CE-01/EV-ENEM-003 conflict arbitration: both audits appended a near-duplicate reset criterion to the same field. Synthesized into one criterion that keeps the CE wording's floor-initial-state contract and the evidence audit's concrete state enumeration (pending delayed/reduced activation, admitted-batch bookkeeping). Verified against GDD line 102 ('...and encounter activation/admission state') and line 104 ('Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point... Required reset participants include... encounter activation/admission state'). This was the only run-persistent owner in the candidate lacking an owner-side reset criterion while floor-run-restart-persistent-closure already depends on it."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "encounter-admission-cap-enforcement",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Verify floor restart returns encounter activation/admission bookkeeping, including any delayed or reduced pending activation and admitted-batch state, to the floor's initial state through the owner-controlled reset entry point.\"}",
+        "reason": "CE-01/EV-ENEM-003 conflict arbitration: single merged validation requirement matching the merged acceptance criterion, mirroring the reset-validation pattern already used on active-enemy-registry, enemy-health-damage-defeat, and enemy-status-effect-displacement."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "encounter-admission-cap-enforcement",
+        "field": "validation_requirements",
+        "op": "remove_unique",
+        "value_json": "{\"reference\": \"Section 3 - Player Experience Success Criteria\", \"requirement\": \"Encounters use three to eight enemies and never exceed fifteen active enemies at once.\"}",
+        "reason": "CE-07: the three-to-eight half is authored-content sizing this item cannot exercise; its decomposition_reason and execution_reason both scope it to be dispatchable/testable without any authored encounter content. The floor-wide fifteen-enemy ceiling remains covered by the item's retained validation requirement ('Verify the floor-wide active-enemy count never exceeds fifteen...'), so the Section 3 success criterion stays represented and is relocated (next op) rather than dropped."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "dungeon-encounter-content-authoring",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 3 — Player Experience Success Criteria\", \"requirement\": \"Verify each authored encounter uses between three and eight enemies; the registry-enforced fifteen-active-enemy floor-wide ceiling is validated separately by encounter-admission-cap-enforcement.\"}",
+        "reason": "CE-07: relocates the per-encounter sizing validation to the item that owns and can exercise authored encounter content, matching its existing 3-8 acceptance criterion, so the Section 3 Player Experience Success Criterion remains a validation_requirement on an owning work item."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "dungeon-encounter-content-authoring",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 3 — Dungeon Floor Structure (Chapel of Ash / Ruined Entry / Bone Archive)\", \"requirement\": \"The Ranged Enemy is first introduced in the Chapel of Ash encounter, always alongside Melee Enemy support; the Ruined Entry and Bone Archive encounters remain melee-only.\"}",
+        "reason": "CE-04 / CE-R16: verified in the GDD Dungeon Floor Structure table — Chapel of Ash is described as containing 'the newly introduced Ranged Enemy, which appears here alongside Melee Enemy support rather than alone', while Ruined Entry ('circle a melee enemy') and Bone Archive ('Melee enemies can be slowed inside a lane') are described in melee terms only. The pacing existed in the candidate only as gdd_evidence prose; the existing composition criteria alone would permit Ranged Enemy in Ruined Entry."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "dungeon-encounter-content-authoring",
+        "field": "decomposition_reason",
+        "op": "set",
+        "value_json": "\"Exact encounter placements, triggers, per-door durability values, and Final Room pressure composition are explicitly left to later authoring/playtesting by the GDD; only composition/sizing rules (3-8 enemies, never-isolated Ranged Enemy, mixed compositions in two named rooms, Ranged Enemy first introduced in Chapel of Ash) are currently fixed. Inventing exact placements/triggers now would fabricate missing design. Encounter placement/content authoring is a real prerequisite consumer of the room spaces produced by five-room-content-authoring (GDD Section 5 — 2.5D Isometric Visual and World Representation: 'encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation'); once both features gain concrete descendants, a Progressive Decomposer must attach a concrete encounter-placement -> authored-room implementation/artifact dependency between those descendants rather than a feature-to-feature edge.\"",
+        "reason": "CE-06: moves the room-space consumption prerequisite out of the weakest durable field (notes) into decomposition_reason so a future Progressive Decomposer is instructed to attach the real executable edge once concrete descendants exist. The quoted GDD sentence was verified verbatim in Section 5. No feature-target dependency is introduced, preserving the dependency-kind invariant while five-room-content-authoring remains kind: feature."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "five-room-content-authoring",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 1 — Executive Summary; Section 2 — Game Mechanics\", \"requirement\": \"The five named spaces are connected in a forward-only sequence by authored sealed-door instances positioned at each room's exit, consistent with 'Each room ends at a door' and 'The player moves through connected rooms toward the final door'; the Final Room's exit door is designated as the final door whose crossing the victory capability consumes through the shared doorway-crossing state.\"}",
+        "reason": "CE-02 / CE-R21: verified GDD line 23 ('Each room ends at a door...'), line 25 ('the player must create enough distance... to open the final door and escape'), and line 50 ('The player moves through connected rooms toward the final door'). No item obliged authoring door instances connecting the five spaces or designating the final door; five-room-content-authoring's two criteria covered only the named spaces and single-scene continuity. Placed on the room-authoring feature because 'each room ends at a door' is a room-layout property, while dungeon-encounter-content-authoring's own scope ('configured per-door durability values') presupposes door instances already exist and the door work items are reusable runtime components."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "five-room-content-authoring",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 3 — Dungeon Floor Structure (Bone Archive); Section 5 — Runtime Implementation\", \"requirement\": \"Bone Archive's authored lane widths are navigable at the configured enemy navigation agent radius, so the room's narrow-lane/chokepoint geometry holds in practice against the navigation layer's requirements.\"}",
+        "reason": "CE-03: GDD Section 5 Runtime Implementation states \"Bone Archive's lane widths are validated against enemy movement/navigation requirements so both rooms' stated tactical geometry holds in practice\", and Section 4's Unity Validation Agent lists 'Bone Archive lane pathing'. The candidate attached this joint check only to enemy-pursuit-search-foundation and gameplay-navigation-locomotion; the authored-geometry half had no owner and could be lost when this deferred feature decomposes."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "five-room-content-authoring",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 3 — Dungeon Floor Structure (Chapel of Ash); Section 4 — Development Agent Roles (Unity Validation Agent)\", \"requirement\": \"Chapel of Ash's authored pews and columns present real occluders that block the Ranged Enemy's line-of-sight/projectile-occlusion check from at least one cover position.\"}",
+        "reason": "CE-03: GDD Chapel of Ash ('Pews and stone columns provide line-of-sight breaks') plus Section 4's 'Chapel of Ash occlusion' validation listing. The candidate owned this check only on ranged-enemy (the attack-side occlusion logic); the authored-geometry side had no obligation."
+      },
+      {
+        "target_type": "non_code_requirement",
+        "target_id": "Schedule-slip scope-reduction order",
+        "field": "",
+        "op": "upsert_record",
+        "value_json": "{\"title\": \"Schedule-slip scope-reduction order\", \"requirement_type\": \"pipeline_constraint\", \"status\": \"confirmed\", \"gdd_evidence\": [{\"reference\": \"Section 5 — Six-Week Development Plan\", \"requirement\": \"Stretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5–6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut.\"}], \"evidence\": \"Stated verbatim as a bounded, ordered scope-cut policy in the Section 5 Six-Week Development Plan: stretch features are removed first, then advanced door visuals and one encounter variation may be reduced, then final-room encounter density may be reduced toward the low end of the three-to-eight range with simplified presentation polish; required systems (three spells, two enemy types, door loop, mana regeneration, pursuit, final escape) are never cut.\"}",
+        "reason": "CE-05 / CE-R22: verified the quoted paragraph verbatim in Docs/GDD/No_Safe_Circle_GDD.md under Section 5's Six-Week Development Plan. No existing non_code_requirement covers it — the nearest record, 'Agent scope and canon discipline', only forbids adding scope and does not preserve the authorized reduction order or the protection of required systems. Typed pipeline_constraint because it is a development-process invariant governing authorized scope reduction, not gameplay work."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "melee-enemy",
+        "field": "depends_on",
+        "op": "append_unique",
+        "value_json": "{\"key\":\"world-visual-foundation\",\"reason\":\"Melee Enemy's acceptance criteria require delivering a usable assembled world-space SpriteRenderer archetype prefab following the isometric sorting conventions that the reusable visual-world foundation owns; that foundation does not exist yet, so the conventions the archetype must conform to are not established.\",\"evidence\":\"GDD Section 5 — Runtime Implementation: 'World-space SpriteRenderer prefabs will be used for sealed doors, tall props, obstacles, the wizard, enemies, and other independently sorted or interactive objects. Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture.' Section 3 — Environment Presentation and Authoring Direction: 'the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers.' world-visual-foundation is repository_state missing; no SpriteRenderer, Grid, or Tilemap component exists anywhere in Assets/.\"}",
+        "reason": "EV-ENEM-001: both quoted GDD sentences were verified verbatim (Section 5 Runtime Implementation and Section 3 Environment Presentation and Authoring Direction). This is a genuine behavioral prerequisite — the sorting conventions must exist before an archetype prefab can conform to them — not a shared-write concern. Target kind is implementation, so the dependency-kind invariant holds, and no cycle is introduced (world-visual-foundation depends only on tilemap-navigation-package-configuration). Repaired by adding the edge rather than stripping the archetype's prefab-assembly criterion, since each enemy archetype must retain an owner for usable prefab/archetype assembly."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "ranged-enemy",
+        "field": "depends_on",
+        "op": "append_unique",
+        "value_json": "{\"key\":\"world-visual-foundation\",\"reason\":\"Ranged Enemy's acceptance criteria require delivering a usable assembled world-space SpriteRenderer archetype prefab following the isometric sorting conventions that the reusable visual-world foundation owns; that foundation does not exist yet, so the conventions the archetype must conform to are not established.\",\"evidence\":\"GDD Section 5 — Runtime Implementation: 'World-space SpriteRenderer prefabs will be used for sealed doors, tall props, obstacles, the wizard, enemies, and other independently sorted or interactive objects. Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture.' Section 3 — Environment Presentation and Authoring Direction: 'the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers.' world-visual-foundation is repository_state missing; no SpriteRenderer, Grid, or Tilemap component exists anywhere in Assets/.\"}",
+        "reason": "EV-ENEM-001: same verified prerequisite as melee-enemy; ranged-enemy carries the identical assembled-SpriteRenderer-prefab acceptance criterion with no ordering relationship to the foundation that owns the sorting conventions."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "melee-enemy",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\":\"Section 2 — Floor-run restart ownership\",\"requirement\":\"Exposes an owner-controlled restart/reset entry point that clears melee attack execution/wind-up state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly.\"}",
+        "reason": "EV-ENEM-002: the GDD names enemy 'attack' state as a required reset participant twice, distinctly from pursuit/search and status/displacement (line 102: 'no target, last-known-position, search, attack, status-effect, or displacement state carries over'; line 104: 'enemy pursuit/search/attack/status/displacement state'). enemy-pursuit-search-foundation's reset criterion covers only target/last-known-position/search state, so melee attack execution state had no reset owner."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "melee-enemy",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\":\"Section 2 — Floor-run restart ownership\",\"requirement\":\"Verify floor restart clears melee attack execution/wind-up state through the owner-controlled reset entry point.\"}",
+        "reason": "EV-ENEM-002: matching validation requirement for the new reset acceptance criterion, consistent with the pattern used on the sibling enemy-state owners."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "ranged-enemy",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\":\"Section 2 — Floor-run restart ownership\",\"requirement\":\"Exposes an owner-controlled restart/reset entry point that clears ranged attack/telegraph timing and any in-flight projectile state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly.\"}",
+        "reason": "EV-ENEM-002: ranged-enemy owns the telegraphed-attack timing and projectile state named in the GDD's required reset participant list but carried no reset criterion."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "ranged-enemy",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\":\"Section 2 — Floor-run restart ownership\",\"requirement\":\"Verify floor restart clears ranged attack/telegraph timing and any in-flight projectile state through the owner-controlled reset entry point.\"}",
+        "reason": "EV-ENEM-002: matching validation requirement for ranged-enemy's new reset acceptance criterion."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "locked-door-enemy-attack",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\":\"Section 2 — Floor-run restart ownership\",\"requirement\":\"Exposes an owner-controlled restart/reset entry point that clears locked-door attack initiation/in-progress state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly.\"}",
+        "reason": "EV-ENEM-002: locked-door-enemy-attack owns the locked-door attack state that falls under the GDD's named 'attack state' reset participant category and had no reset criterion."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "locked-door-enemy-attack",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\":\"Section 2 — Floor-run restart ownership\",\"requirement\":\"Verify floor restart clears locked-door attack initiation/in-progress state through the owner-controlled reset entry point.\"}",
+        "reason": "EV-ENEM-002: matching validation requirement for locked-door-enemy-attack's new reset acceptance criterion."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "floor-run-restart-persistent-closure",
+        "field": "depends_on",
+        "op": "append_unique",
+        "value_json": "{\"key\":\"melee-enemy\",\"reason\":\"Melee attack execution/wind-up state is a named required reset participant (enemy attack state) and Melee Enemy owns it; full closure invokes that owner-exposed reset entry point.\",\"evidence\":\"GDD Section 2 — Win and Loss Conditions (Loss) and Floor-run restart ownership: required reset participants include enemy pursuit/search/attack/status/displacement state, and no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run.\"}",
+        "reason": "EV-ENEM-002: the closure item's participant list omitted every attack-state owner, so no item in the graph was accountable for attack-state reset. Target kind is implementation and no cycle is created (melee-enemy does not depend on the closure item)."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "floor-run-restart-persistent-closure",
+        "field": "depends_on",
+        "op": "append_unique",
+        "value_json": "{\"key\":\"ranged-enemy\",\"reason\":\"Ranged attack/telegraph timing and in-flight projectile state is a named required reset participant (enemy attack state) and Ranged Enemy owns it; full closure invokes that owner-exposed reset entry point.\",\"evidence\":\"GDD Section 2 — Win and Loss Conditions (Loss) and Floor-run restart ownership: required reset participants include enemy pursuit/search/attack/status/displacement state.\"}",
+        "reason": "EV-ENEM-002: completes the closure item's attack-state reset participation for the ranged archetype."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "floor-run-restart-persistent-closure",
+        "field": "depends_on",
+        "op": "append_unique",
+        "value_json": "{\"key\":\"locked-door-enemy-attack\",\"reason\":\"Locked-door attack initiation/in-progress state is a named required reset participant (enemy attack state) and Locked-Door Enemy Attack Initiation owns it; full closure invokes that owner-exposed reset entry point.\",\"evidence\":\"GDD Section 2 — Win and Loss Conditions (Loss) and Floor-run restart ownership: required reset participants include enemy pursuit/search/attack/status/displacement state.\"}",
+        "reason": "EV-ENEM-002: completes the closure item's attack-state reset participation for locked-door attack behavior."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "active-enemy-registry",
+        "field": "acceptance_criteria",
+        "op": "remove_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Registry exposes an owner-controlled reset entry point that returns bookkeeping to its initial empty/starting state; the Floor Run/Restart Orchestrator invokes this rather than mutating registry internals directly.\"}",
+        "reason": "EV-ENEM-004: verified the GDD states only that Active Enemy Registry bookkeeping is reset to the floor's initial state (Section 2 Loss and Floor-run restart ownership); it nowhere states that initial state is empty, and whether any enemy is active at floor start is deferred encounter-authoring content. 'Empty' is canon from silence and is removed, with the real reset-entry-point requirement preserved in the replacement criterion."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "active-enemy-registry",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Registry exposes an owner-controlled reset entry point that returns bookkeeping to the floor's initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating registry internals directly.\"}",
+        "reason": "EV-ENEM-004: replacement wording matching the GDD's actual 'floor's initial state' phrasing without asserting an unspecified initial population."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "active-enemy-registry",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Win and Loss Conditions (Loss); Section 3 — Active Enemy Registry and Encounter Admission\", \"requirement\": \"After a floor restart, the registry's reported active count and remaining capacity agree with the set of live persistent enemies restored by the enemy-owned resets: an enemy restored to an active state is represented through the normal activation-registration path rather than being independently counted or omitted by restart-side adjustment, so admission gating resumes from accurate bookkeeping.\"}",
+        "reason": "EV-ENEM-004: closes the restart handoff gap without inventing content. Supported by GDD Section 3 ('Enemy activation registers an enemy with the registry; defeat removes that enemy from the active count') plus Section 2's requirement that each persistent enemy is returned to its authored spawn region in its initial AI state — if registry state and restored enemies desynchronize, the fifteen-enemy cap that depends on accurate bookkeeping is unreliable. Wording deliberately avoids asserting whether the floor's initial active set is empty or non-empty."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "active-enemy-registry",
+        "field": "validation_requirements",
+        "op": "remove_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Verify floor restart returns registry bookkeeping to its initial empty/starting state through its owner-controlled reset entry point.\"}",
+        "reason": "EV-ENEM-004: removes the matching unsupported 'empty' wording from the validation side."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "active-enemy-registry",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Verify floor restart returns registry bookkeeping to the floor's initial state through its owner-controlled reset entry point, and that the post-restart active count matches the live set of persistent enemies restored to their initial AI state rather than assuming an empty registry.\"}",
+        "reason": "EV-ENEM-004: corrected validation requirement covering both the floor's-initial-state wording fix and the new re-registration/consistency criterion."
+      }
+    ],
+    "finding_resolutions": [
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-01",
+        "disposition": "corrected",
+        "explanation": "Confirmed against GDD Section 2 (Loss and Floor-run restart ownership), which names 'encounter activation/admission state' as a required reset participant and requires every state owner to expose its own reset entry point. encounter-admission-cap-enforcement was the sole run-persistent owner in the candidate with no owner-side reset criterion while floor-run-restart-persistent-closure already depended on it. Because the parallel Evidence audit (EV-ENEM-003) appended a competing criterion to the same field, I merged both into one acceptance criterion and one validation requirement rather than adding near-duplicates: the CE floor-initial-state contract plus the evidence audit's concrete state enumeration (delayed/reduced pending activation, admitted-batch bookkeeping)."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-02",
+        "disposition": "corrected",
+        "explanation": "Confirmed: GDD line 23 ('Each room ends at a door'), line 25 (open the final door and escape), and line 50 ('The player moves through connected rooms toward the final door') require sealed-door connectivity and a designated final door, yet no work item obliged authoring door instances or designating the Final Room's exit — five-room-content-authoring covered only the five named spaces and single-scene continuity. Added the criterion to five-room-content-authoring because room connectivity is a room-geometry property, while dungeon-encounter-content-authoring's own scope ('configured per-door durability values') presupposes door instances already exist and the door items are reusable runtime components. The finding's human-review flag concerned only which deferred content feature hosts the criterion, which is a graph-representation choice within refiner authority; the requirement itself is explicitly specified, so no unresolved question was opened."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-03",
+        "disposition": "corrected",
+        "explanation": "Confirmed: GDD Section 5 Runtime Implementation states Bone Archive's lane widths are validated against enemy movement/navigation requirements, and Section 4's Unity Validation Agent lists both 'Bone Archive lane pathing' and 'Chapel of Ash occlusion'. Both are joint checks over runtime configuration and authored geometry, but the candidate owned them only on enemy-pursuit-search-foundation, gameplay-navigation-locomotion, and ranged-enemy. Added the authoring-side halves as validation requirements on five-room-content-authoring so the geometry constraints survive future decomposition."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-04",
+        "disposition": "corrected",
+        "explanation": "Confirmed in the GDD Dungeon Floor Structure table: Chapel of Ash contains 'the newly introduced Ranged Enemy, which appears here alongside Melee Enemy support rather than alone', while Ruined Entry and Bone Archive are described purely in melee terms. The pacing existed only as gdd_evidence prose, so the existing composition criteria would have permitted a Ranged Enemy in Ruined Entry. Added it as an obliging acceptance criterion on dungeon-encounter-content-authoring."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-05",
+        "disposition": "corrected",
+        "explanation": "Verified the scope-cut paragraph verbatim in Section 5's Six-Week Development Plan, and confirmed no existing non_code_requirement covers it (the nearest, 'Agent scope and canon discipline', only forbids adding scope). Added a new typed pipeline_constraint, 'Schedule-slip scope-reduction order', preserving the ordered reduction policy and the protection of required systems. Classified as pipeline_constraint because it is a development-process invariant, not gameplay work."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-06",
+        "disposition": "corrected",
+        "explanation": "Confirmed the Section 5 sentence 'encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation' verbatim. Restated the prerequisite in dungeon-encounter-content-authoring's decomposition_reason (a durable decomposition field rather than free-text notes), instructing a future Progressive Decomposer to attach the concrete descendant-to-descendant edge later. No feature-target dependency was introduced, so the dependency-kind invariant is preserved."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-07",
+        "disposition": "corrected",
+        "explanation": "Confirmed encounter-admission-cap-enforcement is deliberately scoped to be dispatchable and testable without authored encounter content, so it cannot exercise per-encounter sizing. Removed the three-to-eight validation requirement from that item and added the matching validation requirement to dungeon-encounter-content-authoring, which owns the 3-8 acceptance criterion. The floor-wide fifteen-enemy ceiling remains validated on the admission item, so the Section 3 Player Experience Success Criterion stays represented on owning work items rather than being dropped."
+      },
+      {
+        "source_agent": "Evidence — Enemies Encounters",
+        "finding_id": "EV-ENEM-001",
+        "disposition": "corrected",
+        "explanation": "Confirmed both quoted GDD sentences verbatim: Section 5 Runtime Implementation ('Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture') and Section 3 Environment Presentation and Authoring Direction (wizard and enemy representations follow the same isometric sorting conventions). melee-enemy and ranged-enemy each claim delivery of an assembled SpriteRenderer archetype prefab conforming to conventions owned by world-visual-foundation, which is repository_state missing with no SpriteRenderer/Grid/Tilemap anywhere in Assets/. Added a depends_on edge from each archetype to world-visual-foundation (an implementation-kind target, no cycle introduced) rather than stripping the prefab-assembly criteria, since each archetype must retain an owner for usable prefab assembly."
+      },
+      {
+        "source_agent": "Evidence — Enemies Encounters",
+        "finding_id": "EV-ENEM-002",
+        "disposition": "corrected",
+        "explanation": "Confirmed the GDD names enemy attack state as a reset participant distinctly from pursuit/search and status/displacement, and verified enemy-pursuit-search-foundation's reset criterion covers only target/last-known-position/search state. melee-enemy, ranged-enemy, and locked-door-enemy-attack carried no reset criteria and were absent from floor-run-restart-persistent-closure's participant list, leaving attack-state reset unowned. Added matching reset acceptance criteria and validation requirements to each owner and the three keys to the closure item's depends_on, mirroring the established pattern."
+      },
+      {
+        "source_agent": "Evidence — Enemies Encounters",
+        "finding_id": "EV-ENEM-003",
+        "disposition": "corrected",
+        "explanation": "Confirmed the same gap CE-01 reports, from the evidence side: the item's three acceptance criteria covered only capacity querying, delay/reduce-first behavior, and non-duplication, while the closure item already assumed a reset interface. Because both audits wrote competing text to encounter-admission-cap-enforcement's acceptance_criteria and validation_requirements, I resolved the conflict by synthesizing a single criterion and single validation requirement that retain this finding's concrete state enumeration (pending delayed/reduced activation, admitted-batch bookkeeping) inside CE-01's floor-initial-state contract. No new dependency edge was needed."
+      },
+      {
+        "source_agent": "Evidence — Enemies Encounters",
+        "finding_id": "EV-ENEM-004",
+        "disposition": "corrected",
+        "explanation": "Verified directly in the GDD: Section 2's Loss and Floor-run restart ownership paragraphs state registry bookkeeping resets to the floor's initial state and never say that state is empty, while each persistent enemy is returned to its authored spawn region in its initial AI state. 'Initial empty/starting state' was canon from silence and was replaced with the GDD's actual wording in both the acceptance criterion and validation requirement. Added a re-registration/consistency criterion so post-restart registry count cannot desynchronize from the live set of restored persistent enemies, worded neutrally so it does not assert whether the floor's initial active set is empty — which is deferred encounter-authoring content. No unresolved question was needed because the repair removes the unsupported assumption rather than replacing it with another."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R16",
+        "disposition": "corrected",
+        "explanation": "Duplicate of CE-04. Classified as an acceptance_criterion (a behavior/constraint owned by an existing item) rather than new work, and resolved by the criterion added to dungeon-encounter-content-authoring requiring Ranged Enemy's first introduction in Chapel of Ash alongside Melee support, with Ruined Entry and Bone Archive remaining melee-only."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R21",
+        "disposition": "corrected",
+        "explanation": "Duplicate of CE-02. Classified as an acceptance_criterion on existing deferred room-authoring work rather than a new work item, and resolved by the five-room-content-authoring criterion requiring forward-only sealed-door connectivity between the five named spaces and designation of the Final Room's exit as the final door consumed through the shared doorway-crossing state."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R22",
+        "disposition": "corrected",
+        "explanation": "Duplicate of CE-05. Classified as required_process -> pipeline_constraint and resolved by the new typed 'Schedule-slip scope-reduction order' non_code_requirement, giving the Section 5 Weeks 5-6 scope-cut fallback a durable typed representation without manufacturing gameplay work."
+      }
+    ],
+    "reasoning": "Two audits (coverage_content_encounters and evidence_enemy_encounters) collided on encounter-admission-cap-enforcement's acceptance_criteria and validation_requirements: both appended a floor-restart reset criterion with different wording, and the coverage audit additionally removed the three-to-eight-enemy validation requirement from the same field. I verified the underlying requirement in the GDD (Section 2 Loss + Floor-run restart ownership both name \"encounter activation/admission state\" as a required reset participant and require owner-exposed reset entry points) and synthesized a single acceptance criterion and single validation requirement combining the coverage audit's floor-initial-state contract with the evidence audit's concrete state enumeration, avoiding duplicate near-identical criteria on one item.\n\nAll remaining operations from both proposals were independently verified against Docs/GDD/No_Safe_Circle_GDD.md and the frozen candidate before acceptance, with particular attention to quotation integrity: the Section 5 Six-Week Development Plan scope-cut paragraph, the Section 5 \"Character presentation is therefore part of the reusable visual-world foundation\" sentence, the Section 3 isometric-sorting sentence, the Section 5 \"encounter placement/content consumes the authored room spaces\" sentence, the Bone Archive lane-width validation sentence, the Section 4 Unity Validation Agent check list, and the Chapel of Ash \"newly introduced Ranged Enemy\" room description all exist verbatim in the cited locations. Nothing is attributed to CLAUDE.md, verification artifacts, or patch-round labels.\n\nStructural closure re-checked: the two new archetype edges and three new closure edges all target implementation-kind items; no feature-target dependency was added (CE-06 was deliberately repaired via decomposition_reason instead of a dungeon-encounter -> five-room edge); no cycles are introduced since world-visual-foundation depends only on tilemap-navigation-package-configuration and the enemy/attack owners do not depend on floor-run-restart-persistent-closure; no exclusive_resources were changed, so no read-only consumer was serialized and no shared-writer key drifted. The Section 3 Player Experience Success Criterion for encounter sizing remains represented as a validation_requirement — relocated to the item that can exercise it, not deleted.\n\nThe one repair I softened rather than accepted verbatim is the registry re-registration criterion (EV-ENEM-004): the original phrasing asserted enemies re-register \"as part of enemy-owned restart restoration\", which edges toward specifying deferred authoring facts. I kept the bookkeeping-accuracy obligation and the normal activation-registration path, but removed language that would presume whether the floor's initial active set is empty or non-empty — the exact assumption the finding correctly identified as canon from silence."
+  }
+}

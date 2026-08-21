@@ -1,0 +1,407 @@
+{
+  "current_state_summary": "Repository inspection confirms Fireball, Frost Field, and Force Wave do not exist anywhere under Assets/ (no matches for those terms, and no dedicated scripts). Only PlayerMana.cs (mana pool + Spend/regen), PlayerHealth.cs (damage), PlayerMovement.cs (WASD-only CharacterController movement, no mouse/cursor projection, no movement-restriction interface), PlayerInteractionController.cs, and DoorInteractable.cs are integrated. No enemy scripts of any kind exist (no health/damage/defeat capability, no status-effect/displacement capability), so any spell-consumed enemy-owned interface is itself an unfinished prerequisite. Assets/InputSystem_Actions.inputactions exists with a generic Player action map (Move/Look/Attack/Interact/Crouch/Jump/Previous/Next/Sprint) but has only one combat-adjacent action (\"Attack\", a plain Button bound to Mouse leftButton with no tap/hold distinction) and no Frost-Field- or Force-Wave-specific actions, so all three spells must add/modify bindings in that shared asset. DoorPrototypeSceneBuilder.cs assembles the Player GameObject (movement, interaction, health, mana, debug controls) and rebuilds/saves the canonical DoorPrototype.unity scene on every run, so attaching any new spell component to the Player requires modifying that builder and re-saving that scene.",
+  "desired_state_summary": "The GDD requires three spells owned by the Wizard Combat Agent: Charged Fireball (cursor-aimed tap-for-quick-shot / hold-to-charge-for-area-damage against clustered Melee Enemies, consuming a Player-Movement-owned movement-restriction interface while charging and an Enemy-Health/Defeat-owned damage interface to hurt enemies), Frost Field (placed at the Player-Movement-owned shared cursor world-space target, providing readable cast/active-field feedback, and triggering — but not implementing — enemy slowdown through the Enemy Pursuit/status-effect owner), and Force Wave (player-centered radial knockback, no cursor targeting, 25-mana initial cost, long cooldown, requesting enemy displacement through the same enemy-owned status-effect/displacement interface). Each spell owns its own local state (Fireball: tap/charge/cast; Frost Field: Wizard-Combat-side cast/placement/active-field; Force Wave: cooldown) and must expose an owner-controlled floor-restart reset entry point and an owner-controlled gameplay-enable/suspend interface consumed by the victory/game-flow capability. All three spend mana through Player Mana's existing spend interface and must route casting input through Unity Input System/Input Actions rather than independent hardware polling.",
+  "major_findings": [
+    "Fireball, Frost Field, and Force Wave are entirely unimplemented; no matching script, class, or reference exists anywhere under Assets/.",
+    "PlayerMana.Spend(amount) already exists and is a usable owner-controlled spend interface, so per the existing-interface rule none of the three spells need a formal depends_on edge targeting player-mana solely to spend mana.",
+    "PlayerMovement.cs is WASD-only (CharacterController + Keyboard.current polling) with no mouse-directed movement, no cursor-to-gameplay-plane projection/pointer target, no Input System/Input Actions consumption, and no movement-restriction request/release interface. Because Fireball and Frost Field are cursor-targeted and Charged Fireball must consume a movement-restriction interface, both spells have a real unfinished prerequisite on player-movement; Force Wave does not, since it is the explicit player-centered no-cursor exception.",
+    "No enemy scripts exist at all, so the Enemy-Health/Defeat damage interface Fireball must consume and the Enemy Pursuit/status-effect-displacement interface Frost Field (slow trigger) and Force Wave (forced displacement request) must consume are both unfinished prerequisites, producing real dependencies on enemy-health-damage-defeat (Fireball) and enemy-status-effect-displacement (Frost Field, Force Wave).",
+    "Assets/InputSystem_Actions.inputactions has no Fireball/Frost-Field/Force-Wave-specific action and its only combat-adjacent action ('Attack') has no tap-vs-hold interaction configured, so all three spells are expected to add or modify actions/bindings in that single shared asset and must share its exclusive-resource lock.",
+    "DoorPrototypeSceneBuilder.cs constructs the Player GameObject and destructively rebuilds+saves the canonical DoorPrototype.unity scene each run; attaching/wiring any new spell component to that Player object writes through both, so all three spells carry the current builder/scene locks per the repository's established write-surface pattern.",
+    "Per the anti-decomposition instruction ('do not decompose a spell into projectile/VFX/input/damage subtasks'), each spell remains a single concrete implementation work item rather than being split further."
+  ],
+  "work_items": [
+    {
+      "key": "combat",
+      "title": "Wizard Combat and Spells",
+      "kind": "feature",
+      "type": "feature-group",
+      "parent_key": "no-safe-circle",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 1 — Core Abilities table row",
+          "requirement": "Core Abilities: Charged Fireball, Frost Field, Force Wave."
+        },
+        {
+          "reference": "Section 4 — Development Agent Roles, Wizard Combat Agent row",
+          "requirement": "Wizard Combat Agent implements player movement/Input System consumption, cursor-targeting projection, Fireball, Frost Field's casting/mana cost/feedback, Force Wave, health, mana, cooldowns, and recovery, without editing enemy-movement or enemy-attack code."
+        }
+      ],
+      "acceptance_criteria": [],
+      "validation_requirements": [],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "coarse",
+      "decomposition_reason": "The three required spells are each independently concrete; this node is a pure organizational grouping and needs no further decomposition of its own beyond its three children.",
+      "execution_scope": "not_applicable",
+      "execution_reason": "Feature/organizational node; not directly dispatchable.",
+      "confidence": "high",
+      "notes": "Aggregate repository_state is 'missing' because all three represented children (fireball, frost-field, force-wave) are currently unimplemented."
+    },
+    {
+      "key": "fireball",
+      "title": "Charged Fireball",
+      "kind": "implementation",
+      "type": "spell",
+      "parent_key": "combat",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 2 — Player Actions and Systems, Fireball row",
+          "requirement": "Aim with the cursor. Tap for a quick, mobile shot against a single/separated enemy. Hold to charge: costs more mana and restricts movement further, rewarding preparation by damaging multiple clustered enemies."
+        },
+        {
+          "reference": "Section 2 — Spell and Enemy Interactions, Charged Fireball row",
+          "requirement": "Melee enemies naturally cluster while pursuing, making them strong area-damage targets; charging becomes unsafe once they close distance. Against Ranged Enemies, telegraphed attacks force movement, reducing available charge time; quick shots are safer but do less damage/area."
+        },
+        {
+          "reference": "Section 2 — Player Movement ownership bullet",
+          "requirement": "Charged Fireball requests and releases its charging movement restriction through an owner-controlled Player Movement interface; Fireball does not directly mutate movement internals."
+        },
+        {
+          "reference": "Section 2 — Spell-local state ownership bullet",
+          "requirement": "Fireball owns its tap/charge/cast state... Each owner exposes a reset entry point for any owned state that can still be active when a floor restart occurs."
+        },
+        {
+          "reference": "Section 2 — Win and Loss Conditions, Victory/input-shutdown ownership",
+          "requirement": "Fireball exposes an owner-controlled gameplay-enable/suspend interface that can immediately stop/cancel current input-driven activity, reject new commands while suspended, and be re-enabled by an authorized reset/test flow."
+        },
+        {
+          "reference": "Section 3 — Required Enemy Roster / Enemy health and defeat ownership bullet",
+          "requirement": "Fireball and any other canon-required damage source request damage through the Enemy Health/Defeat owner-controlled interface rather than writing enemy health directly."
+        },
+        {
+          "reference": "Section 4 — Development Agent Ownership Invariants, Wizard Combat Agent bullet",
+          "requirement": "Charged Fireball consumes the Player Movement restriction interface instead of mutating movement internals; spells consume Player Mana through its spend interface."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 2 — Player Actions and Systems, Fireball row",
+          "requirement": "Tap-cast produces a quick, mobile, cursor-aimed shot suited to a single or separated enemy; hold-to-charge costs more mana, restricts movement further, and deals area damage effective against clustered enemies."
+        },
+        {
+          "reference": "Section 2 — Player Movement ownership bullet",
+          "requirement": "While charging, Fireball requests the charging movement restriction through an owner-controlled Player Movement interface and releases it when charging ends/cancels/fires; Fireball never mutates Player Movement internals directly."
+        },
+        {
+          "reference": "Section 2 — Resources, Feedback, and Failure / Development Agent Ownership Invariants",
+          "requirement": "Fireball spends mana for both tap and charge casts through Player Mana's existing owner-controlled Spend interface, with charge costing more than tap."
+        },
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership bullet",
+          "requirement": "Fireball damages enemies only by requesting damage through the Enemy Health/Defeat owner-controlled damage interface; it does not write enemy health directly."
+        },
+        {
+          "reference": "Section 2 — Player Movement ownership / Runtime Implementation",
+          "requirement": "Fireball consumes the shared world-space pointer target exposed by Player Movement for cursor aiming rather than independently projecting screen coordinates."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation / Section 2 Player Movement ownership bullet",
+          "requirement": "Fireball's casting input (tap/charge/release) is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+        },
+        {
+          "reference": "Section 2 — Spell-local state ownership bullet",
+          "requirement": "Fireball owns its tap/charge/cast state and exposes an owner-controlled reset entry point for that state, consumed by the Floor Run/Restart Orchestrator, so no residual charge/cast state survives a floor restart."
+        },
+        {
+          "reference": "Section 2 — Victory/input-shutdown ownership bullet",
+          "requirement": "Fireball exposes an owner-controlled gameplay-enable/suspend interface that immediately stops active charging/casting, rejects new cast input while suspended, and can be re-enabled by an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Section 2 — Spell and Enemy Interactions table / Section 3 Ruined Entry tactical purpose",
+          "requirement": "Validate that a full charge produces meaningful area damage against multiple naturally-clustering pursuing Melee Enemies, not just a single target, and that charging is interruptible/unsafe once enemies close distance."
+        },
+        {
+          "reference": "Section 2 — Spell and Enemy Interactions, Charged Fireball vs Ranged row",
+          "requirement": "Validate that a tap shot remains usable against a Ranged Enemy's telegraphed attack pattern where a full charge is impractical."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Validate that triggering a floor restart while Fireball is mid-charge/mid-cast clears that state through Fireball's own reset entry point rather than leaving residual charge/cooldown state."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "player-movement",
+          "reason": "Fireball is cursor-aimed and requires the Player-Movement-owned shared cursor-to-gameplay-plane pointer target for tap/charge aiming, plus an owner-controlled movement-restriction request/release interface for charging. Current PlayerMovement.cs is WASD-only CharacterController input with no cursor projection and no restriction interface, so both specific capabilities Fireball needs are unfinished.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs — Update() reads only Keyboard.current WASD axes into CharacterController.Move; no mouse/pointer projection, no Input Actions asset consumption, and no public restriction/modifier interface exist."
+        },
+        {
+          "key": "enemy-health-damage-defeat",
+          "reason": "Fireball must request enemy damage through the Enemy Health/Defeat owner-controlled interface rather than writing enemy health directly, but no such capability currently exists.",
+          "evidence": "No enemy or enemy-health/defeat script exists anywhere under Assets/NoSafeCircle (confirmed via targeted search for Enemy-related class definitions); there is no owner interface for Fireball to consume yet."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "Attaching and wiring a Fireball component onto the scene-built Player GameObject requires modifying BuildPlayer/Build in this builder.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs — BuildPlayer() currently instantiates and wires PlayerMovement, PlayerHealth, PlayerMana, and their debug controls onto one Player GameObject; Build() clears and rebuilds known roots including Player every run."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The builder saves this scene on every run; any scene-integrated Fireball wiring is written to this same canonical scene file.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs — Build() calls EditorSceneManager.SaveScene(scene, ScenePath) against DoorPrototype.unity."
+        },
+        {
+          "key": "repo-file:Assets/InputSystem_Actions.inputactions",
+          "reason": "Fireball needs a tap-vs-hold-distinguishing cast action that does not currently exist in the shared Input Actions asset and must add/modify bindings there.",
+          "evidence": "Assets/InputSystem_Actions.inputactions — the Player map's only combat-adjacent action is 'Attack' (Button, Mouse leftButton, no Hold interaction configured); no Fireball-specific action or tap/charge interaction exists."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "GDD Section 2 fully specifies Fireball's tap/charge behavior, cost/restriction relationship, and area-vs-single-target tradeoff; no missing design blocks representing it as one bounded implementation item.",
+      "execution_scope": "single_agent",
+      "execution_reason": "Fireball is one cohesive spell component (tap/charge/cast state, mana spend, movement-restriction request, enemy-damage request, reset, suspend) matching the GDD's own granularity for a single agent task; the anti-decomposition instruction explicitly disallows splitting a spell into projectile/input/damage subtasks absent further approved design.",
+      "confidence": "medium",
+      "notes": "Currently blocked on two real cross-domain prerequisites (player-movement's cursor/restriction interfaces, enemy-health-damage-defeat's damage interface); no dependency on player-mana is needed because PlayerMana.Spend already exists and is directly usable."
+    },
+    {
+      "key": "frost-field",
+      "title": "Frost Field",
+      "kind": "implementation",
+      "type": "spell",
+      "parent_key": "combat",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 2 — Player Actions and Systems, Frost Field row",
+          "requirement": "Place a temporary area at the current cursor world-space target that heavily slows enemies; Frost Field consumes the shared pointer target exposed by Player Movement rather than projecting screen coordinates independently."
+        },
+        {
+          "reference": "Section 2 — Frost Field targeting and feedback bullet",
+          "requirement": "Frost Field is placed at the current shared world-space pointer target exposed by Player Movement. The cast and active field provide player-facing feedback that makes the targeted placement and active effect readable while it is being placed/used."
+        },
+        {
+          "reference": "Section 2 — Spell-local state ownership bullet",
+          "requirement": "Frost Field owns its Wizard-Combat-side cast/placement/active-field state. Enemy-side Frost slowdown application/restoration remains owned by Enemy Pursuit/status-effect logic. Each owner exposes a reset entry point for owned state active at restart."
+        },
+        {
+          "reference": "Section 2 — Spell and Enemy Interactions, Frost Field row",
+          "requirement": "Strongest against melee groups (slows pursuit, stretches formation, creates a Fireball/door opening) though it draws a meaningful share of the shared mana pool. Against Ranged Enemies, slows repositioning but does not stop attacks."
+        },
+        {
+          "reference": "Section 4 — Development Agent Roles, Wizard Combat Agent row",
+          "requirement": "Frost Field's actual slowdown effect is applied and restored by the Enemy Pursuit Agent; the Wizard Combat Agent only triggers the Frost Field effect and does not implement Ranged Enemy targeting or attacks."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 2 — Player Actions and Systems / Frost Field targeting and feedback bullet",
+          "requirement": "Frost Field places its temporary slow area at the current shared world-space pointer target exposed by Player Movement, without independently projecting screen-to-world coordinates."
+        },
+        {
+          "reference": "Section 2 — Frost Field targeting and feedback bullet",
+          "requirement": "Frost Field provides player-facing feedback that makes the cast and the active field readable during placement and while active; the exact visual/audio treatment is an implementation choice."
+        },
+        {
+          "reference": "Section 4 — Wizard Combat Agent row",
+          "requirement": "Frost Field triggers the enemy slowdown effect through the Enemy Pursuit/status-effect owner-controlled interface; it does not itself implement enemy slowdown application, restoration, Ranged Enemy targeting, or Ranged Enemy attacks."
+        },
+        {
+          "reference": "Section 2 — Resources, Feedback, and Failure / Development Agent Ownership Invariants",
+          "requirement": "Frost Field spends mana through Player Mana's existing owner-controlled Spend interface when cast."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation",
+          "requirement": "Frost Field's casting input is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+        },
+        {
+          "reference": "Section 2 — Spell-local state ownership bullet",
+          "requirement": "Frost Field owns its Wizard-Combat-side cast/placement/active-field state and exposes an owner-controlled reset entry point for that state, consumed by the Floor Run/Restart Orchestrator."
+        },
+        {
+          "reference": "Section 2 — Victory/input-shutdown ownership bullet",
+          "requirement": "Frost Field exposes an owner-controlled gameplay-enable/suspend interface that immediately stops active casting/placement, rejects new cast input while suspended, and can be re-enabled by an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Section 2 — Spell and Enemy Interactions, Frost Field row",
+          "requirement": "Validate that casting Frost Field creates a readable opening against a melee group (stretches pursuit) without itself guaranteeing a fully safe Fireball charge in every position, matching the resource-tradeoff description."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Validate that triggering a floor restart while a Frost Field cast/placement is active clears Frost Field's own casting-side state through its reset entry point."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "player-movement",
+          "reason": "Frost Field's placement target is explicitly the shared world-space pointer target owned by Player Movement, which does not yet exist (current PlayerMovement.cs has no cursor-to-gameplay-plane projection at all).",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs — no mouse/pointer projection or exposed world-space pointer target exists; only WASD CharacterController input is implemented."
+        },
+        {
+          "key": "enemy-status-effect-displacement",
+          "reason": "Frost Field only triggers the slow effect; the actual slowdown application/restoration is owned by the Enemy Pursuit/status-effect capability, which does not exist because no enemy scripts exist at all.",
+          "evidence": "No status-effect/displacement or enemy script exists anywhere under Assets/NoSafeCircle; there is no owner interface for Frost Field to call yet."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "Attaching and wiring a Frost Field component onto the scene-built Player GameObject requires modifying this builder.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs — BuildPlayer() currently wires PlayerMovement/PlayerHealth/PlayerMana onto one Player GameObject and Build() rebuilds/saves the scene every run."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The builder saves this scene on every run; scene-integrated Frost Field wiring is written to this same canonical scene file.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs — Build() calls EditorSceneManager.SaveScene(scene, ScenePath) against DoorPrototype.unity."
+        },
+        {
+          "key": "repo-file:Assets/InputSystem_Actions.inputactions",
+          "reason": "Frost Field needs its own cast action, which does not currently exist in the shared Input Actions asset.",
+          "evidence": "Assets/InputSystem_Actions.inputactions — no Frost-Field-specific action exists in the Player action map."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "GDD fully specifies Frost Field's targeting, ownership split (Wizard Combat triggers; Enemy Pursuit applies/restores), and feedback requirement; no missing design blocks a single bounded implementation item.",
+      "execution_scope": "single_agent",
+      "execution_reason": "Frost Field is one cohesive spell component (cast/placement/active-field state, mana spend, feedback, trigger call to the enemy-owned status-effect interface, reset, suspend); splitting it further is not supported by approved design.",
+      "confidence": "medium",
+      "notes": "No dependency on player-mana is needed because PlayerMana.Spend already exists and is directly usable; Frost Field's real prerequisites are the still-unfinished Player-Movement pointer projection and the still-unfinished Enemy Pursuit status-effect owner."
+    },
+    {
+      "key": "force-wave",
+      "title": "Force Wave",
+      "kind": "implementation",
+      "type": "spell",
+      "parent_key": "combat",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 2 — Player Actions and Systems, Force Wave row",
+          "requirement": "Use a player-centered short-range radial knockback with a long cooldown. Each cast costs 25 mana. Force Wave does not use cursor direction or target selection."
+        },
+        {
+          "reference": "Section 2 — Force Wave bullet",
+          "requirement": "Each cast spends 25 mana through Player Mana and also starts its visible long cooldown. Twenty-five mana is the initial implementation/balance value; Force Wave remains a mana-consuming spell unless the GDD is revised."
+        },
+        {
+          "reference": "Section 2 — Spell-local state ownership bullet",
+          "requirement": "Force Wave owns its cooldown state... exposes a reset entry point for any owned state that can still be active when a floor restart occurs."
+        },
+        {
+          "reference": "Section 2 — Spell and Enemy Interactions, Force Wave row",
+          "requirement": "The primary emergency response when melee enemies surround the wizard or block a door; long cooldown prevents repeated use. Its short range makes it a poor answer to distant ranged pressure."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation",
+          "requirement": "Force Wave determines which enemies are affected and the radial knockback to request; the enemy movement system applies that displacement, preserves valid navigation state, and resumes the appropriate pursuit/search state afterward."
+        },
+        {
+          "reference": "Section 2 — Win and Loss Conditions, Victory/input-shutdown ownership",
+          "requirement": "Force Wave exposes an owner-controlled gameplay-enable/suspend interface consumed by the victory capability."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 2 — Player Actions and Systems, Force Wave row",
+          "requirement": "Force Wave is a player-centered short-range radial knockback that does not use cursor direction or target selection, with a long cooldown limiting reuse."
+        },
+        {
+          "reference": "Section 2 — Force Wave bullet",
+          "requirement": "Each cast spends 25 mana (initial tuning value) through Player Mana's existing owner-controlled Spend interface and starts Force Wave's own visible long cooldown; the cast is refused if the spend fails."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation",
+          "requirement": "Force Wave determines which enemies within its radius are affected and requests the radial knockback displacement through the Enemy Pursuit/status-effect-displacement owner-controlled interface; Force Wave does not directly move enemies or manipulate their navigation/pursuit state."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation / Section 2 Player Movement ownership bullet",
+          "requirement": "Force Wave's cast input is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+        },
+        {
+          "reference": "Section 2 — Spell-local state ownership bullet",
+          "requirement": "Force Wave owns its cooldown state and exposes an owner-controlled reset entry point for that state, consumed by the Floor Run/Restart Orchestrator."
+        },
+        {
+          "reference": "Section 2 — Victory/input-shutdown ownership bullet",
+          "requirement": "Force Wave exposes an owner-controlled gameplay-enable/suspend interface that immediately stops any current cast activity, rejects new cast input while suspended, and can be re-enabled by an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Section 2 — Spell and Enemy Interactions, Force Wave row",
+          "requirement": "Validate Force Wave functions as an effective emergency response against a surrounding melee cluster or a group blocking a door, and confirm its short range makes it ineffective against distant Ranged Enemy pressure."
+        },
+        {
+          "reference": "Section 2 — Design Pillars / narrative resource-tension text",
+          "requirement": "Validate the cooldown is long enough that an encounter space typically allows only about one meaningful Force Wave use, matching the intended resource-decision tension (spend mid-room vs. save for the door)."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Validate that triggering a floor restart while Force Wave's cooldown is active clears the cooldown through Force Wave's own reset entry point."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "enemy-status-effect-displacement",
+          "reason": "Force Wave only determines affected enemies and requests knockback; actual displacement application, navigation-state preservation, and pursuit/search-state resumption are owned by the Enemy Pursuit/status-effect-displacement capability, which does not exist because no enemy scripts exist at all.",
+          "evidence": "No status-effect/displacement or enemy script exists anywhere under Assets/NoSafeCircle; there is no owner interface for Force Wave to call yet."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "Attaching and wiring a Force Wave component onto the scene-built Player GameObject requires modifying this builder.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs — BuildPlayer() currently wires PlayerMovement/PlayerHealth/PlayerMana onto one Player GameObject and Build() rebuilds/saves the scene every run."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The builder saves this scene on every run; scene-integrated Force Wave wiring is written to this same canonical scene file.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs — Build() calls EditorSceneManager.SaveScene(scene, ScenePath) against DoorPrototype.unity."
+        },
+        {
+          "key": "repo-file:Assets/InputSystem_Actions.inputactions",
+          "reason": "Force Wave needs its own cast action, which does not currently exist in the shared Input Actions asset.",
+          "evidence": "Assets/InputSystem_Actions.inputactions — no Force-Wave-specific action exists in the Player action map."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "GDD fully specifies Force Wave's radial/player-centered aiming model, cost, cooldown role, and displacement-request ownership split; no missing design blocks a single bounded implementation item.",
+      "execution_scope": "single_agent",
+      "execution_reason": "Force Wave is a small, self-contained spell component (cooldown state, mana spend, radius-based enemy-affected query, displacement request, reset, suspend) with no cursor-aiming complexity; it fits one focused agent task.",
+      "confidence": "medium",
+      "notes": "No dependency on player-movement because Force Wave is the GDD's explicit player-centered, no-cursor-targeting exception; no dependency on player-mana because PlayerMana.Spend already exists and is directly usable."
+    }
+  ],
+  "requirement_overlays": [],
+  "non_code_requirements": [],
+  "deferred_or_excluded": [],
+  "unresolved_questions": [],
+  "files_reviewed": [
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "Assets/InputSystem_Actions.inputactions"
+  ],
+  "historical_sources_reviewed": [
+    "GoalOrientedAgent/outputs/goal_analysis.json"
+  ],
+  "domain": "wizard_combat"
+}

@@ -1,0 +1,49 @@
+{
+  "agent": "Structure — Exclusive Resources",
+  "requested_model": "sonnet",
+  "duration_seconds": 293.71,
+  "result": {
+    "verdict": "pass_with_findings",
+    "findings": [
+      {
+        "finding_id": "EXCL-001",
+        "severity": "suggestion",
+        "category": "exclusive_resource_problem",
+        "title": "door-open-interaction's potential write to Assets/InputSystem_Actions.inputactions is unresolved but concurrently reachable with three spell tasks that do hold that lock",
+        "description": "player-movement, fireball, frost-field, and force-wave all correctly carry the repo-file:Assets/InputSystem_Actions.inputactions lock because each is expected to add/modify bindings in that single shared action asset. door-open-interaction also requires cursor-targeted, Input-System-routed door selection (GDD Section 2 'Open Sealed Door'; Section 5 Runtime Implementation) and depends_on player-movement, so it becomes ready at the same point in the graph as fireball/frost-field/force-wave (none of which depend on each other or on door-open-interaction). The candidate itself flags in unresolved_questions that it cannot yet determine whether door-open-interaction must independently add a binding to that asset or will purely consume a Point/Click action that player-movement's work adds. Per the audit's evidence rule, the candidate is correct not to assert the lock without positive write evidence, and it has properly surfaced the ambiguity rather than silently guessing either way. However, this leaves a real (not merely speculative) coverage gap: if door-open-interaction turns out to need its own binding, it can be dispatched concurrently with fireball/frost-field/force-wave without the matching lock, risking an unguarded concurrent write to the shared action asset.",
+        "affected_keys": [
+          "door-open-interaction",
+          "fireball",
+          "frost-field",
+          "force-wave",
+          "player-movement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD Section 2 Player Actions and Systems - Open Sealed Door / Section 5 Runtime Implementation",
+            "requirement": "Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/InputSystem_Actions.inputactions",
+            "observation": "Stock template asset with no gameplay-map Point/Click or door-select action; whether door-open-interaction adds its own binding here or purely consumes a binding added by player-movement cannot be determined from current repository state."
+          }
+        ],
+        "recommended_change": "Resolve the candidate's own unresolved_question before door-open-interaction is dispatched concurrently with fireball/frost-field/force-wave: either (a) confirm door-open-interaction only consumes an existing/soon-to-exist Point/Click binding and add explicit acceptance-criteria language establishing that as the implementation boundary, or (b) add repo-file:Assets/InputSystem_Actions.inputactions to door-open-interaction's exclusive_resources defensively until that boundary is settled.",
+        "requires_human_review": true
+      }
+    ],
+    "notes": [
+      "Audit scope was restricted to exclusive_resources / shared-writer concurrency safety per the parallel-audit assignment; dependency-ordering, decomposition, and ownership findings outside that territory were intentionally not reported even where noticed in passing.",
+      "logical:enemy-locomotion-behavior-surface is applied consistently and completely across enemy-pursuit-search-foundation, enemy-status-effect-displacement, melee-enemy, ranged-enemy, and locked-door-enemy-attack, matching the FRESH RUN CLOSURE / retry-hardening guidance exactly; no item in that group is missing the lock and no unrelated item (e.g. active-enemy-registry, enemy-health-damage-defeat, encounter-admission-cap-enforcement) incorrectly carries it.",
+      "The DoorPrototypeSceneBuilder.cs + DoorPrototype.unity lock pair is applied uniformly across all 13 work items with positive evidence of writing through the builder/scene (player-movement, player-health, fireball, frost-field, force-wave, door-open-interaction, doorway-crossing-state, door-close-lock-break-lifecycle, gameplay-navigation-locomotion, world-visual-foundation, floor-run-restart-bootstrap, floor-run-restart-persistent-closure, final-escape-victory), and correctly withheld from non-scene-resident foundation work (active-enemy-registry, enemy-health-damage-defeat, enemy-pursuit-search-foundation, enemy-status-effect-displacement, encounter-admission-cap-enforcement), matching the explicit foundation/content-split and false-positive-closure guidance.",
+      "logical:gameplay-walkability-surface is correctly restricted to the two genuine writers of that interface (gameplay-navigation-locomotion as translator/owner, door-close-lock-break-lifecycle as the semantic-state publisher) and correctly withheld from pursuit/melee/ranged/locked-door-attack code that only consumes walkability rather than writing it.",
+      "repo-file:Assets/InputSystem_Actions.inputactions is correctly scoped to player-movement and the three spells (all with positive per-item evidence of needing a new/modified binding); repo-file:Packages/manifest.json is correctly isolated to tilemap-navigation-package-configuration; repo-file:ProjectSettings/EditorBuildSettings.asset is correctly isolated to windows-build-scene-registration; none of these are over-broadened to unrelated items.",
+      "The candidate's own unresolved_questions list already flags both ambiguous cases identified during review (door-open-interaction/InputSystem_Actions.inputactions, and possible future enemy-prefab scene instantiation for enemy-pursuit-search-foundation/melee-enemy/ranged-enemy) with 'later_decomposition' as the recommended resolution and explicit rationale for why a lock was not asserted now; this is consistent with the required positive-write-evidence standard, so only the first is raised as a formal finding given its more concrete near-term concurrency exposure with three already-locked sibling tasks.",
+      "No depends_on edge inspected in this candidate appears to be justified solely by a shared-resource write collision; every edge reviewed cites a genuine unmet interface/behavioral prerequisite in addition to (or instead of) any shared lock, consistent with the false-dependency check."
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

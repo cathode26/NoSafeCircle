@@ -1,0 +1,1033 @@
+{
+  "schema_version": "1.0",
+  "audit_count": 15,
+  "finding_count": 30,
+  "material_finding_count": 0,
+  "severity_counts": {
+    "suggestion": 18,
+    "warning": 12
+  },
+  "category_counts": {
+    "evidence_problem": 8,
+    "exclusive_resource_problem": 4,
+    "execution_scope_problem": 1,
+    "missing_dependency": 1,
+    "other": 5,
+    "requirement_representation_problem": 9,
+    "shared_capability_hidden": 2
+  },
+  "findings": [
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "\"Final-room pressure\" clause not broken out as its own acceptance-criterion bullet",
+        "description": "GDD Section 4 (Dungeon Encounter Agent) lists 'final-room pressure' as a distinct authoring responsibility, coordinate with but separate from 'the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room' (the 'including' clause structurally subordinates composition to the broader 'pressure' requirement). The candidate's dungeon-encounter-content-authoring node quotes the full phrase in gdd_evidence, but its acceptance_criteria only spell out the mixed-composition and 3-8-enemy-range aspects; there is no acceptance-criteria bullet that names Final Room pressure/escalation as its own required authoring outcome distinct from composition mixing. Because this feature is deferred (needs_future_decomposition), the deferred-design preservation mechanism (gdd_evidence + decomposition_reason) is the correct durable home for it and nothing is actually lost from the future graph, but a future Progressive Decomposer reading only acceptance_criteria could plausibly treat 'mixed composition' as satisfying the whole final-room-pressure requirement.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 4 — Dungeon Encounter Agent",
+            "requirement": "Authors placements, triggers, configured per-door durability values, and final-room pressure, including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "When dungeon-encounter-content-authoring is progressively decomposed, add an explicit acceptance-criterion bullet for Final Room pressure/escalation (e.g., enemy count trending toward the upper end of the 3-8 range and/or additional pursuer pressure) distinct from the Chapel of Ash/Final Room mixed-composition bullet, so it is not silently treated as fully satisfied by composition mixing alone.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Doors",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "missing_dependency",
+        "title": "locked-door-enemy-attack's post-break pursuit relies on navigation passability only through transitive dependency chains",
+        "description": "locked-door-enemy-attack's acceptance criteria require that, once a locked door breaks, a still-tracking enemy 'continues pursuit forward through the now-passable doorway using the shared navigation/locomotion passability result' (repository_evidence/acceptance_criteria at that work item). The item's own depends_on list is [enemy-pursuit-search-foundation, door-close-lock-break-lifecycle] and its notes explicitly disclaim any direct write dependency on gameplay-navigation-locomotion ('it only reads the navigation layer's passability result... so no logical:gameplay-walkability-surface lock is applied here'). The behavioral read-dependency on the navigation layer's passability translation is currently only satisfied transitively (via door-close-lock-break-lifecycle's own dependency on gameplay-navigation-locomotion, and via enemy-pursuit-search-foundation's dependency on the same). Because door-close-lock-break-lifecycle is flagged 'needs_execution_decomposition' and may later be split into sub-tasks (core close/lock/durability vs. navigation-passability publication), a future decomposition step could close a core door-lifecycle subtask without the navigation-publication piece, which would make the transitive chain no longer guarantee that gameplay-navigation-locomotion is actually finished before locked-door-enemy-attack is dispatched.",
+        "affected_keys": [
+          "locked-door-enemy-attack",
+          "door-close-lock-break-lifecycle",
+          "gameplay-navigation-locomotion"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 3 — Door and Pursuit Rules",
+            "requirement": "When the door breaks, those tracking/pursuing enemies continue their pursuit through the now-passable doorway."
+          },
+          {
+            "reference": "Section 5 — Runtime Implementation",
+            "requirement": "Enemy pursuit/search... consume this layer instead of each selecting or configuring navigation technology or doorway passability independently."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "locked-door-enemy-attack depends_on omits gameplay-navigation-locomotion and its notes field explicitly states no lock/dependency is taken on the walkability surface because the behavior only reads the navigation result."
+          }
+        ],
+        "recommended_change": "When door-close-lock-break-lifecycle is execution-decomposed into a navigation-publication subtask versus a core lifecycle subtask, ensure locked-door-enemy-attack's dependency is re-pointed (or duplicated) onto the concrete navigation-publication descendant rather than relying on an implicit transitive chain through the coarser parent item.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy Behavior",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "F-EB-001",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Ranged Enemy's shot is not explicitly obliged to remain avoidable by player movement after it is telegraphed/fired",
+        "description": "The GDD states three separate times that the Ranged Enemy's attack forces the player to keep moving and that the player 'must still move laterally or use room geometry to avoid incoming shots', and Section 4 explicitly calls the check a 'line-of-sight/projectile-occlusion' check. `ranged-enemy`'s primary attack acceptance criteria oblige only (a) 'a slow, telegraphed ranged shot rather than an instantaneous attack' and (b) an LOS/occlusion check. The 'room geometry' half of the requirement is explicitly covered by the occlusion criterion; the 'move laterally to avoid incoming shots' half is not explicitly obliged anywhere. An implementer could satisfy both mapped criteria with a slow windup followed by an unavoidable hitscan resolution and still violate the GDD's stated player-facing behavior. The only place a traveling projectile is acknowledged is a floor-restart reset criterion ('cancels/despawns any in-flight projectile'), which is restart bookkeeping rather than a durable obligation on the attack itself.",
+        "affected_keys": [
+          "ranged-enemy"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Spell and Enemy Interactions (Frost Field row)",
+            "requirement": "Slows a ranged enemy's repositioning but does not stop its attacks. The player must still move laterally or use room geometry to avoid incoming shots."
+          },
+          {
+            "reference": "Section 3 — Required Enemy Roster",
+            "requirement": "Ranged Enemy: keeps moderate distance and fires a slow telegraphed shot. Forces lateral movement while Melee Enemies close in."
+          },
+          {
+            "reference": "Section 4 — Development Agent Roles (Enemy Pursuit Agent)",
+            "requirement": "Owns Ranged Enemy targeting, attack timing, and line-of-sight/projectile-occlusion checks, so Chapel of Ash's cover actually blocks shots."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts",
+            "observation": "No enemy, projectile, or ranged-attack script exists anywhere under Assets/ (verified by full Assets/**/*.cs glob and a grep for Enemy/Ranged/Pursuit/Melee/Detection returning no matches), so nothing in the repository already fixes the attack-resolution model."
+          }
+        ],
+        "recommended_change": "Add an explicit acceptance criterion on `ranged-enemy` obliging the telegraphed shot to resolve as an avoidable attack — i.e. the shot travels/resolves such that ordinary lateral player movement after the telegraph begins can avoid it — and a matching Play Mode validation requirement alongside the existing Chapel of Ash occlusion check.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy Behavior",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "F-EB-002",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "All four enemy-behavior work items carry empty repository_evidence despite asserting repository_state 'missing'",
+        "description": "`enemy-pursuit-search-foundation`, `melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack` each declare `repository_state: \"missing\"` with `repository_evidence: []`. The supporting negative evidence (no enemy scripts anywhere in Assets/, no com.unity.ai.navigation in Packages/manifest.json, DoorInteractable.cs having no durability/damage-receive members, and the note that NavMesh/Occlusion strings in DoorPrototype.unity are Unity serialization boilerplate) exists only in the candidate's run summary and inside `depends_on[].evidence` prose. I independently re-verified every one of those facts and they are accurate, but they are not attached to the items themselves, so a future graph consumer inspecting a single node sees an unsupported 'missing' claim. Other missing items in the candidate (e.g. `gameplay-navigation-locomotion`, `world-visual-foundation`) do carry per-item negative evidence, so this is an inconsistency rather than a global convention.",
+        "affected_keys": [
+          "enemy-pursuit-search-foundation",
+          "melee-enemy",
+          "ranged-enemy",
+          "locked-door-enemy-attack"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 — Current Prototype Scene Evidence",
+            "requirement": "Reconciliation and planning must describe the current repository state accurately rather than treating every scene file as an equivalent gameplay scene."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "Full Assets/**/*.cs glob returns only Door/Player/Camera/UI/Debug/test scripts; a grep for Enemy|Pursuit|NavMesh|Melee|Ranged|Detection across Assets/*.cs returns no files — confirming the 'missing' claim is true but currently unevidenced on the nodes themselves."
+          },
+          {
+            "path": "Packages/manifest.json",
+            "observation": "Declares com.unity.inputsystem and builtin modules including com.unity.modules.ai and com.unity.modules.tilemap, but no com.unity.ai.navigation and no com.unity.2d.tilemap — matching the candidate's dependency prose."
+          }
+        ],
+        "recommended_change": "Attach the already-collected negative repository evidence (empty enemy-script glob/grep result; absent com.unity.ai.navigation in Packages/manifest.json; DoorInteractable.cs member list) to each of the four enemy-behavior items' `repository_evidence` arrays so the 'missing' state is self-supporting at node level.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy Behavior",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "F-EB-003",
+        "severity": "suggestion",
+        "category": "other",
+        "title": "Duplicated near-identical floor-restart acceptance criteria and validation requirements on the three enemy attack items",
+        "description": "`melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack` each carry two nearly identical restart-reset acceptance criteria and two nearly identical restart validation requirements citing the same 'Section 2 — Floor-run restart ownership' reference (for example melee-enemy's 'clears any in-progress attack cooldown/windup and cancels an in-flight melee attack' and 'clears melee attack execution/wind-up state for floor restart'). The requirement itself is durably represented — this is redundancy, not a coverage gap — but duplicated criteria inflate the acceptance surface and can be read by a decomposition or validation pass as two distinct obligations.",
+        "affected_keys": [
+          "melee-enemy",
+          "ranged-enemy",
+          "locked-door-enemy-attack"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Floor-run restart ownership",
+            "requirement": "Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns, and the orchestrator invokes those owned reset interfaces; required reset participants include enemy pursuit/search/attack/status/displacement state."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Merge each duplicated pair into a single restart-reset acceptance criterion and a single restart validation requirement per item.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy Behavior",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "F-EB-004",
+        "severity": "suggestion",
+        "category": "shared_capability_hidden",
+        "title": "No acceptance criterion obliges the pursuit/locomotion owner to expose an externally modifiable movement-speed hook that the status-effect owner must consume",
+        "description": "The GDD assigns enemy locomotion to the pursuit/movement owner and assigns Frost slowdown application/restoration to the separate status-effect/displacement component, which 'consumes the pursuit/search state contract rather than defining a second enemy-state machine'. `enemy-status-effect-displacement` carries the criterion that slowdown 'modifies an affected enemy's locomotion/repositioning speed only', and `melee-enemy`'s notes state the archetype 'only needs to expose a locomotion speed that can be externally modified' — but that hook appears only in notes, with no acceptance criterion on `enemy-pursuit-search-foundation` (or the archetypes) obliging it. Impact is limited because both items share the `logical:enemy-locomotion-behavior-surface` lock and `enemy-status-effect-displacement` already depends on the foundation, so the consumer can add the hook itself; the durability concern is that the owner-side half of the contract is currently note-only.",
+        "affected_keys": [
+          "enemy-pursuit-search-foundation",
+          "melee-enemy",
+          "ranged-enemy"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 — Runtime Implementation (enemy movement paragraph)",
+            "requirement": "Temporary movement modifiers such as Frost Field slowdown are applied through the enemy status-effect system and restored when the effect ends. The pursuit/search state contract must therefore exist before status-effect/displacement work is treated as independently dispatchable."
+          },
+          {
+            "reference": "Section 4 — Development Agent Ownership Invariants (Enemy Pursuit Agent)",
+            "requirement": "Enemy Pursuit Agent owns enemy pursuit/search state, enemy locomotion behavior, enemy attack behavior, Frost slowdown application/restoration, and forced displacement."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts",
+            "observation": "No enemy locomotion component exists, so no current implementation already establishes a speed-modifier hook."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `enemy-pursuit-search-foundation` requiring the locomotion contract to expose an owner-controlled, externally modifiable movement-speed/state hook consumed by the status-effect/displacement owner, replacing the note-only statement on `melee-enemy`.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy Behavior",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "F-EB-005",
+        "severity": "suggestion",
+        "category": "other",
+        "title": "Parent `enemies` feature describes only three children while seven implementation items are parented to it",
+        "description": "The `enemies` feature node's `decomposition_reason` states the GDD 'already specifies enough for the three concrete child implementation items below (registry, health/defeat, status-effect/displacement)' and its `notes` state that pursuit/attack behavior and locked-door attack ownership 'belong to the enemy_behavior domain's nodes ... and are intentionally not duplicated here'. In the merged candidate, `enemy-pursuit-search-foundation`, `melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack` all set `parent_key: \"enemies\"`. The parentage is correct; the parent's self-description is stale relative to the merged graph and could mislead a Progressive Decomposition pass into treating the enemy-behavior children as unowned or out of tree.",
+        "affected_keys": [
+          "enemies",
+          "enemy-pursuit-search-foundation",
+          "melee-enemy",
+          "ranged-enemy",
+          "locked-door-enemy-attack"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 4 — Development Agent Roles (Enemy Pursuit Agent)",
+            "requirement": "One Enemy Pursuit Agent owns detection, melee and ranged attacks, pursuit, target loss, search, reacquisition, Enemy Health/Defeat, status effects/displacement, registry bookkeeping, and locked-door attack initiation."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Update the `enemies` feature's `decomposition_reason`/`notes` to enumerate all seven current children (registry, health/defeat, status-effect/displacement, pursuit foundation, melee, ranged, locked-door attack) so the parent's decomposition record matches the merged graph.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Enemy State",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "other",
+        "title": "Enemy-reset ownership split between pursuit/search and status-effect/displacement is an open internal-decomposition question, not a coverage gap",
+        "description": "The candidate's own `unresolved_questions` array asks whether the enemy-owned restart/reset operation that returns a persistent enemy to its authored spawn region with cleared pursuit/search/status/displacement state should live entirely on `enemy-pursuit-search-foundation`, be split with `enemy-status-effect-displacement`, or be represented some other way, since no enemy code exists yet to show the real component boundary. This is legitimate and honestly disclosed uncertainty rather than a missing requirement: both `enemy-status-effect-displacement` and `enemy-pursuit-search-foundation` already carry their own owner-controlled reset entry points in their acceptance criteria, and `floor-run-restart-persistent-closure` already depends on both. Nothing required by the GDD is at risk of being silently forgotten by the graph; the only open item is exactly how the eventual C# reset call is partitioned once enemy code is written.",
+        "affected_keys": [
+          "enemy-status-effect-displacement",
+          "enemy-pursuit-search-foundation",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Floor-run restart ownership",
+            "requirement": "Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns, and the orchestrator invokes those owned reset interfaces. Required reset participants include ... enemy pursuit/search/attack/status/displacement state."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "No graph change required now. Keep the unresolved question tagged `later_decomposition`; resolve the exact reset-call split once the enemy-pursuit-search-foundation and enemy-status-effect-displacement components exist and their real state ownership boundary is visible in code.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Coverage — Global Pipeline",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "F1-duplicate-schedule-fallback-record",
+        "severity": "warning",
+        "category": "other",
+        "title": "Duplicate non_code_requirement records for the Six-Week schedule scope-reduction fallback",
+        "description": "The candidate's non_code_requirements array contains two separate typed pipeline_constraint records — \"Schedule-slip scope-reduction order\" and \"Six-Week schedule fallback and required-scope protection\" — that cite the exact same GDD passage (Section 5, Six-Week Development Plan: stretch features removed first, then advanced door visuals/one encounter variation, then final-room encounter density reduced toward the low end of the 3–8 range, with required systems never cut) almost verbatim in both their gdd_evidence and evidence fields. This is not two distinct requirements; it is one required pipeline/schedule-risk constraint represented twice under different titles. Leaving both in place risks divergence during future graph maintenance (an editor updating one record would not know to update the other) and inflates the non_code_requirements inventory with a redundant entry.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 — Six-Week Development Plan",
+            "requirement": "Stretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5-6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "non_code_requirements[13] (\"Schedule-slip scope-reduction order\", lines ~3353-3364) and non_code_requirements[14] (\"Six-Week schedule fallback and required-scope protection\", lines ~3365-3376) both quote the identical Section 5 Six-Week Development Plan passage as their sole gdd_evidence and describe the same ordered scope-cut/never-cut policy."
+          }
+        ],
+        "recommended_change": "Merge the two records into a single typed pipeline_constraint (\"Schedule-slip scope-reduction order\" or equivalent) before this candidate seeds the persistent work graph, so there is exactly one durable record for the schedule-risk fallback policy.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Coverage — Player Core",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Duplicate victory-suspend acceptance criteria on player-movement",
+        "description": "player-movement's acceptance_criteria array contains two near-identical entries for the owner-controlled gameplay-enable/suspend interface consumed by the Game Flow/Victory capability (one at ~lines 177-180 citing 'Section 2 — Victory/input-shutdown ownership bullet; Section 4 — Final escape/victory coordination invariant', another at ~lines 181-184 citing 'GDD §2 Victory/input-shutdown ownership; §4 Development Agent Ownership Invariants'). Both describe the same required behavior (immediately stop in-progress input-driven movement, reject new commands while suspended, re-enable only via authorized flow, consumed by victory). This is redundant bookkeeping rather than a coverage gap — the requirement itself is durably represented — but the duplication could confuse downstream consumers of the acceptance-criteria list or cause double validation-checklist entries.",
+        "affected_keys": [
+          "player-movement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Win and Loss Conditions — Victory/input-shutdown ownership",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "player-movement.acceptance_criteria contains two separately-worded but substantively identical entries about the suspend/re-enable interface (approx. lines 177-184 of the file)."
+          }
+        ],
+        "recommended_change": "Merge the two duplicate suspend-interface acceptance criteria on player-movement into one entry, retaining the fuller GDD citation set (Section 2 Victory/input-shutdown ownership + Section 4 Final escape/victory coordination invariant + Development Agent Ownership Invariants).",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Run Lifecycle",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "RL-F1",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Encounter-side restart participation (activation/trigger state and authored spawn regions) is not preserved on the deferred encounter-content feature",
+        "description": "The GDD names 'encounter activation and admission state' as a required restart reset participant and requires that 'Each persistent enemy is returned to the authored encounter/spawn region associated with its original room.' The candidate maps the admission half durably to `encounter-admission-cap-enforcement` (which has explicit reset acceptance/validation criteria) and the enemy-repositioning half to `enemy-pursuit-search-foundation` (whose reset criterion says the enemy returns to 'its authored encounter/spawn region'). However, the producing side of both — per-room encounter activation/trigger state and the authored spawn/encounter regions themselves — belongs to `dungeon-encounter-content-authoring`, which is a deferred `feature` with `decomposition_state: needs_future_decomposition`. That item's acceptance criteria, validation requirements, decomposition_reason, and notes contain no restart-participation obligation at all: nothing tells a future Progressive Decomposer that its concrete descendants must (a) expose a reset entry point for authored activation/trigger state and (b) publish a queryable authored spawn region per enemy that the enemy reset entry point can consume. Because a `feature -> feature` or implementation -> feature dependency is correctly prohibited here, decomposition context is the only durable carrier, and it is empty. The generic closure criterion ('Full closure is not considered complete while any implemented run-persistent owner does not yet expose/participate in a reset entry point') mitigates but does not name this owner, so the obligation can be silently dropped when the encounter feature is decomposed.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring",
+          "floor-run-restart-persistent-closure",
+          "encounter-admission-cap-enforcement",
+          "enemy-pursuit-search-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Win and Loss Conditions (Loss)",
+            "requirement": "Restart resets all run-persistent gameplay state to the floor's initial state, including ... Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state. Each persistent enemy is returned to the authored encounter/spawn region associated with its original room and starts again in its initial AI state."
+          },
+          {
+            "reference": "Section 2 — Floor-run restart ownership",
+            "requirement": "Enemy reset returns each persistent enemy to its original authored encounter/spawn region and initial AI state ... exact placement within that authored region is an encounter implementation detail. ... adding later rooms or stateful systems must extend the reset participants without redesigning the orchestration contract."
+          },
+          {
+            "reference": "Section 4 — Dungeon Encounter Agent",
+            "requirement": "Authors placements, triggers, configured per-door durability values, and final-room pressure ... Owns encounter-admission policy and consumes the shared Active Enemy Registry before activating new enemies."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "`dungeon-encounter-content-authoring` (lines 2517-2598): acceptance_criteria cover composition/sizing/durability-value authoring only; validation_requirements cover encounter size only; decomposition_reason and notes discuss only the five-room consumption relationship. No restart/reset or spawn-region-publication obligation appears anywhere in the item."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "`floor-run-restart-persistent-closure` (lines 2723-2886) depends on `encounter-admission-cap-enforcement` but has no representation naming per-room encounter activation/trigger state as a future participant."
+          }
+        ],
+        "recommended_change": "Add explicit decomposition/authoring context (and, where appropriate, an acceptance criterion) to `dungeon-encounter-content-authoring` stating that its concrete descendants must expose an owner-controlled reset entry point for authored encounter activation/trigger state consumed by the Floor Run/Restart Orchestrator, and must publish the authored per-room encounter/spawn region that the enemy-owned restart/reposition entry point consumes. Optionally extend `floor-run-restart-persistent-closure`'s acceptance criteria to name per-room encounter activation/trigger state as a participant to be added when those concrete descendants exist. Do not add a dependency whose target is a `feature`.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Run Lifecycle",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "RL-F2",
+        "severity": "warning",
+        "category": "evidence_problem",
+        "title": "Run-lifecycle exclusive-resource rationale cited to verifier/pipeline provenance instead of the GDD passage that actually supports it",
+        "description": "The candidate's `summary.major_findings` entry justifying the restart-orchestrator and victory scene-builder/scene locks reads: 'Per the FRESH RUN CLOSURE and prior verification-round guidance, restart-orchestrator and victory work that wires participants through the current scene builder must carry the DoorPrototypeSceneBuilder.cs/DoorPrototype.unity locks in addition to the logical orchestrator lock.' 'FRESH RUN CLOSURE' and 'prior verification-round guidance' are pipeline/verifier bookkeeping labels, not GDD or repository evidence, and neither phrase exists in the GDD. This also contradicts the candidate's own `seed_assessment` warning that the deterministic provenance guard 'removed 1 non-authoritative summary finding(s) containing internal pipeline provenance language' — one such statement survives in the run-lifecycle domain. The underlying lock requirement is genuinely supported by real GDD text, and the per-item `exclusive_resources` entries on `final-escape-victory` and `doorway-crossing-state` already cite it correctly, so this is a provenance/hygiene defect in the seeded summary rather than a wrong graph decision.",
+        "affected_keys": [
+          "floor-run-restart-bootstrap",
+          "floor-run-restart-persistent-closure",
+          "final-escape-victory"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 — Shared Context and Coordination Rules (Current prototype scene-builder lock)",
+            "requirement": "Scene-authoring work that changes objects generated or maintained through Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs must take exclusive-write locks on both that builder and Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity. This specifically applies to doorway-crossing work ... and, under the current scene-built UI approach, to final-victory work that creates/configures the You Escaped overlay."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "summary.major_findings entry (line 59 of the array) contains the phrase 'Per the FRESH RUN CLOSURE and prior verification-round guidance'; seed_assessment.warnings (lines 3642-3646) simultaneously claims the provenance guard removed non-authoritative summary findings."
+          },
+          {
+            "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+            "observation": "Repository-wide GDD text contains no occurrence of 'FRESH RUN CLOSURE' or 'verification-round'; the supporting rule is stated in Section 5 'Shared Context and Coordination Rules'."
+          }
+        ],
+        "recommended_change": "Rewrite that summary finding to cite only the GDD 'Current prototype scene-builder lock' passage (and, for the logical orchestrator lock, the 'A shared Floor Run/Restart Orchestrator' passage), removing all verifier/patch-round labels before this candidate seeds the persistent graph.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Run Lifecycle",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "RL-F3",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Duplicated victory-suspend and restart-reset acceptance criteria on run-lifecycle consumer owners",
+        "description": "`player-movement` carries two near-identical acceptance criteria for the same GDD victory-suspend obligation (candidate lines 177-184), and `door-open-interaction` carries two near-identical reset criteria (lines 1641-1644 and 1649-1652) plus two near-identical suspend criteria (lines 1637-1640 and 1653-1656). Section 3 Player Experience validation rows are likewise duplicated on `player-health`, `player-mana`, and `door-open-interaction`, and the seed_assessment repeats the same unresolved-question warning twice. This appears to be an artifact of merging the seven `requirement_overlays` described in `summary.major_findings` into the work items without de-duplication. Coverage is not lost, but duplicated criteria inflate the acceptance surface an implementer must satisfy and make it harder to tell whether two distinct obligations exist.",
+        "affected_keys": [
+          "player-movement",
+          "door-open-interaction",
+          "player-health",
+          "player-mana"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Victory/input-shutdown ownership",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow."
+          },
+          {
+            "reference": "Section 2 — Floor-run restart ownership",
+            "requirement": "Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns, and the orchestrator invokes those owned reset interfaces."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "player-movement acceptance_criteria entries at lines 177-180 and 181-184 state the same suspend contract with different reference strings; door-open-interaction repeats both its reset criterion and its suspend criterion."
+          }
+        ],
+        "recommended_change": "De-duplicate the merged overlay criteria so each owner states the victory-suspend contract and the floor-restart reset contract exactly once, retaining the more specific wording and the union of GDD references.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Run Lifecycle",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "RL-F4",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "Loss half of Win/Loss Conditions is linked to the restart tree only through a free-text note",
+        "description": "`win-loss-conditions` is a `feature` with empty acceptance_criteria and a single child covering victory. Its GDD evidence states both the win and the loss trigger, but the loss half's ownership is recorded only in the item's `notes` field ('Loss handling itself is represented under floor-run-restart rather than duplicated here'). The loss requirement is not actually at risk of being forgotten, because `floor-run-restart` is an independent top-level feature with a bootstrap item, a persistent-closure item, and a `player-health` zero-health-transition acceptance criterion. Still, the cross-feature ownership link is the weakest field in the record, and a future decomposer inspecting `win-loss-conditions` in isolation would see a feature whose stated GDD evidence is only half covered by its subtree.",
+        "affected_keys": [
+          "win-loss-conditions",
+          "floor-run-restart",
+          "floor-run-restart-bootstrap",
+          "player-health"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 1 — Executive Summary table",
+            "requirement": "Win Condition: Open the final door and escape. Loss Condition: The wizard reaches zero health."
+          },
+          {
+            "reference": "Section 2 — Win and Loss Conditions (Loss)",
+            "requirement": "Reach zero health. The floor then restarts from the beginning. This is an intentional, single-attempt structure."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "`win-loss-conditions` (lines 2888-2914) has acceptance_criteria: [], validation_requirements: [], depends_on: [], and one child (`final-escape-victory`); the loss linkage appears only in `notes`."
+          }
+        ],
+        "recommended_change": "Record the loss-half ownership in a durable field rather than notes — for example an acceptance/decomposition statement on `win-loss-conditions` that the zero-health loss transition is owned by `player-health` and handled by the `floor-run-restart` subtree, so the cross-feature relationship survives later graph edits.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — World Foundations",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "WF-001",
+        "severity": "warning",
+        "category": "evidence_problem",
+        "title": "Two world-foundation records cite GDD section labels that do not exist in the GDD",
+        "description": "Inside my audit territory, two citations name GDD sections that literally do not exist in Docs/GDD/No_Safe_Circle_GDD.md.\n\n1. `fixed-isometric-camera`'s single validation requirement cites `GDD - Camera completion and future integration`. Grepping the GDD for that phrase returns no match; the GDD has no such heading, and the validation text (\"validate camera framing remains visually compatible with the new visual layer\") is a derived integration concern rather than GDD prose. The closest real backing is the Section 4 Unity Validation Agent row (\"isometric sprite sorting, and alignment between Tilemap visuals and gameplay geometry\").\n\n2. `world-visual-foundation`'s fourth gdd_evidence entry cites `GDD - Required feedback and character presentation`. That heading also does not exist. The quoted requirement itself is real, but it lives under `Environment Presentation and Authoring Direction` (\"the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers\") and `Runtime Implementation` (\"Character presentation is therefore part of the reusable visual-world foundation\").\n\nThis is a provenance defect, not a coverage hole: the underlying requirements are covered. But a seeded graph whose evidence pointers cannot be resolved back to real GDD passages undermines every later verification, dependency, and completion audit that reads those references, and one of the two labels reads like pipeline bookkeeping rather than design canon. All other world-domain references I checked (`Environment Presentation and Authoring Direction`, `2.5D Isometric Visual and World Representation`, `Runtime Implementation`, `Approved Unity Packages and Windows Build Configuration`, `Door and Pursuit Rules`, `Unity Validation Agent role (Section 4)`) resolve correctly.",
+        "affected_keys": [
+          "fixed-isometric-camera",
+          "world-visual-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Environment Presentation and Authoring Direction",
+            "requirement": "The wizard, enemies, taller props, interactive doors, obstacles, decorative set pieces, and other independently sorted objects use world-space SpriteRenderers and prefabs ... the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers."
+          },
+          {
+            "reference": "Section 4 - Development Agent Roles (Unity Validation Agent)",
+            "requirement": "Reviews changes and creates Play Mode checks ... including isometric sprite sorting, and alignment between Tilemap visuals and gameplay geometry."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+            "observation": "A content search for 'Camera completion and future integration' and 'Required feedback and character presentation' returns no matches anywhere in the GDD; neither string exists as a heading or in body text."
+          }
+        ],
+        "recommended_change": "Relabel both citations to real GDD passages: point the camera validation requirement at `Section 4 - Development Agent Roles (Unity Validation Agent)` (Tilemap-visual/gameplay alignment and isometric sorting checks), and point the `world-visual-foundation` character-presentation evidence at `Environment Presentation and Authoring Direction` / `Section 5 - Runtime Implementation`. Keep the requirement text unchanged; only the reference labels are wrong.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — World Foundations",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "WF-002",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Camera/visual-layer integration validation is parked on a node already marked complete",
+        "description": "`fixed-isometric-camera` is `repository_state: implemented`, `graph_status: complete`, `decomposition_state: not_applicable`, `execution_scope: not_applicable` — and I confirmed that completion claim is genuinely supported (see repository evidence). The problem is that the item still carries the only validation requirement in the candidate that covers camera framing against the future Tilemap/SpriteRenderer visual layer. A validation obligation attached to a node with no open graph state and no execution scope is the classic way a required check silently disappears: nothing in the future graph will dispatch it, because the node it hangs on is already closed.\n\n`world-visual-foundation` — the open item that will actually replace the primitive Plane/Cube floor, walls and door visual with Isometric Tilemap tiles and SpriteRenderer prefabs — carries validation requirements for isometric sprite sorting and for Tilemap-visuals/gameplay-geometry alignment, but none that checks the fixed isometric camera's framing/projection against the new visual layer. That is the exact integration risk: the camera is fixed at orthographic size 8 and Euler(30,-45,0) framing primitive meshes today, and the visual foundation will change what is being framed and how it sorts.\n\nThis is a representation-placement problem, not missing executable work. No new work item is warranted: the camera implementation requirement (fixed isometric, no free rotation) is genuinely satisfied.",
+        "affected_keys": [
+          "fixed-isometric-camera",
+          "world-visual-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 4 - Development Agent Roles (Unity Validation Agent)",
+            "requirement": "Creates Play Mode checks for ... isometric sprite sorting, and alignment between Tilemap visuals and gameplay geometry. Prevents ... visual/gameplay desynchronization."
+          },
+          {
+            "reference": "Section 5 - 2.5D Isometric Visual and World Representation",
+            "requirement": "The camera is fixed in an isometric presentation; the player does not rotate the world view freely. The reusable visual world foundation (Tilemap/SpriteRenderer conventions and visual/gameplay separation) is distinct from authoring the five named room layouts and encounters."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+            "observation": "Main Camera serializes orthographic: 1, orthographic size: 8 and m_LocalRotation {0.23911761, -0.36964384, 0.09904577, 0.8923991}, which is exactly Quaternion.Euler(30,-45,0) in Unity's ZXY order — the fixed-camera completion claim is accurate."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+            "observation": "The builder still generates Floor/Walls/door visual as primitive meshes; a grep of Assets/NoSafeCircle for Tilemap/SpriteRenderer/Grid returns no matches, so the camera has never been framed against the required visual layer."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+            "observation": "LateUpdate writes only transform.position = target.position + offset; rotation is never touched, confirming the no-free-rotation acceptance criterion."
+          }
+        ],
+        "recommended_change": "Move (or duplicate) the camera-compatibility validation requirement onto `world-visual-foundation` — e.g. 'Validate that the existing fixed orthographic isometric camera framing/projection remains correct once floors/walls are Tilemap-authored and world objects are SpriteRenderer prefabs, including sorting relative to the camera's fixed angle' — citing the Unity Validation Agent row. Leave `fixed-isometric-camera` complete; do not reopen its fixed-angle/no-rotation acceptance criteria.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Evidence — Enemies Encounters",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "other",
+        "title": "Near-duplicate acceptance criteria on encounter-admission-cap-enforcement",
+        "description": "The `encounter-admission-cap-enforcement` node lists two acceptance criteria under nearly identical references ('GDD §2 Floor-run restart ownership' and 'Section 2 — Floor-run restart ownership') that both describe the same owner-controlled reset entry point for encounter activation/admission state, with the second simply adding more detail (pending/admitted-batch state). This is not a factual error — both statements are accurate and grounded in the GDD's restart-ownership text — but the duplication is graph-quality noise rather than two distinct requirements.",
+        "affected_keys": [
+          "encounter-admission-cap-enforcement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Floor-run restart ownership",
+            "requirement": "Required reset participants include ... encounter activation/admission state."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Merge the two acceptance-criteria entries into one that captures the more detailed wording (including pending/admitted-batch state) and drop the redundant shorter entry.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Evidence — Player Combat Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EVID-PCD-001",
+        "severity": "warning",
+        "category": "evidence_problem",
+        "title": "Overbroad negative claim: gameplay 'Player' action map does contain mouse-click and pointer bindings",
+        "description": "door-open-interaction's repository evidence states that the 'Player' action map has \"no visible mouse/pointer binding in the reviewed section. No gameplay-map Point/Click action exists; Point/Click bindings only exist in the separate 'UI' action map used for UI navigation.\" The same wording is repeated in unresolved_questions. Direct inspection of Assets/InputSystem_Actions.inputactions shows the gameplay 'Player' map DOES contain mouse bindings: 'Attack' is bound to <Mouse>/leftButton (plus gamepad/touch/XR/enter) and 'Look' is bound to <Pointer>/delta. What is genuinely absent is a pointer-POSITION action on the gameplay map (Mouse/position appears only as UI 'Point') and any gameplay consumption of the asset at all. The candidate contradicts itself: the fireball exclusive-resource evidence correctly records \"'Attack' (Button, Mouse leftButton, no Hold interaction configured)\". The hedge \"in the reviewed section\" also signals that the negative claim was made without inspecting the whole asset. This does not change the correct 'partial' classification of door-open-interaction, but it is exactly the class of negative claim the verification pass is required to check: bindings/configuration that exist but are unconsumed must not be erased from repository truth.",
+        "affected_keys": [
+          "door-open-interaction",
+          "player-movement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 Runtime Implementation",
+            "requirement": "\"Player movement uses mouse-directed click/hold navigation through the project's Unity Input System/Input Actions layer... rather than independently polling pointer hardware or projecting screen coordinates.\""
+          },
+          {
+            "reference": "GDD §3 Door and Pursuit Rules",
+            "requirement": "\"A sealed door is a cursor-targeted interactable. Clicking the intended door issues a combined approach-and-interact request...\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/InputSystem_Actions.inputactions",
+            "observation": "Player map action 'Attack' (id 6c2ab1b8...) is bound to <Mouse>/leftButton (binding id 05f6913d...); action 'Look' is bound to <Pointer>/delta (binding id 8c8e490b...). 'Interact' has interactions: \"Hold\" and is bound to <Keyboard>/e and <Gamepad>/buttonNorth — definitively keyboard/gamepad, not 'presumed keyboard'."
+          },
+          {
+            "path": "Assets/InputSystem_Actions.inputactions",
+            "observation": "Mouse POSITION (<Mouse>/position) appears only in the UI map's 'Point' action; there is no pointer-position action on the Player map, and no gameplay script references the asset (PlayerMovement.cs and PlayerInteractionController.cs poll Keyboard.current directly)."
+          }
+        ],
+        "recommended_change": "Restate the evidence precisely: the gameplay 'Player' map already contains mouse-button ('Attack' → <Mouse>/leftButton) and pointer-delta ('Look' → <Pointer>/delta) bindings, but contains no pointer-position/cursor-projection or click-to-move action, and no gameplay code consumes the asset. Replace \"presumed keyboard\" with the literal <Keyboard>/e + <Gamepad>/buttonNorth bindings and drop the \"in the reviewed section\" hedge. Apply the same correction in the corresponding unresolved_question text.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Evidence — Player Combat Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EVID-PCD-002",
+        "severity": "warning",
+        "category": "exclusive_resource_problem",
+        "title": "door-open-interaction requires Input-System-routed door selection but takes no lock on the shared Input Actions asset",
+        "description": "door-open-interaction carries an acceptance criterion that \"Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling,\" and its exclusive_resources list DoorInteractable.cs, PlayerInteractionController.cs, the builder, and the canonical scene — but not Assets/InputSystem_Actions.inputactions. Every other item in this territory that touches gameplay input (player-movement, fireball, frost-field, force-wave) declares that same single shared asset as an exclusive resource. The candidate defers the question to unresolved_questions ('does door-open-interaction need its own door-select binding or does it consume a binding Player Movement adds?'), which is honest, but the graph as written permits door-open-interaction to be dispatched concurrently with a spell item that holds the lock, and if door selection needs its own binding both agents would write the same non-merge-safe asset. Note also that door-open-interaction depends_on player-movement, so the sequencing hazard is with the three spell items, not with player-movement.",
+        "affected_keys": [
+          "door-open-interaction",
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §4 Agent-Assisted Development Workflow",
+            "requirement": "\"Tasks that depend on unfinished work, or that require changes to the same scripts, scenes, or prefabs, are completed sequentially. Agents do not modify the same Unity assets concurrently.\""
+          },
+          {
+            "reference": "GDD §5 Runtime Implementation",
+            "requirement": "\"Clicking a sealed door requests movement to its interaction position...\" and runtime actions \"are supplied through Unity Input System/Input Actions rather than independent direct hardware polling inside gameplay systems.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/InputSystem_Actions.inputactions",
+            "observation": "A single shared actions asset is the only .inputactions file in Assets/ (glob of Assets/**/*.inputactions returns exactly one file); any new gameplay action or binding must be added here."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+            "observation": "Lines 30-44: Update() reads Keyboard.current[interactKey] directly; converting to Input-System-routed cursor selection requires either a new action/binding in the shared asset or consumption of one added by player-movement."
+          }
+        ],
+        "recommended_change": "Either add repo-file:Assets/InputSystem_Actions.inputactions to door-open-interaction's exclusive_resources (conservative, matching the writer-inventory treatment applied to the three spells and player-movement), or state explicitly in the item that it is consumption-only against a binding owned by player-movement and record that as a contract in player-movement's acceptance criteria. Do not leave the shared-asset write question resolvable only at dispatch time.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Evidence — Player Combat Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EVID-PCD-003",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Click-to-approach movement request interface is not represented on its owner (player-movement)",
+        "description": "The GDD requires that clicking a sealed door issues a combined approach-and-interact request in which \"the wizard moves to that door's interaction position\" automatically, while Section 4 forbids Door and Interaction from reaching into movement internals. Door and Interaction must therefore consume an owner-controlled Player Movement entry point that accepts a destination/approach request. player-movement's acceptance criteria cover mouse click/hold movement, the shared pointer target, the movement-RESTRICTION interface, the reset entry point, and the suspend interface — but nothing about an owner-exposed move-to-position/approach request consumable by Door. door-open-interaction's own ACs likewise only name consumption of the shared pointer target. The dependency edge door-open-interaction → player-movement exists, so ordering is correct; the gap is that the required shared capability is not written down on either side and could be implemented by Door directly driving movement, violating the ownership invariant.",
+        "affected_keys": [
+          "player-movement",
+          "door-open-interaction"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Player Actions and Systems — Open Sealed Door",
+            "requirement": "\"Click the intended sealed door to request movement to its interaction position. The wizard walks there automatically.\""
+          },
+          {
+            "reference": "GDD §4 Development Agent Ownership Invariants",
+            "requirement": "\"Player Movement owns position/locomotion, movement-restriction state, and shared cursor-to-gameplay-plane projection\"; and \"An agent must not bypass another agent's owned runtime interface merely because both systems interact.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+            "observation": "No public API of any kind exists beyond the MonoBehaviour Update loop — no destination/approach request method, no pointer target, no restriction interface; the only cross-system call is interactionController.OnPlayerMoved() (line 44), which currently cancels interaction on ANY movement input and would need redefinition under a click-to-approach model."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+            "observation": "Lines 78-82: OnPlayerMoved() unconditionally ends an in-progress interaction, i.e. the current contract between movement and door interaction is 'any movement cancels', which is incompatible with automatic approach-then-auto-start without an explicit approach-request contract."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to player-movement requiring an owner-controlled approach/move-to-world-position request interface (with completion/arrival observable and cancel-on-replacement semantics) sourced to GDD §2 'Open Sealed Door', and a matching acceptance criterion on door-open-interaction requiring it to consume that interface rather than moving the player itself.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Evidence — Player Combat Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EVID-PCD-004",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Duplicated acceptance/validation criteria on four player and door items (overlay merge artifact)",
+        "description": "The summary states seven requirement_overlays were created to attach Section 3 Player Experience Success Criteria to owner items, but the candidate has no requirement_overlays section — the overlays appear to have been merged into the work items, producing near-duplicate entries with differing citation formats. player-movement has two acceptance criteria that both require the gameplay-enable/suspend interface (one cited 'Section 2 — Victory/input-shutdown ownership bullet; Section 4...', the other 'GDD §2 Victory/input-shutdown ownership; §4...'). door-open-interaction duplicates both its reset-entry-point AC and its suspend-interface AC, and duplicates the 'first-time player understands clicking sends the wizard to the door' validation requirement. player-health has two validation requirements for the same 'failure is readable' criterion; player-mana has two for the low-mana readability criterion. Duplicates inflate the acceptance surface and create ambiguity about whether two distinct obligations exist.",
+        "affected_keys": [
+          "player-movement",
+          "player-health",
+          "player-mana",
+          "door-open-interaction"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §4 Development Agent Ownership Invariants",
+            "requirement": "\"Player Experience Success Criteria are required validation obligations... Each criterion in Section 3 must be represented as a validation requirement on the work item or items that own the underlying behavior. They do not require separate gameplay features when the behavior is already owned.\""
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "De-duplicate the merged overlay entries: keep one acceptance criterion per obligation and one validation requirement per Section 3 success criterion per owning item, using a single consistent GDD citation format.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Evidence — Player Combat Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EVID-PCD-005",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Missed repository fact: InputSystem_Actions.inputactions is the registered project-wide Input Actions asset",
+        "description": "The candidate describes Assets/InputSystem_Actions.inputactions only as \"the unmodified default Unity template\" that is not consumed by gameplay code. It omits that ProjectSettings/EditorBuildSettings.asset registers that exact asset (guid 289c1b55c9541489481df5cc06664110) under m_configObjects as com.unity.input.settings.actions — i.e. the project-wide Input Actions layer the GDD requires input to be routed through is already configured at the project level, and this asset is that layer. This is material to every 'route input through Unity Input System/Input Actions' acceptance criterion in this territory and to the exclusive-resource reasoning: it confirms the asset is not an inert leftover template file but the project's registered actions asset. The omission understates, rather than overstates, current state, so no classification changes.",
+        "affected_keys": [
+          "player-movement",
+          "door-open-interaction",
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Resources, Feedback, and Failure — Player Movement ownership",
+            "requirement": "\"Runtime input is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling in gameplay systems.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "ProjectSettings/EditorBuildSettings.asset",
+            "observation": "Line 9: m_configObjects contains 'com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 289c1b55c9541489481df5cc06664110, type: 3}', which is the GUID in Assets/InputSystem_Actions.inputactions.meta — the asset is registered as the project-wide Input Actions asset."
+          },
+          {
+            "path": "Assets/InputSystem_Actions.inputactions.meta",
+            "observation": "guid: 289c1b55c9541489481df5cc06664110, matching the EditorBuildSettings config object reference."
+          }
+        ],
+        "recommended_change": "Add this project-configuration observation to the input-related repository_evidence so the record distinguishes 'project-wide Input Actions layer is registered but contains no gameplay cursor/spell actions and is consumed by no gameplay script' from 'no Input Actions layer exists'.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Evidence — Player Combat Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EVID-PCD-006",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Prototype scene-builder lock quoted with the wrong GDD section number on two door items",
+        "description": "doorway-crossing-state and door-close-lock-break-lifecycle both attribute the 'Current prototype scene-builder lock' rule to GDD Section 5. The quoted text is genuine and verbatim, but it lives in Section 4 (AI Architecture) under 'Shared Context and Coordination Rules', which ends before '## 5. Technical Strategy'. The candidate's own non_code_requirements entries cite the same rule correctly as 'Section 4 - Shared Context and Coordination Rules', so the graph is internally inconsistent. Given the strict provenance requirements of this verification pass, cited section anchors for lock justifications should resolve exactly.",
+        "affected_keys": [
+          "doorway-crossing-state",
+          "door-close-lock-break-lifecycle"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §4 Shared Context and Coordination Rules",
+            "requirement": "\"Current prototype scene-builder lock: scene-authoring work that changes objects generated or maintained through Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs must take exclusive-write locks on both that builder and Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity. This specifically applies to doorway-crossing work that creates/configures the forward-side crossing trigger...\" — this appears under '## 4. AI Architecture', before '## 5. Technical Strategy'."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+            "observation": "'### Shared Context and Coordination Rules' appears at line 229; '## 5. Technical Strategy' does not begin until line 245, placing the scene-builder lock rule in Section 4."
+          }
+        ],
+        "recommended_change": "Change the two door items' exclusive-resource evidence citations from 'Section 5' to 'Section 4 — Shared Context and Coordination Rules', matching the correct citations already used in non_code_requirements. Lock content itself is correct and should be retained.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Evidence — Player Combat Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EVID-PCD-007",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "player-mana's denied-cast signal is a derived requirement with no named consumer",
+        "description": "player-mana carries an acceptance criterion requiring an explicit denied-cast signal ('e.g. an event') distinct from a successful spend, cited to GDD §3 'Failure is readable', and major_findings presents its absence as a repository gap. The GDD requires that failure causes including low mana be readable to the player; it does not state that Player Mana must emit a denied-cast event, and the continuous mana indicator required by the GDD already exists and is integrated. As written, the item would be satisfied by exposing an event that no represented item consumes or renders, which would not actually deliver the readability obligation. This is a derived design choice presented as a sourced requirement.",
+        "affected_keys": [
+          "player-mana"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §3 Player Experience Success Criteria",
+            "requirement": "\"Failure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long.\""
+          },
+          {
+            "reference": "GDD §2 Player Mana ownership",
+            "requirement": "Player Mana owns current mana and post-cast regeneration-delay state and exposes an owner-controlled spend interface; it does not state a required denied-cast signal."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+            "observation": "Lines 44-52: Spend() already returns false and leaves CurrentMana unchanged on insufficient mana, so callers can already detect refusal without a new event; only a ManaSpent event exists."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+            "observation": "Lines 11-16: a continuous fill bar bound to CurrentMana/MaxMana already exists and is serialized in DoorPrototype.unity (mana + fillImage references wired), satisfying the continuous mana indicator."
+          }
+        ],
+        "recommended_change": "Either label the denied-cast signal explicitly as derived implementation rationale supporting the 'failure is readable' criterion, or keep it as a requirement and name the consuming presenter (a spell or the existing mana UI) that renders the readable low-mana failure, so the obligation is discharged by an actual player-facing behavior rather than an unconsumed event.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Execution Scope",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "EXEC-001",
+        "severity": "warning",
+        "category": "execution_scope_problem",
+        "title": "Room-specific Play Mode validation claims omit the required deferred-execution qualifier used elsewhere in the same candidate",
+        "description": "Two open work items list a Play Mode validation requirement that can only be meaningfully exercised once a specific named room from the deferred 'five-room-content-authoring' feature has been authored, but unlike sibling items in this same candidate that make an identical kind of claim, these two do not note that the check becomes executable only once that room content exists. `enemy-pursuit-search-foundation`'s validation_requirements list 'Bone Archive lane-pathing validation confirming enemy movement/navigation fits the room's described narrow-lane geometry' with no deferral note anywhere in the item (validation_requirements, execution_reason, or notes). `ranged-enemy`'s validation_requirements list 'Chapel of Ash line-of-sight/projectile-occlusion Play Mode validation confirming cover blocks shots' with the same gap. Both Bone Archive and Chapel of Ash are part of `five-room-content-authoring`, which this same candidate correctly marks `execution_scope: not_applicable` / `decomposition_state: needs_future_decomposition` because exact room geometry is not yet authored. By contrast, two other items in this candidate that reference the same deferred rooms handle the distinction correctly: `gameplay-navigation-locomotion`'s validation_requirements explicitly say the Bone Archive check 'becomes fully executable once Bone Archive content is authored, but the navigation layer's agent-radius/walkability configuration is the artifact being validated,' and `encounter-admission-cap-enforcement`'s execution_reason explicitly states its Lower Vault validation target 'does not require full room content to be authored.' The retry-hardening 'Validation availability' rule requires exactly this kind of qualifier: a task must not claim it can fully validate a missing room-specific scenario without flagging that the validation is deferred rather than currently executable.",
+        "affected_keys": [
+          "enemy-pursuit-search-foundation",
+          "ranged-enemy"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD Section 4 — Unity Validation Agent role",
+            "requirement": "Bone Archive lane pathing and Chapel of Ash occlusion are named required validation concerns for the Unity Validation Agent."
+          },
+          {
+            "reference": "GDD Section 5 — 2.5D Isometric Visual and World Representation",
+            "requirement": "The reusable visual world foundation ... does not by itself include authoring all five room layouts or encounter content; five-room visual/content authoring consumes this foundation once it exists."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "enemy-pursuit-search-foundation.validation_requirements includes an unqualified 'Bone Archive lane-pathing validation' entry; ranged-enemy.validation_requirements includes an unqualified 'Chapel of Ash line-of-sight/projectile-occlusion' entry; five-room-content-authoring (parent owner of both named rooms) is execution_scope: not_applicable / decomposition_state: needs_future_decomposition, confirming neither room currently exists to validate against."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "gameplay-navigation-locomotion.validation_requirements and encounter-admission-cap-enforcement.execution_reason both correctly annotate their own Bone Archive/Lower Vault validation entries as deferred/not requiring full room content, showing the candidate already knows how to represent this distinction correctly elsewhere."
+          }
+        ],
+        "recommended_change": "Add the same deferred-execution qualifier used on gameplay-navigation-locomotion and encounter-admission-cap-enforcement to enemy-pursuit-search-foundation's Bone Archive entry and ranged-enemy's Chapel of Ash entry (e.g., 'becomes executable once Bone Archive/Chapel of Ash content is authored; this item's own bounded validation target is the generic lane-width/occlusion mechanism, not the authored room'). This does not change execution_scope classification for either item (both are already needs_execution_decomposition for other, valid reasons) but removes an unqualified claim that a later single-agent split could otherwise inherit as an un-meetable acceptance gate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Structure — Dependencies Ownership Decomposition",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "major_findings claims seven 'requirement_overlays' that do not exist as a distinct schema construct",
+        "description": "The summary.major_findings array states 'Seven requirement_overlays were created to attach Section 3 Player Experience Success Criteria validation obligations to concrete owner work items... per the explicit GDD Section 4 instruction that these criteria are required validation obligations on the owning work rather than new features.' However, the candidate JSON has no top-level `requirement_overlays` array or any per-item field literally named that. In practice the obligation is satisfied by distributing GDD Section 3 Player Experience Success Criteria into the `validation_requirements` arrays of the correct owning work items (19 occurrences of 'Player Experience Success Criteria' found across items such as player-health, player-mana, door-open-interaction, door-close-lock-break-lifecycle, locked-door-enemy-attack, encounter-admission-cap-enforcement, dungeon-encounter-content-authoring). Substantively this satisfies the GDD Section 4 invariant that these criteria are required validation obligations attached to owning work rather than new features/nodes, so this is a documentation/terminology mismatch in the narrative summary rather than a missing structural requirement.",
+        "affected_keys": [
+          "player-health",
+          "player-mana",
+          "door-open-interaction",
+          "door-close-lock-break-lifecycle",
+          "locked-door-enemy-attack"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 4 — Development Agent Ownership Invariants",
+            "requirement": "Player Experience Success Criteria are required validation obligations, not advisory prose... They do not require separate gameplay features when the behavior is already owned."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "major_findings (line 65) references 'requirement_overlays' as a created artifact, but no `requirement_overlays` key exists anywhere in the document; the obligations are instead embedded directly in each owning item's validation_requirements array."
+          }
+        ],
+        "recommended_change": "Update the summary prose to describe the mechanism actually used (validation_requirements entries tagged to Section 3 criteria on the owning work item) rather than referring to a 'requirement_overlay' artifact that does not exist in this schema, to avoid confusing downstream tooling or reviewers expecting a distinct overlay list.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Structure — Dependencies Ownership Decomposition",
+      "source_model": "sonnet",
+      "finding": {
+        "finding_id": "F2",
+        "severity": "suggestion",
+        "category": "shared_capability_hidden",
+        "title": "No explicit dependency edge from melee-enemy/ranged-enemy to gameplay-navigation-locomotion (relies on transitive edge through enemy-pursuit-search-foundation)",
+        "description": "melee-enemy and ranged-enemy each depend on enemy-pursuit-search-foundation, which in turn depends on gameplay-navigation-locomotion. Neither archetype item carries a direct edge to gameplay-navigation-locomotion. This is very likely intentional (avoiding a redundant edge when the immediate owner, the pursuit foundation, already gates on it) and is consistent with how the candidate treats enemy-pursuit-search-foundation as 'the shared base that melee-enemy and ranged-enemy consume for their core movement/targeting loop.' I flag this only because the retry-hardening instructions explicitly list 'locomotion-dependent enemy work -> shared navigation/locomotion foundation' as an expected relationship; the transitive path satisfies the intent, so no change is required unless a future decomposition separates pursuit-foundation from archetype movement in a way that breaks the transitive guarantee.",
+        "affected_keys": [
+          "melee-enemy",
+          "ranged-enemy",
+          "enemy-pursuit-search-foundation",
+          "gameplay-navigation-locomotion"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Verification-pass hardening: structural closure checks",
+            "requirement": "locomotion-dependent enemy work -> shared navigation/locomotion foundation"
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "melee-enemy.depends_on and ranged-enemy.depends_on list enemy-pursuit-search-foundation, enemy-health-damage-defeat, active-enemy-registry, world-visual-foundation but not gameplay-navigation-locomotion directly; enemy-pursuit-search-foundation.depends_on lists gameplay-navigation-locomotion."
+          }
+        ],
+        "recommended_change": "No action required now; the transitive dependency through enemy-pursuit-search-foundation is structurally sound. If a later decomposition pass ever detaches archetype locomotion consumption from the shared pursuit foundation, re-verify that a direct edge to gameplay-navigation-locomotion is added at that point.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Structure — Exclusive Resources",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EXCL-001",
+        "severity": "warning",
+        "category": "exclusive_resource_problem",
+        "title": "Uneven writer coverage on the shared Input Actions asset: door-open-interaction may modify Assets/InputSystem_Actions.inputactions concurrently with the three spell items",
+        "description": "Four work items (player-movement, fireball, frost-field, force-wave) carry `repo-file:Assets/InputSystem_Actions.inputactions`. door-open-interaction does not, even though it is the fifth player-input rework item in the graph: its acceptance criteria require that 'Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling', and its own repository evidence records that the gameplay 'Player' action map currently has no Point/Click action (Point/Click exist only in the separate 'UI' map) while the unused 'Interact' action is a Hold-interaction button. The candidate itself records this as unresolved_question #2 and defers it to later decomposition.\n\nThe scheduling consequence is specific and checkable: door-open-interaction depends on player-movement, so those two can never be dispatched concurrently, but door-open-interaction has no dependency on fireball, frost-field, or force-wave. If door-open-interaction turns out to add or repurpose a binding in the shared action asset (for example a door-select action, or removing/repurposing the stale hold-based 'Interact' action), it can become ready at the same time as the spell items that already lock that asset, producing exactly the concurrent non-merge-safe write the GDD forbids. Conversely, if the item genuinely only consumes a pointer/click binding authored by player-movement, the lock must not be added and the consumption-only evidence should be recorded on the item so this question does not have to be re-litigated at dispatch.\n\nCurrent evidence does not resolve the direction, so this is reported as an open uneven-coverage risk rather than a required lock addition.",
+        "affected_keys": [
+          "door-open-interaction",
+          "player-movement",
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Player Actions and Systems — Open Sealed Door; Move and Aim",
+            "requirement": "Door selection is a cursor-targeted click that issues a combined approach-and-interact request, and mouse-directed player input is routed through the shared Unity Input System/Input Actions layer rather than direct hardware polling."
+          },
+          {
+            "reference": "GDD §4 Agent-Assisted Development Workflow, item 4; §5 Agent Coordination",
+            "requirement": "Tasks that require changes to the same scripts, scenes, or prefabs are completed sequentially; agents do not modify the same Unity assets concurrently."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/InputSystem_Actions.inputactions",
+            "observation": "The 'Player' action map (line 5) defines Move/Look/Attack/Interact/Crouch/Jump/Sprint; 'Interact' carries \"interactions\": \"Hold\" (line 41). Point (line 510) and Click (line 519) exist only inside the separate 'UI' map (line 479). No gameplay-map cursor/click action currently exists for either movement or door selection."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+            "observation": "Door interaction is driven by raw `Keyboard.current[interactKey]` polling (lines 32-42) with BeginInteraction/EndInteraction; the current implementation bypasses the action asset entirely, so the Input-Actions routing required by door-open-interaction is new work whose write surface is not yet established."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "player-movement (line 222), fireball (line 565), frost-field (line 674) and force-wave (line 786) carry `repo-file:Assets/InputSystem_Actions.inputactions`; door-open-interaction's exclusive_resources (lines 1717-1738) list only DoorInteractable.cs, PlayerInteractionController.cs, the builder, and the canonical scene. Its notes (line 1744) and unresolved_questions entry (lines 3611-3619) both flag the action-asset write surface as unresolved."
+          }
+        ],
+        "recommended_change": "Resolve the writer question on door-open-interaction rather than leaving it open at dispatch time: if the item will add, remove, or repurpose any action/binding in Assets/InputSystem_Actions.inputactions, give it the identical `repo-file:Assets/InputSystem_Actions.inputactions` key already used by player-movement and the three spells; if evidence establishes it only consumes a binding authored by player-movement, record that consumption-only finding on the item so no lock is added. Do not add a dependency edge for this collision — it is a pure write-collision concern and door-open-interaction already depends on player-movement for the pointer-projection capability.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Structure — Exclusive Resources",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EXCL-002",
+        "severity": "suggestion",
+        "category": "exclusive_resource_problem",
+        "title": "gameplay-navigation-locomotion has positive write evidence for the runtime asmdef but carries no lock on it",
+        "description": "gameplay-navigation-locomotion's own repository_evidence states that `Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef` 'references only Unity.InputSystem and UnityEngine.UI; no AI Navigation assembly reference exists.' The file confirms this, and because the asmdef sets `overrideReferences: false`/`autoReferenced: true`, Unity engine modules are auto-referenced but package assemblies are not: consuming Unity AI Navigation types such as NavMeshSurface/NavMeshModifier requires adding `Unity.AI.Navigation` to that asmdef's `references` array. That is positive write evidence for a non-merge-safe shared assembly-definition file which the item's exclusive_resources do not cover.\n\nToday this is low-risk because gameplay-navigation-locomotion appears to be the only writer (enemy work consumes NavMeshAgent from the auto-referenced UnityEngine.AIModule, and tests live in separate Tests asmdefs). It is raised as a writer-inventory completeness gap rather than an active collision: if a later decomposition puts navigation-package-dependent code in another item, the missing key would leave two writers of one shared file unsynchronized.",
+        "affected_keys": [
+          "gameplay-navigation-locomotion"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 Runtime Implementation; Approved Unity Packages and Windows Build Configuration",
+            "requirement": "The approved implementation uses Unity AI Navigation (com.unity.ai.navigation) and NavMesh-based runtime movement; the shared navigation/locomotion layer is built against that approved package."
+          },
+          {
+            "reference": "GDD §5 Agent Coordination",
+            "requirement": "Two agents will not modify the same gameplay files or Unity assets at the same time."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef",
+            "observation": "\"references\": [\"Unity.InputSystem\", \"UnityEngine.UI\"] with \"overrideReferences\": false and \"autoReferenced\": true — package assemblies (including Unity.AI.Navigation) must be added explicitly to this file before navigation-package types can compile in this assembly."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "gameplay-navigation-locomotion cites the asmdef as evidence at lines 2214-2217 but its exclusive_resources (lines 2226-2241) list only logical:gameplay-walkability-surface, the builder, and the canonical scene."
+          }
+        ],
+        "recommended_change": "Consider adding `repo-file:Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef` to gameplay-navigation-locomotion's exclusive_resources, and apply the identical key to any later item that must add its own package assembly reference to the same runtime assembly. Do not propagate it to items that only add .cs files to the assembly, since adding a source file does not modify the asmdef.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Structure — Exclusive Resources",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "EXCL-003",
+        "severity": "suggestion",
+        "category": "exclusive_resource_problem",
+        "title": "tilemap-navigation-package-configuration asserts a write to Packages/packages-lock.json but locks only Packages/manifest.json",
+        "description": "The item's third acceptance criterion requires that 'Both packages resolve successfully (reflected in Packages/packages-lock.json)', and its repository_evidence inspects that file directly. Package resolution regenerates packages-lock.json, so the item writes two shared project-configuration files while locking only one. No other current work item writes either file, so there is no active collision; this is a completeness gap in the writer inventory rather than a concurrency defect.",
+        "affected_keys": [
+          "tilemap-navigation-package-configuration"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 Approved Unity Packages and Windows Build Configuration",
+            "requirement": "com.unity.2d.tilemap and com.unity.ai.navigation must be added/configured in Packages/manifest.json; package-manifest changes require developer inspection before merge."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "Acceptance criterion at lines 2111-2114 names packages-lock.json as part of the required outcome; repository_evidence at lines 2130-2134 inspects it; exclusive_resources (lines 2137-2142) contain only repo-file:Packages/manifest.json."
+          },
+          {
+            "path": "Packages/packages-lock.json",
+            "observation": "Committed resolved-dependency file that Unity rewrites whenever manifest dependencies change; it is a shared, non-merge-safe project-configuration artifact."
+          }
+        ],
+        "recommended_change": "Optionally add `repo-file:Packages/packages-lock.json` alongside the existing manifest key so the package-configuration item's full write surface is represented, and reuse both keys identically if a future item also changes package dependencies.",
+        "requires_human_review": false
+      }
+    }
+  ],
+  "merge_policy": "Union of independent findings. No majority vote is used; a material finding must be resolved or explicitly preserved for human review.",
+  "selective_pass2": {
+    "enabled": true,
+    "resumed": true,
+    "rerun_auditor_count": 13,
+    "total_auditor_count": 15,
+    "rerun_keys": [
+      "coverage_content_encounters",
+      "coverage_doors",
+      "coverage_enemy_behavior",
+      "coverage_enemy_state",
+      "coverage_global_pipeline",
+      "coverage_player_core",
+      "coverage_run_lifecycle",
+      "coverage_world_foundations",
+      "evidence_enemy_encounters",
+      "evidence_player_combat_doors",
+      "execution_scope",
+      "structure_dependencies",
+      "structure_resources"
+    ],
+    "reuse_policy": "Pass 1 and field-repair artifacts were reused from the failed verification; only synthesis and selective Pass 2 were rerun after deterministic merge repair."
+  }
+}

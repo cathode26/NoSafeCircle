@@ -1,0 +1,328 @@
+{
+  "current_state_summary": "The current integrated project contains zero enemy-related code, components, or scene objects. A repository-wide search of Assets/ (Scripts, Tests, and Editor) for Enemy, Registry, Defeat, Frost, and Displacement returned no matches. DoorPrototypeSceneBuilder.cs creates only Floor, Walls, DoorRoot, and player/camera-related objects — no enemy scaffolding. PlayerHealth.cs exists (health/damage only, no death event or restore method) but is outside this domain's ownership. No Active Enemy Registry, Enemy Health/Defeat capability, or status-effect/displacement component exists in any form (not even a builder-capability stub). This domain's required work is therefore entirely missing/open.",
+  "desired_state_summary": "The GDD requires three reusable, ownership-scoped enemy capabilities beneath the Enemies feature: (1) a shared Active Enemy Registry that tracks persistent active enemy objects, exposes current count/remaining capacity under a hard 15-enemy cap, registers on activation, unregisters on defeat, and is never depleted by target loss/search/room-crossing/waiting-behind-a-locked-door; (2) a reusable Enemy Health/Defeat capability that owns each persistent enemy's current health, damage intake (consumed by Fireball and other canon damage sources), the defeat transition, and reports defeat-driven removal through the registry's own interface rather than duplicating bookkeeping; (3) a reusable status-effect/displacement component that applies and restores Frost Field slowdown (locomotion/repositioning only — it must never suppress or slow Ranged Enemy attack execution) and applies Force-Wave-requested forced displacement, returning the affected enemy to the correct pursuit/search movement state afterward. All three must expose owner-controlled reset entry points consumed by the Floor Run/Restart Orchestrator (owned by a different domain) rather than being reset by direct internal mutation.",
+  "major_findings": [
+    "No enemy code of any kind exists in the repository; this domain's entire required scope is currently missing.",
+    "The GDD explicitly and separately owns three capabilities in this domain: Active Enemy Registry bookkeeping (count/capacity/register/unregister), Enemy Health/Defeat (health/damage/defeat + registry removal reporting), and status-effect/displacement (Frost slowdown apply/restore + forced displacement apply/restore + pursuit/search hand-back).",
+    "Enemy Health/Defeat has a real, GDD-stated dependency on Active Enemy Registry because defeat must report removal through the registry's own unregister interface rather than duplicating the count.",
+    "Status-effect/displacement explicitly consumes the pursuit/search state contract (owned by enemy-behavior domain's enemy-pursuit-search-foundation) and the shared gameplay navigation/locomotion layer (owned by world-foundations domain), per GDD Section 5 Runtime Implementation.",
+    "The GDD explicitly requires that Frost slowdown affect only a Ranged Enemy's repositioning, never its attack execution timing; this is preserved as a direct acceptance criterion on enemy-status-effect-displacement rather than left as background evidence.",
+    "Encounter admission policy (delay/reduce new enemies to respect the 15-cap, Lower Vault priority) is owned by the Dungeon Encounter system in the content_encounters domain and consumes this domain's registry query interface; it is not represented here to avoid duplicating that owner's responsibility.",
+    "All three previously-hinted routing keys (active-enemy-registry, enemy-health-damage-defeat, enemy-status-effect-displacement) remain current and required; none were dropped.",
+    "No exclusive-resource lock is warranted for active-enemy-registry or enemy-health-damage-defeat because they are new standalone bookkeeping/health scripts with no established shared-write surface in current repository evidence. enemy-status-effect-displacement does share a locomotion/behavior write surface with pursuit/search, melee, ranged, and locked-door-attack work (all modify the same persistent enemy objects' movement/behavior scripts), so a logical exclusive-resource lock is applied there, with its rationale explicitly labeled as a derived rationale grounded in real GDD passages rather than attributed to CLAUDE.md or pipeline prose."
+  ],
+  "work_items": [
+    {
+      "key": "enemies",
+      "title": "Enemies",
+      "kind": "feature",
+      "type": "feature",
+      "parent_key": "no-safe-circle",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 1 — Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Required scope includes 'two enemies' (Melee Enemy and Ranged Enemy) as part of the required game."
+        },
+        {
+          "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+          "requirement": "A shared Active Enemy Registry tracks persistent active enemy objects and enforces a hard 15-active-enemy cap."
+        },
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "A reusable Enemy Health/Defeat capability owns each persistent enemy object's health, damage intake, and defeat transition."
+        },
+        {
+          "reference": "Section 2 — Spell-local state ownership",
+          "requirement": "Enemy-side Frost slowdown application/restoration is owned by Enemy Pursuit/status-effect logic, distinct from the spell that triggers it."
+        }
+      ],
+      "acceptance_criteria": [],
+      "validation_requirements": [],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "coarse",
+      "decomposition_reason": "This is an organizational parent for shared enemy state/persistence capabilities. The GDD already specifies enough for the three concrete child implementation items below (registry, health/defeat, status-effect/displacement); no further top-level decomposition is needed for this bootstrap. Enemy archetype behavior (Melee/Ranged pursuit, attacks, locked-door attack) is owned by the separate enemy_behavior domain and is not represented under this node's evidence to avoid duplicate ownership.",
+      "execution_scope": "not_applicable",
+      "execution_reason": "Feature/organizational node; not directly dispatchable.",
+      "confidence": "high",
+      "notes": "Aggregate repository_state is missing because none of this domain's represented child work (registry, health/defeat, status-effect/displacement) currently exists anywhere in Assets/. Enemy roster stats, pursuit/attack behavior, and locked-door attack ownership belong to the enemy_behavior domain's nodes (enemy-pursuit-search-foundation, melee-enemy, ranged-enemy, locked-door-enemy-attack) and are intentionally not duplicated here."
+    },
+    {
+      "key": "active-enemy-registry",
+      "title": "Active Enemy Registry",
+      "kind": "implementation",
+      "type": "implementation",
+      "parent_key": "enemies",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+          "requirement": "A shared Active Enemy Registry tracks the persistent enemy objects currently active in the run and exposes the current active count and remaining capacity under the hard limit of fifteen."
+        },
+        {
+          "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+          "requirement": "Enemy activation registers an enemy with the registry; defeat removes that enemy from the active count. Target loss, searching, crossing rooms, or waiting behind a locked door does not remove a surviving persistent enemy from the registry."
+        },
+        {
+          "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+          "requirement": "The registry/bookkeeping responsibility is a reusable runtime foundation and does not require the exact five-room encounter layouts, placements, or trigger authoring to be known first."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Active Enemy Registry bookkeeping is a required reset participant invoked through the registry's own owner-controlled reset entry point during floor restart."
+        },
+        {
+          "reference": "Section 4 — Enemy Pursuit Agent role",
+          "requirement": "Enemy Pursuit Agent owns the shared Active Enemy Registry bookkeeping for persistent active enemy objects; encounter activation consumes that registry rather than maintaining a separate count."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+          "requirement": "Registry exposes the current active enemy count and remaining capacity under the hard cap of fifteen active enemies."
+        },
+        {
+          "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+          "requirement": "Enemy activation registers an enemy; only a defeat-driven unregister call (consumed by Enemy Health/Defeat) removes an enemy from the active count."
+        },
+        {
+          "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+          "requirement": "Target loss, entering search state, crossing between rooms, and waiting behind a locked door do not remove a surviving persistent enemy from the registry."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Registry exposes an owner-controlled reset entry point that returns bookkeeping to its initial empty/starting state; the Floor Run/Restart Orchestrator invokes this rather than mutating registry internals directly."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+          "requirement": "Verify the registry's reported active count and remaining capacity stay accurate as enemies are registered and unregistered, including at the fifteen-enemy hard cap boundary."
+        },
+        {
+          "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+          "requirement": "Verify target loss, search-state transition, room crossing, and waiting behind a locked door do not remove a surviving enemy from the registry's active count."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Verify floor restart returns registry bookkeeping to its initial empty/starting state through its owner-controlled reset entry point."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD fully specifies this capability's contract: what it tracks, the hard cap, register/unregister semantics, what does NOT remove an enemy, and reset participation. No missing design blocks turning this into a bounded implementation item.",
+      "execution_scope": "single_agent",
+      "execution_reason": "Self-contained bookkeeping component (count/capacity tracking with register/unregister and a reset entry point) with no other current-repository system to integrate against; a single agent can implement and validate it in isolation.",
+      "confidence": "high",
+      "notes": "A repository-wide grep across Assets/ for 'Registry' found no matches; this component does not exist in any form, including as builder-capability scaffolding."
+    },
+    {
+      "key": "enemy-health-damage-defeat",
+      "title": "Enemy Health/Defeat",
+      "kind": "implementation",
+      "type": "implementation",
+      "parent_key": "enemies",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "A reusable Enemy Health/Defeat capability owns each persistent enemy object's current health, damage intake, defeat transition, and restartable health/defeat state."
+        },
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "Fireball and any other canon-required damage source request damage through this owner-controlled interface rather than writing enemy health directly."
+        },
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "When defeat occurs, the Enemy Health/Defeat owner reports that transition through the Active Enemy Registry owner's removal/unregister interface so the active count is updated without duplicating registry bookkeeping."
+        },
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "Floor restart restores enemy health/defeat state through the enemy-owned reset entry point; the Floor Run/Restart Orchestrator does not mutate enemy-health internals directly."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation",
+          "requirement": "A reusable Enemy Health/Defeat runtime capability owns each persistent enemy's current health, damage intake, defeat transition, and floor-restart reset."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "Exposes an owner-controlled damage-intake interface that any canon-required damage source (e.g. Fireball) calls rather than writing enemy health directly."
+        },
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "Reaching zero health triggers a defeat transition exactly once for that persistent enemy object."
+        },
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "Defeat reports removal through the Active Enemy Registry's owner-controlled unregister interface rather than the Enemy Health/Defeat component independently decrementing a separate count."
+        },
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "Exposes an owner-controlled reset entry point that restores health and clears the defeat transition for floor restart, invoked by the Floor Run/Restart Orchestrator rather than by direct internal mutation."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "Verify a damage source can only reduce a persistent enemy's health through the owner-controlled damage interface and that zero health triggers the defeat transition exactly once."
+        },
+        {
+          "reference": "Section 3 — Enemy health and defeat ownership",
+          "requirement": "Verify defeat reports removal through the Active Enemy Registry's unregister interface without the registry double-counting or the two systems maintaining duplicate bookkeeping."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Verify floor restart returns a previously-damaged/defeated enemy's health and defeat state to its initial value through the owner-controlled reset entry point."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "active-enemy-registry",
+          "reason": "Defeat must report removal through the Active Enemy Registry's own owner-controlled unregister interface rather than duplicating active-count bookkeeping; that interface must exist first.",
+          "evidence": "GDD Section 3 — Enemy health and defeat ownership: 'the Enemy Health/Defeat owner reports that transition through the Active Enemy Registry owner's removal/unregister interface so the active count is updated without duplicating registry bookkeeping.'"
+        }
+      ],
+      "exclusive_resources": [],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD fully specifies health/damage/defeat ownership, the damage-interface contract, the registry-removal reporting contract, and reset participation. No missing design blocks a bounded implementation item.",
+      "execution_scope": "single_agent",
+      "execution_reason": "A cohesive, bounded component (health tracking, damage interface, defeat transition, one outbound call to the registry's interface, and a reset entry point) that one agent can implement and validate without needing to also implement pursuit, attacks, or navigation.",
+      "confidence": "high",
+      "notes": "A repository-wide grep across Assets/ for 'Defeat' found no matches; this capability does not exist in any form. Fireball's consumption of this interface is out of scope for this domain and belongs to the wizard_combat domain's fireball item."
+    },
+    {
+      "key": "enemy-status-effect-displacement",
+      "title": "Enemy Status-Effect and Forced Displacement",
+      "kind": "implementation",
+      "type": "implementation",
+      "parent_key": "enemies",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 2 — Spell-local state ownership",
+          "requirement": "Enemy-side Frost slowdown application/restoration remains owned by Enemy Pursuit/status-effect logic. Each owner exposes a reset entry point for any owned state that can still be active when a floor restart occurs."
+        },
+        {
+          "reference": "Section 2 — Spell and Enemy Interactions (Frost Field row)",
+          "requirement": "Frost Field slows a ranged enemy's repositioning but does not stop its attacks; the player must still move laterally or use room geometry to avoid incoming shots."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation",
+          "requirement": "A reusable status-effect/displacement component will apply Frost Field slowdown, apply enemy-owned forced displacement requests, and restore each enemy to the appropriate pursuit/search movement state afterward. It consumes the pursuit/search state contract rather than defining a second enemy-state machine."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation (enemy movement paragraph)",
+          "requirement": "Enemy movement is the authoritative owner of enemy locomotion and forced displacement. Force Wave determines which enemies are affected and the radial knockback to request; the enemy movement system applies that displacement, preserves valid movement/navigation state, and resumes the appropriate pursuit/search state afterward."
+        },
+        {
+          "reference": "Section 4 — Enemy Pursuit Agent role",
+          "requirement": "Owns the application of forced enemy displacement requested by abilities such as Force Wave, including returning affected enemies to the appropriate pursuit/search movement state afterward, and owns applying/restoring Frost Field's slowdown effect."
+        },
+        {
+          "reference": "Section 5 — 2.5D Isometric Visual and World Representation",
+          "requirement": "Enemy pursuit/search, melee/ranged behavior, status effects, and forced displacement consume the shared gameplay navigation/locomotion layer instead of each selecting or configuring navigation technology or doorway passability independently."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Required reset participants include enemy pursuit/search/attack/status/displacement state, restored through the state-owning system's reset entry point."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 2 — Spell and Enemy Interactions (Frost Field row)",
+          "requirement": "Frost Field slowdown modifies an affected enemy's locomotion/repositioning speed only; it must never suppress, pause, or slow a Ranged Enemy's attack execution/timing."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation",
+          "requirement": "Frost slowdown is restored (movement speed returns to normal) when the effect ends, with no permanent slowdown remaining."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation (enemy movement paragraph)",
+          "requirement": "Applies forced displacement requested by an ability (e.g. Force Wave's radial knockback selection) to the affected enemy while preserving valid movement/navigation state."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation",
+          "requirement": "After displacement or Frost slowdown ends, returns the affected enemy to the appropriate pursuit/search movement state per the pursuit/search state contract, rather than defining a second enemy-state machine."
+        },
+        {
+          "reference": "Section 2 — Spell-local state ownership",
+          "requirement": "Exposes an owner-controlled reset entry point that clears any active Frost slowdown or displacement state for floor restart, invoked by the Floor Run/Restart Orchestrator."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Section 5 — Runtime Implementation",
+          "requirement": "Verify Frost Field slowdown applies to a pursuing enemy's movement speed and is fully restored when the effect ends, with no permanent slowdown remaining (Unity Validation Agent concern in Section 4)."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation (enemy movement paragraph)",
+          "requirement": "Verify forced displacement (e.g. Force Wave knockback) moves an affected enemy while preserving valid navigation/movement state and that the enemy resumes appropriate pursuit/search behavior afterward rather than becoming stuck."
+        },
+        {
+          "reference": "Section 2 — Spell and Enemy Interactions (Frost Field row)",
+          "requirement": "Verify a Ranged Enemy under active Frost slowdown continues executing its telegraphed attack on schedule while only its repositioning speed is reduced."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Verify floor restart clears any active Frost slowdown or displacement state on all enemies through the owner-controlled reset entry point."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "enemy-pursuit-search-foundation",
+          "reason": "Status-effect/displacement must hand affected enemies back to the correct pursuit/search movement state after an effect ends, and the GDD states this component consumes the pursuit/search state contract rather than defining a second enemy-state machine; that contract must exist first.",
+          "evidence": "GDD Section 5 — Runtime Implementation: 'The pursuit/search state contract must therefore exist before status-effect/displacement work is treated as independently dispatchable; status/displacement consumes that contract when handing control back to normal enemy behavior.'"
+        },
+        {
+          "key": "gameplay-navigation-locomotion",
+          "reason": "Displacement must preserve valid movement/navigation state, and Frost slowdown/forced displacement are required to consume the shared gameplay navigation/locomotion layer rather than independently configuring navigation technology; that layer must exist first.",
+          "evidence": "GDD Section 5 — 2.5D Isometric Visual and World Representation: 'Enemy pursuit/search, melee/ranged behavior, status effects, and forced displacement consume this layer instead of each selecting or configuring navigation technology or doorway passability independently.'"
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "logical:enemy-locomotion-behavior-surface",
+          "reason": "Status-effect/displacement modifies the same persistent enemy objects' locomotion/movement state that enemy pursuit/search, melee attack, ranged attack, and locked-door-attack work (enemy_behavior domain) also read and write concurrently on the same enemy scripts/prefab; concurrent unsynchronized edits to that shared behavior surface are unsafe.",
+          "evidence": "Derived rationale grounded in GDD Section 5 — Runtime Implementation, which states that pursuit/attack, status-effect/displacement, and locked-door-attack behavior all act on the same persistent enemy objects and all consume/restore the same pursuit/search state contract and shared navigation layer; this is a scheduling/write-collision inference from that shared-ownership architecture, not a quoted GDD requirement."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD fully specifies this component's two effect types (Frost slowdown apply/restore; forced displacement apply/restore), the explicit Ranged-Enemy-attack-is-unaffected constraint, the pursuit/search hand-back requirement, and reset participation. No missing design blocks a bounded implementation item; the two effect types are explicitly bundled into one reusable component by GDD Section 5.",
+      "execution_scope": "single_agent",
+      "execution_reason": "Although it consumes two other systems' interfaces (pursuit/search contract, navigation layer) and covers two effect types, it is architecturally one reusable component with a clear, bounded validation target (apply/restore semantics for each effect plus a reset entry point); the GDD itself describes it as a single reusable component rather than multiple independently-owned pieces.",
+      "confidence": "high",
+      "notes": "A repository-wide grep across Assets/ for 'Frost' and 'Displacement' found no matches; this capability does not exist in any form. Force Wave's request to trigger displacement is a consumer relationship owned by the wizard_combat domain's force-wave item, not a dependency of this item."
+    }
+  ],
+  "requirement_overlays": [],
+  "non_code_requirements": [],
+  "deferred_or_excluded": [],
+  "unresolved_questions": [],
+  "files_reviewed": [
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
+  ],
+  "historical_sources_reviewed": [],
+  "domain": "enemy_state"
+}

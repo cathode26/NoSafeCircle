@@ -1,0 +1,163 @@
+{
+  "agent": "Structure — Dependencies Ownership Decomposition",
+  "requested_model": "opus",
+  "duration_seconds": 313.71,
+  "result": {
+    "findings": [
+      {
+        "finding_id": "STRUCT-001",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Restart orchestrator depends on reset entry points that the named owners are not required to expose",
+        "description": "Both restart items consume owner-controlled reset entry points, and the graph correctly routes those edges to concrete owners. However, two of the named owners carry no acceptance criterion requiring them to expose the reset entry point their dependent invokes.\n\n`floor-run-restart-bootstrap` depends on `door-open-interaction` with the stated reason \"DoorInteractable.cs already owns run-persistent state (Progress, IsOpen, disabled doorwayBlocker) but exposes no reset entry point; the bootstrap orchestrator must invoke one.\" `door-open-interaction`'s five acceptance criteria cover click-to-approach selection, arm's-reach auto-timer, cursor-drift tolerance, interruption, and Input System routing — none require a reset entry point. `floor-run-restart-persistent-closure` repeats the same dependency with the same expectation.\n\n`floor-run-restart-persistent-closure` depends on `encounter-admission-cap-enforcement` because \"Encounter activation/admission state is a named required reset participant.\" That item's three acceptance criteria cover registry query, delay/reduce-first admission, and non-duplication of the count — none require a reset entry point.\n\nEvery other named persistent owner in the graph does carry the reset criterion (`player-health`, `player-mana`, `player-movement`, `doorway-crossing-state`, `door-close-lock-break-lifecycle`, `active-enemy-registry`, `enemy-health-damage-defeat`, `enemy-pursuit-search-foundation`, `enemy-status-effect-displacement`, `fireball`, `frost-field`, `force-wave`), so the gap is specific and inconsistent rather than a deliberate staging choice. As written, both owner items can be implemented, validated, and closed while leaving the restart items' dependencies unsatisfiable — the requirement exists only inside the consumer's `depends_on.reason`, which is not an owner obligation.",
+        "affected_keys": [
+          "door-open-interaction",
+          "encounter-admission-cap-enforcement",
+          "floor-run-restart-bootstrap",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 — Floor-run restart ownership",
+            "requirement": "\"Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns, and the orchestrator invokes those owned reset interfaces. Required reset participants include ... door lifecycle/crossing/durability state, and encounter activation/admission state.\""
+          },
+          {
+            "reference": "GDD §2 — Loss",
+            "requirement": "\"Restart resets all run-persistent gameplay state to the floor's initial state, including ... door lifecycle/crossing/durability state, and encounter activation/admission state.\""
+          },
+          {
+            "reference": "GDD §5 — Runtime Implementation (Floor Run/Restart Orchestrator)",
+            "requirement": "\"It invokes reset entry points owned by each stateful system rather than directly mutating their internals ... door lifecycle/crossing/durability state, and encounter activation/admission state must all participate once those systems exist.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Owns run-persistent `Progress`, `IsOpen`, and a permanently disabled `doorwayBlocker` (set in `Complete()`), with only `StartInteraction`/`CancelInteraction`/`Tick` as public mutators. `CancelInteraction()` clears interaction progress but does not restore `IsOpen` or re-enable the blocker, so no usable reset entry point exists today."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "`door-open-interaction.acceptance_criteria` (5 entries) and `encounter-admission-cap-enforcement.acceptance_criteria` (3 entries) contain no reset-entry-point requirement, while `floor-run-restart-bootstrap.depends_on[door-open-interaction]` and `floor-run-restart-persistent-closure.depends_on[encounter-admission-cap-enforcement]` both justify the edge by that missing interface."
+          }
+        ],
+        "recommended_change": "Add an owner-side acceptance criterion to `door-open-interaction` requiring an owner-controlled reset entry point that returns its owned opening state (interaction progress, open flag, doorway-blocker enablement) to floor-initial values for consumption by the Floor Run/Restart Orchestrator, referencing GDD §2 Floor-run restart ownership. Add the equivalent criterion to `encounter-admission-cap-enforcement` for encounter activation/admission state. Keep the existing dependency edges — they become correct once the owners are required to produce the interface.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "STRUCT-002",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Victory capability depends on suspend/re-enable interfaces that Player Movement and Door/Interaction are not required to expose",
+        "description": "`final-escape-victory` carries six dependencies, each justified by the consumed owner-controlled gameplay-enable/suspend interface. Three of the five suspend providers (`fireball`, `frost-field`, `force-wave`) each carry an explicit acceptance criterion requiring that interface. The other two do not.\n\n`player-movement`'s acceptance criteria cover mouse-directed movement, the shared pointer target, the movement-restriction request/release interface, and the restart reset entry point — there is no gameplay-enable/suspend criterion, yet `final-escape-victory.depends_on[player-movement]` states \"Victory must be able to stop already-active movement through an owner-controlled suspend interface.\"\n\n`door-open-interaction` likewise has no suspend criterion, yet `final-escape-victory.depends_on[door-open-interaction]` states \"Victory must be able to stop an in-progress door approach/opening through an owner-controlled suspend interface.\"\n\nThe GDD makes this an explicit five-owner obligation and an ownership invariant: victory must not reach into movement/door internals, so if the owners are never required to expose suspend/re-enable, the only implementable path for `final-escape-victory` violates the invariant. This is an owner/consumer contract represented only in a consumer's dependency prose.",
+        "affected_keys": [
+          "player-movement",
+          "door-open-interaction",
+          "final-escape-victory"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 — Victory/input-shutdown ownership",
+            "requirement": "\"Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow.\""
+          },
+          {
+            "reference": "GDD §4 — Development Agent Ownership Invariants (Final escape/victory coordination)",
+            "requirement": "\"Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave remain owners of their own active behavior and must expose owner-controlled suspend/re-enable entry points consumed by victory/reset flows. Final escape logic must not reach into movement, door, or spell internals to stop them.\""
+          },
+          {
+            "reference": "GDD §5 — Runtime Implementation (Game Flow/Victory)",
+            "requirement": "\"Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave must each provide a suspend/re-enable entry point that stops current input-driven activity as well as future commands.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+            "observation": "`Update()` unconditionally polls `Keyboard.current` and calls `controller.Move(...)`; there is no enable/suspend flag, gating, or public entry point through which an external system could stop active movement."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "`Update()` unconditionally calls `Tick(Time.deltaTime)` and the only external controls are `StartInteraction`/`CancelInteraction`; there is no suspend/re-enable entry point that rejects new interaction commands while suspended."
+          }
+        ],
+        "recommended_change": "Add an owner-side acceptance criterion to `player-movement` and to `door-open-interaction` requiring an owner-controlled gameplay-enable/suspend interface that immediately stops the system's already-active input-driven activity (in-flight movement; in-progress door approach/opening timer), rejects new gameplay commands while suspended, and is re-enabled only through an authorized reset/test flow — mirroring the criteria already present on `fireball`, `frost-field`, and `force-wave`. Retain the existing `final-escape-victory` dependency edges.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "STRUCT-003",
+        "severity": "warning",
+        "category": "missing_dependency",
+        "title": "Enemy archetypes must deliver assembled SpriteRenderer prefabs following conventions owned by world-visual-foundation, with no dependency on that owner",
+        "description": "`melee-enemy` and `ranged-enemy` each carry an acceptance criterion requiring delivery of \"a usable assembled world-space SpriteRenderer archetype prefab\", and both cite the GDD's isometric sorting-convention requirement as evidence. The owner of those conventions and of the SpriteRenderer/visual-gameplay separation is `world-visual-foundation` (kind: implementation), which is currently `repository_state: missing`. Neither archetype depends on it.\n\nThe GDD explicitly folds character presentation into the reusable visual-world foundation rather than treating it as a separate rendering architecture, so the archetype prefab-assembly criterion cannot be implemented or meaningfully validated against \"consistent isometric sorting conventions\" before that foundation defines them. Both archetypes are otherwise reachable in the graph once pursuit/health/registry land, which means `taskcontrol ready` can expose prefab-assembly work that will either invent ad-hoc sorting conventions or be reworked when the foundation lands.\n\nThe proposed target is `kind: implementation`, so this is a legal edge under the deferred-feature-prerequisite rule (unlike the prohibited `dungeon-encounter-content-authoring -> five-room-content-authoring` edge, which the candidate correctly omits). This is a dependency question only; I am not recommending propagation of `world-visual-foundation`'s builder/scene write locks to the archetypes.",
+        "affected_keys": [
+          "melee-enemy",
+          "ranged-enemy",
+          "world-visual-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 — Runtime Implementation",
+            "requirement": "\"World-space SpriteRenderer prefabs will be used for sealed doors, tall props, obstacles, the wizard, enemies, and other independently sorted or interactive objects. Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture.\""
+          },
+          {
+            "reference": "GDD §3 — Environment Presentation and Authoring Direction",
+            "requirement": "\"Placeholder character sprites are acceptable during development, but the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+            "observation": "Per the candidate's own verified evidence, the builder creates Floor/Walls/door visual as primitive meshes with MeshRenderers and creates no SpriteRenderer, Tilemap, or Grid; no isometric sorting convention exists anywhere in the repository for an archetype prefab to follow."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "`melee-enemy.acceptance_criteria` and `ranged-enemy.acceptance_criteria` each require \"a usable assembled world-space SpriteRenderer archetype prefab\" citing \"Environment Presentation and Authoring Direction\", while `depends_on` lists only `enemy-pursuit-search-foundation`, `enemy-health-damage-defeat`, and `active-enemy-registry`."
+          }
+        ],
+        "recommended_change": "Either (a) add `depends_on: world-visual-foundation` to `melee-enemy` and `ranged-enemy`, justified by the SpriteRenderer/isometric-sorting conventions their prefab-delivery criterion consumes; or (b) if the intent is that archetypes ship with placeholder presentation and are re-sorted later, narrow the archetype acceptance criterion so it does not claim conformance to conventions that do not yet exist, and record the presentation conformance as a later obligation on `world-visual-foundation` or on encounter authoring. Do not add `world-visual-foundation`'s builder/scene exclusive-resource locks to the archetypes as part of either option.",
+        "requires_human_review": true
+      },
+      {
+        "finding_id": "STRUCT-004",
+        "severity": "suggestion",
+        "category": "overgrouped_work",
+        "title": "Two independently approved package configurations are fused into one node, creating a cross-system prerequisite",
+        "description": "`tilemap-navigation-package-configuration` bundles `com.unity.2d.tilemap` (the Isometric Tilemap authoring package) and `com.unity.ai.navigation` (the enemy-navigation package). The GDD approves them in separate bullets with separate downstream consumers: the Tilemap package is a prerequisite for the visual authoring workflow, the AI Navigation package is a prerequisite for the navigation/locomotion layer and locomotion-dependent enemy work.\n\nBecause both `gameplay-navigation-locomotion` and `world-visual-foundation` depend on the fused node, each is nominally blocked on a package it does not consume. The practical impact is small — both entries land in one `Packages/manifest.json` edit, and fusing them avoids a same-file writer collision — so I am not asserting this is incorrect. It is noted as the one place where the graph's dependency semantics are broader than the underlying GDD prerequisite relationships, in case a later pass wants the navigation package configuration to be independently dispatchable ahead of visual work.",
+        "affected_keys": [
+          "tilemap-navigation-package-configuration",
+          "gameplay-navigation-locomotion",
+          "world-visual-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 — Approved Unity Packages and Windows Build Configuration",
+            "requirement": "\"Unity 2D Tilemap Editor (com.unity.2d.tilemap) is approved and required for the intended Isometric Tilemap authoring workflow.\" and separately \"Unity AI Navigation (com.unity.ai.navigation) is the approved enemy-navigation implementation. If it is absent from Packages/manifest.json, adding/configuring it is a prerequisite for the gameplay navigation/locomotion layer and locomotion-dependent enemy work.\""
+          },
+          {
+            "reference": "GDD §5 — 2.5D Isometric Visual and World Representation",
+            "requirement": "\"A minimal working navigation/locomotion layer and the approved package configuration must exist before locomotion-dependent enemy implementation is dispatched, but room-specific visual authoring does not need to be complete first.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Packages/manifest.json",
+            "observation": "Neither approved package is declared; both would be added by editing the same single shared manifest file, which is why the fused representation is defensible as a scheduling choice."
+          }
+        ],
+        "recommended_change": "Optional. If a later pass wants navigation work to proceed independently of Tilemap authoring readiness, split into two implementation items sharing `repo-file:Packages/manifest.json` as an exclusive resource, and point `gameplay-navigation-locomotion` at the AI Navigation item and `world-visual-foundation` at the Tilemap item. Otherwise leave as-is and treat the extra prerequisite as an accepted simplification.",
+        "requires_human_review": true
+      }
+    ],
+    "notes": [
+      "Checks that passed and are recorded so the union of parallel audits does not re-open them: no dependency cycles exist across the 20 non-root work items; every `depends_on` target resolves to a `kind: implementation` item (no feature-target edges); the prohibited `dungeon-encounter-content-authoring -> five-room-content-authoring` edge is correctly absent and the relationship preserved in notes/decomposition_reason; `parent_key` is used consistently as containment, not ordering, in all cases.",
+      "Runtime-vs-deferred-content separation is correct. `encounter-admission-cap-enforcement` is a concrete `implementation` under `encounters`, separate from the `needs_future_decomposition` `dungeon-encounter-content-authoring` feature, and encodes the delay/reduce-new-enemies-first rule with existing pursuers never removed, plus the Lower Vault validation case. Neither deferred feature hides a fully specified runtime mechanism, so no `under_decomposition` error applies.",
+      "Door passability ownership is correctly represented: `gameplay-navigation-locomotion` carries the acceptance responsibility for translating sealed/open/locked/broken into enemy walkability, `door-close-lock-break-lifecycle` publishes semantic state and carries the required behavioral dependency on the navigation owner (not merely the `logical:gameplay-walkability-surface` lock), and `enemy-pursuit-search-foundation` consumes the passability result with an acceptance criterion covering actual traversal through open/broken doorways rather than only target retention.",
+      "Restart closure is otherwise complete: `floor-run-restart-persistent-closure` depends on `floor-run-restart-bootstrap` plus every concrete persistent owner (player health/mana/movement, three spells, both door items plus crossing state, enemy health/defeat, pursuit/search, status/displacement, registry, encounter admission), and its enemy-reset criterion correctly keeps the orchestrator out of enemy Transform/locomotion internals. The bootstrap stage is staged truthfully against currently-existing owners. Only the two owner-side interface gaps in STRUCT-001 break the chain.",
+      "Shared-capability ownership checks passed: the Active Enemy Registry, Enemy Health/Defeat, status-effect/displacement, doorway-crossing state, navigation/locomotion layer, Game Flow/Victory, and the Floor Run/Restart Orchestrator each have exactly one owner with consumers depending on that owner. Player Health/Mana/Movement are not collapsed. `player-movement` is correctly the single owner of the shared pointer projection, and all three cursor-dependent consumers (`fireball`, `frost-field`, `door-open-interaction`) depend on it while the player-centered `force-wave` correctly does not.",
+      "No dependency in the graph is justified solely by a shared write surface. `door-open-interaction` and `doorway-crossing-state` both write `DoorInteractable.cs` with no edge between them (handled by locks), and `floor-run-restart-persistent-closure -> floor-run-restart-bootstrap` has independent behavioral justification (the closure extends an orchestrator the bootstrap creates) beyond the shared `logical:floor-run-restart-orchestrator` lock. Enemy attacks correctly carry no edge to `player-health` because `PlayerHealth.TakeDamage(float)` already exists as a usable interface. No `witnessed escape` state was introduced anywhere.",
+      "Two observations outside my assigned territory, raised only so they are not lost: (1) `player-mana` carries an acceptance criterion requiring a new denied-cast signal API, which is derived from the Section 3 'failure is readable' success criterion rather than stated as a required interface anywhere in the GDD — a scope/requirements auditor should confirm whether that is an obligation or a validation-only concern. (2) The 'Frost slowdown must not suppress Ranged Enemy attack execution' requirement appears as an acceptance criterion on both `enemy-status-effect-displacement` and `ranged-enemy`; the graph adds no edge between them, which is defensible since `ranged-enemy` can implement attack timing decoupled from locomotion speed independently, but the criterion on `ranged-enemy` is only jointly validatable once the status-effect owner exists.",
+      "Exclusive-resource coverage was deliberately not audited per the parallel-scope override; the only lock reasoning I examined was to confirm that no lock is being used as a substitute for, or as the sole basis of, a dependency edge."
+    ],
+    "verdict": "pass_with_findings"
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

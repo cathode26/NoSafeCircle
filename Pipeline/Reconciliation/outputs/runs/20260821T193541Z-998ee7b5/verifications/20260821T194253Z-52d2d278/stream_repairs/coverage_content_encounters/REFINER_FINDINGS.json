@@ -1,0 +1,306 @@
+{
+  "schema_version": "1.1",
+  "source_finding_count": 10,
+  "material_finding_count": 5,
+  "selected_finding_count": 10,
+  "selected_structural_warning_count": 5,
+  "findings": [
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-01",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Encounter activation/admission state has no owner-side floor-restart reset obligation",
+        "description": "The GDD names \"encounter activation/admission state\" as a required floor-restart reset participant and states that every system owning restart-persistent state must expose its own reset entry point invoked by the Floor Run/Restart Orchestrator. The candidate represents this only from the consumer side: `floor-run-restart-persistent-closure` declares a depends_on edge to `encounter-admission-cap-enforcement` with the reason \"Encounter activation/admission state is a named required reset participant\". The owner item itself (`encounter-admission-cap-enforcement`, lines 2280-2307) has three acceptance criteria (query registry capacity, delay/reduce rather than remove pursuers, consume the registry interface) and three validation requirements, none of which mention a reset entry point. Every other run-persistent owner in the candidate received an explicit owner-side criterion of the form \"Exposes an owner-controlled reset entry point...\" (active-enemy-registry line 867, enemy-health-damage-defeat line 941, enemy-status-effect-displacement line 1033, doorway-crossing-state line 1669, door-close-lock-break-lifecycle line 1777, fireball line 501, frost-field line 614, force-wave line 723, player-health line 265, player-mana line 346, player-movement line 171). This one owner is the sole omission, so an implementer could complete and close `encounter-admission-cap-enforcement` against its stated criteria while providing no reset surface, silently deferring the gap to the closure item.",
+        "affected_keys": [
+          "encounter-admission-cap-enforcement",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 - Win and Loss Conditions (Loss)",
+            "requirement": "Restart resets all run-persistent gameplay state to the floor's initial state, including ... Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state."
+          },
+          {
+            "reference": "Section 2 - Floor-run restart ownership",
+            "requirement": "Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns, and the orchestrator invokes those owned reset interfaces. Required reset participants include ... encounter activation/admission state."
+          },
+          {
+            "reference": "Section 5 - Runtime Implementation (Floor Run/Restart Orchestrator)",
+            "requirement": "... Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state must all participate once those systems exist."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "A glob of all Assets/**/*.cs returns only Door/Player/Camera/UI scripts and a grep for Encounter/Registry/Spawn returns no matches, confirming no encounter-admission implementation exists yet, so this criterion can still be added before any implementation work is dispatched."
+          }
+        ],
+        "recommended_change": "Add an explicit acceptance criterion to `encounter-admission-cap-enforcement` requiring an owner-controlled reset entry point that returns encounter activation/admission bookkeeping to its floor-initial state, consumed by the Floor Run/Restart Orchestrator rather than mutated externally, matching the wording pattern already used on every other run-persistent owner. Optionally add the matching restart validation requirement.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-02",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "No work item is obliged to author the sealed-door connections between the five named spaces, including the final door",
+        "description": "The GDD's required content is a floor of \"five connected spaces\" where \"[e]ach room ends at a door\" and the win condition is crossing \"the final door\". In the candidate, the door work items (`door-open-interaction`, `doorway-crossing-state`, `door-close-lock-break-lifecycle`) are reusable runtime component implementations; the `doors` feature has empty acceptance_criteria. `five-room-content-authoring`'s two acceptance criteria cover only (a) all five named spaces authored with their stated tactical purpose and (b) one continuous scene. `dungeon-encounter-content-authoring` authors \"per-door durability values\" — which presupposes door instances exist — but is never obliged to place them, and its acceptance criteria cover only composition/sizing. `final-escape-victory` consumes the crossing state of \"the final door\" without any item being obliged to author that door. An implementer could satisfy every mapped criterion and produce five room layouts in one scene with no doorway connectivity at all, leaving the required forward-only five-door progression and the final escape door unowned in the graph.",
+        "affected_keys": [
+          "five-room-content-authoring",
+          "dungeon-encounter-content-authoring",
+          "doors",
+          "final-escape-victory"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 1 - Executive Summary table (Playable Content)",
+            "requirement": "One handcrafted 2.5D isometric floor; five connected spaces."
+          },
+          {
+            "reference": "Section 1 - Executive Summary",
+            "requirement": "Each room ends at a door that takes five uninterrupted seconds to open. ... In the final room, the player must create enough distance from the pursuing enemies to open the final door and escape."
+          },
+          {
+            "reference": "Section 2 - Game Mechanics",
+            "requirement": "The player moves through connected rooms toward the final door. In each room, the objective is to click the next sealed door, reach its interaction position ..."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+            "observation": "The builder generates a single generic room (BuildFloor plane, BuildWalls two cubes, one DoorRoot/DoorInteractable) and saves it to the one canonical scene; no named-room or multi-door connectivity authoring exists, so this content responsibility is entirely future work with no current owner."
+          }
+        ],
+        "recommended_change": "Add an explicit acceptance criterion to `five-room-content-authoring` (or, if the human prefers, to `dungeon-encounter-content-authoring`) requiring that the five named spaces are connected in a forward-only sequence by authored sealed-door instances, with the Final Room's exit designated as the final escape door consumed by the victory capability. Ownership between the two deferred content features should be confirmed by a human before seeding.",
+        "requires_human_review": true
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-03",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Room-specific tactical checks are attached only to enemy/navigation owners, never to the room-authoring item that produces the geometry under test",
+        "description": "The GDD requires that Bone Archive's lane widths be validated against enemy movement/navigation requirements \"so both rooms' stated tactical geometry holds in practice\", and that Chapel of Ash's cover actually blocks Ranged Enemy shots. The candidate attaches the Bone Archive lane check to `enemy-pursuit-search-foundation` (line 1150) and `gameplay-navigation-locomotion` (line 2080), and the Chapel of Ash occlusion check to `ranged-enemy` (line 1336). `five-room-content-authoring` — the item that will actually author the lane widths, pews, and columns being validated — has `validation_requirements: []` and only a generic \"authored with their stated tactical layout purpose\" acceptance criterion. Both checks are joint checks over the navigation/attack configuration *and* the authored geometry; with no obligation recorded on the authoring side, the geometry-side constraints (lane width must exceed the navigation agent radius; Chapel cover must present real occluders to the line-of-sight check) can be silently lost when this deferred feature is decomposed into concrete room tasks.",
+        "affected_keys": [
+          "five-room-content-authoring",
+          "enemy-pursuit-search-foundation",
+          "gameplay-navigation-locomotion",
+          "ranged-enemy"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Runtime Implementation",
+            "requirement": "Ranged Enemy attacks include a line-of-sight/occlusion check, and Bone Archive's lane widths are validated against enemy movement/navigation requirements so both rooms' stated tactical geometry holds in practice."
+          },
+          {
+            "reference": "Section 4 - Development Agent Roles (Unity Validation Agent)",
+            "requirement": "Reviews changes and creates Play Mode checks ... including Bone Archive lane pathing, Chapel of Ash occlusion, Lower Vault enemy-cap priority ..."
+          },
+          {
+            "reference": "Section 3 - Dungeon Floor Structure",
+            "requirement": "Bone Archive: tall shelves and collapsed archive furniture create narrow lanes and chokepoints. Chapel of Ash: pews and stone columns provide line-of-sight breaks from the newly introduced Ranged Enemy."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "No named-room geometry, Tilemap content, or occluder authoring exists anywhere under Assets/, so these checks currently have no authored artifact and depend entirely on how the deferred room feature later decomposes."
+          }
+        ],
+        "recommended_change": "Add validation_requirements to `five-room-content-authoring` mirroring the Bone Archive lane-width/pathing check and the Chapel of Ash cover-occlusion check, scoped to the authored geometry side (lanes navigable at the configured agent radius; Chapel cover objects genuinely block the Ranged Enemy line-of-sight check), so the same checks are owned on both the authoring and the runtime side.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-04",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Ranged Enemy's required introduction point (Chapel of Ash) is preserved only as evidence prose, not as an authoring obligation",
+        "description": "The GDD states that Chapel of Ash is where the Ranged Enemy is \"newly introduced\", appearing there alongside Melee Enemy support, and the preceding rooms' tactical purposes are described purely in melee terms (Ruined Entry teaches circling a melee enemy; Bone Archive slows melee enemies in a lane). The candidate carries this sentence inside `five-room-content-authoring`'s gdd_evidence blob but nowhere as an obliging criterion. `dungeon-encounter-content-authoring`'s composition criteria only require that no encounter introduce a Ranged Enemy without Melee support and that Chapel of Ash and the Final Room be mixed. Under those criteria alone, an author could place a Melee+Ranged encounter in Ruined Entry without violating anything mapped, destroying the room-by-room introduction pacing the GDD specifies.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring",
+          "five-room-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 3 - Dungeon Floor Structure (Chapel of Ash)",
+            "requirement": "Pews and stone columns provide line-of-sight breaks from the newly introduced Ranged Enemy, which appears here alongside Melee Enemy support rather than alone."
+          },
+          {
+            "reference": "Section 3 - Dungeon Floor Structure (Ruined Entry / Bone Archive)",
+            "requirement": "Ruined Entry: the player learns to circle a melee enemy ... Bone Archive: melee enemies can be slowed inside a lane with Frost Field and clustered for Fireball."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "No encounter authoring exists in the repository, so this constraint exists only in the candidate's text and can still be added as a durable criterion."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `dungeon-encounter-content-authoring` stating that the Ranged Enemy is first introduced in Chapel of Ash and does not appear in the Ruined Entry or Bone Archive encounters, so the introduction pacing survives future decomposition.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-05",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Encounter-density scope-reduction fallback has no durable representation",
+        "description": "The GDD's Six-Week Development Plan fixes an explicit, bounded scope-cut policy that constrains encounter content: if required Weeks 5-6 work overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish, and required systems are not cut. The candidate has no record of this anywhere: a grep for \"density\", \"fallback\", and \"low end\" matches nothing outside the desired-state summary blob. The nearest typed record, `Agent scope and canon discipline`, only forbids agents from adding mechanics or redesigning the game; it does not preserve the direction of an authorized reduction or the protection of required systems. Without a durable record, a later schedule-pressure decision has no recorded boundary and could cut a required system or drop below three enemies in the Final Room.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring",
+          "encounter-admission-cap-enforcement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Six-Week Development Plan",
+            "requirement": "If required work in Weeks 5-6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut."
+          },
+          {
+            "reference": "Section 5 - Six-Week Development Plan",
+            "requirement": "Stretch features will be removed first if the schedule slips. ... The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Either add a typed `pipeline_constraint` record (e.g. \"Schedule-slip scope-reduction order\") capturing that stretch features are cut first, that the authorized encounter reduction is final-room density toward the low end of the three-to-eight range, and that required systems are never cut; or attach the density half as an acceptance/authoring note on `dungeon-encounter-content-authoring`.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-06",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "\"Encounter content consumes authored room spaces\" prerequisite survives only in the notes field of both deferred features",
+        "description": "The GDD states as a real prerequisite relationship that encounter placement/content consumes the authored room spaces. The candidate correctly declines to create an illegal feature -> feature dependency edge from `dungeon-encounter-content-authoring` to `five-room-content-authoring`, and correctly attaches the legal edge to `encounter-admission-cap-enforcement`. However, the room-space consumption relationship is preserved only in each item's free-text `notes` field, not in `decomposition_reason` or as an authoring criterion. `notes` is the weakest durable field in the record; if Progressive Decomposition consumes decomposition context rather than notes, the relationship could be lost precisely when concrete descendants exist and the real executable edge should be attached.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring",
+          "five-room-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - 2.5D Isometric Visual and World Representation",
+            "requirement": "Five-room visual/content authoring consumes this foundation once it exists; encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation. These are real prerequisite relationships even when the downstream content features remain deferred for future decomposition."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Restate the room-space consumption prerequisite inside `dungeon-encounter-content-authoring`'s `decomposition_reason` (in addition to notes), phrased so a Progressive Decomposer is instructed to attach a concrete encounter-placement -> authored-room implementation/artifact dependency once both features have concrete descendants.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Content Encounters",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "CE-07",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "Encounter-size validation attached to the admission item cannot be validated by that item's own scope",
+        "description": "`encounter-admission-cap-enforcement` carries the validation requirement \"Encounters use three to eight enemies and never exceed fifteen active enemies at once\" (line 2304-2306). The three-to-eight half of that criterion is an authored-content property owned by `dungeon-encounter-content-authoring` (where it correctly appears as acceptance criterion line 2409). The admission item is deliberately scoped to be dispatchable and testable without any authored encounter content — its own decomposition_reason and execution_reason both state this. Leaving the sizing half attached here risks the item being judged incomplete for a property it does not own and cannot exercise.",
+        "affected_keys": [
+          "encounter-admission-cap-enforcement",
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 3 - Player Experience Success Criteria",
+            "requirement": "Encounters use three to eight enemies and never exceed fifteen active enemies."
+          },
+          {
+            "reference": "Section 2 - Active Enemy Registry and Encounter Admission",
+            "requirement": "The registry/bookkeeping responsibility is a reusable runtime foundation and does not require the exact five-room encounter layouts, placements, or trigger authoring to be known first."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Narrow the admission item's validation requirement to the floor-wide fifteen-active-enemy ceiling and the delay/reduce-first admission behavior, and leave the three-to-eight per-encounter sizing as the authoring item's acceptance criterion (optionally adding a matching validation requirement there).",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R16",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Content Encounters classified requirement CE-R16 as required_gameplay/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 3 - Dungeon Floor Structure (Chapel of Ash)",
+            "requirement": "The Ranged Enemy is newly introduced in Chapel of Ash, appearing there alongside Melee Enemy support rather than alone (the preceding Ruined Entry and Bone Archive encounters are melee-based)."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R21",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Content Encounters classified requirement CE-R21 as required_gameplay/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [
+          "five-room-content-authoring",
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 1 - Executive Summary / Section 2 - Game Mechanics",
+            "requirement": "The five spaces are connected: each room ends at a sealed door the player must open to advance, and the Final Room's exit is the final door whose crossing wins the game."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R22",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Content Encounters classified requirement CE-R22 as required_process/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Six-Week Development Plan",
+            "requirement": "If required Weeks 5-6 work overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut and stretch features are removed first."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    }
+  ],
+  "selection_policy": "Refiner input contains all blocker/error findings, warnings whose categories indicate scheduler/representation risk, and coverage-origin requirement-representation suggestions. Other ordinary warnings and suggestions remain in MERGED_FINDINGS_PASS1.json and are reassessed during pass 2. This keeps refinement bounded while preventing a required coverage gap noticed in Pass 1 from being stranded until Pass 2."
+}
