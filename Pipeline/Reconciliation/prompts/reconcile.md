@@ -1638,25 +1638,29 @@ implementation, inspect repository truth and include
 Do not omit the file lock merely because DoorInteractable owns the door state.
 Input/selection wiring and door lifecycle state are separate write surfaces.
 
-### Cursor reference is a shared convention, not automatically Player Movement ownership
+### Shared pointer projection ownership and consumer dependencies
 
-The GDD says the cursor is the targeting reference for cursor-aimed spells and
-cursor-targeted interactions. It does not, by that statement alone, assign a
-shared cursor-world-target service to Player Movement.
+The current GDD explicitly assigns the shared cursor-to-gameplay-plane projection
+to Player Movement. Player Movement exposes the resulting world-space pointer
+target; movement, cursor-aimed spells, and Door/Interaction consume that shared
+result instead of independently projecting pointer coordinates.
 
 Therefore:
 
-- do not make Door Interaction, Frost Field, or Fireball depend on Player
-  Movement solely because each needs the cursor targeting/projection
-  convention;
-- do not invent a `player-movement`-owned cursor-world-target interface unless
-  current repository architecture or an explicit approved requirement
-  establishes that ownership;
-- a formal dependency is appropriate only if a concrete represented owner must
-  create an unfinished shared targeting capability first.
+- do not invent a second cursor-world-target owner inside Fireball, Frost Field,
+  or Door/Interaction;
+- when the Player Movement-owned shared projection capability is still unfinished,
+  a cursor-targeted executable consumer that requires it has a real prerequisite
+  on `player-movement` (or a later concrete artifact/implementation that owns the
+  same approved capability);
+- once that specific owner-side capability exists and remaining Player Movement
+  work is unrelated, re-evaluate the dependency under the normal existing-interface
+  rule rather than preserving stale ordering forever;
+- Force Wave remains the explicit player-centered radial exception and does not
+  depend on pointer projection for aiming.
 
-This does not change the separate charged-Fireball dependency on Player
-Movement when the movement-restriction interface is unfinished.
+Charged Fireball may also independently depend on Player Movement while its
+owner-controlled movement-restriction interface remains unfinished.
 
 ### Staged restart execution scope
 
@@ -1682,6 +1686,88 @@ AND full persistent restart closure depends on unfinished required spell reset o
 AND Frost Field feedback exists as acceptance behavior
 AND Fireball cursor-aiming is explicit
 AND Ranged Enemy slow/telegraphed attack is explicit
-AND cursor targeting has no invented Player Movement ownership
+AND shared cursor projection remains owned by Player Movement and unfinished consumers depend on that owner
 AND door interaction locks PlayerInteractionController.cs when it must modify it
+```
+
+---
+
+## 2026-08-21 VERIFIED CLOSURE
+
+These rules are derived from the current GDD plus the verified repository
+architecture and supersede older prompt language where they conflict.
+
+### Five-room content coverage must include all five named spaces
+
+`five-room-content-authoring` or its later concrete descendants must durably
+preserve the GDD's tactical/layout requirements for **all five** named spaces:
+Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, and Final Room.
+Do not let Ruined Entry or Final Room disappear merely because other rooms have
+more specialized validation cases.
+
+At the current coarse feature level, preserve the named-space requirements as
+acceptance/decomposition context without inventing exact geometry.
+
+### Cross-room pursuit is executable behavior
+
+Enemy pursuit/search must explicitly require actual forward traversal through
+open and broken doorways when navigation/passability permits it. The weaker
+statement "crossing a doorway does not clear pursuit" is not sufficient by
+itself. Preserve an acceptance criterion and validation requirement that a
+tracking/pursuing enemy can follow the player or last-known position through an
+open/broken doorway without losing target solely because of the crossing.
+
+### Locked-door attack uses existing tracking/pursuit state
+
+There is no separate `witnessed escape` state. A surviving enemy that is still
+actively tracking/pursuing the player and whose route is blocked by the newly
+locked door attacks that door through the Door-owned damage interface. An enemy
+that has already lost the player does not attack the door merely because it is
+nearby. When the door breaks, the still-tracking enemy continues pursuit through
+the now-passable doorway.
+
+### Current scene-builder writer locks
+
+Under the current prototype architecture, if implementing a spell or other
+runtime item requires adding/configuring that component or its feedback on
+objects generated/maintained through
+`Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs`, the
+work item must lock both:
+
+```text
+repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity
+```
+
+This currently applies to Fireball, Frost Field, and Force Wave when their
+implementation/integration writes through that builder/scene. Do not carry the
+locks forward if repository evidence later moves those write surfaces to a
+separately owned prefab/asset. Locks follow actual write/integration surfaces,
+not subsystem membership.
+
+### Enemy archetype prefab composition must have an owner
+
+The required Melee Enemy and Ranged Enemy are world-space SpriteRenderer prefab
+archetypes, not merely disconnected pursuit/health/attack components. At the
+current coarse graph level, `melee-enemy` and `ranged-enemy` should each own or
+explicitly deliver a usable assembled archetype prefab that integrates the
+shared pursuit/locomotion, Enemy Health/Defeat, Active Enemy Registry
+participation, archetype attack behavior, and world-space SpriteRenderer
+presentation required for that archetype. Dungeon Encounter consumes those
+usable archetypes for placement/content authoring.
+
+Do not create another composition task unless repository architecture actually
+establishes a separate concrete owner.
+
+### Final preflight
+
+Before returning the candidate, verify that:
+
+```text
+all five named spaces remain durably represented
+AND pursuit explicitly crosses open/broken doorways
+AND locked-door attack uses tracking/pursuit state rather than a witness flag
+AND unfinished shared pointer projection has correct consumer prerequisites
+AND current builder/scene writers carry matching locks
+AND Melee/Ranged archetype assembly has a concrete owner
 ```

@@ -838,6 +838,7 @@ REFINER_WARNING_CATEGORIES = {
     "under_decomposition",
     "overgrouped_work",
     "shared_capability_hidden",
+    "requirement_representation_problem",
 }
 
 
