@@ -1,0 +1,21 @@
+{
+  "pass_number": 1,
+  "candidate_text": "Force Wave: knock enemies back to create emergency space. Short range, centered on you. Long cooldown — use it when you need the opening most.",
+  "previous_score": 2,
+  "evaluation": {
+    "content_id": "vocabulary_lore_violation",
+    "score": 10,
+    "reason": "The tooltip uses the canonical ability name, correctly frames Force Wave as a short-range, player-centered knockback for emergency space, preserves the long-cooldown tradeoff, and uses restrained tactical language (\"opening\") consistent with the game's temporary-safety framing, all within the 40-word limit.",
+    "violations": []
+  },
+  "metadata": {
+    "role": "style evaluator",
+    "model": "sonnet",
+    "max_turns": 6,
+    "started_at_utc": "2026-08-21T02:55:13.058471+00:00",
+    "finished_at_utc": "2026-08-21T02:55:36.214709+00:00",
+    "duration_seconds": 23.16,
+    "session_id": "6da95d7a-26fa-4fa6-af01-f0c6afe383d9",
+    "num_turns": 2
+  }
+}

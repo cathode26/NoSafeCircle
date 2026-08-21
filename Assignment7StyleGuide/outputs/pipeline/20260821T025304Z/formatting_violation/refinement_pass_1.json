@@ -1,0 +1,61 @@
+{
+  "refinement_number": 1,
+  "input_text": "Be aware that once this locked door has broken, the broken door will remain standing open from now on, because its protection against pursuers was only ever meant to be temporary in the first place. Since the door is now broken, it cannot be relocked by you or anyone else under any circumstances. This means that any surviving enemies who were previously delayed by the locked door can, and will, continue their pursuit of you directly through the newly created breach in the doorway.",
+  "input_evaluation": {
+    "content_id": "formatting_violation",
+    "score": 3,
+    "reason": "At roughly 84 words against a 35-word hard limit, this door tutorial is dominated by repetitive exposition rather than the short, readable message the format requires, and it strengthens the supported qualifier \"can continue pursuing\" into a guaranteed \"can, and will, continue.\"",
+    "violations": [
+      {
+        "rule_id": "NSC-FORMAT-03",
+        "severity": "major",
+        "problematic_text": "Be aware that once this locked door has broken, the broken door will remain standing open from now on, because its protection against pursuers was only ever meant to be temporary in the first place. Since the door is now broken, it cannot be relocked by you or anyone else under any circumstances. This means that any surviving enemies who were previously delayed by the locked door can, and will, continue their pursuit of you directly through the newly created breach in the doorway.",
+        "explanation": "The candidate is roughly 84 words, more than double the supplied 35-word maximum for this door tutorial, which is a hard formatting requirement.",
+        "revision_instruction": "Cut the candidate down to no more than 35 words, keeping only the three required facts: the broken door stays open, it cannot be relocked, and delayed enemies can pursue through the breach."
+      },
+      {
+        "rule_id": "NSC-MECH-02",
+        "severity": "meaningful",
+        "problematic_text": "can, and will, continue their pursuit of you directly through the newly created breach",
+        "explanation": "The supported fact states surviving enemies 'can continue pursuing' through the breach, a qualified possibility. Adding 'and will' converts this into a guaranteed outcome, strengthening the qualifier beyond what is supported.",
+        "revision_instruction": "State that delayed surviving enemies can continue pursuing through the breach without adding 'and will' or otherwise guaranteeing that pursuit occurs."
+      },
+      {
+        "rule_id": "NSC-FORMAT-01",
+        "severity": "meaningful",
+        "problematic_text": "because its protection against pursuers was only ever meant to be temporary in the first place... it cannot be relocked by you or anyone else under any circumstances",
+        "explanation": "The repeated framing and phrases like 'under any circumstances' read as drawn-out exposition rather than the concise, immediately readable tactical message a door tutorial requires.",
+        "revision_instruction": "Trim redundant framing and deliver the breach, no-relock, and pursuit facts in one or two short, direct sentences."
+      }
+    ]
+  },
+  "refiner": {
+    "status": "revised",
+    "content_id": "formatting_violation",
+    "label": "Door Breach",
+    "text": "The door has broken and cannot be relocked. It stays open. Enemies delayed by it can continue pursuing through the breach.",
+    "addressed_rule_ids": [
+      "NSC-FORMAT-03",
+      "NSC-MECH-02",
+      "NSC-FORMAT-01"
+    ],
+    "changes_made": [
+      "Cut the text from roughly 84 words to 20 words, well within the 35-word limit.",
+      "Removed the strengthened 'can, and will' phrasing, restoring the qualified 'can continue pursuing.'",
+      "Eliminated repeated framing and redundant exposition, stating each of the three required facts once in short, direct sentences."
+    ],
+    "reason": "The revision delivers the three required facts (breach stays open, no relocking, delayed enemies can pursue through it) in 20 concise words, removes the guaranteed-pursuit overstatement, and drops the redundant exposition, matching the door tutorial format and the supported qualifiers."
+  },
+  "word_count": 21,
+  "metadata": {
+    "role": "style refiner",
+    "model": "sonnet",
+    "max_turns": 6,
+    "started_at_utc": "2026-08-21T02:56:11.939146+00:00",
+    "finished_at_utc": "2026-08-21T02:56:33.216414+00:00",
+    "duration_seconds": 21.28,
+    "session_id": "a8ad9c46-02c2-41f8-91b1-6aa347310ec7",
+    "num_turns": 4
+  },
+  "changed_text": true
+}

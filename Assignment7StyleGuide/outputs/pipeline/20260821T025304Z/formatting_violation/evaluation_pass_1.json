@@ -1,0 +1,29 @@
+{
+  "pass_number": 1,
+  "candidate_text": "The door has broken and cannot be relocked. It stays open. Enemies delayed by it can continue pursuing through the breach.",
+  "previous_score": 3,
+  "evaluation": {
+    "content_id": "formatting_violation",
+    "score": 9,
+    "reason": "The candidate accurately preserves all three required facts (broken door stays open, cannot be relocked, delayed enemies can still pursue through the breach) in restrained, non-heroic language well under the word limit. The only drift is that it is broken into three very short, choppy sentences rather than the guide's preferred one or two flowing sentences.",
+    "violations": [
+      {
+        "rule_id": "NSC-FORMAT-01",
+        "severity": "minor",
+        "problematic_text": "The door has broken and cannot be relocked. It stays open. Enemies delayed by it can continue pursuing through the breach.",
+        "explanation": "The style guide prefers one short paragraph or one to two short sentences for gameplay readability; this candidate is split into three fragmented sentences, making it feel more like a checklist than fluid tactical guidance.",
+        "revision_instruction": "Combine the three sentences into one or two smoother sentences while keeping all three required facts intact."
+      }
+    ]
+  },
+  "metadata": {
+    "role": "style evaluator",
+    "model": "sonnet",
+    "max_turns": 6,
+    "started_at_utc": "2026-08-21T02:56:33.226021+00:00",
+    "finished_at_utc": "2026-08-21T02:57:01.592906+00:00",
+    "duration_seconds": 28.37,
+    "session_id": "0c64ca86-10f7-4cd7-8453-2bdc01a6c62d",
+    "num_turns": 2
+  }
+}

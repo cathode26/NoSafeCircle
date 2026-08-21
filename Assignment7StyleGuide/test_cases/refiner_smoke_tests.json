@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "suite": "Assignment 7 Style Refiner Smoke Tests",
+  "game": "No Safe Circle",
+  "acceptance_score": 9,
+  "cases": [
+    {
+      "id": "tone_and_safety_violation",
+      "label": "Crossing and Locking",
+      "content_type": "door_tutorial",
+      "max_words": 35,
+      "content_requirements": [
+        "Explain that a locked door creates temporary recovery time.",
+        "Preserve the continuing threat from surviving pursuers.",
+        "Do not imply permanent safety."
+      ],
+      "candidate_text": "Amazing work, mighty Archmage! Lock the door and relax—you are completely safe now, and the pathetic monsters are no longer a threat.",
+      "expected_initial": {
+        "max_score": 6,
+        "required_any_rule_ids": [
+          "NSC-TONE-01",
+          "NSC-TONE-02",
+          "NSC-TONE-03"
+        ]
+      }
+    },
+    {
+      "id": "invented_lore_violation",
+      "label": "Force Wave",
+      "content_type": "spell_tooltip",
+      "max_words": 40,
+      "content_requirements": [
+        "Use the canonical Force Wave name.",
+        "Describe short-range radial knockback and emergency-space use.",
+        "Preserve the long-cooldown tradeoff.",
+        "Do not invent damage, stun, loot, factions, or other lore."
+      ],
+      "candidate_text": "By decree of the Ember Order, cast Thunder Nova to stun the Ash King's servants and claim their cursed relics.",
+      "expected_initial": {
+        "max_score": 5,
+        "required_any_rule_ids": [
+          "NSC-CANON-01",
+          "NSC-CANON-02"
+        ]
+      }
+    },
+    {
+      "id": "formatting_violation",
+      "label": "Door Breach",
+      "content_type": "door_tutorial",
+      "max_words": 35,
+      "content_requirements": [
+        "Explain that the broken door remains open.",
+        "Explain that it cannot be relocked.",
+        "Keep the message concise and readable during play."
+      ],
+      "candidate_text": "When the locked door finally breaks, the doorway remains open and cannot be relocked. This means the enemies who were delayed behind it can enter the current room and continue their pursuit, so you should remember that the time provided by a locked door is only a temporary opportunity to recover and prepare rather than a permanent refuge from danger.",
+      "expected_initial": {
+        "max_score": 8,
+        "required_any_rule_ids": [
+          "NSC-FORMAT-01",
+          "NSC-FORMAT-03"
+        ]
+      }
+    }
+  ]
+}

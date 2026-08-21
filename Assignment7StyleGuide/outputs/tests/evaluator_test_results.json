@@ -1,0 +1,187 @@
+{
+  "suite": "Assignment 7 Style Evaluator Smoke Tests",
+  "game": "No Safe Circle",
+  "model": "sonnet",
+  "started_from": "/workspace/Assignment7StyleGuide/test_cases/evaluator_smoke_tests.json",
+  "completed_at_utc": "2026-08-21T02:28:43.926072+00:00",
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "errors": 0,
+    "all_passed": true
+  },
+  "results": [
+    {
+      "case_id": "known_good",
+      "label": "Known-good No Safe Circle copy",
+      "candidate_text": "Force Wave knocks nearby enemies back to create emergency space. Its mana cost and long cooldown make the opening temporary.",
+      "expectation": {
+        "min_score": 8,
+        "max_score": 10,
+        "required_any_rule_ids": [],
+        "forbidden_rule_ids": [
+          "NSC-CANON-02"
+        ],
+        "max_violations": 2
+      },
+      "evaluator": {
+        "content_id": "known_good",
+        "score": 10,
+        "reason": "The tooltip uses direct tactical language, correct canonical terminology (Force Wave), and explicitly frames the created opening as temporary due to its mana cost and cooldown, matching the game's core temporary-control principle with no unsupported claims.",
+        "violations": []
+      },
+      "metadata": {
+        "model": "sonnet",
+        "max_turns": 4,
+        "started_at_utc": "2026-08-21T02:27:44.505663+00:00",
+        "finished_at_utc": "2026-08-21T02:28:00.756885+00:00",
+        "duration_seconds": 16.25,
+        "session_id": "06fea4e2-0928-43be-b6a4-b08f69338a8a",
+        "num_turns": 2
+      },
+      "shape_errors": [],
+      "expectation_errors": [],
+      "status": "pass"
+    },
+    {
+      "case_id": "tone_and_safety_violation",
+      "label": "Heroic tone and permanent-safety violation",
+      "candidate_text": "Amazing work, mighty Archmage! Lock the door and relax—you are completely safe now, and the pathetic monsters are no longer a threat.",
+      "expectation": {
+        "min_score": 1,
+        "max_score": 6,
+        "required_any_rule_ids": [
+          "NSC-TONE-01",
+          "NSC-TONE-02",
+          "NSC-TONE-03"
+        ],
+        "forbidden_rule_ids": [],
+        "min_violations": 1
+      },
+      "evaluator": {
+        "content_id": "tone_and_safety_violation",
+        "score": 2,
+        "reason": "The candidate is dominated by heroic, congratulatory power-fantasy language, invents a player title not supported by canon, and directly claims permanent safety while asserting surviving enemies are no longer a threat, contradicting the game's core temporary-safety and persistent-threat principles.",
+        "violations": [
+          {
+            "rule_id": "NSC-TONE-01",
+            "severity": "major",
+            "problematic_text": "Amazing work, mighty Archmage!",
+            "explanation": "This is congratulatory, triumphant heroic-fantasy language, directly opposite the tense, restrained, tactical tone required for door tutorials.",
+            "revision_instruction": "Remove the congratulatory exclamation and address the player with direct tactical instruction instead of praise."
+          },
+          {
+            "rule_id": "NSC-CANON-01",
+            "severity": "major",
+            "problematic_text": "mighty Archmage",
+            "explanation": "The style guide specifies the canonical player term is 'wizard'; 'Archmage' is an invented player title not established by the GDD.",
+            "revision_instruction": "Replace 'Archmage' with the canonical term 'wizard' or remove the title entirely."
+          },
+          {
+            "rule_id": "NSC-TONE-03",
+            "severity": "major",
+            "problematic_text": "relax—you are completely safe now",
+            "explanation": "This states permanent, complete safety, directly violating the core style principle that safety is only ever temporary.",
+            "revision_instruction": "Replace with language describing a temporary opening or brief recovery window, not permanent safety."
+          },
+          {
+            "rule_id": "NSC-MECH-05",
+            "severity": "major",
+            "problematic_text": "the pathetic monsters are no longer a threat",
+            "explanation": "This implies surviving enemies have been permanently removed or neutralized, contradicting the rule that persistent threats remain persistent and can still break through locked doors.",
+            "revision_instruction": "Remove the claim that enemies are no longer a threat; indicate instead that the door only buys time before pursuers can return."
+          },
+          {
+            "rule_id": "NSC-CANON-01",
+            "severity": "meaningful",
+            "problematic_text": "pathetic monsters",
+            "explanation": "The style guide requires preserving canonical enemy naming (Melee Enemy/Ranged Enemy) when the distinction is mechanically relevant, rather than substituting a generic dismissive term like 'monsters.'",
+            "revision_instruction": "Use the canonical enemy terms or a neutral generic reference, and drop the dismissive 'pathetic' framing that trivializes danger."
+          }
+        ]
+      },
+      "metadata": {
+        "model": "sonnet",
+        "max_turns": 4,
+        "started_at_utc": "2026-08-21T02:28:00.757472+00:00",
+        "finished_at_utc": "2026-08-21T02:28:26.450084+00:00",
+        "duration_seconds": 25.69,
+        "session_id": "6150d7c3-011e-419b-b718-62ec8fd53d61",
+        "num_turns": 3
+      },
+      "shape_errors": [],
+      "expectation_errors": [],
+      "status": "pass"
+    },
+    {
+      "case_id": "invented_lore_violation",
+      "label": "Invented lore and renamed ability violation",
+      "candidate_text": "By decree of the Ember Order, cast Thunder Nova to stun the Ash King's servants and claim their cursed relics.",
+      "expectation": {
+        "min_score": 1,
+        "max_score": 5,
+        "required_any_rule_ids": [
+          "NSC-CANON-01",
+          "NSC-CANON-02"
+        ],
+        "forbidden_rule_ids": [],
+        "min_violations": 1
+      },
+      "evaluator": {
+        "content_id": "invented_lore_violation",
+        "score": 2,
+        "reason": "The candidate is dominated by invented lore (the \"Ember Order\" and \"Ash King's servants\"), uses a renamed ability (\"Thunder Nova\") in place of canonical abilities, and adds an unsupported stun effect plus an invented loot system, none of which are supported by the No Safe Circle canon.",
+        "violations": [
+          {
+            "rule_id": "NSC-CANON-02",
+            "severity": "major",
+            "problematic_text": "By decree of the Ember Order ... the Ash King's servants",
+            "explanation": "Invents an unsupported faction (the Ember Order) and an unsupported antagonist/faction (the Ash King), which is exactly the kind of unauthorized worldbuilding this rule prohibits.",
+            "revision_instruction": "Remove all references to the Ember Order and the Ash King; do not attribute the ability to any faction or decree."
+          },
+          {
+            "rule_id": "NSC-CANON-01",
+            "severity": "major",
+            "problematic_text": "cast Thunder Nova",
+            "explanation": "\"Thunder Nova\" is not a canonical ability name (Fireball, Charged Fireball, Frost Field, Force Wave); renaming an ability for flavor is not allowed.",
+            "revision_instruction": "Replace the invented ability name with one of the canonical abilities (e.g. Force Wave or Fireball) that matches the described effect."
+          },
+          {
+            "rule_id": "NSC-MECH-03",
+            "severity": "major",
+            "problematic_text": "to stun the Ash King's servants",
+            "explanation": "Stun is not an effect associated with any canonical ability in the style guide or GDD; adding it invents an unsupported mechanic.",
+            "revision_instruction": "Remove the stun effect or replace it with an effect actually attributed to the chosen canonical ability (e.g. knockback for Force Wave, slow for Frost Field)."
+          },
+          {
+            "rule_id": "NSC-CANON-02",
+            "severity": "meaningful",
+            "problematic_text": "claim their cursed relics",
+            "explanation": "Introduces an invented loot/artifact system not established by the canonical GDD.",
+            "revision_instruction": "Remove the reference to relics or loot; keep the tooltip focused on the ability's tactical effect."
+          },
+          {
+            "rule_id": "NSC-TONE-01",
+            "severity": "meaningful",
+            "problematic_text": "By decree of the Ember Order, cast Thunder Nova...claim their cursed relics",
+            "explanation": "The flowery, ceremonial, lore-heavy framing reads as fantasy narration rather than the tense, direct tactical language the tone guide calls for.",
+            "revision_instruction": "Rewrite as a direct tactical instruction describing the ability's use and limitation, without ceremonial or lore-driven phrasing."
+          }
+        ]
+      },
+      "metadata": {
+        "model": "sonnet",
+        "max_turns": 4,
+        "started_at_utc": "2026-08-21T02:28:26.450535+00:00",
+        "finished_at_utc": "2026-08-21T02:28:43.925934+00:00",
+        "duration_seconds": 17.48,
+        "session_id": "28d63324-3cf0-45b9-a90f-bd233e1dc1d8",
+        "num_turns": 2
+      },
+      "shape_errors": [],
+      "expectation_errors": [],
+      "status": "pass"
+    }
+  ]
+}

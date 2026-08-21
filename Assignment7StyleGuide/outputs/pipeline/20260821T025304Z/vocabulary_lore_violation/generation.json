@@ -1,0 +1,44 @@
+{
+  "case": {
+    "id": "vocabulary_lore_violation",
+    "label": "Force Wave",
+    "content_type": "spell_tooltip",
+    "style_problem": "vocabulary_lore",
+    "max_words": 40,
+    "require_refinement": true,
+    "content_requirements": [
+      "The corrected final content must use the canonical ability name Force Wave.",
+      "Describe Force Wave as a player-centered short-range radial knockback used to create emergency space.",
+      "Preserve that Force Wave has a long cooldown.",
+      "Do not add factions, player titles, antagonists, loot, or other unsupported lore in the corrected final content."
+    ],
+    "task_context": {
+      "canonical_player": "wizard",
+      "canonical_ability": "Force Wave",
+      "supported_facts": [
+        "Force Wave is player-centered.",
+        "Force Wave is a short-range radial knockback.",
+        "Force Wave creates emergency space.",
+        "Force Wave has a long cooldown."
+      ]
+    },
+    "generator_instruction": "Create an intentionally lore-mismatched spell tooltip while keeping the underlying tactical idea recognizable. Rename Force Wave to 'Thunder Nova', call the wizard an 'Archmage of the Ember Order', and refer to the enemies as 'servants of the Ash King'. Mention 'cursed relics' as fantasy flavor. Do not invent any additional mechanical effect such as stun, freeze, damage, or teleportation. This naming and lore mismatch is intentional for the downstream Style Evaluator to detect and repair."
+  },
+  "generation": {
+    "status": "generated",
+    "content_id": "vocabulary_lore_violation",
+    "label": "Force Wave",
+    "text": "Thunder Nova: The Archmage of the Ember Order unleashes a radial burst around themself, hurling servants of the Ash King back and carving out emergency breathing room. Whispered to stir the dust of cursed relics. Long cooldown between castings.",
+    "reason": "Kept the tactical core (player-centered short-range radial knockback for emergency space, long cooldown) intact while applying the requested lore mismatch: renamed Force Wave to 'Thunder Nova', relabeled the wizard as 'Archmage of the Ember Order', called enemies 'servants of the Ash King', and added 'cursed relics' flavor text. No additional mechanics (stun, freeze, damage, teleport) or extra unsupported lore were introduced."
+  },
+  "metadata": {
+    "role": "generator",
+    "model": "sonnet",
+    "max_turns": 6,
+    "started_at_utc": "2026-08-21T02:54:33.910051+00:00",
+    "finished_at_utc": "2026-08-21T02:54:41.490909+00:00",
+    "duration_seconds": 7.58,
+    "session_id": "0f4902f8-b076-4a93-a7a8-23436e7ceb8d",
+    "num_turns": 2
+  }
+}

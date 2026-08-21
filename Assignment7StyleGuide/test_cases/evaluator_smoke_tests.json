@@ -1,0 +1,58 @@
+{
+  "schema_version": "1.0",
+  "suite": "Assignment 7 Style Evaluator Smoke Tests",
+  "game": "No Safe Circle",
+  "cases": [
+    {
+      "id": "known_good",
+      "label": "Known-good No Safe Circle copy",
+      "content_type": "spell_tooltip",
+      "max_words": 35,
+      "candidate_text": "Force Wave knocks nearby enemies back to create emergency space. Its mana cost and long cooldown make the opening temporary.",
+      "expectation": {
+        "min_score": 8,
+        "max_score": 10,
+        "required_any_rule_ids": [],
+        "forbidden_rule_ids": [
+          "NSC-CANON-02"
+        ],
+        "max_violations": 2
+      }
+    },
+    {
+      "id": "tone_and_safety_violation",
+      "label": "Heroic tone and permanent-safety violation",
+      "content_type": "door_tutorial",
+      "max_words": 35,
+      "candidate_text": "Amazing work, mighty Archmage! Lock the door and relax—you are completely safe now, and the pathetic monsters are no longer a threat.",
+      "expectation": {
+        "min_score": 1,
+        "max_score": 6,
+        "required_any_rule_ids": [
+          "NSC-TONE-01",
+          "NSC-TONE-02",
+          "NSC-TONE-03"
+        ],
+        "forbidden_rule_ids": [],
+        "min_violations": 1
+      }
+    },
+    {
+      "id": "invented_lore_violation",
+      "label": "Invented lore and renamed ability violation",
+      "content_type": "spell_tooltip",
+      "max_words": 35,
+      "candidate_text": "By decree of the Ember Order, cast Thunder Nova to stun the Ash King's servants and claim their cursed relics.",
+      "expectation": {
+        "min_score": 1,
+        "max_score": 5,
+        "required_any_rule_ids": [
+          "NSC-CANON-01",
+          "NSC-CANON-02"
+        ],
+        "forbidden_rule_ids": [],
+        "min_violations": 1
+      }
+    }
+  ]
+}
