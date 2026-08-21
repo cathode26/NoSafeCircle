@@ -53,21 +53,24 @@ def main() -> int:
                         graph[left].add(right)
 '''
     new_conflicts = '''        # A record-level remove/upsert conflicts with every field operation on the
-        # same record. Expand wildcard entries into the field buckets before deciding
-        # whether operations are compatible.
-        record_entries: dict[str, list[tuple[str, str, dict[str, Any]]]] = defaultdict(list)
-        for target, entries in operation_entries.items():
-            target_type, target_id, field = target.split(":", 2)
-            record_key = f"{target_type}:{target_id}"
+        # same record. Use structured operation fields directly rather than parsing the
+        # human-readable target string; titles/questions may legitimately contain colons.
+        record_entries: dict[tuple[str, str], list[tuple[str, str, dict[str, Any]]]] = defaultdict(list)
+        for entries in operation_entries.values():
             for audit_key, operation in entries:
-                record_entries[record_key].append((field, audit_key, operation))
+                target_type = str(operation.get("target_type", "")).strip()
+                target_id = str(operation.get("target_id", "")).strip()
+                op_name = str(operation.get("op", "")).strip()
+                field = "*" if op_name in {"remove_record", "upsert_record"} else str(operation.get("field", "")).strip()
+                record_entries[(target_type, target_id)].append((field, audit_key, operation))
 
-        for record_key, entries in sorted(record_entries.items()):
+        for (target_type, target_id), entries in sorted(record_entries.items()):
+            record_label = f"{target_type}:{target_id}"
             wildcard_entries = [entry for entry in entries if entry[0] == "*"]
             if wildcard_entries:
                 audit_keys = sorted({entry[1] for entry in entries})
                 if len(audit_keys) > 1:
-                    target = f"{record_key}:*"
+                    target = f"{record_label}:*"
                     conflicting_targets[target] = audit_keys
                     for left in audit_keys:
                         for right in audit_keys:
@@ -86,7 +89,7 @@ def main() -> int:
                     continue
                 if _field_operations_compatible(operations):
                     continue
-                target = f"{record_key}:{field}"
+                target = f"{record_label}:{field}"
                 conflicting_targets[target] = audit_keys
                 for left in audit_keys:
                     for right in audit_keys:
