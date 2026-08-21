@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-010",
+  "title": "Enemies",
+  "reconciliation_key": "enemies",
+  "kind": "feature",
+  "type": "feature",
+  "status": "open",
+  "execution_scope": "not_applicable",
+  "execution_reason": "Feature/organizational node; not directly dispatchable.",
+  "decomposition_state": "coarse",
+  "decomposition_reason": "This is an organizational parent for shared enemy state/persistence capabilities. The GDD already specifies enough for the three concrete child implementation items below (registry, health/defeat, status-effect/displacement); no further top-level decomposition is needed for this bootstrap. Enemy archetype behavior (Melee/Ranged pursuit, attacks, locked-door attack) is owned by the separate enemy_behavior domain and is not represented under this node's evidence to avoid duplicate ownership.",
+  "parent": "NSC-001",
+  "depends_on": [],
+  "exclusive_resources": [],
+  "acceptance_criteria": [],
+  "validation_requirements": [],
+  "gdd_evidence": [
+    {
+      "reference": "Section 1 — Required Scope, Exclusions, and Stretch Goals",
+      "requirement": "Required scope includes 'two enemies' (Melee Enemy and Ranged Enemy) as part of the required game."
+    },
+    {
+      "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+      "requirement": "A shared Active Enemy Registry tracks persistent active enemy objects and enforces a hard 15-active-enemy cap."
+    },
+    {
+      "reference": "Section 3 — Enemy health and defeat ownership",
+      "requirement": "A reusable Enemy Health/Defeat capability owns each persistent enemy object's health, damage intake, and defeat transition."
+    },
+    {
+      "reference": "Section 2 — Spell-local state ownership",
+      "requirement": "Enemy-side Frost slowdown application/restoration is owned by Enemy Pursuit/status-effect logic, distinct from the spell that triggers it."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Aggregate repository_state is missing because none of this domain's represented child work (registry, health/defeat, status-effect/displacement) currently exists anywhere in Assets/. Enemy roster stats, pursuit/attack behavior, and locked-door attack ownership belong to the enemy_behavior domain's nodes (enemy-pursuit-search-foundation, melee-enemy, ranged-enemy, locked-door-enemy-attack) and are intentionally not duplicated here.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

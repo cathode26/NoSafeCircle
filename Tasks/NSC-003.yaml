@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-003",
+  "title": "Mouse-Directed Player Movement, Shared Pointer Projection, and Movement Restriction",
+  "reconciliation_key": "player-movement",
+  "kind": "implementation",
+  "type": "implementation",
+  "status": "open",
+  "execution_scope": "single_agent",
+  "execution_reason": "All required responsibilities are cohesively owned by one system (PlayerMovement.cs) plus its Input Actions and builder/scene wiring; it is a bounded rewrite of one component's input/locomotion model rather than a multi-system integration.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The required behavior (mouse-directed movement via Input System, shared pointer projection, movement-restriction interface, reset entry point) is fully specified by current GDD text without inventing new design.",
+  "parent": "NSC-002",
+  "depends_on": [],
+  "exclusive_resources": [
+    "repo-file:Assets/InputSystem_Actions.inputactions",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "reference": "GDD §2 Move and Aim",
+      "requirement": "Movement is mouse-directed: a click sets a destination the wizard walks toward, and holding continues steering toward the current cursor position, consumed through Unity Input System/Input Actions rather than direct hardware polling."
+    },
+    {
+      "reference": "GDD §2 Player Movement ownership",
+      "requirement": "Exposes a shared world-space pointer target produced by projecting the cursor onto the gameplay plane, consumable by cursor-aimed spells and Door/Interaction without those systems independently projecting screen coordinates."
+    },
+    {
+      "reference": "GDD §2 Player Movement ownership; §4 Development Agent Ownership Invariants",
+      "requirement": "Exposes an owner-controlled movement-restriction request/release interface that Charged Fireball can use to restrict movement while charging without Fireball mutating movement internals directly."
+    },
+    {
+      "reference": "GDD §2 Floor-run restart ownership",
+      "requirement": "Exposes an owner-controlled reset entry point that restores player position/movement state to the floor's initial state, consumed by the Floor Run/Restart Orchestrator rather than having position mutated externally."
+    },
+    {
+      "reference": "Section 2 — Victory/input-shutdown ownership bullet; Section 4 — Final escape/victory coordination invariant",
+      "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels any in-progress input-driven movement (including an active click-to-destination approach), rejects new movement commands while suspended, and is re-enabled only through an authorized reset/test flow; consumed by the Game Flow/Victory capability rather than having movement internals mutated directly."
+    },
+    {
+      "reference": "GDD §2 Victory/input-shutdown ownership; §4 Development Agent Ownership Invariants",
+      "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface that immediately stops already-active input-driven movement, rejects new movement commands while suspended, and can be re-enabled only through an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "GDD §2 Move and Aim",
+      "requirement": "Play Mode validation that clicking a location moves the wizard toward it and that holding steers continuously toward the live cursor position."
+    },
+    {
+      "reference": "GDD §2 Player Movement ownership",
+      "requirement": "Validate that the exposed world-space pointer target is correctly consumable by a cursor-aimed spell or Door/Interaction integration once those systems exist."
+    },
+    {
+      "reference": "Victory/input-shutdown ownership",
+      "requirement": "Play Mode check: invoking the suspend interface while movement is active immediately halts the wizard's in-progress movement (including an active click-to-destination approach), and further movement input has no effect until an authorized re-enable/reset flow runs."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "GDD §2 Player Actions and Systems — Move and Aim",
+      "requirement": "Mouse-directed movement through the shared Unity Input System/Input Actions layer: click to set a destination or hold to keep steering toward the cursor; Player Movement owns the shared cursor-to-gameplay-plane projection and exposes the resulting world-space pointer target consumed by movement, cursor-aimed spells, and cursor-targeted interactions (Force Wave is the exception)."
+    },
+    {
+      "reference": "GDD §2 Resources, Feedback, and Failure — Player Movement ownership",
+      "requirement": "Player Movement owns position, locomotion, movement-restriction state, and the shared cursor-to-gameplay-plane projection; runtime input is routed through Input System/Input Actions rather than direct hardware polling; Charged Fireball requests/releases its movement restriction through an owner-controlled Player Movement interface without mutating movement internals."
+    },
+    {
+      "reference": "GDD §2 Loss — Floor-run restart ownership",
+      "requirement": "Player Movement/player position is a required reset participant invoked by the Floor Run/Restart Orchestrator through an owner-controlled reset entry point."
+    },
+    {
+      "reference": "Section 2 — Victory/input-shutdown ownership bullet",
+      "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Exact movement speed/feel tuning is left to playtesting per GDD and is not part of this item's required acceptance surface.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "evidence_type": "code",
+      "observation": "Implements only CharacterController-driven WASD movement via direct Keyboard.current polling; no mouse-directed movement, cursor projection, movement-restriction interface, or reset entry point exist."
+    },
+    {
+      "path": "Assets/InputSystem_Actions.inputactions",
+      "evidence_type": "project_setting",
+      "observation": "Unmodified stock Unity template action asset; Player map has only WASD/Dpad Move and button actions (Attack/Interact/Crouch/Jump/etc.), no cursor-to-gameplay-plane or click-to-move action, and PlayerMovement.cs does not reference it."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "evidence_type": "scene",
+      "observation": "PlayerMovement.cs (guid 356044e6782dd0641a7e69b0abfa5c4a) is serialized on the Player GameObject, confirming current WASD movement is the integrated state, not merely available via the builder."
+    }
+  ],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

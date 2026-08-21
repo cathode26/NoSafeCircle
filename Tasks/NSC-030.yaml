@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-030",
+  "title": "Dungeon Encounter Placement and Composition Authoring",
+  "reconciliation_key": "dungeon-encounter-content-authoring",
+  "kind": "feature",
+  "type": "content-authoring",
+  "status": "open",
+  "execution_scope": "not_applicable",
+  "execution_reason": "Deferred content-authoring feature; not yet a bounded dispatchable unit.",
+  "decomposition_state": "needs_future_decomposition",
+  "decomposition_reason": "Exact encounter placements, triggers, per-door durability values, and Final Room pressure composition are explicitly left to later authoring/playtesting by the GDD; only composition/sizing rules (3-8 enemies, never-isolated Ranged Enemy, mixed compositions in two named rooms, Ranged Enemy first introduced in Chapel of Ash) are currently fixed. Inventing exact placements/triggers now would fabricate missing design. Encounter placement/content authoring is a real prerequisite consumer of the room spaces produced by five-room-content-authoring (GDD Section 5 — 2.5D Isometric Visual and World Representation: 'encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation'); once both features gain concrete descendants, a Progressive Decomposer must attach a concrete encounter-placement -> authored-room implementation/artifact dependency between those descendants rather than a feature-to-feature edge.",
+  "parent": "NSC-027",
+  "depends_on": [
+    "NSC-028",
+    "NSC-021",
+    "NSC-015",
+    "NSC-016"
+  ],
+  "exclusive_resources": [],
+  "acceptance_criteria": [
+    {
+      "reference": "Section 3 — Required Enemy Roster",
+      "requirement": "No authored encounter introduces a Ranged Enemy without at least one accompanying Melee Enemy in that same encounter."
+    },
+    {
+      "reference": "Section 3 — Player Experience Success Criteria",
+      "requirement": "Each authored encounter uses between three and eight enemies; the registry-enforced fifteen-active-enemy ceiling remains a separate floor-wide constraint."
+    },
+    {
+      "reference": "Section 4 — Dungeon Encounter Agent",
+      "requirement": "Chapel of Ash and the Final Room are authored with mixed Melee/Ranged compositions as required; Dungeon Encounter authors the per-door durability configuration value but does not implement runtime durability state, damage intake, or the locked-to-broken transition."
+    },
+    {
+      "reference": "Section 3 — Dungeon Floor Structure (Chapel of Ash / Ruined Entry / Bone Archive)",
+      "requirement": "The Ranged Enemy is first introduced in the Chapel of Ash encounter, always alongside Melee Enemy support; the Ruined Entry and Bone Archive encounters remain melee-only."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "Section 3 — Player Experience Success Criteria",
+      "requirement": "Verify each authored encounter uses between three and eight enemies; the registry-enforced fifteen-active-enemy floor-wide ceiling is validated separately by encounter-admission-cap-enforcement."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Section 4 — Dungeon Encounter Agent",
+      "requirement": "Authors placements, triggers, configured per-door durability values, and final-room pressure, including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room. Does not own runtime door durability state, damage intake, or the locked-to-broken transition."
+    },
+    {
+      "reference": "Section 3 — Required Enemy Roster",
+      "requirement": "Ranged Enemies never appear as an isolated encounter: every encounter that introduces one also includes at least one Melee Enemy. A Ranged Enemy may end up fighting alone only if its Melee support is defeated first."
+    },
+    {
+      "reference": "Section 3 — Player Experience Success Criteria",
+      "requirement": "Encounters use three to eight enemies and never exceed fifteen active enemies."
+    },
+    {
+      "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
+      "requirement": "Room-specific encounter authoring consumes the registry/admission foundation once it exists; it is not itself required to exist before that foundation is built."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "No formal dependency on five-room-content-authoring (both are deferred organizational features per the GDD-hardening example prohibiting feature-to-feature dependencies); it consumes authored room spaces once five-room-content-authoring produces concrete descendants, preserved here as decomposition context only.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

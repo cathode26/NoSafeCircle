@@ -1,0 +1,111 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-007",
+  "title": "Charged Fireball",
+  "reconciliation_key": "fireball",
+  "kind": "implementation",
+  "type": "spell",
+  "status": "open",
+  "execution_scope": "single_agent",
+  "execution_reason": "Fireball is one cohesive spell component (tap/charge/cast state, mana spend, movement-restriction request, enemy-damage request, reset, suspend) matching the GDD's own granularity for a single agent task; the anti-decomposition instruction explicitly disallows splitting a spell into projectile/input/damage subtasks absent further approved design.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "GDD Section 2 fully specifies Fireball's tap/charge behavior, cost/restriction relationship, and area-vs-single-target tradeoff; no missing design blocks representing it as one bounded implementation item.",
+  "parent": "NSC-006",
+  "depends_on": [
+    "NSC-003",
+    "NSC-012"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+    "repo-file:Assets/InputSystem_Actions.inputactions"
+  ],
+  "acceptance_criteria": [
+    {
+      "reference": "Section 2 — Player Actions and Systems, Fireball row",
+      "requirement": "Tap-cast produces a quick, mobile, cursor-aimed shot suited to a single or separated enemy; hold-to-charge costs more mana, restricts movement further, and deals area damage effective against clustered enemies."
+    },
+    {
+      "reference": "Section 2 — Player Movement ownership bullet",
+      "requirement": "While charging, Fireball requests the charging movement restriction through an owner-controlled Player Movement interface and releases it when charging ends/cancels/fires; Fireball never mutates Player Movement internals directly."
+    },
+    {
+      "reference": "Section 2 — Resources, Feedback, and Failure / Development Agent Ownership Invariants",
+      "requirement": "Fireball spends mana for both tap and charge casts through Player Mana's existing owner-controlled Spend interface, with charge costing more than tap."
+    },
+    {
+      "reference": "Section 3 — Enemy health and defeat ownership bullet",
+      "requirement": "Fireball damages enemies only by requesting damage through the Enemy Health/Defeat owner-controlled damage interface; it does not write enemy health directly."
+    },
+    {
+      "reference": "Section 2 — Player Movement ownership / Runtime Implementation",
+      "requirement": "Fireball consumes the shared world-space pointer target exposed by Player Movement for cursor aiming rather than independently projecting screen coordinates."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation / Section 2 Player Movement ownership bullet",
+      "requirement": "Fireball's casting input (tap/charge/release) is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+    },
+    {
+      "reference": "Section 2 — Spell-local state ownership bullet",
+      "requirement": "Fireball owns its tap/charge/cast state and exposes an owner-controlled reset entry point for that state, consumed by the Floor Run/Restart Orchestrator, so no residual charge/cast state survives a floor restart."
+    },
+    {
+      "reference": "Section 2 — Victory/input-shutdown ownership bullet",
+      "requirement": "Fireball exposes an owner-controlled gameplay-enable/suspend interface that immediately stops active charging/casting, rejects new cast input while suspended, and can be re-enabled by an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "Section 2 — Spell and Enemy Interactions table / Section 3 Ruined Entry tactical purpose",
+      "requirement": "Validate that a full charge produces meaningful area damage against multiple naturally-clustering pursuing Melee Enemies, not just a single target, and that charging is interruptible/unsafe once enemies close distance."
+    },
+    {
+      "reference": "Section 2 — Spell and Enemy Interactions, Charged Fireball vs Ranged row",
+      "requirement": "Validate that a tap shot remains usable against a Ranged Enemy's telegraphed attack pattern where a full charge is impractical."
+    },
+    {
+      "reference": "Section 2 — Floor-run restart ownership",
+      "requirement": "Validate that triggering a floor restart while Fireball is mid-charge/mid-cast clears that state through Fireball's own reset entry point rather than leaving residual charge/cooldown state."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Section 2 — Player Actions and Systems, Fireball row",
+      "requirement": "Aim with the cursor. Tap for a quick, mobile shot against a single/separated enemy. Hold to charge: costs more mana and restricts movement further, rewarding preparation by damaging multiple clustered enemies."
+    },
+    {
+      "reference": "Section 2 — Spell and Enemy Interactions, Charged Fireball row",
+      "requirement": "Melee enemies naturally cluster while pursuing, making them strong area-damage targets; charging becomes unsafe once they close distance. Against Ranged Enemies, telegraphed attacks force movement, reducing available charge time; quick shots are safer but do less damage/area."
+    },
+    {
+      "reference": "Section 2 — Player Movement ownership bullet",
+      "requirement": "Charged Fireball requests and releases its charging movement restriction through an owner-controlled Player Movement interface; Fireball does not directly mutate movement internals."
+    },
+    {
+      "reference": "Section 2 — Spell-local state ownership bullet",
+      "requirement": "Fireball owns its tap/charge/cast state... Each owner exposes a reset entry point for any owned state that can still be active when a floor restart occurs."
+    },
+    {
+      "reference": "Section 2 — Win and Loss Conditions, Victory/input-shutdown ownership",
+      "requirement": "Fireball exposes an owner-controlled gameplay-enable/suspend interface that can immediately stop/cancel current input-driven activity, reject new commands while suspended, and be re-enabled by an authorized reset/test flow."
+    },
+    {
+      "reference": "Section 3 — Required Enemy Roster / Enemy health and defeat ownership bullet",
+      "requirement": "Fireball and any other canon-required damage source request damage through the Enemy Health/Defeat owner-controlled interface rather than writing enemy health directly."
+    },
+    {
+      "reference": "Section 4 — Development Agent Ownership Invariants, Wizard Combat Agent bullet",
+      "requirement": "Charged Fireball consumes the Player Movement restriction interface instead of mutating movement internals; spells consume Player Mana through its spend interface."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "medium",
+  "notes": "Currently blocked on two real cross-domain prerequisites (player-movement's cursor/restriction interfaces, enemy-health-damage-defeat's damage interface); no dependency on player-mana is needed because PlayerMana.Spend already exists and is directly usable.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}
