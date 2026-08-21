@@ -1,68 +1,135 @@
 # Context 1 — Persistent Work Artifacts + Dependency Graph
 
-## Goal
+## Status
 
-Build the durable local planning foundation for the No Safe Circle autonomous AI development pipeline.
+**COMPLETE — 2026-08-21**
 
-This milestone should work without Claude/LLMs.
+Milestone 1 is implemented, validated against the real No Safe Circle graph, merged into `main`, and present on `adversarial-architecture-review`.
 
-It should also become useful quickly enough that the next step is a real gameplay task, not another long stretch of infrastructure-only development.
+Do not treat this file as an instruction to rebuild Milestone 1. It is now the completion record and semantic reference for the persistent work graph.
 
-## Why
+The next pipeline milestone is:
 
-Assignment 5 repeatedly reconstructed what work exists, what depends on what, what is blocked, and what is ready. That is expensive and ephemeral.
+`Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md`
 
-The project should remember this locally.
+Current live status is always summarized in:
 
-Assignment 6 added a second lesson: once a real bounded piece of work is selected, a GER repair loop can implement, evaluate, refine, and eventually approve or escalate it.
+`Docs/AI-Pipeline/CURRENT_STATE.md`
 
-A later architecture review identified a third requirement: not every high-level feature can be safely decomposed all the way into implementation tickets in advance. Some work requires missing design/content artifacts first.
+## Goal That Was Achieved
 
-Milestone 1 therefore stores a coarse truthful work graph and calculates readiness deterministically.
+Milestone 1 replaced repeated full-LLM reconstruction of project work state with a durable deterministic local graph.
 
-Progressive AI decomposition belongs to Milestone 2, not this milestone.
+The project can now remember:
 
-## Pre-Seed Multi-Model Verification
+- what work exists;
+- stable work identity;
+- parent/feature structure;
+- dependencies;
+- execution scope;
+- exclusive-resource conflicts;
+- project-level non-code constraints;
+- what is complete/open;
+- and which concrete one-agent tasks are executable right now.
 
-Before the deterministic Work Graph Seeder consumes reconciliation output, the candidate must pass the Reconciliation Verification Crew. The crew uses independent model-diverse GDD coverage, graph-structure, repository-evidence, and execution-scope audits. Findings are unioned rather than majority-voted. A bounded Refiner may produce a new candidate, which is re-verified. Only the human-approved verified candidate may be seeded.
+No LLM is required to load, validate, inspect, or calculate readiness for the persistent graph.
 
-## Critical Reconciliation Rule
+## Bootstrap Provenance
 
-Reconciliation is an immutable input snapshot, not the task database.
+The initial graph was not seeded directly from an unverified LLM plan.
 
-Each reconciliation run is versioned. The persistent graph may be seeded or
-updated only from an approved proposed delta. Rerunning reconciliation does not
-directly cascade edits through `Tasks/*.yaml`.
-
-Do not seed this graph directly from old Assignment 5 goal-selection output.
-
-Before assigning status or dependencies:
-
-1. inspect the current `main` branch;
-2. inspect current GDD requirements;
-3. use prior assignment artifacts as evidence/history;
-4. mark implementation work complete only if the integrated repository state supports it.
-
-Assignment 6 treated Mana as already completed for lightweight reselection, but that does not remove the need to verify merge state when building the durable graph.
-
-The Assignment 6 fixed isometric camera work is the newest known implementation slice and should also be reconciled against current `main`.
-
-## Deliverables
-
-Create:
+It passed this trust path:
 
 ```text
-Tasks/
-  NSC-001.yaml
-  NSC-002.yaml
-  ...
+Current GDD + repository state
+        ↓
+Immutable reconciliation snapshot
+        ↓
+Independent multi-model verification
+        ↓
+Bounded refinement / re-verification
+        ↓
+0 final material findings
+        ↓
+Human approval manifest
+        ↓
+Deterministic Work Graph Seeder
+        ↓
+Persistent Tasks/*.yaml
 ```
 
-and a local Python CLI called `taskcontrol`.
+Approved source reconciliation:
+
+`20260821T193541Z-998ee7b5`
+
+Successful verification:
+
+`20260821T195959Z-43dba5de`
+
+Approval manifest:
+
+`Pipeline/TaskGraph/APPROVED_BOOTSTRAP.json`
+
+Bootstrap completion marker:
+
+`Pipeline/TaskGraph/BOOTSTRAP_PERSISTED.json`
+
+The bootstrap marker is published last. Its hashes bind the initial seed state historically; they are not live immutable checksums that prevent legitimate later task-state updates.
+
+## Persistent Graph Produced
+
+The initial approved graph contains:
+
+- 37 work records
+- 12 `feature`
+- 25 `implementation`
+- 0 `artifact` at initial bootstrap
+- 36 `open`
+- 1 `complete`
+- 59 dependency edges
+- 36 parent edges
+- 7 exclusive-resource groups
+- 17 project-level non-code requirements
+- one root: `NSC-001` / `no-safe-circle`
+
+The only initially complete implementation is:
+
+`NSC-023 — Fixed Isometric Camera`
+
+Persistent task files:
+
+```text
+Tasks/NSC-001.yaml
+...
+Tasks/NSC-037.yaml
+```
+
+Persistent metadata:
+
+```text
+Pipeline/TaskGraph/WORK_ID_MAP.json
+Pipeline/TaskGraph/PROJECT_REQUIREMENTS.yaml
+Pipeline/TaskGraph/RESOURCE_GROUPS.yaml
+Pipeline/TaskGraph/BOOTSTRAP_PERSISTED.json
+```
+
+The `.yaml` records use a deterministic JSON-compatible YAML 1.2 subset. This intentionally keeps the loader on Python's standard `json` parser and avoids adding a YAML dependency merely for the persistent graph.
+
+## Stable IDs and Traceability
+
+The project root is permanently allocated:
+
+`no-safe-circle → NSC-001`
+
+The remaining initial IDs preserve the approved seed-record order.
+
+Each persistent task keeps a `reconciliation_key` linking the operational work item back to the reconciliation record that proposed it.
+
+Once persisted, IDs are durable work identity. Future reconciliation must not recalculate or renumber them merely because a new snapshot has different ordering.
 
 ## Work Kinds
 
-Milestone 1 supports three work kinds:
+Milestone 1 supports:
 
 ```text
 feature
@@ -72,354 +139,231 @@ implementation
 
 ### `feature`
 
-High-level work that may require further decomposition.
+Organizational or high-level work that may require later progressive decomposition.
 
-A feature is not directly handed to an implementation worker.
-
-Examples:
-
-- Five-Room World
-- Room 3
-- Combat System
+Feature nodes are not directly handed to implementation workers.
 
 ### `artifact`
 
-Work whose output is a design/content artifact.
+Work whose output is an approved design/content artifact.
 
-An artifact may become a dependency of later artifact or implementation work.
-
-Artifact generation/authority/evaluation is Milestone 2+ behavior, but Milestone 1 must be able to represent the dependency.
-
-Examples:
-
-- Room 3 Encounter Specification
-- Failure Hint Set
-- Spell Progression Specification
+Milestone 1 can represent this kind even though no artifact records were needed in the initial bootstrap. Artifact authority, generation, evaluation, and promotion belong to Milestone 2+.
 
 ### `implementation`
 
-Concrete project work that an implementation worker can execute.
-
-Examples:
-
-- Implement Melee Enemy Chase
-- Add Fireball Projectile
-- Configure Room 3 Door
-
-## Initial Work Schema
-
-```yaml
-id: NSC-014
-title: Mana Resource System
-reconciliation_key: player-mana
-
-kind: implementation
-type: gameplay
-status: open
-
-execution_scope: single_agent
-execution_reason: Bounded resource-system implementation with a focused API and direct tests.
-
-source_requirements:
-  - GDD-MANA-001
-
-depends_on: []
-
-scope:
-  - Add mana pool
-  - Spend mana
-  - Regenerate after delay
-
-out_of_scope:
-  - Fireball
-  - Frost Field
-  - Force Wave
-
-acceptance_criteria:
-  - Spending reduces mana when enough is available
-  - Spending fails without mutation when mana is insufficient
-  - Regeneration pauses after spending
-  - Regeneration resumes after configured delay
-  - Mana cannot exceed maximum
-
-priority: required
-risk: low
-estimated_effort: small
-parent: ""
-claims: []
-```
-
-Do not over-design the schema before the first working version.
-
-## Artifact Work Example
-
-Milestone 1 only needs to represent artifact work.
-
-Generation and evaluation happen later.
-
-```yaml
-id: NSC-A130
-title: Room 3 Encounter Specification
-reconciliation_key: room-3-encounter-spec
-
-kind: artifact
-type: encounter-design
-status: open
-
-execution_scope: single_agent
-execution_reason: Bounded design-artifact deliverable once authorized; no Unity integration is part of this record.
-
-parent: NSC-130
-
-source_requirements:
-  - GDD-WORLD-001
-  - GDD-ENCOUNTER-001
-
-depends_on: []
-
-artifact_path: Design/Encounters/Room3.md
-
-scope:
-  - Define encounter structure
-  - Use existing enemy types
-  - Define enemy placement and pressure
-  - Define door/progression interaction
-
-out_of_scope:
-  - New factions
-  - New spells
-  - New enemy archetypes
-  - Unsupported lore
-
-acceptance_criteria:
-  - Uses only authorized mechanics and enemies
-  - Provides enough detail for implementation decomposition
-  - Does not contradict GDD canon
-
-priority: required
-risk: medium
-estimated_effort: small
-claims: []
-```
-
-This example is illustrative. Do not create Room 3 artifact work unless the actual project reconciliation shows it is needed.
+Concrete project work that can eventually be executed by an implementation worker when dependencies and execution scope permit it.
 
 ## Execution Scope Semantics
 
-Execution scope is separate from `decomposition_state`.
+Execution scope is separate from design completeness/decomposition state.
 
-- `single_agent` — a focused implementation agent can execute and meaningfully validate the work in one bounded handoff.
-- `needs_execution_decomposition` — approved design is sufficiently concrete, but the implementation record still bundles too many responsibilities/systems/validation targets for one safe handoff.
-- `human_integration_required` — the next meaningful step fundamentally requires human Unity/editor/integration judgment.
+Allowed values:
+
+- `single_agent` — safe bounded one-agent handoff.
+- `needs_execution_decomposition` — approved design is concrete enough, but implementation responsibilities are still too broad for one safe handoff.
+- `human_integration_required` — the next meaningful action fundamentally requires human integration/editor judgment.
 - `not_applicable` — feature/organizational or already-complete work.
-- `unknown` — legacy or insufficiently reviewed work; not safe for autonomous selection.
+- `unknown` — insufficiently reviewed/legacy state; not safe for autonomous selection.
 
-Do not substitute subjective `easy/medium/hard` scoring for this field. Difficulty and handoff size are different.
+The initial graph contains:
 
-The Progressive Decomposer has two distinct jobs later:
+- 16 `single_agent`
+- 8 `needs_execution_decomposition`
+- 13 `not_applicable`
 
-1. **design decomposition** when `decomposition_state` says approved design is missing/too coarse;
-2. **execution decomposition** when design is already concrete but `execution_scope: needs_execution_decomposition`.
+Progressive Decomposition remains a later semantic step:
 
-Execution decomposition may split known implementation responsibilities but cannot invent new mechanics/content.
+1. **design decomposition** when approved information is missing/too coarse;
+2. **execution decomposition** when design is already approved but one implementation record is too broad.
+
+Execution decomposition may split known responsibilities. It may not invent new mechanics or content.
 
 ## Status Semantics
 
-Durable work files may initially use:
+Milestone 1 persistent work uses:
 
 - `open`
 - `complete`
 
-Operational states such as Claimed/In Progress/Validating should eventually be synchronized through GitHub rather than constantly committed into work files.
+Operational transient states such as Claimed/In Progress/Validating belong later in the supervisor/GitHub layer rather than being committed constantly into every task branch.
 
-The key local truth is whether a dependency has been completed/approved.
+Production completion semantics remain:
 
-### Completion Rules
+- implementation work is complete only when integrated repository evidence supports the claim, eventually requiring merge to `main`;
+- artifact work is complete only after required authority/evaluation and promotion to trusted project input;
+- feature nodes are organizational and are not direct execution tickets.
 
-`implementation` is complete when the current integrated project supports that claim.
+## Reconciliation Boundary
 
-Later, production semantics should require merge to `main`.
+Reconciliation is an immutable observation snapshot, not the mutable task database.
 
-`artifact` is complete only when the artifact has been approved by its required authority/evaluation process.
+A new reconciliation run:
 
-During Milestone 1 bootstrapping, do not invent approved artifacts merely to satisfy dependencies.
+1. observes current GDD/repository state;
+2. creates a new immutable snapshot;
+3. may propose graph additions/changes/conflicts;
+4. never directly rewrites the persistent graph.
 
-`feature` is organizational/decomposition work. It is not directly executable.
+The living operational state is `Tasks/*.yaml`.
 
-A feature may be considered complete when its required child work is complete, but do not implement automatic roll-up unless needed for the first useful graph.
+Future graph changes must cross an explicit deterministic diff/review/apply boundary. Safe cascading readiness changes are computed from the graph, not written by an LLM.
 
-## Required `taskcontrol` Commands
+## Core Implementation
+
+Milestone 1 implementation lives under:
+
+`Pipeline/TaskGraph/`
+
+Important files include:
+
+- `bootstrap_inputs.py` — loads the human-approved immutable verification artifacts and rechecks bound hashes/invariants.
+- `work_graph_transform.py` — deterministic stable-ID allocation and in-memory transformation.
+- `work_graph_validate.py` — structural, dependency, hierarchy, execution-scope, resource-group, provenance, and project-requirement validation.
+- `work_graph_persist.py` — staged persistence, reload/revalidation, publication, and final completion marker.
+- `seed_work_graph.py` — dry-run/apply entry point for the one-time initial bootstrap.
+- `persistent_work_graph.py` — live persisted-graph loader.
+- `taskcontrol.py` — deterministic graph CLI.
+- associated smoke tests.
+
+The initial bootstrap is one-shot. Do not rerun `seed_work_graph.py --apply` after `BOOTSTRAP_PERSISTED.json` exists.
+
+## `taskcontrol`
+
+Implemented commands:
 
 ```text
-python -m taskcontrol list
-python -m taskcontrol show NSC-014
-python -m taskcontrol validate
-python -m taskcontrol ready
-python -m taskcontrol graph
+python Pipeline/TaskGraph/taskcontrol.py validate
+python Pipeline/TaskGraph/taskcontrol.py list
+python Pipeline/TaskGraph/taskcontrol.py show NSC-003
+python Pipeline/TaskGraph/taskcontrol.py ready
+python Pipeline/TaskGraph/taskcontrol.py graph
 ```
 
 ### `validate`
 
-Detect:
+The live loader and graph validator check the current persistent state rather than blindly trusting that the initial seed was valid forever.
 
-- duplicate work IDs
-- missing dependency IDs
-- self-dependencies
-- cycles
-- invalid `kind`
-- invalid status values
-- malformed required fields
-- invalid `execution_scope` values
-- open executable work incorrectly marked `not_applicable`
+Validation covers, among other things:
+
+- duplicate IDs/reconciliation keys;
+- filename/ID consistency;
+- valid ID format;
+- ID-map/task consistency;
+- valid kind/status/execution-scope enums;
+- malformed required fields;
+- one correct project root;
+- valid parent references;
+- connected/acyclic parent hierarchy;
+- valid dependencies;
+- dependency acyclicity;
+- bootstrap provenance consistency;
+- exclusive-resource group consistency;
+- project-requirement structure;
+- open executable work incorrectly marked `not_applicable`.
 
 ### `ready`
 
-An autonomous-agent executable work item is ready when:
+A work item is executable-ready when:
 
-1. it is not complete;
-2. every item in `depends_on` is complete;
-3. its `kind` is `artifact` or `implementation`;
-4. `execution_scope` is `single_agent`.
+1. `status == open`;
+2. `kind` is `artifact` or `implementation`;
+3. `execution_scope == single_agent`;
+4. every `depends_on` item is complete.
 
-Feature nodes, `needs_execution_decomposition`, `human_integration_required`, and `unknown` execution scopes are not returned as autonomous ready work. `taskcontrol` should report those truthfully as separate blocked/decomposition/integration states rather than pretending they are executable.
+Feature nodes, decomposition-needed work, human-integration work, and unknown-scope work are not returned as executable-ready.
 
-Eventually support:
-
-```text
-python -m taskcontrol ready --json
-```
-
-### `graph`
-
-Text output is enough initially.
-
-Example:
+The first real ready frontier contained seven tasks:
 
 ```text
-NSC-100 Five-Room World [FEATURE]
-  └─ NSC-130 Room 3 [FEATURE]
-      └─ NSC-A130 Room 3 Encounter Specification [ARTIFACT / READY]
-          ├─ NSC-131 Room 3 Layout [IMPLEMENTATION / BLOCKED]
-          └─ NSC-132 Room 3 Enemy Configuration [IMPLEMENTATION / BLOCKED]
+NSC-003  Mouse-Directed Player Movement, Shared Pointer Projection, and Movement Restriction
+NSC-004  Player Health Ownership, Restore, Death Transition, and Feedback
+NSC-005  Player Mana Ownership, Restart Reset, and Denied-Cast Feedback
+NSC-011  Active Enemy Registry
+NSC-020  Shared Doorway-Crossing State (Forward-Side Crossing Detection)
+NSC-024  Tilemap and AI Navigation Package Configuration
+NSC-037  Windows Build Scene Registration
 ```
 
-This is only an example.
+This was the key Milestone 1 proof: the repository can now answer **what can safely execute now** without rebuilding a roadmap in an LLM context.
 
-Do not create speculative distant child work merely to make the graph look complete.
+### `list`, `show`, and `graph`
 
-Do not spend time on a fancy visualization until graph logic is correct.
+`list` provides the compact full backlog with status/kind/execution scope.
 
-## Terminology
+`show <ID>` exposes the bounded task contract including dependencies, exclusive resources, acceptance criteria, validation requirements, notes, and bootstrap repository state.
 
-Use `ready_work`, `ready_tasks`, or `actionable_work`.
+`graph` reconstructs the feature hierarchy and dependency edges in human-readable text.
 
-Avoid "leaf node" because its meaning depends on edge direction.
+## Real First-Task Example
 
-## Deterministic Ranking
+`NSC-003` is a concrete `single_agent` task with no dependencies and is a strong anchor for the next pipeline slice.
 
-Later allow fields such as `unlock_value` and rank obvious ready work locally.
+Its contract includes:
 
-Example scoring may use:
+- mouse-directed click/hold movement through Unity Input System/Input Actions;
+- shared cursor-to-gameplay-plane projection;
+- owner-controlled movement restriction for Charged Fireball;
+- owner-controlled reset entry point;
+- owner-controlled gameplay suspend/re-enable behavior;
+- Unity integration through the relevant Input Actions, builder, and canonical scene resources.
 
-- required scope
-- unlock value
-- foundation value
-- risk
-- effort
+Milestone 2 should use real near-term gameplay work like this when testing compact context generation rather than building generic infrastructure in isolation.
 
-The exact weights matter less than avoiding an LLM call for obvious comparisons.
+## Resource-Conflict Semantics
 
-Do not add ranking until deterministic readiness works.
+Exclusive resource claims describe integration/conflict surfaces; they do not automatically imply dependency edges.
 
-## Seed Work Candidates
+Initial shared resource groups include logical ownership surfaces plus concrete Unity assets such as:
 
-Reasonable initial candidates to reconcile against the current GDD/project include:
+- `Assets/InputSystem_Actions.inputactions`
+- `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs`
+- `Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs`
+- `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity`
 
-- fixed isometric camera
-- mouse-directed movement
-- Tilemap world foundation
-- navigation foundation
-- mana
-- Fireball
-- Frost Field
-- Force Wave
-- melee enemy
-- ranged enemy
-- door lifecycle
-- death/restart
-- five-room world
-- encounter/content work only where the current design actually requires it
+These become especially important later when the supervisor introduces claims/worktrees and eventually parallel workers.
 
-These are candidates, not truth.
+## Lessons Preserved from Milestone 1
 
-Do not assume exact dependencies or status without checking the current GDD/project.
+1. **Repository state beats conversation memory.**
+2. **Reconciliation is observation, not mutable project state.**
+3. **Human approval is a real authority boundary.**
+4. **The graph should be coarse and truthful rather than exhaustively speculative.**
+5. **Execution size and design completeness are different questions.**
+6. **A resource collision is not automatically a dependency.**
+7. **Deterministic code owns IDs, dependency bookkeeping, validation, and readiness.**
+8. **LLMs should be reserved for semantic judgment/decomposition/implementation where they add value.**
+9. **Infrastructure must quickly feed real game implementation.**
+10. **Do not fully decompose distant features just to make the graph look complete.**
 
-## Progressive-Decomposition Boundary
+## Completion Criteria — Satisfied
 
-Milestone 1 does not run Claude to decompose feature nodes.
+Milestone 1 satisfies its intended completion criteria:
 
-It only stores enough structure to support later progressive decomposition.
-
-Do not fully decompose distant features in advance.
-
-If a high-level feature cannot yet be represented as concrete artifact/implementation work without inventing design, leave it coarse.
-
-Milestone 2 will inspect bounded near-frontier feature work and decide whether:
-
-- enough approved information exists to produce child implementation work; or
-- a missing design/content artifact must be proposed.
-
-## Post-Assignment-6 Execution Hand-off
-
-Milestone 1 does not need to implement the production GER supervisor.
-
-But its output must be useful to one.
-
-Once `taskcontrol ready` works:
-
-1. inspect the ready/near-ready frontier;
-2. if a `single_agent` implementation item is ready, it can later be executed through the Assignment 6 GER pattern;
-3. if a concrete item is `needs_execution_decomposition`, Milestone 2 splits implementation responsibilities without inventing design;
-4. if only design-coarse feature work remains, Milestone 2 design decomposition / Artifact Authority is the next requirement.
-
-## Runtime-Aware Planning Note
-
-Implementation acceptance criteria should be written so later validation can distinguish "code exists" from "feature works."
-
-For interactive Unity tasks, avoid acceptance criteria that can only be satisfied by source inspection if the intended behavior is visual, timing-dependent, or runtime-dependent.
-
-Assignment 6 demonstrated why this matters: the camera satisfied static criteria before the game was actually usable.
-
-## Assignment 7 Note
-
-Do not add style-guide tasks merely because Assignment 7 exists.
-
-Assignment 7 will become useful when progressive decomposition identifies an authorized style-sensitive artifact such as player-facing hints, tutorial text, or another content form grounded in actual No Safe Circle needs.
-
-The Style Evaluator will judge generated artifact quality.
-
-It will not authorize new content creation.
-
-## Completion Criteria
-
-1. Work files are parseable.
-2. Graph validation catches bad graphs.
-3. `feature`, `artifact`, and `implementation` kinds are represented.
-4. `ready` is deterministic.
-5. Feature nodes are not returned as executable ready work.
-6. Completing/approving a dependency causes downstream executable work to become ready.
-7. No LLM is required for any of the above.
-8. Seeded state has been reconciled against current `main`, not copied blindly from old assignment output.
-9. Seeded records preserve a stable `reconciliation_key` linking operational work back to the reconciliation record that proposed it.
-10. Reconciliation reruns create immutable snapshots and cannot directly rewrite `Tasks/*.yaml`.
-11. A deterministic reconciliation diff can classify agreement, proposed additions/changes, and conflicts before graph mutation.
-12. Dependency/status changes cascade through deterministic graph computation, not LLM file rewrites.
-13. `taskcontrol ready` returns only `single_agent` executable work.
-14. The graph can distinguish design-decomposition needs, execution-decomposition needs, and human integration from ordinary dependency blocking.
-15. The graph can identify at least one real next executable item or truthfully report why no autonomous one-agent task is ready.
+- work files are parseable;
+- stable persistent IDs exist;
+- `feature`, `artifact`, and `implementation` are supported;
+- graph validation catches malformed/unsafe graph state;
+- parent and dependency graphs are connected/acyclic as required;
+- readiness is deterministic;
+- feature nodes are not returned as executable work;
+- `single_agent` execution scope is enforced by readiness;
+- the initial graph was reconciled against current GDD/repository state rather than copied from old assignment output;
+- seeded records preserve `reconciliation_key` traceability;
+- reconciliation history is immutable and cannot directly rewrite `Tasks/*.yaml`;
+- dependency/status changes cascade through deterministic computation;
+- the graph distinguishes ordinary blocking from execution-decomposition and human-integration states;
+- the real graph identifies a truthful executable frontier.
 
 ## Next
 
-After Milestone 1 works, continue with `02_RAG_SCANNER_CONTEXT.md`.
+Milestone 1 is closed.
 
-Milestone 2 will add RAG/scanner context, progressive decomposition, and artifact authority rather than forcing Milestone 1 to become LLM-dependent.
+Continue with:
+
+`Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md`
+
+Before substantial Milestone 2 infrastructure, review the M1-complete architecture through:
+
+`Pipeline/ArchitectureReview/README.md`
+
+Then build the smallest Milestone 2 context/decomposition slice that directly advances real No Safe Circle gameplay.
