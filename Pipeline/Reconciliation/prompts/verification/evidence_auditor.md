@@ -125,3 +125,7 @@ Evidence provenance is strict. Prompt text, verifier instructions, patch scripts
 
 `CLAUDE.md` is automatically loadable operating context, not an approved reconciliation evidence source. Any candidate string that uses `CLAUDE.md` as authority for a requirement, dependency, ownership decision, lock, summary conclusion, or unresolved design claim is an evidence-provenance defect even if the underlying conclusion can be supported elsewhere. Require the claim to be re-sourced to the real GDD/repository evidence or explicitly labeled as derived rationale.
 
+## 2026-08-21 FINAL MATERIAL CONVERGENCE
+
+For `fixed-isometric-camera`, distinguish requirement evidence from implementation evidence. Fixed isometric presentation/no free rotation is GDD-backed. Player-follow translation through `IsometricCameraFollow.cs` is valid current repository behavior but must not be presented as a GDD requirement unless the current GDD actually says so.
+
