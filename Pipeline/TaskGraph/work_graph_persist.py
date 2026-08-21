@@ -255,6 +255,10 @@ def persist_work_graph(
         os.replace(staged_tasks, paths.tasks_dir)
         published.append(paths.tasks_dir)
 
+        # Publishing into a clean repository must not assume Pipeline/TaskGraph already exists.
+        # os.replace() requires the destination parent directory to exist on Windows and POSIX.
+        paths.id_map_path.parent.mkdir(parents=True, exist_ok=True)
+
         staged_taskgraph = staging_dir / "Pipeline" / "TaskGraph"
         for filename, target in (
             ("WORK_ID_MAP.json", paths.id_map_path),
