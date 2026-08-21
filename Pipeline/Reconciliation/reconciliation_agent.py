@@ -885,6 +885,62 @@ def _collect_internal_provenance_paths(
     return hits
 
 
+
+
+def sanitize_non_authoritative_summary_provenance(
+    payload: dict[str, Any],
+) -> list[str]:
+    """
+    Remove contaminated summary bullets without weakening authoritative provenance checks.
+
+    summary.major_findings is disposable human-facing synthesis. A worker can state a
+    substantively correct finding while accidentally naming an internal verifier/patch
+    label. Throwing away nine completed reconciliation workers for that prose mistake is
+    unnecessary. Remove only the contaminated summary bullet and retain a clean warning.
+
+    All remaining candidate fields still pass through validate_reconciliation_provenance,
+    so GDD evidence, repository evidence, dependencies, locks, acceptance/validation
+    requirements, unresolved questions, and other graph-bearing content remain strict.
+    """
+    summary = payload.get("summary", {})
+    if not isinstance(summary, dict):
+        return []
+
+    findings = summary.get("major_findings", [])
+    if not isinstance(findings, list):
+        return []
+
+    cleaned: list[Any] = []
+    removed: list[str] = []
+    for finding in findings:
+        if _collect_internal_provenance_paths(finding):
+            removed.append(str(finding))
+        else:
+            cleaned.append(finding)
+
+    if not removed:
+        return []
+
+    summary["major_findings"] = cleaned
+
+    seed = payload.setdefault(
+        "seed_assessment",
+        {"status": "ready_with_warnings", "blockers": [], "warnings": []},
+    )
+    warnings = seed.setdefault("warnings", [])
+    warning = (
+        "Deterministic provenance guard removed "
+        f"{len(removed)} non-authoritative summary finding(s) containing "
+        "internal pipeline provenance language. Authoritative graph/evidence "
+        "fields remain subject to strict provenance validation."
+    )
+    if warning not in warnings:
+        warnings.append(warning)
+    if seed.get("status") == "ready":
+        seed["status"] = "ready_with_warnings"
+
+    return removed
+
 def validate_reconciliation_provenance(payload: dict[str, Any]) -> None:
     """Reject internal operating/bookkeeping text used as reconciliation evidence."""
     hits = _collect_internal_provenance_paths(payload)
@@ -1493,6 +1549,7 @@ def run_semantic_validation(payload: dict[str, Any]) -> None:
     ensure_requirement_detail_defaults(payload)
     ensure_execution_scope_defaults(payload)
     normalize_execution_scope_consistency(payload)
+    sanitize_non_authoritative_summary_provenance(payload)
     normalize_seed_assessment_consistency(payload)
     ensure_exclusive_resource_defaults(payload)
     validate_reconciliation_provenance(payload)
