@@ -235,13 +235,42 @@ def _remove_unique(sequence: list[Any], value: Any, *, field: str) -> None:
     ]
 
 
+def _operation_changes_record_identity(operation: dict[str, Any]) -> bool:
+    """Return True when an operation changes the durable lookup identity of a record.
+
+    Streaming repair operations are always expressed relative to the immutable source
+    candidate. If a repair both edits a record and renames its identity field, all edits
+    that still target the original identity must run before the rename.
+    """
+    target_type = str(operation.get("target_type", "")).strip()
+    if target_type not in COLLECTION_SPECS:
+        return False
+    _, id_field = COLLECTION_SPECS[target_type]
+    return (
+        str(operation.get("op", "")).strip() == "set"
+        and str(operation.get("field", "")).strip() == id_field
+    )
+
+
 def apply_stream_operations(
     source_payload: dict[str, Any],
     operations: list[dict[str, Any]],
 ) -> dict[str, Any]:
     payload = copy.deepcopy(source_payload)
 
-    for operation in operations:
+    # Every operation is addressed against the ORIGINAL immutable candidate. A set on
+    # a collection identity field (work_item.key, non-code/deferred title, or unresolved
+    # question text) therefore has to be applied after every non-identity edit. Preserve
+    # original relative ordering inside each group so the repair remains deterministic.
+    indexed_operations = list(enumerate(operations))
+    indexed_operations.sort(
+        key=lambda pair: (
+            1 if _operation_changes_record_identity(pair[1]) else 0,
+            pair[0],
+        )
+    )
+
+    for _, operation in indexed_operations:
         _validate_operation_shape(operation)
         target_type = str(operation["target_type"]).strip()
         target_id = str(operation["target_id"]).strip()
