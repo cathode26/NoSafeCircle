@@ -1921,7 +1921,7 @@ The GDD's `Current Prototype Scene Evidence` section explicitly says deletion, r
 ### Final provenance guard
 
 - VERIFIED CLOSURE labels are pipeline bookkeeping, not GDD evidence.
-- Never emit `VERIFIED CLOSURE`, `2026-08-21 VERIFIED CLOSURE`, `verification-hardening`, or similar verifier/patch-round labels as a GDD reference, repository evidence source, dependency evidence source, or exclusive-resource evidence source unless that exact phrase literally exists in the cited authoritative file.
+- Never emit internal verifier/patch-round labels as GDD references, repository evidence sources, dependency evidence sources, exclusive-resource evidence sources, or summary authority. If wording came from pipeline instructions rather than the cited authoritative file, omit that wording and cite the real GDD/repository passage instead.
 - When the underlying behavior is supported by a real GDD passage, cite only that real passage (for example `Door and Pursuit Rules` or `Enemy Detection, Pursuit, and Target Loss`).
 - Pipeline prompts, patch scripts, verification artifacts, and prior repair prose may explain why a correction is being made, but they are never project/GDD evidence.
 
