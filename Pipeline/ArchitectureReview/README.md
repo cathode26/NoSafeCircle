@@ -1,19 +1,27 @@
 # No Safe Circle Adversarial Architecture Review
 
-This tool evaluates the autonomous-development architecture before the project commits to the next infrastructure milestone.
+This tool evaluates the autonomous-development architecture before the project commits to the next major pipeline direction.
 
 It is designed to answer two questions in order:
 
 1. Is the architecture fundamentally sound for autonomous Unity game development?
 2. If it is sound, does it create enough near-term leverage to materially accelerate No Safe Circle development?
 
-The review does **not** assume that the current milestone order, Work Graph Seeder, `Tasks/*.yaml`, or `taskcontrol` are correct next steps.
+The review does **not** assume that the current milestone order, Work Graph Seeder, `Tasks/*.yaml`, `taskcontrol`, reconciliation strategy, or verification strategy are correct merely because they already exist.
+
+## Current Provider
+
+The active review path uses **OpenAI Codex CLI authenticated with the user's ChatGPT account**.
+
+The original Claude runner remains in `architecture_review.py` because the shared review schemas, prompts, role definitions, synthesis logic, and output orchestration live there. `architecture_review_codex.py` imports that shared contract and swaps only the model/provider invocation.
+
+Run the Codex path through the Docker `codex-review` service. Docker is the security boundary: the repository is mounted read-only, while only `Pipeline/ArchitectureReview/outputs/` is writable. Codex therefore runs with its nested sandbox disabled (`danger-full-access`) so Linux bubblewrap/user-namespace restrictions inside Docker do not block repository inspection.
 
 ## Review Stages
 
 A run uses three stages:
 
-1. Eight independent read-only reviewers run in parallel.
+1. Eight independent reviewers run in parallel.
 2. A synthesis agent evaluates the arguments without majority voting.
 3. A fresh adversarial critic assumes the synthesis is wrong and tries to break it.
 
@@ -28,8 +36,6 @@ The independent roles are:
 - Adversarial QA and Failure-Mode Reviewer
 - Game Producer and Throughput Reviewer
 
-All first-pass reviewers are read-only and can inspect the repository with Claude Code `Read`, `Glob`, and `Grep` tools. They cannot edit files, run Bash, or use web tools.
-
 ## Important Review Framing
 
 Architecture documents are treated as claims to verify, not authoritative answers.
@@ -37,53 +43,108 @@ Architecture documents are treated as claims to verify, not authoritative answer
 Every reviewer is explicitly told to challenge:
 
 - the current milestone order;
-- the Work Graph Seeder / `Tasks/*.yaml` / `taskcontrol` proposal;
+- `Tasks/*.yaml` / `taskcontrol` and the persistent work graph;
 - reconciliation and verification as currently framed;
 - state and authority boundaries;
 - whether the GDD's iterative nature requires a different synchronization model;
 - whether infrastructure is solving observed failures or hypothetical failures;
-- whether a materially different architecture would be better.
+- whether a materially different architecture would be better;
+- whether the pipeline will actually increase game-development throughput enough to justify its cost.
 
-The target outcome is not architectural elegance by itself. The desired system must be both sound and capable of increasing real gameplay-development throughput.
+The target outcome is not architectural elegance by itself. The desired system must be both technically sound and capable of increasing real gameplay-development throughput.
 
-## Run
+## Docker Setup
+
+Build the review service from the repository root:
+
+```powershell
+docker compose build codex-review
+```
+
+Codex authentication is persisted in the shared `codex-config` Docker volume. If login is required:
+
+```powershell
+docker compose run --rm codex codex login --device-auth
+```
+
+Check authentication:
+
+```powershell
+docker compose run --rm codex codex login status
+```
+
+## Smoke Tests
+
+The original shared-contract smoke test remains available:
+
+```powershell
+docker compose run --rm codex-review python Pipeline/ArchitectureReview/architecture_review_smoke_test.py
+```
+
+Run the Codex-provider smoke test:
+
+```powershell
+docker compose run --rm codex-review python Pipeline/ArchitectureReview/architecture_review_codex_smoke_test.py
+```
+
+These tests are deterministic and do not spend model tokens.
+
+## Small Codex Repository Test
+
+Before a large review, this command verifies that Codex can inspect the read-only repository from inside Docker:
+
+```powershell
+docker compose run --rm codex-review codex exec --ephemeral --sandbox danger-full-access "Read AI_PIPELINE.md and summarize the goal of this repository's AI pipeline in one sentence."
+```
+
+`danger-full-access` here disables Codex's nested Linux sandbox only. Docker still mounts the project repository read-only for the `codex-review` service.
+
+## Run the Full Review
 
 From the repository root:
 
 ```powershell
-python Pipeline/ArchitectureReview/architecture_review.py
+docker compose run --rm codex-review python Pipeline/ArchitectureReview/architecture_review_codex.py
 ```
 
-The runner requires a clean working tree by default so every reviewer evaluates a frozen commit. To override that protection deliberately:
+The runner requires a clean working tree by default so every reviewer evaluates one frozen commit. To deliberately override that protection:
 
 ```powershell
-python Pipeline/ArchitectureReview/architecture_review.py --allow-dirty
+docker compose run --rm codex-review python Pipeline/ArchitectureReview/architecture_review_codex.py --allow-dirty
 ```
 
 A fixed model-assignment seed can be supplied for reproducibility:
 
 ```powershell
-python Pipeline/ArchitectureReview/architecture_review.py --seed 12345
+docker compose run --rm codex-review python Pipeline/ArchitectureReview/architecture_review_codex.py --seed 12345
 ```
 
-## Model Configuration
+## Model and Reasoning Configuration
 
 Default independent-review model pool:
 
 ```text
-opus,sonnet
+gpt-5.6-sol
 ```
 
 Default synthesis model:
 
 ```text
-opus
+gpt-5.6-sol
 ```
 
 Default adversarial-critique model:
 
 ```text
-opus
+gpt-5.6-sol
+```
+
+Reasoning defaults are intentionally stronger than a casual Codex invocation:
+
+```text
+independent reviewers: high
+synthesis:             xhigh
+adversarial critique:  xhigh
 ```
 
 Environment variables:
@@ -92,18 +153,20 @@ Environment variables:
 ARCH_REVIEW_MODELS
 ARCH_REVIEW_SYNTHESIS_MODEL
 ARCH_REVIEW_ADVERSARY_MODEL
+ARCH_REVIEW_REASONING_EFFORT
+ARCH_REVIEW_SYNTHESIS_REASONING_EFFORT
+ARCH_REVIEW_ADVERSARY_REASONING_EFFORT
 ARCH_REVIEW_MAX_WORKERS
 ARCH_REVIEW_TIMEOUT_SECONDS
-ARCH_REVIEW_MAX_TURNS
-ARCH_REVIEW_SYNTHESIS_MAX_TURNS
-ARCH_REVIEW_ADVERSARY_MAX_TURNS
 ```
 
 Example PowerShell configuration:
 
 ```powershell
-$env:ARCH_REVIEW_MODELS="opus,sonnet"; $env:ARCH_REVIEW_SYNTHESIS_MODEL="opus"; $env:ARCH_REVIEW_ADVERSARY_MODEL="opus"; python Pipeline/ArchitectureReview/architecture_review.py
+$env:ARCH_REVIEW_REASONING_EFFORT="high"; $env:ARCH_REVIEW_SYNTHESIS_REASONING_EFFORT="xhigh"; $env:ARCH_REVIEW_ADVERSARY_REASONING_EFFORT="xhigh"; docker compose run --rm -e ARCH_REVIEW_REASONING_EFFORT -e ARCH_REVIEW_SYNTHESIS_REASONING_EFFORT -e ARCH_REVIEW_ADVERSARY_REASONING_EFFORT codex-review python Pipeline/ArchitectureReview/architecture_review_codex.py
 ```
+
+The original Claude `--max-turns` controls do not have a direct Codex equivalent. Codex runs are bounded by the runner's subprocess timeout and by ChatGPT/Codex usage limits.
 
 ## Outputs
 
@@ -137,7 +200,7 @@ The latest completed synthesis and critique are copied to:
 Pipeline/ArchitectureReview/outputs/current/
 ```
 
-The manifest records the exact Git commit, model pool, model assignments, seed, timestamps, and review roles.
+Each Codex result also records the provider, selected model, reasoning effort, and duration.
 
 ## Interpreting the Verdict
 
