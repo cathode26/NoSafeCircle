@@ -1967,3 +1967,15 @@ The GDD explicitly requires that Frost Field slows a Ranged Enemy's repositionin
 
 At minimum, `enemy-status-effect-displacement` must have a GDD-backed acceptance criterion stating that Frost slowdown modifies locomotion/repositioning only and does not suppress, pause, or slow Ranged Enemy attack execution. `ranged-enemy` should carry a validation requirement that a slowed Ranged Enemy can continue its normal telegraphed attack behavior while movement/repositioning is slowed. Do not create a new work item for this cross-system behavior.
 
+## CURRENT REPOSITORY METADATA BOUNDARY 2026-08-21
+
+`/.gitignore` is an approved current-project metadata source only for narrow
+source-control/current-checkout questions. In particular, it may be inspected to
+establish whether Unity editor/user-local state such as `UserSettings/` is
+intentionally excluded from the committed repository.
+
+This does NOT make `.gitignore` design canon or gameplay evidence. Do not use it
+to invent requirements, dependencies, ownership rules, acceptance criteria, or
+exclusive-resource decisions. No other root-level repository metadata file is
+approved by this exception unless the boundary is deliberately expanded later.
+
