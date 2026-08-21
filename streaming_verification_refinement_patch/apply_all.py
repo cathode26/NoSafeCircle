@@ -41,9 +41,11 @@ def normalize_lf() -> None:
 
 def main() -> int:
     run_script("apply_verified_closure_fixes.py")
+    run_script("apply_reconciliation_evidence_guard.py")
     run_script("apply_streaming_verification_refinement.py")
     normalize_lf()
     print("All streaming verification + approved closure fixes are installed.")
+    print("Installed reconciliation evidence-path precision guard.")
     print("Normalized patched text files to LF line endings.")
     return 0
 
