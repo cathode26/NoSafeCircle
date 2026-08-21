@@ -964,3 +964,10 @@ For `logical:enemy-locomotion-behavior-surface`, legitimate support includes GDD
 - When the underlying behavior is supported by a real GDD passage, cite only that real passage (for example `Door and Pursuit Rules` or `Enemy Detection, Pursuit, and Target Loss`).
 - Pipeline prompts, patch scripts, verification artifacts, and prior repair prose may explain why a correction is being made, but they are never project/GDD evidence.
 
+## 2026-08-21 FRESH RUN CLOSURE
+
+- `CLAUDE.md` is operating context only and is never admissible reconciliation/GDD evidence. Remove or re-source every `CLAUDE.md` attribution in summaries, evidence, dependencies, locks, acceptance/validation text, and unresolved questions. Use the real GDD/repository support or clearly labeled derived rationale.
+- When the current builder architecture still owns the canonical scene's walkable roots, ensure `gameplay-navigation-locomotion` carries `logical:gameplay-walkability-surface`, the `DoorPrototypeSceneBuilder.cs` repo-file lock, and the canonical `DoorPrototype.unity` scene lock. Do not convert that write collision into a dependency on `world-visual-foundation`.
+- Ensure the GDD's `Current prototype scene-builder lock` exists as a typed `pipeline_constraint` in `non_code_requirements`; task-level exclusive-resource entries do not replace that process invariant.
+- Keep `seed_assessment` internally consistent. Candidate self-assessment/bookkeeping is not GDD canon and must never be invented as a coverage requirement.
+

@@ -850,6 +850,105 @@ def repair_missing_dependency_references(
         )
 
 
+
+INTERNAL_PROVENANCE_MARKERS = (
+    "claude.md",
+    "verified closure",
+    "verification-hardening",
+    "streaming_verification_refinement_patch/",
+    "pipeline/reconciliation/prompts/",
+    "pipeline/reconciliation/outputs/",
+)
+
+
+def _collect_internal_provenance_paths(
+    value: Any,
+    *,
+    path: str = "$",
+) -> list[str]:
+    hits: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            child_path = f"{path}.{key}"
+            hits.extend(_collect_internal_provenance_paths(child, path=child_path))
+        return hits
+    if isinstance(value, list):
+        for index, child in enumerate(value):
+            hits.extend(
+                _collect_internal_provenance_paths(child, path=f"{path}[{index}]")
+            )
+        return hits
+    if isinstance(value, str):
+        lowered = value.replace("\\", "/").lower()
+        if any(marker in lowered for marker in INTERNAL_PROVENANCE_MARKERS):
+            hits.append(path)
+    return hits
+
+
+def validate_reconciliation_provenance(payload: dict[str, Any]) -> None:
+    """Reject internal operating/bookkeeping text used as reconciliation evidence."""
+    hits = _collect_internal_provenance_paths(payload)
+    if not hits:
+        return
+    preview = ", ".join(hits[:12])
+    if len(hits) > 12:
+        preview += f", ... (+{len(hits) - 12} more)"
+    raise RuntimeError(
+        "Reconciliation candidate contains disallowed internal provenance at: "
+        + preview
+        + ". CLAUDE.md, verifier/patch labels, prompts, and reconciliation outputs "
+          "are operating/bookkeeping context, not GDD or repository evidence."
+    )
+
+
+def normalize_seed_assessment_consistency(payload: dict[str, Any]) -> list[str]:
+    """Derive seed status from blockers/warnings and explicit unresolved review state."""
+    seed = payload.setdefault(
+        "seed_assessment",
+        {"status": "ready", "blockers": [], "warnings": []},
+    )
+    blockers = seed.setdefault("blockers", [])
+    warnings = seed.setdefault("warnings", [])
+    unresolved = payload.get("unresolved_questions", [])
+
+    if not isinstance(blockers, list) or not isinstance(warnings, list):
+        raise RuntimeError("seed_assessment blockers/warnings must be lists.")
+
+    if unresolved:
+        unresolved_warning = (
+            f"{len(unresolved)} unresolved reconciliation question(s) remain for "
+            "human/runtime/later-decomposition review."
+        )
+        if unresolved_warning not in warnings:
+            warnings.append(unresolved_warning)
+
+    expected_status = (
+        "blocked"
+        if blockers
+        else "ready_with_warnings"
+        if warnings
+        else "ready"
+    )
+    previous = str(seed.get("status", ""))
+    if previous == expected_status:
+        return []
+    seed["status"] = expected_status
+    return [f"seed_assessment.status: {previous!r} -> {expected_status!r}"]
+
+
+def _validate_seed_assessment_consistency(payload: dict[str, Any]) -> None:
+    seed = payload.get("seed_assessment", {})
+    status = str(seed.get("status", ""))
+    blockers = seed.get("blockers", [])
+    warnings = seed.get("warnings", [])
+    expected = "blocked" if blockers else "ready_with_warnings" if warnings else "ready"
+    if status != expected:
+        raise RuntimeError(
+            "seed_assessment is internally inconsistent: "
+            f"status={status!r}, blockers={len(blockers)}, warnings={len(warnings)}; "
+            f"expected status {expected!r}."
+        )
+
 # ============================================================
 # SEMANTIC VALIDATION
 # ============================================================
@@ -1394,7 +1493,10 @@ def run_semantic_validation(payload: dict[str, Any]) -> None:
     ensure_requirement_detail_defaults(payload)
     ensure_execution_scope_defaults(payload)
     normalize_execution_scope_consistency(payload)
+    normalize_seed_assessment_consistency(payload)
     ensure_exclusive_resource_defaults(payload)
+    validate_reconciliation_provenance(payload)
+    _validate_seed_assessment_consistency(payload)
     items = payload.get("work_items", [])
     if not isinstance(items, list) or not items:
         raise RuntimeError("work_items must be a non-empty list.")

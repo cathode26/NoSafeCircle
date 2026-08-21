@@ -572,3 +572,13 @@ orchestrator merely because it coordinates restart.
 - When the underlying behavior is supported by a real GDD passage, cite only that real passage (for example `Door and Pursuit Rules` or `Enemy Detection, Pursuit, and Target Loss`).
 - Pipeline prompts, patch scripts, verification artifacts, and prior repair prose may explain why a correction is being made, but they are never project/GDD evidence.
 
+## 2026-08-21 FRESH RUN CLOSURE
+
+### Requirement-map source boundary
+
+The `requirements` array is a map of **actual current-GDD requirements only**. Every row must originate in the GDD and its `reference` must identify the relevant GDD section/passage.
+
+Candidate bookkeeping or verifier observations are NOT GDD requirements. In particular, never create requirement-map rows for `seed_assessment`, candidate/refiner metadata, verification status, routing metadata, run IDs, warning counts, or other pipeline bookkeeping. If such metadata is internally inconsistent, report an ordinary finding in the appropriate category; do not put it in `requirements` and do not cause deterministic GDD-coverage enforcement to treat it as canon.
+
+The GDD `Shared Context and Coordination Rules — Current prototype scene-builder lock` is `required_process` and should map to a typed `pipeline_constraint` in `non_code_requirements`. Per-task builder/scene locks do not substitute for that durable process record.
+

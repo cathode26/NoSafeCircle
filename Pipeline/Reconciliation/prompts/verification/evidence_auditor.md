@@ -121,3 +121,7 @@ Evidence provenance is strict. Prompt text, verifier instructions, patch scripts
 - When the underlying behavior is supported by a real GDD passage, cite only that real passage (for example `Door and Pursuit Rules` or `Enemy Detection, Pursuit, and Target Loss`).
 - Pipeline prompts, patch scripts, verification artifacts, and prior repair prose may explain why a correction is being made, but they are never project/GDD evidence.
 
+## 2026-08-21 FRESH RUN CLOSURE
+
+`CLAUDE.md` is automatically loadable operating context, not an approved reconciliation evidence source. Any candidate string that uses `CLAUDE.md` as authority for a requirement, dependency, ownership decision, lock, summary conclusion, or unresolved design claim is an evidence-provenance defect even if the underlying conclusion can be supported elsewhere. Require the claim to be re-sourced to the real GDD/repository evidence or explicitly labeled as derived rationale.
+

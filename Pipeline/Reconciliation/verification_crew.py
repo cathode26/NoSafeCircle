@@ -632,6 +632,27 @@ def deterministic_auditor_slug(agent: str) -> str:
     return slug.strip("-") or "unknown-auditor"
 
 
+
+
+INTERNAL_COVERAGE_REQUIREMENT_MARKERS = (
+    "seed_assessment",
+    "candidate self-assessment",
+    "candidate metadata",
+    "pipeline/candidate",
+    "verification metadata",
+    "reconciliation metadata",
+    "routing metadata",
+)
+
+
+def _is_internal_candidate_metadata_requirement(requirement: dict[str, Any]) -> bool:
+    combined = " ".join(
+        str(requirement.get(field, ""))
+        for field in ("reference", "requirement", "explanation")
+    ).lower()
+    return any(marker in combined for marker in INTERNAL_COVERAGE_REQUIREMENT_MARKERS)
+
+
 def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     generated: list[dict[str, Any]] = []
 
@@ -681,6 +702,46 @@ def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, A
             continue
 
         for requirement in requirements:
+            if _is_internal_candidate_metadata_requirement(requirement):
+                generated.append(
+                    {
+                        "source_agent": "Deterministic Coverage Check",
+                        "source_model": "python",
+                        "finding": {
+                            "finding_id": (
+                                "deterministic-non-gdd-row-"
+                                + deterministic_auditor_slug(agent)
+                                + "-"
+                                + str(requirement.get("requirement_id", "unknown"))
+                            ),
+                            "severity": "warning",
+                            "category": "other",
+                            "title": "Coverage auditor emitted a non-GDD requirement-map row",
+                            "description": (
+                                f"{agent} placed candidate/pipeline metadata in the GDD "
+                                f"requirement map as {requirement.get('requirement_id')}. "
+                                "Candidate bookkeeping may be audited as a finding but is "
+                                "not GDD canon and is excluded from deterministic GDD "
+                                "representation enforcement."
+                            ),
+                            "affected_keys": [
+                                str(value)
+                                for value in requirement.get("mapped_keys", [])
+                                if str(value).strip()
+                            ],
+                            "gdd_evidence": [],
+                            "repository_evidence": [],
+                            "recommended_change": (
+                                "Report candidate/self-assessment consistency as an ordinary "
+                                "finding. Keep the requirements array limited to statements "
+                                "actually sourced from the current GDD."
+                            ),
+                            "requires_human_review": False,
+                        },
+                    }
+                )
+                continue
+
             classification = str(requirement.get("classification", ""))
             representation = str(requirement.get("representation", ""))
             mapped_keys = [
