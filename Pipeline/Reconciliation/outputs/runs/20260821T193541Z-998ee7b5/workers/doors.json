@@ -1,0 +1,437 @@
+{
+  "current_state_summary": "The DoorPrototype scene implements a WASD-movement, arm's-reach-trigger, hold-E interaction model (DoorInteractable.cs + PlayerInteractionController.cs), with a five-second progress timer that resets on release/movement/damage. This is a partial precursor to the GDD's required door contract but is missing cursor-targeted click-to-approach selection, an automatic no-hold timer start, and Unity Input System/Input Actions routing (current code polls Keyboard.current directly). Nothing in the repository implements doorway-crossing detection, automatic close/lock, runtime durability, a damage-receive interface, the locked-to-broken transition, forward-only enforcement, breach feedback, or door-state publication to a navigation/passability layer — none of these exist in any script, the scene, or the builder. PlayerHealth.cs exposes only TakeDamage (no restore/heal interface), and no Unity AI Navigation package/NavMesh gameplay layer exists, confirming that this domain's cross-domain prerequisites (Player Movement's shared pointer projection, Player Health's restore interface, and the gameplay navigation/passability layer) are genuinely unfinished rather than stale ordering.",
+  "desired_state_summary": "The GDD requires Door and Interaction to: (1) expose sealed doors as cursor-targeted interactables that trigger a combined approach-and-interact request through Player Movement's shared world-space pointer target, auto-start a five-second timer with no sustained hold once arm's-reach range is reached, ignore cursor drift after selection, and reset on damage/moving-away/interaction-cancelling commands; (2) own authoritative doorway-crossing state (forward-side crossing) as a single owner consumed by close/lock and final victory; (3) automatically close and lock the door after crossing (no second input), request a fixed Player Health restoration through Player Health's owner-controlled restore interface, own runtime durability and an owner-controlled damage-receive interface consumed by enemy attacks, own the locked-to-broken transition, enforce forward-only progression (no reopening/unlocking/re-crossing; a broken door stays open and is not a player return path), publish semantic door state through the navigation-owned passability interface, and provide required breach feedback (banging/shaking/cracks/durability indicator); and (4) expose an owner-controlled reset entry point for door lifecycle/crossing/durability state consumed by the Floor Run/Restart Orchestrator.",
+  "major_findings": [
+    "door-open-interaction: current code (DoorInteractable.cs, PlayerInteractionController.cs) implements arm's-reach range detection via a trigger collider and a 5-second progress timer that cancels on player-health damage and on any player movement, matching the interruption/timer-progression concept, but it requires a sustained hold of the E key (GDD explicitly requires no sustained hold once the timer auto-starts on arrival) and has no cursor-targeted click-to-approach selection, no consumption of a shared world-space pointer target, and uses raw Keyboard.current polling rather than the Unity Input System/Input Actions layer. Classified partial.",
+    "doorway-crossing-state: no forward-side crossing detection, event, or state exists anywhere in the repository — DoorInteractable.Complete() only disables the door visual/collider and sets IsOpen=true. Classified missing.",
+    "door-close-lock-break-lifecycle: no closing, locking, durability, damage-receive interface, locked-to-broken transition, forward-only enforcement, breach feedback, or navigation-passability publication exists anywhere in the repository. Classified missing.",
+    "PlayerHealth.cs currently exposes only TakeDamage(float) with no restore/heal method, confirming door-close-lock-break-lifecycle's dependency on player-health's still-unfinished restore interface is a real, current prerequisite rather than stale ordering.",
+    "Packages/manifest.json contains no com.unity.ai.navigation dependency and no NavMesh/navigation script exists under Assets/NoSafeCircle, confirming door-close-lock-break-lifecycle's dependency on gameplay-navigation-locomotion for passability publication is real and current.",
+    "PlayerMovement.cs is pure WASD CharacterController motion with no mouse/pointer handling of any kind, confirming door-open-interaction's dependency on player-movement's still-unfinished shared cursor-to-gameplay-plane pointer projection is real and current.",
+    "The DoorPrototype scene serializes DoorInteractable with doorVisual/doorwayBlocker references wired by DoorPrototypeSceneBuilder.cs, confirming the current door is integrated (not merely buildable) but only for the simplified open-only behavior described above.",
+    "InputSystem_Actions.inputactions currently has no Point/Click-style action on the gameplay 'Player' action map (only 'Interact' bound with a Hold interaction, presumed keyboard) — the UI map's Point/Click bindings are for UI navigation, not gameplay cursor targeting, so no existing binding currently satisfies cursor-targeted door selection."
+  ],
+  "work_items": [
+    {
+      "key": "doors",
+      "title": "Doors and Interaction",
+      "kind": "feature",
+      "type": "feature_group",
+      "parent_key": "no-safe-circle",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 1 — Executive Summary / Design Pillars",
+          "requirement": "Each room ends at a door that takes five uninterrupted seconds to open; enemies can follow through it; after crossing it automatically closes and locks and pursuers eventually break through."
+        },
+        {
+          "reference": "Section 2 — Player Actions and Systems (Open Sealed Door, Close and Lock)",
+          "requirement": "Defines cursor-targeted click-to-approach opening with an automatic no-hold timer, and automatic close/lock with a small fixed health restore."
+        },
+        {
+          "reference": "Section 3 — Door and Pursuit Rules",
+          "requirement": "Defines shared doorway-crossing ownership, the door passability contract, locked-door attack/durability ownership, breaking, and forward-only progression."
+        }
+      ],
+      "acceptance_criteria": [],
+      "validation_requirements": [],
+      "repository_state": "partial",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "coarse",
+      "decomposition_reason": "The feature is organizational; its three concrete children (door-open-interaction, doorway-crossing-state, door-close-lock-break-lifecycle) already carry the bounded, GDD-specified responsibilities. No further coarse-level design gap needs resolving at this bootstrap stage.",
+      "execution_scope": "not_applicable",
+      "execution_reason": "Feature/organizational node; not directly dispatchable.",
+      "confidence": "high",
+      "notes": "Aggregate repository_state of partial reflects that door-open-interaction has meaningful (if incomplete) current behavior while doorway-crossing-state and door-close-lock-break-lifecycle are entirely unimplemented."
+    },
+    {
+      "key": "door-open-interaction",
+      "title": "Cursor-Targeted Door Opening (Click-to-Approach, Arm's-Reach Auto-Timer, Interruption)",
+      "kind": "implementation",
+      "type": "gameplay_system",
+      "parent_key": "doors",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 2 — Player Actions and Systems, 'Open Sealed Door'",
+          "requirement": "Click the sealed door to request movement to its interaction position; wizard walks there automatically; the five-second timer begins automatically at arm's-reach range with no sustained hold; cursor drift after selection does not matter; damage, moving away, or a cancelling/replacing command resets the attempt."
+        },
+        {
+          "reference": "Section 3 — Door and Pursuit Rules",
+          "requirement": "A sealed door is a cursor-targeted interactable; clicking issues a combined approach-and-interact request; after selection, cursor drift does not cancel the request or timer."
+        },
+        {
+          "reference": "Section 3 — Player Experience Success Criteria",
+          "requirement": "A first-time player understands that clicking sends the wizard to the door and reaching it is not enough — the automatic timer still requires five uninterrupted seconds; accurate target selection is required only on the initial click."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation / Player Movement ownership",
+          "requirement": "Movement, cursor-aimed spells, and Door/Interaction consume the shared world-space pointer target exposed by Player Movement rather than independently projecting screen coordinates; runtime input is routed through Unity Input System/Input Actions rather than direct hardware polling."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 2 — Open Sealed Door",
+          "requirement": "Clicking a sealed door issues a combined approach-and-interact request using the shared world-space pointer target exposed by Player Movement; Door and Interaction does not independently project screen-to-world coordinates."
+        },
+        {
+          "reference": "Section 2 — Open Sealed Door; Section 3 — Door and Pursuit Rules",
+          "requirement": "The wizard automatically moves to the door's interaction position; when arm's-reach range is reached, the five-second opening timer starts automatically with no sustained button hold required."
+        },
+        {
+          "reference": "Section 2 — Open Sealed Door",
+          "requirement": "After the door is selected, cursor movement/drift away from the door does not cancel the approach request or the running timer."
+        },
+        {
+          "reference": "Section 2 — Setbacks; Section 3 — Door and Pursuit Rules",
+          "requirement": "Taking damage, moving away once timing has begun, or issuing another command that cancels/replaces the door interaction resets progress to zero."
+        },
+        {
+          "reference": "Section 5 — Runtime Implementation",
+          "requirement": "Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 — Player Experience Success Criteria",
+          "requirement": "Validate that a first-time player understands reaching the door alone is insufficient and that the automatic five-second timer must complete uninterrupted."
+        },
+        {
+          "reference": "Section 4 — Unity Validation Agent row; Example Game-Specific Agent Task",
+          "requirement": "Validate cursor-targeted door range and cursor-drift behavior: drift after selection does not cancel, while damage/moving away during timing does."
+        }
+      ],
+      "repository_state": "partial",
+      "graph_status": "open",
+      "repository_evidence": [
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+          "evidence_type": "code",
+          "observation": "Implements arm's-reach range detection via OnTriggerEnter/Exit against PlayerInteractionController, a 5-second Progress timer via StartInteraction/Tick/Complete, and cancellation via CancelInteraction; matches the general timer/interruption shape but has no crossing/close/lock/durability behavior."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+          "evidence_type": "code",
+          "observation": "BeginInteraction/EndInteraction are driven by a keyboard hold of interactKey (default Key.E) read directly from Keyboard.current in Update(), not by a cursor click-to-approach request or the Unity Input System/Input Actions layer; EndInteraction is also called on any player movement and on PlayerHealth.Damaged, matching the GDD's interruption rules for movement/damage."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+          "evidence_type": "code",
+          "observation": "Movement is pure WASD CharacterController motion; there is no mouse/pointer reading, no cursor-to-gameplay-plane projection, and no click-to-move/approach request of any kind."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "evidence_type": "code",
+          "observation": "BuildUI sets the interaction prompt text to 'Hold E to Open' and the ControlsHud text to 'Hold E - Open Door', confirming the currently integrated interaction model is a sustained keyboard hold, not an automatic no-hold timer."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "evidence_type": "scene",
+          "observation": "DoorInteractable component is serialized on DoorRoot with doorVisual and doorwayBlocker object references wired (fileID 965940337 / 965940338), confirming the simplified door is actually integrated into the canonical scene, not merely buildable."
+        },
+        {
+          "path": "Assets/InputSystem_Actions.inputactions",
+          "evidence_type": "project_setting",
+          "observation": "The 'Player' action map defines Move/Look/Attack/Interact/Crouch/Jump/Previous/Next/Sprint actions; 'Interact' uses a Hold interaction with no visible mouse/pointer binding in the reviewed section. No gameplay-map Point/Click action exists; Point/Click bindings only exist in the separate 'UI' action map used for UI navigation."
+        }
+      ],
+      "depends_on": [
+        {
+          "key": "player-movement",
+          "reason": "Cursor-targeted door selection and click-to-approach must consume the shared world-space pointer target that Player Movement owns and exposes; PlayerMovement.cs currently has no pointer/mouse handling of any kind, so this specific capability does not yet exist.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs contains only WASD CharacterController motion with no pointer projection."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+          "reason": "Implementation will modify DoorInteractable to accept a click-triggered approach-and-interact request and to switch the timer's start condition from a sustained key hold to automatic arrival, and this file is also a shared write surface with doorway-crossing-state and door-close-lock-break-lifecycle.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs currently implements StartInteraction/CancelInteraction/Tick and will need to change alongside the other door-lifecycle work in this same file/component cluster."
+        },
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+          "reason": "Implementation must replace the current hold-E keyboard consumption with cursor-targeted selection/click-to-approach consumption and Input System routing, directly modifying this file's input-handling and BeginInteraction/EndInteraction logic.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs reads Keyboard.current[interactKey] directly in Update() and owns BeginInteraction/EndInteraction."
+        },
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "The builder currently creates/wires PlayerMovement, PlayerInteractionController, and the door prompt/HUD UI text describing the hold-E interaction; this work must update that wiring and text to match the new click-to-approach/auto-timer behavior.",
+          "evidence": "DoorPrototypeSceneBuilder.cs BuildPlayer()/BuildUI() creates and wires PlayerInteractionController and the 'Hold E to Open' prompt/HUD text, and the builder destructively rebuilds/saves the canonical scene."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The builder saves this scene on every run and the door/player/UI objects it configures are serialized here; integration work on this task writes through the same scene.",
+          "evidence": "DoorPrototypeSceneBuilder.Build() calls EditorSceneManager.SaveScene(scene, ScenePath) for Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity after configuring Player/DoorRoot/Canvas objects."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD fully specifies click-to-approach selection, arrival-triggered auto-timing, cursor-drift tolerance, and interruption conditions; no missing design remains for this responsibility.",
+      "execution_scope": "single_agent",
+      "execution_reason": "The work is bounded to a known, small set of files (DoorInteractable.cs, PlayerInteractionController.cs, the scene/builder wiring) implementing one cohesive interaction flow; it is not yet dispatch-ready until player-movement's shared pointer projection exists, but its own scope is not so broad that it needs further execution splitting.",
+      "confidence": "high",
+      "notes": "Whether this task must itself add/modify bindings in Assets/InputSystem_Actions.inputactions (e.g., a distinct door-select binding) or purely consumes a Point/Click binding added by Player Movement's projection work is not yet resolved by current evidence; see unresolved_questions."
+    },
+    {
+      "key": "doorway-crossing-state",
+      "title": "Shared Doorway-Crossing State (Forward-Side Crossing Detection)",
+      "kind": "implementation",
+      "type": "gameplay_system",
+      "parent_key": "doors",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 — Door and Pursuit Rules",
+          "requirement": "Door and Interaction owns doorway-crossing state; after a door is open it detects when the wizard has actually crossed to that door's forward side and exposes that state to consumers; opening does not by itself count as crossing."
+        },
+        {
+          "reference": "Section 2 — Win and Loss Conditions",
+          "requirement": "Victory occurs when the shared doorway-crossing state confirms the wizard has crossed to the forward side of the final door; the win condition does not implement a separate crossing detector."
+        },
+        {
+          "reference": "Section 4 — Door and Interaction Agent row",
+          "requirement": "It is the single owner of detecting when the wizard crosses to the forward side of an opened door; locking and final escape consume that state."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Door lifecycle/crossing/durability state is a required reset participant for the Floor Run/Restart Orchestrator."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 3 — Door and Pursuit Rules",
+          "requirement": "Detects, for an open door, when the wizard has actually crossed to that door's forward side; opening the door alone does not set crossing state."
+        },
+        {
+          "reference": "Section 4 — Door and Interaction Agent row",
+          "requirement": "Exposes the crossing state/event through a stable owner-side interface consumed by door close/lock and final-escape victory, so those consumers do not implement their own crossing detector."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Exposes an owner-controlled reset entry point for its crossing state, consumed by the Floor Run/Restart Orchestrator."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Section 4 — Example Game-Specific Agent Task",
+          "requirement": "Validate that crossing is detected only after the door is open and the wizard has reached the forward side, not merely on interaction completion."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+          "evidence_type": "code",
+          "observation": "Complete() only sets IsOpen=true, disables doorVisual and doorwayBlocker, and resets Progress; there is no forward-side crossing trigger, event, property, or any related state anywhere in this file or elsewhere in the DoorPrototype scripts."
+        }
+      ],
+      "depends_on": [],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+          "reason": "Crossing-state detection is expected to live on or alongside the existing DoorInteractable component and is a shared write surface with door-open-interaction and door-close-lock-break-lifecycle.",
+          "evidence": "DoorInteractable.cs currently owns the door's only runtime state (Progress/IsOpen/IsInteracting) and is the natural owner for the new crossing state."
+        },
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "Per the GDD's current prototype scene-builder lock, work that creates/configures the forward-side crossing trigger on objects generated by this builder requires an exclusive-write lock on it.",
+          "evidence": "Section 5 — Shared Context and Coordination Rules: 'Current prototype scene-builder lock ... specifically applies to doorway-crossing work that creates/configures the forward-side crossing trigger'; DoorPrototypeSceneBuilder.BuildDoor() currently creates the DoorRoot/DoorVisual objects this trigger would attach to."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The new crossing trigger/collider would be serialized into this canonical scene, which the builder saves on every run.",
+          "evidence": "DoorPrototypeSceneBuilder.Build() saves Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity after configuring the DoorRoot hierarchy."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD specifies the exact required behavior (detect actual forward-side crossing after open, expose to consumers, participate in reset); the underlying Unity mechanism is an explicit implementation choice, not missing design.",
+      "execution_scope": "single_agent",
+      "execution_reason": "Bounded to adding one detection/state capability to the existing door object and exposing it through a small interface; touches a known, small set of files.",
+      "confidence": "high",
+      "notes": "No dependency on door-open-interaction was added because the existing DoorInteractable.IsOpen property this work consumes already exists and is usable independent of that item's still-open click-to-approach/Input-System rework."
+    },
+    {
+      "key": "door-close-lock-break-lifecycle",
+      "title": "Door Close/Lock, Health Restore Request, Durability, and Locked-to-Broken Lifecycle",
+      "kind": "implementation",
+      "type": "gameplay_system",
+      "parent_key": "doors",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 2 — Player Actions and Systems, 'Close and Lock'",
+          "requirement": "After the wizard crosses to the forward side of an opened door, it automatically closes and locks with no additional input; completing the automatic close-and-lock restores a small fixed amount of health; once locked the door cannot be reopened or crossed again."
+        },
+        {
+          "reference": "Section 2 — Player Health ownership",
+          "requirement": "Door locking requests the fixed recovery through the Player Health restore interface; restoration is clamped to maximum health; Door and Interaction never writes player-health state directly."
+        },
+        {
+          "reference": "Section 2 — Resources, Feedback, and Failure, 'Door feedback'",
+          "requirement": "Banging, shaking, cracks, and a durability indicator show when a breach is near."
+        },
+        {
+          "reference": "Section 3 — Door and Pursuit Rules",
+          "requirement": "Door passability contract: Door and Interaction owns semantic door state (sealed/open/locked/broken); the shared navigation/locomotion layer owns translating that into enemy walkability; door state changes update the navigation layer through that interface. Locked-door attack and durability ownership: Enemy Pursuit owns deciding/executing the attack; Door and Interaction owns durability, the owner-controlled damage-receive interface, and the locked-to-broken transition. If the player waits too long the locked door breaks; a broken door remains open and cannot be closed/relocked; the player cannot travel backward through any earlier doorway including a broken one."
+        },
+        {
+          "reference": "Section 4 — Door/navigation integration prerequisite",
+          "requirement": "The navigation-owned shared passability interface must exist before door-state publication through that interface is dispatch-ready; if passability publication remains bundled inside one executable door-lifecycle item, that item depends on the gameplay navigation/locomotion owner."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Door lifecycle/crossing/durability state is a required reset participant for the Floor Run/Restart Orchestrator."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 2 — Close and Lock",
+          "requirement": "After doorway-crossing-state confirms forward-side crossing, the door automatically closes and locks with no additional player input."
+        },
+        {
+          "reference": "Section 2 — Player Health ownership",
+          "requirement": "Completing the automatic close/lock requests the small fixed health restoration through the Player Health owner-controlled restore interface (clamped to max health); this component never writes Player Health state directly."
+        },
+        {
+          "reference": "Section 3 — Door and Pursuit Rules",
+          "requirement": "Once locked, the door cannot be reopened, unlocked, or crossed again by the player; the floor is a forward-only escape sequence, including after any door has broken."
+        },
+        {
+          "reference": "Section 3 — Locked-door attack and durability ownership",
+          "requirement": "Exposes runtime durability and an owner-controlled damage-receive interface that other systems (e.g., enemy locked-door attacks) call to reduce durability; owns the locked-to-broken state transition; requesting systems never write durability or semantic door state directly."
+        },
+        {
+          "reference": "Section 3 — Door and Pursuit Rules",
+          "requirement": "When durability reaches zero the door breaks; a broken door remains open and cannot be closed or relocked for the remainder of the run, permits forward enemy traversal, and is not a return path for the player."
+        },
+        {
+          "reference": "Section 3 — Door passability contract",
+          "requirement": "Publishes semantic door state (sealed/open/locked/broken) through the shared navigation-owned passability interface so sealed/locked blocks enemy traversal and open/broken permits it; this component does not directly manipulate NavMesh or doorway passability itself."
+        },
+        {
+          "reference": "Section 2 — Door feedback",
+          "requirement": "Provides required player-facing breach feedback — banging, shaking, cracks, and a durability indicator — as the door nears breaking; this is implementation behavior, not validation-only prose."
+        },
+        {
+          "reference": "Section 2 — Floor-run restart ownership",
+          "requirement": "Exposes an owner-controlled reset entry point for door lifecycle/crossing/durability state, consumed by the Floor Run/Restart Orchestrator."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 — Door and Pursuit Rules",
+          "requirement": "Validate that a surviving enemy still actively tracking/pursuing the player and blocked by the locked door continues attacking it until it breaks, and that pursuit resumes through the doorway once broken (exercised jointly with the enemy_behavior domain's locked-door attack owner)."
+        },
+        {
+          "reference": "Section 3 — Door and Pursuit Rules",
+          "requirement": "Validate that a broken or locked door is never a return path for the player, including after breaking."
+        },
+        {
+          "reference": "Section 2 — Door feedback",
+          "requirement": "Validate that breach feedback (banging/shaking/crack/durability indicator) is player-perceivable before the door actually breaks."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+          "evidence_type": "code",
+          "observation": "No closing, locking, durability field, damage-receive method, broken state, breach feedback, or navigation-publication code exists; Complete() is a one-way IsOpen=true transition with no further lifecycle."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+          "evidence_type": "code",
+          "observation": "Only exposes TakeDamage(float) and a CurrentHealth getter; there is no restore/heal method, confirming the Player Health restore interface this work must request does not yet exist."
+        },
+        {
+          "path": "Packages/manifest.json",
+          "evidence_type": "project_setting",
+          "observation": "com.unity.ai.navigation is not declared, and no NavMesh-related script exists under Assets/NoSafeCircle, confirming the gameplay navigation/passability layer this work must publish to does not yet exist."
+        }
+      ],
+      "depends_on": [
+        {
+          "key": "doorway-crossing-state",
+          "reason": "Automatic close/lock is explicitly triggered by the shared doorway-crossing state confirming forward-side crossing; that detection/state does not currently exist anywhere in the repository.",
+          "evidence": "GDD Section 3 — Door and Pursuit Rules: 'After the shared doorway-crossing state confirms that the wizard reached the forward side, the door automatically closes and locks'; Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs has no crossing detection."
+        },
+        {
+          "key": "player-health",
+          "reason": "The automatic lock must request a fixed health restoration through Player Health's owner-controlled restore interface, which does not currently exist on PlayerHealth.cs.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs exposes only TakeDamage(float), with no restore/heal method."
+        },
+        {
+          "key": "gameplay-navigation-locomotion",
+          "reason": "This item bundles publication of semantic door state through the navigation-owned passability interface; per the GDD's door/navigation integration prerequisite, that publication cannot be dispatch-ready until the navigation-owned passability interface exists, and no navigation/locomotion layer currently exists in the repository.",
+          "evidence": "GDD Section 4 — 'the navigation-owned shared passability interface must exist before door-state publication through that interface is dispatch-ready'; Packages/manifest.json has no com.unity.ai.navigation dependency and no NavMesh code exists under Assets/NoSafeCircle."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+          "reason": "Closing/locking/durability/damage-receive/broken-transition logic is expected to extend the existing DoorInteractable component, and this file is a shared write surface with door-open-interaction and doorway-crossing-state.",
+          "evidence": "DoorInteractable.cs is currently the sole runtime door component in the repository."
+        },
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "New durability/breach-feedback UI and door-lock behavior on objects the builder generates/maintains requires the exclusive-write lock defined by the GDD's current prototype scene-builder rule.",
+          "evidence": "GDD Section 5 — 'Current prototype scene-builder lock: scene-authoring work that changes objects generated or maintained through DoorPrototypeSceneBuilder.cs must take exclusive-write locks on both that builder and the DoorPrototype scene.'"
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "New durability/breach-feedback UI and lock/break state changes on the door and its UI would be serialized into this canonical scene.",
+          "evidence": "DoorPrototypeSceneBuilder.Build() saves Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity after configuring DoorRoot and Canvas objects."
+        },
+        {
+          "key": "logical:gameplay-walkability-surface",
+          "reason": "This work writes/toggles the shared passability surface by publishing sealed/open/locked/broken door state; the navigation/locomotion owner also writes this same shared surface, so both must be sequenced through the same lock.",
+          "evidence": "GDD Section 3 — 'Door state changes update the navigation layer through that interface' and Section 4 — 'Door state changes are published through the shared navigation/locomotion passability interface.'"
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD fully specifies close/lock triggering, health-restore request semantics, durability/damage-interface ownership, the locked-to-broken transition, forward-only enforcement, required breach feedback, and navigation-publication ownership; no missing design remains, only implementation bundling.",
+      "execution_scope": "needs_execution_decomposition",
+      "execution_reason": "This item currently bundles several independently verifiable responsibilities — core close/lock state-machine and durability/damage-API logic, player-facing breach feedback presentation (visual/audio), and navigation-passability publication integration against a not-yet-existing navigation layer — which together span more files, subsystems, and validation concerns than is safe to hand to one implementation agent at once, even though the underlying design is fully concrete.",
+      "confidence": "high",
+      "notes": "Enemy-side decision-making for when a locked-door attack occurs belongs to the enemy_behavior domain's locked-door-enemy-attack owner and is intentionally excluded from this item's acceptance criteria; this item owns only durability, the damage-receive interface, and the locked-to-broken transition that attack requests through."
+    }
+  ],
+  "requirement_overlays": [],
+  "non_code_requirements": [],
+  "deferred_or_excluded": [],
+  "unresolved_questions": [
+    {
+      "question": "Does door-open-interaction need to independently add/modify a binding in Assets/InputSystem_Actions.inputactions (e.g., a distinct door-select action), or does it purely consume a Point/Click binding that Player Movement's shared pointer-projection work will add to the Player action map?",
+      "affects_keys": [
+        "door-open-interaction",
+        "player-movement"
+      ],
+      "why_unresolved": "The current 'Player' action map has no gameplay Point/Click action (only 'Interact' with a Hold interaction, and the UI map's Point/Click bindings serve UI navigation, not gameplay). Whether door selection reuses Player Movement's forthcoming shared click/pointer target or requires its own binding cannot be determined without the actual Player Movement implementation design.",
+      "recommended_resolution": "later_decomposition"
+    }
+  ],
+  "files_reviewed": [
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractionUI.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+    "Assets/InputSystem_Actions.inputactions",
+    "Packages/manifest.json"
+  ],
+  "historical_sources_reviewed": [],
+  "domain": "doors"
+}

@@ -1,0 +1,349 @@
+{
+  "agent": "Coverage — Doors",
+  "requested_model": "sonnet",
+  "duration_seconds": 265.24,
+  "result": {
+    "findings": [
+      {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "missing_dependency",
+        "title": "locked-door-enemy-attack's post-break pursuit relies on navigation passability only through transitive dependency chains",
+        "description": "locked-door-enemy-attack's acceptance criteria require that, once a locked door breaks, a still-tracking enemy 'continues pursuit forward through the now-passable doorway using the shared navigation/locomotion passability result' (repository_evidence/acceptance_criteria at that work item). The item's own depends_on list is [enemy-pursuit-search-foundation, door-close-lock-break-lifecycle] and its notes explicitly disclaim any direct write dependency on gameplay-navigation-locomotion ('it only reads the navigation layer's passability result... so no logical:gameplay-walkability-surface lock is applied here'). The behavioral read-dependency on the navigation layer's passability translation is currently only satisfied transitively (via door-close-lock-break-lifecycle's own dependency on gameplay-navigation-locomotion, and via enemy-pursuit-search-foundation's dependency on the same). Because door-close-lock-break-lifecycle is flagged 'needs_execution_decomposition' and may later be split into sub-tasks (core close/lock/durability vs. navigation-passability publication), a future decomposition step could close a core door-lifecycle subtask without the navigation-publication piece, which would make the transitive chain no longer guarantee that gameplay-navigation-locomotion is actually finished before locked-door-enemy-attack is dispatched.",
+        "affected_keys": [
+          "locked-door-enemy-attack",
+          "door-close-lock-break-lifecycle",
+          "gameplay-navigation-locomotion"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 3 — Door and Pursuit Rules",
+            "requirement": "When the door breaks, those tracking/pursuing enemies continue their pursuit through the now-passable doorway."
+          },
+          {
+            "reference": "Section 5 — Runtime Implementation",
+            "requirement": "Enemy pursuit/search... consume this layer instead of each selecting or configuring navigation technology or doorway passability independently."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "locked-door-enemy-attack depends_on omits gameplay-navigation-locomotion and its notes field explicitly states no lock/dependency is taken on the walkability surface because the behavior only reads the navigation result."
+          }
+        ],
+        "recommended_change": "When door-close-lock-break-lifecycle is execution-decomposed into a navigation-publication subtask versus a core lifecycle subtask, ensure locked-door-enemy-attack's dependency is re-pointed (or duplicated) onto the concrete navigation-publication descendant rather than relying on an implicit transitive chain through the coarser parent item.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Audit scope restricted to door targeting/opening/interruption, doorway crossing, close/lock/heal request, durability/damage/breaking, semantic door state/passability publication, forward-only behavior, and door feedback, per the assigned parallel-audit territory.",
+      "Verified repository_evidence citations for door-open-interaction, doorway-crossing-state, door-close-lock-break-lifecycle, and player-health directly against Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs, PlayerInteractionController.cs, and PlayerHealth.cs; all citations were accurate (hold-E keyboard interaction, no crossing/lock/durability code, damage-only PlayerHealth).",
+      "Verified Packages/manifest.json directly; confirmed neither com.unity.ai.navigation nor com.unity.2d.tilemap is declared, supporting the candidate's dependency of door-close-lock-break-lifecycle on gameplay-navigation-locomotion for passability publication.",
+      "The door passability contract is correctly split across two owners (Door and Interaction publishes semantic state; the navigation/locomotion layer translates it into walkability) with a genuine cross-item dependency edge and a shared exclusive-resource lock (logical:gameplay-walkability-surface) rather than being collapsed into one feature or hidden inside a single consumer.",
+      "Door breach feedback (banging/shaking/cracks/durability indicator) is represented as an explicit acceptance criterion on door-close-lock-break-lifecycle, not merely a validation requirement, consistent with the GDD-hardening 'acceptance versus validation' guidance.",
+      "The locked-door attack/durability ownership split (Enemy Pursuit initiates the attack; Door and Interaction owns durability, the damage-receive interface, and the locked-to-broken transition) is correctly preserved across locked-door-enemy-attack (parent: enemies) and door-close-lock-break-lifecycle (parent: doors) with the requesting/owning boundary intact.",
+      "The GDD's scene-builder exclusive-write lock and the Development Agent Ownership Invariants are both present as typed pipeline_constraint non_code_requirements and are correctly attached as exclusive_resources on the concrete door work items that touch DoorPrototypeSceneBuilder.cs/DoorPrototype.unity.",
+      "No requirement within the assigned door territory was found unrepresented, misrepresented, or missing a durable graph node; the single finding raised is a suggestion-level dependency-legibility observation, not a blocker or coverage gap."
+    ],
+    "requirements": [
+      {
+        "requirement_id": "R1",
+        "reference": "Section 2 — Player Actions and Systems, 'Open Sealed Door'; Section 3 — Door and Pursuit Rules",
+        "requirement": "Clicking a sealed door issues a combined approach-and-interact request; wizard auto-walks to interaction position; five-second opening timer starts automatically at arm's-reach range with no sustained hold.",
+        "classification": "required_gameplay",
+        "representation": "work_item",
+        "mapped_keys": [
+          "door-open-interaction"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Fully specified GDD behavior with its own graph node carrying concrete acceptance criteria for click-to-approach, arrival-triggered auto-timing."
+      },
+      {
+        "requirement_id": "R2",
+        "reference": "Section 2 — Open Sealed Door",
+        "requirement": "After selection, cursor drift away from the door does not cancel the approach request or the running timer.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-open-interaction"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as an explicit acceptance criterion owned by door-open-interaction."
+      },
+      {
+        "requirement_id": "R3",
+        "reference": "Section 2 — Setbacks; Section 3 — Door and Pursuit Rules",
+        "requirement": "Taking damage, moving away once timing has begun, or issuing another cancelling/replacing command resets the door interaction attempt to zero.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-open-interaction"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit acceptance criterion; matches current repository interruption-on-damage/movement behavior noted in repository_evidence."
+      },
+      {
+        "requirement_id": "R4",
+        "reference": "Section 5 — Runtime Implementation / Player Movement ownership",
+        "requirement": "Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling, and Door/Interaction consumes the shared world-space pointer target exposed by Player Movement rather than projecting screen coordinates independently.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-open-interaction",
+          "player-movement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Runtime technical contract represented as acceptance criteria on door-open-interaction, with a genuine depends_on edge to player-movement because the shared pointer projection capability does not yet exist."
+      },
+      {
+        "requirement_id": "R5",
+        "reference": "Section 3 — Player Experience Success Criteria",
+        "requirement": "A first-time player understands clicking sends the wizard to the door and reaching it alone is not enough — the automatic timer still requires five uninterrupted seconds; accurate target selection is required only on the initial click.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "door-open-interaction"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Player Experience Success Criteria bullet correctly represented as a validation requirement on the owning work item rather than a separate feature."
+      },
+      {
+        "requirement_id": "R6",
+        "reference": "Section 3 — Door and Pursuit Rules; Section 2 — Win and Loss Conditions; Section 4 — Door and Interaction Agent row",
+        "requirement": "Door and Interaction is the single owner of detecting when the wizard has actually crossed to a door's forward side after it opens; opening alone does not count as crossing; close/lock and final escape consume this shared state rather than implementing separate crossing detectors.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "doorway-crossing-state"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as its own durable implementation node with acceptance criteria for detection and for being the sole exposed interface consumed by other owners."
+      },
+      {
+        "requirement_id": "R7",
+        "reference": "Section 2 — Player Actions and Systems, 'Close and Lock'",
+        "requirement": "After the wizard crosses to the forward side of an opened door, it automatically closes and locks with no additional input.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit acceptance criterion, correctly depends on doorway-crossing-state."
+      },
+      {
+        "requirement_id": "R8",
+        "reference": "Section 2 — Player Health ownership; Section 2 — Close and Lock",
+        "requirement": "Completing the automatic close/lock requests a small fixed health restoration through Player Health's owner-controlled restore interface, clamped to maximum health; Door and Interaction never writes player-health state directly.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-close-lock-break-lifecycle",
+          "player-health"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented on door-close-lock-break-lifecycle with a genuine dependency on player-health because the restore interface does not yet exist on PlayerHealth.cs; player-health's own acceptance criteria also expose the interface, matching the closure guidance on Player Health ownership."
+      },
+      {
+        "requirement_id": "R9",
+        "reference": "Section 3 — Door and Pursuit Rules",
+        "requirement": "Once locked, a door cannot be reopened, unlocked, or crossed again by the player; the floor is a forward-only escape sequence, including after any door has broken and the player cannot travel backward through any earlier doorway.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit forward-only acceptance criterion on the lifecycle owner."
+      },
+      {
+        "requirement_id": "R10",
+        "reference": "Section 3 — Locked-door attack and durability ownership",
+        "requirement": "Door and Interaction owns runtime durability, an owner-controlled damage-receive interface, and the locked-to-broken state transition; requesting systems (enemy attacks) never write durability or semantic door state directly.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Durability/damage-interface/broken-transition ownership is a distinct, fully specified implementation responsibility captured as acceptance criteria on this work item."
+      },
+      {
+        "requirement_id": "R11",
+        "reference": "Section 3 — Door and Pursuit Rules",
+        "requirement": "When durability reaches zero the door breaks; a broken door remains open, cannot be closed/relocked for the remainder of the run, permits forward enemy traversal, and is not a player return path.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit acceptance criterion."
+      },
+      {
+        "requirement_id": "R12",
+        "reference": "Section 3 — Door and Pursuit Rules (locked-door attack and durability ownership); Section 4 — Development Agent Ownership Invariants",
+        "requirement": "A surviving enemy still actively tracking/pursuing the player and blocked by a newly locked door begins attacking it (no separate witness/line-of-sight state); an enemy that already lost the player does not attack merely from proximity; the attack requests damage exclusively through the Door-owned interface.",
+        "classification": "required_gameplay",
+        "representation": "work_item",
+        "mapped_keys": [
+          "locked-door-enemy-attack"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Fully specified qualifying condition and interface boundary represented as its own implementation node with matching acceptance criteria, correctly split from door-owned durability."
+      },
+      {
+        "requirement_id": "R13",
+        "reference": "Section 3 — Door and Pursuit Rules",
+        "requirement": "When the door breaks, tracking/pursuing enemies continue pursuit through the now-passable doorway.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "locked-door-enemy-attack"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as acceptance criterion; see Finding F1 regarding the indirectness of its dependency on gameplay-navigation-locomotion, which is a legibility suggestion rather than a coverage gap since the behavior itself is durably represented."
+      },
+      {
+        "requirement_id": "R14",
+        "reference": "Section 3 — Door and Pursuit Rules (door passability contract); Section 5 — 2.5D Isometric Visual and World Representation / Runtime Implementation",
+        "requirement": "Door and Interaction owns semantic door state (sealed/open/locked/broken); the shared navigation/locomotion layer owns translating that state into enemy walkability (sealed/locked block, open/broken permit); door state changes update the navigation layer through a shared interface; enemy code does not independently manipulate NavMesh or passability.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "door-close-lock-break-lifecycle",
+          "gameplay-navigation-locomotion"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Correctly split into two owner-side work items connected by a real depends_on edge and a shared exclusive-resource lock (logical:gameplay-walkability-surface), matching the GDD's explicit two-sided ownership contract; not collapsed into one hidden capability."
+      },
+      {
+        "requirement_id": "R15",
+        "reference": "Section 4 — Development Agent Ownership Invariants ('Door/navigation integration prerequisite')",
+        "requirement": "The navigation-owned shared passability interface must exist before door-state publication through that interface is dispatch-ready; if passability publication remains bundled inside one executable door-lifecycle item, that item depends on the navigation/locomotion owner.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "door-close-lock-break-lifecycle",
+          "gameplay-navigation-locomotion"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Directly realized as door-close-lock-break-lifecycle's depends_on edge to gameplay-navigation-locomotion, exactly matching the GDD-prescribed bundled-dependency pattern rather than an illegal substitution via exclusive-resource lock alone."
+      },
+      {
+        "requirement_id": "R16",
+        "reference": "Section 5 — Runtime Implementation; Section 3 — Door passability contract",
+        "requirement": "The exact underlying Unity mechanism used to update doorway passability (obstacle/carving, navigation link, runtime navigation-data update) is an implementation choice, not a separate design decision.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "gameplay-navigation-locomotion"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Correctly treated as an implementation-choice acceptance criterion rather than manufactured ambiguity, consistent with the 'do not invent GDD ambiguity from implementation choices' guidance."
+      },
+      {
+        "requirement_id": "R17",
+        "reference": "Section 2 — Resources, Feedback, and Failure, 'Door feedback'",
+        "requirement": "Banging, shaking, cracks, and a durability indicator show when a breach is near.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as an explicit implementation acceptance criterion (not validation-only), matching the GDD-hardening 'Door breach feedback is a canonical example' guidance, plus a corresponding validation requirement."
+      },
+      {
+        "requirement_id": "R18",
+        "reference": "Section 3 — Player Experience Success Criteria",
+        "requirement": "The player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "locked-door-enemy-attack"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as validation requirement on the work item owning the underlying attack/pursuit-continuation behavior."
+      },
+      {
+        "requirement_id": "R19",
+        "reference": "Section 3 — Player Experience Success Criteria",
+        "requirement": "Failure is readable, including waiting too long (a locked door breaking under sustained pressure).",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as validation requirement tied to breach/durability feedback on the owning work item."
+      },
+      {
+        "requirement_id": "R20",
+        "reference": "Section 2 — Loss / Floor-run restart ownership",
+        "requirement": "Door lifecycle/crossing/durability state (opening progress, open/locked/broken flags, crossing state) is a required reset participant for the Floor Run/Restart Orchestrator, exposing owner-controlled reset entry points rather than being mutated internally.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-open-interaction",
+          "doorway-crossing-state",
+          "door-close-lock-break-lifecycle",
+          "locked-door-enemy-attack"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Each door-territory work item exposes its own owner-controlled reset entry point as an explicit acceptance criterion, consistent with the GDD's per-owner reset-participant closure requirement."
+      },
+      {
+        "requirement_id": "R21",
+        "reference": "Section 2 — Victory/input-shutdown ownership; Section 4 — Final escape/victory coordination",
+        "requirement": "Door/Interaction exposes an owner-controlled gameplay-enable/suspend interface that immediately stops an in-progress door approach/opening timer, rejects new door commands while suspended, and is re-enabled only through an authorized reset/test flow, consumed by the Game Flow/Victory capability.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-open-interaction"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit acceptance criterion on door-open-interaction satisfying the door-side half of the victory-suspend contract."
+      },
+      {
+        "requirement_id": "R22",
+        "reference": "Section 5 — Shared Context and Coordination Rules, 'Current prototype scene-builder lock'",
+        "requirement": "Scene-authoring work that changes objects generated/maintained by DoorPrototypeSceneBuilder.cs, including doorway-crossing work creating the forward-side crossing trigger, must take exclusive-write locks on both that builder and DoorPrototype.unity.",
+        "classification": "required_process",
+        "representation": "non_code_requirement",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Current prototype scene-builder exclusive-write lock"
+        ],
+        "explanation": "Represented as a typed pipeline_constraint non-code requirement and correctly propagated as exclusive_resources entries on door-open-interaction, doorway-crossing-state, and door-close-lock-break-lifecycle."
+      },
+      {
+        "requirement_id": "R23",
+        "reference": "Section 4 — Development Agent Ownership Invariants (Door and Interaction Agent bullet)",
+        "requirement": "Door and Interaction owns door targeting, click-to-approach consumption, automatic timing, crossing state, durability, the damage-receive interface, and semantic lifecycle state including locked-to-broken; other systems consume these rather than reimplementing them; door state changes are published through the navigation passability interface rather than Door owning navigation technology.",
+        "classification": "required_process",
+        "representation": "non_code_requirement",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants"
+        ],
+        "explanation": "The process-invariant framing of this ownership boundary is captured by the typed 'Development Agent Ownership Invariants' pipeline_constraint record, while the runtime behavior itself is separately and correctly captured as acceptance criteria on the concrete door work items (R1–R17)."
+      },
+      {
+        "requirement_id": "R24",
+        "reference": "Section 4 — Dungeon Encounter Agent row",
+        "requirement": "Dungeon Encounter authors configured per-door durability values but does not own runtime door durability state, damage intake, or the locked-to-broken transition.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as an acceptance criterion requiring an authorable/serialized durability value while preserving runtime ownership on the door-lifecycle item."
+      }
+    ],
+    "verdict": "pass_with_findings"
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

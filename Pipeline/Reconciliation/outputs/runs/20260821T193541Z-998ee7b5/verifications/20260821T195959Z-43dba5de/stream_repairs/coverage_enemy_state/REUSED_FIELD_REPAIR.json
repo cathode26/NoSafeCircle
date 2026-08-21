@@ -1,0 +1,153 @@
+{
+  "agent": "Streaming Field Repair — coverage_enemy_state",
+  "requested_model": "sonnet",
+  "duration_seconds": 112.56,
+  "result": {
+    "finding_resolutions": [
+      {
+        "source_agent": "Coverage — Enemy State",
+        "finding_id": "ES-F1",
+        "disposition": "corrected",
+        "explanation": "Added an owner-controlled attack-state reset acceptance criterion (plus matching validation requirement) to melee-enemy, ranged-enemy, and locked-door-enemy-attack, and added depends_on edges from floor-run-restart-persistent-closure to all three so full restart closure cannot complete while any archetype's in-progress attack (windup/in-flight shot/door-attack attempt) still carries over. enemy-pursuit-search-foundation's notes already establish that archetype-specific attack behavior belongs on the archetype items, so ownership is assigned there rather than widening the foundation's reset criterion."
+      },
+      {
+        "source_agent": "Coverage — Enemy State",
+        "finding_id": "ES-F2",
+        "disposition": "corrected",
+        "explanation": "Added an acceptance criterion and matching validation requirement to enemy-health-damage-defeat stating the defeat transition ends the enemy's participation as an active threat (pursuit/attack stops and it leaves play) while remaining the same persistent object restorable via the reset entry point, per GDD §1 Executive Summary and §3 Active Enemy Registry and Encounter Admission."
+      },
+      {
+        "source_agent": "Coverage — Enemy State",
+        "finding_id": "ES-F3",
+        "disposition": "corrected",
+        "explanation": "Added an acceptance criterion and matching validation requirement to enemy-health-damage-defeat that a persistent enemy's health/defeat state changes only through the owner-controlled damage interface and the floor-restart reset entry point, never on room transition, target loss, search, or doorway crossing, per GDD §5 Runtime Implementation and the Lower Vault/Door and Pursuit Rules persistent-pursuer premise."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-04",
+        "disposition": "corrected",
+        "explanation": "Same underlying requirement as ES-F2 (defeated enemies stop being active threats). Resolved by the acceptance criterion added to enemy-health-damage-defeat; no separate work item is needed since this is behavior owned by that existing implementation item."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-16",
+        "disposition": "corrected",
+        "explanation": "Cross-space persistence for pursuit state and active-enemy bookkeeping were already represented on enemy-pursuit-search-foundation and active-enemy-registry; the missing enemy-health half is resolved by the acceptance criterion added under ES-F3 to enemy-health-damage-defeat, completing the requirement's representation."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-enemy-state-REQ-ES-26",
+        "disposition": "corrected",
+        "explanation": "Same underlying requirement as ES-F1 (enemy attack state as a named restart participant with an owner-exposed reset entry point). Resolved by the attack-state reset acceptance criteria added to melee-enemy, ranged-enemy, and locked-door-enemy-attack plus the new depends_on edges from floor-run-restart-persistent-closure."
+      }
+    ],
+    "operations": [
+      {
+        "target_type": "work_item",
+        "target_id": "enemy-health-damage-defeat",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 1 — Executive Summary; Section 3 — Active Enemy Registry and Encounter Admission\", \"requirement\": \"The defeat transition ends the enemy's participation as an active threat: its pursuit/attack behavior stops and it leaves play, while it remains the same persistent object restorable through the owner-controlled reset entry point.\"}",
+        "reason": "ES-F1/ES-F2/REQ-ES-04: no criterion currently obliges a defeated enemy to stop pursuing/attacking or leave play; the registry unregister call only updates a count."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "enemy-health-damage-defeat",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 1 — Executive Summary\", \"requirement\": \"Verify a defeated enemy's pursuit/attack behavior stops and it leaves play immediately following the defeat transition, while remaining restorable via the floor-restart reset entry point.\"}",
+        "reason": "ES-F2/REQ-ES-04: pair the new defeat-outcome acceptance criterion with an explicit validation obligation."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "enemy-health-damage-defeat",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 5 — Runtime Implementation\", \"requirement\": \"A persistent enemy's health and defeat state changes only through the owner-controlled damage interface and the floor-restart reset entry point; it is never reinitialized or otherwise mutated by room transition, target loss, search, or doorway crossing.\"}",
+        "reason": "ES-F3/REQ-ES-16: cross-space persistence of enemy health/defeat state was evidence-only, not an acceptance obligation, risking re-initialization on room transition."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "enemy-health-damage-defeat",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 5 — Runtime Implementation\", \"requirement\": \"Verify a persistent enemy's health/defeat state remains unchanged across room transitions, target loss, search, and doorway crossings, changing only through the damage interface or the reset entry point.\"}",
+        "reason": "ES-F3/REQ-ES-16: pair the new persistence acceptance criterion with an explicit validation obligation."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "melee-enemy",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Exposes an owner-controlled attack-state reset entry point that clears any in-progress attack cooldown/windup and cancels an in-flight melee attack when the Floor Run/Restart Orchestrator invokes floor restart, so no mid-execution attack state carries over from a failed run.\"}",
+        "reason": "ES-F1/REQ-ES-26: melee-enemy owns real run-persistent attack state (cooldown/windup/in-flight swing) but had no reset-entry-point criterion, and the GDD requires no attack state to carry over from a failed run."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "melee-enemy",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Verify a mid-windup/mid-swing Melee Enemy attack is cancelled and cooldown/windup state is cleared by floor restart, with no attack state surviving into the next run.\"}",
+        "reason": "ES-F1/REQ-ES-26: pair the new attack-state reset acceptance criterion with an explicit validation obligation."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "ranged-enemy",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Exposes an owner-controlled attack-state reset entry point that clears any in-progress telegraphed-shot windup and cancels/despawns any in-flight projectile when the Floor Run/Restart Orchestrator invokes floor restart, so no mid-execution attack state carries over from a failed run.\"}",
+        "reason": "ES-F1/REQ-ES-26: ranged-enemy owns real run-persistent attack state (telegraphed windup/in-flight projectile) but had no reset-entry-point criterion."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "ranged-enemy",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Verify an in-progress telegraphed shot or in-flight projectile is cancelled/cleared by floor restart, with no attack state surviving into the next run.\"}",
+        "reason": "ES-F1/REQ-ES-26: pair the new attack-state reset acceptance criterion with an explicit validation obligation."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "locked-door-enemy-attack",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Exposes an owner-controlled attack-state reset entry point that cancels any in-progress locked-door attack attempt when the Floor Run/Restart Orchestrator invokes floor restart, so no partially-executed door-attack state carries over from the failed run.\"}",
+        "reason": "ES-F1/REQ-ES-26: locked-door-enemy-attack owns an in-progress door-attack state but had no reset-entry-point criterion."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "locked-door-enemy-attack",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Verify an in-progress locked-door attack attempt is cancelled and cleared by floor restart, with no door-attack state surviving into the next run.\"}",
+        "reason": "ES-F1/REQ-ES-26: pair the new attack-state reset acceptance criterion with an explicit validation obligation."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "floor-run-restart-persistent-closure",
+        "field": "depends_on",
+        "op": "append_unique",
+        "value_json": "{\"key\": \"melee-enemy\", \"reason\": \"Melee Enemy owns real run-persistent attack cooldown/windup state that must be reset before full closure can claim no attack state carries over from a failed run.\", \"evidence\": \"GDD Section 2 — Floor-run restart ownership required-participant list names enemy attack state; melee-enemy now exposes the corresponding attack-state reset entry point.\"}",
+        "reason": "ES-F1/REQ-ES-26: full restart closure had no dependency edge on any attack-state owner, so it could complete while a mid-execution melee attack survived a restart."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "floor-run-restart-persistent-closure",
+        "field": "depends_on",
+        "op": "append_unique",
+        "value_json": "{\"key\": \"ranged-enemy\", \"reason\": \"Ranged Enemy owns real run-persistent attack state (telegraphed windup/in-flight projectile) that must be reset before full closure can claim no attack state carries over from a failed run.\", \"evidence\": \"GDD Section 2 — Floor-run restart ownership required-participant list names enemy attack state; ranged-enemy now exposes the corresponding attack-state reset entry point.\"}",
+        "reason": "ES-F1/REQ-ES-26: full restart closure had no dependency edge on any attack-state owner, so it could complete while a live enemy projectile survived a restart."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "floor-run-restart-persistent-closure",
+        "field": "depends_on",
+        "op": "append_unique",
+        "value_json": "{\"key\": \"locked-door-enemy-attack\", \"reason\": \"Locked-door enemy attack owns an in-progress door-attack state that must be reset before full closure can claim no attack state carries over from a failed run.\", \"evidence\": \"GDD Section 2 — Floor-run restart ownership required-participant list names enemy attack state; locked-door-enemy-attack now exposes the corresponding attack-state reset entry point.\"}",
+        "reason": "ES-F1/REQ-ES-26: full restart closure had no dependency edge on any attack-state owner, so it could complete while an in-progress door attack survived a restart."
+      }
+    ],
+    "reasoning": "All six supplied findings converge on two gaps in the enemy_state domain, both credibly supported by the GDD's restart-ownership and executive-summary/registry sections: (1) enemy attack-state (melee windup, ranged telegraphed shot/projectile, in-progress locked-door attack) had no owner-controlled reset entry point and was absent from floor-run-restart-persistent-closure's dependency closure, despite being a named required restart participant and despite enemy-pursuit-search-foundation's own notes disclaiming ownership of archetype-specific attack behavior; and (2) enemy-health-damage-defeat's acceptance surface covered the damage interface, one-shot defeat transition, and registry unregister call, but never obliged the defeated enemy to actually stop acting as a threat, nor obliged its health/defeat state to persist unchanged across room transitions (only registry/pursuit persistence were previously represented). I resolved both gaps with minimal, owner-appropriate acceptance/validation criterion additions plus three new dependency edges from floor-run-restart-persistent-closure to the three archetype/behavior items (all valid implementation-kind targets, no feature-target edges introduced, no cycles). The two deterministic REQ-ES-04/16/26 findings are the same underlying requirements surfaced by the deterministic checker and are resolved by the same corrections rather than duplicated work. I did not extend unresolved question #4, since that question concerns only how pursuit/search vs. status/displacement reset is split across two shared-state components; attack-state ownership is now unambiguous (each archetype owns and resets its own attack state), so no new ambiguity needs to be recorded there. No new work items, no scope invention, and no changes to sources/summary/seed_assessment were needed for this stream.",
+    "schema_version": "1.0"
+  }
+}

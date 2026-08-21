@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "updated_at_utc": "2026-08-21T20:16:30Z",
+  "status": "verified_with_findings",
+  "source_reconciliation_run_id": "20260821T193541Z-998ee7b5",
+  "verification_run_id": "20260821T195959Z-43dba5de",
+  "candidate_source": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+  "delta_source": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/PROPOSED_REFINED_GRAPH_DELTA.json",
+  "verification_summary_source": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/VERIFICATION_SUMMARY.json",
+  "execution_scope_unknown_count": 0,
+  "persistent_graph_mutated": false
+}

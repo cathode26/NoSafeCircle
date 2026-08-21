@@ -1,0 +1,23 @@
+{
+  "agent": "Evidence — World Run Delivery",
+  "requested_model": "sonnet",
+  "duration_seconds": 131.57,
+  "result": {
+    "findings": [],
+    "notes": [
+      "Audit scope: camera/world/navigation/packages, run/restart/victory, ProjectSettings, scene/build registration, and delivery/configuration nodes only (fixed-isometric-camera, tilemap-navigation-package-configuration, gameplay-navigation-locomotion, world-visual-foundation, world, floor-run-restart, floor-run-restart-bootstrap, floor-run-restart-persistent-closure, win-loss-conditions, final-escape-victory, delivery-and-build, windows-build-scene-registration).",
+      "Verified fixed-isometric-camera repository_state=implemented/graph_status=complete claims directly against DoorPrototypeSceneBuilder.cs, IsometricCameraFollow.cs, and the serialized DoorPrototype.unity scene (orthographic=1, orthographic size=8, m_LocalRotation matching Quaternion.Euler(30,-45,0)). Evidence is accurate and the node correctly follows the FINAL MATERIAL CONVERGENCE guidance by treating IsometricCameraFollow's player-follow translation as repository evidence only, not a GDD requirement.",
+      "Verified tilemap-navigation-package-configuration's missing-package claim against Packages/manifest.json and Packages/packages-lock.json directly: neither com.unity.2d.tilemap nor com.unity.ai.navigation is present in either file; only the builtin com.unity.modules.tilemap and com.unity.modules.ai modules exist, correctly distinguished per the hardening guidance.",
+      "Verified gameplay-navigation-locomotion's missing-NavMesh claim: DoorPrototype.unity contains only the default per-scene NavMeshSettings stub (m_NavMeshData: {fileID: 0}) and generic m_NavMeshLayer: 0 fields on GameObjects, not an actual NavMesh setup; the asmdef confirms no AI Navigation assembly reference. Candidate correctly avoided treating this boilerplate as implemented navigation.",
+      "Verified world-visual-foundation's missing-Tilemap/SpriteRenderer claim: DoorPrototypeSceneBuilder.cs builds Floor/Walls/Door via GameObject.CreatePrimitive (Plane/Cube), with no Tilemap, Grid, TilemapRenderer, or SpriteRenderer usage anywhere in the builder or scene.",
+      "Verified floor-run-restart-bootstrap and floor-run-restart-persistent-closure dependency claims against PlayerHealth.cs, PlayerMana.cs, PlayerMovement.cs, and DoorInteractable.cs directly: none expose reset entry points or a zero-health/death event, matching the candidate's stated gaps precisely.",
+      "Verified final-escape-victory's dependency claims: no doorway-crossing detection exists in DoorInteractable.cs (Complete() only sets IsOpen=true and disables visuals/collider), and PlayerMovement.cs/DoorInteractable.cs expose no suspend/re-enable interfaces, matching the candidate.",
+      "Verified delivery-and-build / windows-build-scene-registration directly against ProjectSettings/EditorBuildSettings.asset (m_Scenes: [] confirmed) — claim of zero registered scenes is accurate, and the candidate correctly avoids asserting anything about the unassessable local active build target per the hardening guidance.",
+      "Checked the full reconciliation.json for any citation of CLAUDE.md, 'VERIFIED CLOSURE', or 'verification-hardening' as evidence/authority; none found anywhere in the document.",
+      "Spot-checked the one cross-domain dependency touching my territory (door-close-lock-break-lifecycle depends_on gameplay-navigation-locomotion, citing the GDD's 'Door/navigation integration prerequisite' passage) and found it correctly sourced and consistent with the navigation node's own scope."
+    ],
+    "verdict": "pass"
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 36
+}

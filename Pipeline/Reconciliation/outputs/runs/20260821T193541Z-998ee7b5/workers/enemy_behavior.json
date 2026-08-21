@@ -1,0 +1,413 @@
+{
+  "domain": "enemy_behavior",
+  "current_state_summary": "The current repository contains zero enemy-related code. `Assets/NoSafeCircle/DoorPrototype/Scripts/` only has Door/Player/Camera/UI scripts (DoorInteractable.cs, DoorInteractionUI.cs, PlayerHealth.cs, PlayerInteractionController.cs, PlayerMovement.cs, PlayerMana.cs, PlayerManaUI.cs, IsometricCameraFollow.cs, DebugDamageControl.cs, DebugManaSpendControl.cs); a full `Assets/**/*.cs` glob confirms no file named Enemy/Melee/Ranged/Pursuit exists anywhere. `Packages/manifest.json` does not declare `com.unity.ai.navigation`, so the shared gameplay navigation/locomotion foundation this domain's locomotion depends on is itself unconfigured. `DoorInteractable.cs` currently implements only open/interacting/progress state — no durability, locked, or broken fields and no damage-receive interface exist yet, so the door-side interface locked-door enemy attacks must consume does not exist. `PlayerHealth.cs` already exposes a public `TakeDamage(float)` method, which is a usable existing interface for enemy attacks. Apparent \"NavMesh\"/\"Occlusion\" strings in `DoorPrototype.unity` are generic per-GameObject Unity serialization fields (`m_NavMeshLayer`, occlusion-culling settings), not an actual navigation or line-of-sight implementation.",
+  "desired_state_summary": "The GDD requires a shared detection/pursuit/target-loss/search/reacquisition state machine (Detection Distance smaller than Lose Target Distance; distance-based, non-random loss; last-known-position homing; short bounded randomized search/wander; reacquisition; no target clearing merely from crossing a doorway; explicit continued traversal through open/broken doorways) consumed by two required enemy archetypes: Melee Enemy (rushes and attacks at close range, naturally clusters while pursuing, gradually closes distance so retreat alone cannot preserve indefinite safety) and Ranged Enemy (keeps moderate distance, fires a slow telegraphed shot with line-of-sight/projectile occlusion, continues attacking while slowed by Frost Field even though its repositioning is slowed). Both archetypes deal damage only through the shared Player Health interface and must be delivered as usable assembled world-space SpriteRenderer prefabs integrating pursuit/locomotion, Enemy Health/Defeat, and Active Enemy Registry participation (both owned elsewhere). Separately, the GDD requires that any surviving enemy still actively tracking/pursuing the player and blocked by a newly locked door attacks that door (no separate witness flag) through the Door-owned damage interface, and resumes pursuit through the doorway once it breaks.",
+  "major_findings": [
+    "No enemy-related C# scripts exist anywhere in the repository; a full Assets/**/*.cs glob returns only Door/Player/Camera/UI scripts.",
+    "Packages/manifest.json does not declare com.unity.ai.navigation, so the world-domain gameplay-navigation-locomotion foundation this domain's locomotion must consume is itself not yet configured; enemy-pursuit-search-foundation formally depends on that foundation.",
+    "DoorInteractable.cs currently has no durability/locked/broken state and no damage-receive interface at all (only IsOpen/Progress/interaction-timer fields), so locked-door-enemy-attack's dependency on the doors-domain door-close-lock-break-lifecycle owner is a hard, currently-unmet prerequisite, not a stylistic choice.",
+    "PlayerHealth.cs already exposes a public TakeDamage(float) method, so Melee/Ranged attack acceptance criteria can reference this existing interface directly without a formal dependency on unrelated Player Health work, per the existing-interface consumption rule.",
+    "The apparent NavMesh/Occlusion strings inside DoorPrototype.unity are ordinary Unity per-GameObject serialization boilerplate (m_NavMeshLayer, OcclusionCullingSettings), not evidence of an actual navigation mesh, line-of-sight system, or enemy content; this negative finding is called out explicitly to avoid an overbroad claim being read as a positive one.",
+    "All four routing-hint keys (enemy-pursuit-search-foundation, melee-enemy, ranged-enemy, locked-door-enemy-attack) remain valid, currently-required, and fully missing; none are retired in this refresh."
+  ],
+  "work_items": [
+    {
+      "key": "enemy-pursuit-search-foundation",
+      "title": "Enemy Detection, Pursuit, and Search/Reacquisition Foundation",
+      "kind": "implementation",
+      "type": "enemy_ai_foundation",
+      "parent_key": "enemies",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Enemy Detection, Pursuit, and Target Loss",
+          "requirement": "Detection Distance must be smaller than Lose Target Distance; acquiring, pursuing, distance-based (non-random) target loss to a search state at last-known position, bounded randomized search/wander, reacquisition, and clearing to idle/wander without despawning the persistent object."
+        },
+        {
+          "reference": "Door and Pursuit Rules",
+          "requirement": "Crossing an open doorway does not by itself clear pursuit; active pursuit is lost only through the distance-and-search behavior."
+        },
+        {
+          "reference": "Runtime Implementation",
+          "requirement": "Enemy locomotion consumes the shared gameplay navigation/locomotion layer rather than choosing/configuring navigation technology independently."
+        },
+        {
+          "reference": "Floor-run restart ownership (Win and Loss Conditions)",
+          "requirement": "Every system owning persistable state exposes a reset entry point, invoked by the Floor Run/Restart Orchestrator, returning each enemy to its authored spawn region and initial AI state with no retained target/search knowledge."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Enemy Detection, Pursuit, and Target Loss",
+          "requirement": "Detection Distance is strictly smaller than Lose Target Distance so acquisition/loss does not oscillate at one boundary."
+        },
+        {
+          "reference": "Enemy Detection, Pursuit, and Target Loss",
+          "requirement": "Entering Detection Distance acquires the wizard and begins pursuit; crossing an open doorway does not by itself clear an acquired target."
+        },
+        {
+          "reference": "Enemy Detection, Pursuit, and Target Loss",
+          "requirement": "Exceeding Lose Target Distance transitions to a search state directed at the player's last known position using the distance threshold, not randomness, to decide the transition."
+        },
+        {
+          "reference": "Enemy Detection, Pursuit, and Target Loss",
+          "requirement": "On reaching the last-known position without reacquisition, perform a short, bounded search/wander using controlled randomness over navigable points, periodically re-checking for the player; re-entering Detection Distance during this state reacquires the player."
+        },
+        {
+          "reference": "Enemy Detection, Pursuit, and Target Loss",
+          "requirement": "If bounded search completes without reacquisition, clear the target and return to local idle/wander; the enemy remains the same persistent object and is not despawned, replaced, or reset."
+        },
+        {
+          "reference": "Door and Pursuit Rules",
+          "requirement": "A pursuing/searching enemy can continue forward traversal through an open or broken doorway when the shared navigation/locomotion passability result permits it, without losing its target solely because of the crossing."
+        },
+        {
+          "reference": "Runtime Implementation",
+          "requirement": "Enemy locomotion consumes the shared gameplay navigation/locomotion layer's walkable movement representation rather than selecting or configuring navigation technology independently."
+        },
+        {
+          "reference": "Floor-run restart ownership (Win and Loss Conditions)",
+          "requirement": "Exposes an owner-controlled restart/reset entry point that returns the enemy to its authored encounter/spawn region and clears all target/last-known-position/search state, for consumption by the Floor Run/Restart Orchestrator (owned by a different domain)."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Development Agent Roles (Unity Validation Agent)",
+          "requirement": "Target-loss hysteresis/search and reacquisition Play Mode validation."
+        },
+        {
+          "reference": "Dungeon Floor Structure (Bone Archive)",
+          "requirement": "Bone Archive lane-pathing validation confirming enemy movement/navigation fits the room's described narrow-lane geometry."
+        },
+        {
+          "reference": "Door and Pursuit Rules",
+          "requirement": "Verify a tracking/pursuing or searching enemy follows the player or last-known position through an open/broken doorway without spuriously clearing its target solely due to the crossing."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "gameplay-navigation-locomotion",
+          "reason": "Enemy locomotion during pursuit, search, and doorway traversal must move through the shared gameplay navigation/locomotion layer (NavMesh-based) rather than the pursuit FSM choosing/configuring navigation independently; that shared layer does not yet exist.",
+          "evidence": "GDD Runtime Implementation: 'A shared gameplay navigation/locomotion layer provides the walkable movement representation... enemy detection/pursuit/search logic does not choose or configure a different navigation technology independently.' Packages/manifest.json declares no com.unity.ai.navigation dependency and no navigation/locomotion script exists in Assets/NoSafeCircle/DoorPrototype/Scripts."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "logical:enemy-locomotion-behavior-surface",
+          "reason": "This foundation is the base behavior surface that melee-enemy, ranged-enemy, and locked-door-enemy-attack are built directly on top of/extend; concurrent edits to the same shared enemy-behavior codebase would collide.",
+          "evidence": "Derived rationale: GDD Development Agent Roles / Development Agent Ownership Invariants assign pursuit/search, melee/ranged attack behavior, and locked-door-attack initiation all to one Enemy Pursuit Agent-owned behavior surface. Since Assets/NoSafeCircle/DoorPrototype/Scripts currently contains no enemy scripts, these tasks are expected to create/extend the same shared code."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The detection/pursuit/lose-target/search/wander/reacquisition contract, threshold relationship, doorway-traversal rule, and reset participation are already fully specified by the GDD; only exact distance/duration tuning numbers are explicitly deferred to playtesting and do not block building the mechanism.",
+      "execution_scope": "needs_execution_decomposition",
+      "execution_reason": "Bundles several independently verifiable responsibilities — detection acquisition, distance-based target loss, last-known-position homing, bounded randomized search/wander, reacquisition, doorway-passability-aware traversal, and restart-reset participation — reused as the shared base for two archetypes; too broad for one implementation agent to safely execute and validate as a single unit even though the design itself is concrete.",
+      "confidence": "high",
+      "notes": "This item is the shared base that melee-enemy and ranged-enemy consume for their core movement/targeting loop; it does not itself include archetype-specific attack behavior, which stays on the archetype items. It does not own Frost Field slowdown application/restoration or forced-displacement handling (owned by enemy-status-effect-displacement in the enemy_state domain), but per GDD text that consumer depends on this item's pursuit/search state contract, not the reverse — no dependency edge is added here in that direction."
+    },
+    {
+      "key": "melee-enemy",
+      "title": "Melee Enemy Archetype",
+      "kind": "implementation",
+      "type": "enemy_archetype",
+      "parent_key": "enemies",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Required Enemy Roster",
+          "requirement": "Melee Enemy runs at the wizard and attacks at close range; prevents long stationary casts and becomes dangerous in groups."
+        },
+        {
+          "reference": "Resources, Feedback, and Failure",
+          "requirement": "Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters."
+        },
+        {
+          "reference": "Spell and Enemy Interactions",
+          "requirement": "Melee enemies naturally cluster while pursuing the wizard, making them strong area-damage targets for Charged Fireball; Frost Field stretches that formation."
+        },
+        {
+          "reference": "Required Enemy Roster",
+          "requirement": "Both enemy archetypes deal damage through the shared Player Health system rather than maintaining separate copies of player-health state."
+        },
+        {
+          "reference": "Environment Presentation and Authoring Direction / Runtime Implementation",
+          "requirement": "The wizard and enemies use world-space SpriteRenderers and prefabs with the same isometric sorting conventions as other world-space objects."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Required Enemy Roster",
+          "requirement": "Runs at the wizard and attacks at close range once the shared pursuit foundation acquires the player as target."
+        },
+        {
+          "reference": "Required Enemy Roster",
+          "requirement": "Deals damage to the player exclusively through the shared Player Health damage interface (existing PlayerHealth.TakeDamage), never writing separate player-health state."
+        },
+        {
+          "reference": "Resources, Feedback, and Failure",
+          "requirement": "A retreating player cannot maintain indefinite safety through ordinary movement alone; Melee Enemy pursuit gradually closes distance over time, with exact speed/tuning left to playtesting."
+        },
+        {
+          "reference": "Spell and Enemy Interactions",
+          "requirement": "Multiple simultaneously pursuing Melee Enemies exhibit natural clustering while chasing (not rigid uniform spacing), preserving the relevance of Charged Fireball area damage and Frost Field formation-stretching."
+        },
+        {
+          "reference": "Environment Presentation and Authoring Direction",
+          "requirement": "Delivers a usable assembled world-space SpriteRenderer archetype prefab integrating the shared pursuit/locomotion foundation, Enemy Health/Defeat participation, Active Enemy Registry participation, and Melee attack behavior."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Spell and Enemy Interactions",
+          "requirement": "Exercise multiple simultaneously pursuing Melee Enemies (not only one) to validate that clustering behavior remains meaningful for area-damage/formation-stretch interactions."
+        },
+        {
+          "reference": "Required Enemy Roster",
+          "requirement": "Verify melee damage is applied only through PlayerHealth.TakeDamage and not through any duplicated health-writing path."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "enemy-pursuit-search-foundation",
+          "reason": "Melee Enemy's chase/close-distance behavior is the archetype-specific behavior built directly on the shared detection/pursuit/search/reacquisition state machine, which does not yet exist.",
+          "evidence": "GDD Enemy Detection, Pursuit, and Target Loss + Required Enemy Roster describe Melee Enemy pursuit as an application of the shared contract; no pursuit/search code exists in the repository."
+        },
+        {
+          "key": "enemy-health-damage-defeat",
+          "reason": "The assembled archetype must integrate the reusable Enemy Health/Defeat capability rather than maintaining its own health/damage/defeat state; that capability does not yet exist.",
+          "evidence": "GDD Required Enemy Roster 'Enemy health and defeat ownership' paragraph; no such component exists anywhere in Assets/NoSafeCircle/DoorPrototype/Scripts."
+        },
+        {
+          "key": "active-enemy-registry",
+          "reason": "The archetype must register with and participate in the Active Enemy Registry's active-count bookkeeping so encounter admission and the fifteen-enemy cap function correctly; the registry does not yet exist.",
+          "evidence": "GDD 'Active Enemy Registry and Encounter Admission': enemy activation registers with the registry and defeat removes the enemy from the active count; no registry implementation exists in the repository."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "logical:enemy-locomotion-behavior-surface",
+          "reason": "Melee Enemy is built directly on the shared pursuit foundation and shares its behavior surface with ranged-enemy and locked-door-enemy-attack; concurrent edits risk collision.",
+          "evidence": "Derived rationale: same GDD ownership assignment cited on enemy-pursuit-search-foundation; no enemy scripts currently exist so this work extends the same shared codebase."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "Melee Enemy's behavior (rush-and-melee-attack, gradual distance closing, natural clustering) and its role as an assembled archetype integrating existing-to-be-built shared capabilities are already concretely specified by the GDD; no additional design invention is required.",
+      "execution_scope": "needs_execution_decomposition",
+      "execution_reason": "Integrates several distinct subsystem contracts (shared pursuit/locomotion consumption, Enemy Health/Defeat participation, Active Enemy Registry participation, melee attack execution, and SpriteRenderer prefab presentation/sorting) into one assembled archetype; each integration point has its own validation concern, exceeding a single bounded agent handoff.",
+      "confidence": "high",
+      "notes": "Frost Field's slowdown application/restoration is owned by enemy-status-effect-displacement (a different domain); this item only needs to expose a locomotion speed that can be externally modified, and no formal dependency in that direction is added since the GDD makes status-effect the consumer of this behavior, not the reverse."
+    },
+    {
+      "key": "ranged-enemy",
+      "title": "Ranged Enemy Archetype",
+      "kind": "implementation",
+      "type": "enemy_archetype",
+      "parent_key": "enemies",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Required Enemy Roster",
+          "requirement": "Ranged Enemy keeps moderate distance and fires a slow telegraphed shot; forces lateral movement while Melee Enemies close in."
+        },
+        {
+          "reference": "Required Enemy Roster",
+          "requirement": "A Ranged Enemy may end up fighting alone if its Melee support is defeated first; tap Fireball, cover, and lateral movement remain effective against a lone survivor."
+        },
+        {
+          "reference": "Runtime Implementation",
+          "requirement": "Ranged Enemy attacks include a line-of-sight/projectile-occlusion check so Chapel of Ash's cover actually blocks shots."
+        },
+        {
+          "reference": "Spell and Enemy Interactions",
+          "requirement": "Frost Field slows a Ranged Enemy's repositioning but does not stop its attacks; the player must still move laterally or use room geometry to avoid incoming shots."
+        },
+        {
+          "reference": "Environment Presentation and Authoring Direction / Runtime Implementation",
+          "requirement": "The wizard and enemies use world-space SpriteRenderers and prefabs with consistent isometric sorting conventions."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Required Enemy Roster",
+          "requirement": "Keeps moderate distance from the player and fires a slow, telegraphed ranged shot rather than an instantaneous attack."
+        },
+        {
+          "reference": "Runtime Implementation",
+          "requirement": "Attack includes a line-of-sight/projectile-occlusion check so cover (e.g., Chapel of Ash pews/columns) actually blocks shots."
+        },
+        {
+          "reference": "Required Enemy Roster",
+          "requirement": "Deals damage to the player exclusively through the shared Player Health damage interface (existing PlayerHealth.TakeDamage)."
+        },
+        {
+          "reference": "Required Enemy Roster",
+          "requirement": "Functions correctly as a standalone pursuer if it ends up fighting without Melee support, without requiring melee presence to operate."
+        },
+        {
+          "reference": "Spell and Enemy Interactions",
+          "requirement": "Frost Field slowdown affects only the Ranged Enemy's repositioning/locomotion speed and does not suppress, pause, or otherwise slow its telegraphed attack execution."
+        },
+        {
+          "reference": "Environment Presentation and Authoring Direction",
+          "requirement": "Delivers a usable assembled world-space SpriteRenderer archetype prefab integrating the shared pursuit/locomotion foundation (moderate-distance keep-away behavior), Enemy Health/Defeat participation, Active Enemy Registry participation, and Ranged attack/occlusion behavior."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Dungeon Floor Structure (Chapel of Ash) / Development Agent Roles (Unity Validation Agent)",
+          "requirement": "Chapel of Ash line-of-sight/projectile-occlusion Play Mode validation confirming cover blocks shots."
+        },
+        {
+          "reference": "Spell and Enemy Interactions",
+          "requirement": "Verify a slowed (Frost Field) Ranged Enemy continues its normal telegraphed attack behavior while its repositioning speed is reduced."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "enemy-pursuit-search-foundation",
+          "reason": "Ranged Enemy's moderate-distance-keeping and target acquisition/loss are built directly on the shared detection/pursuit/search/reacquisition state machine, which does not yet exist.",
+          "evidence": "GDD Enemy Detection, Pursuit, and Target Loss + Required Enemy Roster; no pursuit/search code exists in the repository."
+        },
+        {
+          "key": "enemy-health-damage-defeat",
+          "reason": "The assembled archetype must integrate the reusable Enemy Health/Defeat capability rather than maintaining its own health/damage/defeat state; that capability does not yet exist.",
+          "evidence": "GDD Required Enemy Roster 'Enemy health and defeat ownership' paragraph; no such component exists in the repository."
+        },
+        {
+          "key": "active-enemy-registry",
+          "reason": "The archetype must register with and participate in the Active Enemy Registry's active-count bookkeeping; the registry does not yet exist.",
+          "evidence": "GDD 'Active Enemy Registry and Encounter Admission'; no registry implementation exists in the repository."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "logical:enemy-locomotion-behavior-surface",
+          "reason": "Ranged Enemy is built directly on the shared pursuit foundation and shares its behavior surface with melee-enemy and locked-door-enemy-attack; concurrent edits risk collision.",
+          "evidence": "Derived rationale: same GDD ownership assignment cited on enemy-pursuit-search-foundation; no enemy scripts currently exist so this work extends the same shared codebase."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "Ranged Enemy's behavior (moderate-distance keep-away, slow telegraphed shot, occlusion check, standalone viability, Frost interaction) is already concretely specified by the GDD; no additional design invention is required at this coarse level.",
+      "execution_scope": "needs_execution_decomposition",
+      "execution_reason": "Bundles keep-away positioning logic, telegraphed-attack timing, line-of-sight/occlusion checks, Frost-interaction correctness, plus Enemy Health/Defeat and Active Enemy Registry integration and SpriteRenderer presentation into one archetype; these are independently verifiable responsibilities exceeding a single bounded handoff.",
+      "confidence": "high",
+      "notes": "The GDD's encounter-composition rule that Ranged Enemy never spawns as an isolated encounter is content/authoring policy owned by dungeon-encounter-content-authoring (a different domain), not this archetype's own behavior; this item only needs to remain correct when it happens to end up alone mid-encounter."
+    },
+    {
+      "key": "locked-door-enemy-attack",
+      "title": "Locked-Door Enemy Attack Initiation",
+      "kind": "implementation",
+      "type": "enemy_behavior",
+      "parent_key": "enemies",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Door and Pursuit Rules",
+          "requirement": "Any surviving enemy still actively tracking/pursuing the player and whose route is blocked by the newly locked door begins attacking that door; no separate 'witnessed escape' or line-of-sight-to-crossing state is tracked, and an enemy that has already lost the player does not attack a locked door solely because it is nearby. When the door breaks, tracking/pursuing enemies continue pursuit through the now-passable doorway."
+        },
+        {
+          "reference": "Locked-door attack and durability ownership",
+          "requirement": "Enemy Pursuit/attack behavior owns deciding when a qualifying blocked pursuer attacks and executing the attack attempt; Door and Interaction owns durability, the damage-receive interface, and the locked-to-broken transition. Enemy attack code requests door damage through that interface and does not directly write door durability or semantic door state."
+        },
+        {
+          "reference": "Development Agent Ownership Invariants",
+          "requirement": "Enemy Pursuit owns initiating the locked-door attack when a surviving enemy is still actively tracking/pursuing the player and blocked; the attack requests damage through the Door-owned interface rather than mutating door state, and pursuit continues through the doorway after it breaks."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Door and Pursuit Rules",
+          "requirement": "A surviving enemy still actively tracking/pursuing the player and whose route is blocked by a newly locked door begins attacking that door; no separate 'witnessed escape' or line-of-sight-to-crossing flag is tracked."
+        },
+        {
+          "reference": "Door and Pursuit Rules",
+          "requirement": "An enemy that has already lost the player (cleared target) does not attack a locked door merely because it is nearby."
+        },
+        {
+          "reference": "Locked-door attack and durability ownership",
+          "requirement": "The attack requests door damage exclusively through the Door-owned damage-receive interface and never writes door durability or semantic door state directly."
+        },
+        {
+          "reference": "Door and Pursuit Rules",
+          "requirement": "When the door breaks (transitions to broken), the still-tracking/pursuing enemy continues pursuit forward through the now-passable doorway using the shared navigation/locomotion passability result, without independently manipulating door or navigation state."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Dungeon Floor Structure (Lower Vault) / Door and Pursuit Rules",
+          "requirement": "Verify that after a rear breach, locked-door-attacking pursuers correctly resume forward pursuit through the broken doorway rather than stalling."
+        },
+        {
+          "reference": "Door and Pursuit Rules",
+          "requirement": "Verify an enemy that has already lost the player (post bounded-search target clear) does not initiate a locked-door attack solely from proximity."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "enemy-pursuit-search-foundation",
+          "reason": "Determining whether a blocked enemy is still 'actively tracking/pursuing the player' — the sole qualifying condition for a locked-door attack — requires the tracking/pursuit state owned by the shared pursuit/search foundation; no separate witness flag exists per the GDD, so this state must come from that foundation, which does not yet exist.",
+          "evidence": "GDD Door and Pursuit Rules: 'if the enemy can still track the player, it is already aggroed/pursuing... An enemy that has already lost the player does not begin attacking a locked door.' No pursuit/tracking state currently exists in the repository."
+        },
+        {
+          "key": "door-close-lock-break-lifecycle",
+          "reason": "The attack must request door damage through the Door-owned damage-receive interface and must stop/transition when the door's locked-to-broken state changes; DoorInteractable.cs currently has no durability, locked, or broken state, and no damage-receive method exists at all.",
+          "evidence": "GDD 'Locked-door attack and durability ownership'. Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs currently implements only IsOpen/Progress/interaction-timer fields (StartInteraction/CancelInteraction/Tick) with no durability, locked, broken, or damage-receive members."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "logical:enemy-locomotion-behavior-surface",
+          "reason": "This behavior extends the same shared enemy-behavior codebase used by pursuit foundation, melee, and ranged work; concurrent edits risk collision.",
+          "evidence": "Derived rationale: same GDD ownership assignment cited on enemy-pursuit-search-foundation; no enemy scripts currently exist so this work extends the same shared codebase."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The qualifying condition (still tracking/pursuing + blocked by locked door), the damage-interface boundary, and the post-break pursuit continuation are already fully specified by the GDD Door and Pursuit Rules section; nothing further needs to be invented.",
+      "execution_scope": "single_agent",
+      "execution_reason": "A narrowly scoped behavior branch — checking existing tracking state, requesting door damage through one interface, and resuming pursuit after breach — with a small, well-defined validation target once its two prerequisites exist; bounded enough for one implementation agent.",
+      "confidence": "high",
+      "notes": "Does not consume or write the shared gameplay-walkability-surface directly; it only reads the navigation layer's passability result once the door breaks, per GDD's explicit statement that 'pursuit and attack behavior consume doorway walkability... rather than directly changing NavMesh or door passability,' so no logical:gameplay-walkability-surface lock is applied here."
+    }
+  ],
+  "requirement_overlays": [],
+  "non_code_requirements": [],
+  "deferred_or_excluded": [],
+  "unresolved_questions": [
+    {
+      "question": "Will Play Mode validation for enemy-pursuit-search-foundation/melee-enemy/ranged-enemy (e.g., Bone Archive lane pathing, Chapel of Ash occlusion, cross-doorway pursuit) require instantiating enemy prefabs into the canonical DoorPrototype.unity scene via DoorPrototypeSceneBuilder.cs, which would require adding the current builder/scene exclusive-resource locks used by other tasks that write through that builder?",
+      "affects_keys": [
+        "enemy-pursuit-search-foundation",
+        "melee-enemy",
+        "ranged-enemy"
+      ],
+      "why_unresolved": "The current DoorPrototypeSceneBuilder.cs does not build or reference any enemy object today, and no repository evidence establishes that these archetype/foundation tasks must modify that specific builder script; encounter placement (a different domain) is the more likely owner of scene-integration writes. Adding the lock now would be speculative.",
+      "recommended_resolution": "later_decomposition"
+    }
+  ],
+  "files_reviewed": [
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+    "Packages/manifest.json"
+  ],
+  "historical_sources_reviewed": []
+}

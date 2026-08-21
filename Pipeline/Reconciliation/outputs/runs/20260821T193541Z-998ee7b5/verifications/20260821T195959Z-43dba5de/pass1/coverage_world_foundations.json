@@ -1,0 +1,201 @@
+{
+  "agent": "Coverage — World Foundations",
+  "requested_model": "sonnet",
+  "duration_seconds": 245.93,
+  "result": {
+    "findings": [
+      {
+        "finding_id": "WF-001",
+        "severity": "warning",
+        "category": "missing_dependency",
+        "title": "Enemy archetypes claim SpriteRenderer/sorting-convention delivery without depending on the still-unbuilt visual foundation",
+        "description": "melee-enemy and ranged-enemy each carry an acceptance criterion requiring them to 'deliver a usable assembled world-space SpriteRenderer archetype prefab ... following consistent isometric sorting conventions.' Those sorting/prefab conventions are the explicit ownership responsibility of world-visual-foundation (GDD 'Environment Presentation and Authoring Direction': wizard/enemies 'follow the same isometric sorting conventions as other world-space SpriteRenderers'). world-visual-foundation's repository_state is 'missing' and graph_status 'open' — no Tilemap/SpriteRenderer convention exists anywhere in the repository yet (DoorPrototypeSceneBuilder.cs still emits primitive Plane/Cube meshes). Under the candidate's own 'existing interface vs. unfinished task' dependency rule, a consumer needing a specific owner-side capability that is genuinely unfinished should carry a depends_on edge to that owner. Neither melee-enemy nor ranged-enemy declare depends_on: world-visual-foundation, unlike the analogous and correctly-modeled case where five-room-content-authoring does depend on world-visual-foundation for the same underlying convention. This is a plausible coverage gap in how the visual foundation's downstream consumers are wired, though the GDD's explicit placeholder-sprite allowance ('Placeholder character sprites are acceptable during development') makes it defensible that early enemy-behavior work could proceed with placeholder presentation before the full foundation exists, which is why this is flagged as a warning rather than an error.",
+        "affected_keys": [
+          "melee-enemy",
+          "ranged-enemy",
+          "world-visual-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD - Environment Presentation and Authoring Direction",
+            "requirement": "The wizard, enemies, taller props, interactive doors, obstacles, decorative set pieces, and other independently sorted objects use world-space SpriteRenderers and prefabs instead of being painted directly into a Tilemap ... the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers."
+          },
+          {
+            "reference": "GDD - 2.5D Isometric Visual and World Representation",
+            "requirement": "The reusable visual world foundation (Tilemap/SpriteRenderer conventions and visual/gameplay separation) ... Five-room visual/content authoring consumes this foundation once it exists. These are real prerequisite relationships even when the downstream content features remain deferred for future decomposition."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "melee-enemy and ranged-enemy acceptance_criteria each require 'a usable assembled world-space SpriteRenderer archetype prefab ... following consistent isometric sorting conventions,' but their depends_on arrays list only enemy-pursuit-search-foundation, enemy-health-damage-defeat, and active-enemy-registry — no edge to world-visual-foundation."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "world-visual-foundation is repository_state: missing / graph_status: open, and five-room-content-authoring (a comparable consumer of the same foundation) does declare depends_on: world-visual-foundation with matching GDD-sourced reasoning, showing the candidate's own precedent for this kind of edge."
+          }
+        ],
+        "recommended_change": "Either add depends_on: world-visual-foundation to melee-enemy and ranged-enemy (mirroring the five-room-content-authoring precedent), or, if the intent is that enemy archetypes may ship with placeholder sprites before the full foundation exists, make that explicit in each item's notes so the omission reads as a deliberate scoping choice rather than an oversight.",
+        "requires_human_review": true
+      }
+    ],
+    "notes": [
+      "Audit scope was restricted per the parallel-audit assignment to: fixed isometric camera, approved packages, Tilemap/SpriteRenderer foundation, gameplay navigation/locomotion, passability translation, visual/gameplay separation, sorting, and world foundation. Findings outside this territory (player_core, wizard_combat, doors, enemy_behavior internals, encounters, run lifecycle, delivery/pipeline) were intentionally not evaluated or reported, consistent with the instruction that the union of parallel auditors provides full coverage.",
+      "Within scope, the candidate's four world-foundation work items (fixed-isometric-camera, tilemap-navigation-package-configuration, gameplay-navigation-locomotion, world-visual-foundation) correctly and durably represent every in-scope GDD requirement I could find: fixed/no-rotation camera (already implemented and test-covered), both approved packages as concrete configuration work, the shared NavMesh-based navigation/locomotion layer with its passability-translation acceptance criteria, and the Tilemap/SpriteRenderer visual foundation with correct visual/gameplay separation, sorting, and continuous-scene acceptance criteria.",
+      "The candidate correctly applies the verification-hardening guidance verbatim in several places: it does not demand player-follow camera translation as a GDD requirement (explicitly noted as repository-evidence-only), it represents the camera/visual-foundation compatibility question as a validation_requirement rather than an ambiguity, and it correctly places door-close-lock-break-lifecycle's dependency on gameplay-navigation-locomotion for passability publication.",
+      "The dependency chain gameplay-navigation-locomotion -> tilemap-navigation-package-configuration, and enemy-pursuit-search-foundation -> gameplay-navigation-locomotion, correctly encodes the GDD's explicit ordering requirement that a minimal navigation/locomotion layer and package configuration must exist before locomotion-dependent enemy work is dispatched.",
+      "five-room-content-authoring's depends_on: world-visual-foundation is a correctly modeled feature->implementation edge per the deferred-feature dependency rules (feature depending on a concrete implementation is permitted; feature->feature is not), used here as a positive comparison point for finding WF-001."
+    ],
+    "requirements": [
+      {
+        "requirement_id": "WF-R1",
+        "reference": "GDD - Executive Summary / 2.5D Isometric Visual and World Representation",
+        "requirement": "The camera is fixed in an isometric presentation at a consistent dimetric angle; the player does not rotate the world view freely.",
+        "classification": "required_gameplay",
+        "representation": "work_item",
+        "mapped_keys": [
+          "fixed-isometric-camera"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as a standalone implementation work item, already complete with matching repository evidence (fixed orthographic rotation set once, never modified) and dedicated automated tests. Acceptance criteria correctly scope only the fixed-angle/no-rotation requirement, not the camera's incidental player-follow translation, matching the GDD's actual scope."
+      },
+      {
+        "requirement_id": "WF-R2",
+        "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+        "requirement": "Unity 2D Tilemap Editor (com.unity.2d.tilemap) is approved and required for the intended Isometric Tilemap authoring workflow; if absent, adding/configuring it is concrete project-configuration work.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "tilemap-navigation-package-configuration"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Correctly represented as concrete configuration work (not deferred design), with repository evidence confirming the package is genuinely absent from Packages/manifest.json and packages-lock.json, and a developer-inspection validation requirement attached."
+      },
+      {
+        "requirement_id": "WF-R3",
+        "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+        "requirement": "Unity AI Navigation (com.unity.ai.navigation) is the approved enemy-navigation implementation; if absent, adding/configuring it is a prerequisite for the gameplay navigation/locomotion layer and locomotion-dependent enemy work.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "tilemap-navigation-package-configuration"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Bundled with the Tilemap package into one bounded configuration item, matching the GDD's framing of both packages as project-configuration prerequisites; gameplay-navigation-locomotion correctly declares depends_on this item."
+      },
+      {
+        "requirement_id": "WF-R4",
+        "reference": "GDD - 2.5D Isometric Visual and World Representation / Runtime Implementation",
+        "requirement": "A shared gameplay navigation/locomotion layer owns the walkable movement representation and navigation-facing configuration for NavMesh-based runtime enemy movement, using the approved Unity AI Navigation package.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "gameplay-navigation-locomotion"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as a distinct implementation work item with acceptance criteria requiring NavMesh-based movement and correct dependency on package configuration; enemy-pursuit-search-foundation correctly depends on it rather than choosing navigation technology independently."
+      },
+      {
+        "requirement_id": "WF-R5",
+        "reference": "GDD - Door and Pursuit Rules (door passability contract) / Development Agent Ownership Invariants",
+        "requirement": "The navigation-owned shared passability interface translates Door and Interaction's semantic sealed/open/locked/broken state into enemy walkability: sealed and locked block traversal, open and broken permit it; the underlying Unity mechanism is an implementation choice.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "gameplay-navigation-locomotion"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Correctly represented as an acceptance criterion on the navigation layer (not on Door and Interaction, which owns only the semantic-state side). door-close-lock-break-lifecycle correctly depends on gameplay-navigation-locomotion for the publication half of this same contract, satisfying the Section 4 door/navigation integration prerequisite."
+      },
+      {
+        "requirement_id": "WF-R6",
+        "reference": "GDD - Environment Presentation and Authoring Direction / Runtime Implementation",
+        "requirement": "The primary environment visual layer uses Unity Isometric Tilemaps for floors/walls/repeatable architecture; the wizard, enemies, doors, props, obstacles, and other independently sorted objects use world-space SpriteRenderer prefabs instead of being painted into the Tilemap.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "world-visual-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as a dedicated implementation item distinct from five-room content authoring, with correct repository evidence that the current builder emits only primitive MeshRenderer geometry and no Tilemap/SpriteRenderer objects exist yet."
+      },
+      {
+        "requirement_id": "WF-R7",
+        "reference": "GDD - Environment Presentation and Authoring Direction",
+        "requirement": "The visible isometric art layer is kept separate from the underlying gameplay representation; the gameplay layer still owns walkability, collision, trigger volumes, door state, pursuit logic, and other simulation behavior independent of the visual layer.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "world-visual-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Correctly captured as an explicit acceptance criterion on world-visual-foundation rather than left as background prose."
+      },
+      {
+        "requirement_id": "WF-R8",
+        "reference": "GDD - Environment Presentation and Authoring Direction / Required feedback and character presentation",
+        "requirement": "The wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers; placeholder character sprites are acceptable during development.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "world-visual-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Correctly owned by world-visual-foundation per the verification-hardening guidance that this belongs to the reusable visual foundation rather than an unowned rendering requirement, with an accompanying isometric sprite-sorting validation_requirement. See finding WF-001 for a related gap in how enemy-archetype consumers of this convention are (not) linked back via dependency."
+      },
+      {
+        "requirement_id": "WF-R9",
+        "reference": "GDD - Runtime Implementation",
+        "requirement": "All five encounter spaces exist inside one continuous Unity scene or continuous floor representation; no scene-load or cross-scene state-transfer system is required.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "world-visual-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as an acceptance criterion on the foundation item, consistent with it being a structural property of the continuous-floor representation rather than a separate feature."
+      },
+      {
+        "requirement_id": "WF-R10",
+        "reference": "GDD - Camera completion and future integration (verification-hardening closure)",
+        "requirement": "Once the Tilemap/SpriteRenderer world-visual foundation exists, the already-implemented fixed isometric camera must be validated for visual compatibility (alignment/sorting) with the new visual layer.",
+        "classification": "required_implementation",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "fixed-isometric-camera"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Correctly represented as a validation_requirement rather than reopened as an ambiguity or a new work item, matching the explicit hardening guidance for this exact scenario."
+      },
+      {
+        "requirement_id": "WF-R11",
+        "reference": "GDD - 2.5D Isometric Visual and World Representation",
+        "requirement": "A minimal working navigation/locomotion layer and the approved package configuration must exist before locomotion-dependent enemy implementation is dispatched, but room-specific visual authoring does not need to be complete first.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "gameplay-navigation-locomotion",
+          "tilemap-navigation-package-configuration"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented structurally via the depends_on chain (enemy-pursuit-search-foundation -> gameplay-navigation-locomotion -> tilemap-navigation-package-configuration) rather than as prose, correctly gating enemy-behavior dispatch order without blocking on room-specific visual authoring."
+      },
+      {
+        "requirement_id": "WF-R12",
+        "reference": "GDD - Environment Presentation and Authoring Direction",
+        "requirement": "Melee and Ranged Enemy archetypes, as world-space SpriteRenderer objects, must conform to the sorting conventions established by the reusable visual foundation.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "melee-enemy",
+          "ranged-enemy"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "The requirement itself is represented as acceptance criteria on the consuming archetype items, but the corresponding depends_on edge to the still-unbuilt world-visual-foundation owner is absent from both consumers; see finding WF-001."
+      }
+    ],
+    "verdict": "pass_with_findings"
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

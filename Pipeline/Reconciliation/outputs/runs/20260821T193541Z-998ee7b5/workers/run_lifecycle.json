@@ -1,0 +1,449 @@
+{
+  "domain": "run_lifecycle",
+  "desired_state_summary": "The GDD requires two closely related capabilities in this domain. (1) Floor Run/Restart: a shared Floor Run/Restart Orchestrator consumes Player Health's observable zero-health/death transition and coordinates a fresh floor attempt by invoking owner-controlled reset entry points on every run-persistent state owner (Player Health, Player Mana, Player Movement/position, Fireball, Frost Field, Force Wave, enemy health/defeat, enemy pursuit/search/attack/status/displacement, Active Enemy Registry, door lifecycle/crossing/durability, encounter activation/admission). An early implementation may validate only against currently-existing persistent owners, but full closure remains required until every implemented owner participates. (2) Win/Loss Conditions: victory is confirmed only via the shared doorway-crossing state Door and Interaction owns (no separate crossing detector); a reusable Game Flow/Victory capability then owns the won-state transition, displays a simple \"You Escaped\" overlay, and coordinates suspension of Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave through each system's own owner-controlled suspend/re-enable interface rather than mutating their internals. No further post-victory progression is required. Loss is reaching zero health, which triggers the restart orchestrator described above.",
+  "current_state_summary": "No restart, death-transition, or victory/game-flow code exists anywhere in the current repository. PlayerHealth.cs only exposes CurrentHealth, TakeDamage, and a Damaged event — there is no zero-health/death event, no restore/heal interface, and no reset entry point. PlayerMana.cs and PlayerMovement.cs likewise expose no reset entry points. DoorInteractable.cs implements only the open-timer/interaction lifecycle (Progress, IsOpen, doorwayBlocker disable-on-open) — it has no doorway-crossing detection, no lock/durability/breaking, and no reset entry point either, even though its own Progress/IsOpen/blocker state is already run-persistent. No enemy, spell (Fireball/Frost Field/Force Wave), or navigation code exists in the project at all (confirmed by a repository-wide search), so the eventual full persistent-closure and victory-input-shutdown dependencies on those systems are currently unmet prerequisites rather than already-satisfied interfaces.",
+  "major_findings": [
+    "Floor Run/Restart has zero current implementation: no orchestrator class, no zero-health event on PlayerHealth, and no reset entry points on any current system (PlayerHealth, PlayerMana, PlayerMovement, DoorInteractable).",
+    "DoorInteractable.cs already owns run-persistent state (Progress, IsOpen, disabled doorwayBlocker) even though the close/lock/durability lifecycle is unimplemented; a bootstrap restart task must reset this existing state, not just health/mana/position.",
+    "Win/Loss Conditions has zero current implementation: no doorway-crossing detector, no Game Flow/Victory capability, no You Escaped overlay, and no suspend/re-enable interfaces on any consumer system.",
+    "Because no enemy, spell, or navigation code exists yet, floor-run-restart-persistent-closure and final-escape-victory both carry multiple currently-unmet cross-domain prerequisites (enemy/door-lifecycle/spell owners) rather than being blocked on ownership ambiguity.",
+    "The routing hint keys (floor-run-restart, floor-run-restart-bootstrap, floor-run-restart-persistent-closure, win-loss-conditions, final-escape-victory) all remain valid current responsibilities under the present GDD and are preserved.",
+    "Per the FRESH RUN CLOSURE and prior verification-round guidance, restart-orchestrator and victory work that wires participants through the current scene builder must carry the DoorPrototypeSceneBuilder.cs/DoorPrototype.unity locks in addition to the logical orchestrator lock."
+  ],
+  "work_items": [
+    {
+      "key": "floor-run-restart",
+      "title": "Floor Run/Restart",
+      "kind": "feature",
+      "type": "run_lifecycle",
+      "parent_key": "no-safe-circle",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Win and Loss Conditions",
+          "requirement": "Reaching zero health restarts the entire floor by design; restart resets all run-persistent gameplay state to the floor's initial state."
+        },
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "A shared Floor Run/Restart Orchestrator consumes Player Health's zero-health transition and invokes owned reset entry points on every run-persistent system rather than mutating their internals directly."
+        }
+      ],
+      "acceptance_criteria": [],
+      "validation_requirements": [],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "coarse",
+      "decomposition_reason": "The GDD already specifies the orchestrator's ownership contract and required participants in full; this feature node organizes a staged bootstrap implementation plus a later full-closure implementation without inventing missing design.",
+      "execution_scope": "not_applicable",
+      "execution_reason": "Organizational feature node; not directly dispatchable.",
+      "confidence": "high",
+      "notes": "Aggregate repository_state of missing reflects that no restart-related code exists in the current repository at all."
+    },
+    {
+      "key": "floor-run-restart-bootstrap",
+      "title": "Floor Run/Restart Bootstrap (Current-Owner Stage)",
+      "kind": "implementation",
+      "type": "run_lifecycle",
+      "parent_key": "floor-run-restart",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Early implementation may validate the orchestrator against only the persistent systems that currently exist, but full restart closure remains required work until every implemented state owner participates."
+        },
+        {
+          "reference": "Player Health ownership",
+          "requirement": "The restart orchestrator consumes the zero-health transition rather than polling or mutating Player Health internals."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Subscribes to an owner-exposed zero-health/death transition from Player Health without polling CurrentHealth or writing PlayerHealth fields directly."
+        },
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "On trigger, invokes owner-controlled reset entry points for every currently-existing run-persistent owner: Player Health, Player Mana (current mana and regeneration-delay state), Player Movement (player position/movement state), and the door-open-interaction system's currently owned state (open flag, opening progress, and the disabled doorway blocker)."
+        },
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Does not directly mutate any consumed owner's internal fields; only calls each owner's exposed reset entry point."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Play Mode check: reducing Player Health to zero triggers a fresh floor attempt exactly once per zero-health transition."
+        },
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Play Mode check: after restart, Player Health, Player Mana, player position, and door-open-interaction state (progress/open/blocker) are all back to their floor-initial values."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "player-health",
+          "reason": "PlayerHealth.cs currently exposes only TakeDamage/Damaged; it has no zero-health/death event and no reset entry point, both of which this task must consume.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs"
+        },
+        {
+          "key": "player-mana",
+          "reason": "PlayerMana.cs has no reset entry point for CurrentMana or the post-cast regen-delay timer, which the bootstrap orchestrator must invoke.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs"
+        },
+        {
+          "key": "player-movement",
+          "reason": "PlayerMovement.cs has no reset entry point for player position/movement state, which the bootstrap orchestrator must invoke.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs"
+        },
+        {
+          "key": "door-open-interaction",
+          "reason": "DoorInteractable.cs already owns run-persistent state (Progress, IsOpen, disabled doorwayBlocker) but exposes no reset entry point; the bootstrap orchestrator must invoke one.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs"
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "logical:floor-run-restart-orchestrator",
+          "reason": "Both restart stages share one logical orchestrator integration surface; concurrent work on either stage must not race on the orchestrator's wiring.",
+          "evidence": "Derived rationale: GDD 'A shared Floor Run/Restart Orchestrator coordinates a new floor attempt' describes one orchestrator extended across a bootstrap and a closure stage."
+        },
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "If the orchestrator component is created/wired onto scene objects through the current builder, this file is a shared write surface with other builder-writing tasks.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs builds/clears Floor, Walls, and DoorRoot and saves the scene."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The orchestrator's scene-resident wiring is saved into this canonical scene file, which is a non-merge-safe integration surface.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs saves DoorPrototype.unity."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD explicitly authorizes a staged bootstrap that validates only against currently-existing persistent owners, and every owner it must invoke is already named.",
+      "execution_scope": "single_agent",
+      "execution_reason": "The task subscribes to one existing signal (once added to Player Health) and invokes a small, known set of already-defined owner reset interfaces; it does not itself implement those owners' reset logic.",
+      "confidence": "high",
+      "notes": "This is the staged bootstrap explicitly permitted by the GDD; it must not become the graph's only terminal restart work."
+    },
+    {
+      "key": "floor-run-restart-persistent-closure",
+      "title": "Floor Run/Restart Persistent-Systems Closure",
+      "kind": "implementation",
+      "type": "run_lifecycle",
+      "parent_key": "floor-run-restart",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Required reset participants include Player Health, Player Mana, Player Movement/player position, Fireball, Frost Field, Force Wave, enemy health/defeat state, enemy pursuit/search/attack/status/displacement state, Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state."
+        },
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Enemy reset returns each persistent enemy to its original authored encounter/spawn region and initial AI state, with no retained target/last-known-position/search/attack/displacement state from the failed run."
+        },
+        {
+          "reference": "Spell-local state ownership",
+          "requirement": "Each spell owner (Fireball, Frost Field, Force Wave) exposes a reset entry point for any owned state that can still be active when a floor restart occurs."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Extends the same orchestrator used by the bootstrap stage to additionally invoke reset entry points for every implemented persistent owner beyond the bootstrap set, without redesigning the orchestration contract."
+        },
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Full closure is not considered complete while any implemented run-persistent owner does not yet expose/participate in a reset entry point."
+        },
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Enemy reset consumes an enemy-owned restart/reset operation that returns each persistent enemy to its authored encounter/spawn region and initial pursuit/search/attack state, with no retained target or search state; the orchestrator does not write enemy Transform/locomotion internals itself."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Play Mode check, expanded as each owner is implemented, confirming every implemented persistent-state owner is reset to its floor-initial state after a zero-health restart."
+        },
+        {
+          "reference": "Floor-run restart ownership",
+          "requirement": "Play Mode check confirming a defeated/repositioned enemy returns to its authored spawn region with no carried target/search/displacement/status state."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "floor-run-restart-bootstrap",
+          "reason": "This item extends the same orchestrator the bootstrap stage creates; the orchestrator implementation must exist first.",
+          "evidence": "Derived rationale: GDD describes one Floor Run/Restart Orchestrator extended in stages, not two independent orchestrators."
+        },
+        {
+          "key": "player-health",
+          "reason": "Required reset participant named directly by the GDD restart contract.",
+          "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+        },
+        {
+          "key": "player-mana",
+          "reason": "Required reset participant named directly by the GDD restart contract.",
+          "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+        },
+        {
+          "key": "player-movement",
+          "reason": "Required reset participant named directly by the GDD restart contract.",
+          "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+        },
+        {
+          "key": "door-open-interaction",
+          "reason": "Required reset participant; also currently owns persistent Progress/IsOpen/blocker state.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs"
+        },
+        {
+          "key": "doorway-crossing-state",
+          "reason": "Door lifecycle/crossing state is a named required reset participant and is not yet implemented.",
+          "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+        },
+        {
+          "key": "door-close-lock-break-lifecycle",
+          "reason": "Door lifecycle/durability state is a named required reset participant and is not yet implemented.",
+          "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+        },
+        {
+          "key": "enemy-health-damage-defeat",
+          "reason": "Enemy health/defeat state is a named required reset participant and is not yet implemented.",
+          "evidence": "GDD 'Floor-run restart ownership' required-participant list; repository-wide search found no enemy code."
+        },
+        {
+          "key": "enemy-pursuit-search-foundation",
+          "reason": "Enemy pursuit/search/attack state and enemy repositioning to authored spawn regions are named required reset participants and are not yet implemented.",
+          "evidence": "GDD 'Floor-run restart ownership' required-participant list; repository-wide search found no enemy code."
+        },
+        {
+          "key": "enemy-status-effect-displacement",
+          "reason": "Enemy status/displacement state is a named required reset participant and is not yet implemented.",
+          "evidence": "GDD 'Floor-run restart ownership' required-participant list; repository-wide search found no enemy code."
+        },
+        {
+          "key": "active-enemy-registry",
+          "reason": "Active Enemy Registry bookkeeping is a named required reset participant and is not yet implemented.",
+          "evidence": "GDD 'Floor-run restart ownership' required-participant list; repository-wide search found no registry code."
+        },
+        {
+          "key": "encounter-admission-cap-enforcement",
+          "reason": "Encounter activation/admission state is a named required reset participant and is not yet implemented.",
+          "evidence": "GDD 'Floor-run restart ownership' required-participant list."
+        },
+        {
+          "key": "fireball",
+          "reason": "Fireball owns tap/charge/cast state and must expose a reset entry point that full closure invokes; Fireball does not yet exist.",
+          "evidence": "Repository-wide search found no Fireball implementation."
+        },
+        {
+          "key": "frost-field",
+          "reason": "Frost Field owns casting-side cast/placement/active-field state and must expose a reset entry point that full closure invokes; Frost Field does not yet exist.",
+          "evidence": "Repository-wide search found no Frost Field implementation."
+        },
+        {
+          "key": "force-wave",
+          "reason": "Force Wave owns cooldown state and must expose a reset entry point that full closure invokes; Force Wave does not yet exist.",
+          "evidence": "Repository-wide search found no Force Wave implementation."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "logical:floor-run-restart-orchestrator",
+          "reason": "Shares the same orchestrator integration surface as the bootstrap stage.",
+          "evidence": "Derived rationale: GDD describes one orchestrator extended across stages."
+        },
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "Extending/wiring additional restart participants through the current builder is a shared write surface with other builder-writing tasks.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs builds/clears Floor, Walls, and DoorRoot and saves the scene."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The extended orchestrator wiring is saved into this canonical scene file.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs saves DoorPrototype.unity."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD names the complete required participant list and the exact reset contract for full closure; no missing design remains, though most listed owners do not yet exist.",
+      "execution_scope": "needs_execution_decomposition",
+      "execution_reason": "This item spans wiring reset participation across roughly a dozen independently-owned systems (player systems, three spells, door lifecycle, enemy state, registry, encounters); that breadth exceeds a single bounded agent handoff even though each individual wiring point is simple once its owner exists.",
+      "confidence": "high",
+      "notes": "Most of this item's dependencies are currently missing entirely (not merely unfinished), so this item cannot be dispatched meaningfully until the underlying owners exist."
+    },
+    {
+      "key": "win-loss-conditions",
+      "title": "Win/Loss Conditions",
+      "kind": "feature",
+      "type": "run_lifecycle",
+      "parent_key": "no-safe-circle",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Win and Loss Conditions",
+          "requirement": "Win: open the final door and escape via confirmed doorway-crossing state, then stop gameplay input and display a You Escaped overlay. Loss: reach zero health, which restarts the floor."
+        }
+      ],
+      "acceptance_criteria": [],
+      "validation_requirements": [],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "coarse",
+      "decomposition_reason": "The GDD fully specifies both the win trigger and the loss trigger; this feature organizes the concrete victory implementation while the loss trigger's handling is owned by floor-run-restart.",
+      "execution_scope": "not_applicable",
+      "execution_reason": "Organizational feature node; not directly dispatchable.",
+      "confidence": "high",
+      "notes": "Loss handling itself is represented under floor-run-restart rather than duplicated here, since the GDD routes zero health directly to the restart orchestrator."
+    },
+    {
+      "key": "final-escape-victory",
+      "title": "Final Escape / Victory (Game Flow/Victory Capability)",
+      "kind": "implementation",
+      "type": "run_lifecycle",
+      "parent_key": "win-loss-conditions",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Win and Loss Conditions",
+          "requirement": "Victory occurs when the shared doorway-crossing state confirms the wizard crossed to the forward side of the final door; the win condition does not implement a separate crossing detector. Normal gameplay input then stops and a simple You Escaped overlay is displayed."
+        },
+        {
+          "reference": "Victory/input-shutdown ownership",
+          "requirement": "A reusable Game Flow/Victory capability owns the won-state transition, overlay display, and gameplay-shutdown coordination. Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that the victory capability consumes rather than mutating internal state; the interface must stop already-active input-driven activity, not merely block new input."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Win and Loss Conditions",
+          "requirement": "Victory is triggered exactly when the shared doorway-crossing state (owned by Door and Interaction) reports forward-side crossing of the final door; no independent crossing check is implemented."
+        },
+        {
+          "reference": "Win and Loss Conditions",
+          "requirement": "On victory, a simple player-facing 'You Escaped' overlay is displayed; no additional post-victory progression, menu flow, or meta-progression is implemented."
+        },
+        {
+          "reference": "Victory/input-shutdown ownership",
+          "requirement": "On victory, the capability calls owner-controlled suspend entry points on Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave; each suspend call stops that system's already-active input-driven activity (e.g., an in-progress door approach or spell charge) and causes new gameplay commands to that system to be rejected while suspended."
+        },
+        {
+          "reference": "Victory/input-shutdown ownership",
+          "requirement": "The capability does not directly mutate movement/door/spell-internal state; it only invokes each owner's exposed suspend/re-enable interface, and re-enable is reachable only through an authorized reset/test flow."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Win and Loss Conditions",
+          "requirement": "Play Mode check: crossing the final door's forward side triggers the You Escaped overlay and halts movement, door interaction, and all three spells' input-driven activity, including activity already in progress at the moment of crossing."
+        },
+        {
+          "reference": "Victory/input-shutdown ownership",
+          "requirement": "Play Mode check: after victory, issuing movement/door/spell input produces no gameplay effect until an authorized re-enable/reset flow runs."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [
+        {
+          "key": "doorway-crossing-state",
+          "reason": "Victory consumes Door and Interaction's shared forward-side crossing state as its sole trigger; that state does not yet exist.",
+          "evidence": "GDD 'Door and Pursuit Rules' establishes Door and Interaction as sole owner of doorway-crossing state; repository search found no crossing detection in DoorInteractable.cs."
+        },
+        {
+          "key": "player-movement",
+          "reason": "Victory must be able to stop already-active movement through an owner-controlled suspend interface; PlayerMovement.cs currently exposes no such interface.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs"
+        },
+        {
+          "key": "door-open-interaction",
+          "reason": "Victory must be able to stop an in-progress door approach/opening through an owner-controlled suspend interface; DoorInteractable.cs/PlayerInteractionController.cs currently expose no such interface.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs; Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs"
+        },
+        {
+          "key": "fireball",
+          "reason": "Victory must be able to stop in-progress Fireball charging/casting through an owner-controlled suspend interface; Fireball does not yet exist.",
+          "evidence": "Repository-wide search found no Fireball implementation."
+        },
+        {
+          "key": "frost-field",
+          "reason": "Victory must be able to stop in-progress Frost Field casting/placement through an owner-controlled suspend interface; Frost Field does not yet exist.",
+          "evidence": "Repository-wide search found no Frost Field implementation."
+        },
+        {
+          "key": "force-wave",
+          "reason": "Victory must be able to stop in-progress Force Wave cooldown/casting through an owner-controlled suspend interface; Force Wave does not yet exist.",
+          "evidence": "Repository-wide search found no Force Wave implementation."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "Under the current scene-built UI approach, final-victory work creates/configures the You Escaped overlay through this builder, a shared write surface with other builder-writing tasks.",
+          "evidence": "Shared Context and Coordination Rules: 'Current prototype scene-builder lock ... applies ... under the current scene-built UI approach, to final-victory work that creates/configures the You Escaped overlay.'"
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The overlay/victory wiring is saved into this canonical scene file.",
+          "evidence": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs saves DoorPrototype.unity."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD fully specifies the victory trigger, overlay, and suspend-interface consumption contract; no missing design remains.",
+      "execution_scope": "needs_execution_decomposition",
+      "execution_reason": "The capability must integrate against six separate owner suspend interfaces plus the crossing-state trigger plus a scene-built overlay; that many independently-owned integration points exceeds a single bounded agent handoff, and none of the consumed owner interfaces exist yet.",
+      "confidence": "high",
+      "notes": "If a future graph introduces a single shared input-gating owner that centralizes these consumers, victory should depend on that owner instead of duplicating six edges (per prompt guidance); no such owner currently exists."
+    }
+  ],
+  "requirement_overlays": [],
+  "non_code_requirements": [],
+  "deferred_or_excluded": [],
+  "unresolved_questions": [
+    {
+      "question": "Should the final overlay/victory-shutdown integration be represented as one implementation item (as done here) or split at bootstrap time into a trigger/consumption item versus a suspend-coordination item, given it currently depends on six not-yet-existing owner interfaces?",
+      "affects_keys": [
+        "final-escape-victory"
+      ],
+      "why_unresolved": "The GDD describes one Game Flow/Victory capability, but every consumed suspend interface is currently missing, making the true execution-decomposition shape hard to judge until at least Player Movement and one spell exist.",
+      "recommended_resolution": "later_decomposition"
+    },
+    {
+      "question": "Is the enemy-owned restart/reset operation (returning a persistent enemy to its authored spawn region with cleared pursuit/search/status/displacement state) a single reset entry point on one enemy-behavior owner, or does it need to be split across enemy-pursuit-search-foundation and enemy-status-effect-displacement since those are separate registered keys?",
+      "affects_keys": [
+        "floor-run-restart-persistent-closure",
+        "enemy-pursuit-search-foundation",
+        "enemy-status-effect-displacement"
+      ],
+      "why_unresolved": "No enemy code exists yet, so the current repository gives no evidence of how pursuit/search state and status/displacement state will be split across components.",
+      "recommended_resolution": "later_decomposition"
+    }
+  ],
+  "files_reviewed": [
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
+  ],
+  "historical_sources_reviewed": []
+}

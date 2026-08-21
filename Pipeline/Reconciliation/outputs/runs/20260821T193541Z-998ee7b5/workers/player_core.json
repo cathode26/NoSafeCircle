@@ -1,0 +1,332 @@
+{
+  "current_state_summary": "Current repository state for player-core systems (Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs, PlayerHealth.cs, PlayerMana.cs, PlayerManaUI.cs, plus their scene wiring in DoorPrototype.unity and creation code in DoorPrototypeSceneBuilder.cs): PlayerMovement.cs is a CharacterController-driven WASD keyboard mover that polls Keyboard.current directly every Update; it has no mouse-directed click/hold movement, no cursor-to-gameplay-plane projection/world-space pointer target, no movement-restriction request/release interface, and no floor-restart reset entry point. It does call PlayerInteractionController.OnPlayerMoved() on movement input, which is the one GDD-relevant behavior already present. PlayerHealth.cs exposes CurrentHealth, a clamped TakeDamage(amount) damage interface, and a Damaged event, but has no restore/heal interface, no observable zero-health/death transition, and no reset entry point; there is no PlayerHealth UI component anywhere in the scripts, so the GDD's continuous health indicator is not implemented. PlayerMana.cs exposes CurrentMana/MaxMana, Spend(amount) (fails silently returning false when insufficient), Tick-based post-cast-delay regeneration, and a ManaSpent event; PlayerManaUI.cs already renders a continuous fill-bar tied to CurrentMana/MaxMana (confirmed wired in DoorPrototype.unity via DoorPrototypeSceneBuilder.BuildManaUI). PlayerMana has no reset entry point and no denied-cast feedback signal. All four scripts (PlayerHealth, PlayerMana, PlayerMovement, PlayerManaUI) are confirmed serialized onto the Player/Canvas GameObjects in Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity (verified by matching each script's .meta GUID against the scene file), and DoorPrototypeSceneBuilder.BuildPlayer/BuildUI is the current write surface that creates and wires them. Assets/InputSystem_Actions.inputactions is the unmodified default Unity template (Move/Look/Attack/Interact/Crouch/Jump/etc. plus a UI map with Point/Click); it has no gameplay-plane cursor-projection or click-to-move action, and PlayerMovement.cs does not consume it at all — it bypasses the Input Actions layer entirely via raw Keyboard.current polling, which conflicts with the GDD's explicit \"routed through Unity Input System/Input Actions\" requirement. PlayerManaPlayModeTests.cs and part of DoorInteractionPlayModeTests.cs give real Play Mode test coverage for PlayerMana spend/regen/post-cast-delay behavior and for PlayerHealth's damage-cancels-door-interaction interaction, but no tests exist for movement, cursor projection, health restore, or any reset behavior.",
+  "desired_state_summary": "Per the current GDD (Docs/GDD/No_Safe_Circle_GDD.md), Player Movement must own player position/locomotion, movement-restriction state, and a shared cursor-to-gameplay-plane projection producing a world-space pointer target consumed by movement itself, cursor-aimed spells (Fireball, Frost Field), and Door/Interaction (Force Wave is the explicit player-centered exception). Movement must be mouse-directed (click to set a destination or hold to steer toward the cursor) and routed through the project's Unity Input System/Input Actions layer rather than direct hardware polling. Player Movement must expose an owner-controlled movement-restriction interface that Charged Fireball requests/releases without mutating movement internals directly, and must expose an owner-controlled reset entry point for player position/movement state consumed by the Floor Run/Restart Orchestrator. Player Health must remain the single owner of current health, exposing an owner-controlled damage interface (already present) plus an owner-controlled restore/heal interface clamped to max health (consumed by Door's lock-and-heal request), an observable zero-health/death transition consumed by the restart orchestrator without polling or internal mutation, a continuous player-facing health indicator, no passive regeneration, and an owner-controlled floor-restart reset entry point. Player Mana must remain the single owner of current mana and its post-cast regeneration-delay state, exposing the existing spend interface plus an owner-controlled reset entry point for floor restart, while never absorbing spell-local cooldown/charge/cast/placement/active-field state that belongs to Fireball, Frost Field, or Force Wave; denied-cast attempts should surface player-readable feedback given the GDD's failure-readability success criterion (exact presentation is an implementation choice).",
+  "major_findings": [
+    "PlayerMovement.cs implements only WASD keyboard movement via raw Keyboard.current polling with a CharacterController; none of the GDD-required mouse-directed click/hold movement, shared cursor-to-gameplay-plane projection, movement-restriction interface, or floor-restart reset entry point exist. This is the single largest gap in the player-core domain.",
+    "PlayerMovement bypasses the Unity Input System/Input Actions layer entirely (direct Keyboard.current polling) despite `using UnityEngine.InputSystem`, which conflicts with the GDD's explicit 'routed through the project's Unity Input System/Input Actions layer' requirement for both movement and door/spell input.",
+    "Assets/InputSystem_Actions.inputactions is the stock Unity template asset (Move/Look/Attack/Interact/Crouch/Jump/Sprint/etc.) with no cursor-to-gameplay-plane or click-to-move action; implementing mouse-directed movement will require adding/modifying bindings in this shared asset.",
+    "PlayerHealth.cs has a working clamped damage interface and Damaged event but is missing the owner-controlled restore/heal interface, the observable zero-health/death transition, and any reset entry point required for floor-restart participation and Door's lock-and-heal request.",
+    "No PlayerHealth UI/feedback component exists anywhere in the repository, so the GDD's required continuous player-facing health indicator is currently unimplemented (unlike mana, which already has PlayerManaUI wired into the scene).",
+    "PlayerMana.cs's spend/regen/post-cast-delay behavior is implemented and covered by real Play Mode tests, and its continuous mana fill-bar (PlayerManaUI) is already serialized in the canonical scene, but PlayerMana has no floor-restart reset entry point and no denied-cast feedback signal.",
+    "All four current player scripts (PlayerHealth, PlayerMana, PlayerMovement, PlayerManaUI) were confirmed serialized in Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity by matching each script's .meta GUID against the scene contents, not merely inferred from DoorPrototypeSceneBuilder's capability to create them.",
+    "DoorPrototypeSceneBuilder.cs is the current write surface that creates/wires Player, PlayerHealth, PlayerMana, PlayerMovement, and their UI; any player-core work that adds new components (e.g., a health UI) or rewires existing ones must modify this builder and re-save the canonical scene it maintains."
+  ],
+  "work_items": [
+    {
+      "key": "player",
+      "title": "Player",
+      "kind": "feature",
+      "type": "feature",
+      "parent_key": "no-safe-circle",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "GDD §2 Player Actions and Systems; §1 Executive Summary",
+          "requirement": "Defines the single required wizard player character and its movement, health, and mana systems."
+        }
+      ],
+      "acceptance_criteria": [],
+      "validation_requirements": [],
+      "repository_state": "partial",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "coarse",
+      "decomposition_reason": "Already decomposed into the three concrete owned systems (movement, health, mana) required by the current GDD; no further missing-design problem needs resolving at this organizational level.",
+      "execution_scope": "not_applicable",
+      "execution_reason": "Organizational feature node; not directly dispatchable.",
+      "confidence": "high",
+      "notes": "Aggregate repository_state of partial reflects that PlayerHealth/PlayerMana/PlayerMovement all exist with real behavior but each is missing GDD-required interfaces (restore, reset, cursor projection, movement-restriction, health UI, denied-cast feedback)."
+    },
+    {
+      "key": "player-movement",
+      "title": "Mouse-Directed Player Movement, Shared Pointer Projection, and Movement Restriction",
+      "kind": "implementation",
+      "type": "implementation",
+      "parent_key": "player",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "GDD §2 Player Actions and Systems — Move and Aim",
+          "requirement": "Mouse-directed movement through the shared Unity Input System/Input Actions layer: click to set a destination or hold to keep steering toward the cursor; Player Movement owns the shared cursor-to-gameplay-plane projection and exposes the resulting world-space pointer target consumed by movement, cursor-aimed spells, and cursor-targeted interactions (Force Wave is the exception)."
+        },
+        {
+          "reference": "GDD §2 Resources, Feedback, and Failure — Player Movement ownership",
+          "requirement": "Player Movement owns position, locomotion, movement-restriction state, and the shared cursor-to-gameplay-plane projection; runtime input is routed through Input System/Input Actions rather than direct hardware polling; Charged Fireball requests/releases its movement restriction through an owner-controlled Player Movement interface without mutating movement internals."
+        },
+        {
+          "reference": "GDD §2 Loss — Floor-run restart ownership",
+          "requirement": "Player Movement/player position is a required reset participant invoked by the Floor Run/Restart Orchestrator through an owner-controlled reset entry point."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "GDD §2 Move and Aim",
+          "requirement": "Movement is mouse-directed: a click sets a destination the wizard walks toward, and holding continues steering toward the current cursor position, consumed through Unity Input System/Input Actions rather than direct hardware polling."
+        },
+        {
+          "reference": "GDD §2 Player Movement ownership",
+          "requirement": "Exposes a shared world-space pointer target produced by projecting the cursor onto the gameplay plane, consumable by cursor-aimed spells and Door/Interaction without those systems independently projecting screen coordinates."
+        },
+        {
+          "reference": "GDD §2 Player Movement ownership; §4 Development Agent Ownership Invariants",
+          "requirement": "Exposes an owner-controlled movement-restriction request/release interface that Charged Fireball can use to restrict movement while charging without Fireball mutating movement internals directly."
+        },
+        {
+          "reference": "GDD §2 Floor-run restart ownership",
+          "requirement": "Exposes an owner-controlled reset entry point that restores player position/movement state to the floor's initial state, consumed by the Floor Run/Restart Orchestrator rather than having position mutated externally."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "GDD §2 Move and Aim",
+          "requirement": "Play Mode validation that clicking a location moves the wizard toward it and that holding steers continuously toward the live cursor position."
+        },
+        {
+          "reference": "GDD §2 Player Movement ownership",
+          "requirement": "Validate that the exposed world-space pointer target is correctly consumable by a cursor-aimed spell or Door/Interaction integration once those systems exist."
+        }
+      ],
+      "repository_state": "partial",
+      "graph_status": "open",
+      "repository_evidence": [
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+          "evidence_type": "code",
+          "observation": "Implements only CharacterController-driven WASD movement via direct Keyboard.current polling; no mouse-directed movement, cursor projection, movement-restriction interface, or reset entry point exist."
+        },
+        {
+          "path": "Assets/InputSystem_Actions.inputactions",
+          "evidence_type": "project_setting",
+          "observation": "Unmodified stock Unity template action asset; Player map has only WASD/Dpad Move and button actions (Attack/Interact/Crouch/Jump/etc.), no cursor-to-gameplay-plane or click-to-move action, and PlayerMovement.cs does not reference it."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "evidence_type": "scene",
+          "observation": "PlayerMovement.cs (guid 356044e6782dd0641a7e69b0abfa5c4a) is serialized on the Player GameObject, confirming current WASD movement is the integrated state, not merely available via the builder."
+        }
+      ],
+      "depends_on": [],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Assets/InputSystem_Actions.inputactions",
+          "reason": "Adding mouse-directed click/hold movement and cursor-to-gameplay-plane projection through the Input System requires adding or modifying actions/bindings in this single shared actions asset.",
+          "evidence": "GDD §2 Move and Aim requires routing through Unity Input System/Input Actions; current InputSystem_Actions.inputactions has no click-to-move or cursor-projection action for the Player map."
+        },
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "DoorPrototypeSceneBuilder.BuildPlayer creates and wires PlayerMovement on the canonical Player GameObject; converting to mouse-directed movement requires modifying this builder's player-construction logic.",
+          "evidence": "DoorPrototypeSceneBuilder.cs BuildPlayer() currently adds and configures PlayerMovement, and the builder destructively clears/recreates the Player root each run."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The builder saves this canonical scene after (re)building the Player hierarchy, so any change to player movement wiring integrates through and re-serializes this scene.",
+          "evidence": "DoorPrototypeSceneBuilder.Build() calls EditorSceneManager.SaveScene against ScenePath = Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The required behavior (mouse-directed movement via Input System, shared pointer projection, movement-restriction interface, reset entry point) is fully specified by current GDD text without inventing new design.",
+      "execution_scope": "single_agent",
+      "execution_reason": "All required responsibilities are cohesively owned by one system (PlayerMovement.cs) plus its Input Actions and builder/scene wiring; it is a bounded rewrite of one component's input/locomotion model rather than a multi-system integration.",
+      "confidence": "high",
+      "notes": "Exact movement speed/feel tuning is left to playtesting per GDD and is not part of this item's required acceptance surface."
+    },
+    {
+      "key": "player-health",
+      "title": "Player Health Ownership, Restore, Death Transition, and Feedback",
+      "kind": "implementation",
+      "type": "implementation",
+      "parent_key": "player",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "GDD §2 Resources, Feedback, and Failure — Player Health ownership",
+          "requirement": "The shared Player Health system is the single owner of current health, exposing owner-controlled damage and restore interfaces plus an observable zero-health/death transition consumed by the Floor Run/Restart Orchestrator; restoration is clamped to maximum health and other systems never write player-health state directly."
+        },
+        {
+          "reference": "GDD §2 Resources, Feedback, and Failure — Health feedback",
+          "requirement": "The wizard's current health is continuously visible through a simple player-facing health indicator so accumulated damage is readable across the whole run."
+        },
+        {
+          "reference": "GDD §2 Loss / Floor-run restart ownership",
+          "requirement": "Player Health is a required reset participant with an owner-controlled reset entry point invoked by the Floor Run/Restart Orchestrator."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "GDD §2 Player Health ownership",
+          "requirement": "Exposes an owner-controlled restore/heal entry point clamped to maximum health, to be requested by Door and Interaction's lock-and-heal behavior rather than Door writing health directly."
+        },
+        {
+          "reference": "GDD §2 Player Health ownership",
+          "requirement": "Exposes an observable zero-health/death transition (e.g. an event) that the Floor Run/Restart Orchestrator can consume without polling health each frame or mutating Player Health internals."
+        },
+        {
+          "reference": "GDD §2 Health feedback",
+          "requirement": "Provides a continuous player-facing health indicator reflecting current/maximum health at all times."
+        },
+        {
+          "reference": "GDD §2 Loss / Floor-run restart ownership",
+          "requirement": "Exposes an owner-controlled reset entry point restoring current health to its floor-initial value, consumed by the Floor Run/Restart Orchestrator."
+        },
+        {
+          "reference": "GDD §2 Resources, Feedback, and Failure",
+          "requirement": "Health does not passively regenerate during or between rooms; it changes only through the owner-controlled damage interface, the owner-controlled restore interface (door-lock recovery), or the orchestrator-invoked floor reset."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "GDD §3 Player Experience Success Criteria",
+          "requirement": "Validate that failure is readable through health/damage feedback (contributing cause alongside positioning, mana, and timing failures)."
+        }
+      ],
+      "repository_state": "partial",
+      "graph_status": "open",
+      "repository_evidence": [
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+          "evidence_type": "code",
+          "observation": "Implements CurrentHealth, a clamped TakeDamage(amount) damage interface, and a Damaged event; has no restore/heal method, no zero-health/death event, and no reset entry point."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "evidence_type": "scene",
+          "observation": "PlayerHealth.cs (guid ddabb8b125ed06f42863f611de5826f7) is serialized on the Player GameObject, confirming the current damage-only implementation is integrated."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+          "evidence_type": "code",
+          "observation": "Subscribes to PlayerHealth.Damaged to cancel an in-progress door interaction, confirming the existing damage event is consumed elsewhere, but no analogous health-UI or death-event consumer exists."
+        }
+      ],
+      "depends_on": [],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "No PlayerHealth UI component currently exists; adding the required continuous health indicator will follow the same builder-wired pattern already used for PlayerManaUI (BuildManaUI/BuildUI), requiring changes to this builder.",
+          "evidence": "DoorPrototypeSceneBuilder.BuildUI/BuildManaUI currently constructs and wires PlayerManaUI into the canonical scene's Canvas but has no equivalent call for player health."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The builder saves this canonical scene after adding the new health UI/wiring, so the change integrates through and re-serializes this scene.",
+          "evidence": "DoorPrototypeSceneBuilder.Build() calls EditorSceneManager.SaveScene against ScenePath = Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "Required restore, death-transition, feedback, and reset behavior are fully specified by current GDD text without inventing new design; exact recovery/damage values are explicitly deferred to playtesting by the GDD itself.",
+      "execution_scope": "single_agent",
+      "execution_reason": "Bounded addition to one existing component (PlayerHealth.cs) plus a small new UI component and its builder wiring, mirroring the already-integrated PlayerManaUI pattern.",
+      "confidence": "high",
+      "notes": "Exact fixed door-lock recovery amount is an explicitly deferred playtesting value per GDD; this item only needs to expose the clamped restore interface, not decide the tuning number."
+    },
+    {
+      "key": "player-mana",
+      "title": "Player Mana Ownership, Restart Reset, and Denied-Cast Feedback",
+      "kind": "implementation",
+      "type": "implementation",
+      "parent_key": "player",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "GDD §2 Resources, Feedback, and Failure — Player Mana ownership",
+          "requirement": "The shared Player Mana system is the single owner of current mana and the post-cast regeneration-delay state; spells spend mana through its owner-controlled spend interface; Player Mana does not own spell-local cooldown/charge/cast/placement/active-field state."
+        },
+        {
+          "reference": "GDD §5 Runtime Implementation",
+          "requirement": "Player Mana owns current mana and post-cast regeneration-delay state and exposes an owner-controlled spend/reset interface to spells and restart orchestration."
+        },
+        {
+          "reference": "GDD §2 Loss / Floor-run restart ownership",
+          "requirement": "Player Mana and its regeneration-delay state are required reset participants for the Floor Run/Restart Orchestrator."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "GDD §5 Runtime Implementation",
+          "requirement": "Exposes an owner-controlled reset entry point that restores current mana to full and clears post-cast regeneration-delay timer state for floor restart."
+        },
+        {
+          "reference": "GDD §3 Player Experience Success Criteria — Failure is readable",
+          "requirement": "Exposes a signal (e.g. an event) when a cast attempt is denied due to insufficient mana, distinct from a successful spend, so a consuming spell/UI can present readable low-mana feedback; exact presentation is an implementation choice."
+        },
+        {
+          "reference": "GDD §2 Player Mana ownership",
+          "requirement": "Continues to own only current mana and post-cast regeneration-delay state; does not absorb Fireball/Frost Field/Force Wave spell-local cooldown, charge, cast, placement, or active-field state."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "GDD §2 Resources, Feedback, and Failure",
+          "requirement": "Existing Play Mode coverage of Spend/regen/post-cast-delay behavior (PlayerManaPlayModeTests.cs) continues to pass and is extended to cover the new reset entry point and denied-cast signal."
+        },
+        {
+          "reference": "GDD §3 Player Experience Success Criteria",
+          "requirement": "Validate that failure is readable through low-mana feedback as one of the stated readable failure causes."
+        }
+      ],
+      "repository_state": "partial",
+      "graph_status": "open",
+      "repository_evidence": [
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+          "evidence_type": "code",
+          "observation": "Implements CurrentMana/MaxMana, Spend(amount) with silent-fail-on-insufficient behavior, Tick-driven post-cast-delay regeneration, and a ManaSpent event; no reset entry point and no denied-cast event exist."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+          "evidence_type": "code",
+          "observation": "Continuously binds a fill Image to CurrentMana/MaxMana every Update, satisfying the GDD's continuous mana indicator requirement."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "evidence_type": "scene",
+          "observation": "Both PlayerMana.cs (guid fd54c6f00e974856b70833ac4771b9ae) and PlayerManaUI.cs (guid 0a03ab321b0847f59d3f91214dabcf5c) are serialized and wired on the Player/Canvas GameObjects, confirming the continuous mana indicator is currently integrated, not just buildable."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+          "evidence_type": "test",
+          "observation": "Real Play Mode tests cover Spend success/failure, post-cast-delay non-regeneration, regeneration after delay, and delay-reset on subsequent spend."
+        }
+      ],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "Required reset and denied-cast-signal behavior are fully specified by current GDD text without inventing new design; exact feedback presentation is explicitly an implementation choice.",
+      "execution_scope": "single_agent",
+      "execution_reason": "Bounded addition to one existing component (PlayerMana.cs) that does not require new scene-wired UI, since the existing PlayerManaUI/fill Image can consume a new denied-cast event without builder changes.",
+      "confidence": "high",
+      "notes": "Force Wave's 25-mana cost and other spell-local spend amounts remain owned by the individual spells, not this item; this item only owns the shared pool, regen-delay, spend interface, reset, and denied-cast signal."
+    }
+  ],
+  "requirement_overlays": [],
+  "non_code_requirements": [],
+  "deferred_or_excluded": [],
+  "unresolved_questions": [],
+  "files_reviewed": [
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DebugDamageControl.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DebugManaSpendControl.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "Assets/InputSystem_Actions.inputactions",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs.meta",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs.meta",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs.meta",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs.meta",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs"
+  ],
+  "historical_sources_reviewed": [],
+  "domain": "player_core"
+}

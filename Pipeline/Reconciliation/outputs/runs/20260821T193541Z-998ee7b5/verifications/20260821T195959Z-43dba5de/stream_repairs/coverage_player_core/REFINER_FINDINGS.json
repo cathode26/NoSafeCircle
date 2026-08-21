@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.1",
+  "source_finding_count": 4,
+  "material_finding_count": 2,
+  "selected_finding_count": 2,
+  "selected_structural_warning_count": 0,
+  "findings": [
+    {
+      "source_agent": "Coverage — Player Core",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "PC-F1",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Player Movement's owner-controlled gameplay-enable/suspend interface has no owner-side representation",
+        "description": "The GDD makes Player Movement an explicit owner of a gameplay-enable/suspend entry point: 'Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow' (Section 2, Victory/input-shutdown ownership), reinforced in Section 4 ('Final escape/victory coordination ... Final escape logic must not reach into movement, door, or spell internals to stop them') and Section 5 Runtime Implementation. In the candidate, `player-movement` carries no gdd_evidence entry, no acceptance criterion, and no validation requirement covering this interface; its four acceptance criteria are mouse-directed movement, the shared pointer target, the movement-restriction interface, and the restart reset entry point. The obligation exists only inside the consumer `final-escape-victory` (acceptance criterion: 'the capability calls owner-controlled suspend entry points on Player Movement, ...') and in its depends_on reason. This is asymmetric with the three spells, which each carry an explicit owner-side suspend acceptance criterion (fireball line 505, frost-field line 618, force-wave line 727). Under minimal-context dispatch (Section 4 Shared Context and Coordination Rules), an agent dispatched on `player-movement` would receive only that item's brief/criteria and could fully satisfy them while shipping no suspend interface, leaving `final-escape-victory` permanently blocked on a capability nobody was told to build. The dependency edge preserves ordering, not the owner-side obligation.",
+        "affected_keys": [
+          "player-movement",
+          "final-escape-victory"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 - Win and Loss Conditions, Victory/input-shutdown ownership",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow."
+          },
+          {
+            "reference": "Section 4 - Development Agent Ownership Invariants, Final escape/victory coordination",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave remain owners of their own active behavior and must expose owner-controlled suspend/re-enable entry points consumed by victory/reset flows. Final escape logic must not reach into movement, door, or spell internals to stop them."
+          },
+          {
+            "reference": "Section 5 - Runtime Implementation",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave must each provide a suspend/re-enable entry point that stops current input-driven activity as well as future commands."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+            "observation": "Update() moves the CharacterController from raw Keyboard.current polling every frame with no enable/suspend gate, no public suspend/re-enable method, and no way to stop already-active movement; the owner-side capability is genuinely missing, not merely unwired."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "player-movement (lines 135-227) lists four acceptance criteria (mouse-directed movement, pointer target, movement-restriction interface, reset entry point) and no suspend/re-enable criterion or evidence row, while fireball/frost-field/force-wave each carry an explicit owner-side suspend acceptance criterion (lines 505, 618, 727)."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `player-movement` (referencing Section 2 Victory/input-shutdown ownership and the Section 4 final-escape/victory invariant) requiring an owner-controlled suspend/re-enable entry point that immediately stops in-progress movement (including an active click-to-destination approach), rejects new movement commands while suspended, and is re-enabled only through an authorized reset/test flow; add the matching gdd_evidence row. Optionally add a validation requirement mirroring final-escape-victory's Play Mode check on the owner side. Do not remove final-escape-victory's consumption criterion or its dependency on player-movement.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-player-core-PC-07",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Player Core classified requirement PC-07 as required_implementation/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 - Win and Loss Conditions, Victory/input-shutdown ownership; Section 4 - Final escape/victory coordination invariant",
+            "requirement": "Player Movement exposes an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels current input-driven movement, rejects new gameplay commands while suspended, and can be re-enabled by an authorized reset/test flow."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    }
+  ],
+  "selection_policy": "Refiner input contains all blocker/error findings, warnings whose categories indicate scheduler/representation risk, and coverage-origin requirement-representation suggestions. Other ordinary warnings and suggestions remain in MERGED_FINDINGS_PASS1.json and are reassessed during pass 2. This keeps refinement bounded while preventing a required coverage gap noticed in Pass 1 from being stranded until Pass 2."
+}

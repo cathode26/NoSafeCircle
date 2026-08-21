@@ -1,0 +1,55 @@
+{
+  "agent": "Execution Scope",
+  "requested_model": "sonnet",
+  "duration_seconds": 279.26,
+  "result": {
+    "verdict": "pass_with_findings",
+    "findings": [
+      {
+        "finding_id": "EXEC-001",
+        "severity": "warning",
+        "category": "execution_scope_problem",
+        "title": "Room-specific Play Mode validation claims omit the required deferred-execution qualifier used elsewhere in the same candidate",
+        "description": "Two open work items list a Play Mode validation requirement that can only be meaningfully exercised once a specific named room from the deferred 'five-room-content-authoring' feature has been authored, but unlike sibling items in this same candidate that make an identical kind of claim, these two do not note that the check becomes executable only once that room content exists. `enemy-pursuit-search-foundation`'s validation_requirements list 'Bone Archive lane-pathing validation confirming enemy movement/navigation fits the room's described narrow-lane geometry' with no deferral note anywhere in the item (validation_requirements, execution_reason, or notes). `ranged-enemy`'s validation_requirements list 'Chapel of Ash line-of-sight/projectile-occlusion Play Mode validation confirming cover blocks shots' with the same gap. Both Bone Archive and Chapel of Ash are part of `five-room-content-authoring`, which this same candidate correctly marks `execution_scope: not_applicable` / `decomposition_state: needs_future_decomposition` because exact room geometry is not yet authored. By contrast, two other items in this candidate that reference the same deferred rooms handle the distinction correctly: `gameplay-navigation-locomotion`'s validation_requirements explicitly say the Bone Archive check 'becomes fully executable once Bone Archive content is authored, but the navigation layer's agent-radius/walkability configuration is the artifact being validated,' and `encounter-admission-cap-enforcement`'s execution_reason explicitly states its Lower Vault validation target 'does not require full room content to be authored.' The retry-hardening 'Validation availability' rule requires exactly this kind of qualifier: a task must not claim it can fully validate a missing room-specific scenario without flagging that the validation is deferred rather than currently executable.",
+        "affected_keys": [
+          "enemy-pursuit-search-foundation",
+          "ranged-enemy"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD Section 4 — Unity Validation Agent role",
+            "requirement": "Bone Archive lane pathing and Chapel of Ash occlusion are named required validation concerns for the Unity Validation Agent."
+          },
+          {
+            "reference": "GDD Section 5 — 2.5D Isometric Visual and World Representation",
+            "requirement": "The reusable visual world foundation ... does not by itself include authoring all five room layouts or encounter content; five-room visual/content authoring consumes this foundation once it exists."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "enemy-pursuit-search-foundation.validation_requirements includes an unqualified 'Bone Archive lane-pathing validation' entry; ranged-enemy.validation_requirements includes an unqualified 'Chapel of Ash line-of-sight/projectile-occlusion' entry; five-room-content-authoring (parent owner of both named rooms) is execution_scope: not_applicable / decomposition_state: needs_future_decomposition, confirming neither room currently exists to validate against."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "gameplay-navigation-locomotion.validation_requirements and encounter-admission-cap-enforcement.execution_reason both correctly annotate their own Bone Archive/Lower Vault validation entries as deferred/not requiring full room content, showing the candidate already knows how to represent this distinction correctly elsewhere."
+          }
+        ],
+        "recommended_change": "Add the same deferred-execution qualifier used on gameplay-navigation-locomotion and encounter-admission-cap-enforcement to enemy-pursuit-search-foundation's Bone Archive entry and ranged-enemy's Chapel of Ash entry (e.g., 'becomes executable once Bone Archive/Chapel of Ash content is authored; this item's own bounded validation target is the generic lane-width/occlusion mechanism, not the authored room'). This does not change execution_scope classification for either item (both are already needs_execution_decomposition for other, valid reasons) but removes an unqualified claim that a later single-agent split could otherwise inherit as an un-meetable acceptance gate.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Reviewed every implementation/artifact node's execution_scope and execution_reason against the frozen candidate (20260821T195959Z-43dba5de/refined_candidate.json) and the current GDD.",
+      "All four external-integration prerequisite pairs called out by the retry-hardening instructions (enemy attacks -> Player Health, enemy pursuit/search -> navigation/locomotion layer, door locking/victory -> doorway-crossing state, encounter admission -> Active Enemy Registry) are correctly represented as depends_on edges or, where the interface already exists in the repository (Player Health.TakeDamage), correctly omitted with an explanatory note.",
+      "The navigation technology is correctly treated as decided (Unity AI Navigation / Unity 2D Tilemap Editor) per the verification-pass supersession; no node was found misclassified as human_integration_required, and no node used that value at all in this candidate.",
+      "door-close-lock-break-lifecycle correctly follows the verification-closure interface/decomposition rule: it both depends_on gameplay-navigation-locomotion and is marked needs_execution_decomposition, one of the two accepted outcomes.",
+      "floor-run-restart-bootstrap is a correctly bounded staged single_agent restart item per the staged-validation guidance: it resets only currently-existing owners and explicitly defers full closure to floor-run-restart-persistent-closure without claiming premature completeness.",
+      "world-visual-foundation and gameplay-navigation-locomotion correctly exclude authoring the five named rooms from their own scope (foundation vs. whole-content scope guidance), and five-room-content-authoring / dungeon-encounter-content-authoring are correctly left not_applicable pending a Progressive Decomposer rather than being fabricated now.",
+      "No case was found where a task's execution_scope was inflated or justified using an exclusive-resource/shared-file concern in place of a genuine multi-responsibility bundling concern, and no case was found where a task was marked needs_execution_decomposition purely because it shares a scene/prefab/file with another task.",
+      "This review is scoped strictly to execution_scope/execution_reason per the parallel-audit-scope instruction; dependency correctness, decomposition_state, and exclusive_resources content were read only as needed to evaluate execution-boundary claims, not audited independently."
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

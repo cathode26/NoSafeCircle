@@ -1,0 +1,77 @@
+{
+  "agent": "Structure — Dependencies Ownership Decomposition",
+  "requested_model": "sonnet",
+  "duration_seconds": 275.92,
+  "result": {
+    "verdict": "pass_with_findings",
+    "findings": [
+      {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "major_findings claims seven 'requirement_overlays' that do not exist as a distinct schema construct",
+        "description": "The summary.major_findings array states 'Seven requirement_overlays were created to attach Section 3 Player Experience Success Criteria validation obligations to concrete owner work items... per the explicit GDD Section 4 instruction that these criteria are required validation obligations on the owning work rather than new features.' However, the candidate JSON has no top-level `requirement_overlays` array or any per-item field literally named that. In practice the obligation is satisfied by distributing GDD Section 3 Player Experience Success Criteria into the `validation_requirements` arrays of the correct owning work items (19 occurrences of 'Player Experience Success Criteria' found across items such as player-health, player-mana, door-open-interaction, door-close-lock-break-lifecycle, locked-door-enemy-attack, encounter-admission-cap-enforcement, dungeon-encounter-content-authoring). Substantively this satisfies the GDD Section 4 invariant that these criteria are required validation obligations attached to owning work rather than new features/nodes, so this is a documentation/terminology mismatch in the narrative summary rather than a missing structural requirement.",
+        "affected_keys": [
+          "player-health",
+          "player-mana",
+          "door-open-interaction",
+          "door-close-lock-break-lifecycle",
+          "locked-door-enemy-attack"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 4 — Development Agent Ownership Invariants",
+            "requirement": "Player Experience Success Criteria are required validation obligations, not advisory prose... They do not require separate gameplay features when the behavior is already owned."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "major_findings (line 65) references 'requirement_overlays' as a created artifact, but no `requirement_overlays` key exists anywhere in the document; the obligations are instead embedded directly in each owning item's validation_requirements array."
+          }
+        ],
+        "recommended_change": "Update the summary prose to describe the mechanism actually used (validation_requirements entries tagged to Section 3 criteria on the owning work item) rather than referring to a 'requirement_overlay' artifact that does not exist in this schema, to avoid confusing downstream tooling or reviewers expecting a distinct overlay list.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "F2",
+        "severity": "suggestion",
+        "category": "shared_capability_hidden",
+        "title": "No explicit dependency edge from melee-enemy/ranged-enemy to gameplay-navigation-locomotion (relies on transitive edge through enemy-pursuit-search-foundation)",
+        "description": "melee-enemy and ranged-enemy each depend on enemy-pursuit-search-foundation, which in turn depends on gameplay-navigation-locomotion. Neither archetype item carries a direct edge to gameplay-navigation-locomotion. This is very likely intentional (avoiding a redundant edge when the immediate owner, the pursuit foundation, already gates on it) and is consistent with how the candidate treats enemy-pursuit-search-foundation as 'the shared base that melee-enemy and ranged-enemy consume for their core movement/targeting loop.' I flag this only because the retry-hardening instructions explicitly list 'locomotion-dependent enemy work -> shared navigation/locomotion foundation' as an expected relationship; the transitive path satisfies the intent, so no change is required unless a future decomposition separates pursuit-foundation from archetype movement in a way that breaks the transitive guarantee.",
+        "affected_keys": [
+          "melee-enemy",
+          "ranged-enemy",
+          "enemy-pursuit-search-foundation",
+          "gameplay-navigation-locomotion"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Verification-pass hardening: structural closure checks",
+            "requirement": "locomotion-dependent enemy work -> shared navigation/locomotion foundation"
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "melee-enemy.depends_on and ranged-enemy.depends_on list enemy-pursuit-search-foundation, enemy-health-damage-defeat, active-enemy-registry, world-visual-foundation but not gameplay-navigation-locomotion directly; enemy-pursuit-search-foundation.depends_on lists gameplay-navigation-locomotion."
+          }
+        ],
+        "recommended_change": "No action required now; the transitive dependency through enemy-pursuit-search-foundation is structurally sound. If a later decomposition pass ever detaches archetype locomotion consumption from the shared pursuit foundation, re-verify that a direct edge to gameplay-navigation-locomotion is added at that point.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Audited only the assigned territory: parent hierarchy, dependency correctness/target kind, cycles, shared-capability ownership, under/over decomposition, runtime-vs-deferred-content separation, reset closure, and cross-system owner/consumer contracts. Exclusive-resource lock coverage was not evaluated except where needed to distinguish a lock from an illegal dependency.",
+      "Verified no depends_on edge targets a `kind: feature` node anywhere in the graph (checked five-room-content-authoring, dungeon-encounter-content-authoring, and all organizational feature-group keys: player, combat, enemies, doors, world, encounters, floor-run-restart, win-loss-conditions) — none are ever used as dependency targets, satisfying the deferred-feature-prerequisite rule.",
+      "Verified the full dependency graph is acyclic by tracing all depends_on chains across player/combat/enemies/doors/world/encounters/restart/victory domains.",
+      "Confirmed the shared-capability ownership splits called out in the hardening prompts are correctly represented: enemy-health-damage-defeat -> active-enemy-registry; enemy-status-effect-displacement -> enemy-pursuit-search-foundation + gameplay-navigation-locomotion; door-close-lock-break-lifecycle -> doorway-crossing-state + player-health + gameplay-navigation-locomotion; dungeon-encounter-content-authoring -> encounter-admission-cap-enforcement + door-close-lock-break-lifecycle + melee-enemy + ranged-enemy; five-room-content-authoring -> world-visual-foundation.",
+      "Confirmed floor-run-restart-bootstrap and floor-run-restart-persistent-closure share logical:floor-run-restart-orchestrator and that persistent-closure lists all GDD-named persistent-state owners (player, spells, door lifecycle, enemy state, registry, encounter admission) including archetype/attack-state reset owners (melee-enemy, ranged-enemy, locked-door-enemy-attack), and that the orchestrator is explicitly barred from writing enemy Transform/locomotion internals directly.",
+      "Confirmed final-escape-victory depends only on the six GDD-named suspend-interface owners (player-movement, door-open-interaction, fireball, frost-field, force-wave) plus doorway-crossing-state as trigger, matching the Victory/input-shutdown ownership section exactly.",
+      "Confirmed the Development Agent Ownership Invariants are preserved as a typed pipeline_constraint record (non_code_requirements entry 'Development Agent Ownership Invariants'), satisfying the ownership-invariant process representation check.",
+      "This candidate appears to have already been through multiple prior verification/hardening passes and is highly compliant with the retry-hardening and verification-pass instructions; no blocker or error-level structural finding was identified within this audit's assigned scope."
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

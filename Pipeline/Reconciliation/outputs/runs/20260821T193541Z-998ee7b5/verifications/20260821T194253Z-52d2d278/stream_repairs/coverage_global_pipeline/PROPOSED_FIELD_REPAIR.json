@@ -1,0 +1,27 @@
+{
+  "agent": "Streaming Field Repair — coverage_global_pipeline",
+  "requested_model": "sonnet",
+  "duration_seconds": 54.88,
+  "result": {
+    "finding_resolutions": [
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-global-pipeline-GP-029",
+        "disposition": "corrected",
+        "explanation": "GDD Section 5 - Six-Week Development Plan (verified verbatim against Docs/GDD/No_Safe_Circle_GDD.md) states a schedule-risk fallback policy: stretch features are cut first, advanced door visuals/one encounter variation may be reduced next, the core required systems (three spells, two enemy types, door loop, mana regeneration, pursuit, final escape) are never cut, and if Weeks 5-6 required work overruns the fallback is to reduce final-room encounter density toward the low end of the 3-8 range and simplify presentation polish rather than cutting required systems. This is a development-process/prioritization invariant governing how the project team responds to schedule slippage, not a distinct executable feature, an acceptance criterion of one work item, or a delivery artifact. Per the requirement-representation repair policy this maps to requirement_type=pipeline_constraint. Added as a new non_code_requirements record titled 'Six-Week schedule fallback and required-scope protection' rather than creating a new work item."
+      }
+    ],
+    "operations": [
+      {
+        "target_type": "non_code_requirement",
+        "target_id": "Six-Week schedule fallback and required-scope protection",
+        "field": "",
+        "op": "upsert_record",
+        "value_json": "{\"title\": \"Six-Week schedule fallback and required-scope protection\", \"requirement_type\": \"pipeline_constraint\", \"status\": \"confirmed\", \"gdd_evidence\": [{\"reference\": \"Section 5 - Six-Week Development Plan\", \"requirement\": \"Stretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5-6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut.\"}], \"evidence\": \"Directly stated as a required schedule-risk fallback and scope-protection policy in Section 5 Six-Week Development Plan; governs development-process prioritization under schedule pressure (what is reduced/cut first, and what is never cut) rather than being an in-game feature, acceptance criterion, or delivery artifact.\"}",
+        "reason": "Represents the previously unrepresented GDD-required schedule fallback/required-scope protection rule (GP-029) as a typed pipeline_constraint per the requirement-representation repair policy, since it is a development-process invariant rather than a distinct feature/artifact."
+      }
+    ],
+    "reasoning": "The single supplied finding (GP-029) flags that the Six-Week Development Plan's schedule fallback rule (Section 5) has no durable representation. I verified the exact quote against Docs/GDD/No_Safe_Circle_GDD.md — it matches verbatim. This statement describes a development-process prioritization invariant (what gets cut/reduced first under schedule pressure, and what must never be cut), not a distinct executable feature, not a behavior owned by an existing work item, and not a delivery/build artifact. Per the requirement-representation repair policy, a development-process invariant maps to requirement_type=pipeline_constraint, consistent with sibling records already in the candidate (e.g. 'Failed-task retry policy', 'Agent scope and canon discipline'). I added one new non_code_requirements record via upsert_record rather than inventing a new work item, and did not touch summary, seed_assessment, or sources since the GDD file is already listed as the reviewed source. No CLAUDE.md or verification-artifact citations were used; only the real GDD passage is cited as evidence.",
+    "schema_version": "1.1"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "agent": "Streaming Field Repair — structure_dependencies",
+  "requested_model": "sonnet",
+  "duration_seconds": 60.72,
+  "result": {
+    "finding_resolutions": [
+      {
+        "source_agent": "Structure — Dependencies Ownership Decomposition",
+        "finding_id": "STRUCT-001",
+        "disposition": "corrected",
+        "explanation": "Confirmed against the frozen candidate: door-open-interaction's 5 acceptance criteria and encounter-admission-cap-enforcement's 3 acceptance criteria contain no reset-entry-point requirement, even though floor-run-restart-bootstrap and floor-run-restart-persistent-closure both depend on them specifically to invoke such an entry point, and every other named persistent owner (player-health, player-mana, player-movement, doorway-crossing-state, door-close-lock-break-lifecycle, active-enemy-registry, enemy-health-damage-defeat, enemy-pursuit-search-foundation, enemy-status-effect-displacement, fireball, frost-field, force-wave) does carry this criterion. Added an owner-side reset-entry-point acceptance criterion to each of door-open-interaction and encounter-admission-cap-enforcement per GDD Floor-run restart ownership, mirroring the phrasing already used on the other listed owners. Existing dependency edges are left unchanged since they become satisfiable once the owners are obligated to expose the interface."
+      },
+      {
+        "source_agent": "Structure — Dependencies Ownership Decomposition",
+        "finding_id": "STRUCT-002",
+        "disposition": "corrected",
+        "explanation": "Confirmed against the frozen candidate: final-escape-victory's depends_on entries for player-movement and door-open-interaction both justify the edge by a required owner-controlled suspend interface, but neither owner's acceptance_criteria contains that requirement, unlike fireball/frost-field/force-wave which already carry the matching criterion. Added a mirrored gameplay-enable/suspend acceptance criterion to player-movement (stopping already-active input-driven movement) and door-open-interaction (stopping an in-progress door approach/opening timer), each requiring rejection of new commands while suspended and re-enable only via an authorized reset/test flow, consumed by the Game Flow/Victory capability. Existing final-escape-victory dependency edges are left unchanged."
+      }
+    ],
+    "operations": [
+      {
+        "target_type": "work_item",
+        "target_id": "door-open-interaction",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"GDD §2 Floor-run restart ownership\", \"requirement\": \"Exposes an owner-controlled reset entry point that returns owned opening state (interaction progress, open flag, doorway-blocker enablement) to floor-initial values, consumed by the Floor Run/Restart Orchestrator rather than having internals mutated externally.\"}",
+        "reason": "STRUCT-001: door-open-interaction is depended on by floor-run-restart-bootstrap and floor-run-restart-persistent-closure specifically to invoke a reset entry point, but no acceptance criterion required it; adding the owner obligation to match every other named persistent owner in the graph."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "door-open-interaction",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"GDD §2 Victory/input-shutdown ownership; §4 Development Agent Ownership Invariants\", \"requirement\": \"Exposes an owner-controlled gameplay-enable/suspend interface that immediately stops an in-progress door approach/opening timer, rejects new door-interaction commands while suspended, and can be re-enabled only through an authorized reset/test flow, consumed by the Game Flow/Victory capability.\"}",
+        "reason": "STRUCT-002: final-escape-victory depends on door-open-interaction specifically for an owner-controlled suspend interface, but no acceptance criterion required it, unlike the mirrored criteria already present on fireball/frost-field/force-wave."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "encounter-admission-cap-enforcement",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"GDD §2 Floor-run restart ownership\", \"requirement\": \"Exposes an owner-controlled reset entry point that returns encounter activation/admission state to its floor-initial values, consumed by the Floor Run/Restart Orchestrator rather than having internals mutated externally.\"}",
+        "reason": "STRUCT-001: encounter-admission-cap-enforcement is depended on by floor-run-restart-persistent-closure specifically to invoke a reset entry point for encounter activation/admission state, but no acceptance criterion required it."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "player-movement",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"GDD §2 Victory/input-shutdown ownership; §4 Development Agent Ownership Invariants\", \"requirement\": \"Exposes an owner-controlled gameplay-enable/suspend interface that immediately stops already-active input-driven movement, rejects new movement commands while suspended, and can be re-enabled only through an authorized reset/test flow, consumed by the Game Flow/Victory capability.\"}",
+        "reason": "STRUCT-002: final-escape-victory depends on player-movement specifically for an owner-controlled suspend interface, but no acceptance criterion required it, unlike the mirrored criteria already present on fireball/frost-field/force-wave."
+      }
+    ],
+    "reasoning": "Both supplied findings (STRUCT-001, STRUCT-002) are structural gaps of the same shape: a consumer's depends_on.reason asserts an owner must expose a reset or suspend entry point, but the named owner's acceptance_criteria never states that obligation, leaving the requirement enforceable only in the consumer's prose. I verified each claim directly against the frozen candidate's acceptance_criteria arrays for door-open-interaction, encounter-admission-cap-enforcement, and player-movement, and confirmed both findings' descriptions match the current record contents exactly (5 criteria on door-open-interaction, 3 on encounter-admission-cap-enforcement, 4 on player-movement, none containing a reset or suspend requirement). I also confirmed the mirrored pattern already exists on fireball/frost-field/force-wave (reset entry point + suspend interface acceptance criteria) and on player-health/player-mana/doorway-crossing-state/etc. (reset entry point criteria), so adding matching criteria to the three gap owners is a direct application of an already-established in-graph pattern rather than new invented design. No dependency edges, exclusive resources, or other fields needed changes — the fix is purely adding the missing owner-side acceptance criteria via append_unique, preserving every other field of these work items untouched.",
+    "schema_version": "1.0"
+  }
+}
