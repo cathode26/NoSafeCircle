@@ -171,6 +171,7 @@ def check_prompt_closure() -> None:
     reconcile_prompt = (
         ROOT / "Pipeline" / "Reconciliation" / "prompts" / "reconcile.md"
     ).read_text(encoding="utf-8")
+    normalized_reconcile_prompt = " ".join(reconcile_prompt.split())
     coverage_prompt = (
         ROOT
         / "Pipeline"
@@ -193,7 +194,10 @@ def check_prompt_closure() -> None:
 
     assert "CURRENT REPOSITORY METADATA BOUNDARY 2026-08-21" in reconcile_prompt
     assert "`/.gitignore` is an approved current-project metadata source only" in reconcile_prompt
-    assert "No other root-level repository metadata file is approved" in reconcile_prompt
+    assert (
+        "No other root-level repository metadata file is approved by this exception"
+        in normalized_reconcile_prompt
+    )
 
 
 def main() -> int:
