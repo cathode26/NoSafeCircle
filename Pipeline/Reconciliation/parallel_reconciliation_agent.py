@@ -1020,7 +1020,12 @@ def merge_workers(
             "global_pipeline did not emit required root key 'no-safe-circle'."
         )
 
-    seed_status = "ready_with_warnings" if unresolved or merge_warnings else "ready"
+    seed_warnings = list(merge_warnings)
+    if unresolved:
+        seed_warnings.append(
+            f"{len(unresolved)} unresolved reconciliation question(s) remain for review."
+        )
+    seed_status = "ready_with_warnings" if seed_warnings else "ready"
 
     payload = {
         "schema_version": "1.0",
@@ -1042,7 +1047,7 @@ def merge_workers(
         "seed_assessment": {
             "status": seed_status,
             "blockers": [],
-            "warnings": merge_warnings,
+            "warnings": seed_warnings,
         },
     }
 
