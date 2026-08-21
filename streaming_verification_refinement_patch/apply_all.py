@@ -18,6 +18,7 @@ NORMALIZE_PATHS = [
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "evidence_auditor.md",
     ROOT / "streaming_verification_refinement_patch" / "resume_streaming_verification.py",
     ROOT / "streaming_verification_refinement_patch" / "continue_round3_verification.py",
+    ROOT / "streaming_verification_refinement_patch" / "continue_final_provenance_verification.py",
 ]
 
 
@@ -49,6 +50,7 @@ def main() -> int:
     run_script("apply_reconciliation_evidence_guard.py")
     run_script("apply_round2_closure_fixes.py")
     run_script("apply_round3_closure_fixes.py")
+    run_script("apply_final_provenance_guard.py")
     run_script("apply_streaming_verification_refinement.py")
     run_script("apply_streaming_refinement_v2.py")
     run_script("apply_streaming_v2_hardening.py")
@@ -64,6 +66,7 @@ def main() -> int:
     print("Installed reconciliation evidence-path precision guard.")
     print("Installed six round-2 verification closure rules.")
     print("Installed round-3 evidence integrity, melee-clustering, and stub-scene closure rules.")
+    print("Installed final guard against verifier/patch bookkeeping labels being cited as project evidence.")
     print("Installed streaming refinement v2 field-level operations and clustered arbitration.")
     print("Hardened record-level remove/upsert conflict semantics.")
     print("Field repair workers inherit the standard Refiner correctness guidance.")
