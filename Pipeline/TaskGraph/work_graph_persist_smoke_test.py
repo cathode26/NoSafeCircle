@@ -16,6 +16,7 @@ from work_graph_transform_smoke_test import make_inputs
 
 def main() -> int:
     inputs = make_inputs()
+    inputs.approved_by = "Test Human"
     plan = build_work_graph_plan(inputs)
 
     # The serialized staging bundle must round-trip through the same graph validator.
