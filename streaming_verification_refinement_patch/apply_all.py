@@ -4,6 +4,17 @@ import importlib.util
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+
+NORMALIZE_PATHS = [
+    ROOT / "Docs" / "GDD" / "No_Safe_Circle_GDD.md",
+    ROOT / "Pipeline" / "Reconciliation" / "verification_crew.py",
+    ROOT / "Pipeline" / "Reconciliation" / "parallel_verification_crew.py",
+    ROOT / "Pipeline" / "Reconciliation" / "prompts" / "reconcile.md",
+    ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "coverage_auditor.md",
+    ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "refiner.md",
+    ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "structure_auditor.md",
+]
 
 
 def run_script(name: str) -> None:
@@ -18,10 +29,22 @@ def run_script(name: str) -> None:
         raise RuntimeError(f"{name} failed with result {result}")
 
 
+def normalize_lf() -> None:
+    for path in NORMALIZE_PATHS:
+        if not path.exists():
+            continue
+        data = path.read_bytes()
+        normalized = data.replace(b"\r\n", b"\n")
+        if normalized != data:
+            path.write_bytes(normalized)
+
+
 def main() -> int:
     run_script("apply_verified_closure_fixes.py")
     run_script("apply_streaming_verification_refinement.py")
+    normalize_lf()
     print("All streaming verification + approved closure fixes are installed.")
+    print("Normalized patched text files to LF line endings.")
     return 0
 
 
