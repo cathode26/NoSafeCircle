@@ -39,6 +39,41 @@ def run_script(name: str) -> None:
         raise RuntimeError(f"{name} failed with result {result}")
 
 
+def fresh_run_closure_materialized() -> bool:
+    """Recognize the fresh-run closure even after later patches extend its anchors."""
+    checks = {
+        ROOT / "Pipeline" / "Reconciliation" / "reconciliation_agent.py": (
+            "def validate_reconciliation_provenance(",
+            "def normalize_seed_assessment_consistency(",
+            "_validate_seed_assessment_consistency(payload)",
+        ),
+        ROOT / "Pipeline" / "Reconciliation" / "parallel_reconciliation_agent.py": (
+            "seed_warnings = list(merge_warnings)",
+            '"warnings": seed_warnings',
+        ),
+        ROOT / "Pipeline" / "Reconciliation" / "verification_crew.py": (
+            "def _is_internal_candidate_metadata_requirement(",
+            "deterministic-non-gdd-row-",
+        ),
+        ROOT / "Pipeline" / "Reconciliation" / "prompts" / "reconcile.md": (
+            "2026-08-21 FRESH RUN CLOSURE",
+            "Current gameplay-navigation writer locks",
+        ),
+        ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "coverage_auditor.md": (
+            "2026-08-21 FRESH RUN CLOSURE",
+            "actual current-GDD requirements only",
+        ),
+    }
+
+    for path, required_fragments in checks.items():
+        if not path.exists():
+            return False
+        text = path.read_text(encoding="utf-8")
+        if not all(fragment in text for fragment in required_fragments):
+            return False
+    return True
+
+
 def normalize_lf() -> None:
     for path in NORMALIZE_PATHS:
         if not path.exists():
@@ -56,7 +91,10 @@ def main() -> int:
     run_script("apply_round2_closure_fixes.py")
     run_script("apply_round3_closure_fixes.py")
     run_script("apply_final_provenance_guard.py")
-    run_script("apply_fresh_run_closure_fixes.py")
+    if fresh_run_closure_materialized():
+        print("Fresh-run closure core changes are already materialized; skipping legacy exact-shape installer.")
+    else:
+        run_script("apply_fresh_run_closure_fixes.py")
     run_script("apply_summary_provenance_tolerance_fix.py")
     run_script("apply_final_material_convergence_fixes.py")
     run_script("apply_streaming_verification_refinement.py")
