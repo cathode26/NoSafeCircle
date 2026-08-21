@@ -95,6 +95,7 @@ def main() -> int:
         print("Fresh-run closure core changes are already materialized; skipping legacy exact-shape installer.")
     else:
         run_script("apply_fresh_run_closure_fixes.py")
+    run_script("apply_gitignore_boundary_fix.py")
     run_script("apply_summary_provenance_tolerance_fix.py")
     run_script("apply_final_material_convergence_fixes.py")
     run_script("apply_streaming_verification_refinement.py")
@@ -116,6 +117,7 @@ def main() -> int:
     print("Installed round-3 evidence integrity, melee-clustering, and stub-scene closure rules.")
     print("Installed final guard against verifier/patch bookkeeping labels being cited as project evidence.")
     print("Installed fresh-run provenance, navigation-lock, scene-builder-constraint, coverage-boundary, and seed-assessment fixes.")
+    print("Allowed only .gitignore as narrow current-project source-control metadata evidence.")
     print("Non-authoritative summary provenance slips are now removed without weakening graph/evidence provenance checks.")
     print("Installed final camera-provenance and Frost/Ranged representation convergence rules.")
     print("Coverage-origin requirement-representation suggestions are now eligible for bounded refinement.")
