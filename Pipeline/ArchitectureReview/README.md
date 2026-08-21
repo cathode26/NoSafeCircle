@@ -2,27 +2,27 @@
 
 This tool evaluates the autonomous-development architecture before the project commits to the next major pipeline direction.
 
-It is designed to answer two questions in order:
+It answers two questions in order:
 
 1. Is the architecture fundamentally sound for autonomous Unity game development?
 2. If it is sound, does it create enough near-term leverage to materially accelerate No Safe Circle development?
 
-The review does **not** assume that the current milestone order, Work Graph Seeder, `Tasks/*.yaml`, `taskcontrol`, reconciliation strategy, or verification strategy are correct merely because they already exist.
+The review does **not** assume that the current milestone order, persistent work graph, `Tasks/*.yaml`, `taskcontrol`, reconciliation strategy, or verification strategy are correct merely because they already exist.
 
 ## Current Provider
 
 The active review path uses **OpenAI Codex CLI authenticated with the user's ChatGPT account**.
 
-The original Claude runner remains in `architecture_review.py` because the shared review schemas, prompts, role definitions, synthesis logic, and output orchestration live there. `architecture_review_codex.py` imports that shared contract and swaps only the model/provider invocation.
+The original Claude runner remains in `architecture_review.py` because the shared schemas, prompts, role definitions, and output contract live there. `architecture_review_codex.py` swaps in Codex and delegates stage execution to the resumable orchestrator in `architecture_review_resume.py`.
 
-Run the Codex path through the Docker `codex-review` service. Docker is the security boundary: the repository is mounted read-only, while only `Pipeline/ArchitectureReview/outputs/` is writable. Codex therefore runs with its nested sandbox disabled (`danger-full-access`) so Linux bubblewrap/user-namespace restrictions inside Docker do not block repository inspection.
+Run the Codex path through the Docker `codex-review` service. Docker is the security boundary: the repository is mounted read-only, while only `Pipeline/ArchitectureReview/outputs/` is writable. Codex therefore runs with its nested sandbox disabled (`danger-full-access`) so container sandbox restrictions do not block repository inspection.
 
 ## Review Stages
 
-A run uses three stages:
+A complete run uses three stages:
 
 1. Eight independent reviewers run in parallel.
-2. A synthesis agent evaluates the arguments without majority voting.
+2. A synthesis agent evaluates their arguments without majority voting.
 3. A fresh adversarial critic assumes the synthesis is wrong and tries to break it.
 
 The independent roles are:
@@ -43,15 +43,15 @@ Architecture documents are treated as claims to verify, not authoritative answer
 Every reviewer is explicitly told to challenge:
 
 - the current milestone order;
-- `Tasks/*.yaml` / `taskcontrol` and the persistent work graph;
+- `Tasks/*.yaml`, `taskcontrol`, and the persistent work graph;
 - reconciliation and verification as currently framed;
 - state and authority boundaries;
 - whether the GDD's iterative nature requires a different synchronization model;
-- whether infrastructure is solving observed failures or hypothetical failures;
+- whether infrastructure solves observed failures or hypothetical failures;
 - whether a materially different architecture would be better;
-- whether the pipeline will actually increase game-development throughput enough to justify its cost.
+- whether the pipeline will increase game-development throughput enough to justify its cost.
 
-The target outcome is not architectural elegance by itself. The desired system must be both technically sound and capable of increasing real gameplay-development throughput.
+The target is not architectural elegance by itself. The system must be both technically sound and capable of increasing real gameplay-development throughput.
 
 ## Docker Setup
 
@@ -75,76 +75,83 @@ docker compose run --rm codex codex login status
 
 ## Smoke Tests
 
-The original shared-contract smoke test remains available:
+Run the shared-contract and Codex-provider tests:
 
 ```powershell
-docker compose run --rm codex-review python Pipeline/ArchitectureReview/architecture_review_smoke_test.py
+docker compose run --rm codex-review python3 Pipeline/ArchitectureReview/architecture_review_smoke_test.py
 ```
-
-Run the Codex-provider smoke test:
 
 ```powershell
-docker compose run --rm codex-review python Pipeline/ArchitectureReview/architecture_review_codex_smoke_test.py
+docker compose run --rm codex-review python3 Pipeline/ArchitectureReview/architecture_review_codex_smoke_test.py
 ```
 
-These tests are deterministic and do not spend model tokens.
-
-## Small Codex Repository Test
-
-Before a large review, this command verifies that Codex can inspect the read-only repository from inside Docker:
+Run the deterministic resume/reuse test:
 
 ```powershell
-docker compose run --rm codex-review codex exec --ephemeral --sandbox danger-full-access "Read AI_PIPELINE.md and summarize the goal of this repository's AI pipeline in one sentence."
+docker compose run --rm codex-review python3 Pipeline/ArchitectureReview/architecture_review_resume_smoke_test.py
 ```
 
-`danger-full-access` here disables Codex's nested Linux sandbox only. Docker still mounts the project repository read-only for the `codex-review` service.
+Run the small live structured-output test:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/ArchitectureReview/codex_provider_live_smoke_test.py
+```
 
 ## Run the Full Review
 
-From the repository root:
+The recommended first production run uses four concurrent reviewers. It still runs all eight roles, in two waves, reducing the chance that a burst failure loses progress:
 
 ```powershell
-docker compose run --rm codex-review python Pipeline/ArchitectureReview/architecture_review_codex.py
+docker compose run --rm -e ARCH_REVIEW_MAX_WORKERS=4 codex-review python3 Pipeline/ArchitectureReview/architecture_review_codex.py
 ```
 
 The runner requires a clean working tree by default so every reviewer evaluates one frozen commit. To deliberately override that protection:
 
 ```powershell
-docker compose run --rm codex-review python Pipeline/ArchitectureReview/architecture_review_codex.py --allow-dirty
+docker compose run --rm -e ARCH_REVIEW_MAX_WORKERS=4 codex-review python3 Pipeline/ArchitectureReview/architecture_review_codex.py --allow-dirty
 ```
 
 A fixed model-assignment seed can be supplied for reproducibility:
 
 ```powershell
-docker compose run --rm codex-review python Pipeline/ArchitectureReview/architecture_review_codex.py --seed 12345
+docker compose run --rm -e ARCH_REVIEW_MAX_WORKERS=4 codex-review python3 Pipeline/ArchitectureReview/architecture_review_codex.py --seed 12345
 ```
+
+## Resuming a Failed or Interrupted Run
+
+Every completed reviewer is written immediately. If one reviewer, synthesis, or the final adversarial critique fails, successful work remains under the same run directory.
+
+Resume with the run ID printed in the failure message or visible under `Pipeline/ArchitectureReview/outputs/runs/`:
+
+```powershell
+docker compose run --rm -e ARCH_REVIEW_MAX_WORKERS=4 codex-review python3 Pipeline/ArchitectureReview/architecture_review_codex.py --resume-run <run-id>
+```
+
+The resume command:
+
+- reuses valid completed reviewer outputs;
+- reruns only missing or invalid reviewers;
+- reuses a completed synthesis;
+- reruns only the adversarial critique if that is the missing stage;
+- refuses to resume if the checked-out Git commit differs from the run's frozen commit;
+- preserves prior failures in `failure_history.json`.
+
+Do not begin a new run after a partial failure unless a deliberately fresh independent review is desired.
 
 ## Model and Reasoning Configuration
 
-Default independent-review model pool:
+Default model:
 
 ```text
 gpt-5.6-sol
 ```
 
-Default synthesis model:
-
-```text
-gpt-5.6-sol
-```
-
-Default adversarial-critique model:
-
-```text
-gpt-5.6-sol
-```
-
-Reasoning defaults are intentionally stronger than a casual Codex invocation:
+Reasoning defaults:
 
 ```text
 independent reviewers: high
-synthesis:             xhigh
-adversarial critique:  xhigh
+synthesis:             max
+adversarial critique:  max
 ```
 
 Environment variables:
@@ -160,13 +167,7 @@ ARCH_REVIEW_MAX_WORKERS
 ARCH_REVIEW_TIMEOUT_SECONDS
 ```
 
-Example PowerShell configuration:
-
-```powershell
-$env:ARCH_REVIEW_REASONING_EFFORT="high"; $env:ARCH_REVIEW_SYNTHESIS_REASONING_EFFORT="xhigh"; $env:ARCH_REVIEW_ADVERSARY_REASONING_EFFORT="xhigh"; docker compose run --rm -e ARCH_REVIEW_REASONING_EFFORT -e ARCH_REVIEW_SYNTHESIS_REASONING_EFFORT -e ARCH_REVIEW_ADVERSARY_REASONING_EFFORT codex-review python Pipeline/ArchitectureReview/architecture_review_codex.py
-```
-
-The original Claude `--max-turns` controls do not have a direct Codex equivalent. Codex runs are bounded by the runner's subprocess timeout and by ChatGPT/Codex usage limits.
+Codex does not expose Claude's `--max-turns` control. Each agent is bounded by the runner's subprocess timeout and provider usage controls.
 
 ## Outputs
 
@@ -181,6 +182,7 @@ Contents include:
 ```text
 manifest.json
 model_assignments.json
+failure_history.json            # only when a stage has failed
 reviews/
   adversarial_qa.json
   autonomous_agent_architect.json
@@ -200,11 +202,11 @@ The latest completed synthesis and critique are copied to:
 Pipeline/ArchitectureReview/outputs/current/
 ```
 
-Each Codex result also records the provider, selected model, reasoning effort, and duration.
+Generated outputs are ignored by Git by default. Each result records the provider, selected model, reasoning effort, and duration.
 
 ## Interpreting the Verdict
 
-The structured verdict classes are:
+The structured architecture verdict classes are:
 
 - `sound_high_leverage`
 - `sound_overbuilt`
@@ -212,7 +214,7 @@ The structured verdict classes are:
 - `fundamentally_wrong_approach`
 - `insufficient_evidence`
 
-These are not votes. The synthesis is instructed to weigh evidence and arguments, including strong minority arguments.
+These are not votes. The synthesis weighs evidence and arguments, including strong minority arguments.
 
 The final adversarial critic then classifies the synthesis as:
 
