@@ -10,6 +10,7 @@ NORMALIZE_PATHS = [
     ROOT / "Docs" / "GDD" / "No_Safe_Circle_GDD.md",
     ROOT / "Pipeline" / "Reconciliation" / "verification_crew.py",
     ROOT / "Pipeline" / "Reconciliation" / "parallel_verification_crew.py",
+    ROOT / "Pipeline" / "Reconciliation" / "streaming_refinement_v2.py",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "reconcile.md",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "coverage_auditor.md",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "refiner.md",
@@ -43,11 +44,15 @@ def main() -> int:
     run_script("apply_verified_closure_fixes.py")
     run_script("apply_frost_field_cursor_clarification.py")
     run_script("apply_reconciliation_evidence_guard.py")
+    run_script("apply_round2_closure_fixes.py")
     run_script("apply_streaming_verification_refinement.py")
+    run_script("apply_streaming_refinement_v2.py")
     normalize_lf()
     print("All streaming verification + approved closure fixes are installed.")
     print("Clarified Frost Field placement at the shared cursor world target.")
     print("Installed reconciliation evidence-path precision guard.")
+    print("Installed six round-2 verification closure rules.")
+    print("Installed streaming refinement v2 field-level operations and clustered arbitration.")
     print("Normalized patched text files to LF line endings.")
     return 0
 
