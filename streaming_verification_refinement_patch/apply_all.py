@@ -48,6 +48,7 @@ def main() -> int:
     run_script("apply_streaming_verification_refinement.py")
     run_script("apply_streaming_refinement_v2.py")
     run_script("apply_streaming_v2_hardening.py")
+    run_script("apply_streaming_v2_guidance.py")
     normalize_lf()
     print("All streaming verification + approved closure fixes are installed.")
     print("Clarified Frost Field placement at the shared cursor world target.")
@@ -55,6 +56,7 @@ def main() -> int:
     print("Installed six round-2 verification closure rules.")
     print("Installed streaming refinement v2 field-level operations and clustered arbitration.")
     print("Hardened record-level remove/upsert conflict semantics.")
+    print("Field repair workers inherit the standard Refiner correctness guidance.")
     print("Normalized patched text files to LF line endings.")
     return 0
 
