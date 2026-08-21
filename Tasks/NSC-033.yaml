@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-033",
+  "title": "Floor Run/Restart Persistent-Systems Closure",
+  "reconciliation_key": "floor-run-restart-persistent-closure",
+  "kind": "implementation",
+  "type": "run_lifecycle",
+  "status": "open",
+  "execution_scope": "needs_execution_decomposition",
+  "execution_reason": "This item spans wiring reset participation across roughly a dozen independently-owned systems (player systems, three spells, door lifecycle, enemy state, registry, encounters); that breadth exceeds a single bounded agent handoff even though each individual wiring point is simple once its owner exists.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The GDD names the complete required participant list and the exact reset contract for full closure; no missing design remains, though most listed owners do not yet exist.",
+  "parent": "NSC-031",
+  "depends_on": [
+    "NSC-032",
+    "NSC-004",
+    "NSC-005",
+    "NSC-003",
+    "NSC-019",
+    "NSC-020",
+    "NSC-021",
+    "NSC-012",
+    "NSC-014",
+    "NSC-013",
+    "NSC-011",
+    "NSC-028",
+    "NSC-007",
+    "NSC-008",
+    "NSC-009",
+    "NSC-015",
+    "NSC-016",
+    "NSC-017"
+  ],
+  "exclusive_resources": [
+    "logical:floor-run-restart-orchestrator",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "Extends the same orchestrator used by the bootstrap stage to additionally invoke reset entry points for every implemented persistent owner beyond the bootstrap set, without redesigning the orchestration contract."
+    },
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "Full closure is not considered complete while any implemented run-persistent owner does not yet expose/participate in a reset entry point."
+    },
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "Enemy reset consumes an enemy-owned restart/reset operation that returns each persistent enemy to its authored encounter/spawn region and initial pursuit/search/attack state, with no retained target, search, status-effect, or displacement state; the orchestrator does not write enemy Transform/locomotion internals itself."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "Play Mode check, expanded as each owner is implemented, confirming every implemented persistent-state owner is reset to its floor-initial state after a zero-health restart."
+    },
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "Play Mode check confirming a defeated/repositioned enemy returns to its authored spawn region with no carried target/search/displacement/status state."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "Required reset participants include Player Health, Player Mana, Player Movement/player position, Fireball, Frost Field, Force Wave, enemy health/defeat state, enemy pursuit/search/attack/status/displacement state, Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state."
+    },
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "Enemy reset returns each persistent enemy to its original authored encounter/spawn region and initial AI state, with no retained target/last-known-position/search/attack/displacement state from the failed run."
+    },
+    {
+      "reference": "Spell-local state ownership",
+      "requirement": "Each spell owner (Fireball, Frost Field, Force Wave) exposes a reset entry point for any owned state that can still be active when a floor restart occurs."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Most of this item's dependencies are currently missing entirely (not merely unfinished), so this item cannot be dispatched meaningfully until the underlying owners exist.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

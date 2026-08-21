@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-008",
+  "title": "Frost Field",
+  "reconciliation_key": "frost-field",
+  "kind": "implementation",
+  "type": "spell",
+  "status": "open",
+  "execution_scope": "single_agent",
+  "execution_reason": "Frost Field is one cohesive spell component (cast/placement/active-field state, mana spend, feedback, trigger call to the enemy-owned status-effect interface, reset, suspend); splitting it further is not supported by approved design.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "GDD fully specifies Frost Field's targeting, ownership split (Wizard Combat triggers; Enemy Pursuit applies/restores), and feedback requirement; no missing design blocks a single bounded implementation item.",
+  "parent": "NSC-006",
+  "depends_on": [
+    "NSC-003",
+    "NSC-013"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+    "repo-file:Assets/InputSystem_Actions.inputactions"
+  ],
+  "acceptance_criteria": [
+    {
+      "reference": "Section 2 — Player Actions and Systems / Frost Field targeting and feedback bullet",
+      "requirement": "Frost Field places its temporary slow area at the current shared world-space pointer target exposed by Player Movement, without independently projecting screen-to-world coordinates."
+    },
+    {
+      "reference": "Section 2 — Frost Field targeting and feedback bullet",
+      "requirement": "Frost Field provides player-facing feedback that makes the cast and the active field readable during placement and while active; the exact visual/audio treatment is an implementation choice."
+    },
+    {
+      "reference": "Section 4 — Wizard Combat Agent row",
+      "requirement": "Frost Field triggers the enemy slowdown effect through the Enemy Pursuit/status-effect owner-controlled interface; it does not itself implement enemy slowdown application, restoration, Ranged Enemy targeting, or Ranged Enemy attacks."
+    },
+    {
+      "reference": "Section 2 — Resources, Feedback, and Failure / Development Agent Ownership Invariants",
+      "requirement": "Frost Field spends mana through Player Mana's existing owner-controlled Spend interface when cast."
+    },
+    {
+      "reference": "Section 5 — Runtime Implementation",
+      "requirement": "Frost Field's casting input is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+    },
+    {
+      "reference": "Section 2 — Spell-local state ownership bullet",
+      "requirement": "Frost Field owns its Wizard-Combat-side cast/placement/active-field state and exposes an owner-controlled reset entry point for that state, consumed by the Floor Run/Restart Orchestrator."
+    },
+    {
+      "reference": "Section 2 — Victory/input-shutdown ownership bullet",
+      "requirement": "Frost Field exposes an owner-controlled gameplay-enable/suspend interface that immediately stops active casting/placement, rejects new cast input while suspended, and can be re-enabled by an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "Section 2 — Spell and Enemy Interactions, Frost Field row",
+      "requirement": "Validate that casting Frost Field creates a readable opening against a melee group (stretches pursuit) without itself guaranteeing a fully safe Fireball charge in every position, matching the resource-tradeoff description."
+    },
+    {
+      "reference": "Section 2 — Floor-run restart ownership",
+      "requirement": "Validate that triggering a floor restart while a Frost Field cast/placement is active clears Frost Field's own casting-side state through its reset entry point."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Section 2 — Player Actions and Systems, Frost Field row",
+      "requirement": "Place a temporary area at the current cursor world-space target that heavily slows enemies; Frost Field consumes the shared pointer target exposed by Player Movement rather than projecting screen coordinates independently."
+    },
+    {
+      "reference": "Section 2 — Frost Field targeting and feedback bullet",
+      "requirement": "Frost Field is placed at the current shared world-space pointer target exposed by Player Movement. The cast and active field provide player-facing feedback that makes the targeted placement and active effect readable while it is being placed/used."
+    },
+    {
+      "reference": "Section 2 — Spell-local state ownership bullet",
+      "requirement": "Frost Field owns its Wizard-Combat-side cast/placement/active-field state. Enemy-side Frost slowdown application/restoration remains owned by Enemy Pursuit/status-effect logic. Each owner exposes a reset entry point for owned state active at restart."
+    },
+    {
+      "reference": "Section 2 — Spell and Enemy Interactions, Frost Field row",
+      "requirement": "Strongest against melee groups (slows pursuit, stretches formation, creates a Fireball/door opening) though it draws a meaningful share of the shared mana pool. Against Ranged Enemies, slows repositioning but does not stop attacks."
+    },
+    {
+      "reference": "Section 4 — Development Agent Roles, Wizard Combat Agent row",
+      "requirement": "Frost Field's actual slowdown effect is applied and restored by the Enemy Pursuit Agent; the Wizard Combat Agent only triggers the Frost Field effect and does not implement Ranged Enemy targeting or attacks."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "medium",
+  "notes": "No dependency on player-mana is needed because PlayerMana.Spend already exists and is directly usable; Frost Field's real prerequisites are the still-unfinished Player-Movement pointer projection and the still-unfinished Enemy Pursuit status-effect owner.",
+  "repository_state_at_bootstrap": "missing",
+  "repository_evidence_at_bootstrap": [],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

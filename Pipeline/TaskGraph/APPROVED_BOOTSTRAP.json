@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "approval_status": "approved",
+  "approval_scope": "initial_persistent_work_graph_bootstrap",
+  "approved_by": "Vincent",
+  "approved_at_utc": "2026-08-21T20:36:12Z",
+  "source_reconciliation_run_id": "20260821T193541Z-998ee7b5",
+  "verification_run_id": "20260821T195959Z-43dba5de",
+  "verification_status": "verified_with_findings",
+  "final_material_findings": 0,
+  "candidate_path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+  "candidate_sha256": "fa2a7ffb8a6fd31a8ee411e789f6646b619fc3a21820ed7523ab515be91050f9",
+  "delta_path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/PROPOSED_REFINED_GRAPH_DELTA.json",
+  "delta_sha256": "14dca236613e0e09ba7e164daa4355a810dccb3f9aa3327f88ed548b7d339360",
+  "verification_summary_path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/VERIFICATION_SUMMARY.json",
+  "verification_summary_sha256": "5413fdb4061c499d16d322f1e711f206cde480ef4da7f132051c01307f727dbf",
+  "policy": "This approval binds one immutable verified reconciliation candidate, its verified bootstrap graph delta, and its verification summary by SHA-256. It authorizes deterministic initial Tasks/*.yaml seeding only. It does not authorize later reconciliation runs to mutate the persistent graph automatically."
+}

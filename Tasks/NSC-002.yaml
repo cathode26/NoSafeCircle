@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-002",
+  "title": "Player",
+  "reconciliation_key": "player",
+  "kind": "feature",
+  "type": "feature",
+  "status": "open",
+  "execution_scope": "not_applicable",
+  "execution_reason": "Organizational feature node; not directly dispatchable.",
+  "decomposition_state": "coarse",
+  "decomposition_reason": "Already decomposed into the three concrete owned systems (movement, health, mana) required by the current GDD; no further missing-design problem needs resolving at this organizational level.",
+  "parent": "NSC-001",
+  "depends_on": [],
+  "exclusive_resources": [],
+  "acceptance_criteria": [],
+  "validation_requirements": [],
+  "gdd_evidence": [
+    {
+      "reference": "GDD §2 Player Actions and Systems; §1 Executive Summary",
+      "requirement": "Defines the single required wizard player character and its movement, health, and mana systems."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Aggregate repository_state of partial reflects that PlayerHealth/PlayerMana/PlayerMovement all exist with real behavior but each is missing GDD-required interfaces (restore, reset, cursor projection, movement-restriction, health UI, denied-cast feedback).",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

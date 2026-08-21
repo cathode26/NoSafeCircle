@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-004",
+  "title": "Player Health Ownership, Restore, Death Transition, and Feedback",
+  "reconciliation_key": "player-health",
+  "kind": "implementation",
+  "type": "implementation",
+  "status": "open",
+  "execution_scope": "single_agent",
+  "execution_reason": "Bounded addition to one existing component (PlayerHealth.cs) plus a small new UI component and its builder wiring, mirroring the already-integrated PlayerManaUI pattern.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Required restore, death-transition, feedback, and reset behavior are fully specified by current GDD text without inventing new design; exact recovery/damage values are explicitly deferred to playtesting by the GDD itself.",
+  "parent": "NSC-002",
+  "depends_on": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "reference": "GDD §2 Player Health ownership",
+      "requirement": "Exposes an owner-controlled restore/heal entry point clamped to maximum health, to be requested by Door and Interaction's lock-and-heal behavior rather than Door writing health directly."
+    },
+    {
+      "reference": "GDD §2 Player Health ownership",
+      "requirement": "Exposes an observable zero-health/death transition (e.g. an event) that the Floor Run/Restart Orchestrator can consume without polling health each frame or mutating Player Health internals."
+    },
+    {
+      "reference": "GDD §2 Health feedback",
+      "requirement": "Provides a continuous player-facing health indicator reflecting current/maximum health at all times."
+    },
+    {
+      "reference": "GDD §2 Loss / Floor-run restart ownership",
+      "requirement": "Exposes an owner-controlled reset entry point restoring current health to its floor-initial value, consumed by the Floor Run/Restart Orchestrator."
+    },
+    {
+      "reference": "GDD §2 Resources, Feedback, and Failure",
+      "requirement": "Health does not passively regenerate during or between rooms; it changes only through the owner-controlled damage interface, the owner-controlled restore interface (door-lock recovery), or the orchestrator-invoked floor reset."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "GDD §3 Player Experience Success Criteria",
+      "requirement": "Validate that failure is readable through health/damage feedback (contributing cause alongside positioning, mana, and timing failures)."
+    },
+    {
+      "reference": "Section 3 - Player Experience Success Criteria",
+      "requirement": "Failure caused by poor positioning is readable to the player through health/damage feedback, as part of the required 'failure is readable' success criterion."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "GDD §2 Resources, Feedback, and Failure — Player Health ownership",
+      "requirement": "The shared Player Health system is the single owner of current health, exposing owner-controlled damage and restore interfaces plus an observable zero-health/death transition consumed by the Floor Run/Restart Orchestrator; restoration is clamped to maximum health and other systems never write player-health state directly."
+    },
+    {
+      "reference": "GDD §2 Resources, Feedback, and Failure — Health feedback",
+      "requirement": "The wizard's current health is continuously visible through a simple player-facing health indicator so accumulated damage is readable across the whole run."
+    },
+    {
+      "reference": "GDD §2 Loss / Floor-run restart ownership",
+      "requirement": "Player Health is a required reset participant with an owner-controlled reset entry point invoked by the Floor Run/Restart Orchestrator."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Exact fixed door-lock recovery amount is an explicitly deferred playtesting value per GDD; this item only needs to expose the clamped restore interface, not decide the tuning number.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+      "evidence_type": "code",
+      "observation": "Implements CurrentHealth, a clamped TakeDamage(amount) damage interface, and a Damaged event; has no restore/heal method, no zero-health/death event, and no reset entry point."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "evidence_type": "scene",
+      "observation": "PlayerHealth.cs (guid ddabb8b125ed06f42863f611de5826f7) is serialized on the Player GameObject, confirming the current damage-only implementation is integrated."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+      "evidence_type": "code",
+      "observation": "Subscribes to PlayerHealth.Damaged to cancel an in-progress door interaction, confirming the existing damage event is consumed elsewhere, but no analogous health-UI or death-event consumer exists."
+    }
+  ],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}

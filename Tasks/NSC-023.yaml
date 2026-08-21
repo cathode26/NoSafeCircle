@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "id": "NSC-023",
+  "title": "Fixed Isometric Camera",
+  "reconciliation_key": "fixed-isometric-camera",
+  "kind": "implementation",
+  "type": "world-foundation",
+  "status": "complete",
+  "execution_scope": "not_applicable",
+  "execution_reason": "Already implemented and test-validated; not awaiting dispatch or further execution decomposition.",
+  "decomposition_state": "not_applicable",
+  "decomposition_reason": "Work is already complete and atomic; no further decomposition is meaningful.",
+  "parent": "NSC-022",
+  "depends_on": [],
+  "exclusive_resources": [],
+  "acceptance_criteria": [
+    {
+      "reference": "GDD - Executive Summary / 2.5D Isometric Visual and World Representation",
+      "requirement": "Camera renders the gameplay world using a fixed orthographic 2.5D isometric projection at a consistent dimetric angle."
+    },
+    {
+      "reference": "GDD - 2.5D Isometric Visual and World Representation",
+      "requirement": "No player-controllable free rotation of the world view is exposed; the camera's rotation never changes at runtime."
+    }
+  ],
+  "validation_requirements": [
+    {
+      "reference": "GDD - Camera completion and future integration",
+      "requirement": "Once the Tilemap/SpriteRenderer world-visual foundation exists, validate that the fixed isometric camera framing remains visually compatible with the new visual layer (alignment/sorting check), without reopening the already-satisfied fixed-angle/no-rotation requirement."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "GDD - Executive Summary",
+      "requirement": "The camera is fixed, the world is viewed at an angle, and the visible environment is authored as isometric art rather than a free-rotation 3D space."
+    },
+    {
+      "reference": "GDD - 2.5D Isometric Visual and World Representation",
+      "requirement": "The camera is fixed in an isometric presentation; the player does not rotate the world view freely."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Per current provenance boundary: only the fixed-angle/no-free-rotation requirement is treated as GDD-backed acceptance criteria. The camera's player-follow translation (IsometricCameraFollow) is a valid current implementation detail and is recorded as repository evidence only, since the current GDD does not require player-follow camera behavior.",
+  "repository_state_at_bootstrap": "implemented",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "evidence_type": "code",
+      "observation": "BuildCamera sets camera.orthographic = true, camera.orthographicSize = 8f, and cameraObject.transform.rotation = Quaternion.Euler(30f, -45f, 0f) once; no later code path in the builder modifies camera rotation."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+      "evidence_type": "code",
+      "observation": "LateUpdate only writes transform.position = target.position + offset; rotation is never read or written after Initialize captures the position offset."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "evidence_type": "scene",
+      "observation": "Serialized Main Camera has orthographic: 1, orthographic size: 8, and a wired IsometricCameraFollow component (target + offset {10,10,-10}); no rotation-modifying component is attached."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "evidence_type": "test",
+      "observation": "Build_MainCamera_IsFixedOrthographicIsometric asserts orthographic mode and rotation equal to Quaternion.Euler(30,-45,0) within 0.01 degrees and absence of any Rotate/Orbit-named component; Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed asserts rotation is unchanged after the player moves and LateUpdate runs."
+    }
+  ],
+  "bootstrap_source": {
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  }
+}
