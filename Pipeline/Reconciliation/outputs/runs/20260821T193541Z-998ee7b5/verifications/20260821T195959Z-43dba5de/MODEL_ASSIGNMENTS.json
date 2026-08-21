@@ -1,0 +1,57 @@
+{
+  "schema_version": "2.1-parallel-resumed",
+  "random_seed": 16892940725777581932,
+  "model_pool": [
+    "opus",
+    "sonnet"
+  ],
+  "parallel_max_workers": 15,
+  "pass1": {
+    "coverage_player_core": "opus",
+    "coverage_wizard_combat": "sonnet",
+    "coverage_enemy_state": "opus",
+    "coverage_enemy_behavior": "sonnet",
+    "coverage_doors": "opus",
+    "coverage_world_foundations": "sonnet",
+    "coverage_content_encounters": "opus",
+    "coverage_run_lifecycle": "sonnet",
+    "coverage_global_pipeline": "opus",
+    "evidence_player_combat_doors": "sonnet",
+    "evidence_enemy_encounters": "opus",
+    "evidence_world_run_delivery": "sonnet",
+    "structure_dependencies": "opus",
+    "structure_resources": "sonnet",
+    "execution_scope": "opus"
+  },
+  "refiner": "opus",
+  "stream_repair_model": "sonnet",
+  "stream_repair_max_workers": 6,
+  "pass2": {
+    "coverage_player_core": "sonnet",
+    "coverage_wizard_combat": "opus",
+    "coverage_enemy_state": "sonnet",
+    "coverage_enemy_behavior": "opus",
+    "coverage_doors": "sonnet",
+    "coverage_world_foundations": "opus",
+    "coverage_content_encounters": "sonnet",
+    "coverage_run_lifecycle": "opus",
+    "coverage_global_pipeline": "sonnet",
+    "evidence_player_combat_doors": "opus",
+    "evidence_enemy_encounters": "sonnet",
+    "evidence_world_run_delivery": "opus",
+    "structure_dependencies": "sonnet",
+    "structure_resources": "opus",
+    "execution_scope": "sonnet"
+  },
+  "recovery_policy": {
+    "coverage_default_max_turns": 32,
+    "evidence_default_max_turns": 36,
+    "structure_default_max_turns": 32,
+    "execution_default_max_turns": 32,
+    "max_turn_recovery_attempts": 1,
+    "recovery_turn_bonus": 12,
+    "successful_auditors_are_reused": true
+  },
+  "note": "Fifteen focused auditors are independently scoped and their findings are unioned, never voted. Completed pass-1 auditors may immediately launch field-level repair proposals against the immutable candidate. Compatible field operations merge deterministically; only connected incompatible field clusters invoke arbiters before selective pass 2. A max-turn failure is retried without rerunning successful auditors.",
+  "resumed_from_verification_run_id": "20260821T194253Z-52d2d278"
+}

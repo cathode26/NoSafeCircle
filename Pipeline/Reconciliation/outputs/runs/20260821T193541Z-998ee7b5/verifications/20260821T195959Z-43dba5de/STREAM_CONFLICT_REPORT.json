@@ -1,0 +1,78 @@
+{
+  "schema_version": "2.0-field-ops",
+  "proposal_count": 8,
+  "failed_proposal_count": 0,
+  "proposal_targets": {
+    "coverage_content_encounters": [
+      "non_code_requirement:Schedule-slip scope-reduction order:*",
+      "work_item:dungeon-encounter-content-authoring:acceptance_criteria",
+      "work_item:dungeon-encounter-content-authoring:decomposition_reason",
+      "work_item:dungeon-encounter-content-authoring:validation_requirements",
+      "work_item:encounter-admission-cap-enforcement:acceptance_criteria",
+      "work_item:encounter-admission-cap-enforcement:validation_requirements",
+      "work_item:five-room-content-authoring:acceptance_criteria",
+      "work_item:five-room-content-authoring:validation_requirements"
+    ],
+    "coverage_doors": [
+      "work_item:door-close-lock-break-lifecycle:acceptance_criteria",
+      "work_item:door-open-interaction:acceptance_criteria"
+    ],
+    "coverage_enemy_state": [
+      "work_item:enemy-health-damage-defeat:acceptance_criteria",
+      "work_item:enemy-health-damage-defeat:validation_requirements",
+      "work_item:floor-run-restart-persistent-closure:depends_on",
+      "work_item:locked-door-enemy-attack:acceptance_criteria",
+      "work_item:locked-door-enemy-attack:validation_requirements",
+      "work_item:melee-enemy:acceptance_criteria",
+      "work_item:melee-enemy:validation_requirements",
+      "work_item:ranged-enemy:acceptance_criteria",
+      "work_item:ranged-enemy:validation_requirements"
+    ],
+    "coverage_global_pipeline": [
+      "non_code_requirement:Six-Week schedule fallback and required-scope protection:*"
+    ],
+    "coverage_player_core": [
+      "work_item:player-movement:acceptance_criteria",
+      "work_item:player-movement:gdd_evidence",
+      "work_item:player-movement:validation_requirements"
+    ],
+    "coverage_run_lifecycle": [
+      "work_item:floor-run-restart-persistent-closure:acceptance_criteria"
+    ],
+    "evidence_enemy_encounters": [
+      "work_item:active-enemy-registry:acceptance_criteria",
+      "work_item:active-enemy-registry:validation_requirements",
+      "work_item:encounter-admission-cap-enforcement:acceptance_criteria",
+      "work_item:encounter-admission-cap-enforcement:validation_requirements",
+      "work_item:floor-run-restart-persistent-closure:depends_on",
+      "work_item:locked-door-enemy-attack:acceptance_criteria",
+      "work_item:locked-door-enemy-attack:validation_requirements",
+      "work_item:melee-enemy:acceptance_criteria",
+      "work_item:melee-enemy:depends_on",
+      "work_item:melee-enemy:validation_requirements",
+      "work_item:ranged-enemy:acceptance_criteria",
+      "work_item:ranged-enemy:depends_on",
+      "work_item:ranged-enemy:validation_requirements"
+    ],
+    "structure_dependencies": [
+      "work_item:door-open-interaction:acceptance_criteria",
+      "work_item:encounter-admission-cap-enforcement:acceptance_criteria",
+      "work_item:player-movement:acceptance_criteria"
+    ]
+  },
+  "direct_field_conflicts": {
+    "work_item:encounter-admission-cap-enforcement:validation_requirements": [
+      "coverage_content_encounters",
+      "evidence_enemy_encounters"
+    ]
+  },
+  "conflict_field_count": 1,
+  "conflict_components": [
+    [
+      "coverage_content_encounters",
+      "evidence_enemy_encounters"
+    ]
+  ],
+  "conflict_component_count": 1,
+  "policy": "Operations conflict only when independent proposals make incompatible changes to the same durable field. Compatible append/remove operations and identical sets merge deterministically. Only connected conflicting audit components require an LLM arbiter."
+}

@@ -1,0 +1,153 @@
+{
+  "agent": "Streaming Field Repair — coverage_content_encounters",
+  "requested_model": "sonnet",
+  "duration_seconds": 152.57,
+  "result": {
+    "schema_version": "1.1",
+    "operations": [
+      {
+        "target_type": "work_item",
+        "target_id": "encounter-admission-cap-enforcement",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Exposes an owner-controlled reset entry point that returns encounter activation/admission bookkeeping to its floor-initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating admission-state internals directly.\"}",
+        "reason": "CE-01: encounter-admission-cap-enforcement is the only run-persistent owner in the candidate without an owner-side reset entry point criterion, even though floor-run-restart-persistent-closure already depends on it as a named required reset participant (GDD 'Floor-run restart ownership')."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "encounter-admission-cap-enforcement",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Floor-run restart ownership\", \"requirement\": \"Verify floor restart returns encounter activation/admission bookkeeping to its floor-initial state through its owner-controlled reset entry point.\"}",
+        "reason": "CE-01: adds the matching restart validation requirement mirroring the pattern already used for active-enemy-registry, enemy-health-damage-defeat, and other run-persistent owners."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "encounter-admission-cap-enforcement",
+        "field": "validation_requirements",
+        "op": "remove_unique",
+        "value_json": "{\"reference\": \"Section 3 - Player Experience Success Criteria\", \"requirement\": \"Encounters use three to eight enemies and never exceed fifteen active enemies at once.\"}",
+        "reason": "CE-07: the three-to-eight-enemies-per-encounter half is authored-content sizing owned by dungeon-encounter-content-authoring, not something encounter-admission-cap-enforcement can exercise or validate from its own scope (it has no authored encounter content to check against); the item's other two validation requirements already cover the floor-wide fifteen-enemy ceiling and the delay/reduce-first admission behavior."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "dungeon-encounter-content-authoring",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 3 — Player Experience Success Criteria\", \"requirement\": \"Verify each authored encounter uses between three and eight enemies; the registry-enforced fifteen-active-enemy floor-wide ceiling is validated separately by encounter-admission-cap-enforcement.\"}",
+        "reason": "CE-07: relocates the per-encounter sizing validation to the item that actually owns and can exercise authored encounter content, matching its existing 3-8 acceptance criterion."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "five-room-content-authoring",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 1 — Executive Summary; Section 2 — Game Mechanics\", \"requirement\": \"The five named spaces are connected in a forward-only sequence by authored sealed-door instances positioned at each room's exit, consistent with 'each room ends at a door' and 'the player moves through connected rooms toward the final door'; the Final Room's exit door is designated as the final door consumed by the victory capability's doorway-crossing trigger.\"}",
+        "reason": "CE-02/CE-R21: no work item currently obliges any door instances to actually connect the five named spaces or designates the Final Room's exit as the final door final-escape-victory consumes. Room connectivity is a room-layout property (each room 'ends at a door'), so it is placed on the feature that authors room geometry rather than on the reusable door runtime components (which stay generic) or on encounter composition (which presupposes door instances already exist, per its own 'per-door durability values' language)."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "five-room-content-authoring",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 3 — Dungeon Floor Structure (Bone Archive); Section 5 — Runtime Implementation\", \"requirement\": \"Bone Archive's authored lane widths are navigable at the configured enemy navigation agent radius, so the room's narrow-lane/chokepoint geometry holds in practice against the navigation layer's requirements.\"}",
+        "reason": "CE-03: the Bone Archive lane-pathing check is currently owned only by enemy-pursuit-search-foundation and gameplay-navigation-locomotion (the navigation-configuration side); the authored-geometry side (lane width itself) has no obligation on five-room-content-authoring and could be lost when this deferred feature is decomposed."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "five-room-content-authoring",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 3 — Dungeon Floor Structure (Chapel of Ash); Section 4 — Development Agent Roles (Unity Validation Agent)\", \"requirement\": \"Chapel of Ash's authored pews and columns present real occluders that block the Ranged Enemy's line-of-sight/projectile-occlusion check from at least one cover position.\"}",
+        "reason": "CE-03: the Chapel of Ash occlusion check is currently owned only by ranged-enemy (the attack-side occlusion logic); the authored-geometry side (cover objects actually occluding) has no obligation on five-room-content-authoring."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "dungeon-encounter-content-authoring",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 3 — Dungeon Floor Structure (Chapel of Ash / Ruined Entry / Bone Archive)\", \"requirement\": \"The Ranged Enemy is first introduced in the Chapel of Ash encounter, always alongside Melee Enemy support; the Ruined Entry and Bone Archive encounters remain melee-only.\"}",
+        "reason": "CE-04/CE-R16: the GDD's room-by-room introduction pacing (Ranged Enemy 'newly introduced' in Chapel of Ash, preceding rooms melee-only) was preserved only in gdd_evidence prose, not as an obliging criterion; the existing composition criteria alone would permit an author to place Ranged Enemy in Ruined Entry without violating anything mapped."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "dungeon-encounter-content-authoring",
+        "field": "decomposition_reason",
+        "op": "set",
+        "value_json": "\"Exact encounter placements, triggers, per-door durability values, and Final Room pressure composition are explicitly left to later authoring/playtesting by the GDD; only composition/sizing rules (3-8 enemies, never-isolated Ranged Enemy, mixed compositions in two named rooms) are currently fixed. Inventing exact placements/triggers now would fabricate missing design. Encounter placement/content authoring is a real prerequisite consumer of the room spaces produced by five-room-content-authoring (GDD Section 5 — 2.5D Isometric Visual and World Representation: 'encounter placement/content consumes the authored room spaces'); once both features gain concrete descendants, a Progressive Decomposer must attach a concrete encounter-placement -> authored-room implementation/artifact dependency between those descendants rather than a feature-to-feature edge.\"",
+        "reason": "CE-06: restates the room-space consumption prerequisite in the durable decomposition_reason field (in addition to notes) so a future Progressive Decomposer is instructed to attach the real executable edge once both deferred features have concrete descendants, without violating the no-feature-target-dependency invariant now."
+      },
+      {
+        "target_type": "non_code_requirement",
+        "target_id": "Schedule-slip scope-reduction order",
+        "field": "",
+        "op": "upsert_record",
+        "value_json": "{\"title\": \"Schedule-slip scope-reduction order\", \"requirement_type\": \"pipeline_constraint\", \"status\": \"confirmed\", \"gdd_evidence\": [{\"reference\": \"Section 5 — Six-Week Development Plan\", \"requirement\": \"Stretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5–6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut.\"}], \"evidence\": \"Directly stated as a bounded, ordered scope-cut policy in Section 5 Six-Week Development Plan: stretch features are removed first, then advanced door visuals/one encounter variation may be reduced, then final-room encounter density may be reduced toward the low end of the three-to-eight range with simplified presentation polish; required systems (three spells, two enemy types, door loop, mana regeneration, pursuit, final escape) are never cut.\"}",
+        "reason": "CE-05/CE-R22: the GDD's explicit, bounded schedule-slip scope-reduction policy had no durable record anywhere in the candidate; the existing 'Agent scope and canon discipline' pipeline_constraint only forbids adding scope, it does not preserve the authorized reduction order or the protection of required systems."
+      }
+    ],
+    "finding_resolutions": [
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-01",
+        "disposition": "corrected",
+        "explanation": "Added an owner-controlled reset entry point acceptance criterion and matching restart validation requirement to encounter-admission-cap-enforcement, closing the sole gap among run-persistent owners."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-02",
+        "disposition": "corrected",
+        "explanation": "Added an acceptance criterion to five-room-content-authoring requiring authored sealed-door connectivity between the five spaces and designation of the Final Room's exit as the final door. Placed on five-room-content-authoring rather than dungeon-encounter-content-authoring because room connectivity is a room-geometry property ('each room ends at a door') and encounter authoring's own language ('per-door durability values') presupposes door instances already exist; this is a graph-representation decision within refiner authority, not a genuinely unresolved design question."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-03",
+        "disposition": "corrected",
+        "explanation": "Added Bone Archive lane-navigability and Chapel of Ash occlusion-geometry validation requirements to five-room-content-authoring so both the authoring side and the runtime/navigation side own their half of each joint check."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-04",
+        "disposition": "corrected",
+        "explanation": "Added an acceptance criterion to dungeon-encounter-content-authoring making Ranged Enemy's first-introduction-in-Chapel-of-Ash pacing (and melee-only Ruined Entry/Bone Archive) an obliging requirement rather than only gdd_evidence prose."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-05",
+        "disposition": "corrected",
+        "explanation": "Added a new typed pipeline_constraint non_code_requirement, 'Schedule-slip scope-reduction order', capturing the GDD's bounded Weeks 5-6 fallback: stretch features cut first, then advanced door visuals/one encounter variation, then final-room density toward the low end of 3-8 with simplified presentation polish, with required systems never cut."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-06",
+        "disposition": "corrected",
+        "explanation": "Restated the room-space consumption prerequisite inside dungeon-encounter-content-authoring's decomposition_reason field (in addition to the existing notes text) so a future Progressive Decomposer is durably instructed to attach the real edge once concrete descendants exist, without introducing an illegal feature-to-feature dependency now."
+      },
+      {
+        "source_agent": "Coverage — Content Encounters",
+        "finding_id": "CE-07",
+        "disposition": "corrected",
+        "explanation": "Removed the three-to-eight-enemies validation requirement from encounter-admission-cap-enforcement (which cannot exercise authored-content sizing from its own scope) and added the matching validation requirement to dungeon-encounter-content-authoring, which owns and can exercise that property."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R16",
+        "disposition": "corrected",
+        "explanation": "Resolved by the same acceptance criterion added under CE-04 on dungeon-encounter-content-authoring requiring Ranged Enemy's first introduction in Chapel of Ash alongside Melee support, with Ruined Entry/Bone Archive remaining melee-only."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R21",
+        "disposition": "corrected",
+        "explanation": "Resolved by the same acceptance criterion added under CE-02 on five-room-content-authoring requiring forward-only sealed-door connectivity between the five spaces and designation of the Final Room's exit as the final door."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-content-encounters-CE-R22",
+        "disposition": "corrected",
+        "explanation": "Resolved by the same new 'Schedule-slip scope-reduction order' pipeline_constraint added under CE-05, giving the Weeks 5-6 scope-cut fallback a durable typed representation."
+      }
+    ],
+    "reasoning": "Reviewed the ten CE findings against the frozen candidate (encounter-admission-cap-enforcement, five-room-content-authoring, dungeon-encounter-content-authoring, floor-run-restart-persistent-closure, doors, final-escape-victory) and the GDD (Section 3 Dungeon Floor Structure, Section 5 Six-Week Development Plan, Floor-run restart ownership, Active Enemy Registry and Encounter Admission, Player Experience Success Criteria). All 10 findings were credible representation gaps confirmed by direct comparison against candidate line content and real GDD text (verified the Six-Week Development Plan scope-cut sentence and Dungeon Floor Structure room descriptions directly in Docs/GDD/No_Safe_Circle_GDD.md). Applied minimal field-level corrections: (1) gave encounter-admission-cap-enforcement the missing owner-side reset criterion/validation matching every other persistent owner; (2) gave five-room-content-authoring the missing door-connectivity acceptance criterion, choosing that feature over dungeon-encounter-content-authoring because room connectivity is geometry-level and encounter authoring's own text presupposes doors already exist; (3) split the Bone Archive/Chapel of Ash joint validation checks so the authoring side is obliged, not just the runtime/navigation/attack side; (4) added the Ranged-Enemy-introduced-in-Chapel-of-Ash pacing criterion; (5) added a new typed pipeline_constraint for the Six-Week Plan's bounded scope-reduction fallback; (6) moved the room-space consumption note into the durable decomposition_reason field without creating an illegal feature-target dependency; (7) relocated the 3-8 enemy sizing validation from the admission item (which cannot exercise it) to the authoring item that owns it. The two deterministic CE-R16/CE-R21/CE-R22 findings duplicate CE-04/CE-02/CE-05 respectively and were resolved by the same corrections. No finding required rejection or an unresolved question — none conflicted with canon, and CE-02's human-review flag concerned only which of two deferred features should host the criterion, a graph-representation choice within refiner authority given the room-geometry ownership already established by the candidate's own text."
+  }
+}

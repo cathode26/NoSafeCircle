@@ -1,0 +1,263 @@
+{
+  "agent": "Coverage — Wizard Combat",
+  "requested_model": "sonnet",
+  "duration_seconds": 221.98,
+  "result": {
+    "findings": [],
+    "notes": [
+      "This audit is scoped to Wizard Combat: Fireball, Frost Field casting/player feedback, Force Wave, spell-local state/reset, mana-spend contracts, charged Fireball movement-restriction consumption, cursor aiming where specified, and spell-to-enemy interfaces, per the assigned PARALLEL AUDIT SCOPE. Findings/requirements outside this territory (e.g., Player Movement's own ownership surface, Player Health/Mana as owners in their own right, enemy-side status-effect/health implementation, door/navigation work) were read only as necessary to evaluate owner/consumer contracts touching the three spells and are intentionally not reported as this auditor's findings.",
+      "The candidate's fireball/frost-field/force-wave work items were checked line-by-line against current GDD Section 2 (Player Actions and Systems; Spell and Enemy Interactions; Resources, Feedback, and Failure; Win and Loss Conditions), Section 3 (Enemy health and defeat ownership; Player Experience Success Criteria), Section 4 (Wizard Combat Agent role; Development Agent Ownership Invariants), and Section 5 (Runtime Implementation). All three spells are represented as single concrete implementation work items (kind=implementation, type=spell) under the 'combat' feature-group, consistent with the anti-decomposition rule against splitting a spell into projectile/input/damage subtasks.",
+      "Verified specifically: (1) Fireball's tap/charge tradeoff, cursor aiming via Player Movement's shared pointer target, movement-restriction request/release interface, mana spend via Player Mana's existing interface (no invented player-mana dependency), enemy-damage request through the Enemy Health/Defeat interface, Input System routing, tap/charge/cast reset entry point, and suspend/re-enable interface are all present as acceptance/validation requirements. (2) Frost Field's placement at the shared pointer target, readable cast/active-field feedback, correct trigger-only ownership split (Wizard Combat triggers; Enemy Pursuit applies/restores slowdown), mana spend, reset entry point, and suspend interface are all present; the cross-domain 'slows repositioning but does not stop Ranged Enemy attacks' behavior is durably represented as an explicit acceptance criterion on enemy-status-effect-displacement (confirmed by direct inspection), not left as background evidence. (3) Force Wave's player-centered/no-cursor exception, 25-mana initial cost with 'may be tuned later' framing preserved, long-cooldown resource-tension validation, displacement-request-only ownership (enemy movement applies it), reset entry point, and suspend interface are all present.",
+      "All depends_on edges from the three spells target kind=implementation nodes (player-movement, enemy-health-damage-defeat, enemy-status-effect-displacement), never a kind=feature node, consistent with the feature-target dependency prohibition. The candidate correctly withholds a player-mana dependency from all three spells per the existing-interface consumption rule, since PlayerMana.Spend already exists and is directly usable.",
+      "No blocker, error, or warning-level gaps were identified within the assigned territory. No unresolved_questions or seed_assessment warnings in the candidate touch Fireball, Frost Field, or Force Wave."
+    ],
+    "requirements": [
+      {
+        "requirement_id": "WC-01",
+        "reference": "GDD §2 Player Actions and Systems — Fireball row",
+        "requirement": "Fireball: aim with the cursor; tap for a quick, mobile shot against a single/separated enemy; hold to charge, costing more mana and restricting movement further, rewarding preparation by damaging multiple clustered enemies.",
+        "classification": "required_gameplay",
+        "representation": "work_item",
+        "mapped_keys": [
+          "fireball"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as the fireball implementation work item's core gdd_evidence and acceptance criteria, matching the tap/charge tradeoff exactly."
+      },
+      {
+        "requirement_id": "WC-02",
+        "reference": "GDD §2 Resources, Feedback, and Failure — Player Movement ownership",
+        "requirement": "Charged Fireball requests and releases its charging movement restriction through an owner-controlled Player Movement interface; Fireball does not directly mutate movement internals.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "fireball"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Present as an explicit fireball acceptance criterion and as the reason for fireball's depends_on player-movement edge (unfinished restriction interface)."
+      },
+      {
+        "requirement_id": "WC-03",
+        "reference": "GDD §2 Player Movement ownership / Runtime Implementation",
+        "requirement": "Fireball and Frost Field consume the shared world-space pointer target exposed by Player Movement for cursor aiming/placement rather than independently projecting screen coordinates; Force Wave is the explicit player-centered exception.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Fireball and Frost Field each carry this as an explicit acceptance criterion and a real depends_on player-movement edge; Force Wave's acceptance criteria and notes correctly state it is the no-cursor exception with no such dependency."
+      },
+      {
+        "requirement_id": "WC-04",
+        "reference": "GDD §2 Resources, Feedback, and Failure / §4 Development Agent Ownership Invariants",
+        "requirement": "Fireball, Frost Field, and Force Wave spend mana for their casts through Player Mana's owner-controlled Spend interface; Player Mana does not absorb spell-local cooldown/charge/cast/placement/active-field state.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "fireball",
+          "frost-field",
+          "force-wave",
+          "player-mana"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Each spell's acceptance criteria states mana is spent through Player Mana's existing Spend interface; correctly no depends_on edge to player-mana is created since that interface already exists and is usable, matching the existing-interface consumption rule."
+      },
+      {
+        "requirement_id": "WC-05",
+        "reference": "GDD §3 Required Enemy Roster — Enemy health and defeat ownership",
+        "requirement": "Fireball (and any other canon-required damage source) requests enemy damage through the Enemy Health/Defeat owner-controlled interface rather than writing enemy health directly.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "fireball"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Present as an explicit fireball acceptance criterion and as fireball's depends_on enemy-health-damage-defeat edge (interface does not yet exist)."
+      },
+      {
+        "requirement_id": "WC-06",
+        "reference": "GDD §5 Runtime Implementation / §2 Player Movement ownership",
+        "requirement": "Fireball's, Frost Field's, and Force Wave's casting input is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Present as an explicit acceptance criterion on each spell; correctly classified as implementation scope on the runtime consumer rather than a development-process pipeline_constraint, per the Round 2 verification closure guidance distinguishing runtime input technology from agent-process rules."
+      },
+      {
+        "requirement_id": "WC-07",
+        "reference": "GDD §2 Spell-local state ownership",
+        "requirement": "Fireball owns its tap/charge/cast state; Frost Field owns its Wizard-Combat-side cast/placement/active-field state; Force Wave owns its cooldown state. Each owner exposes a reset entry point for any owned state that can still be active when a floor restart occurs.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Each spell carries an explicit reset-entry-point acceptance criterion and a matching floor-restart validation requirement, satisfying the GDD's restart-closure requirement for spell-owned reset state."
+      },
+      {
+        "requirement_id": "WC-08",
+        "reference": "GDD §2 Win and Loss Conditions — Victory/input-shutdown ownership",
+        "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop/cancel current input-driven activity, reject new commands while suspended, and be re-enabled by an authorized reset/test flow, consumed by the Game Flow/Victory capability.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Each of the three spells carries an explicit suspend/re-enable acceptance criterion consumed by final-escape-victory, matching the GDD's requirement that suspension stop already-active input-driven activity, not merely block the next press."
+      },
+      {
+        "requirement_id": "WC-09",
+        "reference": "GDD §2 Spell and Enemy Interactions — Charged Fireball row",
+        "requirement": "Charging Fireball against naturally-clustering Melee Enemies rewards preparation with area damage; charging is unsafe once enemies close distance. Against Ranged Enemies, telegraphed attacks reduce available charge time, making tap shots safer but lower-damage/lower-area.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "fireball"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as explicit validation requirements on fireball covering both the melee-cluster charge payoff and the ranged-enemy tap-shot safety tradeoff."
+      },
+      {
+        "requirement_id": "WC-10",
+        "reference": "GDD §2 Frost Field targeting and feedback",
+        "requirement": "Frost Field is placed at the current shared world-space pointer target exposed by Player Movement and does not independently project screen coordinates; the cast and active field provide player-facing feedback that makes the targeted placement and active effect readable while it is being placed/used.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "frost-field"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Both the placement-targeting and the readable-feedback halves of this bullet are represented as separate explicit frost-field acceptance criteria, satisfying the verification-hardening instruction requiring an explicit feedback acceptance criterion on frost-field."
+      },
+      {
+        "requirement_id": "WC-11",
+        "reference": "GDD §4 Development Agent Roles — Wizard Combat Agent row",
+        "requirement": "Frost Field's actual slowdown effect is applied and restored by the Enemy Pursuit Agent; the Wizard Combat Agent only triggers the Frost Field effect and does not implement Ranged Enemy targeting or attacks.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "frost-field"
+        ],
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants"
+        ],
+        "explanation": "The runtime trigger-only boundary is an explicit frost-field acceptance criterion (consumer side) and frost-field's depends_on enemy-status-effect-displacement edge; the parallel development-process ownership invariant governing this same split is separately and correctly represented as a typed pipeline_constraint ('Development Agent Ownership Invariants') in non_code_requirements, keeping the two rows conceptually separate as required by the verification-closure guidance."
+      },
+      {
+        "requirement_id": "WC-12",
+        "reference": "GDD §2 Spell and Enemy Interactions — Frost Field row",
+        "requirement": "Frost Field slows a ranged enemy's repositioning but does not stop its attacks; the player must still move laterally or use room geometry to avoid incoming shots.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "enemy-status-effect-displacement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Confirmed by direct inspection to be an explicit acceptance criterion ('must never suppress, pause, or slow a Ranged Enemy's attack execution/timing') plus a matching validation requirement on enemy-status-effect-displacement, the correct owner per GDD Section 4/5, satisfying the final-material-convergence requirement that this behavior be explicitly obliged rather than merely inferable."
+      },
+      {
+        "requirement_id": "WC-13",
+        "reference": "GDD §2 Player Actions and Systems — Force Wave row",
+        "requirement": "Force Wave is a player-centered short-range radial knockback with a long cooldown; each cast costs 25 mana; Force Wave does not use cursor direction or target selection.",
+        "classification": "required_gameplay",
+        "representation": "work_item",
+        "mapped_keys": [
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented directly as force-wave's core gdd_evidence and acceptance criteria; the player-centered/no-cursor canon is preserved without inventing an aiming-model ambiguity, per the explicit closure guidance on this point."
+      },
+      {
+        "requirement_id": "WC-14",
+        "reference": "GDD §2 Force Wave bullet",
+        "requirement": "Each cast spends 25 mana through Player Mana and starts its own visible long cooldown; 25 mana is an initial tuning value that may change during later balance work but Force Wave remains mana-consuming unless the GDD is revised.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented verbatim as a force-wave acceptance criterion, correctly preserving the initial-tuning-value framing rather than hardcoding it as an immutable balance requirement."
+      },
+      {
+        "requirement_id": "WC-15",
+        "reference": "GDD §5 Runtime Implementation — enemy movement paragraph",
+        "requirement": "Force Wave determines which enemies are affected and the radial knockback to request; the enemy movement/status-effect system applies that displacement, preserves valid movement/navigation state, and resumes the appropriate pursuit/search state afterward. Force Wave does not directly move enemies or manipulate navigation/pursuit state.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as an explicit force-wave acceptance criterion and as force-wave's depends_on enemy-status-effect-displacement edge (interface does not yet exist)."
+      },
+      {
+        "requirement_id": "WC-16",
+        "reference": "GDD §2 Spell and Enemy Interactions / Design Pillars narrative",
+        "requirement": "Force Wave's long cooldown is tuned so an encounter space typically allows only about one meaningful use; spending it mid-room may leave none for the door attempt and vice versa — an intentional resource decision.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as an explicit force-wave validation requirement covering the cooldown-driven resource-tension design intent."
+      },
+      {
+        "requirement_id": "WC-17",
+        "reference": "GDD §3 Player Experience Success Criteria — Failure is readable",
+        "requirement": "Failure is readable when the player uses Force Wave without an immediate threat, leaving it unavailable when critical space is later needed.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Directly represented as a force-wave validation requirement, satisfying the Section 4 instruction that Player Experience Success Criteria are required validation obligations on the owning work rather than separate features."
+      },
+      {
+        "requirement_id": "WC-18",
+        "reference": "GDD §2 Loss — Floor-run restart ownership / §5 Floor Run/Restart Orchestrator",
+        "requirement": "Fireball's charge/cast state, Frost Field's casting-side active/cast state, and Force Wave's cooldown state are required run-persistent reset participants that the Floor Run/Restart Orchestrator invokes through each spell's owned reset entry point.",
+        "classification": "required_implementation",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Each spell has an explicit floor-restart validation requirement verifying its own reset entry point clears residual state, and floor-run-restart-persistent-closure's depends_on list includes fireball, frost-field, and force-wave as required reset participants, satisfying the spell/reset ownership closure guidance."
+      },
+      {
+        "requirement_id": "WC-19",
+        "reference": "GDD §4 Development Agent Roles — Wizard Combat Agent row",
+        "requirement": "The Wizard Combat Agent implements Fireball, Frost Field's casting/mana cost/feedback, and Force Wave without editing enemy-movement or enemy-attack code directly.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants"
+        ],
+        "explanation": "The agent-boundary framing of this row is covered by the typed 'Development Agent Ownership Invariants' pipeline_constraint in non_code_requirements; the runtime behavior it describes is separately and correctly captured as acceptance criteria on fireball, frost-field, and force-wave (see WC-01/WC-10/WC-13)."
+      }
+    ],
+    "verdict": "pass"
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

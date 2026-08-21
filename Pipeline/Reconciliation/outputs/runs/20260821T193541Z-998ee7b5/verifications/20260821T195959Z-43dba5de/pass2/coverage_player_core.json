@@ -1,0 +1,250 @@
+{
+  "agent": "Coverage — Player Core",
+  "requested_model": "sonnet",
+  "duration_seconds": 182.45,
+  "result": {
+    "findings": [
+      {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Duplicate victory-suspend acceptance criteria on player-movement",
+        "description": "player-movement's acceptance_criteria array contains two near-identical entries for the owner-controlled gameplay-enable/suspend interface consumed by the Game Flow/Victory capability (one at ~lines 177-180 citing 'Section 2 — Victory/input-shutdown ownership bullet; Section 4 — Final escape/victory coordination invariant', another at ~lines 181-184 citing 'GDD §2 Victory/input-shutdown ownership; §4 Development Agent Ownership Invariants'). Both describe the same required behavior (immediately stop in-progress input-driven movement, reject new commands while suspended, re-enable only via authorized flow, consumed by victory). This is redundant bookkeeping rather than a coverage gap — the requirement itself is durably represented — but the duplication could confuse downstream consumers of the acceptance-criteria list or cause double validation-checklist entries.",
+        "affected_keys": [
+          "player-movement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Win and Loss Conditions — Victory/input-shutdown ownership",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "player-movement.acceptance_criteria contains two separately-worded but substantively identical entries about the suspend/re-enable interface (approx. lines 177-184 of the file)."
+          }
+        ],
+        "recommended_change": "Merge the two duplicate suspend-interface acceptance criteria on player-movement into one entry, retaining the fuller GDD citation set (Section 2 Victory/input-shutdown ownership + Section 4 Final escape/victory coordination invariant + Development Agent Ownership Invariants).",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Audit scope limited to Player Core per assignment: Player Movement/input, Player Health, Player Mana, player position/movement-restriction ownership, health/mana feedback, player-core reset responsibilities, and directly owned validation. Combat/spell, enemy, door, world, encounter, restart-orchestrator, and victory-capability internals were read only as needed to evaluate owner/consumer contracts touching player-core and are not independently audited here.",
+      "The shared cursor-to-gameplay-plane projection capability is not buried: it is represented as a durable acceptance criterion on player-movement, and fireball/frost-field/door-open-interaction each carry explicit depends_on edges back to player-movement, satisfying the taxonomy's concern about hidden shared capabilities.",
+      "Player Mana's existing Spend() interface is correctly treated as already-usable per the existing-interface rule (no spurious depends_on edges from the three spells onto player-mana), consistent with GDD guidance and the candidate's own major_findings explanation.",
+      "Player Health's restore interface is correctly the target of a dependency from door-close-lock-break-lifecycle (outside this audit's territory) rather than player-health depending outward, consistent with the GDD's stated consumer direction.",
+      "No missing_required_work, incorrect_parent, incorrect_dependency, or non_code_misclassification issues were found within the Player Core territory."
+    ],
+    "verdict": "pass_with_findings",
+    "requirements": [
+      {
+        "requirement_id": "R1",
+        "reference": "GDD §2 Player Actions and Systems — Move and Aim",
+        "requirement": "Movement is mouse-directed through the shared Unity Input System/Input Actions layer: click to set a destination or hold to keep steering toward the cursor.",
+        "classification": "required_gameplay",
+        "representation": "work_item",
+        "mapped_keys": [
+          "player-movement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "This is the core player-facing behavior player-movement exists to implement; represented both as the work item itself and as its first acceptance criterion."
+      },
+      {
+        "requirement_id": "R2",
+        "reference": "GDD §2 Move and Aim; §2 Player Movement ownership; §4 Shared pointer projection canon",
+        "requirement": "Player Movement owns the shared cursor-to-gameplay-plane projection and exposes the resulting world-space pointer target, consumed by movement itself, cursor-aimed spells, and Door/Interaction (Force Wave is the explicit player-centered exception).",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-movement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as an explicit acceptance criterion and validation requirement on player-movement; consumer dependencies from fireball, frost-field, and door-open-interaction correctly point back at player-movement, so the shared capability is not buried inside a single consumer."
+      },
+      {
+        "requirement_id": "R3",
+        "reference": "GDD §2 Player Movement ownership; §5 Runtime Implementation",
+        "requirement": "Runtime movement input is routed through the project's Unity Input System/Input Actions layer rather than direct hardware polling.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-movement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Correctly classified as a technical/runtime-architecture requirement (not development process) and represented as an acceptance criterion on player-movement, matching the current-GDD hardening guidance that Input System routing is required_implementation."
+      },
+      {
+        "requirement_id": "R4",
+        "reference": "GDD §2 Player Movement ownership",
+        "requirement": "Player Movement owns player position, locomotion, and movement-restriction state.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "player-movement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Ownership architecture embodied directly by the player-movement work item's title and gdd_evidence."
+      },
+      {
+        "requirement_id": "R5",
+        "reference": "GDD §2 Player Movement ownership; §4 Development Agent Ownership Invariants",
+        "requirement": "Player Movement exposes an owner-controlled movement-restriction request/release interface that Charged Fireball uses while charging without mutating movement internals directly.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-movement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit acceptance criterion on player-movement; correctly scoped to only Fireball per current GDD canon (no equivalent restriction interface required for Frost Field or Force Wave)."
+      },
+      {
+        "requirement_id": "R6",
+        "reference": "GDD §2 Floor-run restart ownership; §5 Runtime Implementation",
+        "requirement": "Player Movement/player position is a required reset participant and exposes an owner-controlled reset entry point invoked by the Floor Run/Restart Orchestrator.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-movement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as an explicit acceptance criterion citing the Floor-run restart ownership passage."
+      },
+      {
+        "requirement_id": "R7",
+        "reference": "GDD §2 Win and Loss Conditions — Victory/input-shutdown ownership; §4 Final escape/victory coordination invariant",
+        "requirement": "Player Movement exposes an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels in-progress input-driven movement, rejects new commands while suspended, and is re-enabled only through an authorized flow, consumed by the Game Flow/Victory capability.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-movement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented (redundantly twice — see finding F1) as an acceptance criterion and validation requirement on player-movement."
+      },
+      {
+        "requirement_id": "R8",
+        "reference": "GDD §2 Resources, Feedback, and Failure — Health; Player Health ownership",
+        "requirement": "Player Health is the single owner of current health, exposing owner-controlled damage and restore interfaces plus an observable zero-health/death transition; restoration is clamped to maximum health and no other system writes player-health state directly.",
+        "classification": "required_gameplay",
+        "representation": "work_item",
+        "mapped_keys": [
+          "player-health"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Core damage/restore behavior embodied by the player-health work item; restore interface, clamping, and zero-health transition are each explicit acceptance criteria."
+      },
+      {
+        "requirement_id": "R9",
+        "reference": "GDD §2 Resources, Feedback, and Failure — Health",
+        "requirement": "Health does not passively regenerate during or between rooms; it persists across the whole run and is only partially restored by locking a door.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-health"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Directly represented as a 'no passive regeneration' acceptance criterion on player-health."
+      },
+      {
+        "requirement_id": "R10",
+        "reference": "GDD §2 Resources, Feedback, and Failure — Health feedback",
+        "requirement": "The wizard's current health is continuously visible through a simple player-facing health indicator so accumulated damage is readable across the run.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-health"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as an explicit acceptance criterion; correctly classified as owned by Player Health per the current-GDD clarified ownership rule (continuous health visibility belongs to Player Health as an acceptance criterion, not an unowned/ambiguous rendering requirement)."
+      },
+      {
+        "requirement_id": "R11",
+        "reference": "GDD §2 Loss / Floor-run restart ownership",
+        "requirement": "Player Health is a required reset participant with an owner-controlled reset entry point invoked by the Floor Run/Restart Orchestrator.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-health"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit acceptance criterion on player-health."
+      },
+      {
+        "requirement_id": "R12",
+        "reference": "GDD §2 Resources, Feedback, and Failure — Mana; Player Mana ownership",
+        "requirement": "Player Mana is the single owner of current mana and the post-cast regeneration-delay state, exposing an owner-controlled spend interface; it does not absorb spell-local cooldown/charge/cast/placement/active-field state belonging to Fireball, Frost Field, or Force Wave.",
+        "classification": "required_gameplay",
+        "representation": "work_item",
+        "mapped_keys": [
+          "player-mana"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Core ownership behavior embodied by the player-mana work item; spend/regen already implemented and tested, and the non-absorption boundary is an explicit acceptance criterion."
+      },
+      {
+        "requirement_id": "R13",
+        "reference": "GDD §2 Resources, Feedback, and Failure — Mana",
+        "requirement": "Mana regenerates slowly after a brief post-cast delay.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "player-mana"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Already implemented in PlayerMana.cs with real Play Mode test coverage; candidate correctly represents this as a validation requirement (continue/extend existing tests) rather than reinventing the mechanic."
+      },
+      {
+        "requirement_id": "R14",
+        "reference": "GDD §2 Loss / Floor-run restart ownership; §5 Runtime Implementation",
+        "requirement": "Player Mana and its regeneration-delay state are required reset participants with an owner-controlled reset entry point for the Floor Run/Restart Orchestrator.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-mana"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit acceptance criterion on player-mana."
+      },
+      {
+        "requirement_id": "R15",
+        "reference": "GDD §3 Player Experience Success Criteria — Failure is readable",
+        "requirement": "Failure must be readable to the player, including causes of poor positioning and low mana.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "player-health",
+          "player-mana"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as validation requirements on both player-health (positioning/damage readability) and player-mana (low-mana readability) per the GDD's instruction that Success Criteria bullets map to validation requirements on the owning work rather than separate features."
+      },
+      {
+        "requirement_id": "R16",
+        "reference": "GDD §3 Player Experience Success Criteria — Failure is readable (derived technical support)",
+        "requirement": "A denied spell-cast attempt due to insufficient mana must be distinguishable from a successful spend so low-mana failure can be presented readably.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-mana"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "PlayerMana.Spend() currently fails silently; the candidate adds a denied-cast signal as a necessary technical prerequisite for the GDD's explicit low-mana readability requirement, without inventing new design beyond what Section 3 already mandates."
+      },
+      {
+        "requirement_id": "R17",
+        "reference": "GDD §4 Development Agent Ownership Invariants — Wizard Combat Agent bullet",
+        "requirement": "Within Wizard Combat's responsibility, Player Health, Player Mana, and Player Movement remain separate runtime state owners rather than collapsing their state into one shared player system.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants"
+        ],
+        "explanation": "This is a development-process ownership boundary (governing how agents must structure the implementation) rather than player-facing behavior; it maps to the typed 'Development Agent Ownership Invariants' pipeline_constraint record, while the underlying runtime separation is independently embodied by player-health/player-mana/player-movement existing as three distinct work items."
+      }
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

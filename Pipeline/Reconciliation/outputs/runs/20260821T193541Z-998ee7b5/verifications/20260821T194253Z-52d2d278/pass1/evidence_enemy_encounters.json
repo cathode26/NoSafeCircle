@@ -1,0 +1,209 @@
+{
+  "agent": "Evidence — Enemies Encounters",
+  "requested_model": "opus",
+  "duration_seconds": 351.85,
+  "result": {
+    "verdict": "pass_with_findings",
+    "findings": [
+      {
+        "finding_id": "EV-ENEM-001",
+        "severity": "error",
+        "category": "missing_dependency",
+        "title": "Melee/Ranged archetypes require an assembled SpriteRenderer prefab with isometric sorting, but carry no dependency on the missing world-visual-foundation that owns character presentation",
+        "description": "Both `melee-enemy` and `ranged-enemy` carry an acceptance criterion demanding delivery of \"a usable assembled world-space SpriteRenderer archetype prefab\" following isometric sorting conventions, citing 'Environment Presentation and Authoring Direction'. The identical responsibility is already claimed by `world-visual-foundation`, whose own acceptance criterion states that \"the wizard, enemies, doors, props, obstacles, and other independently sorted/interactive objects use world-space SpriteRenderer prefabs ... following consistent isometric sorting conventions\", and whose validation requirements own the isometric sprite-sorting checks. `world-visual-foundation` is repository_state `missing` (verified: the builder creates only primitive Plane/Cube MeshRenderers; no SpriteRenderer, Grid, or Tilemap exists anywhere in Assets/). Neither archetype item declares a depends_on edge to `world-visual-foundation`, so as written the archetype work is expected to invent sorting/presentation conventions that the GDD explicitly assigns to the reusable visual foundation. This is a genuine behavioral prerequisite (the conventions must exist before an archetype prefab can conform to them), not a mere shared-write concern, and it also duplicates ownership of the same deliverable across two items.",
+        "affected_keys": [
+          "melee-enemy",
+          "ranged-enemy",
+          "world-visual-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 — Runtime Implementation",
+            "requirement": "\"World-space SpriteRenderer prefabs will be used for sealed doors, tall props, obstacles, the wizard, enemies, and other independently sorted or interactive objects. Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture.\""
+          },
+          {
+            "reference": "Section 3 — Environment Presentation and Authoring Direction",
+            "requirement": "\"Placeholder character sprites are acceptable during development, but the wizard and enemy visual representations follow the same isometric sorting conventions as other world-space SpriteRenderers.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+            "observation": "Builds Floor/Walls/door visual as primitive meshes; a repository-wide glob of Assets/**/*.{prefab,asset} returns no .prefab files at all, and no SpriteRenderer/Grid/Tilemap component is created anywhere, confirming no sorting-convention foundation currently exists for an enemy prefab to conform to."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+            "observation": "Case-insensitive search for enemy/melee/ranged/pursuit/registry/frost/displacement/encounter/spawn returns only 'm_IgnoreNormalsForChartDetection' boilerplate — no enemy object or enemy visual representation is serialized, so no existing presentation pattern is available."
+          }
+        ],
+        "recommended_change": "Either add a depends_on edge from `melee-enemy` and `ranged-enemy` to `world-visual-foundation` with the GDD Section 5 'Character presentation is therefore part of the reusable visual-world foundation' text as evidence, or narrow the archetype acceptance criteria to behavior/integration and leave prefab presentation/sorting delivery solely to `world-visual-foundation`. Do not leave the same SpriteRenderer/sorting deliverable asserted on both sides with no ordering relationship.",
+        "requires_human_review": true
+      },
+      {
+        "finding_id": "EV-ENEM-002",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Enemy attack-state restart reset participation is unrepresented on every item that owns enemy attack state",
+        "description": "The GDD names enemy \"attack\" state as a required floor-restart reset participant twice, distinctly from pursuit/search and status/displacement state. In the candidate, `enemy-pursuit-search-foundation` carries a reset acceptance criterion for target/last-known-position/search state, `enemy-status-effect-displacement` carries one for slowdown/displacement state, and `enemy-health-damage-defeat` carries one for health/defeat state — but `melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack`, which own melee attack execution, ranged telegraph/attack-timing (and any in-flight projectile), and locked-door attack state respectively, carry no reset acceptance criterion at all. The consequence is visible downstream: `floor-run-restart-persistent-closure`'s depends_on list includes the pursuit foundation, status/displacement, health/defeat, and registry keys but omits `melee-enemy` and `ranged-enemy`, so no work item in the graph is accountable for resetting attack state. The candidate's own unresolved question #4 asks how the enemy reset splits across pursuit and status/displacement and does not consider attack state at all, confirming the omission is unnoticed rather than deliberate.",
+        "affected_keys": [
+          "melee-enemy",
+          "ranged-enemy",
+          "locked-door-enemy-attack",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Win and Loss Conditions (Loss)",
+            "requirement": "\"Restart resets all run-persistent gameplay state to the floor's initial state, including ... persistent enemy objects and enemy health, pursuit/search/status/attack state, Active Enemy Registry bookkeeping ...\""
+          },
+          {
+            "reference": "Section 2 — Floor-run restart ownership",
+            "requirement": "\"Required reset participants include ... enemy health/defeat state, enemy pursuit/search/attack/status/displacement state ...\" and \"Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts",
+            "observation": "A full Assets/**/*.cs glob returns only Door/Player/Camera/UI/Debug scripts; no enemy attack component exists, so there is no current implementation that could be argued to already satisfy attack-state reset."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Tests",
+            "observation": "Only DoorInteractionPlayModeTests, PlayerManaPlayModeTests, and DoorPrototypeSceneBuilderTests exist; no test exercises any enemy state or any reset entry point."
+          }
+        ],
+        "recommended_change": "Add an owner-controlled restart/reset acceptance criterion for attack-side state to `melee-enemy`, `ranged-enemy`, and `locked-door-enemy-attack` (citing GDD Section 2 'pursuit/search/status/attack state' and the Floor-run restart ownership paragraph), and correspondingly add those keys as reset participants/dependencies of `floor-run-restart-persistent-closure`, or explicitly state which existing owner absorbs attack-state reset and record that assignment on both sides.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "EV-ENEM-003",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "encounter-admission-cap-enforcement carries no reset entry point despite the GDD naming encounter activation/admission state as a required restart participant",
+        "description": "The GDD lists \"encounter activation and admission state\" among the run-persistent state that floor restart must reset, and requires each state owner to expose a reset entry point invoked by the orchestrator. `encounter-admission-cap-enforcement` is the only concrete item in the graph that owns admission state (delayed/reduced pending activations, admitted-batch bookkeeping), yet its three acceptance criteria cover only capacity querying, delay/reduce-first behavior, and non-duplication of the registry count. No reset acceptance criterion or validation requirement exists. `floor-run-restart-persistent-closure` nevertheless declares a dependency on this key, so the graph assumes a reset interface the owner item never commits to producing. The same gap does not exist on the sibling enemy items, which all carry explicit reset criteria — so this is an inconsistency within the candidate's own pattern, not a deliberate deferral.",
+        "affected_keys": [
+          "encounter-admission-cap-enforcement",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Win and Loss Conditions (Loss)",
+            "requirement": "\"Restart resets all run-persistent gameplay state to the floor's initial state, including ... door lifecycle/crossing/durability state, and encounter activation/admission state.\""
+          },
+          {
+            "reference": "Section 2 — Floor-run restart ownership",
+            "requirement": "\"Required reset participants include ... Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state\" and each owner \"must expose a reset entry point for the state it owns\"."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts",
+            "observation": "Case-insensitive repository search for 'encounter'/'registry'/'spawn' across Assets/ returns no matches (only 'EditorSceneManagement'/'ChartDetection' false positives), confirming no admission or activation state exists today and the reset contract must be specified as new required work rather than verified against code."
+          }
+        ],
+        "recommended_change": "Add an owner-controlled reset acceptance criterion (and matching validation requirement) to `encounter-admission-cap-enforcement` covering delayed/reduced pending activations and admitted-batch bookkeeping, citing GDD Section 2 'encounter activation/admission state' in the Loss and Floor-run restart ownership paragraphs.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "EV-ENEM-004",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "Registry reset acceptance invents an 'initial empty' state the GDD does not specify, and re-registration of restart-restored enemies is unspecified",
+        "description": "`active-enemy-registry`'s reset acceptance criterion and its matching validation requirement both assert that restart \"returns bookkeeping to its initial empty/starting state\". The GDD says only that Active Enemy Registry bookkeeping is reset to the floor's initial state, while simultaneously requiring that every persistent enemy be returned to its authored encounter/spawn region in its initial AI state. Whether the floor's initial registry state is empty depends on which enemies are active at floor start (an encounter-authoring fact that is explicitly deferred), so 'empty' is an invented specific rather than a GDD-sourced one. More materially, neither `active-enemy-registry` nor `enemy-health-damage-defeat` specifies the handoff: if the registry clears to empty while enemy-owned resets restore previously-defeated enemies, the reported active count can desynchronize from the set of live persistent enemies, which is exactly the duplicate/incorrect bookkeeping the fifteen-enemy cap depends on being correct.",
+        "affected_keys": [
+          "active-enemy-registry",
+          "enemy-health-damage-defeat",
+          "encounter-admission-cap-enforcement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Win and Loss Conditions (Loss)",
+            "requirement": "\"Restart resets all run-persistent gameplay state to the floor's initial state, including ... Active Enemy Registry bookkeeping ... Each persistent enemy is returned to the authored encounter/spawn region associated with its original room and starts again in its initial AI state.\""
+          },
+          {
+            "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
+            "requirement": "\"Enemy activation registers an enemy with the registry; defeat removes that enemy from the active count.\" The GDD nowhere states the registry's initial state is empty."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts",
+            "observation": "No registry, enemy-health, or activation code exists in the repository (verified by full Assets/**/*.cs glob plus case-insensitive term search), so the reset semantics rest entirely on the candidate's wording with no implementation to constrain them."
+          }
+        ],
+        "recommended_change": "Restate the registry reset criterion as returning bookkeeping to the floor's initial state (not asserting 'empty'), and add an explicit criterion covering re-registration/consistency between enemy-owned restart restoration and registry active-count state, so the post-restart count provably matches the set of live persistent enemies before admission gating runs again.",
+        "requires_human_review": true
+      },
+      {
+        "finding_id": "EV-ENEM-005",
+        "severity": "warning",
+        "category": "evidence_problem",
+        "title": "Mis-attributed GDD section numbers on encounter and enemy nodes (quoted text is real but located in a different section)",
+        "description": "Several gdd_evidence entries in this territory attribute real GDD text to the wrong section. `encounters` and `encounter-admission-cap-enforcement` cite \"Section 2 — Active Enemy Registry and Encounter Admission\" and \"Section 2 — Door and Pursuit Rules\"; both headings are in Section 3 (Player Experience and Content Scope), not Section 2 (Game Mechanics). `enemies` cites \"Section 1 — Required Scope, Exclusions, and Stretch Goals\" for the two-enemies requirement; that heading and the required-scope list are in Section 3 — Section 1's 'Required Scope' subheading only cross-references Section 3. The quoted requirement text itself is accurate in each case, so this is a citation-provenance defect rather than a fabricated requirement, but it degrades the auditability of the same evidence that other domains reuse (the doors domain cites 'Section 3 — Door and Pursuit Rules' for the same heading, so the artifact is internally inconsistent about it).",
+        "affected_keys": [
+          "encounters",
+          "encounter-admission-cap-enforcement",
+          "enemies"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Docs/GDD/No_Safe_Circle_GDD.md structure",
+            "requirement": "'## 2. Game Mechanics' begins at line 48 and '## 3. Player Experience and Content Scope' at line 106; '### Door and Pursuit Rules' (line 144), '### Active Enemy Registry and Encounter Admission' (line 155), and '### Required Scope, Exclusions, and Stretch Goals' (line 163) all fall under Section 3."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+            "observation": "Heading line numbers verified directly: Section 2 spans lines 48–105; the three cited subsections all appear at lines 144, 155, and 163, inside Section 3."
+          }
+        ],
+        "recommended_change": "Correct the section numbers on these gdd_evidence entries to Section 3 (or drop the section number and cite the heading name only, as `enemy-pursuit-search-foundation` and the archetype items already do), so identical GDD passages are cited consistently across domains.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "EV-ENEM-006",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Negative-search evidence for this territory lives only in free-text notes, with empty structured repository_evidence on every item",
+        "description": "All nine items in this territory (`enemies`, `active-enemy-registry`, `enemy-health-damage-defeat`, `enemy-status-effect-displacement`, `enemy-pursuit-search-foundation`, `melee-enemy`, `ranged-enemy`, `locked-door-enemy-attack`, `encounter-admission-cap-enforcement`, plus `dungeon-encounter-content-authoring`) carry `repository_evidence: []`. The supporting negative searches appear only as prose in `notes` (\"a repository-wide grep across Assets/ for 'Registry' found no matches\") with no record of the searched paths, patterns, or asset types. I independently re-ran the searches and the missing classifications are correct in every case — including for assets, not just C# — so this is a traceability weakness rather than a wrong status. Worth noting that the corresponding negative claim about NavMesh strings in the scene (major finding: they are ordinary per-GameObject serialization) also checks out.",
+        "affected_keys": [
+          "enemies",
+          "active-enemy-registry",
+          "enemy-health-damage-defeat",
+          "enemy-status-effect-displacement",
+          "enemy-pursuit-search-foundation",
+          "melee-enemy",
+          "ranged-enemy",
+          "locked-door-enemy-attack",
+          "encounter-admission-cap-enforcement",
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [],
+        "repository_evidence": [
+          {
+            "path": "Assets",
+            "observation": "Independently verified: Assets/**/*.cs returns 14 files (Door/Player/Camera/UI/Debug/Tests only); Assets/**/*.{prefab,asset,unity,inputactions} returns 4 files and zero prefabs; case-insensitive search for enem|melee|ranged|pursu|aggro|detection|registry|defeat|frost|displac|knockback|encounter|spawn|patrol|wander across Assets/ yields only 'EditorSceneManagement' and 'm_IgnoreNormalsForChartDetection' false positives."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+            "observation": "NavMesh/Occlusion hits are limited to the default NavMeshSettings block (m_NavMeshData: {fileID: 0}), per-GameObject m_NavMeshLayer: 0 fields, and OcclusionCullingSettings — confirming the candidate's negative NavMesh claim."
+          }
+        ],
+        "recommended_change": "Record the searched roots, patterns, and asset types as structured repository_evidence entries (evidence_type: search/absence) on the missing items rather than only in notes, so a later pass can re-run the exact negative claim instead of re-deriving it.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Scope: audited only enemy shared state (active-enemy-registry, enemy-health-damage-defeat, enemy-status-effect-displacement), enemy pursuit/archetypes/attacks (enemy-pursuit-search-foundation, melee-enemy, ranged-enemy, locked-door-enemy-attack), encounter admission (encounter-admission-cap-enforcement), and encounter/content evidence (encounters, dungeon-encounter-content-authoring). Doors, player-core, wizard-combat, world-foundations, run-lifecycle, and delivery items were read only where needed to evaluate an owner/consumer contract.",
+      "Confirmed accurate: every item in this territory is classified repository_state=missing / graph_status=open, and I independently verified that no enemy, registry, status-effect, displacement, encounter, or spawn implementation exists under Assets/ under any name or path (C# glob, asset glob, and case-insensitive term search all clean). No `graph_status: complete` claim exists in this territory — the single complete claim in the artifact (fixed-isometric-camera) is outside my scope.",
+      "Confirmed accurate: `locked-door-enemy-attack`'s dependency on door-close-lock-break-lifecycle is a real current prerequisite — DoorInteractable.cs (79 lines) exposes only Duration/Progress/IsOpen/IsInteracting/IsPlayerInRange with StartInteraction/CancelInteraction/Tick/Complete, and has no durability, locked, broken, or damage-receive member.",
+      "Confirmed accurate: `enemy-pursuit-search-foundation`'s dependency evidence on gameplay-navigation-locomotion — Packages/manifest.json declares no com.unity.ai.navigation (only the built-in com.unity.modules.ai module) and Packages/packages-lock.json resolves no com.unity.ai.navigation entry either. The candidate correctly did not conflate the built-in module with the approved package.",
+      "Confirmed accurate: melee-enemy/ranged-enemy acceptance criteria may reference the existing PlayerHealth.TakeDamage(float) interface — it exists at Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs:18, is public, and clamps at zero, so treating it as an existing interface rather than a formal dependency is defensible.",
+      "Provenance check clean in this territory: no gdd_evidence, dependency evidence, or exclusive-resource evidence string in these items cites CLAUDE.md, 'VERIFIED CLOSURE', 'verification-hardening', or any pipeline/patch-round label, and no forbidden path (AgentCrew/, DynamicContentPipeline/) or unapproved historical source is cited. The logical:enemy-locomotion-behavior-surface lock evidence is explicitly labelled 'Derived rationale' on all five holders, which satisfies the derived-rationale requirement. (One pipeline-provenance string does appear at summary.major_findings[59] — 'Per the FRESH RUN CLOSURE and prior verification-round guidance' — but it concerns restart/victory items outside this territory and is a summary field, not graph evidence.)",
+      "Artifact-level observation, reported here only because it touches this territory's coverage: summary.major_findings claims 'Seven requirement_overlays were created to attach Section 3 Player Experience Success Criteria validation obligations', but the artifact has no requirement_overlays field (top-level keys are schema_version, summary, sources, work_items, non_code_requirements, deferred_or_excluded, unresolved_questions, seed_assessment). In this territory the criteria did land as ordinary validation_requirements (enemies-left-alive-are-a-threat on locked-door-enemy-attack; 3–8 enemies / never exceed fifteen on encounter-admission-cap-enforcement and dungeon-encounter-content-authoring), so coverage is intact; the discrepancy is in the summary's description of the structure and is best resolved by whichever pass owns the whole artifact.",
+      "Not raised as a finding but flagged for the human: `enemy-status-effect-displacement` is scoped single_agent while bundling Frost slowdown apply/restore, Force-Wave forced displacement with navigation-state preservation, pursuit/search hand-back, and a reset entry point — a broader mix than `enemy-pursuit-search-foundation` and the two archetypes, which were all marked needs_execution_decomposition. The GDD does describe one reusable component (Section 5), so the classification is defensible; it is an execution-shape judgement rather than an evidence defect, and it lies outside an evidence auditor's remit.",
+      "The candidate's unresolved_questions #1 (whether enemy foundation/archetype validation must write through DoorPrototypeSceneBuilder.cs, requiring the builder/scene locks) is a legitimate open item: DoorPrototypeSceneBuilder.ClearExistingObjects only destroys roots named in KnownRootNames (Directional Light, Main Camera, Floor, Walls, DoorRoot, Player, Canvas, EventSystem), so an independently named enemy root would survive a rebuild. Deferring the lock rather than asserting it is supported by current repository behavior."
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 36
+}

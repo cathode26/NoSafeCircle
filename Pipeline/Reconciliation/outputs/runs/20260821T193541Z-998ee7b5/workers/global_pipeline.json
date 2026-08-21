@@ -1,0 +1,671 @@
+{
+  "current_state_summary": "This worker directly inspected only the global_pipeline domain (delivery/build configuration and non-code/pipeline requirements). `ProjectSettings/EditorBuildSettings.asset` contains `m_Scenes: []` — no gameplay scene is registered in Unity Build Settings, confirming the Windows-build delivery obligation has a concrete open configuration gap. `Packages/manifest.json` does not currently declare `com.unity.2d.tilemap` or `com.unity.ai.navigation` (this fact is relevant to the world_foundations domain, not represented as a work item here). `.gitignore` confirms `UserSettings/` and other Unity editor/user-local state are excluded from source control, consistent with the GDD's process expectations. No previous-candidate delivery/pipeline work items were found to be stale; the three routed keys (`no-safe-circle`, `delivery-and-build`, `windows-build-scene-registration`) remain current and required.",
+  "desired_state_summary": "The GDD requires a Windows Standalone build as part of the Required Scope (Section 3) and Technical Strategy (Section 5), with the canonical gameplay scene registered in Unity Build Settings before that delivery obligation can be considered complete. The GDD also defines an extensive set of required development-process invariants governing the AI-assisted pipeline: minimal-context dispatch, isolated-branch/workspace execution with no concurrent edits to the same Unity assets, a scene-builder exclusive-write lock for `DoorPrototypeSceneBuilder.cs`/`DoorPrototype.unity`, compile-before-validation, failed-task scope-reduction retry policy, a planning token-budget ceiling, mandatory human inspection/merge/playtesting authority, agent scope/canon discipline, preservation of non-canonical stub scenes as a human decision, a boundary on what generated development-time art import does and does not imply, credential handling outside source control, and a runtime prohibition on generative AI in the shipped game. Section 3's Player Experience Success Criteria are required validation obligations that must be attached to the concrete work items (owned by other domain workers) that actually implement the underlying behavior, not treated as separate gameplay features. Stretch goals and explicitly excluded systems must be enumerated and kept out of required Milestone 1 work.",
+  "domain": "global_pipeline",
+  "major_findings": [
+    "EditorBuildSettings.asset confirms zero registered scenes (`m_Scenes: []`), which is a concrete, currently-open build-configuration gap distinct from the general 'produce a Windows build' delivery obligation.",
+    "Packages/manifest.json currently lacks com.unity.2d.tilemap and com.unity.ai.navigation; this is world_foundations-domain evidence and is not represented as a global_pipeline work item, but is noted for cross-domain awareness.",
+    ".gitignore (approved narrow metadata source) confirms UserSettings/ and other Unity editor/user-local state are excluded from the committed repository, consistent with the GDD's process framing; no gameplay/design conclusions were drawn from it.",
+    "All three routed keys from the previous candidate (no-safe-circle, delivery-and-build, windows-build-scene-registration) remain current and required; no stale work was found in this domain.",
+    "Fifteen distinct typed non_code_requirements were identified covering delivery, and pipeline-process/technical constraints scattered across GDD Sections 3, 4, and 5 that were previously only present as prose.",
+    "Seven requirement_overlays were created to attach Section 3 Player Experience Success Criteria validation obligations to concrete owner work items expected to be emitted by other domain workers (doors, enemy_behavior, encounters, player_core, wizard_combat), per the explicit GDD Section 4 instruction that these criteria are required validation obligations on the owning work rather than new features.",
+    "Stretch goals and explicitly excluded systems from Section 3's Required Scope table were each enumerated individually under deferred_or_excluded rather than collapsed into two bulk entries, to make later coverage auditing straightforward."
+  ],
+  "work_items": [
+    {
+      "key": "no-safe-circle",
+      "title": "No Safe Circle",
+      "kind": "feature",
+      "type": "root",
+      "parent_key": "",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 1 - Executive Summary",
+          "requirement": "No Safe Circle is a single-player, 2.5D isometric survival action game set on one handcrafted dungeon floor; the player wins by escaping through the final door and loses at zero health."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "The completed game satisfies the stated Required Scope: one wizard, one handcrafted 2.5D isometric floor with five connected spaces, three spells, two enemy archetypes, mana regeneration, sealed doors, cross-room pursuit, death and restart, essential feedback, and a Windows build."
+        }
+      ],
+      "validation_requirements": [],
+      "repository_state": "partial",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "coarse",
+      "decomposition_reason": "Root organizational feature; all concrete decomposition is represented by domain-specific descendant features/implementations produced across the full set of reconciliation workers.",
+      "execution_scope": "not_applicable",
+      "execution_reason": "Root feature is not directly executable; it exists purely to aggregate the complete work graph.",
+      "confidence": "medium",
+      "notes": "This worker only directly inspected the global_pipeline domain (delivery/build and non-code/process requirements). Aggregate repository_state of 'partial' reflects that the GDD's own Current Prototype Scene Evidence section confirms a working DoorPrototype scene/script set exists, while the confirmed zero-scene Windows build registration (see windows-build-scene-registration) and the broad required scope described in Section 3 indicate most required systems remain open. Per the feature-aggregate rule, no child repository_evidence is duplicated here; other domain workers' own root-adjacent findings should be reconciled against this at merge time."
+    },
+    {
+      "key": "delivery-and-build",
+      "title": "Delivery and Build",
+      "kind": "feature",
+      "type": "delivery",
+      "parent_key": "no-safe-circle",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Required scope explicitly includes 'a Windows build.'"
+        },
+        {
+          "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "The required delivery target is a Windows Standalone build; the canonical gameplay scene must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "A Windows Standalone build of the completed game is the required delivery artifact for the capstone."
+        }
+      ],
+      "validation_requirements": [],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "coarse",
+      "decomposition_reason": "The delivery obligation is already fully specified by the GDD (Windows Standalone target, canonical scene registration prerequisite); the concrete configuration work is represented by windows-build-scene-registration without inventing new design.",
+      "execution_scope": "not_applicable",
+      "execution_reason": "Organizational feature grouping delivery/build obligations; not itself directly executable.",
+      "confidence": "high",
+      "notes": "Aggregate repository_state of 'missing' reflects that its sole currently-known concrete descendant (windows-build-scene-registration) has confirmed zero registered scenes and no other build-configuration evidence was found. Per the feature-aggregate rule, evidence is kept on the child implementation item rather than duplicated here."
+    },
+    {
+      "key": "windows-build-scene-registration",
+      "title": "Windows Build Scene Registration",
+      "kind": "implementation",
+      "type": "build-configuration",
+      "parent_key": "delivery-and-build",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "The current canonical gameplay scene is Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity; that scene (or a later human-approved replacement) must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete. A committed EditorBuildSettings.asset with no registered canonical gameplay scene is confirmed incomplete build configuration. The top-level Assets/Scenes/DoorPrototype.unity and Assets/Scenes/SampleScene.unity stubs do not satisfy this requirement merely because they are .unity files."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "The canonical gameplay scene (currently Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity, or a later human-approved replacement) is registered in Unity Build Settings."
+        },
+        {
+          "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "Windows Standalone is configured as the active/target build platform."
+        },
+        {
+          "reference": "Section 5 - Current Prototype Scene Evidence",
+          "requirement": "The non-canonical Assets/Scenes/DoorPrototype.unity and Assets/Scenes/SampleScene.unity stub scenes must not be registered as substitutes for the canonical gameplay scene."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "The developer inspects the resulting package state, scene registration, and Windows build configuration before merge."
+        },
+        {
+          "reference": "Section 5 - Technical Strategy",
+          "requirement": "A Windows Standalone build must be producible from the registered canonical gameplay scene."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [
+        {
+          "path": "ProjectSettings/EditorBuildSettings.asset",
+          "evidence_type": "project_setting",
+          "observation": "m_Scenes: [] — no scene is currently registered in Unity Build Settings, directly confirming the GDD's stated incomplete build-configuration fact."
+        }
+      ],
+      "depends_on": [],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:ProjectSettings/EditorBuildSettings.asset",
+          "reason": "EditorBuildSettings.asset is the single project-wide Build Settings scene list; concurrent edits from another task risk conflicting/overwritten scene registrations.",
+          "evidence": "ProjectSettings/EditorBuildSettings.asset currently contains m_Scenes: [] as the sole authoritative Unity build-scene list for this project."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD explicitly names the required action (register the canonical scene, configure Windows Standalone) and the current repository state (zero registered scenes) confirms the gap without requiring any new design.",
+      "execution_scope": "single_agent",
+      "execution_reason": "Registering one named scene and configuring the Windows Standalone build target is a bounded project-configuration change one agent can perform; the required human inspection of the result afterward is a separate pipeline gate (see 'Human inspection and final integration authority'), not an execution-scope split.",
+      "confidence": "high",
+      "notes": "Do not repurpose the non-canonical Assets/Scenes/DoorPrototype.unity or Assets/Scenes/SampleScene.unity stubs to satisfy this item; per the GDD's Current Prototype Scene Evidence section and the 'Non-canonical prototype scene preservation' pipeline constraint, their disposition is a separate human decision."
+    }
+  ],
+  "requirement_overlays": [
+    {
+      "owner_key": "door-open-interaction",
+      "acceptance_criteria": [],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 - Player Experience Success Criteria",
+          "requirement": "A first-time player understands that clicking a door sends the wizard to it, and that reaching the door is not enough — the automatic opening timer still requires five safe, uninterrupted seconds."
+        },
+        {
+          "reference": "Section 3 - Player Experience Success Criteria",
+          "requirement": "Door interaction requires accurate cursor target selection only on the initial click; the wizard's automatic approach, the timer's automatic start on arrival, and tolerance of normal cursor drift after selection are all readable to a first-time player."
+        }
+      ],
+      "reason": "GDD Section 4 states Player Experience Success Criteria are required validation obligations that must be attached to the work item(s) that already own the underlying behavior rather than becoming separate gameplay features. door-open-interaction (doors domain) owns click-to-approach selection, arrival detection, and the automatic five-second opening timer described by these criteria."
+    },
+    {
+      "owner_key": "door-close-lock-break-lifecycle",
+      "acceptance_criteria": [],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 - Player Experience Success Criteria",
+          "requirement": "Crossing an opened doorway causes automatic close-and-lock with no second player input required, and this behavior is readable/expected by a first-time player."
+        },
+        {
+          "reference": "Section 3 - Player Experience Success Criteria",
+          "requirement": "Failure caused by waiting too long — allowing a locked door to break under sustained pursuer pressure — is readable to the player through durability/breach feedback."
+        }
+      ],
+      "reason": "The remainder of the door-interaction Player Experience Success Criterion concerns automatic close-and-lock behavior and breach-caused failure readability, both owned by the door lifecycle/durability implementation rather than door opening/selection."
+    },
+    {
+      "owner_key": "locked-door-enemy-attack",
+      "acceptance_criteria": [],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 - Player Experience Success Criteria",
+          "requirement": "The player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through."
+        }
+      ],
+      "reason": "This Player Experience Success Criterion describes the perceivability of the locked-door attack/persistent-pursuer consequence, which is owned by the locked-door enemy attack behavior (enemy_behavior domain) rather than by door durability state itself."
+    },
+    {
+      "owner_key": "encounter-admission-cap-enforcement",
+      "acceptance_criteria": [],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 - Player Experience Success Criteria",
+          "requirement": "Encounters use three to eight enemies and never exceed fifteen active enemies at once."
+        }
+      ],
+      "reason": "The encounter-size and active-enemy-cap success criterion is a validation obligation on the runtime foundation that enforces the fifteen-active-enemy ceiling and admission policy, not a new gameplay feature."
+    },
+    {
+      "owner_key": "player-health",
+      "acceptance_criteria": [],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 - Player Experience Success Criteria",
+          "requirement": "Failure caused by poor positioning is readable to the player through health/damage feedback, as part of the required 'failure is readable' success criterion."
+        }
+      ],
+      "reason": "Section 4 explicitly requires Player Experience Success Criteria to be represented as validation requirements on the owning work; poor-positioning failure readability is expressed primarily through the Player Health system's continuous health feedback."
+    },
+    {
+      "owner_key": "player-mana",
+      "acceptance_criteria": [],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 - Player Experience Success Criteria",
+          "requirement": "Failure caused by low mana is readable to the player through the mana indicator, as part of the required 'failure is readable' success criterion."
+        }
+      ],
+      "reason": "The low-mana portion of the failure-readability success criterion is owned by the Player Mana system's continuous mana feedback."
+    },
+    {
+      "owner_key": "force-wave",
+      "acceptance_criteria": [],
+      "validation_requirements": [
+        {
+          "reference": "Section 3 - Player Experience Success Criteria",
+          "requirement": "Failure caused by using Force Wave without an immediate threat and then lacking it during a later critical moment, due to its long cooldown, is readable to the player."
+        }
+      ],
+      "reason": "The Force Wave misuse/unavailability portion of the failure-readability success criterion is owned by the Force Wave spell's cooldown/feedback behavior."
+    }
+  ],
+  "non_code_requirements": [
+    {
+      "title": "Windows build",
+      "requirement_type": "delivery_requirement",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Required scope explicitly includes 'a Windows build.'"
+        },
+        {
+          "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "The required delivery target is a Windows Standalone build."
+        }
+      ],
+      "evidence": "Directly and repeatedly stated as required delivery scope in the current GDD; represented as an actionable configuration gap via windows-build-scene-registration."
+    },
+    {
+      "title": "No concurrent Unity asset edits",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 4 - Agent-Assisted Development Workflow",
+          "requirement": "Tasks that depend on unfinished work, or that require changes to the same scripts, scenes, or prefabs, are completed sequentially. Agents do not modify the same Unity assets concurrently."
+        },
+        {
+          "reference": "Section 5 - Agent Coordination",
+          "requirement": "Two agents will not modify the same gameplay files or Unity assets at the same time."
+        }
+      ],
+      "evidence": "Stated identically in both Section 4 and Section 5 as a hard process invariant; applications of this rule are represented per-task via exclusive_resources across all domain workers."
+    },
+    {
+      "title": "Credentials outside source control",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 5 - API and Tool Constraints",
+          "requirement": "API credentials will remain outside the Unity project and source control."
+        }
+      ],
+      "evidence": "Directly stated in Section 5 API and Tool Constraints."
+    },
+    {
+      "title": "Minimal-context dispatch",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 4 - Shared Context and Coordination Rules",
+          "requirement": "Minimal-context dispatch is a required pipeline constraint: agents receive only the approved feature brief, its acceptance criteria, the relevant GDD rules, and the files plus scene/prefab information required for the active task."
+        },
+        {
+          "reference": "Section 5 - API and Tool Constraints",
+          "requirement": "Minimal-context dispatch is mandatory; unrelated repository context is withheld unless the active task requires it."
+        }
+      ],
+      "evidence": "Explicitly required by both Section 4 and Section 5 as a mandatory pipeline constraint."
+    },
+    {
+      "title": "Failed-task retry policy",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 5 - Token Budget",
+          "requirement": "Failed-task retry policy is a required pipeline constraint: if a task fails, its scope and context will be reduced before it is attempted again; the entire project will not be repeatedly submitted to an agent for a single bug."
+        }
+      ],
+      "evidence": "Directly stated as a required pipeline constraint in Section 5."
+    },
+    {
+      "title": "Compile-before-validation gate",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 5 - API and Tool Constraints",
+          "requirement": "Generated C# must compile before the task moves to validation."
+        }
+      ],
+      "evidence": "Directly stated in Section 5 API and Tool Constraints."
+    },
+    {
+      "title": "Isolated execution and task handoff requirements",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 4 - Shared Context and Coordination Rules",
+          "requirement": "Independent agents work in isolated branches or workspaces so their changes can be reviewed before integration. Each task produces changed files, an implementation summary, known risks, and a Play Mode test checklist. Source control commits serve as the handoff between implementation, validation, and integration."
+        }
+      ],
+      "evidence": "Directly stated as required process/handoff structure in Section 4 and reiterated in Section 5 Agent Coordination."
+    },
+    {
+      "title": "Human inspection and final integration authority",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 5 - API and Tool Constraints",
+          "requirement": "Unity scenes, prefab references, animations, and Inspector assignments require human inspection. Agent-generated work is not merged until its Play Mode checklist has been tested."
+        },
+        {
+          "reference": "Section 4 - Shared Context and Coordination Rules",
+          "requirement": "The human developer remains responsible for architecture, merging changes, inspecting Unity scenes and prefabs, playtesting, balance, and final integration."
+        }
+      ],
+      "evidence": "Explicitly stated as required human-authority process constraints in Sections 4 and 5."
+    },
+    {
+      "title": "Agent scope and canon discipline",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 4 - Shared Context and Coordination Rules",
+          "requirement": "Agents may report a risk or recommend a scope cut, but they cannot redesign the game or add features without developer approval."
+        },
+        {
+          "reference": "Section 5 - API and Tool Constraints",
+          "requirement": "Agents cannot add mechanics, redesign the game, or expand the scope without developer approval."
+        }
+      ],
+      "evidence": "Stated identically in Section 4 and Section 5 as a required scope-discipline constraint on implementation/planning/reconciliation agents."
+    },
+    {
+      "title": "Runtime generative-AI prohibition",
+      "requirement_type": "non_code_requirement",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 5 - Technical Strategy",
+          "requirement": "The finished Windows game will not use generative AI at runtime; enemy behavior, spell effects, doors, damage, and pursuit run locally through standard Unity systems. The game requires no external AI service, API key, token usage, or network connection after it is built."
+        },
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Generative AI during play' is explicitly excluded scope."
+        }
+      ],
+      "evidence": "Directly and explicitly required/excluded scope in the current GDD; a non-code technical constraint on the shipped game rather than a build step or agent-process rule."
+    },
+    {
+      "title": "Development-time generated-art import boundary",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 5 - Runtime Implementation",
+          "requirement": "Development-time art acquisition may use approved tools that can generate isometric tiles, props, and directional sprites. Those outputs are imported into Unity as normal assets; they do not imply automatic prefab creation, collision setup, sorting configuration, or gameplay integration."
+        }
+      ],
+      "evidence": "Directly stated in Section 5 Runtime Implementation and reiterated in the Technical Strategy generative-tools note; a required process/validation constraint on content/asset pipeline work rather than gameplay implementation."
+    },
+    {
+      "title": "Non-canonical prototype scene preservation",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 5 - Current Prototype Scene Evidence",
+          "requirement": "The presence of the non-canonical Assets/Scenes stub scenes is repository evidence, not a design requirement; their deletion, retention, or repurposing is a human decision, and agents/reconciliation steps must not delete or reinterpret them merely to make scene inventory evidence cleaner."
+        }
+      ],
+      "evidence": "Directly stated in Section 5 Current Prototype Scene Evidence; confirmed present via Assets/Scenes/DoorPrototype.unity and Assets/Scenes/SampleScene.unity glob results."
+    },
+    {
+      "title": "Current prototype scene-builder exclusive-write lock",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 4 - Shared Context and Coordination Rules",
+          "requirement": "Scene-authoring work that changes objects generated or maintained through Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs must take exclusive-write locks on both that builder and Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity."
+        }
+      ],
+      "evidence": "Directly stated as a required durable process rule in Section 4; per-task applications are represented as matching exclusive_resources entries across domain workers whose implementation writes through the builder/scene."
+    },
+    {
+      "title": "Development Agent Ownership Invariants",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 4 - Development Agent Ownership Invariants",
+          "requirement": "The listed ownership boundaries are required development-process constraints that must be preserved by planning, reconciliation, implementation, and validation agents. An agent must not bypass another agent's owned runtime interface merely because both systems interact; shared-write conflicts are sequencing/locking concerns, not proof of a dependency unless one task actually requires behavior another task must create first."
+        }
+      ],
+      "evidence": "Directly stated as a required cross-cutting process constraint in Section 4; the specific per-agent ownership boundaries (Wizard Combat, Enemy Pursuit, Door and Interaction, victory coordination, Dungeon Encounter, Unity Validation) are represented as acceptance criteria/dependencies on their respective owning work items across the other domain workers."
+    },
+    {
+      "title": "Planning token budget ceiling",
+      "requirement_type": "pipeline_constraint",
+      "status": "confirmed",
+      "gdd_evidence": [
+        {
+          "reference": "Section 5 - Token Budget",
+          "requirement": "The project uses a maximum planning budget of 1.5 million combined input and output tokens across approximately thirty to forty development tasks; this is a spending ceiling rather than a required amount."
+        }
+      ],
+      "evidence": "Directly stated as a pipeline planning/orchestration constraint in Section 5 Token Budget."
+    }
+  ],
+  "deferred_or_excluded": [
+    {
+      "title": "Spectral Decoy",
+      "classification": "stretch",
+      "reason": "Named stretch goal, not required Milestone 1 scope.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Stretch goals: Spectral Decoy, a third enemy, Fireball-charge reactions, an awareness indicator, Frost Field slowing a breach, advanced door damage, and one additional room."
+        }
+      ]
+    },
+    {
+      "title": "Third enemy archetype",
+      "classification": "stretch",
+      "reason": "Named stretch goal beyond the two required enemy archetypes (Melee Enemy, Ranged Enemy).",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Stretch goals include 'a third enemy.'"
+        }
+      ]
+    },
+    {
+      "title": "Fireball-charge reactions",
+      "classification": "stretch",
+      "reason": "Named stretch goal extending Charged Fireball beyond required behavior.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Stretch goals include 'Fireball-charge reactions.'"
+        }
+      ]
+    },
+    {
+      "title": "Awareness indicator",
+      "classification": "stretch",
+      "reason": "Named stretch goal for additional enemy-awareness feedback beyond required feedback.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Stretch goals include 'an awareness indicator.'"
+        }
+      ]
+    },
+    {
+      "title": "Frost Field slowing a breach",
+      "classification": "stretch",
+      "reason": "Named stretch goal extending Frost Field's effect to door-breach mechanics beyond required scope.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Stretch goals include 'Frost Field slowing a breach.'"
+        }
+      ]
+    },
+    {
+      "title": "Advanced door damage",
+      "classification": "stretch",
+      "reason": "Named stretch goal extending door durability/damage behavior beyond required scope.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Stretch goals include 'advanced door damage.'"
+        }
+      ]
+    },
+    {
+      "title": "One additional room",
+      "classification": "stretch",
+      "reason": "Named stretch goal beyond the required five-space floor.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Stretch goals include 'one additional room.'"
+        }
+      ]
+    },
+    {
+      "title": "Multiplayer",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope; the game is single-player.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "Excluded: multiplayer, classes, equipment, loot, skill trees, quests, vendors, procedural generation, persistent progression, multiple floors, bespoke 3D character models or rigs, free-rotation 3D camera presentation, and generative AI during play."
+        }
+      ]
+    },
+    {
+      "title": "Character classes",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope; the player controls one wizard with no class selection.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Classes' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Equipment",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Equipment' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Loot",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Loot' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Skill trees",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Skill trees' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Quests",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Quests' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Vendors",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Vendors' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Procedural generation",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope; the floor is handcrafted.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Procedural generation' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Persistent progression",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope; no meta-progression across runs.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Persistent progression' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Multiple floors",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope; only one handcrafted floor is required.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Multiple floors' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Bespoke 3D character models or rigs",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope; presentation is 2.5D isometric with SpriteRenderer prefabs, not bespoke 3D models/rigs.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Bespoke 3D character models or rigs' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Free-rotation 3D camera presentation",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope; the camera is fixed isometric with no free world-view rotation.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Free-rotation 3D camera presentation' is explicitly excluded scope."
+        }
+      ]
+    },
+    {
+      "title": "Generative AI during play",
+      "classification": "explicitly_excluded",
+      "reason": "Explicitly excluded scope; also independently represented as the 'Runtime generative-AI prohibition' non_code_requirement.",
+      "gdd_evidence": [
+        {
+          "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+          "requirement": "'Generative AI during play' is explicitly excluded scope."
+        }
+      ]
+    }
+  ],
+  "unresolved_questions": [],
+  "files_reviewed": [
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "ProjectSettings/EditorBuildSettings.asset",
+    "Packages/manifest.json",
+    ".gitignore"
+  ],
+  "historical_sources_reviewed": []
+}

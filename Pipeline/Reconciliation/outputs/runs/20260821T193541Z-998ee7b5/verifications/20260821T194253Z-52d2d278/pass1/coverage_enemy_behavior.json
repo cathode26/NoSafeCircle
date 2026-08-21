@@ -1,0 +1,322 @@
+{
+  "agent": "Coverage — Enemy Behavior",
+  "requested_model": "sonnet",
+  "duration_seconds": 337.89,
+  "result": {
+    "requirements": [
+      {
+        "requirement_id": "EB-01",
+        "reference": "Section 3 — Enemy Detection, Pursuit, and Target Loss",
+        "requirement": "Each enemy uses a Detection Distance for acquiring the player and a larger Lose Target Distance for breaking pursuit; Detection Distance must be smaller than Lose Target Distance so the enemy does not oscillate.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured verbatim as acceptance criterion #1 on enemy-pursuit-search-foundation with matching validation coverage."
+      },
+      {
+        "requirement_id": "EB-02",
+        "reference": "Section 3 — Enemy Detection, Pursuit, and Target Loss",
+        "requirement": "Entering Detection Distance acquires the wizard as target and begins archetype pursuit; crossing an open doorway does not by itself clear that target.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Directly represented as AC #2, reinforced by the Door and Pursuit Rules 'crossing does not clear pursuit' evidence row."
+      },
+      {
+        "requirement_id": "EB-03",
+        "reference": "Section 3 — Enemy Detection, Pursuit, and Target Loss",
+        "requirement": "Exceeding Lose Target Distance transitions the enemy to a search state directed at the player's last known position, decided by distance threshold rather than randomness.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #3, explicitly preserving the non-random transition rule."
+      },
+      {
+        "requirement_id": "EB-04",
+        "reference": "Section 3 — Enemy Detection, Pursuit, and Target Loss",
+        "requirement": "On reaching the last-known position without reacquiring, perform a short bounded search/wander with controlled randomness, periodically re-checking for the player; re-entering Detection Distance during this state reacquires the player.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #4 and #5 with matching validation requirement for target-loss hysteresis/search/reacquisition Play Mode checks."
+      },
+      {
+        "requirement_id": "EB-05",
+        "reference": "Section 3 — Enemy Detection, Pursuit, and Target Loss",
+        "requirement": "If bounded search completes without reacquisition, the enemy clears its target and returns to idle/wander without despawning, replacing, or resetting the persistent object.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #6, preserving persistence semantics."
+      },
+      {
+        "requirement_id": "EB-06",
+        "reference": "Section 3 — Enemy Detection, Pursuit, and Target Loss",
+        "requirement": "Exact Detection Distance, Lose Target Distance, search duration, and search/wander weighting are tuning values to be set during playtesting.",
+        "classification": "required_gameplay",
+        "representation": "deferred_design",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "decomposition_reason explicitly preserves these as playtesting-deferred numeric tuning without blocking the mechanism, consistent with how other GDD tuning values are handled elsewhere in the candidate."
+      },
+      {
+        "requirement_id": "EB-07",
+        "reference": "Section 3 — Door and Pursuit Rules",
+        "requirement": "Enemies move between rooms through open doors; crossing a doorway does not clear pursuit, which is lost only through the distance-and-search behavior.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Reinforces EB-02; captured as AC #6 (doorway traversal without losing target) and validation requirement #3."
+      },
+      {
+        "requirement_id": "EB-08",
+        "reference": "Section 5 — Runtime Implementation / 2.5D Isometric Visual and World Representation",
+        "requirement": "Enemy locomotion consumes the shared gameplay navigation/locomotion layer rather than choosing or configuring navigation technology independently.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #7 and as a real depends_on edge to gameplay-navigation-locomotion (an implementation-kind target, not a feature), satisfying the owner/consumer contract."
+      },
+      {
+        "requirement_id": "EB-09",
+        "reference": "Section 2 — Win and Loss Conditions / Floor-run restart ownership",
+        "requirement": "Restart returns each persistent enemy to its authored encounter/spawn region and initial AI state with no retained target/last-known-position/search state.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #8, exposing a reset entry point consumed by the (separately-owned) Floor Run/Restart Orchestrator, matching the ownership-split guidance for restart participation."
+      },
+      {
+        "requirement_id": "EB-10",
+        "reference": "Section 3 — Required Enemy Roster",
+        "requirement": "Melee Enemy runs at the wizard and attacks at close range, preventing long stationary casts and becoming dangerous in groups.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "melee-enemy"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured verbatim as AC #1 on melee-enemy."
+      },
+      {
+        "requirement_id": "EB-11",
+        "reference": "Section 2 — Resources, Feedback, and Failure",
+        "requirement": "Melee Enemies gradually close the distance over time; movement alone cannot preserve a completely safe distance indefinitely in later encounters.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "melee-enemy"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #3 with tuning left to playtesting, matching GDD's own deferral."
+      },
+      {
+        "requirement_id": "EB-12",
+        "reference": "Section 2 — Spell and Enemy Interactions",
+        "requirement": "Melee enemies naturally cluster while pursuing, making them strong area-damage targets for Charged Fireball and a target for Frost Field's formation-stretching.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "melee-enemy"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #4 with a matching validation requirement exercising multiple simultaneous pursuers, consistent with the round-3 closure guidance to keep this on melee-enemy rather than a separate feature."
+      },
+      {
+        "requirement_id": "EB-13",
+        "reference": "Section 3 — Required Enemy Roster",
+        "requirement": "Melee and Ranged Enemy attacks deal damage exclusively through the shared Player Health damage interface, never maintaining separate player-health state.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "melee-enemy",
+          "ranged-enemy"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured on both archetypes referencing the existing PlayerHealth.TakeDamage interface; correctly avoids a formal dependency edge to player-health per the existing-interface consumption rule since that interface is already implemented."
+      },
+      {
+        "requirement_id": "EB-14",
+        "reference": "Section 3 — Required Enemy Roster",
+        "requirement": "Ranged Enemy keeps moderate distance and fires a slow, telegraphed shot, forcing lateral player movement while Melee Enemies close in.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "ranged-enemy"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured verbatim as AC #1 on ranged-enemy."
+      },
+      {
+        "requirement_id": "EB-15",
+        "reference": "Section 5 — Runtime Implementation",
+        "requirement": "Ranged Enemy attacks include a line-of-sight/projectile-occlusion check so Chapel of Ash's cover actually blocks shots.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "ranged-enemy"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #2 with matching Chapel of Ash occlusion validation_requirement, matching the audit prompt's own worked example."
+      },
+      {
+        "requirement_id": "EB-16",
+        "reference": "Section 3 — Required Enemy Roster",
+        "requirement": "A Ranged Enemy may end up fighting alone if its Melee support is defeated first, and must remain functional as a standalone pursuer.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "ranged-enemy"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #4. The related encounter-authoring rule that Ranged Enemy is never introduced alone is correctly left to the separate dungeon-encounter-content-authoring feature rather than duplicated here."
+      },
+      {
+        "requirement_id": "EB-17",
+        "reference": "Section 2 — Spell and Enemy Interactions (Frost Field row)",
+        "requirement": "Frost Field slows a Ranged Enemy's repositioning but does not stop its attacks; the player must still move laterally or use room geometry to avoid incoming shots.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "ranged-enemy"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #5 on ranged-enemy (mirrored by enemy-status-effect-displacement's owner-side AC in the enemy_state domain), matching the audit prompt's canonical example that this slow must be limited to locomotion/repositioning and independently validated."
+      },
+      {
+        "requirement_id": "EB-18",
+        "reference": "Section 3 — Door and Pursuit Rules",
+        "requirement": "Any surviving enemy still actively tracking/pursuing the player and whose route is blocked by a newly locked door begins attacking that door; no separate 'witnessed escape' or line-of-sight-to-crossing state is tracked.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "locked-door-enemy-attack"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured verbatim as AC #1, correctly deriving the qualifying condition from the pursuit foundation's existing tracking state rather than inventing a witness flag."
+      },
+      {
+        "requirement_id": "EB-19",
+        "reference": "Section 3 — Door and Pursuit Rules",
+        "requirement": "An enemy that has already lost the player does not begin attacking a locked door solely because it is nearby.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "locked-door-enemy-attack"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #2 with a matching validation_requirement."
+      },
+      {
+        "requirement_id": "EB-20",
+        "reference": "Section 3 — Locked-door attack and durability ownership",
+        "requirement": "Enemy Pursuit/attack behavior owns deciding when a qualifying blocked pursuer attacks and executing the attack attempt; it requests door damage exclusively through the Door-owned damage-receive interface and never writes door durability or semantic door state directly.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "locked-door-enemy-attack"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #3, with a correctly-scoped dependency on door-close-lock-break-lifecycle (an implementation, not feature, target) for the interface it consumes."
+      },
+      {
+        "requirement_id": "EB-21",
+        "reference": "Section 3 — Door and Pursuit Rules",
+        "requirement": "When the door breaks, tracking/pursuing enemies continue their pursuit through the now-passable doorway.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "locked-door-enemy-attack"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as AC #4 with a matching Lower Vault rear-breach validation requirement."
+      },
+      {
+        "requirement_id": "EB-22",
+        "reference": "Section 3 — Player Experience Success Criteria",
+        "requirement": "The player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "locked-door-enemy-attack"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicitly mapped as a validation_requirement on locked-door-enemy-attack rather than a new feature, matching the mandatory Section-3-criteria-as-validation-obligation rule."
+      },
+      {
+        "requirement_id": "EB-23",
+        "reference": "Development Agent Roles (Unity Validation Agent) / Dungeon Floor Structure (Bone Archive)",
+        "requirement": "Bone Archive lane pathing must be validated so enemy movement/navigation fits the room's described narrow-lane geometry.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured as a validation_requirement on enemy-pursuit-search-foundation (and complementarily on the navigation-layer owner in the world-foundations domain); correctly not treated as a gameplay work item per the taxonomy's validation-requirement guidance."
+      },
+      {
+        "requirement_id": "EB-24",
+        "reference": "Development Agent Roles (Unity Validation Agent)",
+        "requirement": "Target-loss hysteresis/search and reacquisition must be verified via Play Mode checks.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Directly captured as validation_requirement #1."
+      },
+      {
+        "requirement_id": "EB-25",
+        "reference": "Section 4 — Enemy Pursuit Agent role",
+        "requirement": "Enemy Pursuit Agent owns Ranged Enemy targeting, attack timing, and line-of-sight/projectile-occlusion checks so cover actually blocks shots.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "ranged-enemy"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Runtime behavior half of this passage is represented on ranged-enemy's acceptance/validation criteria; the accompanying agent-ownership process language is outside this audit's assigned territory."
+      }
+    ],
+    "findings": [],
+    "notes": [
+      "Audit scope was restricted per assignment to: detection, pursuit, target loss/search/reacquisition, Melee Enemy, Ranged Enemy, telegraph/LOS/occlusion, locked-door attack initiation, and locomotion/navigation consumption. Enemy Health/Defeat, Active Enemy Registry, Frost/displacement status-effect ownership, encounter admission/authoring, and Development Agent Ownership Invariants (process) were only read for owner/consumer context and are intentionally excluded from the requirements/findings rows as another auditor's territory.",
+      "Verified against current repository state (Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs, and a full Assets/**/*.cs glob) that no enemy scripts, registry, health/defeat, or navigation code exist anywhere in the project, and that DoorInteractable.cs has no durability/locked/broken/damage-receive members — this matches the candidate's repository_state='missing' claims and its stated dependency chain (enemy-pursuit-search-foundation -> gameplay-navigation-locomotion; locked-door-enemy-attack -> enemy-pursuit-search-foundation, door-close-lock-break-lifecycle) for this domain.",
+      "All four enemy_behavior work items (enemy-pursuit-search-foundation, melee-enemy, ranged-enemy, locked-door-enemy-attack) have kind='implementation' and their listed dependency targets (gameplay-navigation-locomotion, door-close-lock-break-lifecycle, enemy-health-damage-defeat, active-enemy-registry) are also all kind='implementation', so no feature-to-feature dependency edge exists in this domain.",
+      "The GDD's explicit Frost-Field-slows-repositioning-but-not-attacks carve-out for Ranged Enemy is durably represented as an acceptance criterion plus validation requirement directly on ranged-enemy (not merely inferable from nearby text), satisfying the 'explicit representation, not evidence-only coverage' closure rule.",
+      "The candidate's own unresolved_questions entry (affecting enemy-pursuit-search-foundation/melee-enemy/ranged-enemy) about whether Play Mode validation will require instantiating enemy prefabs into the canonical DoorPrototype.unity scene — and thus require the scene-builder exclusive-write lock — is reasonably deferred with a documented rationale (no current repository evidence that the builder touches enemies) rather than silently dropped; this is tracked, not forgotten, so it was not raised as an independent finding.",
+      "No missing_required_work, incorrect_parent, incorrect/missing dependency, premature/under-decomposition, or requirement_representation_problem was identified within the assigned territory after cross-checking every relevant GDD passage in Sections 2-5 against the candidate's gdd_evidence, acceptance_criteria, and validation_requirements for these four work items."
+    ],
+    "verdict": "pass"
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

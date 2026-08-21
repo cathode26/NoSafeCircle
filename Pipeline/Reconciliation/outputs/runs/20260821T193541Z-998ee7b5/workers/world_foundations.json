@@ -1,0 +1,390 @@
+{
+  "current_state_summary": "The only committed canonical gameplay scene is Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity, generated/maintained by Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs. Within that scene: (1) the Main Camera is orthographic, fixed at the classic 30/-45 dimetric isometric rotation, and only ever translated (never rotated) by IsometricCameraFollow.cs, with automated editor tests (DoorPrototypeSceneBuilderTests.cs) directly asserting orthographic mode, the fixed rotation, absence of any Rotate/Orbit component, and that rotation never changes while following the player — this satisfies the GDD's fixed-isometric/no-free-rotation requirement. (2) Packages/manifest.json and Packages/packages-lock.json contain neither com.unity.2d.tilemap nor com.unity.ai.navigation; only the builtin com.unity.modules.tilemap runtime module (a different, lower-level module than the 2D Tilemap Editor authoring package) is present. (3) No Tilemap/Grid GameObjects and no NavMeshAgent/NavMeshSurface/NavMeshObstacle components exist anywhere in the scene; the scene's NavMeshSettings block is Unity's default per-scene stub, not evidence of an implemented navigation layer. (4) The builder currently generates Floor, Walls, and the door visual as plain primitive meshes (Plane/Cube) with MeshRenderers rather than as Isometric Tilemap tiles or world-space SpriteRenderer prefabs, so the reusable Tilemap/SpriteRenderer visual foundation and its sorting/visual-gameplay-separation conventions do not yet exist.",
+  "desired_state_summary": "The GDD requires: a fixed 2.5D isometric camera with no free world-view rotation; the approved Unity 2D Tilemap Editor (com.unity.2d.tilemap) and Unity AI Navigation (com.unity.ai.navigation) packages configured in the project; a shared gameplay navigation/locomotion layer that owns the walkable movement representation for NavMesh-based enemy movement and that also owns the navigation-side half of the door-passability contract (translating Door and Interaction's semantic sealed/open/locked/broken state into enemy walkability, with sealed/locked blocking and open/broken permitting traversal); and a reusable Tilemap/SpriteRenderer visual-world foundation (Isometric Tilemaps for floors/walls/repeatable architecture, world-space SpriteRenderer prefabs with isometric sorting for the wizard, enemies, doors, and other independently sorted objects) that is decoupled from the gameplay/collision/walkability layer so art can change without redefining gameplay rules, and that supports all five spaces existing inside one continuous scene/floor with no scene-loading or cross-scene state transfer. Room-specific five-space authoring and encounter content remain explicitly out of scope for this foundation and belong to a separate deferred content-authoring feature outside this domain.",
+  "major_findings": [
+    "Fixed isometric camera requirement is fully implemented and test-covered: DoorPrototypeSceneBuilder.BuildCamera sets orthographic=true, orthographicSize=8, and a fixed Quaternion.Euler(30,-45,0) rotation that is never modified again; IsometricCameraFollow.LateUpdate only ever writes transform.position, never rotation. DoorPrototypeSceneBuilderTests.cs directly asserts orthographic mode, the exact fixed rotation, absence of any Rotate/Orbit component, and rotation invariance while following the player.",
+    "Neither approved package (com.unity.2d.tilemap nor com.unity.ai.navigation) appears in Packages/manifest.json or Packages/packages-lock.json. This is concrete missing project-configuration work per the GDD's 'Approved Unity Packages and Windows Build Configuration' section, not deferred design.",
+    "No Tilemap/Grid objects and no NavMesh runtime components (NavMeshAgent/NavMeshSurface/NavMeshObstacle) exist anywhere in the current scene. The scene's NavMeshSettings YAML block is Unity's default per-scene stub present in every scene and is not evidence of an implemented navigation/locomotion layer.",
+    "DoorPrototypeSceneBuilder.cs currently builds Floor, Walls, and the door visual as primitive Unity meshes (Plane/Cube) with MeshRenderer, not as Isometric Tilemap tiles or world-space SpriteRenderer prefabs, so the required Tilemap/SpriteRenderer visual-world foundation does not currently exist.",
+    "Because the future navigation/locomotion layer and the future visual foundation would both need to rebuild the same builder-generated Floor/Walls/DoorRoot objects and the same canonical scene, matching exclusive-resource locks (builder file + canonical scene) are required on both items per the writer-inventory rule, even though the two items have no dependency on each other.",
+    "Both the navigation/locomotion layer and the visual foundation have a real dependency on the package-configuration item, since the GDD states the approved packages must be configured before the layers that consume them (NavMesh-based movement; Isometric Tilemap authoring) can be built."
+  ],
+  "domain": "world_foundations",
+  "work_items": [
+    {
+      "key": "world",
+      "title": "World and Unity Foundations",
+      "kind": "feature",
+      "type": "feature-group",
+      "parent_key": "no-safe-circle",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "GDD - Environment Presentation and Authoring Direction",
+          "requirement": "Fixed 2.5D isometric presentation using Unity Isometric Tilemaps for architecture and world-space SpriteRenderer prefabs for independently sorted/interactive objects, with the gameplay layer kept separate from the visual layer."
+        },
+        {
+          "reference": "GDD - 2.5D Isometric Visual and World Representation",
+          "requirement": "A shared gameplay navigation/locomotion layer owning walkable movement representation and the navigation side of the door-passability interface, using the approved Unity AI Navigation package."
+        }
+      ],
+      "acceptance_criteria": [],
+      "validation_requirements": [],
+      "repository_state": "partial",
+      "graph_status": "open",
+      "repository_evidence": [],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "coarse",
+      "decomposition_reason": "The organizational grouping itself needs no additional design; its represented children are individually concrete or already resolved to a bounded configuration gap. No missing-design problem blocks bootstrapping this feature.",
+      "execution_scope": "not_applicable",
+      "execution_reason": "Organizational feature node; not directly dispatchable.",
+      "confidence": "medium",
+      "notes": "Aggregate of one implemented child (fixed-isometric-camera) and three missing children (package configuration, navigation/locomotion layer, visual foundation). Does not include five-room content/encounter authoring, which belongs to a separate deferred feature outside this domain."
+    },
+    {
+      "key": "fixed-isometric-camera",
+      "title": "Fixed Isometric Camera",
+      "kind": "implementation",
+      "type": "world-foundation",
+      "parent_key": "world",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "GDD - Executive Summary",
+          "requirement": "The camera is fixed, the world is viewed at an angle, and the visible environment is authored as isometric art rather than a free-rotation 3D space."
+        },
+        {
+          "reference": "GDD - 2.5D Isometric Visual and World Representation",
+          "requirement": "The camera is fixed in an isometric presentation; the player does not rotate the world view freely."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "GDD - Executive Summary / 2.5D Isometric Visual and World Representation",
+          "requirement": "Camera renders the gameplay world using a fixed orthographic 2.5D isometric projection at a consistent dimetric angle."
+        },
+        {
+          "reference": "GDD - 2.5D Isometric Visual and World Representation",
+          "requirement": "No player-controllable free rotation of the world view is exposed; the camera's rotation never changes at runtime."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "GDD - Camera completion and future integration",
+          "requirement": "Once the Tilemap/SpriteRenderer world-visual foundation exists, validate that the fixed isometric camera framing remains visually compatible with the new visual layer (alignment/sorting check), without reopening the already-satisfied fixed-angle/no-rotation requirement."
+        }
+      ],
+      "repository_state": "implemented",
+      "graph_status": "complete",
+      "repository_evidence": [
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "evidence_type": "code",
+          "observation": "BuildCamera sets camera.orthographic = true, camera.orthographicSize = 8f, and cameraObject.transform.rotation = Quaternion.Euler(30f, -45f, 0f) once; no later code path in the builder modifies camera rotation."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+          "evidence_type": "code",
+          "observation": "LateUpdate only writes transform.position = target.position + offset; rotation is never read or written after Initialize captures the position offset."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "evidence_type": "scene",
+          "observation": "Serialized Main Camera has orthographic: 1, orthographic size: 8, and a wired IsometricCameraFollow component (target + offset {10,10,-10}); no rotation-modifying component is attached."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+          "evidence_type": "test",
+          "observation": "Build_MainCamera_IsFixedOrthographicIsometric asserts orthographic mode and rotation equal to Quaternion.Euler(30,-45,0) within 0.01 degrees and absence of any Rotate/Orbit-named component; Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed asserts rotation is unchanged after the player moves and LateUpdate runs."
+        }
+      ],
+      "depends_on": [],
+      "exclusive_resources": [],
+      "decomposition_state": "not_applicable",
+      "decomposition_reason": "Work is already complete and atomic; no further decomposition is meaningful.",
+      "execution_scope": "not_applicable",
+      "execution_reason": "Already implemented and test-validated; not awaiting dispatch or further execution decomposition.",
+      "confidence": "high",
+      "notes": "Per current provenance boundary: only the fixed-angle/no-free-rotation requirement is treated as GDD-backed acceptance criteria. The camera's player-follow translation (IsometricCameraFollow) is a valid current implementation detail and is recorded as repository evidence only, since the current GDD does not require player-follow camera behavior."
+    },
+    {
+      "key": "tilemap-navigation-package-configuration",
+      "title": "Tilemap and AI Navigation Package Configuration",
+      "kind": "implementation",
+      "type": "world-foundation",
+      "parent_key": "world",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "Unity 2D Tilemap Editor (com.unity.2d.tilemap) is approved and required for the intended Isometric Tilemap authoring workflow; if absent from Packages/manifest.json, adding/configuring it is concrete project-configuration work, not deferred design."
+        },
+        {
+          "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "Unity AI Navigation (com.unity.ai.navigation) is the approved enemy-navigation implementation; if absent from Packages/manifest.json, adding/configuring it is a prerequisite for the gameplay navigation/locomotion layer and locomotion-dependent enemy work."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "com.unity.2d.tilemap is declared in Packages/manifest.json."
+        },
+        {
+          "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "com.unity.ai.navigation is declared in Packages/manifest.json."
+        },
+        {
+          "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "Both packages resolve successfully (reflected in Packages/packages-lock.json) so downstream Tilemap and NavMesh workflows are actually usable in the editor."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "GDD - Approved Unity Packages and Windows Build Configuration",
+          "requirement": "The developer inspects the resulting package state after configuration and before merge, per the GDD's requirement that package-manifest changes be developer-inspected."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [
+        {
+          "path": "Packages/manifest.json",
+          "evidence_type": "project_setting",
+          "observation": "Dependency list contains com.unity.inputsystem, com.unity.ugui, com.unity.timeline, com.unity.visualscripting, various com.unity.modules.* builtin modules, etc., but no com.unity.2d.tilemap and no com.unity.ai.navigation entry."
+        },
+        {
+          "path": "Packages/packages-lock.json",
+          "evidence_type": "project_setting",
+          "observation": "Resolved dependency graph includes only com.unity.modules.tilemap (the builtin low-level Tilemap runtime module bundled with Unity) and no com.unity.2d.tilemap or com.unity.ai.navigation entry at any depth, confirming neither approved package is currently resolved."
+        }
+      ],
+      "depends_on": [],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Packages/manifest.json",
+          "reason": "Adding the two approved package dependency entries requires exclusive write access to the shared package manifest so concurrent package-configuration work cannot silently overwrite each other's entries.",
+          "evidence": "Packages/manifest.json is the single shared dependency-declaration file for the whole project; current inspection shows both approved packages absent from it."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "This is a bounded project-configuration change (adding two named, already-approved package entries) with no missing design.",
+      "execution_scope": "single_agent",
+      "execution_reason": "Adding two declared package dependencies and confirming resolution is a small, well-bounded configuration change with a clear validation target (manifest + lock file content), not a task that spans multiple implementation responsibilities.",
+      "confidence": "high",
+      "notes": "com.unity.modules.tilemap (builtin runtime module) already present is a different, lower-level package than the required com.unity.2d.tilemap authoring package and does not satisfy this requirement."
+    },
+    {
+      "key": "gameplay-navigation-locomotion",
+      "title": "Gameplay Navigation/Locomotion Foundation",
+      "kind": "implementation",
+      "type": "world-foundation",
+      "parent_key": "world",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "GDD - 2.5D Isometric Visual and World Representation",
+          "requirement": "A shared gameplay navigation/locomotion layer owns the walkable movement representation and navigation-facing configuration used by runtime movers, and owns the navigation-side implementation of the shared door-passability interface, translating Door and Interaction's sealed/open/locked/broken state into enemy walkability."
+        },
+        {
+          "reference": "GDD - Runtime Implementation",
+          "requirement": "The approved implementation uses Unity AI Navigation (com.unity.ai.navigation) and NavMesh-based runtime movement; enemy detection/pursuit/search logic does not choose or configure a different navigation technology independently. The exact underlying mechanism for updating doorway passability is an implementation choice."
+        },
+        {
+          "reference": "GDD - Door and Pursuit Rules (door passability contract)",
+          "requirement": "Sealed and locked doors block enemy traversal; open and broken doors permit forward enemy traversal, translated through the navigation layer's shared passability interface rather than by enemy code directly manipulating NavMesh or doorway passability."
+        },
+        {
+          "reference": "GDD - 2.5D Isometric Visual and World Representation",
+          "requirement": "A minimal working navigation/locomotion layer and the approved package configuration must exist before locomotion-dependent enemy implementation is dispatched, but room-specific visual authoring does not need to be complete first."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "GDD - 2.5D Isometric Visual and World Representation",
+          "requirement": "Owns the walkable movement representation and navigation-facing configuration consumed by all enemy runtime movement; enemy pursuit/search/status/displacement code consumes this layer rather than independently selecting or configuring navigation technology."
+        },
+        {
+          "reference": "GDD - Runtime Implementation",
+          "requirement": "Implemented using Unity AI Navigation (com.unity.ai.navigation) with NavMesh-based runtime movement as the approved technology."
+        },
+        {
+          "reference": "GDD - Door and Pursuit Rules (door passability contract)",
+          "requirement": "Exposes a shared passability interface that translates Door and Interaction's semantic sealed/open/locked/broken state into enemy walkability: sealed and locked block traversal; open and broken permit forward traversal."
+        },
+        {
+          "reference": "GDD - Runtime Implementation",
+          "requirement": "The specific Unity mechanism used beneath the passability interface (obstacle/carving, navigation link, or runtime navigation-data update) is left as an implementation choice."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "GDD - Runtime Implementation",
+          "requirement": "Bone Archive's lane widths are validated against enemy movement/navigation requirements so the room's stated tactical geometry holds in practice; this check becomes fully executable once Bone Archive content is authored, but the navigation layer's agent-radius/walkability configuration is the artifact being validated."
+        },
+        {
+          "reference": "GDD - Door and Pursuit Rules (door passability contract)",
+          "requirement": "Verify that toggling each door semantic state (sealed, open, locked, broken) produces the correct enemy-walkability result through the shared passability interface."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "evidence_type": "scene",
+          "observation": "No NavMeshAgent, NavMeshSurface, or NavMeshObstacle component exists anywhere in the scene; the only NavMesh-related block present is Unity's default per-scene NavMeshSettings stub (m_NavMeshData: {fileID: 0}), which every Unity scene contains by default and is not evidence of a built navigation layer."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef",
+          "evidence_type": "code",
+          "observation": "Assembly definition references only Unity.InputSystem and UnityEngine.UI; no AI Navigation assembly reference exists."
+        }
+      ],
+      "depends_on": [
+        {
+          "key": "tilemap-navigation-package-configuration",
+          "reason": "The approved com.unity.ai.navigation package must be declared and resolved before a NavMesh-based navigation/locomotion layer can be built against it.",
+          "evidence": "Packages/manifest.json and Packages/packages-lock.json currently contain no com.unity.ai.navigation entry; GDD 'Approved Unity Packages and Windows Build Configuration' states its absence is a concrete configuration prerequisite for the navigation/locomotion layer."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "logical:gameplay-walkability-surface",
+          "reason": "This item is the sole owner of the shared enemy-walkability/passability surface; any door-lifecycle work that later toggles semantic door state through this interface must not write to it concurrently.",
+          "evidence": "GDD 'Door and Pursuit Rules' establishes one shared passability interface owned jointly across Door and Interaction (semantic state) and this navigation layer (walkability translation)."
+        },
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "Implementing NavMesh-based walkability for the current Floor/Walls/DoorRoot objects requires modifying how the builder constructs and configures those objects (e.g. navigation-static flags, NavMesh surface/agent setup).",
+          "evidence": "DoorPrototypeSceneBuilder.cs currently builds Floor via GameObject.CreatePrimitive(PrimitiveType.Plane) and Walls/DoorRoot as plain cubes with no navigation configuration; GDD 'Current prototype scene-builder lock' requires exclusive-write locks on this builder for scene-authoring work that changes its generated objects."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The builder clears and regenerates its known root objects and saves this exact scene file, so any task that changes builder-generated objects must also lock the scene it writes to.",
+          "evidence": "DoorPrototypeSceneBuilder.Build() calls ClearExistingObjects then EditorSceneManager.SaveScene(scene, ScenePath) where ScenePath is Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD already specifies the approved technology (Unity AI Navigation/NavMesh), the ownership split for the passability interface, and the exact semantic-to-walkability translation rules; no additional design invention is needed to scope this item.",
+      "execution_scope": "needs_execution_decomposition",
+      "execution_reason": "This item bundles several independently verifiable responsibilities for one agent: consuming/validating the newly configured AI Navigation package, adding NavMesh-capable walkability configuration to builder-generated scene geometry, and designing and implementing the shared passability interface that two other domains (Door and Interaction, Enemy Pursuit) will depend on. That combination of package integration, scene/builder rework, and a new cross-domain interface contract is broader than a single bounded implementation unit.",
+      "confidence": "medium",
+      "notes": "Exact Detection/Lose Target distances and other tuning values remain GDD-deferred playtesting values and are not part of this item's scope; only the walkable-representation and passability-interface responsibilities belong here."
+    },
+    {
+      "key": "world-visual-foundation",
+      "title": "Tilemap and SpriteRenderer World Visual Foundation",
+      "kind": "implementation",
+      "type": "world-foundation",
+      "parent_key": "world",
+      "basis": "direct_gdd",
+      "source_scope": "required",
+      "gdd_evidence": [
+        {
+          "reference": "GDD - Environment Presentation and Authoring Direction",
+          "requirement": "The primary environment visual layer uses Unity Isometric Tilemaps for floors, walls, and repeatable architectural tiles; the wizard, enemies, taller props, interactive doors, obstacles, decorative set pieces, and other independently sorted objects use world-space SpriteRenderers and prefabs instead of being painted into a Tilemap."
+        },
+        {
+          "reference": "GDD - Environment Presentation and Authoring Direction",
+          "requirement": "The visible isometric art layer is kept separate from the underlying gameplay representation so art can be revised without redefining core gameplay rules; the gameplay layer still owns walkability, collision, trigger volumes, door state, and pursuit logic."
+        },
+        {
+          "reference": "GDD - Runtime Implementation",
+          "requirement": "All five encounter spaces exist inside one continuous Unity scene or continuous floor representation; enemy objects, health, pursuit state, active-enemy bookkeeping, and door state persist naturally as the player advances; no scene-load or cross-scene state-transfer system is required."
+        },
+        {
+          "reference": "GDD - Required feedback and character presentation",
+          "requirement": "The wizard and enemies follow the same isometric sorting conventions as other world-space SpriteRenderers; placeholder character sprites are acceptable during development."
+        }
+      ],
+      "acceptance_criteria": [
+        {
+          "reference": "GDD - Environment Presentation and Authoring Direction",
+          "requirement": "Floors, walls, and repeatable architectural tiles are authored using Unity Isometric Tilemaps (com.unity.2d.tilemap)."
+        },
+        {
+          "reference": "GDD - Environment Presentation and Authoring Direction",
+          "requirement": "The wizard, enemies, doors, props, obstacles, and other independently sorted/interactive objects use world-space SpriteRenderer prefabs rather than being painted into the Tilemap, following consistent isometric sorting conventions."
+        },
+        {
+          "reference": "GDD - Environment Presentation and Authoring Direction",
+          "requirement": "The gameplay/simulation layer (walkability, collision, trigger volumes, door state, pursuit logic) remains defined independently of the visual Tilemap/SpriteRenderer layer so visual assets can be revised without changing gameplay rules."
+        },
+        {
+          "reference": "GDD - Runtime Implementation",
+          "requirement": "The world/floor representation supports all five spaces existing inside one continuous Unity scene with no scene-loading or cross-scene state transfer required."
+        }
+      ],
+      "validation_requirements": [
+        {
+          "reference": "GDD - Unity Validation Agent role (Section 4)",
+          "requirement": "Isometric sprite-sorting checks confirming SpriteRenderer objects sort correctly relative to Tilemap geometry and each other."
+        },
+        {
+          "reference": "GDD - Unity Validation Agent role (Section 4)",
+          "requirement": "Alignment checks between Tilemap visuals and gameplay geometry (collision/walkability) so the visible and simulated layouts do not desynchronize."
+        }
+      ],
+      "repository_state": "missing",
+      "graph_status": "open",
+      "repository_evidence": [
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "evidence_type": "code",
+          "observation": "BuildFloor creates a primitive Plane with a MeshRenderer; BuildWalls and BuildDoor create primitive Cubes with MeshRenderers. No Tilemap, TilemapRenderer, Grid, or SpriteRenderer component is created anywhere in the builder."
+        },
+        {
+          "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "evidence_type": "scene",
+          "observation": "No Grid/Tilemap/TilemapRenderer serialized objects are present in the scene; door and wall visuals are serialized MeshRenderer/BoxCollider/MeshFilter primitives, not SpriteRenderer prefabs."
+        }
+      ],
+      "depends_on": [
+        {
+          "key": "tilemap-navigation-package-configuration",
+          "reason": "The approved com.unity.2d.tilemap package must be declared and resolved before an Isometric Tilemap authoring workflow can be built against it.",
+          "evidence": "Packages/manifest.json and Packages/packages-lock.json currently contain no com.unity.2d.tilemap entry; GDD 'Approved Unity Packages and Windows Build Configuration' states its absence is concrete project-configuration work required for the Tilemap authoring workflow."
+        }
+      ],
+      "exclusive_resources": [
+        {
+          "key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+          "reason": "Replacing the current primitive-mesh Floor/Walls/door-visual generation with Tilemap tiles and SpriteRenderer prefabs requires exclusive write access to the builder that currently constructs those objects.",
+          "evidence": "DoorPrototypeSceneBuilder.BuildFloor/BuildWalls/BuildDoor currently create primitive GameObjects directly; GDD 'Current prototype scene-builder lock' requires exclusive-write locks on this file for scene-authoring work that changes its generated objects."
+        },
+        {
+          "key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "reason": "The builder clears its known root objects and saves this exact scene file, so visual-foundation work that changes those generated objects must also lock the scene being regenerated.",
+          "evidence": "DoorPrototypeSceneBuilder.Build() calls ClearExistingObjects then EditorSceneManager.SaveScene(scene, ScenePath) targeting Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity."
+        }
+      ],
+      "decomposition_state": "concrete",
+      "decomposition_reason": "The GDD already specifies which object categories use Tilemap versus SpriteRenderer, the sorting-convention requirement, and the visual/gameplay separation principle; no missing design blocks scoping this item at the foundation level. Authoring the five actual room layouts remains separately deferred and out of this item's scope.",
+      "execution_scope": "needs_execution_decomposition",
+      "execution_reason": "This item bundles multiple independently verifiable responsibilities: introducing Tilemap-based floor/wall authoring, converting the door visual and other builder-generated objects to SpriteRenderer prefabs with sorting configuration, and preserving/validating separation from the existing collision/walkability layer across several already-generated scene objects (Floor, Walls, DoorRoot, Player visual). That combination spans more than one bounded, independently testable unit for a single agent.",
+      "confidence": "medium",
+      "notes": "Does not include authoring the five named room layouts or encounter content; those remain a separately deferred content-authoring feature outside this domain that will consume this foundation once built."
+    }
+  ],
+  "requirement_overlays": [],
+  "non_code_requirements": [],
+  "deferred_or_excluded": [],
+  "unresolved_questions": [],
+  "files_reviewed": [
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+    "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+    "Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef",
+    "Assets/NoSafeCircle/DoorPrototype/Editor/NoSafeCircle.DoorPrototype.Editor.asmdef",
+    "Packages/manifest.json",
+    "Packages/packages-lock.json"
+  ],
+  "historical_sources_reviewed": []
+}

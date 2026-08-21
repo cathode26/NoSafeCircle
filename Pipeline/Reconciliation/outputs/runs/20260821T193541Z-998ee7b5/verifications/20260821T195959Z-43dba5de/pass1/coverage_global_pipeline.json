@@ -1,0 +1,476 @@
+{
+  "agent": "Coverage — Global Pipeline",
+  "requested_model": "opus",
+  "duration_seconds": 434.13,
+  "result": {
+    "verdict": "pass_with_findings",
+    "findings": [
+      {
+        "finding_id": "GP-F-001",
+        "severity": "warning",
+        "category": "missing_required_work",
+        "title": "Schedule-slip scope-protection policy has no durable representation",
+        "description": "GDD Section 5 'Six-Week Development Plan' states a binding scope-cut ordering: stretch features are removed first if the schedule slips; advanced door visuals and one encounter variation may be reduced; the three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game; and if Weeks 5-6 required work overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish, with required systems explicitly not cut. This is a required development-process invariant that constrains what a future work graph is allowed to drop under pressure. The candidate enumerates the seven stretch goals and thirteen exclusions individually in deferred_or_excluded, and it records fifteen typed non_code_requirements, but none of them capture the cut-ordering rule or the 'required systems are not cut' guarantee. A search of the candidate for schedule/fallback/density/week terms returns no match outside an unrelated Ranged Enemy attack-timing validation string. Without a durable record, a later planning pass under schedule pressure could reduce required scope (for example dropping final-escape or pursuit work) with nothing in the graph obliging it to cut stretch scope and encounter density first.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring",
+          "no-safe-circle"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Six-Week Development Plan",
+            "requirement": "Stretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game."
+          },
+          {
+            "reference": "Section 5 - Six-Week Development Plan",
+            "requirement": "If required work in Weeks 5-6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Add one typed pipeline_constraint record to non_code_requirements (for example 'Schedule-slip scope-cut ordering') quoting the Section 5 Six-Week Development Plan text, stating that stretch scope and final-room encounter density/polish are reduced before any required system, and that the required systems list (three spells, two enemy archetypes, door loop, mana regeneration, pursuit, final escape) is not cut. Optionally cross-reference it from dungeon-encounter-content-authoring's decomposition context, since the density fallback lands on that owner.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "GP-F-002",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Token-budget pipeline constraint omits the per-task band and category allocations",
+        "description": "The 'Planning token budget ceiling' pipeline_constraint record quotes only the 1.5 million total and the thirty-to-forty-task figure. GDD Section 5 Token Budget also fixes an operative per-task band (most focused tasks limited to approximately 15,000-30,000 tokens, with larger context reserved for integration/debugging/multi-component review) and a per-category allocation table. The per-task band is the part a dispatcher would actually enforce; leaving it out of the durable record makes the constraint less usable than the GDD text supports. This is a completeness issue in an otherwise correctly typed record, not missing scope.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Token Budget",
+            "requirement": "Most focused tasks will be limited to approximately 15,000-30,000 tokens. Larger context will be reserved for integration, debugging, and reviewing systems that interact with several Unity components."
+          },
+          {
+            "reference": "Section 5 - Token Budget",
+            "requirement": "Budget category table: feature planning and task preparation 150,000; wizard combat and spells 300,000; doors and enemy pursuit 400,000; dungeon encounters and integration 250,000; review, debugging, and validation 400,000; total ceiling 1,500,000."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Extend the 'Planning token budget ceiling' record's gdd_evidence with the per-task 15,000-30,000 band and the category allocation table so the constraint is enforceable at dispatch time rather than only as an aggregate ceiling.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "GP-F-003",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Ownership-invariants constraint does not quote Section 5's explicit anti-collapse instruction to reconciliation",
+        "description": "The 'Development Agent Ownership Invariants' pipeline_constraint record cites Section 4 (the preamble and the final bypass/shared-write bullet). GDD Section 5 Agent Coordination restates the invariants as mandatory pipeline constraints and adds the operative instruction that planning and reconciliation 'must not collapse cross-system ownership merely to simplify a task graph.' That sentence is the one directly aimed at graph seeding, which is exactly what this candidate feeds. Its absence from the record's evidence weakens the durable citation, though the substantive constraint is represented.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 5 - Agent Coordination",
+            "requirement": "The Development Agent Ownership Invariants in Section 4 are mandatory pipeline constraints, not advisory prose; planning and reconciliation must preserve them as explicit process requirements and must not collapse cross-system ownership merely to simplify a task graph."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Add the Section 5 Agent Coordination sentence as a second gdd_evidence entry on the 'Development Agent Ownership Invariants' non_code_requirements record.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "GP-F-004",
+        "severity": "suggestion",
+        "category": "other",
+        "title": "seed_assessment repeats the same unresolved-question warning twice",
+        "description": "seed_assessment.warnings contains both '4 unresolved reconciliation question(s) remain for review.' and '4 unresolved reconciliation question(s) remain for human/runtime/later-decomposition review.' These are the same fact about the same four unresolved_questions entries, emitted twice. This is pipeline bookkeeping rather than a GDD-coverage defect, but duplicated warnings inflate the warning count a human uses to judge seed readiness. Reported here as an ordinary finding and deliberately not represented as a requirement row, since candidate metadata is not GDD canon.",
+        "affected_keys": [],
+        "gdd_evidence": [],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "seed_assessment.warnings lists the same '4 unresolved reconciliation question(s)' fact as two separate warning strings (lines 3456 and 3458)."
+          }
+        ],
+        "recommended_change": "De-duplicate the unresolved-question warning so the warning count reflects distinct conditions.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Audit territory honored: this pass emits requirements and findings only for delivery/build obligations, Windows scene registration, the no-runtime-AI prohibition, Development Agent Ownership Invariants as process constraints, validation/human gates, minimal context, retry rules, token budget/process constraints, stretch/excluded scope, and the global Section 3 Player Experience Success Criteria. Gameplay-domain coverage (spells, enemies, doors, world, run lifecycle) was read for cross-section qualifiers but is intentionally left to the other parallel auditors.",
+      "The Windows delivery obligation is NOT at risk of disappearing: it is durably represented three ways - as a typed delivery_requirement record ('Windows build'), as the delivery-and-build feature, and as a concrete open configuration item (windows-build-scene-registration) with confirmed repository evidence. I independently verified ProjectSettings/EditorBuildSettings.asset contains m_Scenes: [], matching the candidate's claim and the GDD's statement that a committed EditorBuildSettings.asset with no registered canonical gameplay scene is confirmed incomplete build configuration.",
+      "Per the current GDD's own guidance, I did not treat the absence of a preselected future gameplay scene path as an ambiguity: windows-build-scene-registration correctly names the current canonical scene while allowing a later human-approved replacement, and it correctly refuses the Assets/Scenes stubs as substitutes.",
+      "All five Section 3 Player Experience Success Criteria are durably attached as validation/acceptance requirements on the work items that own the underlying behavior (door-open-interaction, door-close-lock-break-lifecycle, locked-door-enemy-attack, encounter-admission-cap-enforcement, dungeon-encounter-content-authoring, player-health, player-mana, force-wave). The failure-readability criterion is decomposed across all four of its named causes, so none of it rests on a single owner.",
+      "summary.major_findings states that 'Seven requirement_overlays were created,' but the candidate has no top-level requirement_overlays array. I checked the merged work items and the corresponding validation/acceptance requirements are in fact present on the owner items, so this reads as stale narration of an already-applied merge step rather than lost coverage. Flagging as a note, not a finding.",
+      "Stretch and excluded scope are complete: all seven named stretch goals and all thirteen named exclusions are enumerated individually in deferred_or_excluded, and 'generative AI during play' is additionally represented as the typed 'Runtime generative-AI prohibition' non_code_requirement, matching the required required_non_code classification rather than being manufactured as gameplay work.",
+      "The approved Unity package requirements (com.unity.2d.tilemap, com.unity.ai.navigation) sit in the same GDD section as the Windows build configuration and are genuinely absent from Packages/manifest.json per the candidate's own evidence, but they are world/foundations territory and are represented there by tilemap-navigation-package-configuration, so I have not emitted requirement rows or findings for them."
+    ],
+    "requirements": [
+      {
+        "requirement_id": "GP-001",
+        "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+        "requirement": "Required scope explicitly includes 'a Windows build.'",
+        "classification": "required_non_code",
+        "representation": "delivery_requirement",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Windows build"
+        ],
+        "explanation": "Represented as a typed delivery_requirement record whose requirement_type exactly matches this representation. It is correctly not invented as a gameplay system, and it is not left as an unassessable note: the actionable configuration gap is separately carried by windows-build-scene-registration."
+      },
+      {
+        "requirement_id": "GP-002",
+        "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
+        "requirement": "The required delivery target is a Windows Standalone build. The current canonical gameplay scene is Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity; that scene (or a later human-approved replacement canonical gameplay scene) must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete. A committed EditorBuildSettings.asset with no registered canonical gameplay scene is confirmed incomplete build configuration and must remain represented as open configuration work.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "windows-build-scene-registration"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "This is mandatory technical configuration, not deferred design and not a process rule, so a durable implementation node is the correct representation. The candidate's item is concrete, single_agent, graph_status open, repository_state missing, and carries direct repository evidence (m_Scenes: []) that I verified independently. It also correctly takes an exclusive_resources lock on ProjectSettings/EditorBuildSettings.asset, the single project-wide scene list."
+      },
+      {
+        "requirement_id": "GP-003",
+        "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration / Current Prototype Scene Evidence",
+        "requirement": "The top-level Assets/Scenes/DoorPrototype.unity and Assets/Scenes/SampleScene.unity stubs do not satisfy the build-registration requirement merely because they are .unity files.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "windows-build-scene-registration"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "A constraint on how the owning configuration item may be satisfied, not separate executable work. It is present verbatim as the third acceptance criterion on windows-build-scene-registration and reinforced in that item's notes."
+      },
+      {
+        "requirement_id": "GP-004",
+        "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
+        "requirement": "Package-manifest and ProjectSettings changes authorized by these approved requirements may be implemented by an agent, but the developer must inspect the resulting package state, scene registration, and Windows build configuration before merge.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Human inspection and final integration authority"
+        ],
+        "explanation": "A human merge gate, which is process rather than gameplay or configuration work. The typed record carries the general human-inspection/merge authority, and the build-specific instance is additionally attached as a validation_requirement on windows-build-scene-registration, so the gate cannot be silently skipped when that item is dispatched."
+      },
+      {
+        "requirement_id": "GP-005",
+        "reference": "Section 5 - Technical Strategy",
+        "requirement": "The finished Windows game will not use generative AI at runtime. Enemy behavior, spell effects, doors, damage, and pursuit run locally through standard Unity systems. The game requires no external AI service, API key, token usage, or network connection after it is built.",
+        "classification": "required_non_code",
+        "representation": "non_code_requirement",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Runtime generative-AI prohibition"
+        ],
+        "explanation": "A constraint on the shipped runtime architecture, not player-facing gameplay and not a development-agent process rule. The candidate carries it as a record whose requirement_type is exactly non_code_requirement, and correctly does not manufacture a gameplay work item for the prohibition."
+      },
+      {
+        "requirement_id": "GP-006",
+        "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+        "requirement": "'Generative AI during play' is explicitly excluded scope.",
+        "classification": "excluded",
+        "representation": "deferred_or_excluded",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [],
+        "explanation": "Enumerated individually in deferred_or_excluded as explicitly_excluded, with its reason explicitly cross-referencing the separate 'Runtime generative-AI prohibition' non-code record. The dual representation is appropriate: one is exclusion bookkeeping, the other is a positive constraint on the shipped build."
+      },
+      {
+        "requirement_id": "GP-007",
+        "reference": "Section 5 - Runtime Implementation / API and Tool Constraints",
+        "requirement": "Development-time art acquisition may use approved generative tools for isometric tiles, props, and directional sprites; those outputs are imported as normal Unity assets and do not imply automatic prefab creation, collision setup, sorting configuration, or gameplay integration, and they are not runtime dependencies.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Development-time generated-art import boundary"
+        ],
+        "explanation": "A boundary on what asset-pipeline work may assume, i.e. how development is performed, so pipeline_constraint is the correct type. The record's requirement_type matches and its quoted text preserves the full 'does not imply' list."
+      },
+      {
+        "requirement_id": "GP-008",
+        "reference": "Section 5 - API and Tool Constraints",
+        "requirement": "API credentials will remain outside the Unity project and source control.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Credentials outside source control"
+        ],
+        "explanation": "Directly represented as a typed pipeline_constraint with matching requirement_type; it governs developer/agent handling rather than any runtime behavior."
+      },
+      {
+        "requirement_id": "GP-009",
+        "reference": "Section 4 - Shared Context and Coordination Rules / Section 5 - API and Tool Constraints",
+        "requirement": "Minimal-context dispatch is a required pipeline constraint: agents receive only the approved feature brief, its acceptance criteria, the relevant GDD rules, and the files plus scene/prefab information required for the active task; unrelated repository context is withheld unless the active task requires it.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Minimal-context dispatch"
+        ],
+        "explanation": "Durably present as a typed pipeline_constraint citing both the Section 4 and Section 5 statements. This satisfies the explicit requirement that minimal-context dispatch exist as its own durable record rather than being inferred from per-task file lists."
+      },
+      {
+        "requirement_id": "GP-010",
+        "reference": "Section 5 - Token Budget",
+        "requirement": "Failed-task retry policy is a required pipeline constraint: if a task fails, its scope and context will be reduced before it is attempted again, and the entire project will not be repeatedly submitted to an agent for a single bug.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Failed-task retry policy"
+        ],
+        "explanation": "Present as a typed pipeline_constraint with matching requirement_type and a direct Section 5 quotation, as required."
+      },
+      {
+        "requirement_id": "GP-011",
+        "reference": "Section 5 - Token Budget",
+        "requirement": "The project uses a maximum planning budget of 1.5 million combined input and output tokens across approximately thirty to forty development tasks (a ceiling, not a target), with most focused tasks limited to roughly 15,000-30,000 tokens and a fixed per-category allocation table.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Planning token budget ceiling"
+        ],
+        "explanation": "Represented as a typed pipeline_constraint, so the requirement is durable. The record quotes only the aggregate ceiling and task-count range; the per-task band and category allocations are not carried, which I raise as suggestion-level finding GP-F-002 rather than a coverage gap."
+      },
+      {
+        "requirement_id": "GP-012",
+        "reference": "Section 5 - API and Tool Constraints",
+        "requirement": "Generated C# must compile before the task moves to validation.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Compile-before-validation gate"
+        ],
+        "explanation": "A dispatch/validation gate on how work moves through the pipeline; typed correctly and quoted directly."
+      },
+      {
+        "requirement_id": "GP-013",
+        "reference": "Section 5 - API and Tool Constraints / Section 4 - Shared Context and Coordination Rules",
+        "requirement": "Unity scenes, prefab references, animations, and Inspector assignments require human inspection; agent-generated work is not merged until its Play Mode checklist has been tested; and the human developer remains responsible for architecture, merging, inspecting scenes/prefabs, playtesting, balance, and final integration.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Human inspection and final integration authority"
+        ],
+        "explanation": "The mandatory human gate is durably represented as a typed pipeline_constraint citing both sections. This keeps the 'human inspection/merge remains required' obligation visible independently of any single work item's validation list."
+      },
+      {
+        "requirement_id": "GP-014",
+        "reference": "Section 4 - Shared Context and Coordination Rules / Section 5 - Agent Coordination",
+        "requirement": "Independent agents work in isolated branches or workspaces; each completed task produces changed files, an implementation summary, known risks or limitations, a Play Mode test checklist, and a source-control commit; source control serves as the handoff between implementation, validation, and final integration.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Isolated execution and task handoff requirements"
+        ],
+        "explanation": "Represented as one typed pipeline_constraint covering isolation plus the per-task deliverable set and source-control handoff. Grouping is appropriate here because the GDD states these as one coordination contract and no work item owns them individually."
+      },
+      {
+        "requirement_id": "GP-015",
+        "reference": "Section 4 - Agent-Assisted Development Workflow / Section 5 - Agent Coordination and API and Tool Constraints",
+        "requirement": "Tasks that depend on unfinished work, or that require changes to the same scripts, scenes, or prefabs, are completed sequentially; agents do not modify the same Unity assets concurrently; parallel work is limited to features that do not modify the same files or depend on unfinished systems.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "No concurrent Unity asset edits"
+        ],
+        "explanation": "Typed correctly as a pipeline_constraint. Its per-task applications are additionally realized through exclusive_resources entries across the graph, which is the right layering: the invariant is durable process scope, the locks are per-item mechanics."
+      },
+      {
+        "requirement_id": "GP-016",
+        "reference": "Section 4 - Shared Context and Coordination Rules / Section 5 - API and Tool Constraints",
+        "requirement": "Agents may report a risk or recommend a scope cut, but cannot add mechanics, redesign the game, or expand scope without developer approval.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Agent scope and canon discipline"
+        ],
+        "explanation": "Durably typed as a pipeline_constraint quoting both the Section 4 and Section 5 statements; this is the scope-discipline rule that constrains every downstream planning/implementation agent."
+      },
+      {
+        "requirement_id": "GP-017",
+        "reference": "Section 4 - Development Agent Ownership Invariants",
+        "requirement": "The listed ownership boundaries are required development-process constraints that must be preserved by planning, reconciliation, implementation, and validation agents; an agent must not bypass another agent's owned runtime interface merely because both systems interact, and shared-write conflicts are sequencing/locking concerns rather than proof of a dependency unless one task actually requires behavior another task must create first.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants"
+        ],
+        "explanation": "Correctly represented as a typed pipeline_constraint rather than being dissolved into gameplay work. The per-agent runtime boundaries are separately embodied as acceptance criteria/dependencies on the owning work items, which is the intended two-layer representation. See suggestion GP-F-003 about also citing the Section 5 anti-collapse sentence."
+      },
+      {
+        "requirement_id": "GP-018",
+        "reference": "Section 4 - Development Agent Roles / Development Agent Ownership Invariants",
+        "requirement": "Ownership invariant: the Wizard Combat Agent only triggers the Frost Field effect, while the Enemy Pursuit Agent owns enemy movement, all Ranged Enemy attack behavior, and the application and restoration of Frost Field's slowdown; Wizard Combat requests enemy effects through enemy-owned interfaces and does not directly manipulate enemy locomotion, status restoration, or forced-displacement state.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants"
+        ],
+        "explanation": "Inventoried here strictly as the process ownership invariant, which is my assigned territory. The corresponding runtime behaviors (Frost cast/feedback on frost-field, slowdown apply/restore on enemy-status-effect-displacement) exist as separate acceptance criteria owned by other domains; I deliberately keep this row as pipeline_constraint rather than downgrading it to acceptance_criterion because those runtime criteria also exist."
+      },
+      {
+        "requirement_id": "GP-019",
+        "reference": "Section 4 - Development Agent Ownership Invariants",
+        "requirement": "Player Experience Success Criteria are required validation obligations, not advisory prose. Each criterion in Section 3 must be represented as a validation requirement on the work item or items that own the underlying behavior, and they do not require separate gameplay features when the behavior is already owned.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants"
+        ],
+        "explanation": "This is a representation rule about how the criteria must be carried in the graph, so it belongs with the ownership-invariants process record. I verified compliance directly: each of the five Section 3 criteria appears as an acceptance/validation requirement on concrete owner items (see GP-020 through GP-024), so the rule is not merely asserted but actually satisfied by the candidate."
+      },
+      {
+        "requirement_id": "GP-020",
+        "reference": "Section 3 - Player Experience Success Criteria",
+        "requirement": "A first-time player understands that clicking a door sends the wizard to it, and reaching the door is not enough; the automatic opening timer still requires five safe, uninterrupted seconds.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "door-open-interaction"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented on door-open-interaction both as an acceptance criterion (the behavior obligation) and as a validation requirement (the readability check). Correctly not made a standalone work item, since the owning behavior already has a node."
+      },
+      {
+        "requirement_id": "GP-021",
+        "reference": "Section 3 - Player Experience Success Criteria",
+        "requirement": "Door interaction requires accurate target selection only on the initial click; the wizard approaches automatically, the five-second timer starts automatically on arrival, normal cursor drift does not cancel opening, and crossing an opened doorway causes automatic close-and-lock with no second input.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "door-open-interaction",
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "The criterion spans two owners and is attached to both: the selection/approach/drift half on door-open-interaction and the automatic close-and-lock half on door-close-lock-break-lifecycle. Splitting across the two real owners is correct and avoids a phantom cross-cutting node."
+      },
+      {
+        "requirement_id": "GP-022",
+        "reference": "Section 3 - Player Experience Success Criteria",
+        "requirement": "The player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "locked-door-enemy-attack",
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Carried as a validation requirement on locked-door-enemy-attack, the owner of blocked-pursuer attack initiation, alongside its neighboring checks for post-breach pursuit resumption and for not attacking on proximity alone. The durability/breach half is owned by door-close-lock-break-lifecycle."
+      },
+      {
+        "requirement_id": "GP-023",
+        "reference": "Section 3 - Player Experience Success Criteria",
+        "requirement": "Encounters use three to eight enemies and never exceed fifteen active enemies.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "encounter-admission-cap-enforcement",
+          "dungeon-encounter-content-authoring"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented twice on the correct owners: the hard fifteen-active cap on the concrete admission-enforcement implementation, and the three-to-eight authoring range on the deferred encounter-content feature so the sizing rule survives until that feature is decomposed. This is the right way to keep a constraint alive across a deferred boundary."
+      },
+      {
+        "requirement_id": "GP-024",
+        "reference": "Section 3 - Player Experience Success Criteria",
+        "requirement": "Failure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "player-health",
+          "player-mana",
+          "force-wave",
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Decomposed across all four named failure causes and attached to the owner of each: health/damage feedback on player-health, denied-cast/low-mana feedback on player-mana (which also carries an explicit acceptance criterion to expose a denied-cast signal), cooldown-unavailability readability on force-wave, and waited-too-long breach readability on door-close-lock-break-lifecycle. No part of the criterion rests on evidence-only prose."
+      },
+      {
+        "requirement_id": "GP-025",
+        "reference": "Section 5 - Current Prototype Scene Evidence",
+        "requirement": "The presence of the non-canonical Assets/Scenes stub scenes is repository evidence, not a design requirement; their deletion, retention, or repurposing is a human decision, and agents/reconciliation steps must not delete or reinterpret them merely to make scene inventory evidence cleaner.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Non-canonical prototype scene preservation"
+        ],
+        "explanation": "Correctly typed as a pipeline_constraint governing agent behavior, and additionally echoed in windows-build-scene-registration's notes so the build-configuration task cannot resolve its gap by repurposing a stub."
+      },
+      {
+        "requirement_id": "GP-026",
+        "reference": "Section 4 - Shared Context and Coordination Rules",
+        "requirement": "Current prototype scene-builder lock: scene-authoring work that changes objects generated or maintained through Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs must take exclusive-write locks on both that builder and Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Current prototype scene-builder exclusive-write lock"
+        ],
+        "explanation": "The durable process record exists as required, and per-task applications appear as matching exclusive_resources entries on the builder-writing items. Per-task locks alone would not have satisfied this requirement; the standalone typed record is what makes the rule survive graph edits."
+      },
+      {
+        "requirement_id": "GP-027",
+        "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+        "requirement": "Stretch goals: Spectral Decoy, a third enemy, Fireball-charge reactions, an awareness indicator, Frost Field slowing a breach, advanced door damage, and one additional room.",
+        "classification": "stretch",
+        "representation": "deferred_or_excluded",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [],
+        "explanation": "All seven stretch goals are enumerated individually (not collapsed into one bulk entry) as classification 'stretch' with per-item GDD evidence, which makes later coverage auditing and accept/reject decisions traceable."
+      },
+      {
+        "requirement_id": "GP-028",
+        "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
+        "requirement": "Excluded: multiplayer, classes, equipment, loot, skill trees, quests, vendors, procedural generation, persistent progression, multiple floors, bespoke 3D character models or rigs, free-rotation 3D camera presentation, and generative AI during play.",
+        "classification": "excluded",
+        "representation": "deferred_or_excluded",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [],
+        "explanation": "All thirteen exclusions are enumerated individually as explicitly_excluded with per-item evidence; I counted them against the GDD list and none are missing. No excluded item leaks into work_items."
+      },
+      {
+        "requirement_id": "GP-029",
+        "reference": "Section 5 - Six-Week Development Plan",
+        "requirement": "Stretch features will be removed first if the schedule slips; advanced door visuals and one encounter variation may also be reduced; the three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game; and if Weeks 5-6 required work overruns, the fallback is to reduce final-room encounter density toward the low end of the three-to-eight-enemy range and simplify presentation polish, with required systems not cut.",
+        "classification": "required_process",
+        "representation": "unrepresented",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [],
+        "explanation": "No non_code_requirements record, work item, or acceptance criterion in the candidate carries this scope-cut ordering or the 'required systems are not cut' guarantee; the deferred_or_excluded list enumerates what the stretch items are but not that they must be cut first. Because it is a rule about how development proceeds under schedule pressure rather than executable gameplay, the correct fix is a typed pipeline_constraint, not a new work item. Material finding GP-F-001."
+      },
+      {
+        "requirement_id": "GP-030",
+        "reference": "Section 4 - AI Architecture (introduction)",
+        "requirement": "Development agents help plan, implement, review, and test No Safe Circle; they do not run in the finished game. Each agent owns a visible game feature, receives concrete acceptance criteria, and produces a Unity test or implementation result.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants",
+          "Isolated execution and task handoff requirements",
+          "Runtime generative-AI prohibition"
+        ],
+        "explanation": "Split across three existing typed records: feature ownership per agent sits with the ownership invariants, the acceptance-criteria/test-or-implementation output obligation sits with the task-handoff record, and 'do not run in the finished game' is carried by the runtime generative-AI prohibition. No part of this passage is left only as prose."
+      },
+      {
+        "requirement_id": "GP-031",
+        "reference": "Section 4 - Agent-Assisted Development Workflow",
+        "requirement": "The developer approves feature briefs; the Feature Planning Agent divides each feature into tasks, identifies dependencies, selects required files, and removes unapproved additions; each implementation is reviewed by the Unity Validation Agent; the developer then tests the feature in Play Mode and merges the accepted change into the main project.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Human inspection and final integration authority",
+          "Isolated execution and task handoff requirements",
+          "Agent scope and canon discipline"
+        ],
+        "explanation": "The end-to-end approval/review/merge chain is durably covered by three typed records: developer approval and Play Mode merge authority, review-before-integration plus the Play Mode checklist deliverable, and the planner's obligation to remove unapproved additions. Grouping across these three is sufficient because each link of the chain has an explicit owner record rather than being implied."
+      }
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

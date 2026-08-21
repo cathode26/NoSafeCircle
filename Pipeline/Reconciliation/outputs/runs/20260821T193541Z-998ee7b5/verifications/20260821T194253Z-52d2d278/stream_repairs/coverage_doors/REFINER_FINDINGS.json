@@ -1,0 +1,194 @@
+{
+  "schema_version": "1.1",
+  "source_finding_count": 7,
+  "material_finding_count": 4,
+  "selected_finding_count": 6,
+  "selected_structural_warning_count": 2,
+  "findings": [
+    {
+      "source_agent": "Coverage — Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "DOORS-001",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Door/Interaction's owner-controlled gameplay-enable/suspend interface has no acceptance owner",
+        "description": "The GDD requires Door/Interaction (alongside Player Movement and the three spells) to expose an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels current input-driven activity (an in-progress door approach or opening timer), rejects new commands while suspended, and can be re-enabled by an authorized reset/test flow. In the candidate, `fireball`, `frost-field`, and `force-wave` each carry an explicit suspend acceptance criterion, but none of the three door work items (`door-open-interaction`, `doorway-crossing-state`, `door-close-lock-break-lifecycle`) contains any suspend/re-enable criterion. The only place the door-side obligation appears is inside `final-escape-victory`'s dependency reason, which is consumer-side prose, not a durable obligation on the owner. An implementer could fully satisfy every mapped door acceptance criterion and never create the suspend entry point, leaving the required victory input-shutdown contract unimplementable without the victory task reaching into door internals, which the GDD explicitly forbids.",
+        "affected_keys": [
+          "door-open-interaction",
+          "final-escape-victory",
+          "doors"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Win and Loss Conditions, 'Victory/input-shutdown ownership'",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow. The victory capability consumes those interfaces rather than mutating another system's internal state."
+          },
+          {
+            "reference": "Section 4 — Development Agent Ownership Invariants, 'Final escape/victory coordination'",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave remain owners of their own active behavior and must expose owner-controlled suspend/re-enable entry points consumed by victory/reset flows. Final escape logic must not reach into movement, door, or spell internals to stop them."
+          },
+          {
+            "reference": "Section 5 — Runtime Implementation (Game Flow/Victory capability)",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave must each provide a suspend/re-enable entry point that stops current input-driven activity as well as future commands."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Exposes StartInteraction/CancelInteraction/Tick and IsOpen/Progress only; there is no enable/suspend gate, so the required owner-side interface genuinely does not exist yet."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+            "observation": "Drives BeginInteraction/EndInteraction from raw Keyboard.current polling each Update with no suspended state; nothing can currently reject or halt door input from an external owner-controlled call."
+          }
+        ],
+        "recommended_change": "Add an explicit acceptance criterion to `door-open-interaction` (the owner of input-driven door approach/opening) requiring an owner-controlled suspend/re-enable entry point that immediately cancels an in-progress approach/opening timer, rejects new door-selection commands while suspended, and is re-enabled only through an authorized reset/test flow, mirroring the criteria already present on the three spells. Keep `final-escape-victory`'s dependency on `door-open-interaction` as the consumer edge.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "DOORS-002",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "door-open-interaction is depended on for a floor-restart reset entry point it is never obliged to provide",
+        "description": "The GDD names door lifecycle/crossing/durability state as a required restart participant, and requires every state owner to expose its own reset entry point invoked by the Floor Run/Restart Orchestrator. The candidate gives `doorway-crossing-state` and `door-close-lock-break-lifecycle` explicit reset-entry-point acceptance criteria, but `door-open-interaction` has none, even though both `floor-run-restart-bootstrap` and `floor-run-restart-persistent-closure` declare dependencies on `door-open-interaction` specifically because DoorInteractable's already-run-persistent state (Progress, IsOpen, disabled doorwayBlocker) has no reset entry point. This is the staged bootstrap's only door participant and it is dispatchable well before the navigation-gated lifecycle item, so the gap sits on the critical path: an implementer could complete `door-open-interaction` to spec and leave the bootstrap orchestrator with no owned reset interface to call, pushing it toward directly mutating door internals in violation of the ownership contract.",
+        "affected_keys": [
+          "door-open-interaction",
+          "floor-run-restart-bootstrap",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Loss / 'Floor-run restart ownership'",
+            "requirement": "Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns, and the orchestrator invokes those owned reset interfaces. Required reset participants include ... door lifecycle/crossing/durability state ..."
+          },
+          {
+            "reference": "Section 2 — Loss",
+            "requirement": "Restart resets all run-persistent gameplay state to the floor's initial state, including ... door lifecycle/crossing/durability state ..."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Progress, IsOpen, IsInteracting and the disabled doorwayBlocker collider persist across a run with no reset method; Complete() is a one-way transition, confirming the missing owner-side reset is real, not stale ordering."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `door-open-interaction` requiring an owner-controlled reset entry point that returns its owned interaction/opening state (opening progress, interacting flag, open flag, and doorway-blocker state) to floor-initial values for consumption by the Floor Run/Restart Orchestrator, matching the reset criteria already carried by `doorway-crossing-state` and `door-close-lock-break-lifecycle`.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "DOORS-003",
+        "severity": "warning",
+        "category": "requirement_representation_problem",
+        "title": "The sealed-to-open transition has no explicit acceptance criterion, and 'open' passability publication sits only on the navigation-gated lifecycle item",
+        "description": "`door-open-interaction`'s acceptance criteria cover selection, approach, arm's-reach auto-start of the five-second timer, cursor-drift tolerance, interruption, and Input System routing, but never state the GDD's outcome that an uninterrupted five seconds actually opens the door (semantic state sealed to open, doorway becomes traversable). Separately, publication of all four semantic states through the navigation-owned passability interface is assigned solely to `door-close-lock-break-lifecycle`, which is dependency-gated behind `doorway-crossing-state`, `player-health`, and `gameplay-navigation-locomotion`. Nothing obliges the item that performs the opening transition to own or hand off the 'open' semantic state, so the graph permits a state where doors open for the player while the passability layer is never told, which is exactly the half of the contract that lets enemies follow the wizard through an open doorway. The behavior is inferable from the item title and the existing repository Complete() implementation, but it is not explicitly obliged anywhere.",
+        "affected_keys": [
+          "door-open-interaction",
+          "door-close-lock-break-lifecycle"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Player Actions and Systems, 'Open Sealed Door'",
+            "requirement": "If uninterrupted for five seconds, the door opens."
+          },
+          {
+            "reference": "Section 3 — Door and Pursuit Rules, 'Door passability contract'",
+            "requirement": "Door and Interaction owns the semantic door state (sealed, open, locked, broken). Sealed and locked doors block enemy traversal; open and broken doors permit forward enemy traversal. Door state changes update the navigation layer through that interface."
+          },
+          {
+            "reference": "Section 3 — Door and Pursuit Rules",
+            "requirement": "Enemies move between rooms through open doors; crossing a doorway does not clear pursuit."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Complete() sets IsOpen = true, hides doorVisual and disables doorwayBlocker; the open transition exists today only as a boolean plus collider toggle, with no semantic state model and no passability publication."
+          }
+        ],
+        "recommended_change": "Add an explicit acceptance criterion to `door-open-interaction` that completing five uninterrupted seconds transitions the door from sealed to open (player-traversable), and state in either that item or `door-close-lock-break-lifecycle` which owner publishes the resulting 'open' semantic state to the navigation passability interface, so the sealed-to-open half of the passability contract cannot be lost between the two items.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Coverage — Doors",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "DOORS-005",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "Door durability is not explicitly required to be per-door configurable, though encounter authoring depends on that",
+        "description": "`door-close-lock-break-lifecycle`'s acceptance criteria require exposing runtime durability, a damage-receive interface, and the locked-to-broken transition, but never state that the durability value is per-door configurable. `dungeon-encounter-content-authoring` depends on this item precisely to author 'configured per-door durability values', per the GDD's Dungeon Encounter Agent ownership split, so the consumer-side expectation is currently stronger than the owner-side obligation.",
+        "affected_keys": [
+          "door-close-lock-break-lifecycle",
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 4 — Dungeon Encounter Agent",
+            "requirement": "Authors placements, triggers, configured per-door durability values, and final-room pressure. It does not own runtime door durability state, damage intake, or the locked-to-broken transition; those remain Door and Interaction responsibilities."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Only the opening `duration` is a serialized per-door field; no durability field of any kind exists, so the configurable-durability surface must be created by this work."
+          }
+        ],
+        "recommended_change": "Extend the durability acceptance criterion on `door-close-lock-break-lifecycle` to require a per-door authorable/serialized durability value so encounter authoring can configure it without owning runtime durability state.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-doors-DOOR-R20",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Doors classified requirement DOOR-R20 as required_implementation/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Loss / 'Floor-run restart ownership'",
+            "requirement": "Door opening/interaction state that is run-persistent (opening progress, opened flag, doorway blocker state) must be reset to floor-initial values through an owner-exposed reset entry point."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Deterministic Coverage Check",
+      "source_model": "python",
+      "finding": {
+        "finding_id": "deterministic-representation-coverage-doors-DOOR-R21",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Required GDD requirement is unrepresented",
+        "description": "Coverage — Doors classified requirement DOOR-R21 as required_implementation/unrepresented. A required GDD statement has no durable representation.",
+        "affected_keys": [],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — 'Victory/input-shutdown ownership'; Section 4 — 'Final escape/victory coordination'; Section 5 — Runtime Implementation",
+            "requirement": "Door/Interaction exposes an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels current input-driven door activity, rejects new gameplay commands while suspended, and can be re-enabled by an authorized reset/test flow."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Classify the requirement by representation semantics before changing the graph. Create a new work item only when the requirement is a distinct feature/artifact/implementation responsibility. Otherwise map it as an acceptance criterion, validation requirement, non-code/delivery requirement, pipeline constraint, or deferred design as appropriate.",
+        "requires_human_review": false
+      }
+    }
+  ],
+  "selection_policy": "Refiner input contains all blocker/error findings, warnings whose categories indicate scheduler/representation risk, and coverage-origin requirement-representation suggestions. Other ordinary warnings and suggestions remain in MERGED_FINDINGS_PASS1.json and are reassessed during pass 2. This keeps refinement bounded while preventing a required coverage gap noticed in Pass 1 from being stranded until Pass 2."
+}

@@ -1,0 +1,49 @@
+{
+  "agent": "Streaming Field Repair — coverage_player_core",
+  "requested_model": "sonnet",
+  "duration_seconds": 61.85,
+  "result": {
+    "operations": [
+      {
+        "target_type": "work_item",
+        "target_id": "player-movement",
+        "field": "gdd_evidence",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Victory/input-shutdown ownership bullet\", \"requirement\": \"Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow.\"}",
+        "reason": "Player Movement is a named owner of the GDD's suspend/re-enable contract (Section 2 Victory/input-shutdown ownership; reinforced Section 4 Final escape/victory coordination) but carried no matching gdd_evidence row, unlike Fireball/Frost Field/Force Wave which each already have one."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "player-movement",
+        "field": "acceptance_criteria",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Section 2 — Victory/input-shutdown ownership bullet; Section 4 — Final escape/victory coordination invariant\", \"requirement\": \"Exposes an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels any in-progress input-driven movement (including an active click-to-destination approach), rejects new movement commands while suspended, and is re-enabled only through an authorized reset/test flow; consumed by the Game Flow/Victory capability rather than having movement internals mutated directly.\"}",
+        "reason": "Under minimal-context dispatch an agent given only player-movement's brief would have no criterion requiring the suspend interface that final-escape-victory depends on; this adds the owner-side obligation symmetric with the three spells' existing suspend acceptance criteria (lines 505/618/727 of the original candidate)."
+      },
+      {
+        "target_type": "work_item",
+        "target_id": "player-movement",
+        "field": "validation_requirements",
+        "op": "append_unique",
+        "value_json": "{\"reference\": \"Victory/input-shutdown ownership\", \"requirement\": \"Play Mode check: invoking the suspend interface while movement is active immediately halts the wizard's in-progress movement (including an active click-to-destination approach), and further movement input has no effect until an authorized re-enable/reset flow runs.\"}",
+        "reason": "Mirrors final-escape-victory's owner-side Play Mode validation obligation so the suspend contract is independently verifiable on the owning system, not only from the consumer side."
+      }
+    ],
+    "finding_resolutions": [
+      {
+        "source_agent": "Coverage — Player Core",
+        "finding_id": "PC-F1",
+        "disposition": "corrected",
+        "explanation": "Confirmed against GDD Section 2 (Victory/input-shutdown ownership) and Section 4 (Final escape/victory coordination): Player Movement is explicitly named as an owner-controlled suspend/re-enable interface provider, symmetric with Fireball/Frost Field/Force Wave, but the candidate's player-movement item had no gdd_evidence or acceptance criterion for it. Added a matching gdd_evidence row, an owner-side acceptance criterion, and a mirrored validation requirement to player-movement. final-escape-victory's existing consumption criterion and its dependency on player-movement were left unchanged as instructed."
+      },
+      {
+        "source_agent": "Deterministic Coverage Check",
+        "finding_id": "deterministic-representation-coverage-player-core-PC-07",
+        "disposition": "corrected",
+        "explanation": "This deterministic finding flags the same PC-07 requirement (Player Movement owner-controlled suspend/re-enable interface) as unrepresented. Classified per the requirement-representation repair policy: this is behavior/constraint owned by an existing implementation item (player-movement), not a distinct executable responsibility, so it is represented as an acceptance criterion (plus matching gdd_evidence and validation_requirements) on player-movement rather than as a new work item, resolving the same coverage gap as PC-F1."
+      }
+    ],
+    "reasoning": "Both supplied findings identify the same underlying gap: the GDD's Section 2 &quot;Victory/input-shutdown ownership&quot; bullet and Section 4 &quot;Final escape/victory coordination&quot; invariant explicitly name Player Movement as one of five owners (alongside Door/Interaction, Fireball, Frost Field, Force Wave) that must expose an owner-controlled gameplay-enable/suspend interface. Verified this against Docs/GDD/No_Safe_Circle_GDD.md lines 100 and 214, and confirmed via the original candidate that Fireball, Frost Field, and Force Wave each already carry a matching gdd_evidence + acceptance criterion (e.g. fireball at original lines 503-506), while player-movement's four acceptance criteria (mouse-directed movement, pointer target, movement-restriction interface, reset entry point) omitted this fifth required capability. Per the requirement-representation repair policy, this is a behavior/constraint owned by an existing implementation item, not a distinct organizational/executable responsibility, so no new work item is warranted -- it belongs as an acceptance criterion (plus gdd_evidence) on player-movement, with a mirrored validation requirement analogous to final-escape-victory's owner-side Play Mode check. This single correction resolves both the agent-sourced finding (PC-F1) and the deterministic coverage finding (PC-07), which describe the identical gap. final-escape-victory's existing consumer-side acceptance criterion and its depends_on edge to player-movement were left untouched per the finding's explicit instruction not to remove them. No other candidate fields were touched, and no verification/reconciliation output paths were added to sources.",
+    "schema_version": "1.0"
+  }
+}

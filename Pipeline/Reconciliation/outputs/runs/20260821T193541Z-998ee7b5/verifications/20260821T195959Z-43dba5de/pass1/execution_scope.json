@@ -1,0 +1,243 @@
+{
+  "agent": "Execution Scope",
+  "requested_model": "opus",
+  "duration_seconds": 385.35,
+  "result": {
+    "verdict": "pass_with_findings",
+    "findings": [
+      {
+        "finding_id": "ES-001",
+        "severity": "warning",
+        "category": "execution_scope_problem",
+        "title": "gameplay-navigation-locomotion may be over-classified as needs_execution_decomposition; its stated reason double-counts an already-extracted prerequisite",
+        "description": "`gameplay-navigation-locomotion` is marked `needs_execution_decomposition` with the reason that it bundles three things: (1) \"consuming/validating the newly configured AI Navigation package\", (2) adding NavMesh-capable walkability configuration to builder-generated scene geometry, and (3) designing/implementing the shared passability interface.\n\nResponsibility (1) is not work owned by this item at all — package declaration/resolution was already extracted into `tilemap-navigation-package-configuration` (single_agent), and this item already carries a `depends_on` edge to it. Merely consuming a satisfied prerequisite is not an independently verifiable implementation responsibility, so the execution_reason inflates the apparent breadth.\n\nWhat actually remains is (2) NavMesh walkability configuration over a very small existing geometry set, and (3) a small semantic-state-to-walkability interface with four enumerated states. The GDD explicitly scopes this item as \"A minimal working navigation/locomotion layer\" that must exist before locomotion-dependent enemy work is dispatched, and explicitly leaves the underlying Unity mechanism (obstacle/carving, navigation link, or runtime navigation-data update) as an implementation choice rather than a design decision. That combination reads as a bounded one-agent unit with a clear validation target (the item's own criterion: toggling each of sealed/open/locked/broken produces the correct walkability result).\n\nThis matters disproportionately because this node is the highest-fanout blocker in the graph: `enemy-pursuit-search-foundation`, `enemy-status-effect-displacement`, and `door-close-lock-break-lifecycle` all depend on it directly, and everything enemy-side and door-lifecycle-side depends on it transitively. Leaving it in a state that requires a Progressive Decomposer pass before anything downstream can move is a real cost if the item is in fact already one agent's work.\n\nI am not asserting the classification is definitely wrong — a reviewer could reasonably argue the passability interface is a cross-domain contract worth isolating. I am asserting the stated reason does not currently support the classification.",
+        "affected_keys": [
+          "gameplay-navigation-locomotion",
+          "tilemap-navigation-package-configuration"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 — 2.5D Isometric Visual and World Representation",
+            "requirement": "\"The approved enemy-navigation implementation is Unity AI Navigation (com.unity.ai.navigation) using NavMesh-based runtime movement. A minimal working navigation/locomotion layer and the approved package configuration must exist before locomotion-dependent enemy implementation is dispatched, but room-specific visual authoring does not need to be complete first.\""
+          },
+          {
+            "reference": "GDD §3 — Door and Pursuit Rules (Door passability contract)",
+            "requirement": "\"The exact Unity mechanism used beneath this interface (for example obstacle/carving, a navigation link, or runtime navigation-data update) is an implementation choice rather than a separate game-design decision.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+            "observation": "The entire walkable geometry that would need navigation configuration today is produced by BuildFloor (one primitive Plane), BuildWalls (two primitive Cubes), and BuildDoor (one DoorRoot cube) — a very small surface for a NavMesh walkability pass, not a large scene-rework."
+          },
+          {
+            "path": "Packages/manifest.json",
+            "observation": "com.unity.ai.navigation is absent, which is precisely the gap already owned by the separate single_agent item `tilemap-navigation-package-configuration` that this item depends on — so package configuration is not additional scope inside this item."
+          }
+        ],
+        "recommended_change": "Either (a) re-classify `gameplay-navigation-locomotion` as `single_agent`, scoped explicitly to the GDD's \"minimal working navigation/locomotion layer\" (NavMesh walkability over the existing prototype geometry plus the sealed/open/locked/broken passability interface), or (b) keep `needs_execution_decomposition` but rewrite `execution_reason` so it no longer counts consumption of the already-extracted package-configuration prerequisite as one of the bundled responsibilities, and instead names the two genuinely separable responsibilities a decomposer should split.",
+        "requires_human_review": true
+      },
+      {
+        "finding_id": "ES-002",
+        "severity": "suggestion",
+        "category": "execution_scope_problem",
+        "title": "enemy-pursuit-search-foundation is one cohesive finite-state component; needs_execution_decomposition may be over-classification of a clean one-agent unit",
+        "description": "`enemy-pursuit-search-foundation` is marked `needs_execution_decomposition` because it \"bundles several independently verifiable responsibilities — detection acquisition, distance-based target loss, last-known-position homing, bounded randomized search/wander, reacquisition, doorway-passability-aware traversal, and restart-reset participation.\"\n\nThose are states and transitions of a single finite-state machine over a single piece of state (the enemy's current target/last-known-position), not independently ownable systems. The GDD itself describes them as one artifact: \"finite-state components control pursuit, attacks, target loss, search, and reacquisition across the floor's spaces.\" There is no enemy code in the repository at all, so this is a greenfield single component with no integration surface to reconcile against beyond the navigation layer it already depends on. Splitting a single FSM across agents would likely produce a worse handoff than keeping it whole, because each partial owner would need the same state contract in context.\n\nThe graph consequence is worth surfacing: this node is the sole gateway for all enemy work, and it is itself blocked by `gameplay-navigation-locomotion`, which is also `needs_execution_decomposition` (see ES-001). `melee-enemy` and `ranged-enemy` downstream are also `needs_execution_decomposition`. That produces a three-deep chain of decomposition-required nodes before any enemy behavior can be dispatched.\n\nI flag this as a review item rather than an error: the acceptance-criteria volume (eight criteria) is genuinely high, and a reviewer could reasonably keep the current call. The direction of the risk is delay, not unsafe dispatch, so it does not block bootstrap.",
+        "affected_keys": [
+          "enemy-pursuit-search-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 — Runtime Implementation",
+            "requirement": "\"Once that shared navigation layer exists, finite-state components control pursuit, attacks, target loss, search, and reacquisition across the floor's spaces.\""
+          },
+          {
+            "reference": "GDD §3 — Enemy Detection, Pursuit, and Target Loss",
+            "requirement": "Detection/pursuit/target-loss/search/reacquisition are described as one continuous behavior over one target state, with only \"Exact Detection Distance, Lose Target Distance, search duration, and search/wander weighting\" deferred as tuning values."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts",
+            "observation": "Contains only Door/Player/Camera/UI scripts (DoorInteractable.cs, PlayerInteractionController.cs, PlayerMovement.cs, PlayerHealth.cs, PlayerMana.cs, PlayerManaUI.cs, IsometricCameraFollow.cs, and two debug controls). No enemy script exists, so this item is greenfield with no existing enemy integration surface for an agent to reconcile against."
+          }
+        ],
+        "recommended_change": "Re-examine whether `enemy-pursuit-search-foundation` should be `single_agent` as a single FSM component (attack behavior and archetype assembly already correctly excluded to the archetype items). If it is retained as `needs_execution_decomposition`, state in `execution_reason` which boundary a decomposer should cut along (for example: acquire/pursue/lose-target core versus bounded search-wander and reacquisition), rather than listing FSM states as if each were a separately ownable responsibility.",
+        "requires_human_review": true
+      },
+      {
+        "finding_id": "ES-003",
+        "severity": "warning",
+        "category": "execution_scope_problem",
+        "title": "melee-enemy and ranged-enemy absorb character presentation/prefab authoring that the GDD assigns to the reusable visual-world foundation",
+        "description": "Both archetype items carry an acceptance criterion to \"deliver a usable assembled world-space SpriteRenderer archetype prefab\" following \"isometric sorting conventions\", and both cite that presentation work in their `execution_reason` as one of the responsibilities that makes them too large for one handoff.\n\nBut the GDD assigns character presentation to the reusable visual-world foundation, not to the archetype: \"Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture.\" `world-visual-foundation`'s own acceptance criteria already claim exactly this — that \"the wizard, enemies, doors, props, obstacles ... use world-space SpriteRenderer prefabs ... following consistent isometric sorting conventions.\"\n\nSo the sorting/presentation conventions the archetypes are required to follow are owned by a different item that is neither a represented prerequisite of the archetypes nor explicitly excluded from their scope. The result is an ambiguous execution boundary: a future decomposer cannot tell whether the archetype owner is expected to establish sorting conventions itself, or to consume conventions that `world-visual-foundation` must produce first.\n\nThis is a boundary problem, not a request to redesign dependencies — I am reporting that the archetype's execution scope currently overlaps another owner's declared scope, which is one of the stated reasons those items were marked `needs_execution_decomposition`. Removing the overlap may materially change what the decomposition should look like.\n\nRelatedly, the candidate's own `unresolved_questions[0]` acknowledges it does not yet know whether archetype validation requires instantiating enemy prefabs through `DoorPrototypeSceneBuilder.cs` and therefore whether the builder/scene exclusive locks apply. That uncertainty compounds the same boundary gap.",
+        "affected_keys": [
+          "melee-enemy",
+          "ranged-enemy",
+          "world-visual-foundation"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 — Runtime Implementation",
+            "requirement": "\"World-space SpriteRenderer prefabs will be used for sealed doors, tall props, obstacles, the wizard, enemies, and other independently sorted or interactive objects. Character presentation is therefore part of the reusable visual-world foundation rather than a separate rendering architecture.\""
+          },
+          {
+            "reference": "GDD §3 — Environment Presentation and Authoring Direction",
+            "requirement": "\"The reusable Tilemap/SpriteRenderer world foundation establishes authoring conventions and visual/gameplay separation; it does not by itself include authoring all five room layouts or encounter content\" — i.e. the foundation owns conventions, while content/room authoring is what is excluded from it."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+            "observation": "BuildFloor/BuildWalls/BuildDoor create primitive meshes with MeshRenderers; no SpriteRenderer, Tilemap, or sorting configuration exists anywhere in the builder, so no isometric sorting convention currently exists for an archetype task to follow."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+            "observation": "No SpriteRenderer-based character or prop objects are serialized in the canonical scene; the player and door visuals are primitive MeshRenderer objects."
+          }
+        ],
+        "recommended_change": "In `melee-enemy` and `ranged-enemy`, state explicitly that the archetype consumes the isometric sorting/presentation conventions owned by `world-visual-foundation` rather than establishing them, and drop \"SpriteRenderer prefab presentation/sorting\" from the list of responsibilities cited as making the item oversized. Record for the later decomposer that the intended split is behavior/integration assembly versus presentation, with presentation gated on the visual foundation.",
+        "requires_human_review": true
+      },
+      {
+        "finding_id": "ES-004",
+        "severity": "warning",
+        "category": "execution_scope_problem",
+        "title": "Room-content-dependent validation is attached to foundation items as if currently executable",
+        "description": "Several items claim room-specific validation targets that cannot run, because `five-room-content-authoring` is `needs_future_decomposition` and no named room exists in the repository:\n\n- `enemy-pursuit-search-foundation` — validation_requirement: \"Bone Archive lane-pathing validation confirming enemy movement/navigation fits the room's described narrow-lane geometry.\" Unqualified.\n- `ranged-enemy` — validation_requirement: \"Chapel of Ash line-of-sight/projectile-occlusion Play Mode validation confirming cover blocks shots.\" Unqualified.\n- `encounter-admission-cap-enforcement` — its `execution_reason` positively asserts \"a clear validation target (Lower Vault priority case) that does not require full room content to be authored\", while its validation_requirement describes the Lower Vault case concretely as a rear breach coinciding with that room's own encounter admission request.\n\nBy contrast, `gameplay-navigation-locomotion` handles the identical situation correctly: its Bone Archive validation is explicitly annotated \"this check becomes fully executable once Bone Archive content is authored, but the navigation layer's agent-radius/walkability configuration is the artifact being validated.\" That is the pattern the other three should follow.\n\nThe correct fix is annotation, not broadening: none of these tasks should acquire ownership of deferred room content merely so a future room-specific check can eventually run. The risk today is that an implementation agent accepts a task whose stated done-condition it cannot satisfy.",
+        "affected_keys": [
+          "enemy-pursuit-search-foundation",
+          "ranged-enemy",
+          "encounter-admission-cap-enforcement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §3 — Dungeon Floor Structure",
+            "requirement": "Bone Archive, Chapel of Ash, and Lower Vault are named authored spaces with specific tactical geometry (narrow lanes/chokepoints; pews and columns providing line-of-sight breaks; incomplete loops with a rear doorway to watch)."
+          },
+          {
+            "reference": "GDD §5 — 2.5D Isometric Visual and World Representation",
+            "requirement": "\"The reusable visual world foundation ... is distinct from authoring the five named room layouts and encounters. Five-room visual/content authoring consumes this foundation once it exists.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+            "observation": "The only authored space is the generic single-door prototype room (Floor plane, two wall cubes, one DoorRoot); no Bone Archive, Chapel of Ash, or Lower Vault geometry exists, so none of the cited room-specific checks can execute today."
+          }
+        ],
+        "recommended_change": "Annotate the Bone Archive, Chapel of Ash, and Lower Vault validation requirements on these three items as checks that become executable once the corresponding room content exists, naming the mechanism actually under test now (pathing/agent-radius configuration, occlusion-check logic, admission arithmetic). Correct `encounter-admission-cap-enforcement`'s `execution_reason` so it does not claim the Lower Vault scenario is a presently-achievable validation target. Do not expand any of these items to own room content.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "ES-005",
+        "severity": "warning",
+        "category": "execution_scope_problem",
+        "title": "single_agent spell and status-effect items carry acceptance-adjacent validation that requires unbuilt enemy archetypes",
+        "description": "Four items marked `single_agent` state validation requirements that can only be exercised against enemy archetypes that do not exist and are not represented as prerequisites:\n\n- `fireball` — \"Validate that a full charge produces meaningful area damage against multiple naturally-clustering pursuing Melee Enemies\" and \"Validate that a tap shot remains usable against a Ranged Enemy's telegraphed attack pattern.\" Depends only on `player-movement` and `enemy-health-damage-defeat`.\n- `frost-field` — \"Validate that casting Frost Field creates a readable opening against a melee group (stretches pursuit).\"\n- `force-wave` — \"Validate Force Wave functions as an effective emergency response against a surrounding melee cluster ... and confirm its short range makes it ineffective against distant Ranged Enemy pressure.\"\n- `enemy-status-effect-displacement` — \"Verify a Ranged Enemy under active Frost slowdown continues executing its telegraphed attack on schedule while only its repositioning speed is reduced.\" Depends only on `enemy-pursuit-search-foundation` and `gameplay-navigation-locomotion`; `ranged-enemy` is not a prerequisite.\n\nEach item's *acceptance* surface is genuinely satisfiable through the interfaces it already depends on (mana spend exists; pointer/restriction, damage, and displacement interfaces are represented as prerequisites). The problem is the validation claim, which asserts a broader integration than the handoff can complete.\n\nNote this is the pattern the retry-hardening guidance calls out specifically for enemy-status-effect-displacement: the Ranged-Enemy-attack-unaffected rule is a correctly-preserved acceptance constraint, but the *verification* of it against a live Ranged Enemy is a downstream integration check, not something this bounded component can run.",
+        "affected_keys": [
+          "fireball",
+          "frost-field",
+          "force-wave",
+          "enemy-status-effect-displacement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §3 — Required Enemy Roster",
+            "requirement": "Melee Enemy and Ranged Enemy are the two required archetypes; the Ranged Enemy \"keeps moderate distance and fires a slow telegraphed shot\" — the behavior these validation claims exercise."
+          },
+          {
+            "reference": "GDD §2 — Spell and Enemy Interactions",
+            "requirement": "\"Frost Field slows a ranged enemy's repositioning but does not stop its attacks\" — a cross-system outcome observable only when both the status-effect owner and the Ranged Enemy archetype exist."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts",
+            "observation": "No enemy archetype script or prefab exists anywhere under Assets/, so no Melee or Ranged Enemy is available to any of these four tasks at validation time."
+          }
+        ],
+        "recommended_change": "Mark these archetype-dependent checks as validation that becomes executable once `melee-enemy`/`ranged-enemy` exist, and keep each item's presently-runnable validation target explicit (mana spend and refusal, restriction request/release, pointer-target consumption, displacement/slowdown apply-and-restore against a test double, reset and suspend entry points). Keep the items `single_agent`; do not broaden them and do not add archetype dependencies solely to make a future check runnable.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "ES-006",
+        "severity": "warning",
+        "category": "exclusive_resource_problem",
+        "title": "door-open-interaction omits the shared Input Actions asset lock that every sibling input-touching task holds",
+        "description": "`door-open-interaction` is correctly sized as `single_agent`, but its `exclusive_resources` list covers only DoorInteractable.cs, PlayerInteractionController.cs, the scene builder, and the canonical scene. It does not include `repo-file:Assets/InputSystem_Actions.inputactions`, even though one of its own acceptance criteria requires that \"Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling\", and the work replaces a raw `Keyboard.current[interactKey]` read with cursor-targeted selection.\n\n`player-movement`, `fireball`, `frost-field`, and `force-wave` all take that lock. The candidate's own `unresolved_questions[1]` states it cannot determine whether door selection needs its own binding or purely consumes a Point/Click binding that Player Movement will add. Under that acknowledged uncertainty, omitting the lock is the unsafe default: if door work does add a Player-map binding while a spell task is concurrently editing the same asset, two agents write the same non-merge-safe shared asset, which the GDD forbids outright.\n\nI verified the underlying repository fact: the `Player` action map contains Move/Look/Attack/Interact/Crouch/Jump/Previous/Next/Sprint only. Point and Click exist solely in the separate `UI` map. So no existing gameplay binding satisfies cursor-targeted door selection today, which makes the \"it will add a binding\" branch the likely one.\n\nThis is purely a concurrency-metadata issue — the task size itself is fine and should stay `single_agent`.",
+        "affected_keys": [
+          "door-open-interaction",
+          "player-movement",
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §4 — Agent-Assisted Development Workflow",
+            "requirement": "\"Tasks that depend on unfinished work, or that require changes to the same scripts, scenes, or prefabs, are completed sequentially. Agents do not modify the same Unity assets concurrently.\""
+          },
+          {
+            "reference": "GDD §5 — Runtime Implementation",
+            "requirement": "\"Clicking a sealed door requests movement to its interaction position\" and runtime input is \"supplied through Unity Input System/Input Actions rather than independent direct hardware polling inside gameplay systems.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/InputSystem_Actions.inputactions",
+            "observation": "The 'Player' action map (from line 5) defines only Move, Look, Attack, Interact, Crouch, Jump, Previous, Next, Sprint. 'Point' and 'Click' appear only inside the separate 'UI' map (from line 479), so no gameplay cursor-selection binding currently exists."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+            "observation": "Update() reads `Keyboard.current[interactKey]` directly (lines 30-44) and drives BeginInteraction/EndInteraction from that hold, confirming this task must replace hardware polling with Input Actions routing."
+          }
+        ],
+        "recommended_change": "Add `repo-file:Assets/InputSystem_Actions.inputactions` to `door-open-interaction`'s `exclusive_resources`, with the reason recorded as conservative sequencing under the open question about whether door selection adds its own binding or consumes Player Movement's. Keep `execution_scope: single_agent` unchanged — this is a lock, not a size problem.",
+        "requires_human_review": true
+      },
+      {
+        "finding_id": "ES-007",
+        "severity": "suggestion",
+        "category": "execution_scope_problem",
+        "title": "windows-build-scene-registration includes an acceptance criterion an agent likely cannot deliver as a committed change",
+        "description": "`windows-build-scene-registration` is correctly `single_agent` for the GDD-backed work: registering the canonical gameplay scene in `ProjectSettings/EditorBuildSettings.asset`, which currently holds `m_Scenes: []`. The retry-hardening guidance explicitly supports this call — the required developer inspection before merge is a validation gate, not the task's execution scope.\n\nHowever, the item adds a second acceptance criterion not present in the GDD text it cites: \"Windows Standalone is configured as the active/target build platform.\" The active build target is Unity editor-user state (`Library/EditorUserBuildSettings.asset`), and this repository's `.gitignore` excludes `/[Ll]ibrary/` (line 9) and `/[Uu]ser[Ss]ettings/` (line 15). If that is where the setting lives, an agent cannot durably deliver or repo-verify it, and the item's stated validation target is partially unreachable even though the task is otherwise a clean one-agent unit.\n\nThe GDD's own requirement is narrower and fully deliverable: the canonical scene \"must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete.\"",
+        "affected_keys": [
+          "windows-build-scene-registration"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 — Approved Unity Packages and Windows Build Configuration",
+            "requirement": "\"The required delivery target is a Windows Standalone build. The current canonical gameplay scene is Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity; that scene (or a later human-approved replacement canonical gameplay scene) must be registered in Unity Build Settings ... Package-manifest and ProjectSettings changes authorized by these approved requirements may be implemented by an agent, but the developer must inspect the resulting package state, scene registration, and Windows build configuration before merge.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "ProjectSettings/EditorBuildSettings.asset",
+            "observation": "Contains m_Scenes: [] — the scene-registration half of this item is a real, committable, agent-deliverable change."
+          },
+          {
+            "path": ".gitignore",
+            "observation": "Lines 9 and 15 exclude /[Ll]ibrary/ and /[Uu]ser[Ss]ettings/, where Unity stores active-build-target editor-user state; that portion of the acceptance criterion is therefore not representable as a committed repository change."
+          }
+        ],
+        "recommended_change": "Keep `execution_scope: single_agent`. Move \"Windows Standalone is configured as the active/target build platform\" out of the agent acceptance criteria and into the item's validation requirements alongside the already-recorded developer-inspection gate, or restate it as the committable portion (Windows player settings in ProjectSettings) if that is what was intended.",
+        "requires_human_review": true
+      }
+    ],
+    "notes": [
+      "Scope discipline: this audit covers only execution_scope/execution_reason and, where task size is acceptable but concurrency metadata is unsafe, exclusive_resources. I did not evaluate dependency correctness, parent/child structure, requirement coverage, or repository-state accuracy except where needed to judge handoff size, and I read no other verifier output.",
+      "Bootstrap safety: no blockers. Seven open items are both single_agent and have all dependencies satisfied or absent — player-movement, player-health, player-mana, active-enemy-registry, doorway-crossing-state, tilemap-navigation-package-configuration, windows-build-scene-registration — so automated task selection can proceed safely today even if every finding above is deferred.",
+      "Execution-scope metadata is complete: all 37 work items carry both execution_scope and execution_reason, no item is `unknown`, and no item claims `human_integration_required`. All feature/organizational nodes and the one complete item (fixed-isometric-camera) are correctly `not_applicable`.",
+      "Verified compliant with the verification-closure interface/decomposition rule: door-close-lock-break-lifecycle takes the accepted second option (needs_execution_decomposition) while also carrying a correctly-ordered depends_on edge to gameplay-navigation-locomotion for passability publication, and it consumes Player Health's restore interface via a depends_on edge rather than absorbing health-state implementation. No finding raised.",
+      "Verified compliant with the staged-restart rule: floor-run-restart-bootstrap is single_agent, claims no five-room validation, and names every persistent-state owner that currently exists. I confirmed against the source that DoorInteractable.cs holds Progress/IsOpen/IsInteracting plus the disabled doorwayBlocker and PlayerInteractionController.cs holds CurrentDoor/IsInteracting — both fall under the door-open-interaction owner the bootstrap already depends on, so no existing persistent-state owner is omitted at owner granularity.",
+      "Verified compliant with the foundation-versus-whole-content rule: world-visual-foundation explicitly excludes authoring the five named rooms, and active-enemy-registry explicitly excludes encounter placement/triggers. Neither claims broad content-authoring responsibility. (The separate presentation-ownership overlap between the visual foundation and the enemy archetypes is ES-003.)",
+      "Correctly separated concurrency from size in several places worth preserving: locked-door-enemy-attack stays single_agent while sharing the enemy behavior surface lock; the three door items share the DoorInteractable.cs lock rather than inventing dependencies on each other; locked-door-enemy-attack correctly omits the gameplay-walkability-surface lock because it only reads passability.",
+      "Items with no exclusive_resources that I judged acceptable rather than flagging: active-enemy-registry, enemy-health-damage-defeat, encounter-admission-cap-enforcement, and player-mana. Adding builder/scene locks to these would be speculative today, since no enemy prefab exists to wire and PlayerManaUI is already scene-wired to consume a new event without builder changes. If a later pass establishes that the registry must be a scene-resident object created by DoorPrototypeSceneBuilder.cs, it will need the builder/scene locks at that point.",
+      "ES-001 and ES-002 both challenge needs_execution_decomposition calls in the same chain (navigation foundation to pursuit foundation). If a reviewer accepts either, the enemy branch becomes dispatchable one pass earlier; if both are accepted, it becomes dispatchable as soon as package configuration lands. I flagged them at warning and suggestion respectively because the risk direction is delay rather than unsafe dispatch."
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

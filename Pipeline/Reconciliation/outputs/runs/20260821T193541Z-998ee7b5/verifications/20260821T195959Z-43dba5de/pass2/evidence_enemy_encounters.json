@@ -1,0 +1,44 @@
+{
+  "agent": "Evidence — Enemies Encounters",
+  "requested_model": "sonnet",
+  "duration_seconds": 189.79,
+  "result": {
+    "findings": [
+      {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "other",
+        "title": "Near-duplicate acceptance criteria on encounter-admission-cap-enforcement",
+        "description": "The `encounter-admission-cap-enforcement` node lists two acceptance criteria under nearly identical references ('GDD §2 Floor-run restart ownership' and 'Section 2 — Floor-run restart ownership') that both describe the same owner-controlled reset entry point for encounter activation/admission state, with the second simply adding more detail (pending/admitted-batch state). This is not a factual error — both statements are accurate and grounded in the GDD's restart-ownership text — but the duplication is graph-quality noise rather than two distinct requirements.",
+        "affected_keys": [
+          "encounter-admission-cap-enforcement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 — Floor-run restart ownership",
+            "requirement": "Required reset participants include ... encounter activation/admission state."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Merge the two acceptance-criteria entries into one that captures the more detailed wording (including pending/admitted-batch state) and drop the redundant shorter entry.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Scope covered: enemies (parent), active-enemy-registry, enemy-health-damage-defeat, enemy-status-effect-displacement, enemy-pursuit-search-foundation, melee-enemy, ranged-enemy, locked-door-enemy-attack, encounters (parent), encounter-admission-cap-enforcement, five-room-content-authoring, dungeon-encounter-content-authoring.",
+      "All in-scope work items are marked repository_state: missing and graph_status: open — there are no 'complete' or 'partial' claims in this territory to attack, so the primary audit activity was (a) spot-checking every 'missing' claim for a hidden implementation under a different name, and (b) checking dependency/exclusive-resource evidence citations for accuracy and provenance.",
+      "Verified via direct repository inspection: a case-insensitive grep across all of Assets/ for enemy|registry|defeat|frost|displacement|pursuit|melee|ranged|encounter returned zero matches, confirming the 'missing' status for every enemy/registry/status-effect/pursuit/encounter node is accurate and not merely asserted.",
+      "Verified DoorInteractable.cs directly: it exposes only Duration/Progress/IsOpen/IsInteracting/IsPlayerInRange with no durability, locked, broken, or damage-receive members, confirming the exact claim cited as evidence for locked-door-enemy-attack's dependency on door-close-lock-break-lifecycle.",
+      "Verified DebugDamageControl.cs is correctly excluded from being cited as enemy-combat evidence; it is a keyboard-triggered debug/test affordance (calls PlayerHealth.TakeDamage on a debug key) and the candidate does not conflate it with a gameplay enemy-attack system anywhere in scope.",
+      "Verified Packages/manifest.json directly: no com.unity.ai.navigation or com.unity.2d.tilemap entry exists; only the built-in com.unity.modules.ai and com.unity.modules.tilemap modules are present. The candidate correctly distinguishes these built-in modules from the GDD-approved authoring/navigation packages when citing enemy-pursuit-search-foundation's and world-visual-foundation's package dependencies, matching the verification-hardening guidance on this exact distinction.",
+      "Checked evidence-provenance guardrails: grepped the entire candidate file for CLAUDE.md, 'VERIFIED CLOSURE', and 'verification-hardening' — no matches. No forbidden-path (AgentCrew/, DynamicContentPipeline/) evidence citations appear in scope; the only historical-source mention (GoalOrientedAgent/outputs/goal_analysis.json) appears solely in the top-level 'historical_sources_reviewed' list and is not cited as evidence for any in-scope work item.",
+      "Checked cross-domain dependency correctness for shared-capability duplication risk: frost-field (wizard_combat domain) correctly depends on enemy-status-effect-displacement rather than re-implementing enemy-side slowdown, confirming no hidden/duplicated ownership of Frost slowdown state between domains.",
+      "Checked exclusive-resource locks in scope (logical:enemy-locomotion-behavior-surface on the pursuit-foundation/melee/ranged/locked-door-attack nodes): each instance is explicitly labeled 'Derived rationale' rather than presented as a GDD quotation, satisfying the round-3 provenance requirement that derived locks be labeled as derived. locked-door-enemy-attack correctly omits a logical:gameplay-walkability-surface lock, with notes explicitly citing the GDD text that pursuit/attack behavior only reads (does not write) navigation passability.",
+      "Requirement coverage check: cross-referenced GDD Sections 2–5 enemy/registry/encounter requirements (detection/pursuit/search thresholds, doorway-crossing-does-not-clear-pursuit, Frost-slows-repositioning-not-attacks, forced displacement, locked-door attack qualification and door-interface boundary, 15-enemy hard cap and Lower Vault priority, 3-8 enemy encounter sizing, never-isolated Ranged Enemy rule, and full floor-restart reset-entry-point participation for every enemy/registry/admission state owner) against the candidate's acceptance/validation criteria in scope; no required behavior was found unrepresented.",
+      "No blocker or error-level findings were identified in this assigned territory; verdict reflects only the audit scope defined for this pass and does not certify other parallel auditors' territories (player_core, wizard_combat, doors, world_foundations, run_lifecycle/victory, delivery/pipeline)."
+    ],
+    "verdict": "pass_with_findings"
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 36
+}

@@ -1,0 +1,124 @@
+{
+  "agent": "Structure — Exclusive Resources",
+  "requested_model": "opus",
+  "duration_seconds": 343.9,
+  "result": {
+    "verdict": "pass_with_findings",
+    "findings": [
+      {
+        "finding_id": "EXCL-001",
+        "severity": "warning",
+        "category": "exclusive_resource_problem",
+        "title": "Uneven writer coverage on the shared Input Actions asset: door-open-interaction may modify Assets/InputSystem_Actions.inputactions concurrently with the three spell items",
+        "description": "Four work items (player-movement, fireball, frost-field, force-wave) carry `repo-file:Assets/InputSystem_Actions.inputactions`. door-open-interaction does not, even though it is the fifth player-input rework item in the graph: its acceptance criteria require that 'Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling', and its own repository evidence records that the gameplay 'Player' action map currently has no Point/Click action (Point/Click exist only in the separate 'UI' map) while the unused 'Interact' action is a Hold-interaction button. The candidate itself records this as unresolved_question #2 and defers it to later decomposition.\n\nThe scheduling consequence is specific and checkable: door-open-interaction depends on player-movement, so those two can never be dispatched concurrently, but door-open-interaction has no dependency on fireball, frost-field, or force-wave. If door-open-interaction turns out to add or repurpose a binding in the shared action asset (for example a door-select action, or removing/repurposing the stale hold-based 'Interact' action), it can become ready at the same time as the spell items that already lock that asset, producing exactly the concurrent non-merge-safe write the GDD forbids. Conversely, if the item genuinely only consumes a pointer/click binding authored by player-movement, the lock must not be added and the consumption-only evidence should be recorded on the item so this question does not have to be re-litigated at dispatch.\n\nCurrent evidence does not resolve the direction, so this is reported as an open uneven-coverage risk rather than a required lock addition.",
+        "affected_keys": [
+          "door-open-interaction",
+          "player-movement",
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Player Actions and Systems — Open Sealed Door; Move and Aim",
+            "requirement": "Door selection is a cursor-targeted click that issues a combined approach-and-interact request, and mouse-directed player input is routed through the shared Unity Input System/Input Actions layer rather than direct hardware polling."
+          },
+          {
+            "reference": "GDD §4 Agent-Assisted Development Workflow, item 4; §5 Agent Coordination",
+            "requirement": "Tasks that require changes to the same scripts, scenes, or prefabs are completed sequentially; agents do not modify the same Unity assets concurrently."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/InputSystem_Actions.inputactions",
+            "observation": "The 'Player' action map (line 5) defines Move/Look/Attack/Interact/Crouch/Jump/Sprint; 'Interact' carries \"interactions\": \"Hold\" (line 41). Point (line 510) and Click (line 519) exist only inside the separate 'UI' map (line 479). No gameplay-map cursor/click action currently exists for either movement or door selection."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+            "observation": "Door interaction is driven by raw `Keyboard.current[interactKey]` polling (lines 32-42) with BeginInteraction/EndInteraction; the current implementation bypasses the action asset entirely, so the Input-Actions routing required by door-open-interaction is new work whose write surface is not yet established."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "player-movement (line 222), fireball (line 565), frost-field (line 674) and force-wave (line 786) carry `repo-file:Assets/InputSystem_Actions.inputactions`; door-open-interaction's exclusive_resources (lines 1717-1738) list only DoorInteractable.cs, PlayerInteractionController.cs, the builder, and the canonical scene. Its notes (line 1744) and unresolved_questions entry (lines 3611-3619) both flag the action-asset write surface as unresolved."
+          }
+        ],
+        "recommended_change": "Resolve the writer question on door-open-interaction rather than leaving it open at dispatch time: if the item will add, remove, or repurpose any action/binding in Assets/InputSystem_Actions.inputactions, give it the identical `repo-file:Assets/InputSystem_Actions.inputactions` key already used by player-movement and the three spells; if evidence establishes it only consumes a binding authored by player-movement, record that consumption-only finding on the item so no lock is added. Do not add a dependency edge for this collision — it is a pure write-collision concern and door-open-interaction already depends on player-movement for the pointer-projection capability.",
+        "requires_human_review": true
+      },
+      {
+        "finding_id": "EXCL-002",
+        "severity": "suggestion",
+        "category": "exclusive_resource_problem",
+        "title": "gameplay-navigation-locomotion has positive write evidence for the runtime asmdef but carries no lock on it",
+        "description": "gameplay-navigation-locomotion's own repository_evidence states that `Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef` 'references only Unity.InputSystem and UnityEngine.UI; no AI Navigation assembly reference exists.' The file confirms this, and because the asmdef sets `overrideReferences: false`/`autoReferenced: true`, Unity engine modules are auto-referenced but package assemblies are not: consuming Unity AI Navigation types such as NavMeshSurface/NavMeshModifier requires adding `Unity.AI.Navigation` to that asmdef's `references` array. That is positive write evidence for a non-merge-safe shared assembly-definition file which the item's exclusive_resources do not cover.\n\nToday this is low-risk because gameplay-navigation-locomotion appears to be the only writer (enemy work consumes NavMeshAgent from the auto-referenced UnityEngine.AIModule, and tests live in separate Tests asmdefs). It is raised as a writer-inventory completeness gap rather than an active collision: if a later decomposition puts navigation-package-dependent code in another item, the missing key would leave two writers of one shared file unsynchronized.",
+        "affected_keys": [
+          "gameplay-navigation-locomotion"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 Runtime Implementation; Approved Unity Packages and Windows Build Configuration",
+            "requirement": "The approved implementation uses Unity AI Navigation (com.unity.ai.navigation) and NavMesh-based runtime movement; the shared navigation/locomotion layer is built against that approved package."
+          },
+          {
+            "reference": "GDD §5 Agent Coordination",
+            "requirement": "Two agents will not modify the same gameplay files or Unity assets at the same time."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef",
+            "observation": "\"references\": [\"Unity.InputSystem\", \"UnityEngine.UI\"] with \"overrideReferences\": false and \"autoReferenced\": true — package assemblies (including Unity.AI.Navigation) must be added explicitly to this file before navigation-package types can compile in this assembly."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "gameplay-navigation-locomotion cites the asmdef as evidence at lines 2214-2217 but its exclusive_resources (lines 2226-2241) list only logical:gameplay-walkability-surface, the builder, and the canonical scene."
+          }
+        ],
+        "recommended_change": "Consider adding `repo-file:Assets/NoSafeCircle/DoorPrototype/NoSafeCircle.DoorPrototype.asmdef` to gameplay-navigation-locomotion's exclusive_resources, and apply the identical key to any later item that must add its own package assembly reference to the same runtime assembly. Do not propagate it to items that only add .cs files to the assembly, since adding a source file does not modify the asmdef.",
+        "requires_human_review": true
+      },
+      {
+        "finding_id": "EXCL-003",
+        "severity": "suggestion",
+        "category": "exclusive_resource_problem",
+        "title": "tilemap-navigation-package-configuration asserts a write to Packages/packages-lock.json but locks only Packages/manifest.json",
+        "description": "The item's third acceptance criterion requires that 'Both packages resolve successfully (reflected in Packages/packages-lock.json)', and its repository_evidence inspects that file directly. Package resolution regenerates packages-lock.json, so the item writes two shared project-configuration files while locking only one. No other current work item writes either file, so there is no active collision; this is a completeness gap in the writer inventory rather than a concurrency defect.",
+        "affected_keys": [
+          "tilemap-navigation-package-configuration"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §5 Approved Unity Packages and Windows Build Configuration",
+            "requirement": "com.unity.2d.tilemap and com.unity.ai.navigation must be added/configured in Packages/manifest.json; package-manifest changes require developer inspection before merge."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/verifications/20260821T195959Z-43dba5de/refined_candidate.json",
+            "observation": "Acceptance criterion at lines 2111-2114 names packages-lock.json as part of the required outcome; repository_evidence at lines 2130-2134 inspects it; exclusive_resources (lines 2137-2142) contain only repo-file:Packages/manifest.json."
+          },
+          {
+            "path": "Packages/packages-lock.json",
+            "observation": "Committed resolved-dependency file that Unity rewrites whenever manifest dependencies change; it is a shared, non-merge-safe project-configuration artifact."
+          }
+        ],
+        "recommended_change": "Optionally add `repo-file:Packages/packages-lock.json` alongside the existing manifest key so the package-configuration item's full write surface is represented, and reuse both keys identically if a future item also changes package dependencies.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Scope: this pass audited only exclusive_resources and shared-writer concurrency safety across all 27 work items in the frozen candidate. Dependency-edge correctness, decomposition shape, ownership, and requirement representation were read only where needed to judge a writer/consumer boundary, and are not reported here.",
+      "Verified correct — builder/scene pairing: every item that locks `repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs` also locks `unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity`, and vice versa, with no exceptions (player-movement, player-health, fireball, frost-field, force-wave, door-open-interaction, doorway-crossing-state, door-close-lock-break-lifecycle, gameplay-navigation-locomotion, world-visual-foundation, floor-run-restart-bootstrap, floor-run-restart-persistent-closure, final-escape-victory). The write evidence holds: DoorPrototypeSceneBuilder.Build() calls ClearExistingObjects(scene) then EditorSceneManager.SaveScene(scene, ScenePath), and BuildPlayer()/BuildUI()/BuildManaUI() construct and wire the Player, Canvas, and door/HUD objects (verified in the builder source at lines 46-75, 203-236, 237-392).",
+      "Verified correct — the FRESH RUN and ROUND 2 closure locks the audit prompt calls out are all present: player-movement carries the builder + canonical scene locks; gameplay-navigation-locomotion carries builder + scene + `logical:gameplay-walkability-surface`; floor-run-restart-bootstrap and floor-run-restart-persistent-closure share `logical:floor-run-restart-orchestrator` and both carry builder + scene; final-escape-victory carries builder + scene for the scene-built You Escaped overlay.",
+      "Verified correct — enemy locomotion surface coverage is complete and consistent: enemy-pursuit-search-foundation, enemy-status-effect-displacement, melee-enemy, ranged-enemy, and locked-door-enemy-attack all carry the identical key `logical:enemy-locomotion-behavior-surface`. The slug differs from the prompt's example name (`logical:enemy-locomotion-runtime`) but uses the canonical `logical:` prefix and is applied uniformly across exactly the five expected writers, so no repair is required.",
+      "Verified correct — no overbroad propagation was found. active-enemy-registry, enemy-health-damage-defeat, and encounter-admission-cap-enforcement carry no locks, matching the rule that code/foundation work must not inherit scene/builder locks merely because it will later be scene-resident. locked-door-enemy-attack explicitly declines `logical:gameplay-walkability-surface` on the grounds that it only reads the passability result, which matches the GDD's statement that pursuit/attack behavior consumes doorway walkability rather than changing it.",
+      "Verified correct — `logical:gameplay-walkability-surface` has exactly two writers (gameplay-navigation-locomotion, which owns the navigation-side translation, and door-close-lock-break-lifecycle, which publishes semantic door state through it), and both carry the same key. Per the audit's rules this collision is not, and is not being treated as, a substitute for the behavioral dependency that already exists on that item.",
+      "Verified correct — single-writer configuration surfaces: `repo-file:Packages/manifest.json` (tilemap-navigation-package-configuration) and `repo-file:ProjectSettings/EditorBuildSettings.asset` (windows-build-scene-registration) each have exactly one writer in the graph. Registering a scene path in Build Settings does not write the scene file, so no builder/scene lock is warranted on windows-build-scene-registration.",
+      "Verified correct — the two deferred content features (five-room-content-authoring, dungeon-encounter-content-authoring) hold no locks; both are `kind: feature` with `execution_scope: not_applicable`, so they are not dispatchable writers today. Their eventual scene/builder write surfaces must be locked on the concrete descendants a later Progressive Decomposition creates. fixed-isometric-camera holds no lock and is `graph_status: complete`, which is also correct.",
+      "Verified correct — no prefab-lock gap found. melee-enemy and ranged-enemy each produce their own assembled archetype prefab and both depend on world-visual-foundation, so the possible shared-prefab writes are serialized by existing dependencies rather than by a missing `unity-prefab:` key.",
+      "Not raised as a finding, recorded for awareness: player-mana holds no exclusive_resources. Its required work (reset entry point plus a denied-cast signal on PlayerMana.cs) is a single-writer script change, and its readable-low-mana validation obligation can be satisfied inside the already-wired PlayerManaUI.cs. If an implementer instead adds a new UI element through DoorPrototypeSceneBuilder.BuildManaUI, the item would become another builder/scene writer and would need the same two locks — but current evidence does not establish that write, so per the positive-evidence rule no lock is required now."
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

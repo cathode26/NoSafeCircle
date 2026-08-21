@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "worker_count": 9,
+  "worker_domains": [
+    "player_core",
+    "wizard_combat",
+    "enemy_state",
+    "enemy_behavior",
+    "doors",
+    "world_foundations",
+    "content_encounters",
+    "run_lifecycle",
+    "global_pipeline"
+  ],
+  "previous_routing_key_count": 37,
+  "current_work_key_count": 37,
+  "missing_previous_routing_hints": [],
+  "missed_overlay_targets": [],
+  "merge_warnings": [],
+  "overlays_applied": 7,
+  "overlays_requested": 7,
+  "max_turn_recovery": {
+    "enabled": true,
+    "first_wave_failure_count": 0,
+    "max_turn_failure_count": 0,
+    "recovered_count": 0,
+    "recovery_turn_bonus": 12,
+    "successful_workers_rerun": false
+  }
+}

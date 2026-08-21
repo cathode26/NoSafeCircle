@@ -1,0 +1,177 @@
+{
+  "agent": "Coverage — Content Encounters",
+  "requested_model": "sonnet",
+  "duration_seconds": 221.92,
+  "result": {
+    "findings": [
+      {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "\"Final-room pressure\" clause not broken out as its own acceptance-criterion bullet",
+        "description": "GDD Section 4 (Dungeon Encounter Agent) lists 'final-room pressure' as a distinct authoring responsibility, coordinate with but separate from 'the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room' (the 'including' clause structurally subordinates composition to the broader 'pressure' requirement). The candidate's dungeon-encounter-content-authoring node quotes the full phrase in gdd_evidence, but its acceptance_criteria only spell out the mixed-composition and 3-8-enemy-range aspects; there is no acceptance-criteria bullet that names Final Room pressure/escalation as its own required authoring outcome distinct from composition mixing. Because this feature is deferred (needs_future_decomposition), the deferred-design preservation mechanism (gdd_evidence + decomposition_reason) is the correct durable home for it and nothing is actually lost from the future graph, but a future Progressive Decomposer reading only acceptance_criteria could plausibly treat 'mixed composition' as satisfying the whole final-room-pressure requirement.",
+        "affected_keys": [
+          "dungeon-encounter-content-authoring"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 4 — Dungeon Encounter Agent",
+            "requirement": "Authors placements, triggers, configured per-door durability values, and final-room pressure, including the mixed Melee/Ranged compositions in Chapel of Ash and the Final Room."
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "When dungeon-encounter-content-authoring is progressively decomposed, add an explicit acceptance-criterion bullet for Final Room pressure/escalation (e.g., enemy count trending toward the upper end of the 3-8 range and/or additional pursuer pressure) distinct from the Chapel of Ash/Final Room mixed-composition bullet, so it is not silently treated as fully satisfied by composition mixing alone.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Audit scope was restricted to: five named spaces/content authoring, encounter admission/cap runtime, encounter/content authoring and deferral, room-specific tactical checks, encounter size, and room/encounter prerequisites, per the assigned PARALLEL AUDIT SCOPE. Other domains (player systems, doors, enemy pursuit internals, restart, victory, delivery/build, process constraints) were read only where needed to evaluate an owner/consumer contract touching this territory (e.g. world-visual-foundation, gameplay-navigation-locomotion, active-enemy-registry, melee-enemy/ranged-enemy, door-close-lock-break-lifecycle as dependency targets) and are not independently audited here.",
+      "The candidate correctly splits the concrete, GDD-fixed encounter-admission/cap-enforcement runtime rule from the deferred, still-to-be-designed dungeon-encounter-content-authoring feature, and correctly avoids a feature-to-feature dependency edge between five-room-content-authoring and dungeon-encounter-content-authoring, consistent with the hardening guidance in this prompt.",
+      "All five named rooms (Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, Final Room) are individually enumerated with their GDD tactical-purpose text in five-room-content-authoring's gdd_evidence and acceptance_criteria, satisfying the 'inventory each room individually' closure rule.",
+      "The three GDD-mandated room-specific validation checks in this territory (Bone Archive lane pathing, Chapel of Ash occlusion, Lower Vault active-enemy-cap priority) are all present as validation_requirements, correctly split between five-room-content-authoring/gameplay-navigation-locomotion (Bone Archive, Chapel of Ash) and encounter-admission-cap-enforcement (Lower Vault)."
+    ],
+    "requirements": [
+      {
+        "requirement_id": "R1",
+        "reference": "Section 3 — Dungeon Floor Structure",
+        "requirement": "Five named tactical spaces (Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, Final Room) are required, each individually enumerated with its own layout/tactical purpose.",
+        "classification": "required_gameplay",
+        "representation": "deferred_design",
+        "mapped_keys": [
+          "five-room-content-authoring"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "All five rooms are individually quoted (not just 'five rooms' generically) in five-room-content-authoring's gdd_evidence and acceptance_criteria, and the node is correctly marked needs_future_decomposition since exact geometry is not yet specified by the GDD; the deferred-design decomposition_reason preserves each room's stated purpose for future decomposition rather than losing it."
+      },
+      {
+        "requirement_id": "R2",
+        "reference": "Section 5 — 2.5D Isometric Visual and World Representation",
+        "requirement": "Five-room visual/content authoring consumes the reusable Tilemap/SpriteRenderer world foundation once it exists — a real prerequisite relationship even while the downstream content feature remains deferred.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "five-room-content-authoring",
+          "world-visual-foundation"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "five-room-content-authoring correctly lists a depends_on edge to world-visual-foundation (an implementation, not a feature), satisfying the feature->implementation dependency rule and preserving the prerequisite relationship."
+      },
+      {
+        "requirement_id": "R3",
+        "reference": "Section 5 — Runtime Implementation",
+        "requirement": "All five encounter spaces exist inside one continuous Unity scene or continuous floor representation; no scene-load or cross-scene state-transfer system is required.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "five-room-content-authoring"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Directly represented as an acceptance criterion on five-room-content-authoring."
+      },
+      {
+        "requirement_id": "R4",
+        "reference": "Section 5 — Runtime Implementation; Section 3 — Dungeon Floor Structure (Bone Archive)",
+        "requirement": "Bone Archive's authored lane widths must be validated against enemy movement/navigation requirements so the room's narrow-lane/chokepoint geometry holds in practice.",
+        "classification": "required_implementation",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "five-room-content-authoring",
+          "gameplay-navigation-locomotion"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as a validation_requirement on both the room-authoring side (five-room-content-authoring) and the navigation-layer side (gameplay-navigation-locomotion), matching the GDD's dual ownership of the check's inputs (authored geometry vs. agent-radius configuration)."
+      },
+      {
+        "requirement_id": "R5",
+        "reference": "Section 3 — Dungeon Floor Structure (Chapel of Ash); Section 4 — Unity Validation Agent",
+        "requirement": "Chapel of Ash's pews/columns must present real occluders that block the Ranged Enemy's line-of-sight/projectile-occlusion check from at least one cover position.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "five-room-content-authoring"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Directly represented as a validation_requirement on five-room-content-authoring."
+      },
+      {
+        "requirement_id": "R6",
+        "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
+        "requirement": "The Dungeon Encounter system consumes the registry before activating new encounter enemies; if activation would exceed the fifteen-active-enemy hard cap, new encounter enemies are delayed or reduced first, and existing persistent pursuers are never removed to make room. This admission/bookkeeping foundation is reusable and does not require the exact five-room encounter layouts to be known first.",
+        "classification": "required_gameplay",
+        "representation": "work_item",
+        "mapped_keys": [
+          "encounter-admission-cap-enforcement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as a concrete, decomposition_state=concrete implementation node with matching acceptance criteria (query capacity, delay/reduce first, never deregister existing pursuers) and its own reset entry point; correctly separated from the deferred room/encounter content-authoring feature so it is not blocked by unresolved room design."
+      },
+      {
+        "requirement_id": "R7",
+        "reference": "Section 2 — Active Enemy Registry and Encounter Admission (Lower Vault)",
+        "requirement": "Lower Vault is the primary validation case: a rear breach coinciding with the room's own encounter must still leave persistent pursuers with admission priority over new encounter enemies.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "encounter-admission-cap-enforcement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Directly represented as a validation_requirement on encounter-admission-cap-enforcement, matching the GDD's explicit designation of Lower Vault as the primary validation case for this rule."
+      },
+      {
+        "requirement_id": "R8",
+        "reference": "Section 4 — Dungeon Encounter Agent",
+        "requirement": "Authors placements, triggers, configured per-door durability values, and final-room pressure, including mixed Melee/Ranged compositions in Chapel of Ash and the Final Room; does not own runtime door durability state, damage intake, or the locked-to-broken transition.",
+        "classification": "required_gameplay",
+        "representation": "deferred_design",
+        "mapped_keys": [
+          "dungeon-encounter-content-authoring",
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as a deferred content-authoring feature with the ownership boundary (no runtime durability ownership) captured as an explicit acceptance criterion and a corresponding dependency edge to door-close-lock-break-lifecycle (an implementation, not a feature). See F1 for a minor representation gap on the 'final-room pressure' clause specifically."
+      },
+      {
+        "requirement_id": "R9",
+        "reference": "Section 3 — Required Enemy Roster",
+        "requirement": "Ranged Enemies never appear as an isolated encounter: every encounter introducing one also includes at least one Melee Enemy.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "dungeon-encounter-content-authoring"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Directly represented as an acceptance criterion, matching the taxonomy's own worked example for this exact GDD rule."
+      },
+      {
+        "requirement_id": "R10",
+        "reference": "Section 3 — Player Experience Success Criteria",
+        "requirement": "Encounters use three to eight enemies and never exceed fifteen active enemies.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "dungeon-encounter-content-authoring",
+          "encounter-admission-cap-enforcement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Correctly split: the 3-8 per-encounter sizing range is an acceptance criterion on dungeon-encounter-content-authoring, and the floor-wide fifteen-enemy ceiling is an acceptance/validation requirement on encounter-admission-cap-enforcement, matching the taxonomy's guidance that encounter-size ranges are acceptance criteria on encounter work."
+      },
+      {
+        "requirement_id": "R11",
+        "reference": "Section 2 — Active Enemy Registry and Encounter Admission; Section 5 — 2.5D Isometric Visual and World Representation",
+        "requirement": "Room-specific encounter authoring consumes the registry/admission foundation and the authored room spaces once those exist as prerequisites; encounter placement/content authoring is not itself required to exist before those foundations are built.",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "dungeon-encounter-content-authoring",
+          "encounter-admission-cap-enforcement",
+          "five-room-content-authoring"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "dungeon-encounter-content-authoring's depends_on correctly targets encounter-admission-cap-enforcement, door-close-lock-break-lifecycle, melee-enemy, and ranged-enemy (all implementations), while explicitly avoiding a direct feature-to-feature dependency on the sibling deferred feature five-room-content-authoring, preserving that consumption relationship only as decomposition-context notes as required by the current graph rules."
+      }
+    ],
+    "verdict": "pass_with_findings"
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

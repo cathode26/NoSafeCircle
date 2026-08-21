@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.1",
+  "source_finding_count": 4,
+  "material_finding_count": 2,
+  "selected_finding_count": 2,
+  "selected_structural_warning_count": 0,
+  "findings": [
+    {
+      "source_agent": "Structure — Dependencies Ownership Decomposition",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "STRUCT-001",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Restart orchestrator depends on reset entry points that the named owners are not required to expose",
+        "description": "Both restart items consume owner-controlled reset entry points, and the graph correctly routes those edges to concrete owners. However, two of the named owners carry no acceptance criterion requiring them to expose the reset entry point their dependent invokes.\n\n`floor-run-restart-bootstrap` depends on `door-open-interaction` with the stated reason \"DoorInteractable.cs already owns run-persistent state (Progress, IsOpen, disabled doorwayBlocker) but exposes no reset entry point; the bootstrap orchestrator must invoke one.\" `door-open-interaction`'s five acceptance criteria cover click-to-approach selection, arm's-reach auto-timer, cursor-drift tolerance, interruption, and Input System routing — none require a reset entry point. `floor-run-restart-persistent-closure` repeats the same dependency with the same expectation.\n\n`floor-run-restart-persistent-closure` depends on `encounter-admission-cap-enforcement` because \"Encounter activation/admission state is a named required reset participant.\" That item's three acceptance criteria cover registry query, delay/reduce-first admission, and non-duplication of the count — none require a reset entry point.\n\nEvery other named persistent owner in the graph does carry the reset criterion (`player-health`, `player-mana`, `player-movement`, `doorway-crossing-state`, `door-close-lock-break-lifecycle`, `active-enemy-registry`, `enemy-health-damage-defeat`, `enemy-pursuit-search-foundation`, `enemy-status-effect-displacement`, `fireball`, `frost-field`, `force-wave`), so the gap is specific and inconsistent rather than a deliberate staging choice. As written, both owner items can be implemented, validated, and closed while leaving the restart items' dependencies unsatisfiable — the requirement exists only inside the consumer's `depends_on.reason`, which is not an owner obligation.",
+        "affected_keys": [
+          "door-open-interaction",
+          "encounter-admission-cap-enforcement",
+          "floor-run-restart-bootstrap",
+          "floor-run-restart-persistent-closure"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 — Floor-run restart ownership",
+            "requirement": "\"Every system that owns state that can persist or remain active when restart occurs must expose a reset entry point for the state it owns, and the orchestrator invokes those owned reset interfaces. Required reset participants include ... door lifecycle/crossing/durability state, and encounter activation/admission state.\""
+          },
+          {
+            "reference": "GDD §2 — Loss",
+            "requirement": "\"Restart resets all run-persistent gameplay state to the floor's initial state, including ... door lifecycle/crossing/durability state, and encounter activation/admission state.\""
+          },
+          {
+            "reference": "GDD §5 — Runtime Implementation (Floor Run/Restart Orchestrator)",
+            "requirement": "\"It invokes reset entry points owned by each stateful system rather than directly mutating their internals ... door lifecycle/crossing/durability state, and encounter activation/admission state must all participate once those systems exist.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "Owns run-persistent `Progress`, `IsOpen`, and a permanently disabled `doorwayBlocker` (set in `Complete()`), with only `StartInteraction`/`CancelInteraction`/`Tick` as public mutators. `CancelInteraction()` clears interaction progress but does not restore `IsOpen` or re-enable the blocker, so no usable reset entry point exists today."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "`door-open-interaction.acceptance_criteria` (5 entries) and `encounter-admission-cap-enforcement.acceptance_criteria` (3 entries) contain no reset-entry-point requirement, while `floor-run-restart-bootstrap.depends_on[door-open-interaction]` and `floor-run-restart-persistent-closure.depends_on[encounter-admission-cap-enforcement]` both justify the edge by that missing interface."
+          }
+        ],
+        "recommended_change": "Add an owner-side acceptance criterion to `door-open-interaction` requiring an owner-controlled reset entry point that returns its owned opening state (interaction progress, open flag, doorway-blocker enablement) to floor-initial values for consumption by the Floor Run/Restart Orchestrator, referencing GDD §2 Floor-run restart ownership. Add the equivalent criterion to `encounter-admission-cap-enforcement` for encounter activation/admission state. Keep the existing dependency edges — they become correct once the owners are required to produce the interface.",
+        "requires_human_review": false
+      }
+    },
+    {
+      "source_agent": "Structure — Dependencies Ownership Decomposition",
+      "source_model": "opus",
+      "finding": {
+        "finding_id": "STRUCT-002",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Victory capability depends on suspend/re-enable interfaces that Player Movement and Door/Interaction are not required to expose",
+        "description": "`final-escape-victory` carries six dependencies, each justified by the consumed owner-controlled gameplay-enable/suspend interface. Three of the five suspend providers (`fireball`, `frost-field`, `force-wave`) each carry an explicit acceptance criterion requiring that interface. The other two do not.\n\n`player-movement`'s acceptance criteria cover mouse-directed movement, the shared pointer target, the movement-restriction request/release interface, and the restart reset entry point — there is no gameplay-enable/suspend criterion, yet `final-escape-victory.depends_on[player-movement]` states \"Victory must be able to stop already-active movement through an owner-controlled suspend interface.\"\n\n`door-open-interaction` likewise has no suspend criterion, yet `final-escape-victory.depends_on[door-open-interaction]` states \"Victory must be able to stop an in-progress door approach/opening through an owner-controlled suspend interface.\"\n\nThe GDD makes this an explicit five-owner obligation and an ownership invariant: victory must not reach into movement/door internals, so if the owners are never required to expose suspend/re-enable, the only implementable path for `final-escape-victory` violates the invariant. This is an owner/consumer contract represented only in a consumer's dependency prose.",
+        "affected_keys": [
+          "player-movement",
+          "door-open-interaction",
+          "final-escape-victory"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 — Victory/input-shutdown ownership",
+            "requirement": "\"Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow.\""
+          },
+          {
+            "reference": "GDD §4 — Development Agent Ownership Invariants (Final escape/victory coordination)",
+            "requirement": "\"Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave remain owners of their own active behavior and must expose owner-controlled suspend/re-enable entry points consumed by victory/reset flows. Final escape logic must not reach into movement, door, or spell internals to stop them.\""
+          },
+          {
+            "reference": "GDD §5 — Runtime Implementation (Game Flow/Victory)",
+            "requirement": "\"Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave must each provide a suspend/re-enable entry point that stops current input-driven activity as well as future commands.\""
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+            "observation": "`Update()` unconditionally polls `Keyboard.current` and calls `controller.Move(...)`; there is no enable/suspend flag, gating, or public entry point through which an external system could stop active movement."
+          },
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+            "observation": "`Update()` unconditionally calls `Tick(Time.deltaTime)` and the only external controls are `StartInteraction`/`CancelInteraction`; there is no suspend/re-enable entry point that rejects new interaction commands while suspended."
+          }
+        ],
+        "recommended_change": "Add an owner-side acceptance criterion to `player-movement` and to `door-open-interaction` requiring an owner-controlled gameplay-enable/suspend interface that immediately stops the system's already-active input-driven activity (in-flight movement; in-progress door approach/opening timer), rejects new gameplay commands while suspended, and is re-enabled only through an authorized reset/test flow — mirroring the criteria already present on `fireball`, `frost-field`, and `force-wave`. Retain the existing `final-escape-victory` dependency edges.",
+        "requires_human_review": false
+      }
+    }
+  ],
+  "selection_policy": "Refiner input contains all blocker/error findings, warnings whose categories indicate scheduler/representation risk, and coverage-origin requirement-representation suggestions. Other ordinary warnings and suggestions remain in MERGED_FINDINGS_PASS1.json and are reassessed during pass 2. This keeps refinement bounded while preventing a required coverage gap noticed in Pass 1 from being stranded until Pass 2."
+}

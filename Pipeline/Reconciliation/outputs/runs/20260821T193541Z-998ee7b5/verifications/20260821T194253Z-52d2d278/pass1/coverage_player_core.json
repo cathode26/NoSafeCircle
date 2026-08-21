@@ -1,0 +1,370 @@
+{
+  "agent": "Coverage — Player Core",
+  "requested_model": "opus",
+  "duration_seconds": 312.53,
+  "result": {
+    "verdict": "pass_with_findings",
+    "findings": [
+      {
+        "finding_id": "PC-F1",
+        "severity": "error",
+        "category": "requirement_representation_problem",
+        "title": "Player Movement's owner-controlled gameplay-enable/suspend interface has no owner-side representation",
+        "description": "The GDD makes Player Movement an explicit owner of a gameplay-enable/suspend entry point: 'Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow' (Section 2, Victory/input-shutdown ownership), reinforced in Section 4 ('Final escape/victory coordination ... Final escape logic must not reach into movement, door, or spell internals to stop them') and Section 5 Runtime Implementation. In the candidate, `player-movement` carries no gdd_evidence entry, no acceptance criterion, and no validation requirement covering this interface; its four acceptance criteria are mouse-directed movement, the shared pointer target, the movement-restriction interface, and the restart reset entry point. The obligation exists only inside the consumer `final-escape-victory` (acceptance criterion: 'the capability calls owner-controlled suspend entry points on Player Movement, ...') and in its depends_on reason. This is asymmetric with the three spells, which each carry an explicit owner-side suspend acceptance criterion (fireball line 505, frost-field line 618, force-wave line 727). Under minimal-context dispatch (Section 4 Shared Context and Coordination Rules), an agent dispatched on `player-movement` would receive only that item's brief/criteria and could fully satisfy them while shipping no suspend interface, leaving `final-escape-victory` permanently blocked on a capability nobody was told to build. The dependency edge preserves ordering, not the owner-side obligation.",
+        "affected_keys": [
+          "player-movement",
+          "final-escape-victory"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 2 - Win and Loss Conditions, Victory/input-shutdown ownership",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled gameplay-enable/suspend interface that can immediately stop or cancel their current input-driven activity, reject new gameplay commands while suspended, and be re-enabled by an authorized reset/test flow."
+          },
+          {
+            "reference": "Section 4 - Development Agent Ownership Invariants, Final escape/victory coordination",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave remain owners of their own active behavior and must expose owner-controlled suspend/re-enable entry points consumed by victory/reset flows. Final escape logic must not reach into movement, door, or spell internals to stop them."
+          },
+          {
+            "reference": "Section 5 - Runtime Implementation",
+            "requirement": "Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave must each provide a suspend/re-enable entry point that stops current input-driven activity as well as future commands."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+            "observation": "Update() moves the CharacterController from raw Keyboard.current polling every frame with no enable/suspend gate, no public suspend/re-enable method, and no way to stop already-active movement; the owner-side capability is genuinely missing, not merely unwired."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "player-movement (lines 135-227) lists four acceptance criteria (mouse-directed movement, pointer target, movement-restriction interface, reset entry point) and no suspend/re-enable criterion or evidence row, while fireball/frost-field/force-wave each carry an explicit owner-side suspend acceptance criterion (lines 505, 618, 727)."
+          }
+        ],
+        "recommended_change": "Add an acceptance criterion to `player-movement` (referencing Section 2 Victory/input-shutdown ownership and the Section 4 final-escape/victory invariant) requiring an owner-controlled suspend/re-enable entry point that immediately stops in-progress movement (including an active click-to-destination approach), rejects new movement commands while suspended, and is re-enabled only through an authorized reset/test flow; add the matching gdd_evidence row. Optionally add a validation requirement mirroring final-escape-victory's Play Mode check on the owner side. Do not remove final-escape-victory's consumption criterion or its dependency on player-movement.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "PC-F2",
+        "severity": "suggestion",
+        "category": "scope_leak",
+        "title": "player-mana's denied-cast signal is presented as a GDD acceptance requirement but is an inferred implementation choice",
+        "description": "`player-mana` carries an acceptance criterion, referenced to 'GDD §3 Player Experience Success Criteria — Failure is readable', requiring a distinct signal when a cast is denied for insufficient mana. The cited GDD text says only 'Failure is readable: poor positioning, low mana, using Force Wave without an immediate threat ... or waiting too long.' The GDD nowhere requires a denied-cast event distinct from the existing `Spend` false return, and the already-integrated continuous mana bar (PlayerManaUI, wired in the canonical scene) plus each spell's own feedback may already satisfy low-mana readability. The success criterion itself is correctly represented as a validation requirement on the same item, so the additional acceptance criterion adds owner-side implementation scope the GDD does not itself mandate. This is a small, defensible reading rather than a coverage failure, but it should be labelled as an implementation choice so it is not later enforced as GDD canon or used to block the item.",
+        "affected_keys": [
+          "player-mana"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 3 - Player Experience Success Criteria",
+            "requirement": "Failure is readable: poor positioning, low mana, using Force Wave without an immediate threat and leaving it unavailable when critical space is needed, or waiting too long."
+          },
+          {
+            "reference": "Section 2 - Resources, Feedback, and Failure, Player Mana ownership",
+            "requirement": "The shared Player Mana system is the single owner of current mana and the post-cast regeneration-delay state. Spells spend mana through its owner-controlled spend interface."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+            "observation": "Spend(amount) already returns false and leaves CurrentMana unchanged when the pool is insufficient, with a comment stating this is so callers (spells) know the cast was refused; PlayerManaUI continuously binds a fill Image to CurrentMana/MaxMana."
+          },
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "player-mana acceptance criterion at lines 348-351 requires a denied-cast signal distinct from a successful spend, citing Section 3's failure-readability criterion as its reference."
+          }
+        ],
+        "recommended_change": "Keep the Section 3 failure-readability validation requirement on `player-mana`, but reword the denied-cast acceptance criterion to state that readable low-mana failure feedback must exist and that a denied-cast signal is one acceptable implementation, or move it to notes as an implementation option, so the item is not treated as incomplete purely for lacking an event the GDD never names.",
+        "requires_human_review": false
+      },
+      {
+        "finding_id": "PC-F3",
+        "severity": "suggestion",
+        "category": "evidence_problem",
+        "title": "Duplicated failure-readability validation requirements on player-health and player-mana",
+        "description": "Both player-core items carry two near-identical validation requirements for the same Section 3 failure-readability criterion, apparently from merging a requirement overlay into pre-existing entries: player-health has 'Validate that failure is readable through health/damage feedback...' (reference 'GDD §3 Player Experience Success Criteria') immediately followed by 'Failure caused by poor positioning is readable to the player through health/damage feedback...' (reference 'Section 3 - Player Experience Success Criteria'); player-mana has the equivalent pair for low mana. The requirement is durably covered, so this is cosmetic, but duplicate validation rows with inconsistent reference formatting inflate the validation checklist a downstream agent receives and make it harder to tell whether two distinct checks are expected.",
+        "affected_keys": [
+          "player-health",
+          "player-mana"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "Section 4 - Development Agent Ownership Invariants",
+            "requirement": "Player Experience Success Criteria are required validation obligations, not advisory prose. Each criterion in Section 3 must be represented as a validation requirement on the work item or items that own the underlying behavior."
+          }
+        ],
+        "repository_evidence": [
+          {
+            "path": "Pipeline/Reconciliation/outputs/runs/20260821T193541Z-998ee7b5/reconciliation.json",
+            "observation": "player-health validation_requirements lines 273-280 contain two entries for the same failure-readability criterion; player-mana validation_requirements lines 358-369 contain the same duplication for low mana, with reference strings formatted two different ways ('GDD §3 ...' vs 'Section 3 - ...')."
+          }
+        ],
+        "recommended_change": "De-duplicate the overlay-merged validation requirements on player-health and player-mana into one entry each, and normalize the GDD reference string format across both items.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Audit scope was restricted to Player Movement/input, Player Health, Player Mana, player position/movement-restriction ownership, health/mana feedback, player-core reset responsibilities, and directly owned validation. Items in other territories (spells, doors, enemies, world, encounters, run lifecycle, delivery/pipeline) were read only to evaluate owner/consumer contracts touching player-core, and no findings are emitted about them.",
+      "I independently verified the candidate's player-core repository claims against the checkout rather than accepting them: PlayerMovement.cs is CharacterController + raw Keyboard.current WASD polling with no cursor projection, no movement-restriction interface, and no reset entry point; PlayerHealth.cs exposes only CurrentHealth, a clamped TakeDamage, and a Damaged event (no restore, no zero-health transition, no reset); PlayerMana.cs exposes CurrentMana/MaxMana/Spend/Tick-based post-cast-delay regeneration and no reset; a glob of Assets/NoSafeCircle/**/*.cs plus DoorPrototypeSceneBuilder.cs confirms PlayerManaUI/BuildManaUI exist but there is no player-health UI component or builder call. All of these match the candidate.",
+      "player-core coverage is otherwise complete and correctly typed: mouse-directed click/hold movement, Input System routing, the shared cursor-to-gameplay-plane pointer target, the Charged-Fireball movement-restriction interface, and the position reset entry point are all explicit acceptance criteria on player-movement; Player Health's restore interface, zero-health/death transition, continuous health indicator, no-passive-regeneration rule, and reset entry point are explicit acceptance criteria on player-health; Player Mana's ownership boundary and reset entry point are explicit on player-mana. Section 3 failure-readability is represented as validation, not invented work.",
+      "Player-core reset closure is intact in both directions: floor-run-restart-bootstrap depends on player-health, player-mana, and player-movement with accurate current-repository reasons, and floor-run-restart-persistent-closure repeats those edges, so no player-core reset participant can silently disappear from the future graph.",
+      "player-movement's repository_state of 'partial' is defensible (an integrated CharacterController mover and the PlayerInteractionController.OnPlayerMoved hook exist) but no GDD-required movement acceptance criterion is currently satisfied; graph_status is 'open' and every criterion is listed as missing, so I did not raise it as an incorrect-state finding. A human reviewer should read 'partial' here as 'exists and must be rewritten', not 'partly done'.",
+      "I considered and rejected a dependency finding for player-movement on gameplay-navigation-locomotion: Section 5 assigns the shared navigation/locomotion layer to enemy movement ('consumed by enemy movement'), and whether click-to-destination player walking uses NavMesh pathing is an implementation choice the GDD does not decide. Per the anti-invented-ambiguity rule I did not classify this as an unresolved gameplay requirement.",
+      "I did not evaluate exclusive-resource lock correctness on player-core items beyond noting that player-mana carries none while player-health/player-movement carry the builder/scene locks; that asymmetry is consistent with player-mana's criteria being code-only, and lock auditing belongs to another parallel territory."
+    ],
+    "requirements": [
+      {
+        "requirement_id": "PC-01",
+        "reference": "Section 2 - Player Actions and Systems, Move and Aim row",
+        "requirement": "Mouse-directed movement: click to set a destination or hold to keep steering toward the cursor, preserving the spatial feel of early isometric action/RPG movement.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-movement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "player-movement carries the explicit criterion 'a click sets a destination the wizard walks toward, and holding continues steering toward the current cursor position', plus a Play Mode validation requirement for both behaviors. Click/hold behavior is exactly the kind of behavior the taxonomy assigns to the owning movement work item rather than a separate node."
+      },
+      {
+        "requirement_id": "PC-02",
+        "reference": "Section 2 - Resources, Feedback, and Failure, Player Movement ownership bullet",
+        "requirement": "The player movement system owns player position, locomotion, and movement-restriction state as a distinct runtime state owner (not collapsed into a shared player system).",
+        "classification": "required_implementation",
+        "representation": "work_item",
+        "mapped_keys": [
+          "player-movement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as the concrete implementation item `player-movement` (kind implementation, parent `player`, decomposition_state concrete, execution_scope single_agent), separate from `player-health` and `player-mana`, which preserves the Section 4 invariant that these remain separate runtime state owners."
+      },
+      {
+        "requirement_id": "PC-03",
+        "reference": "Section 2 - Move and Aim row; Section 5 - Runtime Implementation",
+        "requirement": "Player Movement owns the shared cursor-to-gameplay-plane projection and exposes the resulting world-space pointer target; movement, cursor-aimed spells, and Door/Interaction consume that shared target instead of independently projecting screen coordinates.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-movement",
+          "fireball",
+          "frost-field",
+          "door-open-interaction"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Owner side is an explicit player-movement acceptance criterion ('Exposes a shared world-space pointer target produced by projecting the cursor onto the gameplay plane, consumable by cursor-aimed spells and Door/Interaction'), with a matching validation requirement. Consumer side is preserved by real depends_on edges from fireball, frost-field, and door-open-interaction onto player-movement, each citing the still-missing projection, so this shared capability is not hidden inside one consumer."
+      },
+      {
+        "requirement_id": "PC-04",
+        "reference": "Section 2 - Player Movement ownership bullet; Section 5 - Runtime Implementation",
+        "requirement": "Runtime gameplay input is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling inside gameplay systems.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-movement",
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "player-movement's first acceptance criterion requires movement input to be 'consumed through Unity Input System/Input Actions rather than direct hardware polling', and each spell carries the equivalent criterion for its cast input. This is a runtime technical contract on the implementation owners, not a development-process rule, and the candidate classifies it that way. Current PlayerMovement.cs violates it (raw Keyboard.current polling), which the candidate records accurately as repository evidence."
+      },
+      {
+        "requirement_id": "PC-05",
+        "reference": "Section 2 - Player Movement ownership bullet; Section 4 - Development Agent Ownership Invariants, Wizard Combat Agent bullet",
+        "requirement": "Player Movement exposes an owner-controlled movement-restriction interface that Charged Fireball requests and releases while charging; Fireball does not mutate movement internals.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-movement",
+          "fireball"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Owner side is an explicit player-movement acceptance criterion; consumer side is an explicit fireball acceptance criterion plus a depends_on edge from fireball to player-movement whose stated reason is the missing restriction interface. Both halves of the owner/consumer contract are durably represented."
+      },
+      {
+        "requirement_id": "PC-06",
+        "reference": "Section 2 - Loss / Floor-run restart ownership; Section 5 - Runtime Implementation",
+        "requirement": "Player Movement/player position exposes an owner-controlled reset entry point restoring movement state to the floor's initial state, invoked by the Floor Run/Restart Orchestrator rather than mutated externally.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-movement",
+          "floor-run-restart-bootstrap",
+          "floor-run-restart-persistent-closure"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "The owner-side reset entry point is an explicit player-movement acceptance criterion, and both restart stages depend on player-movement with the missing reset entry point as the stated reason, so the player-position half of restart closure cannot be silently dropped."
+      },
+      {
+        "requirement_id": "PC-07",
+        "reference": "Section 2 - Win and Loss Conditions, Victory/input-shutdown ownership; Section 4 - Final escape/victory coordination invariant",
+        "requirement": "Player Movement exposes an owner-controlled gameplay-enable/suspend interface that immediately stops or cancels current input-driven movement, rejects new gameplay commands while suspended, and can be re-enabled by an authorized reset/test flow.",
+        "classification": "required_implementation",
+        "representation": "unrepresented",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [],
+        "explanation": "No acceptance criterion, validation requirement, or gdd_evidence row on `player-movement` obliges this owner-side interface. It appears only as a consumption criterion and dependency reason on `final-escape-victory`, which per the acceptance-versus-validation rule cannot be the sole durable representation of required owner-side implementation behavior. The intended owner is `player-movement`; see finding PC-F1. The three spells each carry the equivalent owner-side criterion, confirming this is an omission rather than a deliberate representation choice."
+      },
+      {
+        "requirement_id": "PC-08",
+        "reference": "Section 2 - Resources, Feedback, and Failure, Player Health ownership bullet; Section 3 - Required Enemy Roster",
+        "requirement": "The shared Player Health system is the single owner of the wizard's current health and exposes an owner-controlled damage interface; enemy attack implementations call it rather than maintaining separate player-health state.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-health"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Owner side is captured in player-health's gdd_evidence and is already implemented (PlayerHealth.TakeDamage with clamping and a Damaged event, serialized on the Player GameObject). The candidate correctly treats this as an existing usable interface that enemy work may consume without a dependency edge, per the existing-interface rule, while unrelated player-health work (restore/death/reset/UI) remains open."
+      },
+      {
+        "requirement_id": "PC-09",
+        "reference": "Section 2 - Player Health ownership bullet; Section 2 - Close and Lock row",
+        "requirement": "Player Health exposes an owner-controlled restore/heal interface clamped to maximum health; door locking requests the small fixed recovery through it and Door and Interaction never writes player-health state directly.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-health",
+          "door-close-lock-break-lifecycle"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit player-health acceptance criterion for the clamped restore entry point, with the door lifecycle item depending on player-health precisely because PlayerHealth.cs currently has no restore method (independently verified). Exact recovery value is explicitly deferred to playtesting by the GDD and correctly left out of the acceptance surface."
+      },
+      {
+        "requirement_id": "PC-10",
+        "reference": "Section 2 - Player Health ownership bullet; Section 2 - Floor-run restart ownership",
+        "requirement": "Player Health exposes an observable zero-health/death transition consumed by the Floor Run/Restart Orchestrator without polling health or mutating Player Health internals.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-health",
+          "floor-run-restart-bootstrap"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit player-health acceptance criterion for the observable transition, matched by a bootstrap acceptance criterion requiring subscription without polling CurrentHealth, and a bootstrap depends_on edge citing the missing death event. The player-facing loss rule ('reach zero health, the floor restarts') is owned by the run-lifecycle domain and is out of this audit's territory."
+      },
+      {
+        "requirement_id": "PC-11",
+        "reference": "Section 2 - Resources, Feedback, and Failure, Health feedback bullet",
+        "requirement": "The wizard's current health is continuously visible through a simple player-facing health indicator so accumulated cross-room damage and remaining survivability are readable throughout the run.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-health"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Represented as an explicit player-health acceptance criterion ('Provides a continuous player-facing health indicator reflecting current/maximum health at all times'), consistent with the rule that continuous health visibility belongs to the Player Health responsibility rather than a separate health-UI owner. The candidate also attaches the builder/scene exclusive resources needed to add the UI, mirroring the already-integrated PlayerManaUI pattern; I confirmed no health UI component or builder call currently exists."
+      },
+      {
+        "requirement_id": "PC-12",
+        "reference": "Section 2 - Resources, Feedback, and Failure, Health bullet",
+        "requirement": "Health does not regenerate during a room and does not reset between rooms; it carries across the whole run, changing only through damage, the fixed door-lock recovery, or restart.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-health"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit player-health acceptance criterion stating health does not passively regenerate during or between rooms and changes only via the damage interface, the restore interface, or the orchestrator-invoked reset. This durably prevents an implementer from adding regeneration, and is stronger than evidence-only coverage."
+      },
+      {
+        "requirement_id": "PC-13",
+        "reference": "Section 2 - Floor-run restart ownership",
+        "requirement": "Player Health exposes an owner-controlled reset entry point restoring current health to its floor-initial value, invoked by the restart orchestrator.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-health",
+          "floor-run-restart-bootstrap",
+          "floor-run-restart-persistent-closure"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Owner-side criterion on player-health plus dependency edges from both restart stages; the bootstrap also carries a Play Mode validation requirement that health returns to floor-initial values after restart."
+      },
+      {
+        "requirement_id": "PC-14",
+        "reference": "Section 2 - Player Mana ownership bullet; Section 5 - Runtime Implementation",
+        "requirement": "The shared Player Mana system is the single owner of current mana and post-cast regeneration-delay state, exposing an owner-controlled spend interface to spells, and does not own spell-local cooldown/charge/cast/placement/active-field state.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-mana"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "player-mana carries an explicit criterion that it continues to own only mana and regen-delay state and does not absorb Fireball/Frost Field/Force Wave local state; the spend interface already exists (PlayerMana.Spend, test-covered), and the candidate correctly declines to create spell->player-mana dependency edges solely for spending, per the existing-interface rule."
+      },
+      {
+        "requirement_id": "PC-15",
+        "reference": "Section 2 - Resources, Feedback, and Failure, Mana bullet",
+        "requirement": "Mana regenerates slowly after a brief post-cast delay, so waiting restores power while locked doors continue losing durability.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-mana"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Captured in player-mana's gdd_evidence and already implemented (Tick-driven post-cast delay plus regenPerSecond in PlayerMana.cs), with a validation requirement that the existing PlayerManaPlayModeTests coverage of spend/regen/post-cast-delay continues to pass. Behavior is durably held by regression validation on the owning item rather than needing a new node."
+      },
+      {
+        "requirement_id": "PC-16",
+        "reference": "Section 2 - Floor-run restart ownership; Section 5 - Runtime Implementation",
+        "requirement": "Player Mana exposes an owner-controlled reset entry point restoring current mana and clearing the post-cast regeneration-delay state on floor restart.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-mana",
+          "floor-run-restart-bootstrap",
+          "floor-run-restart-persistent-closure"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Explicit player-mana acceptance criterion covering both mana and the regen-delay timer (the GDD names the delay state specifically), with dependency edges from both restart stages citing the missing reset entry point. Verified: PlayerMana.cs has no reset method."
+      },
+      {
+        "requirement_id": "PC-17",
+        "reference": "Section 3 - Player Experience Success Criteria",
+        "requirement": "Failure is readable, including failure caused by low mana.",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "player-mana"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Attached as a validation requirement on the owning resource item per the Section 4 rule that Player Experience Success Criteria are validation obligations on the work that owns the behavior, not new features. Note the item also adds a denied-cast acceptance criterion inferred from this criterion; see finding PC-F3 for the duplicate validation rows and PC-F2 for the inferred criterion."
+      },
+      {
+        "requirement_id": "PC-18",
+        "reference": "Section 3 - Player Experience Success Criteria",
+        "requirement": "Failure is readable, including failure caused by poor positioning (read through health/damage feedback).",
+        "classification": "required_gameplay",
+        "representation": "validation_requirement",
+        "mapped_keys": [
+          "player-health"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Attached as a validation requirement on player-health, which owns the health/damage feedback the player reads. The remaining clauses of this success criterion (Force Wave misuse/unavailability, waiting too long) are owned by the combat and door/run-lifecycle territories and are outside this audit's scope."
+      },
+      {
+        "requirement_id": "PC-19",
+        "reference": "Section 4 - Development Agent Ownership Invariants, Wizard Combat Agent bullet",
+        "requirement": "Within the Wizard Combat responsibility, Player Health, Player Mana, Player Movement, and each spell remain separate runtime state owners rather than collapsing their state into one shared player system; this ownership boundary is a required development-process constraint preserved by planning, reconciliation, implementation, and validation agents.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants"
+        ],
+        "mapped_keys": [],
+        "explanation": "The process invariant itself maps to the typed `pipeline_constraint` record 'Development Agent Ownership Invariants' (requirement_type matches). The runtime realization is separately represented by three distinct implementation items (player-movement, player-health, player-mana) under the `player` feature; per the split-compound-passages rule these are kept as conceptually separate inventory rows rather than folding the process invariant into an acceptance criterion."
+      },
+      {
+        "requirement_id": "PC-20",
+        "reference": "Section 4 - Development Agent Roles, Wizard Combat Agent row",
+        "requirement": "The Wizard Combat Agent implements player movement, the shared Input System/Input Actions consumption pattern, the Player Movement-owned cursor-targeting projection, health, mana, cooldowns, and recovery, without editing enemy-movement or enemy-attack code directly.",
+        "classification": "required_process",
+        "representation": "pipeline_constraint",
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants"
+        ],
+        "mapped_keys": [],
+        "explanation": "This is a development-agent role/ownership boundary governing how work is performed, so it maps to the typed pipeline_constraint record rather than to gameplay work. The corresponding runtime behaviors are separately inventoried as PC-01 through PC-18 on the concrete player-core owners."
+      }
+    ]
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}

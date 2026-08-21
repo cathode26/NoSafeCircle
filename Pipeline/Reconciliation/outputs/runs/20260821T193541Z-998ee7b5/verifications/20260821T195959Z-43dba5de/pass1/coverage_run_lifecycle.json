@@ -1,0 +1,205 @@
+{
+  "agent": "Coverage — Run Lifecycle",
+  "requested_model": "sonnet",
+  "duration_seconds": 244.21,
+  "result": {
+    "findings": [
+      {
+        "finding_id": "F1",
+        "severity": "suggestion",
+        "category": "requirement_representation_problem",
+        "title": "Enemy-reset acceptance criterion on persistent closure does not explicitly restate status-effect/displacement clearing",
+        "description": "GDD 'Loss' explicitly requires that 'no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run.' The floor-run-restart-persistent-closure work item lists enemy-status-effect-displacement as a dependency and its generic acceptance criterion ('invoke reset entry points for every implemented persistent owner beyond the bootstrap set') covers it structurally, but the item's specific enemy-reset acceptance criterion only names 'no retained target or search state' and omits status-effect/displacement explicitly. This is not currently exploitable as a gap because the dependency edge and generic full-closure gate both require enemy-status-effect-displacement's own reset entry point to be invoked, so an implementer cannot skip it without violating the generic criterion. This is a clarity improvement, not a missing obligation.",
+        "affected_keys": [
+          "floor-run-restart-persistent-closure",
+          "enemy-status-effect-displacement"
+        ],
+        "gdd_evidence": [
+          {
+            "reference": "GDD §2 Win and Loss Conditions — Loss",
+            "requirement": "no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run"
+          }
+        ],
+        "repository_evidence": [],
+        "recommended_change": "Optionally expand the enemy-reset acceptance criterion on floor-run-restart-persistent-closure to explicitly name status-effect and displacement clearing alongside target/search state, for readability during future decomposition; not required for correctness given the existing dependency edge and generic closure gate.",
+        "requires_human_review": false
+      }
+    ],
+    "notes": [
+      "Scope for this pass was restricted to: zero-health loss, Floor Run/Restart orchestration, staged/current-owner and full persistent closure, win/loss, final escape/victory, input shutdown, and You Escaped presentation, per the PARALLEL AUDIT SCOPE override.",
+      "Verified against repository state that PlayerHealth.cs, PlayerMana.cs, PlayerMovement.cs, and DoorInteractable.cs currently expose no restore/reset/zero-health-event/suspend interfaces, and that no Fireball, Frost Field, Force Wave, enemy, restart-orchestrator, or victory/escape code exists anywhere under Assets/. This matches every repository_state/repository_evidence claim made by the candidate's floor-run-restart-bootstrap, floor-run-restart-persistent-closure, player-health, and final-escape-victory nodes.",
+      "All depends_on edges inspected within this territory (floor-run-restart-bootstrap, floor-run-restart-persistent-closure, final-escape-victory) target kind=implementation nodes only; no feature-to-feature dependency edges were found in this territory.",
+      "GDD reference labels cited by the candidate in this territory (e.g. 'Floor-run restart ownership', 'Victory/input-shutdown ownership', 'Player Health ownership') correspond to real bolded GDD subheadings/labels in Docs/GDD/No_Safe_Circle_GDD.md; no fabricated 'VERIFIED CLOSURE' or verifier-provenance labels were used as GDD evidence in this territory.",
+      "The candidate's decision to represent the loss trigger under floor-run-restart rather than duplicating it under win-loss-conditions/final-escape-victory is a reasonable and explicitly justified split (win-side vs loss-side ownership), consistent with the GDD's own architectural split between Game Flow/Victory and the Floor Run/Restart Orchestrator.",
+      "final-escape-victory's suspend-interface dependency set (player-movement, door-open-interaction, fireball, frost-field, force-wave) matches the GDD's explicit five-owner list ('Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave') exactly; enemy systems are correctly excluded since the GDD does not list them as suspend-interface owners."
+    ],
+    "requirements": [
+      {
+        "requirement_id": "R1",
+        "reference": "GDD §2 Win and Loss Conditions — Loss",
+        "requirement": "Reaching zero health restarts the entire floor by design; this is an intentional single-attempt structure, not a placeholder.",
+        "classification": "required_gameplay",
+        "representation": "work_item",
+        "mapped_keys": [
+          "floor-run-restart"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "The loss->restart trigger is organized as its own feature (floor-run-restart) which decomposes into the bootstrap and persistent-closure implementation nodes; this is a legitimate work-item representation of a distinct required mechanic."
+      },
+      {
+        "requirement_id": "R2",
+        "reference": "GDD §2 Win and Loss Conditions — Loss",
+        "requirement": "Restart resets all run-persistent gameplay state to the floor's initial state, including Player Health, Player Mana/regen-delay, player position/movement, Fireball, Frost Field, Force Wave, persistent enemy objects/health, pursuit/search/status/attack state, Active Enemy Registry bookkeeping, door lifecycle/crossing/durability state, and encounter activation/admission state.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "floor-run-restart-persistent-closure",
+          "floor-run-restart-bootstrap"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Every named participant appears either in the bootstrap's currently-existing-owner set or as an explicit dependency of floor-run-restart-persistent-closure, whose acceptance criteria require full participation before closure is considered complete."
+      },
+      {
+        "requirement_id": "R3",
+        "reference": "GDD §2 Floor-run restart ownership",
+        "requirement": "Player Health's observable zero-health/death transition triggers the shared Floor Run/Restart Orchestrator, which invokes owned reset entry points rather than reaching into or duplicating another system's internal state.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "floor-run-restart-bootstrap"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "floor-run-restart-bootstrap's acceptance criteria explicitly require subscribing to an owner-exposed zero-health/death transition and calling only exposed reset entry points, matching this GDD contract directly."
+      },
+      {
+        "requirement_id": "R4",
+        "reference": "GDD §2 Floor-run restart ownership",
+        "requirement": "Early implementation may validate the orchestrator against only currently-existing persistent systems, but full restart closure remains required work until every implemented state owner participates.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "floor-run-restart-bootstrap",
+          "floor-run-restart-persistent-closure"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "The staged bootstrap/closure split and the closure item's explicit 'not considered complete while any implemented owner does not participate' criterion preserve this two-stage GDD-authorized structure without treating the bootstrap as terminal."
+      },
+      {
+        "requirement_id": "R5",
+        "reference": "GDD §2 Win and Loss Conditions — Loss / Floor-run restart ownership",
+        "requirement": "Each persistent enemy is returned to its original authored encounter/spawn region and initial AI state on restart; no target, last-known-position, search, attack, status-effect, or displacement state carries over from the failed run.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "floor-run-restart-persistent-closure",
+          "enemy-pursuit-search-foundation",
+          "enemy-status-effect-displacement"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "Persistent-closure's acceptance criteria plus its dependencies on enemy-pursuit-search-foundation and enemy-status-effect-displacement (each required to expose its own reset entry point) durably cover this; see F1 for a minor clarity suggestion, not a coverage gap."
+      },
+      {
+        "requirement_id": "R6",
+        "reference": "GDD §2 Spell-local state ownership",
+        "requirement": "Each spell owner (Fireball, Frost Field, Force Wave) exposes a reset entry point for any owned state that can still be active when a floor restart occurs.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "floor-run-restart-persistent-closure",
+          "fireball",
+          "frost-field",
+          "force-wave"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "All three spells are named dependencies of floor-run-restart-persistent-closure with reasons explicitly citing their owned reset-state obligations, matching the GDD's per-spell reset ownership split."
+      },
+      {
+        "requirement_id": "R7",
+        "reference": "GDD §2 Player Health ownership",
+        "requirement": "The shared Player Health system exposes owner-controlled damage/restore interfaces plus an observable zero-health/death transition consumed by the Floor Run/Restart Orchestrator; restoration is clamped to maximum health and other systems never write player-health state directly.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "player-health"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "player-health's acceptance criteria require exactly these interfaces (clamped restore, observable zero-health/death event, orchestrator-consumed reset entry point), matching repository evidence that none currently exist on PlayerHealth.cs."
+      },
+      {
+        "requirement_id": "R8",
+        "reference": "GDD §2 Win and Loss Conditions — Win",
+        "requirement": "Victory occurs when the shared doorway-crossing state confirms the wizard crossed to the forward side of the final door; the win condition does not implement a separate crossing detector.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "final-escape-victory"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "final-escape-victory's acceptance criteria and its dependency on doorway-crossing-state directly capture this single-source-of-truth crossing trigger."
+      },
+      {
+        "requirement_id": "R9",
+        "reference": "GDD §2 Win and Loss Conditions — Win",
+        "requirement": "Once victory is confirmed, normal gameplay input (movement, door interaction, Fireball, Frost Field, Force Wave) stops and a simple 'You Escaped' overlay is displayed; no additional post-victory progression, menu flow, or meta-progression is required.",
+        "classification": "required_gameplay",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "final-escape-victory"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "final-escape-victory's acceptance criteria explicitly require the overlay and explicitly note no further progression/menu flow is implemented, matching the GDD's explicit scope-closing statement."
+      },
+      {
+        "requirement_id": "R10",
+        "reference": "GDD §2 Victory/input-shutdown ownership",
+        "requirement": "A reusable Game Flow/Victory capability owns the won-state transition, overlay display, and gameplay-shutdown coordination; Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave each expose an owner-controlled suspend/re-enable interface that stops already-active input-driven activity (not merely blocks new commands) and is consumed rather than having internals mutated directly.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "final-escape-victory"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "final-escape-victory's acceptance criteria and its five owner-interface dependencies (player-movement, door-open-interaction, fireball, frost-field, force-wave) match this ownership/suspend contract exactly, including the 'stop already-active activity, not just block new input' nuance."
+      },
+      {
+        "requirement_id": "R11",
+        "reference": "GDD §4 Development Agent Ownership Invariants — Final escape/victory coordination",
+        "requirement": "Final escape/victory coordination owns only the won-state transition, gameplay-suspension coordination, and victory presentation; it must not reach into movement, door, or spell internals to stop them.",
+        "classification": "required_process",
+        "representation": "non_code_requirement",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Development Agent Ownership Invariants"
+        ],
+        "explanation": "This is the process-invariant half of a compound passage whose runtime behavior half is separately captured as acceptance criteria on final-escape-victory (R10); the invariant itself is durably represented as a typed pipeline_constraint non-code record."
+      },
+      {
+        "requirement_id": "R12",
+        "reference": "GDD §4 Shared Context and Coordination Rules — Current prototype scene-builder lock",
+        "requirement": "Under the current scene-built UI approach, final-victory work that creates/configures the 'You Escaped' overlay must take exclusive-write locks on DoorPrototypeSceneBuilder.cs and DoorPrototype.unity.",
+        "classification": "required_process",
+        "representation": "non_code_requirement",
+        "mapped_keys": [],
+        "mapped_non_code_titles": [
+          "Current prototype scene-builder exclusive-write lock"
+        ],
+        "explanation": "final-escape-victory's exclusive_resources list cites exactly this builder/scene lock with the matching GDD rationale, and the durable typed pipeline_constraint record exists in non_code_requirements."
+      },
+      {
+        "requirement_id": "R13",
+        "reference": "GDD §2 Floor-run restart ownership",
+        "requirement": "Adding later rooms or stateful systems must extend the reset participants without redesigning the orchestration contract.",
+        "classification": "required_implementation",
+        "representation": "acceptance_criterion",
+        "mapped_keys": [
+          "floor-run-restart-persistent-closure"
+        ],
+        "mapped_non_code_titles": [],
+        "explanation": "The closure item's acceptance criteria describe extending the same orchestrator to invoke additional owners as they become implemented, preserving the contract rather than redesigning it, matching this forward-compatibility requirement."
+      }
+    ],
+    "verdict": "pass_with_findings"
+  },
+  "verification_attempt": 1,
+  "max_turns_used": 32
+}
