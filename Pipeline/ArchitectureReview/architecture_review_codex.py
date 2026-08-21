@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import architecture_review as base
+import architecture_review_resume as resumable
 
 
 # Preserve the shared prompt builder before configure_base_runner replaces it.
@@ -16,9 +17,8 @@ _shared_common_review_prompt = base.common_review_prompt
 
 
 # Codex/ChatGPT defaults. The shared architecture-review schemas, prompts,
-# orchestration, output layout, and anti-anchoring rules remain in
-# architecture_review.py so the Claude and Codex runners evaluate the same
-# architecture contract.
+# role definitions, and output contract remain in architecture_review.py.
+# Resumable stage orchestration lives in architecture_review_resume.py.
 MODEL_POOL = [
     value.strip()
     for value in os.environ.get("ARCH_REVIEW_MODELS", "gpt-5.6-sol").split(",")
@@ -37,12 +37,12 @@ REVIEW_REASONING_EFFORT = (
     os.environ.get("ARCH_REVIEW_REASONING_EFFORT", "high").strip() or "high"
 )
 SYNTHESIS_REASONING_EFFORT = (
-    os.environ.get("ARCH_REVIEW_SYNTHESIS_REASONING_EFFORT", "xhigh").strip()
-    or "xhigh"
+    os.environ.get("ARCH_REVIEW_SYNTHESIS_REASONING_EFFORT", "max").strip()
+    or "max"
 )
 ADVERSARY_REASONING_EFFORT = (
-    os.environ.get("ARCH_REVIEW_ADVERSARY_REASONING_EFFORT", "xhigh").strip()
-    or "xhigh"
+    os.environ.get("ARCH_REVIEW_ADVERSARY_REASONING_EFFORT", "max").strip()
+    or "max"
 )
 
 VALID_REASONING_EFFORTS = {
@@ -77,7 +77,12 @@ def reasoning_effort_for(agent_name: str) -> str:
     return REVIEW_REASONING_EFFORT
 
 
-def codex_common_review_prompt(*, role_name: str, role_focus: str, frozen_head: str) -> str:
+def codex_common_review_prompt(
+    *,
+    role_name: str,
+    role_focus: str,
+    frozen_head: str,
+) -> str:
     prompt = _shared_common_review_prompt(
         role_name=role_name,
         role_focus=role_focus,
@@ -85,7 +90,10 @@ def codex_common_review_prompt(*, role_name: str, role_focus: str, frozen_head: 
     )
     return prompt.replace(
         "Inspect the repository directly using Read/Glob/Grep.",
-        "Inspect the repository directly using read-only shell/file inspection commands such as cat, sed, find, rg, and git show/log/diff as needed.",
+        (
+            "Inspect the repository directly using read-only shell/file inspection "
+            "commands such as cat, sed, find, rg, and git show/log/diff as needed."
+        ),
     )
 
 
@@ -171,7 +179,10 @@ def invoke_codex_agent(
                 f"{diagnostics[-12000:]}"
             )
 
-        final_text = final_path.read_text(encoding="utf-8", errors="replace").strip()
+        final_text = final_path.read_text(
+            encoding="utf-8",
+            errors="replace",
+        ).strip()
         try:
             structured = json.loads(final_text)
         except json.JSONDecodeError as exc:
@@ -197,8 +208,8 @@ def invoke_codex_agent(
 
 
 def configure_base_runner() -> None:
-    # Keep all shared orchestration identical while swapping only provider/model
-    # execution details and the one Claude-specific repository-inspection phrase.
+    # Preserve one shared review contract while swapping only the provider,
+    # model defaults, and the one Claude-specific inspection phrase.
     base.MODEL_POOL = MODEL_POOL
     base.SYNTHESIS_MODEL = SYNTHESIS_MODEL
     base.ADVERSARY_MODEL = ADVERSARY_MODEL
@@ -210,4 +221,4 @@ configure_base_runner()
 
 
 if __name__ == "__main__":
-    raise SystemExit(base.main())
+    raise SystemExit(resumable.main())
