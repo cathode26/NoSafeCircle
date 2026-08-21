@@ -1,4 +1,4 @@
-﻿services:
+services:
   claude:
     build:
       context: .
@@ -14,5 +14,20 @@
       - claude-config:/home/agent/.claude
     command: ["bash"]
 
+  codex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      CODEX_HOME: /home/agent/.codex
+    volumes:
+      - .:/workspace
+      - codex-config:/home/agent/.codex
+    command: ["bash"]
+
 volumes:
   claude-config:
+  codex-config:
