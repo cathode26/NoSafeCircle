@@ -1,22 +1,25 @@
-# No Safe Circle — Assignment 3 Agent Context
+# No Safe Circle — Claude Project Instructions
 
-This repository is a Unity 6000.1.8f1 project for the capstone game **No Safe Circle**.
+This repository is the Unity capstone game **No Safe Circle** and its AI-assisted development pipeline.
 
-The current assignment target is only the Sealed Door Prototype described in:
+## Source-of-truth boundary
 
-- `AgentCrew/inputs/door_feature_brief.md`
-- `AgentCrew/inputs/assignment_requirements.md`
+This file is **operating guidance only**. It is not game-design canon and it is not admissible GDD/repository evidence for reconciliation, verification, dependency, ownership, exclusive-resource, or completion claims. Agents must never cite `CLAUDE.md` as the authority for a game requirement or graph decision.
 
-## Global Rules
+Use these sources instead:
 
-- Do not expand the approved feature scope.
-- Do not add external Unity packages.
-- Do not directly edit Unity scene YAML.
-- Use an Editor scene-builder script instead of hand-writing a `.unity` scene.
-- Keep feature implementation under `Assets/NoSafeCircle/DoorPrototype/`.
-- Keep pipeline evidence under `AgentCrew/outputs/`.
-- Do not commit, push, reset, rebase, or modify Git history.
-- Do not modify Docker files.
-- Do not modify `ProjectSettings` unless the approved contract explicitly requires it.
+- Root game-design canon: `Docs/GDD/No_Safe_Circle_GDD.md`
+- Integrated project truth: the current checkout, especially `Assets/`, relevant `ProjectSettings/`, and approved package manifests/locks when applicable
+- AI pipeline routing/context: `AI_PIPELINE.md` and `Docs/AI-Pipeline/START_HERE.md`
+
+If this operating guidance and current project canon/state appear inconsistent, do not manufacture a reconciliation fact from this file. Follow the active task's explicit source boundaries and surface the discrepancy for review when necessary.
+
+## Global operating rules
+
+- Do not expand approved feature/task scope without authorization.
+- Do not silently invent missing game design.
 - Generated gameplay code must be testable and understandable by a human Unity developer.
-- Human inspection and final Unity execution remain required.
+- Treat Unity scenes, prefabs, shared builder scripts, and ProjectSettings conservatively because they are non-merge-safe integration surfaces.
+- Do not directly edit Unity scene YAML unless an explicitly approved task requires that mechanism; prefer the project's established authoring path.
+- Do not commit, push, reset, rebase, or modify Git history unless the active task explicitly authorizes Git operations.
+- Human inspection, merge/approval, and final Unity/runtime validation remain required where the pipeline specifies them.
