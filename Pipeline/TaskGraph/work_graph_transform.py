@@ -105,26 +105,37 @@ def candidate_resource_keys(candidate_item: dict[str, Any], context: str) -> lis
 
 
 def allocate_stable_ids(seed_records: list[dict[str, Any]]) -> dict[str, str]:
-    """Assign bootstrap IDs in the exact order of the approved seed proposal.
+    """Assign deterministic bootstrap IDs, reserving NSC-001 for the project root.
 
-    The proposal itself is SHA-256 bound by human approval, so this ordering is deterministic
-    for the approved bootstrap. The resulting map becomes durable state and future reconciliation
-    uses reconciliation_key traceability rather than allocating these IDs again.
+    The approved proposal contains a real `no-safe-circle` feature record. It is the durable
+    project-root node, not an out-of-band sentinel. Give that root NSC-001 for readability,
+    then preserve the exact approved seed-record order for every remaining record. The proposal
+    is SHA-256 bound by human approval, so the allocation is deterministic for this bootstrap.
+    The resulting map becomes durable state; future reconciliation reuses reconciliation_key
+    traceability rather than reallocating these IDs.
     """
 
-    id_map: dict[str, str] = {}
-    for index, record in enumerate(seed_records, start=1):
+    approved_keys: list[str] = []
+    seen: set[str] = set()
+    for index, record in enumerate(seed_records):
         if not isinstance(record, dict):
-            raise WorkGraphTransformError(f"seed_records[{index - 1}] is not an object.")
-        key = require_text(record, "reconciliation_key", f"seed_records[{index - 1}]")
-        if key == PROJECT_ROOT_KEY:
-            raise WorkGraphTransformError(
-                f"{PROJECT_ROOT_KEY!r} is the project-root sentinel and may not be allocated as a task."
-            )
-        if key in id_map:
+            raise WorkGraphTransformError(f"seed_records[{index}] is not an object.")
+        key = require_text(record, "reconciliation_key", f"seed_records[{index}]")
+        if key in seen:
             raise WorkGraphTransformError(f"Duplicate reconciliation_key in seed records: {key}")
-        id_map[key] = f"{WORK_ID_PREFIX}-{index:0{WORK_ID_MIN_WIDTH}d}"
-    return id_map
+        seen.add(key)
+        approved_keys.append(key)
+
+    if PROJECT_ROOT_KEY not in seen:
+        raise WorkGraphTransformError(
+            f"Approved seed records are missing required project-root feature {PROJECT_ROOT_KEY!r}."
+        )
+
+    ordered_keys = [PROJECT_ROOT_KEY] + [key for key in approved_keys if key != PROJECT_ROOT_KEY]
+    return {
+        key: f"{WORK_ID_PREFIX}-{index:0{WORK_ID_MIN_WIDTH}d}"
+        for index, key in enumerate(ordered_keys, start=1)
+    }
 
 
 def index_candidate(candidate: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -206,7 +217,12 @@ def transform_task(
             f"seed={resource_keys!r}, candidate={candidate_resources!r}"
         )
 
-    if parent_key in {"", PROJECT_ROOT_KEY}:
+    if key == PROJECT_ROOT_KEY and parent_key:
+        raise WorkGraphTransformError(
+            f"Project-root feature {PROJECT_ROOT_KEY!r} must not have a parent; got {parent_key!r}."
+        )
+
+    if not parent_key:
         parent_id = ""
     else:
         try:
@@ -387,7 +403,7 @@ def print_plan_summary(plan: WorkGraphPlan, inputs: ApprovedBootstrapInputs, sho
     print(f"Top-level task nodes: {root_items}")
     print(f"Resource groups:      {len(plan.resource_groups)}")
     print(f"Project requirements: {len(plan.project_requirements)}")
-    print("ID allocation:        approved seed-record order")
+    print("ID allocation:        project root NSC-001; remaining approved seed-record order")
 
     if show_id_map:
         print("\nStable bootstrap ID map:")
