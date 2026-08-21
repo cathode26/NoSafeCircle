@@ -52,7 +52,9 @@ def main() -> int:
     run_script("apply_streaming_v2_guidance.py")
     run_script("apply_streaming_v2_recovery_fix.py")
     run_script("apply_streaming_v2_semantic_list_dedupe.py")
+    run_script("apply_deterministic_finding_identity_fix.py")
     run_script("apply_resume_verification_order_fix.py")
+    run_script("apply_resume_deterministic_identity_remap.py")
     normalize_lf()
     print("All streaming verification + approved closure fixes are installed.")
     print("Clarified Frost Field placement at the shared cursor world target.")
@@ -63,8 +65,10 @@ def main() -> int:
     print("Field repair workers inherit the standard Refiner correctness guidance.")
     print("Fixed streaming v2 recovery bookkeeping for derived in-progress artifacts.")
     print("Deduplicated depends_on/exclusive_resources additions and removals by durable key.")
+    print("Made deterministic coverage finding IDs globally unique by originating auditor.")
     print("Installed failed-verification resume support without rerunning Pass 1 repairs.")
     print("Fixed resume verification initialization order.")
+    print("Resume now migrates preserved deterministic finding IDs to the global identity format.")
     print("Normalized patched text files to LF line endings.")
     return 0
 
