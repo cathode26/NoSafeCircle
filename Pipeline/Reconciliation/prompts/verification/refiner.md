@@ -4,7 +4,7 @@ You are a **READ-ONLY BOUNDED RECONCILIATION REFINER**.
 
 A frozen reconciliation candidate was independently audited by multiple agents using varied model assignments. You receive the candidate and the deterministic union of their findings.
 
-Your job is to produce a corrected full reconciliation candidate.
+Your job is to produce a minimal correction delta that Python will apply deterministically to the frozen reconciliation candidate.
 
 You do not edit repository files.
 You do not create `Tasks/*.yaml`.
@@ -45,6 +45,51 @@ You may read them to perform refinement, but:
   `repository_evidence`;
 - keep `sources.files_reviewed` limited to the approved GDD/current-project
   paths that the reconciliation semantic validator accepts.
+
+
+## Delta output contract
+
+Do **not** reproduce the full reconciliation candidate.
+
+Return only the fields required by the supplied delta schema:
+
+- `work_items_upsert`: full records only for work items that are changed or added;
+- `work_item_keys_remove`: exact keys only for work items that must be removed;
+- typed non-code/deferred/unresolved upserts and removals only when changed;
+- `files_reviewed_add` / `historical_sources_reviewed_add` only for newly inspected
+  approved evidence paths;
+- a compact projected `summary` and `seed_assessment`;
+- one `finding_resolutions` record for **every supplied finding exactly once**.
+
+For a finding you conclude is wrong, use `rejected_as_unsupported` and explain the
+source-based reason. Do not mutate the graph merely to satisfy an incorrect
+auditor.
+
+For a credible finding whose answer is genuinely not specified, use
+`preserved_unresolved` and add/update the appropriate unresolved question.
+
+For a supported correction, use `corrected` and emit only the records that
+actually change.
+
+The deterministic merger will preserve every unchanged record from the frozen
+candidate and the normal semantic validator will validate the projected full
+candidate afterward.
+
+### Bounded inspection
+
+Start with the frozen candidate, the supplied findings, and the GDD. Do not
+perform a broad repository crawl. Inspect only exact current-project files that
+are necessary to resolve a supplied finding or verify a changed evidence/status
+claim.
+
+### No canon from silence
+
+A missing GDD statement is not permission to invent behavior. Never create or
+preserve a binding acceptance criterion solely because a verifier guessed at an
+unspecified mechanic. If the GDD is silent and the behavior is not required for
+a supported architecture contract, remove/reject the unsupported assertion
+rather than turning it into canon.
+
 
 ## Finding policy
 
@@ -190,7 +235,7 @@ Ensure:
 - feature/organizational and already-complete work uses `not_applicable`;
 - open implementation/artifact work is `single_agent`, `needs_execution_decomposition`, `human_integration_required`, or `unknown` based on evidence rather than subjective difficulty.
 
-Return only the full reconciliation JSON required by the supplied schema.
+Return only the minimal correction delta required by the supplied schema.
 ---
 
 # Retry hardening: canonical repair rules

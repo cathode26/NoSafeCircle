@@ -290,6 +290,110 @@ def main() -> int:
     ]
 
 
+
+    delta_source = {
+        "summary": {
+            "desired_state_summary": "desired",
+            "current_state_summary": "current",
+            "major_findings": [],
+        },
+        "sources": {
+            "gdd": "Docs/GDD/No_Safe_Circle_GDD.md",
+            "code_root": "Assets/",
+            "historical_sources_reviewed": [],
+            "files_reviewed": ["Docs/GDD/No_Safe_Circle_GDD.md"],
+        },
+        "work_items": [
+            {"key": "no-safe-circle", "notes": "root"},
+            {"key": "task-a", "notes": "old"},
+            {"key": "task-b", "notes": "remove"},
+        ],
+        "non_code_requirements": [
+            {"title": "Keep", "status": "unknown"},
+        ],
+        "deferred_or_excluded": [],
+        "unresolved_questions": [],
+        "seed_assessment": {
+            "status": "ready_with_warnings",
+            "blockers": [],
+            "warnings": ["old"],
+        },
+    }
+    delta_findings = {
+        "findings": [
+            {
+                "source_agent": "Test Auditor",
+                "finding": {"finding_id": "F-1"},
+            }
+        ]
+    }
+    delta_patch = {
+        "summary": {
+            "desired_state_summary": "desired",
+            "current_state_summary": "refined",
+            "major_findings": ["fixed"],
+        },
+        "seed_assessment": {
+            "status": "ready",
+            "blockers": [],
+            "warnings": [],
+        },
+        "files_reviewed_add": ["Assets/Test.cs"],
+        "historical_sources_reviewed_add": [],
+        "work_items_upsert": [
+            {"key": "task-a", "notes": "new"},
+            {"key": "task-c", "notes": "added"},
+        ],
+        "work_item_keys_remove": ["task-b"],
+        "non_code_requirements_upsert": [],
+        "non_code_requirement_titles_remove": [],
+        "deferred_or_excluded_upsert": [],
+        "deferred_or_excluded_titles_remove": [],
+        "unresolved_questions_upsert": [],
+        "unresolved_question_texts_remove": [],
+        "finding_resolutions": [
+            {
+                "source_agent": "Test Auditor",
+                "finding_id": "F-1",
+                "disposition": "corrected",
+                "explanation": "Smoke-test repair.",
+            }
+        ],
+        "reasoning": "Only changed records are emitted.",
+    }
+    delta_result = crew.apply_refiner_delta(
+        source_payload=delta_source,
+        delta=delta_patch,
+        refiner_findings=delta_findings,
+    )
+    assert [item["key"] for item in delta_result["work_items"]] == [
+        "no-safe-circle",
+        "task-a",
+        "task-c",
+    ]
+    assert next(
+        item for item in delta_result["work_items"] if item["key"] == "task-a"
+    )["notes"] == "new"
+    assert delta_source["work_items"][1]["notes"] == "old"
+    assert delta_result["sources"]["files_reviewed"][-1] == "Assets/Test.cs"
+    assert delta_result["seed_assessment"]["status"] == "ready"
+
+    missing_resolution = dict(delta_patch)
+    missing_resolution["finding_resolutions"] = []
+    try:
+        crew.apply_refiner_delta(
+            source_payload=delta_source,
+            delta=missing_resolution,
+            refiner_findings=delta_findings,
+        )
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError(
+            "Refiner delta must not silently omit a supplied finding."
+        )
+
+
     legacy = {
         "work_items": [
             {"key": "root", "kind": "feature", "graph_status": "open"},

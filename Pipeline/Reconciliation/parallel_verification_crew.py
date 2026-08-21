@@ -34,7 +34,7 @@ COVERAGE_MAX_TURNS = int(
     __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_COVERAGE_TURNS", "24")
 )
 EVIDENCE_MAX_TURNS = int(
-    __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_EVIDENCE_TURNS", "24")
+    __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_EVIDENCE_TURNS", "36")
 )
 RECOVERY_TURN_BONUS = int(
     __import__("os").environ.get("RECONCILIATION_PARALLEL_VERIFY_RECOVERY_TURN_BONUS", "12")
@@ -915,7 +915,13 @@ def main() -> int:
                 model=refiner_model,
             )
 
-            refined_payload = refiner["result"]
+            refiner_delta = refiner["result"]
+            base.save_new_json(paths["refiner_delta"], refiner_delta)
+            refined_payload = base.apply_refiner_delta(
+                source_payload=source_payload,
+                delta=refiner_delta,
+                refiner_findings=refiner_findings,
+            )
             base.save_new_json(paths["refined_raw"], refined_payload)
 
             removed = sanitize_forbidden_evidence(refined_payload)

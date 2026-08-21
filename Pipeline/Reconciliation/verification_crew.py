@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
 import random
@@ -24,6 +25,10 @@ from output_layout import (
 from reconciliation_agent import (
     CLAUDE_DISALLOWED_TOOLS,
     RECONCILIATION_SCHEMA,
+    WORK_ITEM_SCHEMA,
+    NON_CODE_SCHEMA,
+    DEFERRED_SCHEMA,
+    UNRESOLVED_SCHEMA,
     ensure_execution_scope_defaults,
     build_proposed_graph_delta,
     render_graph_delta_markdown,
@@ -361,6 +366,7 @@ def create_verification_paths(source_run_id: str) -> dict[str, Any]:
         "pass1_dir": run_dir / "pass1",
         "merged_pass1": run_dir / "MERGED_FINDINGS_PASS1.json",
         "refiner_findings": run_dir / "REFINER_FINDINGS.json",
+        "refiner_delta": run_dir / "REFINER_DELTA.json",
         "refined_raw": run_dir / "refined_candidate.raw.json",
         "refined_json": run_dir / "refined_candidate.json",
         "refined_markdown": run_dir / "REFINED_RECONCILIATION.md",
@@ -893,6 +899,300 @@ def build_refiner_findings(merged: dict[str, Any]) -> dict[str, Any]:
 
 
 
+
+REFINER_RESOLUTION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "source_agent": {"type": "string"},
+        "finding_id": {"type": "string"},
+        "disposition": {
+            "type": "string",
+            "enum": [
+                "corrected",
+                "preserved_unresolved",
+                "rejected_as_unsupported",
+            ],
+        },
+        "explanation": {"type": "string"},
+    },
+    "required": [
+        "source_agent",
+        "finding_id",
+        "disposition",
+        "explanation",
+    ],
+}
+
+REFINER_SUMMARY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "desired_state_summary": {"type": "string"},
+        "current_state_summary": {"type": "string"},
+        "major_findings": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": [
+        "desired_state_summary",
+        "current_state_summary",
+        "major_findings",
+    ],
+}
+
+REFINER_SEED_ASSESSMENT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "status": {
+            "type": "string",
+            "enum": ["ready", "ready_with_warnings", "blocked"],
+        },
+        "blockers": {"type": "array", "items": {"type": "string"}},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["status", "blockers", "warnings"],
+}
+
+REFINER_DELTA_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "summary": REFINER_SUMMARY_SCHEMA,
+        "seed_assessment": REFINER_SEED_ASSESSMENT_SCHEMA,
+        "files_reviewed_add": {"type": "array", "items": {"type": "string"}},
+        "historical_sources_reviewed_add": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "work_items_upsert": {"type": "array", "items": WORK_ITEM_SCHEMA},
+        "work_item_keys_remove": {"type": "array", "items": {"type": "string"}},
+        "non_code_requirements_upsert": {
+            "type": "array",
+            "items": NON_CODE_SCHEMA,
+        },
+        "non_code_requirement_titles_remove": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "deferred_or_excluded_upsert": {
+            "type": "array",
+            "items": DEFERRED_SCHEMA,
+        },
+        "deferred_or_excluded_titles_remove": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "unresolved_questions_upsert": {
+            "type": "array",
+            "items": UNRESOLVED_SCHEMA,
+        },
+        "unresolved_question_texts_remove": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "finding_resolutions": {
+            "type": "array",
+            "items": REFINER_RESOLUTION_SCHEMA,
+            "minItems": 1,
+        },
+        "reasoning": {"type": "string"},
+    },
+    "required": [
+        "summary",
+        "seed_assessment",
+        "files_reviewed_add",
+        "historical_sources_reviewed_add",
+        "work_items_upsert",
+        "work_item_keys_remove",
+        "non_code_requirements_upsert",
+        "non_code_requirement_titles_remove",
+        "deferred_or_excluded_upsert",
+        "deferred_or_excluded_titles_remove",
+        "unresolved_questions_upsert",
+        "unresolved_question_texts_remove",
+        "finding_resolutions",
+        "reasoning",
+    ],
+}
+
+
+def validate_refiner_resolutions(
+    delta: dict[str, Any],
+    refiner_findings: dict[str, Any],
+) -> None:
+    expected = Counter()
+    for report in refiner_findings.get("findings", []):
+        finding = report.get("finding", {})
+        pair = (
+            str(report.get("source_agent", "")).strip(),
+            str(finding.get("finding_id", "")).strip(),
+        )
+        if not all(pair):
+            raise RuntimeError(
+                "REFINER_FINDINGS contains a finding without source_agent/finding_id."
+            )
+        expected[pair] += 1
+
+    actual = Counter()
+    for resolution in delta.get("finding_resolutions", []):
+        pair = (
+            str(resolution.get("source_agent", "")).strip(),
+            str(resolution.get("finding_id", "")).strip(),
+        )
+        if not all(pair):
+            raise RuntimeError(
+                "Refiner delta contains a resolution without source_agent/finding_id."
+            )
+        actual[pair] += 1
+
+    if actual != expected:
+        missing = list((expected - actual).elements())
+        extra = list((actual - expected).elements())
+        details: list[str] = []
+        if missing:
+            details.append(f"missing resolutions: {missing}")
+        if extra:
+            details.append(f"unexpected/duplicate resolutions: {extra}")
+        raise RuntimeError(
+            "Refiner delta must resolve every supplied finding exactly once; "
+            + "; ".join(details)
+        )
+
+
+def _unique_field_values(
+    records: list[dict[str, Any]],
+    field: str,
+    label: str,
+) -> None:
+    values = [str(record.get(field, "")).strip() for record in records]
+    if any(not value for value in values):
+        raise RuntimeError(f"{label} contains a blank {field}.")
+    duplicates = sorted(
+        value for value, count in Counter(values).items() if count > 1
+    )
+    if duplicates:
+        raise RuntimeError(
+            f"{label} contains duplicate {field} values: {duplicates}"
+        )
+
+
+def _apply_record_delta(
+    existing: list[dict[str, Any]],
+    upserts: list[dict[str, Any]],
+    removes: list[str],
+    *,
+    field: str,
+    label: str,
+) -> list[dict[str, Any]]:
+    _unique_field_values(upserts, field, f"{label} upserts")
+    remove_values = [str(value).strip() for value in removes]
+    if any(not value for value in remove_values):
+        raise RuntimeError(f"{label} removals contain a blank identifier.")
+    duplicate_removes = sorted(
+        value for value, count in Counter(remove_values).items() if count > 1
+    )
+    if duplicate_removes:
+        raise RuntimeError(
+            f"{label} removals contain duplicates: {duplicate_removes}"
+        )
+
+    remove_set = set(remove_values)
+    result = [
+        copy.deepcopy(record)
+        for record in existing
+        if str(record.get(field, "")).strip() not in remove_set
+    ]
+
+    index = {
+        str(record.get(field, "")).strip(): idx
+        for idx, record in enumerate(result)
+    }
+
+    for replacement in upserts:
+        key = str(replacement.get(field, "")).strip()
+        value = copy.deepcopy(replacement)
+        if key in index:
+            result[index[key]] = value
+        else:
+            index[key] = len(result)
+            result.append(value)
+
+    return result
+
+
+def _append_unique_strings(existing: list[Any], additions: list[Any]) -> list[str]:
+    result = [str(value) for value in existing]
+    seen = set(result)
+    for value in additions:
+        normalized = str(value)
+        if normalized not in seen:
+            result.append(normalized)
+            seen.add(normalized)
+    return result
+
+
+def apply_refiner_delta(
+    *,
+    source_payload: dict[str, Any],
+    delta: dict[str, Any],
+    refiner_findings: dict[str, Any],
+) -> dict[str, Any]:
+    # Apply only changed/new records, then let normal semantic validation check
+    # the projected full candidate.
+    validate_refiner_resolutions(delta, refiner_findings)
+
+    remove_work = [
+        str(value).strip()
+        for value in delta.get("work_item_keys_remove", [])
+    ]
+    if "no-safe-circle" in remove_work:
+        raise RuntimeError("Refiner delta may not remove the no-safe-circle root.")
+
+    refined = copy.deepcopy(source_payload)
+    refined["summary"] = copy.deepcopy(delta["summary"])
+    refined["seed_assessment"] = copy.deepcopy(delta["seed_assessment"])
+
+    sources = refined.setdefault("sources", {})
+    sources["files_reviewed"] = _append_unique_strings(
+        sources.get("files_reviewed", []),
+        delta.get("files_reviewed_add", []),
+    )
+    sources["historical_sources_reviewed"] = _append_unique_strings(
+        sources.get("historical_sources_reviewed", []),
+        delta.get("historical_sources_reviewed_add", []),
+    )
+
+    refined["work_items"] = _apply_record_delta(
+        refined.get("work_items", []),
+        delta.get("work_items_upsert", []),
+        remove_work,
+        field="key",
+        label="work_items",
+    )
+    refined["non_code_requirements"] = _apply_record_delta(
+        refined.get("non_code_requirements", []),
+        delta.get("non_code_requirements_upsert", []),
+        delta.get("non_code_requirement_titles_remove", []),
+        field="title",
+        label="non_code_requirements",
+    )
+    refined["deferred_or_excluded"] = _apply_record_delta(
+        refined.get("deferred_or_excluded", []),
+        delta.get("deferred_or_excluded_upsert", []),
+        delta.get("deferred_or_excluded_titles_remove", []),
+        field="title",
+        label="deferred_or_excluded",
+    )
+    refined["unresolved_questions"] = _apply_record_delta(
+        refined.get("unresolved_questions", []),
+        delta.get("unresolved_questions_upsert", []),
+        delta.get("unresolved_question_texts_remove", []),
+        field="question",
+        label="unresolved_questions",
+    )
+
+    return refined
+
 # ============================================================
 # BOUNDED REFINER
 # ============================================================
@@ -915,19 +1215,23 @@ def run_refiner(
         + f"- Reconciliation source run: `{source_run_id}`\n"
         + f"- Candidate: `{candidate_rel}`\n"
         + f"- Independent merged findings: `{findings_rel}`\n\n"
-        + "Read both inputs. Resolve every supplied finding with the current "
-        + "GDD and repository as primary truth. The supplied set contains every "
-        + "blocker/error plus only selected scheduler-relevant structural warnings. "
-        + "If credible findings conflict and "
-        + "cannot be resolved from evidence, preserve the uncertainty in "
-        + "unresolved_questions instead of inventing certainty.\n"
+        + "Read both inputs. Return ONLY the bounded correction delta required by "
+        + "the supplied schema; do not reproduce unchanged work items or the full "
+        + "candidate. Resolve every supplied finding exactly once in "
+        + "finding_resolutions. Use the current GDD and current repository as "
+        + "primary truth. Inspect repository files only when a supplied finding "
+        + "cannot be resolved from the candidate, cited evidence, and GDD. "
+        + "If credible findings conflict and the sources cannot resolve the "
+        + "conflict, preserve the uncertainty through an unresolved-question "
+        + "upsert instead of inventing certainty. If the GDD is silent about a "
+        + "behavior, do not turn that silence into a binding acceptance criterion.\n"
     )
 
     return invoke_read_only_agent(
         agent_name="Reconciliation Verification Refiner",
         model=model,
         prompt=prompt,
-        schema=RECONCILIATION_SCHEMA,
+        schema=REFINER_DELTA_SCHEMA,
         timeout_seconds=REFINER_TIMEOUT_SECONDS,
         max_turns=REFINER_MAX_TURNS,
     )
@@ -1078,6 +1382,7 @@ def main() -> int:
     try:
         args = parse_args()
         source_run_id, source_candidate = resolve_source_snapshot(args.run_id)
+        source_payload = load_json(source_candidate)
         paths = create_verification_paths(source_run_id)
 
         seed = secrets.randbits(64)
@@ -1136,7 +1441,13 @@ def main() -> int:
                 source_run_id=source_run_id,
                 model=refiner_model,
             )
-            refined_payload = refiner["result"]
+            refiner_delta = refiner["result"]
+            save_new_json(paths["refiner_delta"], refiner_delta)
+            refined_payload = apply_refiner_delta(
+                source_payload=source_payload,
+                delta=refiner_delta,
+                refiner_findings=refiner_findings,
+            )
             save_new_json(paths["refined_raw"], refined_payload)
 
             removed = sanitize_forbidden_evidence(refined_payload)
