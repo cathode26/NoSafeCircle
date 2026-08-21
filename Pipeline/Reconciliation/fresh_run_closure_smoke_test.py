@@ -156,6 +156,17 @@ def check_required_representation_suggestion_refinement() -> None:
     assert not verify.is_refiner_relevant_report(ordinary_suggestion)
 
 
+def check_repository_metadata_boundary() -> None:
+    # Regression from reconciliation 20260821T191952Z-12fa2f4a: the global
+    # pipeline worker legitimately inspected .gitignore to establish that
+    # UserSettings/ is excluded from committed project state. The boundary
+    # should allow that one exact metadata file without opening arbitrary roots.
+    assert recon._is_allowed_review_path(".gitignore")
+    assert recon._is_allowed_review_path("./.gitignore")
+    assert not recon._is_allowed_review_path("README.md")
+    assert not recon._is_allowed_review_path("CLAUDE.md")
+
+
 def check_prompt_closure() -> None:
     reconcile_prompt = (
         ROOT / "Pipeline" / "Reconciliation" / "prompts" / "reconcile.md"
@@ -180,12 +191,17 @@ def check_prompt_closure() -> None:
     assert "does not suppress, pause, or slow Ranged Enemy attack execution" in reconcile_prompt
     assert "Explicit representation, not evidence-only coverage" in coverage_prompt
 
+    assert "CURRENT REPOSITORY METADATA BOUNDARY 2026-08-21" in reconcile_prompt
+    assert "`/.gitignore` is an approved current-project metadata source only" in reconcile_prompt
+    assert "No other root-level repository metadata file is approved" in reconcile_prompt
+
 
 def main() -> int:
     check_provenance_guard()
     check_seed_assessment_normalization()
     check_coverage_metadata_boundary()
     check_required_representation_suggestion_refinement()
+    check_repository_metadata_boundary()
     check_prompt_closure()
     print("fresh_run_closure_smoke_test: PASS")
     return 0
