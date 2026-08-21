@@ -62,7 +62,7 @@ def main() -> int:
     print("Hardened record-level remove/upsert conflict semantics.")
     print("Field repair workers inherit the standard Refiner correctness guidance.")
     print("Fixed streaming v2 recovery bookkeeping for derived in-progress artifacts.")
-    print("Deduplicated dependency/resource list edits by durable key rather than prose.")
+    print("Deduplicated depends_on/exclusive_resources additions and removals by durable key.")
     print("Installed failed-verification resume support without rerunning Pass 1 repairs.")
     print("Fixed resume verification initialization order.")
     print("Normalized patched text files to LF line endings.")
