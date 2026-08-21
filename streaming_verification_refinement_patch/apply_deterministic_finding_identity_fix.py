@@ -20,15 +20,11 @@ def main() -> int:
         print("Deterministic finding identity fix is already installed.")
         return 0
 
-    function_anchor = '''# ============================================================
-# DETERMINISTIC FINDING MERGE
-# ============================================================
-def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, Any]]:
-'''
-    function_replacement = '''# ============================================================
-# DETERMINISTIC FINDING MERGE
-# ============================================================
-def deterministic_auditor_slug(agent: str) -> str:
+    # Anchor only on the function definition. Earlier installers may change the
+    # amount of whitespace around section comments, so coupling this patch to the
+    # exact heading layout makes an otherwise compatible cumulative install fail.
+    function_anchor = "def deterministic_audit_checks(audits: list[dict[str, Any]]) -> list[dict[str, Any]]:\n"
+    function_replacement = '''def deterministic_auditor_slug(agent: str) -> str:
     """Return a stable identifier safe for deterministic finding IDs."""
     slug = "".join(
         character.lower() if character.isalnum() else "-"
