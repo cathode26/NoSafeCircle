@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from work_graph_transform import WorkGraphPlan
+from work_graph_transform import (
+    ALLOWED_EXECUTION_SCOPES,
+    ALLOWED_KINDS,
+    ALLOWED_STATUSES,
+    WorkGraphPlan,
+)
 from work_graph_validate import WorkGraphValidationSummary, validate_work_graph_plan
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,9 +42,16 @@ class PersistentWorkGraph:
         return {task["reconciliation_key"]: task for task in self.plan.tasks}
 
 
+def _display_path(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def _load_json_object(path: Path, label: str) -> dict[str, Any]:
     if not path.is_file():
-        raise PersistentWorkGraphError(f"Missing {label}: {path.relative_to(ROOT) if path.is_absolute() else path}")
+        raise PersistentWorkGraphError(f"Missing {label}: {_display_path(path)}")
     try:
         with path.open("r", encoding="utf-8-sig") as handle:
             value = json.load(handle)
@@ -96,6 +108,30 @@ def _validate_bootstrap_marker(marker: dict[str, Any], root: Path) -> None:
             )
 
 
+def _validate_live_task_contract(task: dict[str, Any], path: Path) -> None:
+    task_id = _require_text(task, "id", f"task {path.name}")
+    kind = _require_text(task, "kind", task_id)
+    status = _require_text(task, "status", task_id)
+    execution_scope = _require_text(task, "execution_scope", task_id)
+
+    if kind not in ALLOWED_KINDS:
+        raise PersistentWorkGraphError(f"{task_id} has invalid kind: {kind!r}")
+    if status not in ALLOWED_STATUSES:
+        raise PersistentWorkGraphError(f"{task_id} has invalid status: {status!r}")
+    if execution_scope not in ALLOWED_EXECUTION_SCOPES:
+        raise PersistentWorkGraphError(
+            f"{task_id} has invalid execution_scope: {execution_scope!r}"
+        )
+    if (
+        status == "open"
+        and kind in {"implementation", "artifact"}
+        and execution_scope == "not_applicable"
+    ):
+        raise PersistentWorkGraphError(
+            f"Open executable work {task_id} may not use execution_scope='not_applicable'."
+        )
+
+
 def _load_tasks(tasks_dir: Path) -> tuple[dict[str, Any], ...]:
     if not tasks_dir.is_dir():
         raise PersistentWorkGraphError(f"Persistent Tasks directory does not exist: {tasks_dir}")
@@ -113,6 +149,7 @@ def _load_tasks(tasks_dir: Path) -> tuple[dict[str, Any], ...]:
             raise PersistentWorkGraphError(
                 f"Task filename/id mismatch: {path.name} contains id {task_id!r}."
             )
+        _validate_live_task_contract(task, path)
         tasks.append(task)
     return tuple(tasks)
 
