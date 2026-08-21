@@ -28,6 +28,26 @@ services:
       - codex-config:/home/agent/.codex
     command: ["bash"]
 
+  # Architecture-review workers intentionally disable Codex's nested Linux
+  # sandbox because bubblewrap/user namespaces are not available inside the
+  # Docker container. Docker itself supplies the filesystem boundary: the
+  # repository is mounted read-only, with only the review outputs directory
+  # writable so the orchestrator can save results.
+  codex-review:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      CODEX_HOME: /home/agent/.codex
+    volumes:
+      - .:/workspace:ro
+      - ./Pipeline/ArchitectureReview/outputs:/workspace/Pipeline/ArchitectureReview/outputs:rw
+      - codex-config:/home/agent/.codex
+    command: ["bash"]
+
 volumes:
   claude-config:
   codex-config:
