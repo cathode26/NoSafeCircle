@@ -415,6 +415,7 @@ RECONCILIATION_SCHEMA: dict[str, Any] = {
 
 ALLOWED_CURRENT_EXACT_PATHS = {
     "Docs/GDD/No_Safe_Circle_GDD.md",
+    ".gitignore",
     "Packages/manifest.json",
     "Packages/packages-lock.json",
 }
@@ -446,7 +447,12 @@ CLAUDE_DISALLOWED_TOOLS = (
 
 
 def _normalize_path(value: str) -> str:
-    return value.replace("\\", "/").lstrip("./")
+    path = value.replace("\\", "/")
+    while path.startswith("./"):
+        path = path[2:]
+    if path.startswith("/"):
+        path = path[1:]
+    return path
 
 
 def _is_allowed_review_path(value: str) -> bool:
