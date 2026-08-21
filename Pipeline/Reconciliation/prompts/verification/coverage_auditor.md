@@ -565,3 +565,10 @@ orchestrator merely because it coordinates restart.
 - Treat the `Current Prototype Scene Evidence` prohibition on agent-driven deletion/repurposing of non-canonical stubs as `required_process` represented by a typed `pipeline_constraint`/non-code requirement.
 - Do not classify internal verifier, patch, or prompt guidance as a source requirement. Only current GDD and repository content are source evidence.
 
+### Final provenance guard
+
+- VERIFIED CLOSURE labels are pipeline bookkeeping, not GDD evidence.
+- Never emit `VERIFIED CLOSURE`, `2026-08-21 VERIFIED CLOSURE`, `verification-hardening`, or similar verifier/patch-round labels as a GDD reference, repository evidence source, dependency evidence source, or exclusive-resource evidence source unless that exact phrase literally exists in the cited authoritative file.
+- When the underlying behavior is supported by a real GDD passage, cite only that real passage (for example `Door and Pursuit Rules` or `Enemy Detection, Pursuit, and Target Loss`).
+- Pipeline prompts, patch scripts, verification artifacts, and prior repair prose may explain why a correction is being made, but they are never project/GDD evidence.
+
