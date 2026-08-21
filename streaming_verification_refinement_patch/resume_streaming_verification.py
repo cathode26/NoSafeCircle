@@ -39,9 +39,35 @@ def load_repairs(run_dir: Path) -> dict[str, dict]:
             candidate = repair_dir / "PROPOSED_FIELD_REPAIR.json"
         if candidate.exists():
             repairs[repair_dir.name] = base.load_json(candidate)
-    if not repairs:
-        raise RuntimeError("No preserved streaming field repairs were found.")
     return repairs
+
+
+def load_failed_repair_keys(run_dir: Path) -> list[str]:
+    """Find interrupted local repairs that have findings but no completed repair output."""
+    root = run_dir / "stream_repairs"
+    if not root.exists():
+        return []
+
+    failed: set[str] = set()
+    for repair_dir in sorted(path for path in root.iterdir() if path.is_dir()):
+        findings = repair_dir / "REFINER_FINDINGS.json"
+        proposed = repair_dir / "PROPOSED_FIELD_REPAIR.json"
+        recovered = repair_dir / "RECOVERED_FIELD_REPAIR.json"
+        if findings.exists() and not proposed.exists() and not recovered.exists():
+            failed.add(repair_dir.name)
+
+    manifest_path = run_dir / "STREAM_REPAIR_MANIFEST.json"
+    if manifest_path.exists():
+        manifest = base.load_json(manifest_path)
+        for audit_key in manifest.get("failures", {}):
+            repair_dir = root / str(audit_key)
+            findings = repair_dir / "REFINER_FINDINGS.json"
+            proposed = repair_dir / "PROPOSED_FIELD_REPAIR.json"
+            recovered = repair_dir / "RECOVERED_FIELD_REPAIR.json"
+            if findings.exists() and not proposed.exists() and not recovered.exists():
+                failed.add(str(audit_key))
+
+    return sorted(failed)
 
 
 def remap_preserved_deterministic_resolution_ids(
@@ -89,13 +115,19 @@ def copy_preserved_inputs(
     for source in sorted((failed_dir / "pass1").glob("*.json")):
         shutil.copy2(source, paths["pass1_dir"] / source.name)
 
-    for audit_key, envelope in sorted(repairs.items()):
-        target_dir = paths["run_dir"] / "stream_repairs" / audit_key
-        target_dir.mkdir(parents=True, exist_ok=False)
-        source_findings = failed_dir / "stream_repairs" / audit_key / "REFINER_FINDINGS.json"
-        if source_findings.exists():
+    source_root = failed_dir / "stream_repairs"
+    if source_root.exists():
+        for source_dir in sorted(path for path in source_root.iterdir() if path.is_dir()):
+            source_findings = source_dir / "REFINER_FINDINGS.json"
+            if not source_findings.exists():
+                continue
+            audit_key = source_dir.name
+            target_dir = paths["run_dir"] / "stream_repairs" / audit_key
+            target_dir.mkdir(parents=True, exist_ok=False)
             shutil.copy2(source_findings, target_dir / "REFINER_FINDINGS.json")
-        base.save_new_json(target_dir / "REUSED_FIELD_REPAIR.json", envelope)
+            envelope = repairs.get(audit_key)
+            if envelope is not None:
+                base.save_new_json(target_dir / "REUSED_FIELD_REPAIR.json", envelope)
 
 
 def build_manifest(coordinator: stream_v2.StreamingRepairCoordinator) -> dict:
@@ -112,7 +144,7 @@ def build_manifest(coordinator: stream_v2.StreamingRepairCoordinator) -> dict:
             }
             for key, envelope in sorted(coordinator.repairs.items())
         ],
-        "failures": {},
+        "failures": copy.deepcopy(coordinator.failures),
         "deterministic_conflict_report": coordinator.conflict_report,
     }
 
@@ -120,8 +152,8 @@ def build_manifest(coordinator: stream_v2.StreamingRepairCoordinator) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Resume a streaming-v2 verification that finished pass 1 and local field repairs "
-            "but failed during deterministic synthesis/semantic validation."
+            "Resume a streaming-v2 verification after pass 1, reusing completed local field "
+            "repairs and retrying only repairs interrupted before synthesis."
         )
     )
     parser.add_argument("--source-run-id", required=True)
@@ -139,6 +171,9 @@ def main() -> int:
 
     pass1_audits = load_pass1(failed_dir)
     repairs = load_repairs(failed_dir)
+    failed_repair_keys = load_failed_repair_keys(failed_dir)
+    if not repairs and not failed_repair_keys:
+        raise RuntimeError("No preserved or interrupted streaming field repairs were found.")
     identity_remaps = remap_preserved_deterministic_resolution_ids(repairs)
     old_assignments = base.load_json(failed_dir / "MODEL_ASSIGNMENTS.json")
 
@@ -164,7 +199,10 @@ def main() -> int:
     coordinator.executor.shutdown(wait=False)
     coordinator._collected = True
     coordinator.repairs = copy.deepcopy(repairs)
-    coordinator.failures = {}
+    coordinator.failures = {
+        key: "Preserved interrupted field repair; retry during resume."
+        for key in failed_repair_keys
+    }
     coordinator._build_conflict_report()
     base.save_json(coordinator.manifest_path, build_manifest(coordinator))
 
@@ -176,12 +214,19 @@ def main() -> int:
     print(f"Failed verification reused: {args.verification_run_id}")
     print(f"Preserved pass-1 auditors: {len(pass1_audits)}")
     print(f"Preserved field repairs: {len(repairs)}")
+    print(f"Interrupted field repairs to retry: {len(failed_repair_keys)}")
+    if failed_repair_keys:
+        print("Retry repair keys: " + ", ".join(failed_repair_keys))
     print(f"Preserved deterministic finding IDs remapped: {len(identity_remaps)}")
     print(
         "Mechanical field conflicts: "
         f"{coordinator.summary()['mechanical_conflict_count']}"
     )
-    print("No pass-1 auditors or local field-repair agents will be rerun.")
+    print("No pass-1 auditors will be rerun.")
+    if failed_repair_keys:
+        print("Only interrupted local field-repair agents will rerun before synthesis.")
+    else:
+        print("No local field-repair agents will be rerun.")
     print("=" * 72)
 
     refiner_model = str(old_assignments.get("refiner", base.REFINER_MODEL))
