@@ -2,67 +2,204 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last reconciled: 2026-08-18, after Assignment 6 and progressive-decomposition architecture review.
+Last updated: 2026-08-21, after Milestone 1 completion and merge into `main`, then merge of current `main` into `adversarial-architecture-review`.
 
 ## Current Phase
 
-Pipeline architecture planning is complete enough to begin turning the course assignments into durable production infrastructure.
+**Milestone 1 — Persistent Work Graph is complete.**
 
-Milestone 1 has not yet been implemented:
+The project now has a durable, deterministic operational work graph under `Tasks/` and a local `taskcontrol` CLI that can validate the graph, inspect work, reconstruct hierarchy/dependencies, and calculate the executable ready frontier without an LLM.
 
-`01_MILESTONE_TASK_GRAPH.md`
+The next infrastructure milestone is **Milestone 2 — RAG + Project Scanner + Compact Context + Progressive Decomposition + Artifact Authority**, described in:
 
-Assignment 6 produced a working GER implementation and changed an important architectural assumption. GER is no longer considered only a future generated-content subsystem; it is a proven bounded implementation/repair loop that should eventually wrap normal ticket execution.
+`02_RAG_SCANNER_CONTEXT.md`
 
-A second architectural gap has now been identified: some high-level work cannot be safely decomposed into implementation tickets until missing design/content exists. The pipeline therefore needs progressive task decomposition plus an Artifact Authority Gate before AI-generated design becomes trusted project input.
+Before committing significant new infrastructure to Milestone 2, run/review the adversarial architecture review against the now-Milestone-1-complete repository. The review exists specifically to challenge the architecture and milestone order before more infrastructure is added.
 
-## What Already Exists
+Architecture review entry point:
 
-Course work that the production pipeline will reuse:
+`Pipeline/ArchitectureReview/README.md`
 
-- Assignment 3: Agent Crew concept — Planner → Implementer → Validator.
-- Assignment 4: GDD RAG / retrieval pipeline and consistency checking.
-- Assignment 5: goal-oriented analysis + implementation workflow.
-- Assignment 6: working GER orchestration — Generator/Implementer → Evaluator → Refiner → Circuit Breaker.
-- Assignment 7: not yet implemented; planned as a scored Style Evaluator specialization for authorized style-sensitive content artifacts.
+The pipeline must now begin earning its keep by advancing real No Safe Circle gameplay while the remaining autonomy layers are built. Do not spend another long stretch on infrastructure without using a real game task as the test case.
 
-### Assignment 6 Result
+## Milestone 1 — COMPLETE
 
-Assignment 6 reused the earlier systems rather than creating isolated demo agents:
+Milestone 1 established the persistent planning foundation promised by `01_MILESTONE_TASK_GRAPH.md`.
 
-- Assignment 5 implementation agent acted as Generator and Refiner.
-- Assignment 3 validation infrastructure acted as Evaluator.
-- Assignment 6 added orchestration, a GDD-specific evaluator contract, runtime-feedback handling, a progress/no-op guard, and a Circuit Breaker.
-- The selected feature was the fixed orthographic isometric camera.
-- Static evaluation passed before the runtime result was actually correct.
-- Unity runtime failures were captured as structured feedback and re-entered into the Refiner loop.
-- A no-op refinement was rejected as failed progress instead of being accepted as success.
-- The final camera implementation passed the GER evaluator and the relevant Unity EditMode/PlayMode tests.
+### Approved Bootstrap Provenance
 
-Reference:
+The initial persistent graph was seeded only after independent reconciliation verification and explicit human approval.
 
-`Assignment6GER/README_Assignment6.md`
+Source reconciliation:
 
-### Assignment 5 State
+`20260821T193541Z-998ee7b5`
 
-Assignment 5 selected and implemented a Mana Resource System on the `assignment-5-goal-oriented-agent` branch.
+Successful verification:
 
-Assignment 6 treated Mana as an already-completed goal when performing lightweight reselection, but Milestone 1 must still inspect the actual current `main` branch before marking Mana or any other work item `complete`.
+`20260821T195959Z-43dba5de`
 
-Do not seed completion status from old Assignment 5 output alone.
+Verification result:
 
-## Current Architectural Decision
+- initial material findings: 21
+- final material findings: 0
+- status: `verified_with_findings`
+- persistent graph remained unmutated during reconciliation/verification
+- human approval was required before bootstrap
 
-We are replacing repeated full-LLM project planning with persistent local project state while preserving the useful agent behaviors already proven by the assignments.
+Approval manifest:
 
-The target architecture is now:
+`Pipeline/TaskGraph/APPROVED_BOOTSTRAP.json`
+
+Bootstrap completion marker:
+
+`Pipeline/TaskGraph/BOOTSTRAP_PERSISTED.json`
+
+### Persistent Graph State at Bootstrap
+
+The approved bootstrap produced:
+
+- 37 persistent work records
+- 12 feature records
+- 25 implementation records
+- 0 artifact records at bootstrap
+- 36 open records
+- 1 complete record
+- 59 dependency edges
+- 36 parent edges
+- 7 exclusive-resource groups
+- 17 non-code project requirements
+- one root: `NSC-001` / `no-safe-circle`
+
+The only record complete at bootstrap was:
+
+`NSC-023 — Fixed Isometric Camera`
+
+The persistent graph lives under:
+
+`Tasks/NSC-001.yaml` through `Tasks/NSC-037.yaml`
+
+Metadata lives under:
+
+- `Pipeline/TaskGraph/WORK_ID_MAP.json`
+- `Pipeline/TaskGraph/PROJECT_REQUIREMENTS.yaml`
+- `Pipeline/TaskGraph/RESOURCE_GROUPS.yaml`
+- `Pipeline/TaskGraph/BOOTSTRAP_PERSISTED.json`
+
+The `.yaml` task/metadata files intentionally use a deterministic JSON-compatible YAML 1.2 subset so Python's standard `json` parser can read them without an added YAML dependency.
+
+### `taskcontrol` State
+
+Implemented commands:
 
 ```text
-GDD / Canon
+python Pipeline/TaskGraph/taskcontrol.py validate
+python Pipeline/TaskGraph/taskcontrol.py list
+python Pipeline/TaskGraph/taskcontrol.py show NSC-003
+python Pipeline/TaskGraph/taskcontrol.py ready
+python Pipeline/TaskGraph/taskcontrol.py graph
+```
+
+The real persistent graph passes `taskcontrol validate`.
+
+The first real `ready` calculation returned seven executable one-agent implementation tasks:
+
+- `NSC-003` — Mouse-Directed Player Movement, Shared Pointer Projection, and Movement Restriction
+- `NSC-004` — Player Health Ownership, Restore, Death Transition, and Feedback
+- `NSC-005` — Player Mana Ownership, Restart Reset, and Denied-Cast Feedback
+- `NSC-011` — Active Enemy Registry
+- `NSC-020` — Shared Doorway-Crossing State
+- `NSC-024` — Tilemap and AI Navigation Package Configuration
+- `NSC-037` — Windows Build Scene Registration
+
+`ready` is deterministic. It returns only work that is:
+
+1. `open`;
+2. `kind` = `implementation` or `artifact`;
+3. `execution_scope` = `single_agent`;
+4. and whose dependencies are all complete.
+
+Feature nodes and records requiring execution decomposition are not treated as executable work.
+
+### Milestone 1 Important Implementation Files
+
+- `Pipeline/TaskGraph/bootstrap_inputs.py`
+- `Pipeline/TaskGraph/work_graph_transform.py`
+- `Pipeline/TaskGraph/work_graph_validate.py`
+- `Pipeline/TaskGraph/work_graph_persist.py`
+- `Pipeline/TaskGraph/seed_work_graph.py`
+- `Pipeline/TaskGraph/persistent_work_graph.py`
+- `Pipeline/TaskGraph/taskcontrol.py`
+- associated smoke tests under `Pipeline/TaskGraph/`
+
+The bootstrap is intentionally one-shot. Do not rerun `seed_work_graph.py --apply` against an already-bootstrapped repository.
+
+## Source-of-Truth Boundaries Now in Force
+
+### GDD / Canon
+
+The GDD remains root game-design canon.
+
+Approved design artifacts may later extend canon only through the Artifact Authority + evaluation process. Unapproved drafts are not trusted project input.
+
+### Reconciliation
+
+Reconciliation outputs are immutable point-in-time observations.
+
+They are **not** the mutable work database.
+
+A future reconciliation run creates a new immutable snapshot and may propose a delta against the living persistent graph. It does not directly rewrite `Tasks/*.yaml`.
+
+### Persistent Work Graph
+
+`Tasks/*.yaml` is now the durable operational work definition.
+
+Stable `NSC-###` IDs and `reconciliation_key` values preserve traceability back to the reconciliation records that originally proposed the work.
+
+### Repository State
+
+Integrated repository state remains the authority for what implementation is actually complete.
+
+Production completion semantics should require implementation work to be merged into `main` before the task becomes complete.
+
+## Existing Course/Production Building Blocks
+
+The production pipeline continues to reuse the course assignments rather than treating them as disconnected demos:
+
+- Assignment 3: Planner → Implementer → Validator crew concept.
+- Assignment 4: GDD RAG/retrieval and consistency infrastructure.
+- Assignment 5: goal-oriented analysis and bounded implementation agent.
+- Assignment 6: proven GER orchestration — Implement/Generate → Evaluate → Refine → Circuit Breaker, including structured runtime feedback.
+- Assignment 7: not yet implemented; planned as a scored Style Evaluator specialization when real style-sensitive artifact work exists.
+
+### Assignment 6 Lesson Still Applies
+
+Static/source-level success is not sufficient evidence that an interactive Unity feature works.
+
+The camera implementation passed static evaluation before runtime behavior was correct. Runtime failures were converted into structured feedback and re-entered into the Refiner loop.
+
+Future implementation execution must collect the strongest practical evidence available, such as:
+
+- Git/scope checks
+- static checks
+- Unity compilation
+- EditMode tests
+- PlayMode tests
+- runtime observations
+- semantic task/GDD review
+- artifact/canon/style evaluation when applicable
+
+A worker never declares itself complete merely because it says implementation succeeded.
+
+## Current Target Architecture
+
+```text
+GDD / Root Canon
    ↓
-Persistent Work Graph
+Persistent Work Graph                    ← Milestone 1 COMPLETE
    ↓
-Ready / Near-Ready Frontier
+Ready / Near-Ready Frontier              ← Milestone 1 COMPLETE
+   ↓
+Targeted GDD + Project Context            ← Milestone 2 NEXT
    ↓
 Progressive Decomposer
    ↓
@@ -88,12 +225,18 @@ Back to Progressive Decomposer
      ↓
 Concrete Work Item
      ↓
+Local Supervisor                           ← Milestone 3
+     ↓
+Branch / Worktree / Draft PR
+     ↓
+Bounded Worker
+     ↓
 ==============================
-        GER REPAIR LOOP
+        GER REPAIR LOOP                    ← Milestone 4 production integration
 ------------------------------
 Implement / Generate
    ↓
-Evaluate against task + GDD + approved artifacts
+Evaluate against task + canon
    ↓
 Deterministic / Unity / Runtime Evidence
    ↓
@@ -119,144 +262,103 @@ Merge / Approve Artifact
 Work Complete
    ↓
 Dependency Graph Recalculates
+   ↓
+Continuous safe backlog processing         ← Milestone 5
 ```
 
-GER is the bounded self-correction mechanism around project work. Generated content is one application of GER, not its definition.
-
-Progressive decomposition prevents the system from inventing missing design merely to make a high-level task executable.
-
-## Canon and Approved Design Extensions
-
-The GDD is root canon.
-
-An AI-generated artifact is not trusted merely because it was generated.
-
-A proposed design/content artifact must first pass an Artifact Authority Gate that identifies:
-
-- why the artifact is needed;
-- which existing requirements authorize its creation;
-- which design decisions it may make;
-- which design areas it must not invent or change.
-
-After generation, the artifact must pass its required evaluators.
-
-Only then may it become an approved design extension that downstream work can depend on.
-
-Approved artifacts may add detail where the GDD leaves room for expansion, but they may not contradict or silently replace GDD canon.
-
-## Important Validation Lesson
-
-A source-level or static PASS is not sufficient evidence that a Unity feature works.
-
-Assignment 6 proved this twice:
-
-1. The first camera implementation satisfied the written/static camera rules but faced the wrong direction and did not follow the player correctly.
-2. A later implementation again passed static evaluation while framing gameplay incorrectly.
-
-Future ticket execution should collect validation evidence from the strongest practical sources available:
-
-- Git/scope checks
-- static checks
-- Unity compilation
-- EditMode tests
-- PlayMode tests
-- runtime observations
-- later simulation/adversarial-agent evidence where appropriate
-- semantic/GDD evaluation
-- artifact/canon evaluation where applicable
-- style evaluation where applicable
-
-Failed evidence should become structured Refiner input.
+GER remains the bounded self-correction mechanism around project work. Generated content is one GER application, not its definition.
 
 ## Immediate Next Goal
 
-### Milestone 1 — Persistent Work Graph
+### Checkpoint — Adversarial Architecture Review
 
-1. Inspect current `main`.
-2. Run/read the Reconciliation Agent to create an immutable point-in-time snapshot of GDD requirements versus current repository state.
-3. Run/review the independent multi-model Reconciliation Verification Crew against that snapshot, including the Execution Scope Auditor.
-4. Resolve/refine material coverage, dependency/decomposition, and evidence findings, then re-verify.
-5. Human-review the verified candidate and proposed graph delta.
-6. Seed a coarse persistent work graph from approved reconciliation records; do not treat the snapshot itself as the mutable graph.
-5. Support three work kinds:
-   - `feature`
-   - `artifact`
-   - `implementation`
-6. Implement local Python `taskcontrol`.
-7. Implement:
-   - `list`
-   - `show`
-   - `validate`
-   - `ready`
-   - `graph`
-8. Seed only work/dependency facts that are supported by the current repository.
-9. Preserve `reconciliation_key` traceability from seeded work back to the snapshot record that proposed it.
-10. Do not fully decompose distant features merely to fill the graph.
+Run/review the architecture-review system against the current M1-complete branch before making a large Milestone 2 investment.
 
-Milestone 1 remains deterministic and should work without an LLM dependency.
+The review should answer:
 
-### After Milestone 1
+1. Does the architecture still look fundamentally sound now that the persistent graph actually exists?
+2. Does the next milestone create enough near-term gameplay leverage to justify itself?
+3. Is any part of Milestone 2 overbuilt relative to the immediate needs of No Safe Circle?
 
-Begin Milestone 2:
+Do not treat reviewer majority as authority. Read the synthesis and fresh adversarial critique, then make a human architecture decision.
 
-1. Reuse/build the GDD RAG interface.
-2. Build the deterministic project-state scanner.
-3. Build compact context packs.
-4. Add the Progressive Decomposer.
-5. When decomposition discovers missing design, create an artifact proposal.
-6. Run the Artifact Authority Gate before generation.
-7. Generate authorized artifacts through GER.
-8. Re-run the Decomposer using the approved artifact.
-9. Execute the resulting concrete implementation task through the Assignment 6 GER pattern.
+### Milestone 2 — RAG + Scanner + Context + Progressive Decomposition
 
-The pipeline should begin earning its keep by building No Safe Circle rather than delaying gameplay until every autonomous subsystem exists.
+Assuming the architecture still holds, implement Milestone 2 incrementally.
 
-## Assignment 7 Position
+The preferred order is:
 
-Assignment 7 now has a concrete architectural role.
+1. Build the smallest compact context path for **one real near-term task**.
+2. Reuse/wrap Assignment 4 GDD retrieval rather than rebuilding RAG from scratch.
+3. Extract/reuse deterministic repository-scanning capabilities already proven inside reconciliation where practical.
+4. Combine task + relevant canon + relevant repository evidence into a compact context pack.
+5. Use a real No Safe Circle task as the test case; do not build generic infrastructure in isolation.
+6. Add Progressive Decomposition for near-frontier records that are not safe one-agent handoffs.
+7. Distinguish execution-size decomposition from missing-design decomposition.
+8. When design is genuinely missing, emit an artifact proposal instead of inventing the design.
+9. Add the Artifact Authority Gate before any generated design artifact becomes trusted input.
+10. Generate/evaluate only the smallest authorized artifact needed to unblock decomposition.
+11. Re-run decomposition after artifact approval.
+12. Feed resulting concrete implementation work back into the persistent graph and validate deterministically.
 
-Progressive decomposition may identify required player-facing or style-sensitive content artifacts. After the Artifact Authority Gate approves creation, those artifacts are generated through GER.
+See:
 
-Assignment 7 supplies the specialized scored Style Evaluator:
+`Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md`
 
-`Generator → Style Evaluator (SCORE + REASON) → Refiner`
+### Recommended Real Task Anchor
 
-The Style Evaluator judges whether authorized generated content matches No Safe Circle.
+`NSC-003 — Mouse-Directed Player Movement, Shared Pointer Projection, and Movement Restriction`
 
-It does not decide whether new content was authorized to exist.
+is already a concrete, ready, `single_agent` implementation record and is a strong test case for the first compact-context/execution path because later systems depend on its movement, pointer-projection, reset, restriction, and suspend interfaces.
 
-## Do Not Start Yet
+Milestone 2 should not block visible gameplay progress. Use real task execution to test the context machinery whenever possible.
 
-Do not start these until Milestone 1 is working and the current work graph is truthful:
+## Deferred Until Later Milestones
 
-- GitHub synchronization
-- fully autonomous continuous Claude execution
-- Git worktrees managed by the supervisor
-- parallel workers
+Do not start these merely because Milestone 1 is complete:
+
+- fully autonomous continuous worker execution
+- parallel Claude workers
+- automatic merge
+- merge queue
+- broad GitHub Projects synchronization
 - automatic backlog replenishment
+- speculative full-game decomposition
 
-Production integration of the Progressive Decomposer and Artifact Authority Gate belongs in Milestone 2.
+Milestone 3 owns the first restartable one-ticket supervisor, claims, Git worktrees, Draft PRs, and GitHub operational visibility.
 
-GER itself is no longer in this list: the pattern has already been proven in Assignment 6. What is deferred is production integration of GER into the future supervisor.
+Milestone 4 productionizes generic ticket validation/repair around the GER lessons already proven in Assignment 6.
+
+Milestone 5 adds continuous safe backlog processing, budgets, blockers, observability, and only later safe parallelism.
 
 ## Known Important Constraints
 
-- Persistent work definitions should be local/versioned.
-- Reconciliation outputs are immutable point-in-time snapshots and must not be edited to reflect later work.
-- A reconciliation rerun creates a new snapshot; it never directly rewrites `Tasks/*.yaml`.
-- Reconciliation-to-graph changes must pass through a deterministic diff/proposed-delta step.
-- Cascading readiness changes are computed by `taskcontrol`, not by the Reconciliation Agent.
-- Transient worker state should eventually live in the supervisor/GitHub rather than being committed on every worker branch.
-- An implementation task is `complete` only after its implementation is merged to `main`.
-- An artifact task is `complete` only after the artifact is approved by its required evaluators and stored as trusted project input.
-- Feature nodes are organizational/decomposition nodes and are not directly handed to implementation workers.
-- A newly discovered substantial prerequisite becomes a blocker/new work item; it should not be silently absorbed.
+- Persistent work definitions are local and versioned.
+- Reconciliation history is immutable observation, not mutable task state.
+- A new reconciliation may propose graph changes but may not silently mutate the graph.
+- Readiness and dependency cascading remain deterministic `taskcontrol` behavior.
+- Feature nodes are organizational/decomposition nodes and are not direct implementation handoffs.
 - Missing design becomes an artifact proposal rather than silent invention.
-- Do not run multiple Claude workers until one-ticket execution is reliable.
-- Unity scenes/prefabs/shared builder files require conservative conflict handling.
-- Static evaluation cannot substitute for Unity/runtime evidence when behavior is visual or interactive.
-- A refinement that produces no relevant change while failures remain counts as failed progress.
-- All autonomous repair loops require retry/runtime/cost budgets and a Circuit Breaker.
+- Execution decomposition may split already-approved implementation responsibilities but may not invent mechanics/content.
+- Approved artifacts are subordinate to GDD canon.
+- Unity scenes, prefabs, ProjectSettings, shared builders, and Input Actions require conservative conflict handling.
+- Static evaluation cannot replace Unity/runtime evidence for visual or interactive behavior.
+- A no-op repair while failures remain counts as failed progress.
+- All autonomous repair loops require bounded retries/runtime/cost and a Circuit Breaker.
+- Do not introduce parallel workers until one-ticket autonomous execution is reliable.
+- Infrastructure work must advance or directly enable real gameplay rather than becoming the product itself.
+
+## Assignment 7 Position
+
+Assignment 7 still has a concrete architectural role, but it is not the immediate next pipeline task.
+
+When Progressive Decomposition identifies a real authorized style-sensitive artifact, Assignment 7 can supply the scored Style Evaluator inside Artifact GER:
+
+```text
+Generator → Style Evaluator (SCORE + REASON) → Refiner
+```
+
+The Style Evaluator judges the quality/style of content already authorized to exist. It does not authorize new design.
 
 ## Next Window Instructions
 
@@ -265,24 +367,18 @@ Read, in order:
 1. `START_HERE.md`
 2. this file
 3. `00_MASTER_CONTEXT.md`
-4. `01_MILESTONE_TASK_GRAPH.md`
-5. `DECISIONS.md`
+4. `02_RAG_SCANNER_CONTEXT.md`
+5. `DECISIONS.md` when architecture/authority/decomposition semantics matter
+6. inspect the actual repository state
 
-Then inspect the current repository and implement the smallest first slice of Milestone 1.
+Then:
 
-Do not use the old Assignment 5 goal-selection snapshot as current project truth.
-Do not implement the Progressive Decomposer yet; Milestone 1 must first establish a truthful deterministic work graph.
+1. confirm the M1-complete graph still passes `python Pipeline/TaskGraph/taskcontrol.py validate`;
+2. inspect `python Pipeline/TaskGraph/taskcontrol.py ready`;
+3. review/run `Pipeline/ArchitectureReview/architecture_review.py` if the post-M1 architecture checkpoint has not yet been accepted;
+4. choose the smallest Milestone 2 slice that advances a real No Safe Circle task;
+5. do not rebuild Milestone 1;
+6. do not run the one-time bootstrap again;
+7. do not fully decompose the distant backlog.
 
-
-## Reconciliation Verification Gate
-
-Before the first `Tasks/*.yaml` seed is created, the immutable reconciliation candidate must pass independent multi-model verification. Two independent GDD coverage passes, a dependency/decomposition pass, and a repository-evidence pass run without seeing one another's first-pass findings. Material findings are unioned, optionally refined, and independently re-verified. Human approval is still required.
-
-
-### Execution-scope refinement
-
-The pipeline now tracks whether concrete work is actually a safe one-agent handoff. This is separate from design decomposition. Open executable work may be `single_agent`, `needs_execution_decomposition`, `human_integration_required`, or `unknown`; feature/already-complete work is `not_applicable`. `taskcontrol ready` must eventually expose only `single_agent` items whose dependencies are complete.
-
-### Reconciliation output organization
-
-`outputs/current/` is the mutable place to look for the current candidate, proposed delta, verification report, and status. Immutable history remains under `outputs/runs/<reconciliation-run>/`, with new verification runs nested beneath `verifications/` inside their source reconciliation run.
+A new window should be able to resume from repository state without needing the prior chat transcript.
