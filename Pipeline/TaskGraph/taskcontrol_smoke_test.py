@@ -30,10 +30,21 @@ def main() -> int:
         assert graph.validation.root_id == "NSC-001"
         assert [task["id"] for task in ready_tasks(graph)] == ["NSC-003"]
 
-        # Live task state is allowed to evolve after bootstrap. The bootstrap marker hashes are a
-        # historical baseline, so changing a task status must not make the loader reject the graph.
         movement_path = root / "Tasks" / "NSC-003.yaml"
         movement = json.loads(movement_path.read_text(encoding="utf-8"))
+
+        # Live edits must continue to obey the persistent schema contract.
+        movement["status"] = "banana"
+        write_json(movement_path, movement)
+        try:
+            load_persistent_work_graph(root=root)
+        except PersistentWorkGraphError as exc:
+            assert "invalid status" in str(exc)
+        else:
+            raise AssertionError("Expected invalid live task status to be rejected.")
+
+        # Live task state is allowed to evolve after bootstrap. The bootstrap marker hashes are a
+        # historical baseline, so changing a valid task status must not make the loader reject it.
         movement["status"] = "complete"
         write_json(movement_path, movement)
 
