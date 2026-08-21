@@ -15,7 +15,9 @@ NORMALIZE_PATHS = [
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "coverage_auditor.md",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "refiner.md",
     ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "structure_auditor.md",
+    ROOT / "Pipeline" / "Reconciliation" / "prompts" / "verification" / "evidence_auditor.md",
     ROOT / "streaming_verification_refinement_patch" / "resume_streaming_verification.py",
+    ROOT / "streaming_verification_refinement_patch" / "continue_round3_verification.py",
 ]
 
 
@@ -46,6 +48,7 @@ def main() -> int:
     run_script("apply_frost_field_cursor_clarification.py")
     run_script("apply_reconciliation_evidence_guard.py")
     run_script("apply_round2_closure_fixes.py")
+    run_script("apply_round3_closure_fixes.py")
     run_script("apply_streaming_verification_refinement.py")
     run_script("apply_streaming_refinement_v2.py")
     run_script("apply_streaming_v2_hardening.py")
@@ -60,6 +63,7 @@ def main() -> int:
     print("Clarified Frost Field placement at the shared cursor world target.")
     print("Installed reconciliation evidence-path precision guard.")
     print("Installed six round-2 verification closure rules.")
+    print("Installed round-3 evidence integrity, melee-clustering, and stub-scene closure rules.")
     print("Installed streaming refinement v2 field-level operations and clustered arbitration.")
     print("Hardened record-level remove/upsert conflict semantics.")
     print("Field repair workers inherit the standard Refiner correctness guidance.")
