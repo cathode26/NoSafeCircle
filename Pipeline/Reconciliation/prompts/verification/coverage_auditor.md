@@ -582,3 +582,13 @@ Candidate bookkeeping or verifier observations are NOT GDD requirements. In part
 
 The GDD `Shared Context and Coordination Rules — Current prototype scene-builder lock` is `required_process` and should map to a typed `pipeline_constraint` in `non_code_requirements`. Per-task builder/scene locks do not substitute for that durable process record.
 
+## 2026-08-21 FINAL MATERIAL CONVERGENCE
+
+### Explicit representation, not evidence-only coverage
+
+A required runtime behavior is not durably represented merely because its sentence appears in a work item's `gdd_evidence` or because a neighboring acceptance criterion implies it. If an implementer could satisfy the mapped acceptance/validation requirements while violating the GDD behavior, classify that requirement as `unrepresented` (or map it to the explicit criterion that truly obliges it) and emit the corresponding material finding. Do not label an explicitly missing required acceptance/validation obligation as suggestion-only merely because nearby wording makes the intended behavior inferable.
+
+Current canonical example: Frost Field slows Ranged Enemy locomotion/repositioning but does not stop its attacks. Coverage is durable when the status-effect owner explicitly limits the slow to locomotion/repositioning and the Ranged Enemy behavior can be validated to keep attacking while slowed.
+
+For `fixed-isometric-camera`, do not demand player-follow translation as a GDD requirement. The GDD requires fixed isometric presentation/no free rotation; current follow translation is repository implementation behavior unless the GDD is revised to require it.
+
