@@ -41,7 +41,7 @@ See:
 
 ## Reviewed migration corrections
 
-The first real migration quality audit found two candidates, and manual inspection found one additional duplicate that the heuristic did not flag.
+The first real migration quality audit found two candidates, and manual inspection found two additional duplicate pairs that the heuristic did not flag.
 
 The final migration rules therefore:
 
