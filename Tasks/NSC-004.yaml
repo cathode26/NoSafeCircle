@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-004",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Player Health Ownership, Restore, Death Transition, and Feedback",
   "reconciliation_key": "player-health",
   "kind": "implementation",
   "type": "implementation",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "Bounded addition to one existing component (PlayerHealth.cs) plus a small new UI component and its builder wiring, mirroring the already-integrated PlayerManaUI pattern.",
   "decomposition_state": "concrete",
@@ -19,35 +20,43 @@
   "acceptance_criteria": [
     {
       "reference": "GDD §2 Player Health ownership",
-      "requirement": "Exposes an owner-controlled restore/heal entry point clamped to maximum health, to be requested by Door and Interaction's lock-and-heal behavior rather than Door writing health directly."
+      "requirement": "Exposes an owner-controlled restore/heal entry point clamped to maximum health, to be requested by Door and Interaction's lock-and-heal behavior rather than Door writing health directly.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "GDD §2 Player Health ownership",
-      "requirement": "Exposes an observable zero-health/death transition (e.g. an event) that the Floor Run/Restart Orchestrator can consume without polling health each frame or mutating Player Health internals."
+      "requirement": "Exposes an observable zero-health/death transition (e.g. an event) that the Floor Run/Restart Orchestrator can consume without polling health each frame or mutating Player Health internals.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "GDD §2 Health feedback",
-      "requirement": "Provides a continuous player-facing health indicator reflecting current/maximum health at all times."
+      "requirement": "Provides a continuous player-facing health indicator reflecting current/maximum health at all times.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "GDD §2 Loss / Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled reset entry point restoring current health to its floor-initial value, consumed by the Floor Run/Restart Orchestrator."
+      "requirement": "Exposes an owner-controlled reset entry point restoring current health to its floor-initial value, consumed by the Floor Run/Restart Orchestrator.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "GDD §2 Resources, Feedback, and Failure",
-      "requirement": "Health does not passively regenerate during or between rooms; it changes only through the owner-controlled damage interface, the owner-controlled restore interface (door-lock recovery), or the orchestrator-invoked floor reset."
+      "requirement": "Health does not passively regenerate during or between rooms; it changes only through the owner-controlled damage interface, the owner-controlled restore interface (door-lock recovery), or the orchestrator-invoked floor reset.",
+      "criterion_id": "AC-005"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "GDD §3 Player Experience Success Criteria",
-      "requirement": "Validate that failure is readable through health/damage feedback (contributing cause alongside positioning, mana, and timing failures)."
+      "requirement": "Validate that failure is readable through health/damage feedback (contributing cause alongside positioning, mana, and timing failures).",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "Failure caused by poor positioning is readable to the player through health/damage feedback, as part of the required 'failure is readable' success criterion."
+      "requirement": "Failure caused by poor positioning is readable to the player through health/damage feedback, as part of the required 'failure is readable' success criterion.",
+      "gate_id": "VAL-002"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "GDD §2 Resources, Feedback, and Failure — Player Health ownership",
@@ -84,8 +93,12 @@
       "observation": "Subscribes to PlayerHealth.Damaged to cancel an in-progress door interaction, confirming the existing damage event is consumed elsewhere, but no analogous health-UI or death-event consumer exists."
     }
   ],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

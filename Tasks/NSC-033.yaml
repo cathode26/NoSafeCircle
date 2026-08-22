@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-033",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Floor Run/Restart Persistent-Systems Closure",
   "reconciliation_key": "floor-run-restart-persistent-closure",
   "kind": "implementation",
   "type": "run_lifecycle",
-  "status": "open",
   "execution_scope": "needs_execution_decomposition",
   "execution_reason": "This item spans wiring reset participation across roughly a dozen independently-owned systems (player systems, three spells, door lifecycle, enemy state, registry, encounters); that breadth exceeds a single bounded agent handoff even though each individual wiring point is simple once its owner exists.",
   "decomposition_state": "concrete",
@@ -39,27 +40,33 @@
   "acceptance_criteria": [
     {
       "reference": "Floor-run restart ownership",
-      "requirement": "Extends the same orchestrator used by the bootstrap stage to additionally invoke reset entry points for every implemented persistent owner beyond the bootstrap set, without redesigning the orchestration contract."
+      "requirement": "Extends the same orchestrator used by the bootstrap stage to additionally invoke reset entry points for every implemented persistent owner beyond the bootstrap set, without redesigning the orchestration contract.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Floor-run restart ownership",
-      "requirement": "Full closure is not considered complete while any implemented run-persistent owner does not yet expose/participate in a reset entry point."
+      "requirement": "Full closure is not considered complete while any implemented run-persistent owner does not yet expose/participate in a reset entry point.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Floor-run restart ownership",
-      "requirement": "Enemy reset consumes an enemy-owned restart/reset operation that returns each persistent enemy to its authored encounter/spawn region and initial pursuit/search/attack state, with no retained target, search, status-effect, or displacement state; the orchestrator does not write enemy Transform/locomotion internals itself."
+      "requirement": "Enemy reset consumes an enemy-owned restart/reset operation that returns each persistent enemy to its authored encounter/spawn region and initial pursuit/search/attack state, with no retained target, search, status-effect, or displacement state; the orchestrator does not write enemy Transform/locomotion internals itself.",
+      "criterion_id": "AC-003"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Floor-run restart ownership",
-      "requirement": "Play Mode check, expanded as each owner is implemented, confirming every implemented persistent-state owner is reset to its floor-initial state after a zero-health restart."
+      "requirement": "Play Mode check, expanded as each owner is implemented, confirming every implemented persistent-state owner is reset to its floor-initial state after a zero-health restart.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Floor-run restart ownership",
-      "requirement": "Play Mode check confirming a defeated/repositioned enemy returns to its authored spawn region with no carried target/search/displacement/status state."
+      "requirement": "Play Mode check confirming a defeated/repositioned enemy returns to its authored spawn region with no carried target/search/displacement/status state.",
+      "gate_id": "VAL-002"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Floor-run restart ownership",
@@ -80,8 +87,12 @@
   "notes": "Most of this item's dependencies are currently missing entirely (not merely unfinished), so this item cannot be dispatched meaningfully until the underlying owners exist.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

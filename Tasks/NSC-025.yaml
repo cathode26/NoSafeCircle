@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-025",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Gameplay Navigation/Locomotion Foundation",
   "reconciliation_key": "gameplay-navigation-locomotion",
   "kind": "implementation",
   "type": "world-foundation",
-  "status": "open",
   "execution_scope": "needs_execution_decomposition",
   "execution_reason": "This item bundles several independently verifiable responsibilities for one agent: consuming/validating the newly configured AI Navigation package, adding NavMesh-capable walkability configuration to builder-generated scene geometry, and designing and implementing the shared passability interface that two other domains (Door and Interaction, Enemy Pursuit) will depend on. That combination of package integration, scene/builder rework, and a new cross-domain interface contract is broader than a single bounded implementation unit.",
   "decomposition_state": "concrete",
@@ -22,31 +23,38 @@
   "acceptance_criteria": [
     {
       "reference": "GDD - 2.5D Isometric Visual and World Representation",
-      "requirement": "Owns the walkable movement representation and navigation-facing configuration consumed by all enemy runtime movement; enemy pursuit/search/status/displacement code consumes this layer rather than independently selecting or configuring navigation technology."
+      "requirement": "Owns the walkable movement representation and navigation-facing configuration consumed by all enemy runtime movement; enemy pursuit/search/status/displacement code consumes this layer rather than independently selecting or configuring navigation technology.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "GDD - Runtime Implementation",
-      "requirement": "Implemented using Unity AI Navigation (com.unity.ai.navigation) with NavMesh-based runtime movement as the approved technology."
+      "requirement": "Implemented using Unity AI Navigation (com.unity.ai.navigation) with NavMesh-based runtime movement as the approved technology.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "GDD - Door and Pursuit Rules (door passability contract)",
-      "requirement": "Exposes a shared passability interface that translates Door and Interaction's semantic sealed/open/locked/broken state into enemy walkability: sealed and locked block traversal; open and broken permit forward traversal."
+      "requirement": "Exposes a shared passability interface that translates Door and Interaction's semantic sealed/open/locked/broken state into enemy walkability: sealed and locked block traversal; open and broken permit forward traversal.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "GDD - Runtime Implementation",
-      "requirement": "The specific Unity mechanism used beneath the passability interface (obstacle/carving, navigation link, or runtime navigation-data update) is left as an implementation choice."
+      "requirement": "The specific Unity mechanism used beneath the passability interface (obstacle/carving, navigation link, or runtime navigation-data update) is left as an implementation choice.",
+      "criterion_id": "AC-004"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "GDD - Runtime Implementation",
-      "requirement": "Bone Archive's lane widths are validated against enemy movement/navigation requirements so the room's stated tactical geometry holds in practice; this check becomes fully executable once Bone Archive content is authored, but the navigation layer's agent-radius/walkability configuration is the artifact being validated."
+      "requirement": "Bone Archive's lane widths are validated against enemy movement/navigation requirements so the room's stated tactical geometry holds in practice; this check becomes fully executable once Bone Archive content is authored, but the navigation layer's agent-radius/walkability configuration is the artifact being validated.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "GDD - Door and Pursuit Rules (door passability contract)",
-      "requirement": "Verify that toggling each door semantic state (sealed, open, locked, broken) produces the correct enemy-walkability result through the shared passability interface."
+      "requirement": "Verify that toggling each door semantic state (sealed, open, locked, broken) produces the correct enemy-walkability result through the shared passability interface.",
+      "gate_id": "VAL-002"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "GDD - 2.5D Isometric Visual and World Representation",
@@ -82,8 +90,12 @@
       "observation": "Assembly definition references only Unity.InputSystem and UnityEngine.UI; no AI Navigation assembly reference exists."
     }
   ],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

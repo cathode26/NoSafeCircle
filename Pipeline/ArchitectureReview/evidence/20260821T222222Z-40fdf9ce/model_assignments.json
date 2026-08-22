@@ -1,0 +1,10 @@
+{
+  "game_technical_director": "gpt-5.6-sol",
+  "workflow_systems_architect": "gpt-5.6-sol",
+  "llm_reliability_engineer": "gpt-5.6-sol",
+  "unity_production_engineer": "gpt-5.6-sol",
+  "yagni_complexity_critic": "gpt-5.6-sol",
+  "autonomous_agent_architect": "gpt-5.6-sol",
+  "adversarial_qa": "gpt-5.6-sol",
+  "game_producer": "gpt-5.6-sol"
+}

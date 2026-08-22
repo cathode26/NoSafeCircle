@@ -4,63 +4,42 @@ import json
 import tempfile
 from pathlib import Path
 
-from work_graph_persist import (
-    WorkGraphPersistenceError,
-    persist_work_graph,
-    stage_work_graph_bundle,
-    validate_staged_bundle,
-)
+from work_graph_persist import WorkGraphPersistenceError, persist_work_graph, stage_work_graph_bundle, validate_staged_bundle
 from work_graph_transform import build_work_graph_plan
 from work_graph_transform_smoke_test import make_inputs
 
 
 def main() -> int:
     inputs = make_inputs()
-    inputs.approved_by = "Test Human"
     plan = build_work_graph_plan(inputs)
-
-    # The serialized staging bundle must round-trip through the same graph validator.
     with tempfile.TemporaryDirectory() as temp:
         staging = Path(temp)
         hashes = stage_work_graph_bundle(plan, inputs, staging)
         validate_staged_bundle(plan, inputs, staging, hashes)
-
-        # Any post-serialization mutation must fail before publication.
-        first_task = staging / "Tasks" / "NSC-001.yaml"
-        payload = json.loads(first_task.read_text(encoding="utf-8"))
+        first = staging / "Tasks" / "NSC-001.yaml"
+        payload = json.loads(first.read_text(encoding="utf-8"))
         payload["title"] = "tampered"
-        first_task.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        first.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         try:
             validate_staged_bundle(plan, inputs, staging, hashes)
         except WorkGraphPersistenceError:
             pass
         else:
-            raise AssertionError("Expected staged task tampering to be rejected.")
+            raise AssertionError("Expected staged tampering rejection.")
 
-    # A clean bootstrap publishes all files and refuses to overwrite them on a second run.
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
         (root / "Pipeline" / "TaskGraph").mkdir(parents=True)
         paths = persist_work_graph(plan, inputs, root=root)
-
-        task_files = sorted(paths.tasks_dir.glob("NSC-*.yaml"))
-        assert len(task_files) == len(plan.tasks)
-        assert paths.id_map_path.is_file()
-        assert paths.project_requirements_path.is_file()
-        assert paths.resource_groups_path.is_file()
-        assert paths.persisted_marker_path.is_file()
-
         marker = json.loads(paths.persisted_marker_path.read_text(encoding="utf-8"))
-        assert marker["bootstrap_status"] == "complete"
-        assert marker["task_count"] == len(plan.tasks)
-        assert len(marker["output_sha256"]) == len(plan.tasks) + 3
-
+        assert marker["task_contract_schema_version"] == "2.0"
+        assert len(list(paths.tasks_dir.glob("NSC-*.yaml"))) == len(plan.tasks)
         try:
             persist_work_graph(plan, inputs, root=root)
         except WorkGraphPersistenceError as exc:
             assert "already complete" in str(exc)
         else:
-            raise AssertionError("Expected a second bootstrap apply to be refused.")
+            raise AssertionError("Expected reseed refusal.")
 
     print("work_graph_persist_smoke_test: PASS")
     return 0

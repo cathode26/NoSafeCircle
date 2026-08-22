@@ -1,0 +1,4 @@
+# Architecture review outputs are generated run artifacts and may be large.
+# Keep the directory in Git, but do not commit model output by default.
+*
+!.gitignore

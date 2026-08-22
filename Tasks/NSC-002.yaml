@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-002",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Player",
   "reconciliation_key": "player",
   "kind": "feature",
   "type": "feature",
-  "status": "open",
   "execution_scope": "not_applicable",
   "execution_reason": "Organizational feature node; not directly dispatchable.",
   "decomposition_state": "coarse",
@@ -14,7 +15,8 @@
   "depends_on": [],
   "exclusive_resources": [],
   "acceptance_criteria": [],
-  "validation_requirements": [],
+  "completion_gates": [],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "GDD §2 Player Actions and Systems; §1 Executive Summary",
@@ -27,8 +29,12 @@
   "notes": "Aggregate repository_state of partial reflects that PlayerHealth/PlayerMana/PlayerMovement all exist with real behavior but each is missing GDD-required interfaces (restore, reset, cursor projection, movement-restriction, health UI, denied-cast feedback).",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

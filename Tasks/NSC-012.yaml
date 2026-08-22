@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-012",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Enemy Health/Defeat",
   "reconciliation_key": "enemy-health-damage-defeat",
   "kind": "implementation",
   "type": "implementation",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "A cohesive, bounded component (health tracking, damage interface, defeat transition, one outbound call to the registry's interface, and a reset entry point) that one agent can implement and validate without needing to also implement pursuit, attacks, or navigation.",
   "decomposition_state": "concrete",
@@ -18,51 +19,63 @@
   "acceptance_criteria": [
     {
       "reference": "Section 3 — Enemy health and defeat ownership",
-      "requirement": "Exposes an owner-controlled damage-intake interface that any canon-required damage source (e.g. Fireball) calls rather than writing enemy health directly."
+      "requirement": "Exposes an owner-controlled damage-intake interface that any canon-required damage source (e.g. Fireball) calls rather than writing enemy health directly.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Section 3 — Enemy health and defeat ownership",
-      "requirement": "Reaching zero health triggers a defeat transition exactly once for that persistent enemy object."
+      "requirement": "Reaching zero health triggers a defeat transition exactly once for that persistent enemy object.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Section 3 — Enemy health and defeat ownership",
-      "requirement": "Defeat reports removal through the Active Enemy Registry's owner-controlled unregister interface rather than the Enemy Health/Defeat component independently decrementing a separate count."
+      "requirement": "Defeat reports removal through the Active Enemy Registry's owner-controlled unregister interface rather than the Enemy Health/Defeat component independently decrementing a separate count.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "Section 3 — Enemy health and defeat ownership",
-      "requirement": "Exposes an owner-controlled reset entry point that restores health and clears the defeat transition for floor restart, invoked by the Floor Run/Restart Orchestrator rather than by direct internal mutation."
+      "requirement": "Exposes an owner-controlled reset entry point that restores health and clears the defeat transition for floor restart, invoked by the Floor Run/Restart Orchestrator rather than by direct internal mutation.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "Section 1 — Executive Summary; Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "The defeat transition ends the enemy's participation as an active threat: its pursuit/attack behavior stops and it leaves play, while it remains the same persistent object restorable through the owner-controlled reset entry point."
+      "requirement": "The defeat transition ends the enemy's participation as an active threat: its pursuit/attack behavior stops and it leaves play, while it remains the same persistent object restorable through the owner-controlled reset entry point.",
+      "criterion_id": "AC-005"
     },
     {
       "reference": "Section 5 — Runtime Implementation",
-      "requirement": "A persistent enemy's health and defeat state changes only through the owner-controlled damage interface and the floor-restart reset entry point; it is never reinitialized or otherwise mutated by room transition, target loss, search, or doorway crossing."
+      "requirement": "A persistent enemy's health and defeat state changes only through the owner-controlled damage interface and the floor-restart reset entry point; it is never reinitialized or otherwise mutated by room transition, target loss, search, or doorway crossing.",
+      "criterion_id": "AC-006"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Section 3 — Enemy health and defeat ownership",
-      "requirement": "Verify a damage source can only reduce a persistent enemy's health through the owner-controlled damage interface and that zero health triggers the defeat transition exactly once."
+      "requirement": "Verify a damage source can only reduce a persistent enemy's health through the owner-controlled damage interface and that zero health triggers the defeat transition exactly once.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Section 3 — Enemy health and defeat ownership",
-      "requirement": "Verify defeat reports removal through the Active Enemy Registry's unregister interface without the registry double-counting or the two systems maintaining duplicate bookkeeping."
+      "requirement": "Verify defeat reports removal through the Active Enemy Registry's unregister interface without the registry double-counting or the two systems maintaining duplicate bookkeeping.",
+      "gate_id": "VAL-002"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart returns a previously-damaged/defeated enemy's health and defeat state to its initial value through the owner-controlled reset entry point."
+      "requirement": "Verify floor restart returns a previously-damaged/defeated enemy's health and defeat state to its initial value through the owner-controlled reset entry point.",
+      "gate_id": "VAL-003"
     },
     {
       "reference": "Section 1 — Executive Summary",
-      "requirement": "Verify a defeated enemy's pursuit/attack behavior stops and it leaves play immediately following the defeat transition, while remaining restorable via the floor-restart reset entry point."
+      "requirement": "Verify a defeated enemy's pursuit/attack behavior stops and it leaves play immediately following the defeat transition, while remaining restorable via the floor-restart reset entry point.",
+      "gate_id": "VAL-004"
     },
     {
       "reference": "Section 5 — Runtime Implementation",
-      "requirement": "Verify a persistent enemy's health/defeat state remains unchanged across room transitions, target loss, search, and doorway crossings, changing only through the damage interface or the reset entry point."
+      "requirement": "Verify a persistent enemy's health/defeat state remains unchanged across room transitions, target loss, search, and doorway crossings, changing only through the damage interface or the reset entry point.",
+      "gate_id": "VAL-005"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 3 — Enemy health and defeat ownership",
@@ -91,8 +104,12 @@
   "notes": "A repository-wide grep across Assets/ for 'Defeat' found no matches; this capability does not exist in any form. Fireball's consumption of this interface is out of scope for this domain and belongs to the wizard_combat domain's fireball item.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

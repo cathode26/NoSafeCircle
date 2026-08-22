@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-013",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Enemy Status-Effect and Forced Displacement",
   "reconciliation_key": "enemy-status-effect-displacement",
   "kind": "implementation",
   "type": "implementation",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "Although it consumes two other systems' interfaces (pursuit/search contract, navigation layer) and covers two effect types, it is architecturally one reusable component with a clear, bounded validation target (apply/restore semantics for each effect plus a reset entry point); the GDD itself describes it as a single reusable component rather than multiple independently-owned pieces.",
   "decomposition_state": "concrete",
@@ -21,43 +22,53 @@
   "acceptance_criteria": [
     {
       "reference": "Section 2 — Spell and Enemy Interactions (Frost Field row)",
-      "requirement": "Frost Field slowdown modifies an affected enemy's locomotion/repositioning speed only; it must never suppress, pause, or slow a Ranged Enemy's attack execution/timing."
+      "requirement": "Frost Field slowdown modifies an affected enemy's locomotion/repositioning speed only; it must never suppress, pause, or slow a Ranged Enemy's attack execution/timing.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Section 5 — Runtime Implementation",
-      "requirement": "Frost slowdown is restored (movement speed returns to normal) when the effect ends, with no permanent slowdown remaining."
+      "requirement": "Frost slowdown is restored (movement speed returns to normal) when the effect ends, with no permanent slowdown remaining.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Section 5 — Runtime Implementation (enemy movement paragraph)",
-      "requirement": "Applies forced displacement requested by an ability (e.g. Force Wave's radial knockback selection) to the affected enemy while preserving valid movement/navigation state."
+      "requirement": "Applies forced displacement requested by an ability (e.g. Force Wave's radial knockback selection) to the affected enemy while preserving valid movement/navigation state.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "Section 5 — Runtime Implementation",
-      "requirement": "After displacement or Frost slowdown ends, returns the affected enemy to the appropriate pursuit/search movement state per the pursuit/search state contract, rather than defining a second enemy-state machine."
+      "requirement": "After displacement or Frost slowdown ends, returns the affected enemy to the appropriate pursuit/search movement state per the pursuit/search state contract, rather than defining a second enemy-state machine.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "Section 2 — Spell-local state ownership",
-      "requirement": "Exposes an owner-controlled reset entry point that clears any active Frost slowdown or displacement state for floor restart, invoked by the Floor Run/Restart Orchestrator."
+      "requirement": "Exposes an owner-controlled reset entry point that clears any active Frost slowdown or displacement state for floor restart, invoked by the Floor Run/Restart Orchestrator.",
+      "criterion_id": "AC-005"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Section 5 — Runtime Implementation",
-      "requirement": "Verify Frost Field slowdown applies to a pursuing enemy's movement speed and is fully restored when the effect ends, with no permanent slowdown remaining (Unity Validation Agent concern in Section 4)."
+      "requirement": "Verify Frost Field slowdown applies to a pursuing enemy's movement speed and is fully restored when the effect ends, with no permanent slowdown remaining (Unity Validation Agent concern in Section 4).",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Section 5 — Runtime Implementation (enemy movement paragraph)",
-      "requirement": "Verify forced displacement (e.g. Force Wave knockback) moves an affected enemy while preserving valid navigation/movement state and that the enemy resumes appropriate pursuit/search behavior afterward rather than becoming stuck."
+      "requirement": "Verify forced displacement (e.g. Force Wave knockback) moves an affected enemy while preserving valid navigation/movement state and that the enemy resumes appropriate pursuit/search behavior afterward rather than becoming stuck.",
+      "gate_id": "VAL-002"
     },
     {
       "reference": "Section 2 — Spell and Enemy Interactions (Frost Field row)",
-      "requirement": "Verify a Ranged Enemy under active Frost slowdown continues executing its telegraphed attack on schedule while only its repositioning speed is reduced."
+      "requirement": "Verify a Ranged Enemy under active Frost slowdown continues executing its telegraphed attack on schedule while only its repositioning speed is reduced.",
+      "gate_id": "VAL-003"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart clears any active Frost slowdown or displacement state on all enemies through the owner-controlled reset entry point."
+      "requirement": "Verify floor restart clears any active Frost slowdown or displacement state on all enemies through the owner-controlled reset entry point.",
+      "gate_id": "VAL-004"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 2 — Spell-local state ownership",
@@ -94,8 +105,12 @@
   "notes": "A repository-wide grep across Assets/ for 'Frost' and 'Displacement' found no matches; this capability does not exist in any form. Force Wave's request to trigger displacement is a consumer relationship owned by the wizard_combat domain's force-wave item, not a dependency of this item.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

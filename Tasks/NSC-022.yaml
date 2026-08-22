@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-022",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "World and Unity Foundations",
   "reconciliation_key": "world",
   "kind": "feature",
   "type": "feature-group",
-  "status": "open",
   "execution_scope": "not_applicable",
   "execution_reason": "Organizational feature node; not directly dispatchable.",
   "decomposition_state": "coarse",
@@ -14,7 +15,8 @@
   "depends_on": [],
   "exclusive_resources": [],
   "acceptance_criteria": [],
-  "validation_requirements": [],
+  "completion_gates": [],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "GDD - Environment Presentation and Authoring Direction",
@@ -31,8 +33,12 @@
   "notes": "Aggregate of one implemented child (fixed-isometric-camera) and three missing children (package configuration, navigation/locomotion layer, visual foundation). Does not include five-room content/encounter authoring, which belongs to a separate deferred feature outside this domain.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

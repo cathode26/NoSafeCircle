@@ -1,0 +1,130 @@
+{
+  "agent": "Architecture Synthesis",
+  "provider": "openai-codex-chatgpt",
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "max",
+  "duration_seconds": 657.72,
+  "result": {
+    "executive_verdict": "The architectural kernel is sound, but the current production architecture is not. Durable repository state, bounded workers, deterministic checks, Git isolation, runtime evidence, and bounded repair are good foundations. However, stale canon can be dispatched, editable task status can unlock dependencies without merged evidence, Unity validation is outside the executable loop, and post-bootstrap graph evolution is only documented. Reorganize around one evidence-bound gameplay delivery loop; do not continue with the bundled Milestone 2 plan.",
+    "architecture_classification": "partially_unsound",
+    "preserve": [
+      "Integrated repository state as implementation truth and humans as authority for design, game feel, risky Unity integration, and merge.",
+      "Stable task identity, reviewed dependency topology, and deterministic structural validation. Keep `Tasks/*.yaml` as planning intent—not completion truth.",
+      "Immutable reconciliation snapshots separated from operational work. Reconciliation may propose changes but must not mutate work directly.",
+      "One bounded worker in an isolated branch/worktree before attempting parallel development.",
+      "Validation bundles in which Unity/runtime evidence can overturn static or semantic approval.",
+      "Checkpoint commits, preserved failure evidence, bounded repair, no-progress detection, and circuit breakers.",
+      "Explicit identification of Unity conflict surfaces such as scenes, Input Actions, ProjectSettings, and the shared builder."
+    ],
+    "change_or_replace": [
+      "Replace editable `status: complete` as dependency authority with a completion receipt bound to the task-contract hash, canon hash, integrated commit, and required evidence. Readiness must derive from valid receipts.",
+      "Disable the July 30 RAG corpus in production. Initially use direct excerpts from the current GDD plus a whole-document hash; any derived index must fail closed when its source hash differs.",
+      "Treat the capstone GDD as a deliverable containing several authority classes. Operationally distinguish product requirements, technical decisions, process policy, and repository observations without requiring an immediate document rewrite.",
+      "Replace the milestone order with gameplay-first delivery: task context, one worker, Unity validation, human experiential gate, merge, and guarded completion. Decomposition and artifact machinery should be demand-driven.",
+      "Evolve task contracts through revisions and supersession rather than contiguous bootstrap-only IDs and shared bootstrap provenance. Transient running/blocked/retry state belongs in an attempt journal, not task definitions.",
+      "Replace assignment-specific door/camera runners with the smallest one-ticket adapter demonstrated by a real task.",
+      "Separate explicit scene generation from validation. Current Editor tests invoke a builder that opens and saves the committed canonical scene; tests should use a temporary scene or inspect the canonical scene read-only.",
+      "Keep no-op detection, but define progress as resolving failed evidence—not merely producing any Assets diff. Otherwise agents are rewarded for defensive or cosmetic changes.",
+      "Bind future reconciliation snapshots to the observed Git commit and GDD content hash."
+    ],
+    "defer_or_delete": [
+      "Retire the one-shot Work Graph Seeder from active development; retain it only as historical bootstrap machinery.",
+      "Defer the bundled generic RAG, project scanner/cache, Roslyn analysis, Progressive Decomposer, Artifact Authority, artifact generation, and Artifact GER platform until a real near-frontier task requires them.",
+      "Defer stable per-requirement IDs and automatic impact mapping until conservative whole-GDD freshness checks become measurably costly. They are useful scaling tools, not prerequisites for the first safe slice.",
+      "Defer GitHub Projects synchronization, claims/leases, parallel workers, resource scheduling, merge queues, automatic merge, continuous scheduling, and backlog replenishment.",
+      "Stop adding reconciliation auditors, streaming-repair variants, recovery installers, or architecture-review orchestration.",
+      "Remove mutable `outputs/current` from any operational role; generate it on demand or delete it. Keep compact immutable manifests and archive bulky model transcripts outside the normal source tree where course requirements permit.",
+      "Defer broad prefab/scene architecture replacement, but reduce the monolithic builder bottleneck incrementally when real feature work touches it.",
+      "Defer Assignment 7 production integration until authorized style-sensitive content reaches the frontier."
+    ],
+    "major_disagreements": [
+      {
+        "issue": "Is the system unsound or merely unfinished?",
+        "positions": [
+          "The architecture documents explicitly describe most missing execution capabilities as later milestones.",
+          "Reviewers classify the system as partially unsound because current task and canon authorities can produce false readiness."
+        ],
+        "assessment": "Missing continuous scheduling is merely incomplete. Trusting mutable completion and proposing stale RAG as canon are active authority defects, so `partially_unsound` is warranted."
+      },
+      {
+        "issue": "How much workflow infrastructure should precede gameplay?",
+        "positions": [
+          "Several reviews prescribe an event-sourced controller, stable requirement registry, full lifecycle, and completion receipts immediately.",
+          "The YAGNI/producer position favors shipping a real task manually and generalizing only repeated bottlenecks."
+        ],
+        "assessment": "Use a middle course: build only one attempt manifest, freshness check, restart checkpoint, and guarded completion path needed by the next gameplay slice. A general event-sourced platform is not justified."
+      },
+      {
+        "issue": "What should happen to completed work after canon changes?",
+        "positions": [
+          "Some reviews would change completed tasks to `needs_revalidation`.",
+          "Others preserve historical completion and create migration or conformance work against the new canon."
+        ],
+        "assessment": "Preserve the original completion receipt as historical truth. Record current conformance separately, create remediation work for changed behavior, and block affected dependents when necessary. Rewriting history makes recovery and auditability worse."
+      },
+      {
+        "issue": "Should the GDD be split into separate files?",
+        "positions": [
+          "Reviewers recommend moving technical policy and repository inventory out of root canon.",
+          "The document is also a capstone deliverable whose AI architecture and technical strategy sections may be rubric-required."
+        ],
+        "assessment": "Do not begin with a disruptive document split. Classify authority at ingestion and stop treating every section as gameplay canon; reorganize the document later if the course constraints allow it."
+      },
+      {
+        "issue": "How much Unity automation belongs in the first slice?",
+        "positions": [
+          "The Unity review asks for a pinned batch compile, EditMode, PlayMode, serialization, and build runner immediately.",
+          "The producer/YAGNI reviews accept a human-operated Unity loop initially."
+        ],
+        "assessment": "Require reproducible machine-readable compile and test results through a thin host command, plus one human play-feel/scene gate. Do not build a general CI platform or require a Windows build for the movement ticket."
+      },
+      {
+        "issue": "Is NSC-003 truly the next task?",
+        "positions": [
+          "All eight reviews recommend NSC-003, but all used the same model and the repository documents explicitly anchor them toward it.",
+          "Smaller ready work such as NSC-005 is easier, while NSC-011 and NSC-024 have substantial dependency leverage."
+        ],
+        "assessment": "NSC-003 still wins on independent evidence: current WASD polling contradicts core player controls, the result is immediately visible, it has six direct dependent records, and it makes NSC-019 immediately ready. It is not execution-ready unchanged, however: the mouse-button/action arbitration is unspecified, criteria are duplicated, and future-consumer validation must be moved downstream."
+      }
+    ],
+    "gdd_iteration_strategy": "Use change-aware delivery rather than repeated global reconciliation. Every attempt records the GDD Git revision/hash, task-contract hash, and exact governing excerpts. Recheck them before validation and merge; any mismatch pauses the attempt. Initially, a whole-GDD mismatch triggers a small human-assisted diff classification—editorial, clarification, additive, behavioral, or removal—and unaffected work is explicitly re-stamped. Impacted planned or active work is revised or superseded; stale caches are rejected. Existing completion receipts remain immutable, while changed shipped behavior creates focused remediation/revalidation work and blocks affected dependents when required. Introduce stable requirement IDs only after conservative invalidation creates measurable friction. Run full reconciliation for broad redesign, milestone audits, an exhausted frontier, or suspected graph/repository drift. Its verification crew is an error-finding aid, not authority, and ordinary GDD edits should not invoke fifteen correlated auditors.",
+    "minimum_viable_architecture": "Five authorities are sufficient: current human-approved GDD/decisions; small versioned task contracts describing intent and dependencies; integrated main for implementation truth; an append-only attempt/evidence manifest; and explicit human approvals. A human selects one player-valued task. One restartable coordinator creates or resumes one worktree, pins canon/contract/base hashes, and invokes one bounded coding worker with direct targeted context. Validation runs scope/diff checks, Unity compilation, task-specific EditMode/PlayMode checks, a fresh semantic diff review, and only the necessary human scene/game-feel gate. Failures return one normalized feedback bundle through a bounded repair loop. Completion is recorded only after the candidate is integrated and matching evidence exists; readiness derives from those receipts. Git branches, checkpoint commits, manifests, and retained logs provide recovery without a workflow database, GitHub synchronization, generic RAG, or multi-worker scheduler.",
+    "recommended_next_slice": {
+      "title": "Ship a corrected NSC-003 mouse-movement slice through one evidence-bound delivery loop",
+      "why": "`PlayerMovement.cs` still polls `Keyboard.current` for WASD while current canon requires Input Actions-based click-to-destination and held-pointer steering. The slice is player-visible, establishes the shared pointer boundary needed by doors and spells, and makes NSC-019 immediately ready. It also exercises the exact missing production seams: canon freshness, Input Actions, scene integration, Unity evidence, recovery, merge, and truthful completion.",
+      "deliverables": [
+        "Scrub the contract before coding: choose the gameplay mouse/action mapping and arbitration with future spells/doors, remove the duplicate suspend criterion, move consumer-only validation downstream, and pin the task plus current GDD hashes.",
+        "Create one isolated worktree and compact attempt manifest containing attempt ID, task/contract/canon/base hashes, allowed files, required gates, checkpoints, and evidence paths. Use direct current-GDD excerpts, not the stale RAG.",
+        "Implement click-to-destination, held live-cursor steering, one shared gameplay-plane pointer result, movement restriction request/release, reset, and suspend/re-enable through Input Actions. Update scene/builder/HUD wiring without implementing door or spell behavior.",
+        "Add deterministic movement-state tests, Input System PlayMode tests, pointer-projection tests, and a read-only canonical-scene wiring smoke test. Refactor builder validation so tests do not save over the committed scene.",
+        "Run Unity 6000.1.8f1 compilation plus focused EditMode/PlayMode tests through a thin host command that preserves XML/log evidence and checks for unexplained working-tree mutations. Perform one human pass for movement feel, projection accuracy, camera compatibility, and scene wiring.",
+        "Merge under human review, then create a guarded completion receipt that verifies integrated ancestry and matching hashes/evidence before NSC-019 can become ready.",
+        "Record wall time, agent time, human minutes, retries, failures, context size, and any false static passes."
+      ],
+      "success_test": "From a clean checkout at canon hash H, start the attempt, restart it once after a checkpoint, and prove it resumes without duplicating work. In the canonical scene, click moves toward a fixed destination; holding follows changing cursor positions; restriction and suspension stop movement immediately; reset returns the initial movement state; and sampled screen points project consistently onto the gameplay plane. Unity compile/EditMode/PlayMode evidence and the human check pass, the candidate is merged once, and a matching receipt makes NSC-019 ready exactly once. Negative cases must prove that editing only `status: complete`, supplying a non-ancestor commit, omitting Unity evidence, or changing the task/GDD hash does not unlock NSC-019."
+    },
+    "expected_autonomy_and_throughput": "Today the system provides planning assistance only; autonomous work stops after `taskcontrol ready`. After the proposed slice, the credible autonomy level is one restartable bounded ticket through a human-reviewed merge—not continuous development. Humans still choose priority and controls, judge feel/scene quality, resolve architecture changes, and approve merge. A reasonable initial target is one validated small-to-medium gameplay slice per working day with roughly 60–90 minutes or less of human orchestration, but this is a hypothesis. Require two consecutive tickets through the same loop without new controller code before claiming material throughput leverage or adding more automation.",
+    "critical_risks": [
+      "NSC-003 is labeled concrete despite lacking an explicit mouse-button/action arbitration decision with future Fireball and door input.",
+      "A freely editable `complete` status currently unlocks dependents without merge, canon, test, or Unity evidence.",
+      "The production RAG is materially stale but still labels its chunks canonical; all 20 retrieval tests pass because they test the snapshot against itself.",
+      "No repository-owned Unity/CI runner exists in the frozen commit, and no Unity executable was available in the review environment.",
+      "Editor tests call a builder that opens and saves the committed canonical scene, so validation can mutate what it claims to validate.",
+      "The central scene builder and canonical scene are shared by thirteen implementation tasks, creating a future serialization bottleneck.",
+      "Existing passing tests encode obsolete WASD and hold-to-open behavior, demonstrating that green tests can certify superseded canon.",
+      "All eight reviews used the same `gpt-5.6-sol` model and shared repository framing; their unanimity, especially around NSC-003, is correlated evidence.",
+      "The prior no-op rule already encouraged an unnecessary defensive code/test change to manufacture an Assets diff rather than resolve the missing Unity evidence.",
+      "Infrastructure displacement may recur unless every new mechanism is tied to a measured feature bottleneck."
+    ],
+    "decision_rationale": "Independent repository evidence supports the core conclusion. The frozen HEAD is the requested commit. All TaskGraph smoke tests and `taskcontrol validate` pass, proving structural value, but `taskcontrol_smoke_test.py` deliberately changes one task to `complete` and observes downstream readiness without evidence. The CLI exposes only validate/list/show/ready/graph, and post-bootstrap reconciliation returns `taskcontrol_diff_required` with empty changes. Zero tasks contain canon hashes, requirement versions, merge SHAs, or evidence receipts. The RAG identifies a July 30 GDD and retains WASD/manual-door rules; the current GDD is dated August 21 and changed by 143 additions and 48 deletions after the RAG commit. `PlayerMovement.cs` still implements direct WASD polling, Build Settings contains no scenes, and the repository has no Unity batch/CI path. Assignment 6 supplies positive evidence for bounded repair and runtime feedback: two static camera passes failed in Unity and a no-op refinement was caught. Conversely, from the Assignment 6 commit to the frozen commit, 201 commits produced 130,935 inserted lines—mostly generated pipeline/audit material—while changing nothing under Assets, Packages, or ProjectSettings. That is strong evidence to preserve the worker/evidence kernel while replacing reconciliation-first milestone ordering.",
+    "evidence_gaps": [
+      "A functioning external Windows Unity runner, licensing setup, or CI system may exist outside the frozen repository.",
+      "The repository lacks comparable model cost, token use, human minutes, manual-development baseline, and repeated end-to-end lead-time measurements.",
+      "The human's current product priority and preferred mouse/spell/door control mapping are not recorded.",
+      "No evidence yet shows that stable requirement IDs outperform conservative whole-document freshness for this small 349-line GDD.",
+      "No production task has exercised Progressive Decomposition, Artifact Authority, or artifact promotion, so their eventual necessity and proper shape remain unknown.",
+      "The long-term ownership plan for the canonical scene, builder-generated content, and eventual prefabs has not been decided.",
+      "The review environment could not independently rerun Unity compilation, EditMode, PlayMode, or the documented final camera playtest."
+    ]
+  }
+}

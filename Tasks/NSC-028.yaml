@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-028",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Encounter Admission Active-Enemy-Cap Enforcement",
   "reconciliation_key": "encounter-admission-cap-enforcement",
   "kind": "implementation",
   "type": "runtime-system",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "The admission-gating logic (query registry capacity, delay/reduce a requested activation batch, never deregister existing enemies) is a bounded, independently testable runtime responsibility once the Active Enemy Registry interface exists, with a clear validation target (Lower Vault priority case) that does not require full room content to be authored.",
   "decomposition_state": "concrete",
@@ -18,39 +19,48 @@
   "acceptance_criteria": [
     {
       "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Before activating a requested encounter's enemies, query the registry's current active count and remaining capacity under the fifteen-enemy hard limit."
+      "requirement": "Before activating a requested encounter's enemies, query the registry's current active count and remaining capacity under the fifteen-enemy hard limit.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
-      "requirement": "When activating the requested enemies would exceed fifteen active enemies, delay or reduce the new encounter's enemy activation first; never remove or deregister an existing persistent pursuer to make room."
+      "requirement": "When activating the requested enemies would exceed fifteen active enemies, delay or reduce the new encounter's enemy activation first; never remove or deregister an existing persistent pursuer to make room.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Section 4 — Dungeon Encounter Agent",
-      "requirement": "Consume the Active Enemy Registry's owner-exposed active count/capacity interface rather than maintaining a separate duplicate count."
+      "requirement": "Consume the Active Enemy Registry's owner-exposed active count/capacity interface rather than maintaining a separate duplicate count.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "GDD §2 Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled reset entry point that returns encounter activation/admission state to its floor-initial values, consumed by the Floor Run/Restart Orchestrator rather than having internals mutated externally."
+      "requirement": "Exposes an owner-controlled reset entry point that returns encounter activation/admission state to its floor-initial values, consumed by the Floor Run/Restart Orchestrator rather than having internals mutated externally.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled reset entry point that returns encounter activation/admission bookkeeping — including any delayed or reduced pending activation and admitted-batch state — to the floor's initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating admission internals directly."
+      "requirement": "Exposes an owner-controlled reset entry point that returns encounter activation/admission bookkeeping — including any delayed or reduced pending activation and admitted-batch state — to the floor's initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating admission internals directly.",
+      "criterion_id": "AC-005"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Lower Vault is the primary validation case: verify that when a rear breach (surviving pursuers breaking through an earlier locked door) coincides with Lower Vault's own encounter admission request, the persistent pursuers keep priority over admitting the new encounter's enemies."
+      "requirement": "Lower Vault is the primary validation case: verify that when a rear breach (surviving pursuers breaking through an earlier locked door) coincides with Lower Vault's own encounter admission request, the persistent pursuers keep priority over admitting the new encounter's enemies.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Section 3 — Player Experience Success Criteria",
-      "requirement": "Verify the floor-wide active-enemy count never exceeds fifteen across combined persistent-pursuer and newly-admitted-encounter enemies."
+      "requirement": "Verify the floor-wide active-enemy count never exceeds fifteen across combined persistent-pursuer and newly-admitted-encounter enemies.",
+      "gate_id": "VAL-002"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart returns encounter activation/admission bookkeeping, including any delayed or reduced pending activation and admitted-batch state, to the floor's initial state through the owner-controlled reset entry point."
+      "requirement": "Verify floor restart returns encounter activation/admission bookkeeping, including any delayed or reduced pending activation and admitted-batch state, to the floor's initial state through the owner-controlled reset entry point.",
+      "gate_id": "VAL-003"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
@@ -71,8 +81,12 @@
   "notes": "Must not be folded into or blocked by dungeon-encounter-content-authoring's needs_future_decomposition status; this is the 'known runtime behavior' half of the split required by the reconciliation guidance.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

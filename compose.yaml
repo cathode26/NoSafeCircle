@@ -1,4 +1,4 @@
-﻿services:
+services:
   claude:
     build:
       context: .
@@ -14,5 +14,50 @@
       - claude-config:/home/agent/.claude
     command: ["bash"]
 
+  codex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      CODEX_HOME: /home/agent/.codex
+    volumes:
+      - .:/workspace
+      - codex-config:/home/agent/.codex
+    command: ["bash"]
+
+  # Architecture-review workers intentionally disable Codex's nested Linux
+  # sandbox because bubblewrap/user namespaces are not available inside the
+  # Docker container. Docker itself supplies the filesystem boundary: the
+  # repository is mounted read-only, with only the review outputs directory
+  # writable so the orchestrator can save results.
+  codex-review:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      CODEX_HOME: /home/agent/.codex
+      # The repository is checked out by Git for Windows, while status checks
+      # run under Linux in this container. Match the Windows checkout's line
+      # ending and executable-bit semantics so a clean host tree is also clean
+      # inside Docker. These values are passed to every Git subprocess through
+      # Git's documented environment-config mechanism.
+      GIT_CONFIG_COUNT: "2"
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: "true"
+      GIT_CONFIG_KEY_1: core.filemode
+      GIT_CONFIG_VALUE_1: "false"
+    volumes:
+      - .:/workspace:ro
+      - ./Pipeline/ArchitectureReview/outputs:/workspace/Pipeline/ArchitectureReview/outputs:rw
+      - codex-config:/home/agent/.codex
+    command: ["bash"]
+
 volumes:
   claude-config:
+  codex-config:

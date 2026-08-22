@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-037",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Windows Build Scene Registration",
   "reconciliation_key": "windows-build-scene-registration",
   "kind": "implementation",
   "type": "build-configuration",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "Registering one named scene and configuring the Windows Standalone build target is a bounded project-configuration change one agent can perform; the required human inspection of the result afterward is a separate pipeline gate (see 'Human inspection and final integration authority'), not an execution-scope split.",
   "decomposition_state": "concrete",
@@ -18,27 +19,33 @@
   "acceptance_criteria": [
     {
       "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
-      "requirement": "The canonical gameplay scene (currently Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity, or a later human-approved replacement) is registered in Unity Build Settings."
+      "requirement": "The canonical gameplay scene (currently Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity, or a later human-approved replacement) is registered in Unity Build Settings.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
-      "requirement": "Windows Standalone is configured as the active/target build platform."
+      "requirement": "Windows Standalone is configured as the active/target build platform.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Section 5 - Current Prototype Scene Evidence",
-      "requirement": "The non-canonical Assets/Scenes/DoorPrototype.unity and Assets/Scenes/SampleScene.unity stub scenes must not be registered as substitutes for the canonical gameplay scene."
+      "requirement": "The non-canonical Assets/Scenes/DoorPrototype.unity and Assets/Scenes/SampleScene.unity stub scenes must not be registered as substitutes for the canonical gameplay scene.",
+      "criterion_id": "AC-003"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
-      "requirement": "The developer inspects the resulting package state, scene registration, and Windows build configuration before merge."
+      "requirement": "The developer inspects the resulting package state, scene registration, and Windows build configuration before merge.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Section 5 - Technical Strategy",
-      "requirement": "A Windows Standalone build must be producible from the registered canonical gameplay scene."
+      "requirement": "A Windows Standalone build must be producible from the registered canonical gameplay scene.",
+      "gate_id": "VAL-002"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
@@ -57,8 +64,12 @@
       "observation": "m_Scenes: [] — no scene is currently registered in Unity Build Settings, directly confirming the GDD's stated incomplete build-configuration fact."
     }
   ],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

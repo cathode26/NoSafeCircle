@@ -1,4 +1,4 @@
-﻿FROM ubuntu:24.04
+FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -22,7 +22,13 @@ ENV HOME=/home/agent
 ENV PATH="/home/agent/.local/bin:${PATH}"
 ENV PYTHONUNBUFFERED=1
 
+# Keep Claude available for the existing course/pipeline tooling.
 RUN curl -fsSL https://claude.ai/install.sh | bash
+
+# Install OpenAI Codex CLI alongside Claude. Codex can authenticate with the
+# user's ChatGPT account, so the new architecture review can run through Codex
+# without requiring an OpenAI API key.
+RUN curl -fsSL https://chatgpt.com/codex/install.sh | sh
 
 RUN git config --global --add safe.directory /workspace
 

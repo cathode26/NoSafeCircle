@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-017",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Locked-Door Enemy Attack Initiation",
   "reconciliation_key": "locked-door-enemy-attack",
   "kind": "implementation",
   "type": "enemy_behavior",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "A narrowly scoped behavior branch — checking existing tracking state, requesting door damage through one interface, and resuming pursuit after breach — with a small, well-defined validation target once its two prerequisites exist; bounded enough for one implementation agent.",
   "decomposition_state": "concrete",
@@ -21,51 +22,63 @@
   "acceptance_criteria": [
     {
       "reference": "Door and Pursuit Rules",
-      "requirement": "A surviving enemy still actively tracking/pursuing the player and whose route is blocked by a newly locked door begins attacking that door; no separate 'witnessed escape' or line-of-sight-to-crossing flag is tracked."
+      "requirement": "A surviving enemy still actively tracking/pursuing the player and whose route is blocked by a newly locked door begins attacking that door; no separate 'witnessed escape' or line-of-sight-to-crossing flag is tracked.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Door and Pursuit Rules",
-      "requirement": "An enemy that has already lost the player (cleared target) does not attack a locked door merely because it is nearby."
+      "requirement": "An enemy that has already lost the player (cleared target) does not attack a locked door merely because it is nearby.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Locked-door attack and durability ownership",
-      "requirement": "The attack requests door damage exclusively through the Door-owned damage-receive interface and never writes door durability or semantic door state directly."
+      "requirement": "The attack requests door damage exclusively through the Door-owned damage-receive interface and never writes door durability or semantic door state directly.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "Door and Pursuit Rules",
-      "requirement": "When the door breaks (transitions to broken), the still-tracking/pursuing enemy continues pursuit forward through the now-passable doorway using the shared navigation/locomotion passability result, without independently manipulating door or navigation state."
+      "requirement": "When the door breaks (transitions to broken), the still-tracking/pursuing enemy continues pursuit forward through the now-passable doorway using the shared navigation/locomotion passability result, without independently manipulating door or navigation state.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled attack-state reset entry point that cancels any in-progress locked-door attack attempt when the Floor Run/Restart Orchestrator invokes floor restart, so no partially-executed door-attack state carries over from the failed run."
+      "requirement": "Exposes an owner-controlled attack-state reset entry point that cancels any in-progress locked-door attack attempt when the Floor Run/Restart Orchestrator invokes floor restart, so no partially-executed door-attack state carries over from the failed run.",
+      "criterion_id": "AC-005"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled restart/reset entry point that clears locked-door attack initiation/in-progress state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly."
+      "requirement": "Exposes an owner-controlled restart/reset entry point that clears locked-door attack initiation/in-progress state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly.",
+      "criterion_id": "AC-006"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Dungeon Floor Structure (Lower Vault) / Door and Pursuit Rules",
-      "requirement": "Verify that after a rear breach, locked-door-attacking pursuers correctly resume forward pursuit through the broken doorway rather than stalling."
+      "requirement": "Verify that after a rear breach, locked-door-attacking pursuers correctly resume forward pursuit through the broken doorway rather than stalling.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Door and Pursuit Rules",
-      "requirement": "Verify an enemy that has already lost the player (post bounded-search target clear) does not initiate a locked-door attack solely from proximity."
+      "requirement": "Verify an enemy that has already lost the player (post bounded-search target clear) does not initiate a locked-door attack solely from proximity.",
+      "gate_id": "VAL-002"
     },
     {
       "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "The player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through."
+      "requirement": "The player understands that enemies left alive remain a threat: leaving them alive means locking a door while they attack it, and later encountering them if that door breaks through.",
+      "gate_id": "VAL-003"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify an in-progress locked-door attack attempt is cancelled and cleared by floor restart, with no door-attack state surviving into the next run."
+      "requirement": "Verify an in-progress locked-door attack attempt is cancelled and cleared by floor restart, with no door-attack state surviving into the next run.",
+      "gate_id": "VAL-004"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart clears locked-door attack initiation/in-progress state through the owner-controlled reset entry point."
+      "requirement": "Verify floor restart clears locked-door attack initiation/in-progress state through the owner-controlled reset entry point.",
+      "gate_id": "VAL-005"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Door and Pursuit Rules",
@@ -86,8 +99,12 @@
   "notes": "Does not consume or write the shared gameplay-walkability-surface directly; it only reads the navigation layer's passability result once the door breaks, per GDD's explicit statement that 'pursuit and attack behavior consume doorway walkability... rather than directly changing NavMesh or door passability,' so no logical:gameplay-walkability-surface lock is applied here.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

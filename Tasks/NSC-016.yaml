@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-016",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Ranged Enemy Archetype",
   "reconciliation_key": "ranged-enemy",
   "kind": "implementation",
   "type": "enemy_archetype",
-  "status": "open",
   "execution_scope": "needs_execution_decomposition",
   "execution_reason": "Bundles keep-away positioning logic, telegraphed-attack timing, line-of-sight/occlusion checks, Frost-interaction correctness, plus Enemy Health/Defeat and Active Enemy Registry integration and SpriteRenderer presentation into one archetype; these are independently verifiable responsibilities exceeding a single bounded handoff.",
   "decomposition_state": "concrete",
@@ -23,55 +24,68 @@
   "acceptance_criteria": [
     {
       "reference": "Required Enemy Roster",
-      "requirement": "Keeps moderate distance from the player and fires a slow, telegraphed ranged shot rather than an instantaneous attack."
+      "requirement": "Keeps moderate distance from the player and fires a slow, telegraphed ranged shot rather than an instantaneous attack.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Runtime Implementation",
-      "requirement": "Attack includes a line-of-sight/projectile-occlusion check so cover (e.g., Chapel of Ash pews/columns) actually blocks shots."
+      "requirement": "Attack includes a line-of-sight/projectile-occlusion check so cover (e.g., Chapel of Ash pews/columns) actually blocks shots.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Required Enemy Roster",
-      "requirement": "Deals damage to the player exclusively through the shared Player Health damage interface (existing PlayerHealth.TakeDamage)."
+      "requirement": "Deals damage to the player exclusively through the shared Player Health damage interface (existing PlayerHealth.TakeDamage).",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "Required Enemy Roster",
-      "requirement": "Functions correctly as a standalone pursuer if it ends up fighting without Melee support, without requiring melee presence to operate."
+      "requirement": "Functions correctly as a standalone pursuer if it ends up fighting without Melee support, without requiring melee presence to operate.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "Spell and Enemy Interactions",
-      "requirement": "Frost Field slowdown affects only the Ranged Enemy's repositioning/locomotion speed and does not suppress, pause, or otherwise slow its telegraphed attack execution."
+      "requirement": "Frost Field slowdown affects only the Ranged Enemy's repositioning/locomotion speed and does not suppress, pause, or otherwise slow its telegraphed attack execution.",
+      "criterion_id": "AC-005"
     },
     {
       "reference": "Environment Presentation and Authoring Direction",
-      "requirement": "Delivers a usable assembled world-space SpriteRenderer archetype prefab integrating the shared pursuit/locomotion foundation (moderate-distance keep-away behavior), Enemy Health/Defeat participation, Active Enemy Registry participation, and Ranged attack/occlusion behavior."
+      "requirement": "Delivers a usable assembled world-space SpriteRenderer archetype prefab integrating the shared pursuit/locomotion foundation (moderate-distance keep-away behavior), Enemy Health/Defeat participation, Active Enemy Registry participation, and Ranged attack/occlusion behavior.",
+      "criterion_id": "AC-006"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled attack-state reset entry point that clears any in-progress telegraphed-shot windup and cancels/despawns any in-flight projectile when the Floor Run/Restart Orchestrator invokes floor restart, so no mid-execution attack state carries over from a failed run."
+      "requirement": "Exposes an owner-controlled attack-state reset entry point that clears any in-progress telegraphed-shot windup and cancels/despawns any in-flight projectile when the Floor Run/Restart Orchestrator invokes floor restart, so no mid-execution attack state carries over from a failed run.",
+      "criterion_id": "AC-007"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled restart/reset entry point that clears ranged attack/telegraph timing and any in-flight projectile state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly."
+      "requirement": "Exposes an owner-controlled restart/reset entry point that clears ranged attack/telegraph timing and any in-flight projectile state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly.",
+      "criterion_id": "AC-008"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Dungeon Floor Structure (Chapel of Ash) / Development Agent Roles (Unity Validation Agent)",
-      "requirement": "Chapel of Ash line-of-sight/projectile-occlusion Play Mode validation confirming cover blocks shots."
+      "requirement": "Chapel of Ash line-of-sight/projectile-occlusion Play Mode validation confirming cover blocks shots.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Spell and Enemy Interactions",
-      "requirement": "Verify a slowed (Frost Field) Ranged Enemy continues its normal telegraphed attack behavior while its repositioning speed is reduced."
+      "requirement": "Verify a slowed (Frost Field) Ranged Enemy continues its normal telegraphed attack behavior while its repositioning speed is reduced.",
+      "gate_id": "VAL-002"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify an in-progress telegraphed shot or in-flight projectile is cancelled/cleared by floor restart, with no attack state surviving into the next run."
+      "requirement": "Verify an in-progress telegraphed shot or in-flight projectile is cancelled/cleared by floor restart, with no attack state surviving into the next run.",
+      "gate_id": "VAL-003"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart clears ranged attack/telegraph timing and any in-flight projectile state through the owner-controlled reset entry point."
+      "requirement": "Verify floor restart clears ranged attack/telegraph timing and any in-flight projectile state through the owner-controlled reset entry point.",
+      "gate_id": "VAL-004"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Required Enemy Roster",
@@ -100,8 +114,12 @@
   "notes": "The GDD's encounter-composition rule that Ranged Enemy never spawns as an isolated encounter is content/authoring policy owned by dungeon-encounter-content-authoring (a different domain), not this archetype's own behavior; this item only needs to remain correct when it happens to end up alone mid-encounter.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

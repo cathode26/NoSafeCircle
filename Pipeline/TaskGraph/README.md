@@ -1,83 +1,180 @@
-# Milestone 1 Task Graph Bootstrap
+# Persistent Task Graph and Task Contracts
 
-This directory contains deterministic tooling for turning one human-approved, independently verified reconciliation snapshot into the initial persistent `Tasks/*.yaml` work graph.
+This directory contains deterministic tooling for the No Safe Circle persistent work graph.
 
-## Safety boundary
+## Current architecture correction
 
-Reconciliation and verification never mutate `Tasks/*.yaml`.
+The initial bootstrap successfully established stable `NSC-###` identities, dependencies, parent hierarchy, and exclusive-resource coordination. The adversarial architecture review then found that schema-v1 task files incorrectly combined work definitions with mutable completion claims.
 
-Bootstrap proceeds through these stages:
+Phase 1 disabled autonomous execution authority.
 
-1. Reconciliation creates an immutable candidate and proposed bootstrap graph delta.
-2. Independent verification refines/re-verifies the candidate until material findings are zero or the run is rejected.
-3. A human explicitly approves one exact verified candidate/delta pair.
-4. The deterministic Work Graph Seeder checks the approval manifest and creates the initial persistent graph.
-5. Later reconciliation runs propose diffs; they never directly rewrite the graph.
-
-The approval record binds the immutable candidate, graph delta, and verification summary by SHA-256 so a mutable `outputs/current/` pointer cannot silently change what was approved.
-
-## Bootstrap approval check
-
-Run:
-
-```powershell
-python Pipeline/TaskGraph/approve_verified_bootstrap.py
-```
-
-This performs deterministic checks only and writes nothing.
-
-After reviewing the printed identities and SHA-256 hashes, explicitly record approval with:
-
-```powershell
-python Pipeline/TaskGraph/approve_verified_bootstrap.py --approve --approved-by Vincent
-```
-
-This creates the intentionally write-once:
+Phase 2 introduces **task-contract schema 2.0**:
 
 ```text
-Pipeline/TaskGraph/APPROVED_BOOTSTRAP.json
+Tasks/*.yaml = approved definition of work
 ```
 
-## Stage 1 — Approval + immutable input loader
+not:
 
-Run:
+```text
+Tasks/*.yaml = definition + running state + validation state + completion truth
+```
+
+See:
+
+- `TASK_CONTRACT_SCHEMA_V2.md`
+- `TASK_CONTRACT_V2_QUALITY_REVIEW.md`
+- `Docs/AI-Pipeline/ADR-031_TASK_STATUS_ADVISORY.md`
+- `Docs/AI-Pipeline/ADR-032_TASK_CONTRACT_SCHEMA_V2.md`
+
+## Phase 2 files
+
+- `task_contract_schema.py` — shared schema constants and deterministic entry normalization.
+- `task_contract_migration.py` — idempotent v1-to-v2 task conversion plus explicit human-reviewed migration rules.
+- `migrate_task_contracts_v2.py` — repository migration planner/checker/applicator.
+- `migrate_task_contracts_v2_smoke_test.py` — end-to-end synthetic migration, validation, quality-audit, recovery, and idempotence test.
+- `task_contract_quality_audit.py` — heuristic post-migration review for duplicate acceptance criteria and completion gates that may actually be downstream obligations.
+- `task_contract_quality_audit_smoke_test.py` — deterministic audit regression test.
+- `work_graph_validate.py` — validates a uniform v1 graph during transition or the final v2 graph; mixed live graphs fail closed.
+- `persistent_work_graph.py` — loads one uniform live schema and rejects interrupted mixed state.
+- `taskcontrol.py` — inspection CLI; readiness and execution authority remain disabled.
+
+## Reviewed migration corrections
+
+The first real migration quality audit found two candidates, and manual inspection found two additional duplicate pairs that the heuristic did not flag.
+
+The final migration rules therefore:
+
+- merge NSC-003's duplicate gameplay-suspend acceptance criteria;
+- move NSC-003's future pointer-consumer validation from a completion gate to a downstream integration obligation;
+- merge NSC-019's duplicate gameplay-suspend acceptance criteria;
+- merge NSC-019's duplicate reset acceptance criteria;
+- preserve NSC-023's future visual-foundation compatibility check as a downstream integration obligation.
+
+The reviewed migration identity is:
+
+```text
+task-contract-schema-v2-20260822-r2
+```
+
+## Run the Phase 2 checks
+
+From the repository root:
 
 ```powershell
-python Pipeline/TaskGraph/bootstrap_inputs_smoke_test.py
-python Pipeline/TaskGraph/bootstrap_inputs.py
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/work_graph_transform_smoke_test.py
 ```
-
-`bootstrap_inputs.py` never reads `outputs/current/` after approval. It loads only the immutable artifacts named by `APPROVED_BOOTSTRAP.json`, recomputes all bound SHA-256 values, checks reconciliation/verification identity and zero final material findings, and confirms every proposed seed key exists in the approved candidate.
-
-## Stage 2 — Stable IDs + in-memory task transform
-
-Run:
 
 ```powershell
-python Pipeline/TaskGraph/work_graph_transform_smoke_test.py
-python Pipeline/TaskGraph/work_graph_transform.py
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/work_graph_validate_smoke_test.py
 ```
-
-To inspect the complete initial ID allocation:
 
 ```powershell
-python Pipeline/TaskGraph/work_graph_transform.py --show-id-map
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/work_graph_persist_smoke_test.py
 ```
 
-This stage still writes nothing under `Tasks/`.
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol_smoke_test.py
+```
 
-The initial stable IDs are allocated in the exact order of the human-approved `proposed_seed_records` list. Because the approved graph delta itself is SHA-256 bound, the initial allocation is reproducible. Once written by the later seed writer, that `reconciliation_key -> NSC-*` mapping becomes durable state and is never regenerated from a later reconciliation.
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/phase1_execution_authority_smoke_test.py
+```
 
-The transformer mechanically:
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/task_contract_quality_audit_smoke_test.py
+```
 
-- cross-checks operational identity/topology between the approved delta and approved candidate;
-- treats `no-safe-circle` as the project-root sentinel rather than inventing a task for it;
-- converts parent/dependency reconciliation keys into stable `NSC-*` IDs;
-- keeps exclusive-resource locks separate from dependency edges;
-- preserves acceptance criteria, validation requirements, execution/decomposition metadata, provenance, and useful bootstrap repository evidence;
-- carries non-code project requirements separately from executable work;
-- rejects missing parents/dependencies, self-dependencies, unknown resource-group members, or delta/candidate disagreement instead of guessing.
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/migrate_task_contracts_v2_smoke_test.py
+```
 
-## Next
+## Check the real migration
 
-Stage 3 adds deterministic graph validation and a dry-run report over the in-memory plan. Only after that passes will the atomic seed writer be allowed to create `Tasks/*.yaml` and the durable ID map.
+This validates all real tasks and prints the exact migration summary without writing:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/migrate_task_contracts_v2.py --check
+```
+
+Review the task count, historical status-observation counts, completion-gate count, and downstream-obligation count.
+
+## Apply the real migration
+
+The `codex-review` service mounts the repository read-only. Use the writable `codex` service for `--apply`:
+
+```powershell
+docker compose run --rm codex python3 Pipeline/TaskGraph/migrate_task_contracts_v2.py --apply
+```
+
+The migrator:
+
+1. reads every `Tasks/NSC-*.yaml` file;
+2. converts v1 or preserves already-valid v2 contracts;
+3. validates the complete target graph before writing;
+4. checks source hashes immediately before publication;
+5. atomically replaces each task file;
+6. publishes `TASK_CONTRACT_V2_MIGRATION.json` last;
+7. supports safe rerun after interruption.
+
+Then run:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py validate
+```
+
+Expected task schema:
+
+```text
+2.0
+```
+
+Run the quality audit after migration:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/task_contract_quality_audit.py --strict
+```
+
+Expected result:
+
+```text
+Total review findings:                  0
+```
+
+Readiness intentionally remains unavailable:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py ready
+```
+
+Authorization intentionally remains denied:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py authorize NSC-003
+```
+
+The authorization command intentionally returns exit code `2`; Docker Desktop may offer Gordon because the process is nonzero, but the denial is expected.
+
+## Replacing an uncommitted first migration
+
+If the earlier migration identity `task-contract-schema-v2-20260822` was applied locally but not committed, discard only those generated outputs before running the reviewed migration:
+
+```powershell
+git restore -- Tasks
+```
+
+```powershell
+Remove-Item Pipeline/TaskGraph/TASK_CONTRACT_V2_MIGRATION.json
+```
+
+Then pull the reviewed migration tooling, run `--check`, and apply again.
+
+## Historical bootstrap boundary
+
+Do not rerun the one-time bootstrap on this repository.
+
+The old reconciliation, verification, approval, and bootstrap records remain immutable history. Schema 2.0 migrates the living task contracts; it does not rewrite the evidence that originally produced them.
+
+## Next phase
+
+After the reviewed v2 migration is committed, introduce the minimum delivery/revalidation evidence model needed to derive current conformance for one real task. Do not enable autonomous dispatch until that evidence is bound to current canon and the exact integrated Git tree.

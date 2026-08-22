@@ -1,0 +1,246 @@
+{
+  "schema_version": "1.0",
+  "migration_id": "task-contract-schema-v2-20260822-r2",
+  "target_task_contract_schema_version": "2.0",
+  "task_count": 37,
+  "source_schema_versions": [
+    "1.0"
+  ],
+  "bootstrap_status_observations": {
+    "open": 36,
+    "complete": 1
+  },
+  "completion_gate_count": 75,
+  "downstream_integration_obligation_count": 2,
+  "validation": {
+    "root_id": "NSC-001",
+    "parent_edge_count": 36,
+    "dependency_edge_count": 59,
+    "resource_group_count": 7
+  },
+  "files": [
+    {
+      "path": "Tasks/NSC-001.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "ab3c0b3c2b2d040a4d9e71419e4a3bd426d080680097a7b6a493babe32acf848",
+      "target_sha256": "30834afab65a13f51be58b391cad622887ade3f39d92ca0fdba562a4c2f9de4c"
+    },
+    {
+      "path": "Tasks/NSC-002.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "00069e452665bd9f0e775c68f5e499d28146bfe7285d00abb31cc661124e168c",
+      "target_sha256": "0173f967baeee07a33f90dafcf87886179a9bd37594faa691c5416d463288453"
+    },
+    {
+      "path": "Tasks/NSC-003.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "01a032476cbe0ecabd6dd36264709ada76468796fd1c5a145c311344faefb40c",
+      "target_sha256": "2cd3ae633cfeca062f0be1df2fcf900825ab3b9d0efa58cbe335f6fac178189e"
+    },
+    {
+      "path": "Tasks/NSC-004.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "cebaa4aa46e1799dd6c373c18fd07a78333b4d38259ce73a907b0a9d74e7798e",
+      "target_sha256": "9f5100c666bdd3142ec9583517f64bf25ef82874b25ba5888d5f657ccf9e5af7"
+    },
+    {
+      "path": "Tasks/NSC-005.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "682a238c6d2cb32413bc6567cbfa3f5ff7a6f81e7d622d98f7a8803eda603de7",
+      "target_sha256": "60b445efa977b83b4cf84cd209fbd43881d7810761ebf7bbd6461bb8d696b123"
+    },
+    {
+      "path": "Tasks/NSC-006.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "340e55da5436a32c53d78b9b8b83f461771cc0e43cbd088f1f72ae9529b331b5",
+      "target_sha256": "8cb37930a42e166e09ef551dbc05205b0bfcfc8df3281e5fa0118063f96f4821"
+    },
+    {
+      "path": "Tasks/NSC-007.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "4f43bbbe4ecb625cd084dc2fdb51f78ecb7d896ec8eebf6791a62823bf5a59ed",
+      "target_sha256": "8fa75aafb452191dc2e8ecba1922998f523a579af325f525e997af91d0b8c597"
+    },
+    {
+      "path": "Tasks/NSC-008.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "ff44eed5c388e76aa0aacdcbcd956f9224626a01393b25e63b2aa1f129d68031",
+      "target_sha256": "00f55cc4fe493a8286d2db96d4531867d0937a500de329dcd76ed0191fe9db67"
+    },
+    {
+      "path": "Tasks/NSC-009.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "869a255fea6dcc85a9366be3436727083e29abcf56c4d9b23671d6a2080dc1ad",
+      "target_sha256": "c720f532a0fcc0684bab9a1b99a06027dde0b4bfa6224638c0a997fea4c4c8b2"
+    },
+    {
+      "path": "Tasks/NSC-010.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "e51f9eaf9253f7b6937a185615d694fd0ed0eb427d8a7dd3cb57cc121fbffd13",
+      "target_sha256": "039bd38c972f6c7b1fd343fc8301722d81ffa53d69f2c33214cb5a34040b54df"
+    },
+    {
+      "path": "Tasks/NSC-011.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "cb8afb63751b43bfacc8008aad25433652d7c45cc9cd05d5f3235da72b0d8311",
+      "target_sha256": "4bcc71918866c43e3c9c61e334a436516dd28062ed2e81fa3191f55aa1a9e580"
+    },
+    {
+      "path": "Tasks/NSC-012.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "aa5d521c48c0695b3a55a5cb9d94d34b95e20159e164ba341b3d43017a31bb86",
+      "target_sha256": "74c26d855ac1842a1e1d67e11b418ce41c3a9604f441e4a507b912d3509dbfb6"
+    },
+    {
+      "path": "Tasks/NSC-013.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "933f4175664493fd8aa5932240a3049776aa3106b3e8a1c8968b1a0ee928560a",
+      "target_sha256": "423c24a03fa2252d32bb1284c17068c819b4856009b2d1adf083ca3ce15fc166"
+    },
+    {
+      "path": "Tasks/NSC-014.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "9d59aae20b2349799e454c5b61ef3efbeba5de9f1615d7a1c5f47a5760d739eb",
+      "target_sha256": "61b9171e9c30efee39510cf41c49a42f9255a4bcf3013f1e44580921c5c80df7"
+    },
+    {
+      "path": "Tasks/NSC-015.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "2428dbc3284c9fb7c781d4000e015798679699009d0aed9825d646c49de41cfe",
+      "target_sha256": "211cb16b4c75f8772e80507cd1c73eebff5c7b03aff19b1311bb04d3c6e5f208"
+    },
+    {
+      "path": "Tasks/NSC-016.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "51a751bb126a4622262a9ed62b3865eb007d8e6ab23cf9f42a8abe2c054183d6",
+      "target_sha256": "3894dfccf26cf4656cb06564f6ef0984200f307e5189c882ddf210eee04c57b8"
+    },
+    {
+      "path": "Tasks/NSC-017.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "9a996120b66f2f6d1952def077c94804c7cdeff0cf8b525f29a3ea4322009bd6",
+      "target_sha256": "f52804bd15da3420ba0c03ad1db3340917f116e0c58d6df0e63c04dc7c384c29"
+    },
+    {
+      "path": "Tasks/NSC-018.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "5f97b5f68fea1dd77366f5fcbc4f4243a17d0ec0c292c6145e4407e23e3bf7da",
+      "target_sha256": "f5170468f49dde86abe69201966a2bba59a3c0fd877efbfe3df797b7910efc6a"
+    },
+    {
+      "path": "Tasks/NSC-019.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "fdfa00fd821bd80c1b45e0cd8ca672e1db5b4eeb3c0ae4b1cc7c19c0b78d0ea0",
+      "target_sha256": "0c12fcdf05fc79c326b3d663f8ec4c55a3d1716375b628b8d3a012703030b97d"
+    },
+    {
+      "path": "Tasks/NSC-020.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "51cd795573b3386d14c8c9667e39906c8ab4f48c40fe155d6772c49d2eed5e95",
+      "target_sha256": "a971844f00b0986faf3d21926e5c6a6901d97c6381c646c35b1017c6b9f8a6ef"
+    },
+    {
+      "path": "Tasks/NSC-021.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "3e639705074719646e3e9ffe67f4a572400d055ceaa34c6aafd6a3508acd486e",
+      "target_sha256": "def84c8fe8719c66fb4cc2e2d96d0f69a1b7dc949c4235939aa00028d1a031da"
+    },
+    {
+      "path": "Tasks/NSC-022.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "0b864ad11cb51c713e1218c129bcc0e860d9750b1ca6580b339fdffb5b7c07b5",
+      "target_sha256": "4bf965f749932b7b8c83bd97aafdb16fceee071c9b7cba0e99decf0f04536540"
+    },
+    {
+      "path": "Tasks/NSC-023.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "fbf262cc11dc50affbd165d3812b0d4b5edfa023ab07af178c17d58743f3ee80",
+      "target_sha256": "b192a43c0755f210d4273063fd229f82cd2edd5d36e98269b0e44be42efca8cb"
+    },
+    {
+      "path": "Tasks/NSC-024.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "c9afd6259cfc760889487f051e65e14e2fd55f8164a5d5d1a8705e8efd04a260",
+      "target_sha256": "565fc9da49b07435d71eac13f6b7e0f09d15ad393d7977b3196c6f9f06609494"
+    },
+    {
+      "path": "Tasks/NSC-025.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "415fe7417784110b810fa0803bdce3e5505067c15305508168e1f3b3b7e7457e",
+      "target_sha256": "e225644087f67fd6de063da2edc8cd87df1c80f4394de3dfcaeac12dbcf8867c"
+    },
+    {
+      "path": "Tasks/NSC-026.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "880374986a2e811844ae5a70fd92546af4cdf43c4fc3cdb4c116bb57b722c294",
+      "target_sha256": "6adda134c280663324d7335836bd63b4c01666ada87105c8a264f061fbeec52d"
+    },
+    {
+      "path": "Tasks/NSC-027.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "bdc752c793fd87bed42e1b972d12f26c9de339a821a8e234ffc78264c1998e57",
+      "target_sha256": "b420e9c1f2b53d4586a430c47619e112106c6c9e9fe8e354a3d72b3b04cb1da0"
+    },
+    {
+      "path": "Tasks/NSC-028.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "8f88c19901f0ec5211fc7ef016071e7bd3e6da3d19225208113cc3557f1be171",
+      "target_sha256": "82261bc5e2b583b98f08a886bfb47fa107ac80e5d80af8fbbfb7cf382445e405"
+    },
+    {
+      "path": "Tasks/NSC-029.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "3ec7b28bef284aef5ebb7514862fdc7a82bd67dc6205ceb7b3e3799438f58340",
+      "target_sha256": "dd05b0310ef36259bb764f26eec07b34b7ca7b02c3a099bf1394e9d0085cfcef"
+    },
+    {
+      "path": "Tasks/NSC-030.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "742f32c3e6eb129ddfd6361fdc7bf6f1787b8b428bae34ac19aa4a452eb4253b",
+      "target_sha256": "38ed02653552ba4ec7eb90a593e52879af9f4068a4107252b7983cc451c4a09d"
+    },
+    {
+      "path": "Tasks/NSC-031.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "23f6b90e8a7474b553d39ef2b5fa3c465075da130dc300a85aa0b406bd47f7ab",
+      "target_sha256": "5be68e496d1a096dfdd87071ad91757e13f8cfd2a3655217259642ba68e0c3b4"
+    },
+    {
+      "path": "Tasks/NSC-032.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "85316eb2309bc855d590291a9f7e82b432468933a677b70d5c94c729f25a9b94",
+      "target_sha256": "e7595b53dd8b0be4ff0efefd969ebca392f2a24e6cc3a98e8e89dc92bc1b4087"
+    },
+    {
+      "path": "Tasks/NSC-033.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "81162dd8b4e876842c73ece503a85692da0699d54f97ee823a01c5615c993bda",
+      "target_sha256": "f6c81350d3172e4e5751352c16129d8a395fd9ec5f4a487e4e80caf11802426f"
+    },
+    {
+      "path": "Tasks/NSC-034.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "17dbd5ed392feef9f6df747bd52529474c667d02ebad8688e40854881f206437",
+      "target_sha256": "bbc803172482a66798097becdef13642495a7e2292efeebe8642e75e8725f5f5"
+    },
+    {
+      "path": "Tasks/NSC-035.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "dce303d281c9d696a0917347203085342a196313b439ca39595409bac7cc25a8",
+      "target_sha256": "4ecf1a3136555796cfd461813d6ce6e726d97575450f08ac951a1420c448e26b"
+    },
+    {
+      "path": "Tasks/NSC-036.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "af73e34d9261ece4c01df6c393940abe121e186b1b73d140d7984970a92f4a34",
+      "target_sha256": "994f1840205484ed48e371c141dcc17662c2b3ba4d5ac4726bf99eee73684c6c"
+    },
+    {
+      "path": "Tasks/NSC-037.yaml",
+      "source_schema_version": "1.0",
+      "source_sha256": "6d6b22e703db1d66616e776d8955842086ee3514618fb8d24c9719bb37563430",
+      "target_sha256": "0a0e87af889a3a176786613fb2a0e18a7fa3f46ee6dc3bb6004169cd726a0542"
+    }
+  ],
+  "policy": "This migration converts task definitions to schema 2.0. It removes mutable operational completion status, preserves bootstrap status only as historical provenance, and does not authorize execution or claim current conformance."
+}
