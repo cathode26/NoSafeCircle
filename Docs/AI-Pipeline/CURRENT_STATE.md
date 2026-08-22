@@ -2,52 +2,57 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-22, after completing Architecture Correction Phase 3B with the first committed, production evidence-derived conformance proof.
+Last updated: 2026-08-22, after Architecture Correction Phase 3 was fast-forward merged into `main` and the `provider-neutral-execution-crew` branch was created.
 
 ## Current Phase
 
-**Architecture Correction Phase 3A — Evidence-Derived Current Conformance Evaluator — COMPLETE.**
+**Architecture Correction Phase 3 — COMPLETE AND MERGED.**
 
-**Architecture Correction Phase 3B — First Real Production Baseline — COMPLETE.**
+Phase 3A — Evidence-Derived Current Conformance Evaluator — is complete.
 
-The repository now has the deterministic machinery to inspect the current conformance state of a schema-v2 task contract from committed Git evidence.
+Phase 3B — First Real Production Baseline — is complete.
 
-Phase 3A adds:
+Phase 3 was fast-forward merged into `main` at:
 
-- immutable delivery, baseline, and revalidation record schemas;
-- deterministic record validation;
-- a current-conformance evaluator that reads committed Git objects rather than trusting uncommitted working-copy state;
-- `taskcontrol state <task>` and `taskcontrol state <task> --json`;
-- deterministic conformance states and findings;
-- regression coverage in a temporary Git repository for valid, stale, invalid, ambiguous, and revalidated evidence chains.
+```text
+43fdf0a163e281204906abd43a241db211587a0f
+```
 
-Phase 3A and Phase 3B do **not** enable dependency readiness or autonomous dispatch.
+The current development branch is:
 
-Current policy remains:
+```text
+provider-neutral-execution-crew
+```
+
+The active implementation stage is:
+
+**Provider-Neutral Execution Crew Plan — Stage 3: Extract the provider-neutral AgentRuntime foundation.**
+
+The next bounded slice is to implement:
+
+- provider-neutral `AgentRequest` and `AgentResult` contracts;
+- semantic capability and write-boundary contracts;
+- model capability classes;
+- immutable run-directory handling;
+- provider configuration validation;
+- a deterministic fake provider;
+- shared contract and failure-mode tests.
+
+No live Claude Code adapter, OpenAI/Codex adapter, production `ExecutionCrew` role orchestration, task readiness, or autonomous dispatch has been implemented yet.
+
+Architecture Correction Phase 3 remains intentionally fail-closed for execution:
 
 ```text
 TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED
 ```
 
-`taskcontrol ready` explains that evidence-derived current conformance has been proven on at least one real task, but a conformant result does not establish dependency readiness. Dependency-readiness policy and dispatch authorization policy have not been implemented or approved.
-
-`taskcontrol authorize <task>` still returns:
+and:
 
 ```text
 EXECUTION AUTHORIZATION: DENIED
 ```
 
-with reason code:
-
-```text
-evidence_derived_dispatch_policy_not_enabled
-```
-
-State inspection and a conformant result never authorize autonomous execution. Zero tasks are authorized for autonomous dispatch.
-
-The next repository action is combined regression testing followed by merging `phase-3-evidence-derived-conformance` into `main`.
-
-After that merge, provider-neutral `AgentRuntime` and production `ExecutionCrew` work begins on a new branch. See `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md` and `Docs/AI-Pipeline/ADR-034_PROVIDER_NEUTRAL_AGENT_RUNTIME.md`. No provider-runtime implementation has started on this branch.
+Evidence-derived conformance has been proven for `NSC-023`, but a conformant task does not establish dependency readiness or execution authority.
 
 ## Architecture Review Result
 
@@ -519,21 +524,44 @@ The preserved architecture review is primary evidence for the accepted correctio
 
 ## Immediate Next Goal
 
-Run combined regression testing, then merge `phase-3-evidence-derived-conformance` into `main`.
+### Provider-Neutral Execution Crew Plan — Stage 3
 
-No real production revalidation record exists yet. Do not fabricate a gameplay, contract, GDD, scene, implementation, or test change merely to produce one. The first legitimate relevant change will exercise the production revalidation path:
+Extract the reusable, provider-neutral `AgentRuntime` foundation from the architectural lessons of Assignment 3 without rewriting the historical `AgentCrew/` implementation.
+
+The first Stage 3 slice should establish:
 
 ```text
-relevant camera surface or governing canon changes
-→ taskcontrol state becomes needs_revalidation
-→ rerun the required gates on the new integrated state
-→ commit REV-NSC-023-... revalidation evidence
-→ taskcontrol state returns to conformant
+AgentRequest
++ AgentResult
++ provider interface
++ semantic capability/write-boundary contracts
++ immutable run layout
++ provider configuration validation
++ deterministic fake provider
 ```
 
-The synthetic regression already proves evaluator mechanics. Production revalidation must wait for a real relevant change.
+The first slice must not yet implement:
 
-After the Phase 3 branch is merged, begin provider-neutral `AgentRuntime` and `ExecutionCrew` work on a new branch. No provider runtime implementation has started on this branch.
+- a live Claude Code provider;
+- a live OpenAI/Codex provider;
+- Implementer/Test Author/Validator orchestration;
+- Unity execution initiated by an agent;
+- GER integration;
+- task selection;
+- dependency readiness;
+- dispatch authorization;
+- automatic Git commits, merges, or worktrees.
+
+The fake provider and shared fixtures should prove the provider-neutral contract before either live provider adapter is introduced.
+
+Architecture Correction Phase 3 is already merged. Its current authority boundary remains active:
+
+- `NSC-023` derives as `conformant`;
+- readiness remains unavailable;
+- authorization remains denied;
+- no worker or provider result establishes completion, readiness, or dispatch authority.
+
+No real production revalidation record exists yet. Do not fabricate a gameplay, contract, GDD, scene, implementation, or test change merely to produce one. The first legitimate relevant change will exercise the production revalidation path.
 
 ## Real Gameplay Task Selection After the Evidence Proof
 
@@ -594,24 +622,30 @@ Read, in order:
 2. this file;
 3. `Docs/AI-Pipeline/00_MASTER_CONTEXT.md`;
 4. `Docs/AI-Pipeline/DECISIONS.md`;
-5. `Pipeline/TaskGraph/README.md`;
-6. `Pipeline/TaskGraph/TASK_CONTRACT_SCHEMA_V2.md`;
-7. `Pipeline/TaskGraph/CONFORMANCE_RECORDS.md`;
-8. `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`;
-9. `Pipeline/GDDRAG/README.md`;
-10. `Pipeline/GDDRAG/INTEGRITY.md`;
-11. `Pipeline/ArchitectureReview/evidence/20260821T222222Z-40fdf9ce/` when reviewing correction rationale;
-12. inspect the actual repository/branch state.
+5. `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`;
+6. `Docs/AI-Pipeline/ADR-034_PROVIDER_NEUTRAL_AGENT_RUNTIME.md`;
+7. `Pipeline/TaskGraph/README.md`;
+8. `Pipeline/TaskGraph/TASK_CONTRACT_SCHEMA_V2.md`;
+9. `Pipeline/TaskGraph/CONFORMANCE_RECORDS.md`;
+10. `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`;
+11. `Pipeline/GDDRAG/README.md`;
+12. `Pipeline/GDDRAG/INTEGRITY.md`;
+13. inspect `AgentCrew/orchestrator.py` and `Assignment6GER/ger_pipeline.py` as historical reusable prototypes, not production runtime authority;
+14. inspect the actual repository and branch state.
 
 Then:
 
-1. confirm Phase 3A is committed and the working tree is clean;
-2. rerun `conformance_evaluator_smoke_test.py` if the evaluator changed;
-3. confirm `taskcontrol state NSC-001` is `aggregate`;
-4. confirm `taskcontrol state NSC-023` is `conformant` and selects `BASE-NSC-023-86af98f41ab5`;
-5. confirm `taskcontrol ready` remains unavailable because dispatch policy is not enabled;
-6. confirm `taskcontrol authorize <task>` remains denied;
-7. run combined regression testing and merge `phase-3-evidence-derived-conformance` into `main`;
-8. begin provider-neutral `AgentRuntime` and `ExecutionCrew` work afterward on a new branch.
+1. confirm the current branch is `provider-neutral-execution-crew`;
+2. confirm the branch starts from merged `main` commit `43fdf0a163e281204906abd43a241db211587a0f`;
+3. confirm the working tree is clean;
+4. read `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`;
+5. read `Docs/AI-Pipeline/ADR-034_PROVIDER_NEUTRAL_AGENT_RUNTIME.md`;
+6. inspect `AgentCrew/orchestrator.py` and `Assignment6GER/ger_pipeline.py` as historical reusable prototypes, not production runtime authority;
+7. define provider-neutral request/result and provider-interface contracts;
+8. implement immutable run-directory handling and a deterministic fake provider;
+9. add shared contract, permission, budget, timeout, schema, and failure-normalization fixtures;
+10. do not implement either live provider adapter until the fake-provider foundation passes;
+11. do not implement production Execution Crew roles yet;
+12. keep `taskcontrol ready` unavailable and `taskcontrol authorize` denied.
 
 A new window should be able to resume from repository state without the prior chat transcript.
