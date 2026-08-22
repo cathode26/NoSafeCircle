@@ -11,6 +11,7 @@ from migrate_task_contracts_v2 import (
     verify_existing_report,
 )
 from persistent_work_graph import load_persistent_work_graph
+from task_contract_quality_audit import audit_contracts
 
 
 def write_json(path: Path, value) -> None:
@@ -18,7 +19,19 @@ def write_json(path: Path, value) -> None:
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
-def v1_task(task_id, key, title, kind, parent, depends_on, scope, *, status="open", validation=None):
+def v1_task(
+    task_id,
+    key,
+    title,
+    kind,
+    parent,
+    depends_on,
+    scope,
+    *,
+    status="open",
+    acceptance=None,
+    validation=None,
+):
     return {
         "schema_version": "1.0",
         "id": task_id,
@@ -34,12 +47,10 @@ def v1_task(task_id, key, title, kind, parent, depends_on, scope, *, status="ope
         "parent": parent,
         "depends_on": depends_on,
         "exclusive_resources": [],
-        "acceptance_criteria": [
-            {"reference": "Fixture", "requirement": f"Accept {title}."}
-        ],
-        "validation_requirements": validation or [
-            {"reference": "Fixture", "requirement": f"Validate {title}."}
-        ],
+        "acceptance_criteria": acceptance
+        or [{"reference": "Fixture", "requirement": f"Accept {title}."}],
+        "validation_requirements": validation
+        or [{"reference": "Fixture", "requirement": f"Validate {title}."}],
         "gdd_evidence": [],
         "basis": "direct_gdd",
         "source_scope": "required",
@@ -55,9 +66,152 @@ def v1_task(task_id, key, title, kind, parent, depends_on, scope, *, status="ope
 
 
 def build_fixture(root: Path) -> None:
+    movement_acceptance = [
+        {
+            "reference": "Move",
+            "requirement": "Mouse-directed movement uses project Input Actions.",
+        },
+        {
+            "reference": "Pointer",
+            "requirement": "Player Movement exposes the shared world-space pointer target.",
+        },
+        {
+            "reference": "Restriction",
+            "requirement": "Player Movement exposes its owner-controlled restriction interface.",
+        },
+        {
+            "reference": "Reset",
+            "requirement": "Player Movement exposes its owner-controlled reset entry point.",
+        },
+        {
+            "reference": "Suspend A",
+            "requirement": (
+                "Exposes an owner-controlled gameplay-enable/suspend interface that immediately "
+                "stops or cancels any in-progress input-driven movement, rejects new movement "
+                "commands while suspended, and is re-enabled only through an authorized reset flow."
+            ),
+        },
+        {
+            "reference": "Suspend B",
+            "requirement": (
+                "Exposes an owner-controlled gameplay-enable/suspend interface that immediately "
+                "stops already-active input-driven movement, rejects new movement commands while "
+                "suspended, and can be re-enabled only through an authorized reset flow."
+            ),
+        },
+    ]
+    door_acceptance = [
+        {
+            "reference": "Door",
+            "requirement": "Clicking a door requests approach and interaction.",
+        },
+        {
+            "reference": "Door",
+            "requirement": "Arrival starts the automatic opening timer.",
+        },
+        {
+            "reference": "Door",
+            "requirement": "Cursor drift after selection does not cancel.",
+        },
+        {
+            "reference": "Door",
+            "requirement": "Damage or movement interruption resets progress.",
+        },
+        {
+            "reference": "Input",
+            "requirement": "Door input uses project Input Actions.",
+        },
+        {
+            "reference": "Suspend A",
+            "requirement": (
+                "Exposes an owner-controlled gameplay-enable/suspend interface that immediately "
+                "cancels an in-progress door approach/opening timer and rejects new door-selection "
+                "commands while suspended."
+            ),
+        },
+        {
+            "reference": "Reset A",
+            "requirement": (
+                "Exposes an owner-controlled reset entry point that returns owned interaction and "
+                "opening state to floor-initial values."
+            ),
+        },
+        {
+            "reference": "Door",
+            "requirement": "Five uninterrupted seconds opens the door.",
+        },
+        {
+            "reference": "Reset B",
+            "requirement": (
+                "Exposes an owner-controlled reset entry point that returns owned opening state "
+                "to floor-initial values rather than external mutation."
+            ),
+        },
+        {
+            "reference": "Suspend B",
+            "requirement": (
+                "Exposes an owner-controlled gameplay-enable/suspend interface that immediately "
+                "stops an in-progress door approach/opening timer and rejects new door-interaction "
+                "commands while suspended."
+            ),
+        },
+    ]
+
     tasks = [
-        v1_task("NSC-001", "no-safe-circle", "No Safe Circle", "feature", "", [], "not_applicable"),
-        v1_task("NSC-002", "world", "World", "feature", "NSC-001", [], "not_applicable"),
+        v1_task(
+            "NSC-001",
+            "no-safe-circle",
+            "No Safe Circle",
+            "feature",
+            "",
+            [],
+            "not_applicable",
+        ),
+        v1_task(
+            "NSC-002",
+            "world",
+            "World",
+            "feature",
+            "NSC-001",
+            [],
+            "not_applicable",
+        ),
+        v1_task(
+            "NSC-003",
+            "player-movement",
+            "Player Movement",
+            "implementation",
+            "NSC-002",
+            [],
+            "single_agent",
+            acceptance=movement_acceptance,
+            validation=[
+                {
+                    "reference": "Move",
+                    "requirement": "Validate click and hold movement.",
+                },
+                {
+                    "reference": "Pointer",
+                    "requirement": (
+                        "Validate pointer consumption by Door Interaction once that system exists."
+                    ),
+                },
+                {
+                    "reference": "Suspend",
+                    "requirement": "Validate movement suspension.",
+                },
+            ],
+        ),
+        v1_task(
+            "NSC-019",
+            "door-open-interaction",
+            "Door Opening",
+            "implementation",
+            "NSC-002",
+            ["NSC-003"],
+            "single_agent",
+            acceptance=door_acceptance,
+        ),
         v1_task(
             "NSC-023",
             "fixed-isometric-camera",
@@ -70,7 +224,9 @@ def build_fixture(root: Path) -> None:
             validation=[
                 {
                     "reference": "Future integration",
-                    "requirement": "Once the Tilemap foundation exists, validate compatibility.",
+                    "requirement": (
+                        "Once the Tilemap foundation exists, validate compatibility."
+                    ),
                 }
             ],
         ),
@@ -86,6 +242,8 @@ def build_fixture(root: Path) -> None:
             "id_map": {
                 "no-safe-circle": "NSC-001",
                 "world": "NSC-002",
+                "player-movement": "NSC-003",
+                "door-open-interaction": "NSC-019",
                 "fixed-isometric-camera": "NSC-023",
             },
         },
@@ -123,7 +281,7 @@ def build_fixture(root: Path) -> None:
             "schema_version": "1.0",
             "bootstrap_status": "complete",
             "serialization_format": "yaml_1_2_json_subset",
-            "task_count": 3,
+            "task_count": len(tasks),
             "output_sha256": baseline_paths,
         },
     )
@@ -134,10 +292,43 @@ def main() -> int:
         root = Path(temp)
         build_fixture(root)
         plan = plan_migration(root)
-        assert plan.report["task_count"] == 3
-        assert plan.report["bootstrap_status_observations"] == {"open": 2, "complete": 1}
-        assert plan.report["downstream_integration_obligation_count"] == 1
-        camera = next(item.target for item in plan.files if item.path.stem == "NSC-023")
+        assert plan.report["task_count"] == 5
+        assert plan.report["bootstrap_status_observations"] == {
+            "open": 4,
+            "complete": 1,
+        }
+        assert plan.report["downstream_integration_obligation_count"] == 2
+
+        movement = next(
+            item.target for item in plan.files if item.path.stem == "NSC-003"
+        )
+        assert len(movement["acceptance_criteria"]) == 5
+        assert len(movement["completion_gates"]) == 2
+        assert len(movement["downstream_integration_obligations"]) == 1
+        assert "once that system exists" in movement[
+            "downstream_integration_obligations"
+        ][0]["requirement"]
+
+        door = next(
+            item.target for item in plan.files if item.path.stem == "NSC-019"
+        )
+        assert len(door["acceptance_criteria"]) == 8
+        suspend = [
+            entry
+            for entry in door["acceptance_criteria"]
+            if "gameplay-enable/suspend" in entry["requirement"]
+        ]
+        resets = [
+            entry
+            for entry in door["acceptance_criteria"]
+            if "reset entry point" in entry["requirement"]
+        ]
+        assert len(suspend) == 1
+        assert len(resets) == 1
+
+        camera = next(
+            item.target for item in plan.files if item.path.stem == "NSC-023"
+        )
         assert "status" not in camera
         assert camera["provenance"]["bootstrap_status_observation"] == "complete"
         assert camera["execution_scope"] == "single_agent"
@@ -151,6 +342,9 @@ def main() -> int:
         assert graph.validation.task_schema_version == "2.0"
         assert graph.tasks_by_id["NSC-023"]["contract_disposition"] == "active"
         assert (root / REPORT_RELATIVE).is_file()
+
+        audit = audit_contracts(root / "Tasks")
+        assert audit.findings == ()
 
         # Replanning and reapplying is safe and does not rewrite valid v2 contracts.
         apply_migration(plan_migration(root))
