@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from task_contract_migration import MIGRATION_ID
 from work_graph_transform import WorkGraphTransformError, build_work_graph_plan
 
 
@@ -108,6 +109,10 @@ def main() -> int:
         "fireball": "NSC-004",
     }
     by_key = {task["reconciliation_key"]: task for task in plan.tasks}
+    movement = by_key["player-movement"]
+    assert len(movement["acceptance_criteria"]) == 1
+    assert len(movement["completion_gates"]) == 1
+    assert len(movement["downstream_integration_obligations"]) == 0
     fireball = by_key["fireball"]
     assert fireball["schema_version"] == "2.0"
     assert fireball["contract_revision"] == 1
@@ -125,7 +130,7 @@ def main() -> int:
         "reconciliation_run_id": "source-run",
         "verification_run_id": "verification-run",
         "bootstrap_status_observation": "open",
-        "migration_id": "task-contract-schema-v2-20260822",
+        "migration_id": MIGRATION_ID,
     }
     assert plan.resource_groups[0]["work_ids"] == ["NSC-003", "NSC-004"]
     assert build_work_graph_plan(inputs).tasks == plan.tasks

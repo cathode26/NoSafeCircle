@@ -11,6 +11,7 @@ from migrate_task_contracts_v2 import (
     verify_existing_report,
 )
 from persistent_work_graph import load_persistent_work_graph
+from task_contract_migration import migrate_v1_task
 from task_contract_quality_audit import audit_contracts
 
 
@@ -31,6 +32,8 @@ def v1_task(
     status="open",
     acceptance=None,
     validation=None,
+    reconciliation_run_id="20260821T193541Z-998ee7b5",
+    verification_run_id="20260821T195959Z-43dba5de",
 ):
     return {
         "schema_version": "1.0",
@@ -59,8 +62,8 @@ def v1_task(
         "repository_state_at_bootstrap": "missing",
         "repository_evidence_at_bootstrap": [],
         "bootstrap_source": {
-            "reconciliation_run_id": "source-run",
-            "verification_run_id": "verify-run",
+            "reconciliation_run_id": reconciliation_run_id,
+            "verification_run_id": verification_run_id,
         },
     }
 
@@ -288,6 +291,30 @@ def build_fixture(root: Path) -> None:
 
 
 def main() -> int:
+    synthetic_movement = v1_task(
+        "NSC-003",
+        "synthetic-movement",
+        "Synthetic Movement",
+        "implementation",
+        "NSC-002",
+        [],
+        "single_agent",
+        acceptance=[
+            {"reference": "Synthetic", "requirement": "Keep this synthetic criterion."}
+        ],
+        validation=[
+            {"reference": "Synthetic", "requirement": "Validate synthetic movement."}
+        ],
+    )
+    migrated_synthetic_movement = migrate_v1_task(synthetic_movement)
+    assert len(migrated_synthetic_movement["acceptance_criteria"]) == 1
+    assert len(migrated_synthetic_movement["completion_gates"]) == 1
+    assert len(migrated_synthetic_movement["downstream_integration_obligations"]) == 0
+    assert (
+        migrated_synthetic_movement["acceptance_criteria"][0]["requirement"]
+        == "Keep this synthetic criterion."
+    )
+
     with tempfile.TemporaryDirectory(prefix="task-v2-migration-") as temp:
         root = Path(temp)
         build_fixture(root)

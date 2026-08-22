@@ -17,6 +17,14 @@ from task_contract_schema import (
 # - duplicate door suspend/reset criteria are merged.
 MIGRATION_ID = "task-contract-schema-v2-20260822-r2"
 
+REVIEWED_OVERRIDE_RECONCILIATION_KEYS = {
+    "NSC-003": "player-movement",
+    "NSC-019": "door-open-interaction",
+    "NSC-023": "fixed-isometric-camera",
+}
+REVIEWED_OVERRIDE_RECONCILIATION_RUN_ID = "20260821T193541Z-998ee7b5"
+REVIEWED_OVERRIDE_VERIFICATION_RUN_ID = "20260821T195959Z-43dba5de"
+
 # The camera's only v1 `validation_requirements` entry explicitly described a
 # later Tilemap/SpriteRenderer compatibility check. It is not a gate that must
 # remain open on the already-delivered camera contract. Preserve it as a
@@ -205,6 +213,18 @@ class TaskContractMigrationError(RuntimeError):
     """Raised when a v1 task cannot be migrated deterministically."""
 
 
+def _has_reviewed_override_identity(task: dict[str, Any], task_id: str) -> bool:
+    source = task.get("bootstrap_source")
+    return (
+        task.get("reconciliation_key")
+        == REVIEWED_OVERRIDE_RECONCILIATION_KEYS.get(task_id)
+        and isinstance(source, dict)
+        and source.get("reconciliation_run_id")
+        == REVIEWED_OVERRIDE_RECONCILIATION_RUN_ID
+        and source.get("verification_run_id") == REVIEWED_OVERRIDE_VERIFICATION_RUN_ID
+    )
+
+
 def _legacy_provenance(task: dict[str, Any], status: str) -> dict[str, Any]:
     source = task.get("bootstrap_source")
     if not isinstance(source, dict):
@@ -265,7 +285,12 @@ def migrate_v1_task(task: dict[str, Any]) -> dict[str, Any]:
             f"{task_id}.validation_requirements must be a list."
         )
 
-    downstream_indexes = DOWNSTREAM_VALIDATION_INDEXES.get(task_id, set())
+    has_reviewed_overrides = _has_reviewed_override_identity(task, task_id)
+    downstream_indexes = (
+        DOWNSTREAM_VALIDATION_INDEXES.get(task_id, set())
+        if has_reviewed_overrides
+        else set()
+    )
     invalid_indexes = sorted(
         index
         for index in downstream_indexes
@@ -286,12 +311,16 @@ def migrate_v1_task(task: dict[str, Any]) -> dict[str, Any]:
         for index, entry in enumerate(raw_validation)
         if index in downstream_indexes
     ]
-    if task_id in COMPLETION_GATE_OVERRIDES:
+    if has_reviewed_overrides and task_id in COMPLETION_GATE_OVERRIDES:
         completion_source = COMPLETION_GATE_OVERRIDES[task_id]
 
-    acceptance_source = ACCEPTANCE_CRITERIA_OVERRIDES.get(
-        task_id,
-        task.get("acceptance_criteria", []),
+    acceptance_source = (
+        ACCEPTANCE_CRITERIA_OVERRIDES.get(
+            task_id,
+            task.get("acceptance_criteria", []),
+        )
+        if has_reviewed_overrides
+        else task.get("acceptance_criteria", [])
     )
 
     try:
@@ -316,7 +345,11 @@ def migrate_v1_task(task: dict[str, Any]) -> dict[str, Any]:
     except TaskContractSchemaError as exc:
         raise TaskContractMigrationError(str(exc)) from exc
 
-    contract_override = EXECUTION_CONTRACT_OVERRIDES.get(task_id, {})
+    contract_override = (
+        EXECUTION_CONTRACT_OVERRIDES.get(task_id, {})
+        if has_reviewed_overrides
+        else {}
+    )
 
     # Build the object in canonical field order instead of mutating the legacy
     # dictionary. Optional legacy fields are copied afterward.
