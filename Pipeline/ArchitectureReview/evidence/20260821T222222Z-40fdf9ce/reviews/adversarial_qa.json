@@ -1,0 +1,200 @@
+{
+  "agent": "Adversarial QA and Failure-Mode Reviewer",
+  "provider": "openai-codex-chatgpt",
+  "model": "gpt-5.6-sol",
+  "reasoning_effort": "high",
+  "duration_seconds": 486.18,
+  "result": {
+    "architecture_summary": "The architectural kernel is good: durable repository state, deterministic dependency calculation, bounded workers, isolated Git work, and evidence-based validation are the right primitives. The current architecture is nevertheless incomplete at its most important boundaries. It treats mutable task status as trusted truth, has no implemented moving-GDD synchronization path, proposes reusing a demonstrably stale RAG index, and has no general path from `taskcontrol ready` to Unity-validated merge. It should be reorganized around versioned requirements, evidence-derived completion, and one vertical gameplay execution loop—not continued in the current milestone order.",
+    "overall_verdict": "partially_unsound",
+    "verdict_reason": "The target approach is salvageable, but the present state and authority model can confidently dispatch stale work and unlock dependencies without proof. Meanwhile, infrastructure has consumed far more effort than it has returned: since the Assignment 6 camera commit, 115 commits touched pipeline/docs/tasks, adding about 99,000 lines, while zero commits changed Assets, Packages, or ProjectSettings. This is not yet a days-instead-of-weeks development accelerator.",
+    "strong_decisions": [
+      "Repository state is preferred over model/chat memory.",
+      "Reconciliation snapshots are immutable observations rather than the mutable task database.",
+      "Dependency and readiness computation is deterministic.",
+      "Workers do not approve their own work; runtime evidence can override static or semantic PASS.",
+      "Runtime failures and no-op refinements consume bounded repair budget.",
+      "Single-worker reliability is required before parallel coding.",
+      "Unity scenes, prefabs, Input Actions, ProjectSettings, and builders are recognized as conflict surfaces.",
+      "Missing design is separated from implementation and requires explicit authority."
+    ],
+    "structural_flaws": [
+      "False-completion sequence: edit a task's `status` to `complete`; the loader intentionally accepts it; dependents immediately become ready; no merge commit, acceptance evidence, or Unity result is required. A downstream worker can therefore build against an interface that never landed.",
+      "Moving-canon sequence: build context at GDD revision A; revise the GDD to B; the worker, evaluator, tests, and task remain bound to neither revision; old criteria can pass and merge. A later reconciliation cannot repair this safely because post-bootstrap diff/apply is only documented, not implemented.",
+      "The proposed RAG reuse is unsafe now. The knowledge base was last updated August 6, identifies a July 30 draft, calls its chunks authoritative, and still describes manual door locking. The GDD changed repeatedly through August 21 to add automatic locking, Input Actions, shared pointer projection, restart/victory ownership, and other contracts.",
+      "The GDD mixes four authorities: player-facing design, technical architecture, pipeline policy, and dated repository inventory. For example, it embeds current scene paths and exclusive-write rules. Implementation changes can therefore make root canon itself operationally stale.",
+      "Completion authority is duplicated among `Tasks/*.yaml`, integrated `main`, and future GitHub Done/merge state. No transaction or derivation rule closes split-brain cases such as merge succeeding while task update fails, or task completion landing before implementation.",
+      "Blocked and claimed state is planned outside the task graph, but `taskcontrol ready` cannot see it. After a worker reports a blocker, the same open task can be selected again unless another unimplemented state layer filters it.",
+      "Feature/root completion is not derived from children. Once executable tasks are exhausted, an open root can drive repeated empty-frontier reconciliation/planning loops without a progress guard.",
+      "The existing Assignment 3, 5, and 6 runners are course-specific and hard-coded to prior door/camera goals. There is no general `execute NSC-003` entry point.",
+      "The graph validator verifies structure, not truth. It permits empty criteria lists, complete work with incomplete dependencies, and complete work without evidence.",
+      "The zero-material-findings bootstrap is not semantic proof. NSC-003 contains two near-duplicate suspension criteria and a validation obligation deferred until consumers exist, illustrating that multi-model convergence can still normalize imperfect contracts."
+    ],
+    "observed_failure_solutions": [
+      "Assignment 6 runtime feedback solved two real camera failures that static evaluation approved: wrong viewing direction/follow behavior, then wrong framing.",
+      "The no-op progress guard addresses a real refiner response that claimed `implemented` while changing nothing under Assets.",
+      "Circuit-breaking bounded the camera refinements and would have escalated another failure.",
+      "Raw reconciliation output is preserved before validation, addressing expensive runs lost to deterministic rejection.",
+      "Resume/recovery utilities address actual verifier timeouts, interrupted refinements, max-turn failures, and post-refiner validation failures without repeating completed audits.",
+      "Independent reconciliation auditors found 21 material bootstrap issues that were refined before human approval.",
+      "Nested immutable reconciliation/verification history addresses prior provenance and mutable-current-output confusion.",
+      "The frozen commit's line-ending/Git-status adjustment addresses observed Windows/Docker checkout noise."
+    ],
+    "hypothetical_failure_solutions": [
+      "Artifact Authority and Artifact GER address future design-invention risks; the initial graph contains zero artifact tasks and no production artifact flow exists.",
+      "Progressive Decomposition addresses future oversized or underspecified frontier work; none is required to execute the currently ready NSC-003/004/005 tasks.",
+      "GitHub Projects mirroring, Draft PR automation, claims, leases, and continuous scheduling protect future operational failures; no supervisor currently uses them.",
+      "Exclusive-resource scheduling protects future parallel coding conflicts; only one coding worker is proposed initially.",
+      "Automatic backlog replenishment, project-wide budgets, merge queues, automatic merge, and parallel workers are speculative until one ticket can reliably reach validated merge.",
+      "A general scanner and incremental cache may eventually save tokens, but targeted `rg`, Unity YAML inspection, and direct GDD extraction are enough for the next gameplay slice."
+    ],
+    "overengineering": [
+      "From `20c5228` through the frozen commit: 115 pipeline/docs/task commits, roughly 99,215 added pipeline/task lines, and no game-project commits or changed lines.",
+      "The successful reconciliation-output commit alone added about 73,225 lines across 123 files for a 37-record graph.",
+      "The repository contains many narrowly specialized reconciliation recovery, repair, arbitration, migration, resume, and smoke-test variants before any graph-selected gameplay task has shipped.",
+      "The architecture-review runner itself gained provider-specific orchestration, resume behavior, and smoke tests before ticket execution existed.",
+      "Milestone 2 combines RAG, scanner, context packing, decomposition, artifact authority, generation, GER, promotion, and graph mutation. Those are multiple products, not one bounded milestone.",
+      "Assignment 6's no-op rule created a perverse incentive: pass 4 added a defensive warning/test partly to produce a diff, even though the unresolved proof needed was Unity runtime validation."
+    ],
+    "missing_components": [
+      "Stable requirement IDs and content hashes tied to a specific GDD revision.",
+      "Automatic rejection of stale RAG/context caches.",
+      "Incremental GDD change-impact analysis.",
+      "Task states such as stale, needs_replan, needs_revalidation, blocked, and superseded.",
+      "A guarded completion command that verifies merge ancestry and required evidence.",
+      "Machine-readable evidence manifests bound to task, canon, context, base commit, and candidate commit hashes.",
+      "A general one-ticket worker entry point.",
+      "Unity batch compilation/EditMode/PlayMode execution on the actual Windows/Unity host and ingestion of its results.",
+      "Idempotent claim/recovery state visible to ready selection.",
+      "Implemented post-bootstrap graph diff/review/apply.",
+      "A derived project/feature completion rule and empty-frontier progress guard."
+    ],
+    "state_and_authority_concerns": [
+      "Necessary boundary: game-design intent must remain separate from integrated implementation truth.",
+      "Necessary boundary: task intent/topology should remain separate from transient execution runs and immutable historical evidence.",
+      "Necessary boundary: generated design extensions need explicit authority and provenance before becoming trusted input.",
+      "Necessary boundary: runtime/Unity evidence must remain independent of worker claims.",
+      "Duplicate responsibility: RAG JSON copies canon instead of acting as a hash-checked derived cache.",
+      "Duplicate responsibility: editable task completion competes with Git merge state as implementation truth.",
+      "Duplicate responsibility: future GitHub Done would add a third completion indicator unless it is only a projection.",
+      "Duplicate responsibility: GDD 'Current Prototype Scene Evidence' duplicates facts that belong to repository scanning.",
+      "Duplicate responsibility: CURRENT_STATE repeats computed graph counts and frontier state that can drift.",
+      "Project requirements are stored as `confirmed`, but their enforcement is absent from dispatch and validation.",
+      "Bootstrap hashes are intentionally historical only; they cannot establish current task correctness."
+    ],
+    "gdd_iteration_concerns": [
+      "Reconciliation is framed well as a snapshot but poorly as the ordinary synchronization mechanism. Evolving canon needs incremental impact handling, not another global bootstrap-quality audit after every change.",
+      "Every task context should record canon commit/hash plus hashes of its exact governing requirements. A worker must recheck these before validation and merge.",
+      "When a governing requirement changes, planned work should become `needs_replan`; claimed/in-progress work should pause as stale; completed work should become `needs_revalidation` when behavior may now conflict. Unaffected work should remain untouched.",
+      "Approved subordinate artifacts need the same dependency tracking. If root canon changes or revokes their authority, the artifacts and downstream tasks must become stale.",
+      "Changes should be classified: design rule, technical ADR, pipeline policy, or derived repository fact. Only design rules belong in root gameplay canon; the other classes need their own authorities.",
+      "A material GDD change may require a reviewed graph delta, but wording or unrelated changes should only invalidate affected requirement fingerprints.",
+      "The current RAG tests passing is misleading: they verify ranking consistency against the old snapshot, not fidelity to the current GDD."
+    ],
+    "throughput_assessment": "Current leverage is narrow: the repository can persist a coarse backlog and calculate seven structurally ready tasks. It cannot autonomously implement, validate, recover, merge, or truthfully complete one. If forbidden to build infrastructure for one slice, the machinery first stops immediately after `taskcontrol ready` because no generic dispatcher exists. Bypassing that manually exposes stale canon/context next, and completion then blocks on unavailable Unity-host evidence and an unguarded status edit. Major leverage remains plausible, but only after a repeatable vertical ticket loop is proven; the current milestone sequence would likely delay that proof further.",
+    "human_intervention_points": [
+      "Choose and revise gameplay design, and classify whether changes are intentional/material.",
+      "Resolve ambiguous ownership or architecture-changing prerequisites.",
+      "Judge movement feel, camera framing, readability, balance, art/style, and player experience.",
+      "Perform Unity visual/runtime inspection where automated evidence is insufficient.",
+      "Inspect package, scene, prefab, Input Actions, and build configuration changes until host automation is reliable.",
+      "Review graph topology and authorize generated design artifacts.",
+      "Handle circuit-breaker escalations and repeated/non-diagnostic failures.",
+      "Review and merge implementation until the evidence gates have demonstrated reliability.",
+      "Decide disposition of non-canonical prototype scenes and other repository-cleanup questions."
+    ],
+    "next_slice": {
+      "title": "Ship NSC-003 through a canon-fresh, evidence-bound vertical path",
+      "why": "This is independently the highest-leverage task: the current WASD implementation directly contradicts the GDD, movement is immediately visible, and shared pointer projection unlocks Fireball, Frost Field, and door interaction. It is cohesive enough for one worker, unlike enemy work that awaits navigation, and provides more gameplay value than package/build configuration. It also exercises the exact unsafe boundaries discovered here.",
+      "deliverables": [
+        "Create one run manifest containing NSC-003 contract hash, current GDD hash, exact governing-section hashes, base-main commit, allowed resource paths, and validation gate IDs.",
+        "Build context directly from the current GDD and targeted live repository inspection. Do not use the stale RAG unless it is regenerated and its source hash verified.",
+        "Execute NSC-003 in one isolated worktree with a bounded coding worker.",
+        "Implement Input Actions-based click destination and held-pointer steering, shared pointer projection, restriction ownership, reset, and suspension interfaces.",
+        "Add PlayMode tests for click movement, live hold steering, suspension, reset, and restriction behavior.",
+        "Regenerate and validate the canonical scene and Input Actions on Unity 6000.1.8f1; preserve machine-readable compile/EditMode/PlayMode results.",
+        "Perform fresh semantic diff review against the exact task/canon hashes.",
+        "Merge under human review, then record completion through a guarded command only if main contains the candidate commit and all required evidence matches.",
+        "In a fixture, change an NSC-003 governing requirement and prove the old run becomes stale rather than mergeable."
+      ],
+      "proof_of_value": "NSC-003 reaches main as visible gameplay; its dependents become ready only after evidence-bound completion; a simulated GDD change reliably pauses stale execution. Repeating the path for NSC-004 without new controller code would demonstrate real leverage."
+    },
+    "do_not_build_yet": [
+      "Full Progressive Decomposer",
+      "Artifact Authority and Artifact GER platform",
+      "General-purpose repository scanner/index",
+      "Incremental RAG service beyond hash-safe extraction needed for NSC-003",
+      "GitHub Projects synchronization",
+      "Parallel coding workers and resource scheduler",
+      "Automatic merge or merge queue",
+      "Automatic backlog replenishment",
+      "More reconciliation verifier roles, repair variants, or architecture-review orchestration",
+      "Assignment 7 production integration"
+    ],
+    "alternative_architecture": {
+      "needed": true,
+      "description": "Replace the milestone stack with a small event-sourced ticket controller. State: split gameplay canon, technical ADRs, pipeline policy, and derived repository inventory; give requirements stable IDs/content hashes; keep Tasks as reviewed intent/topology; store claims, failures, validations, and approvals as append-only run events; derive completion/readiness from main plus matching evidence. Planning: maintain a small human-prioritized near frontier, use an LLM only for bounded decomposition, and make global reconciliation an occasional audit. Execution: one worktree, one bounded worker, and exact task/canon/base/context hashes. Validation: declarative required gates, cheap checks first, Unity batch compile/EditMode/PlayMode on the Windows host, targeted semantic review, and explicit human-only visual/feel gates. Recovery: idempotent transitions, leases, preserved commits/logs, bounded retries, and stale-run cancellation. Unity integration: explicit asset locks, builder execution, serialized scene/GUID checks, and test evidence attached to the candidate commit. GDD edits emit requirement-change events that invalidate only affected work and artifacts; graph changes remain reviewed PRs.",
+      "why_better": "It covers state, planning, execution, validation, recovery, and Unity while eliminating duplicate mutable completion authority. Moving canon becomes a routine, deterministic state transition instead of an occasional expensive reconciliation. Most importantly, it concentrates engineering on the shortest loop that can ship gameplay repeatedly."
+    },
+    "evidence": [
+      {
+        "path": "/workspace/Pipeline/TaskGraph/taskcontrol_smoke_test.py:46",
+        "observation": "The test deliberately changes a task directly to `complete`, reloads it successfully, and observes downstream readiness."
+      },
+      {
+        "path": "/workspace/Pipeline/TaskGraph/taskcontrol.py:155",
+        "observation": "Readiness trusts only dependency status strings; no evidence, Git, canon, blocked-state, or Unity check participates."
+      },
+      {
+        "path": "/workspace/Pipeline/TaskGraph/work_graph_validate.py:70",
+        "observation": "Validation covers graph shape, IDs, list types, provenance strings, cycles, and resources, but not completion proof or canon freshness."
+      },
+      {
+        "path": "/workspace/DynamicContentPipeline/knowledge_base/No_Safe_Circle_GDD_RAG.json:4",
+        "observation": "The purported canonical index identifies a July 30 final draft and instructs consumers to treat retrieved chunks as authoritative."
+      },
+      {
+        "path": "/workspace/DynamicContentPipeline/knowledge_base/No_Safe_Circle_GDD_RAG.json:289",
+        "observation": "The stale chunk still describes manual crossing and locking."
+      },
+      {
+        "path": "/workspace/Docs/GDD/No_Safe_Circle_GDD.md:50",
+        "observation": "Current canon requires click-to-approach and automatic close/lock; movement and pointer ownership appear at lines 64–69."
+      },
+      {
+        "path": "/workspace/Docs/GDD/No_Safe_Circle_GDD.md:269",
+        "observation": "The GDD contains dated repository scene inventory, mixing derived implementation facts into root canon."
+      },
+      {
+        "path": "/workspace/Pipeline/Reconciliation/README.md:462",
+        "observation": "Post-bootstrap reconciliation requires a future `taskcontrol` diff/apply workflow, but the CLI exposes only validate/list/show/ready/graph."
+      },
+      {
+        "path": "/workspace/Assignment6GER/README_Assignment6.md:90",
+        "observation": "Two static evaluator passes preceded two Unity runtime failures; lines 150–158 document the false no-op refinement."
+      },
+      {
+        "path": "/workspace/Assignment6GER/outputs/implementation_pass_4.json:26",
+        "observation": "Unity validation remained unavailable to the automated pass; human scene regeneration and tests were still required."
+      },
+      {
+        "path": "/workspace/Tasks/NSC-003.yaml:20",
+        "observation": "The selected movement task is concrete and high leverage, but contains duplicated suspension intent and no canon revision/hash."
+      },
+      {
+        "path": "/workspace/Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs:1",
+        "observation": "Current integrated movement polls Keyboard.current for WASD and lacks the required mouse, pointer, restriction, reset, and suspension contracts."
+      },
+      {
+        "path": "/workspace/Docs/AI-Pipeline/05_CONTINUOUS_AUTONOMY_CONTEXT.md:10",
+        "observation": "The target empty-frontier loop can repeatedly plan/reconcile, while its blocker state is not yet connected to taskcontrol."
+      },
+      {
+        "path": "git history `20c5228..aacbd57e`",
+        "observation": "115 pipeline/docs/task commits and approximately 99,215 added pipeline/task lines; zero Assets/Packages/ProjectSettings commits or changed lines."
+      }
+    ],
+    "confidence": 0.94,
+    "biggest_uncertainty": "An external Windows/Unity CI runner or operational supervisor may exist outside the frozen repository. No integration, machine-readable results, or authority binding for such a system is evidenced in this commit."
+  }
+}
