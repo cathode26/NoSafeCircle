@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections import defaultdict
 from typing import Any
@@ -12,6 +13,7 @@ from execution_authority import (
 from persistent_work_graph import PersistentWorkGraphError, load_persistent_work_graph
 from task_contract_schema import TASK_CONTRACT_SCHEMA_VERSION
 from work_graph_validate import WorkGraphValidationError
+from current_conformance import evaluate_current_conformance
 
 
 def _numeric_id(task: dict[str, Any]) -> int:
@@ -169,15 +171,17 @@ def command_show(graph, selector: str) -> int:
         print(f"\nProvenance:\n  {task.get('provenance', {})}")
     else:
         _print_requirement_list("Legacy validation requirements", task.get("validation_requirements", []))
-    print("\nExecution authorization: denied until evidence-derived conformance exists")
+    print("\nEvidence-derived current-state inspection: available via taskcontrol state")
+    print("Execution authorization: denied — dispatch authorization policy is not enabled")
+    print("State inspection alone never authorizes execution.")
     return 0
 
 
 def advisory_ready_tasks(graph) -> list[dict[str, Any]]:
     """Return the old v1 planning frontier only while v1 files still exist.
 
-    Schema v2 deliberately has no completion status, so no ready frontier can be
-    calculated until delivery/conformance evidence is implemented.
+    Schema v2 deliberately has no completion status. Dependency readiness is not
+    derived because the dispatch policy that would define it is not enabled.
     """
     if _is_v2(graph):
         return []
@@ -198,15 +202,19 @@ def advisory_ready_tasks(graph) -> list[dict[str, Any]]:
 def ready_tasks(graph):
     _ = graph
     raise UnsafeExecutionAuthorizationError(
-        "ready_tasks() is disabled. Task contracts do not provide evidence-derived "
-        "execution authority."
+        "ready_tasks() is disabled. Evidence-derived current-state inspection does not "
+        "provide execution authority, and dependency-readiness and dispatch policy are "
+        "not enabled."
     )
 
 
 def command_ready(graph) -> int:
     if _is_v2(graph):
-        print("TASK READINESS: UNAVAILABLE — EVIDENCE-DERIVED CONFORMANCE NOT IMPLEMENTED")
-        print("Schema-v2 contracts intentionally contain no operational completion status.")
+        print("TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED")
+        print("Evidence-derived current-state inspection exists via taskcontrol state.")
+        print("Production delivery/revalidation evidence has not yet been proven on a real task.")
+        print("Dependency readiness is not derived, and dispatch authorization is not enabled.")
+        print("State inspection alone never authorizes execution.")
         print("Zero tasks are authorized for autonomous dispatch.")
         return 0
 
@@ -227,6 +235,25 @@ def command_authorize(graph, selector: str) -> int:
     print(f"reason_code: {assessment.reason_code}")
     print(f"reason:      {assessment.message}")
     return 2
+
+
+def command_state(selector: str, as_json: bool = False) -> int:
+    result = evaluate_current_conformance(selector=selector)
+    if as_json:
+        print(json.dumps(result.to_dict(), indent=2, sort_keys=True))
+        return 0
+    print(f"{result.task_id} — {result.title}")
+    print(f"derived_state:    {result.state}")
+    print(f"HEAD commit:      {result.head_commit}")
+    print(f"HEAD tree:        {result.head_tree}")
+    print(f"selected_record:  {result.selected_record_id or '(none)'}")
+    print("findings:")
+    for finding in result.findings:
+        suffix = f" [{finding.record_id}]" if finding.record_id else ""
+        print(f"  - {finding.code}{suffix}: {finding.message}")
+    if result.dirty_worktree:
+        print("WARNING: working tree is dirty; state above describes committed HEAD only.")
+    return 0
 
 
 def command_graph(graph) -> int:
@@ -271,6 +298,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("ready")
     authorize_parser = subparsers.add_parser("authorize")
     authorize_parser.add_argument("task")
+    state_parser = subparsers.add_parser("state")
+    state_parser.add_argument("task")
+    state_parser.add_argument("--json", action="store_true")
     subparsers.add_parser("graph")
     return parser
 
@@ -279,6 +309,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.command == "state":
+            return command_state(args.task, args.json)
         graph = load_persistent_work_graph()
         if args.command == "validate":
             return command_validate(graph)

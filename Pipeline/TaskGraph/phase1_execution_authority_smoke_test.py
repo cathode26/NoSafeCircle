@@ -36,6 +36,8 @@ def main() -> int:
     assessment = assess_execution_authorization(task)
     assert assessment.authorized is False
     assert assessment.reason_code == CURRENT_REASON_CODE
+    assert CURRENT_REASON_CODE == "evidence_derived_dispatch_policy_not_enabled"
+    assert "State inspection alone never authorizes execution" in assessment.message
     try:
         require_execution_authorization(task)
     except UnsafeExecutionAuthorizationError as exc:
@@ -51,7 +53,9 @@ def main() -> int:
 
     # Even an injected legacy status cannot create authority.
     task["status"] = "complete"
-    assert assess_execution_authorization(task).authorized is False
+    edited_assessment = assess_execution_authorization(task)
+    assert edited_assessment.authorized is False
+    assert edited_assessment.reason_code == CURRENT_REASON_CODE
 
     print("phase1_execution_authority_smoke_test: PASS")
     return 0

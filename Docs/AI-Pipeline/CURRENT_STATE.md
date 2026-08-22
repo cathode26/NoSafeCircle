@@ -2,28 +2,52 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-21, after integrating the production GDD RAG, completing Architecture Correction Phases 1 and 2, and fixing the schema-v2 migration override boundary.
+Last updated: 2026-08-22, after completing and regression-testing Architecture Correction Phase 3A on `phase-3-evidence-derived-conformance`.
 
 ## Current Phase
 
-**Architecture Correction Phase 2 — COMPLETE.**
+**Architecture Correction Phase 3A — Evidence-Derived Current Conformance Evaluator — IMPLEMENTED AND TESTED.**
 
-The repository now contains a coherent post-review foundation:
+The repository now has the deterministic machinery to inspect the current conformance state of a schema-v2 task contract from committed Git evidence.
 
-- Milestone 1's persistent task graph and stable `NSC-###` identities;
-- the Phase 1 fail-closed execution-authority guard;
-- 37 live task contracts migrated to schema 2.0;
-- a current, deterministic, integrity-validated production GDD RAG;
-- preserved architecture-review evidence;
-- combined TaskGraph and GDDRAG regression coverage.
+Phase 3A adds:
 
-The task graph remains useful, but task contracts no longer claim operational completion. `taskcontrol ready` is intentionally unavailable, and autonomous dispatch remains disabled until Phase 3 can derive current conformance from evidence.
+- immutable delivery/revalidation record schemas;
+- deterministic record validation;
+- a current-conformance evaluator that reads committed Git objects rather than trusting uncommitted working-copy state;
+- `taskcontrol state <task>` and `taskcontrol state <task> --json`;
+- deterministic conformance states and findings;
+- regression coverage in a temporary Git repository for valid, stale, invalid, ambiguous, and revalidated evidence chains.
 
-The next architecture slice is:
+Phase 3A does **not** enable dependency readiness or autonomous dispatch.
 
-**Phase 3 — Minimum Delivery/Revalidation Evidence and Derived Conformance.**
+Current policy remains:
 
-The original bundled Milestone 2 roadmap is not the active implementation plan. Future infrastructure must be introduced incrementally and justified by real game-development work.
+```text
+TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED
+```
+
+`taskcontrol ready` explains that evidence-derived state inspection exists, but production delivery/revalidation evidence has not yet been proven on a real task, dependency readiness is not derived, and dispatch authorization is not enabled.
+
+`taskcontrol authorize <task>` still returns:
+
+```text
+EXECUTION AUTHORIZATION: DENIED
+```
+
+with reason code:
+
+```text
+evidence_derived_dispatch_policy_not_enabled
+```
+
+State inspection alone never authorizes execution.
+
+The next slice is:
+
+**Phase 3B — First Real Delivery Evidence Record.**
+
+The planned proving case is `NSC-023 — Fixed Isometric Camera` because it already exists in the integrated game, has no task dependencies, has two concrete completion gates, and avoids the unresolved control-design questions around NSC-003. This is an evidence-system proof, not a change in gameplay priority.
 
 ## Architecture Review Result
 
@@ -43,50 +67,31 @@ Accepted correction direction:
 - use reconciliation for bootstrap, broad audits, and reviewed change-impact proposals rather than routine global truth regeneration;
 - avoid implementing the entire original Milestone 2 bundle before proving smaller real delivery loops;
 - keep one worker and human merge/design authority until the one-ticket process is trustworthy;
-- do not treat either reviewer consensus or the task graph's current ordering as automatic product priority.
+- do not treat reviewer consensus or task-graph ordering as automatic product priority.
 
-The accepted immutable review evidence is preserved under:
+Accepted immutable review evidence is preserved under:
 
 `Pipeline/ArchitectureReview/evidence/20260821T222222Z-40fdf9ce/`
 
-That directory contains:
+That directory contains the frozen manifest, model assignments, all eight independent reviews, synthesis, and adversarial critique.
 
-- `manifest.json`;
-- `model_assignments.json`;
-- all eight independent reviews;
-- `synthesis.json`;
-- `adversarial_critique.json`.
-
-Generated `outputs/current/` and `outputs/runs/` remain transient and ignored by default.
+Generated `Pipeline/ArchitectureReview/outputs/` remains transient and ignored by default.
 
 ## Architecture Correction Phase 1 — COMPLETE
 
-Phase 1 prevented the legacy task model from authorizing autonomous work before the schema migration existed.
+Phase 1 prevented the legacy task model from authorizing autonomous work before the task-contract migration and evidence model existed.
 
-Implemented:
+Key invariant retained:
 
-- `Pipeline/TaskGraph/execution_authority.py`
-  - fails closed when evidence-derived conformance is unavailable;
-  - prevents contract metadata from being mistaken for execution authority.
-- `Pipeline/TaskGraph/taskcontrol.py`
-  - exposes validation and inspection commands;
-  - rejects autonomous authorization while conformance is unavailable.
-- `Pipeline/TaskGraph/phase1_execution_authority_smoke_test.py`
-  - proves mutable legacy task metadata cannot authorize execution.
+> Mutable task metadata cannot authorize execution.
 
-Phase 1 originally made the old status-derived ready frontier explicitly advisory. Phase 2 superseded that transitional behavior by removing operational status from task contracts entirely. The current behavior is stricter:
+Implemented safeguards include:
 
-```text
-TASK READINESS: UNAVAILABLE — EVIDENCE-DERIVED CONFORMANCE NOT IMPLEMENTED
-```
+- `Pipeline/TaskGraph/execution_authority.py`;
+- `Pipeline/TaskGraph/phase1_execution_authority_smoke_test.py`;
+- fail-closed authorization behavior in `taskcontrol`.
 
-and:
-
-```text
-EXECUTION AUTHORIZATION: DENIED
-```
-
-A nonzero exit from `taskcontrol authorize` is an intentional policy denial, not a Docker failure.
+Phase 2 removed operational completion status from the contracts themselves. Phase 3A now provides current-state inspection, but execution authority intentionally remains disabled.
 
 ## Architecture Correction Phase 2 — COMPLETE
 
@@ -117,7 +122,7 @@ not:
 Tasks/*.yaml = definition + running state + validation state + completion truth
 ```
 
-Each contract now has:
+Each contract contains:
 
 - `schema_version: "2.0"`;
 - `contract_revision`;
@@ -127,7 +132,7 @@ Each contract now has:
 - separate downstream integration obligations;
 - per-contract provenance.
 
-Top-level mutable `status` was removed. The old bootstrap observation is retained only under provenance as historical information.
+Top-level mutable `status` is gone. Historical bootstrap status is retained only as provenance.
 
 Reviewed migration identity:
 
@@ -135,38 +140,18 @@ Reviewed migration identity:
 
 Important reviewed corrections:
 
-- NSC-003 duplicate suspend criteria were merged;
-- NSC-003's future pointer-consumer validation became a downstream integration obligation;
-- NSC-019 duplicate suspend criteria were merged;
-- NSC-019 duplicate reset criteria were merged;
-- NSC-023's fixed-camera checks remain completion gates;
-- NSC-023's future visual-foundation compatibility check remains a downstream integration obligation.
+- NSC-003 duplicate suspend criteria merged;
+- NSC-003 future pointer-consumer validation moved to a downstream obligation;
+- NSC-019 duplicate suspend criteria merged;
+- NSC-019 duplicate reset criteria merged;
+- NSC-023 fixed-camera checks remain completion gates;
+- NSC-023 future visual-foundation compatibility remains a downstream obligation.
 
-The quality audit reports:
+Production-specific migration overrides are bound to the exact task ID, reconciliation key, and approved bootstrap reconciliation/verification provenance. Synthetic tasks that merely reuse an NSC numeric ID do not receive production-specific corrections.
 
-- 0 duplicate/near-duplicate acceptance-criteria findings;
-- 0 future-dependent completion-gate findings.
+The migration-report verifier was also made portable across Git-for-Windows line endings: migrated target verification normalizes UTF-8 BOM/CRLF/lone-CR differences while source hashes and pre-publication concurrent-change checks remain byte-exact.
 
-Production-specific migration overrides are now bound to all of the following:
-
-- exact task ID;
-- exact `reconciliation_key`;
-- reconciliation run `20260821T193541Z-998ee7b5`;
-- verification run `20260821T195959Z-43dba5de`.
-
-This prevents synthetic tests or future unrelated tasks from receiving corrections merely because they reuse an `NSC-###` ID.
-
-Important Phase 2 files:
-
-- `Pipeline/TaskGraph/TASK_CONTRACT_SCHEMA_V2.md`;
-- `Pipeline/TaskGraph/TASK_CONTRACT_V2_QUALITY_REVIEW.md`;
-- `Pipeline/TaskGraph/TASK_CONTRACT_V2_MIGRATION.json`;
-- `Pipeline/TaskGraph/task_contract_schema.py`;
-- `Pipeline/TaskGraph/task_contract_migration.py`;
-- `Pipeline/TaskGraph/migrate_task_contracts_v2.py`;
-- `Pipeline/TaskGraph/task_contract_quality_audit.py`;
-- `Docs/AI-Pipeline/ADR-031_TASK_STATUS_ADVISORY.md`;
-- `Docs/AI-Pipeline/ADR-032_TASK_CONTRACT_SCHEMA_V2.md`.
+The reviewed migration and quality audit currently pass against all 37 contracts.
 
 ## Milestone 1 Bootstrap State Retained
 
@@ -185,7 +170,6 @@ The bootstrap originally produced:
 - 37 persistent records;
 - 12 feature records;
 - 25 implementation records;
-- 0 artifact records;
 - 36 historical `open` observations;
 - 1 historical `complete` observation;
 - 59 dependency edges;
@@ -197,24 +181,7 @@ The only task historically observed as `complete` at bootstrap was:
 
 `NSC-023 — Fixed Isometric Camera`
 
-That observation is not current conformance proof. It is retained only as task provenance.
-
-The graph lives under:
-
-`Tasks/NSC-001.yaml` through `Tasks/NSC-037.yaml`
-
-Metadata lives under:
-
-- `Pipeline/TaskGraph/WORK_ID_MAP.json`;
-- `Pipeline/TaskGraph/PROJECT_REQUIREMENTS.yaml`;
-- `Pipeline/TaskGraph/RESOURCE_GROUPS.yaml`;
-- `Pipeline/TaskGraph/APPROVED_BOOTSTRAP.json`;
-- `Pipeline/TaskGraph/BOOTSTRAP_PERSISTED.json`;
-- `Pipeline/TaskGraph/TASK_CONTRACT_V2_MIGRATION.json`.
-
-The task and metadata files use a deterministic JSON-compatible YAML 1.2 subset so Python's standard `json` parser can read them without another YAML dependency.
-
-Do not rerun the one-time bootstrap against the existing repository.
+That historical observation is **not** Phase 3 conformance evidence. Until a committed Phase 3 delivery or revalidation record exists, the evaluator correctly reports NSC-023 as `not_delivered`.
 
 ## Production GDD RAG — CURRENT AND VALIDATED
 
@@ -228,28 +195,21 @@ Current production index:
 
 `Pipeline/GDDRAG/knowledge_base/No_Safe_Circle_GDD_RAG.json`
 
-Current index state:
+Current production state:
 
 - 41 deterministic chunks;
-- source SHA-256 matches the current canonical GDD;
+- source SHA-256 matches the canonical GDD;
 - `gddctl status` reports `CURRENT`;
-- `gddctl validate` passes.
+- `gddctl validate` passes;
+- direct `GDDRetriever` consumers enforce the same freshness/integrity boundary.
 
-The production integrity boundary verifies:
+The production integrity boundary verifies canonical path/line ranges, chunk text, character counts, SHA-256 values, canonical/domain flags, and equivalence to a deterministic rebuild.
 
-- every source path points to the canonical GDD;
-- every line range is valid and in bounds;
-- every chunk exactly matches its declared source lines;
-- chunk SHA-256 and character counts match indexed text;
-- every production chunk has `canonical: true` and `domain: game_design`;
-- the complete index matches a deterministic rebuild;
-- direct `GDDRetriever` consumers cannot bypass freshness/integrity validation.
-
-The historical Assignment 4 RAG under `DynamicContentPipeline/` remains completed course output built from the older July GDD. It is not trusted as current production canon.
+The historical Assignment 4 RAG under `DynamicContentPipeline/` remains course output built from the older July GDD and is not trusted as current production canon.
 
 ### RAG authority boundary
 
-The current production RAG solves freshness, provenance, integrity, and deterministic rebuild concerns. It does **not** yet prove that a top-k result set contains every cross-cutting requirement governing a task.
+The production RAG solves freshness, provenance, integrity, and deterministic rebuild concerns. It does **not** prove that a top-k result set contains every cross-cutting requirement governing a task.
 
 Therefore:
 
@@ -259,51 +219,204 @@ Production GDDRAG = validated search, discovery, and navigation aid
 Top-k retrieval alone != complete task canon
 ```
 
-The GDD remains small enough and cross-linked enough that bounded implementation workers should receive the whole current GDD until task-context coverage is independently proven.
+Because the GDD is still relatively small and highly cross-linked, bounded implementation workers should receive the whole current GDD until context-pack coverage is independently proven.
 
-Known retrieval behavior, including broad ownership tables occasionally ranking above dedicated prose sections, is documented and pinned by regression tests rather than hidden.
+## Architecture Correction Phase 3A — IMPLEMENTED AND TESTED
 
-## Combined Validation Status
+### Purpose
 
-The combined TaskGraph and production GDD RAG state has passed its regression suite.
+Phase 3A answers:
 
-TaskGraph checks:
+> What does committed repository evidence currently prove about this exact task contract?
 
-```powershell
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/work_graph_transform_smoke_test.py
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/work_graph_validate_smoke_test.py
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/work_graph_persist_smoke_test.py
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol_smoke_test.py
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/phase1_execution_authority_smoke_test.py
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/migrate_task_contracts_v2_smoke_test.py
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/task_contract_quality_audit_smoke_test.py
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/task_contract_quality_audit.py --strict
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py validate
+It does not answer:
+
+> May an autonomous worker execute this task?
+
+Those are intentionally separate authority questions.
+
+### New Phase 3A files
+
+- `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`;
+- `Pipeline/TaskGraph/CONFORMANCE_RECORDS.md`;
+- `Pipeline/TaskGraph/conformance_records.py`;
+- `Pipeline/TaskGraph/current_conformance.py`;
+- `Pipeline/TaskGraph/conformance_evaluator_smoke_test.py`.
+
+Updated Phase 3A integration files include:
+
+- `Pipeline/TaskGraph/taskcontrol.py`;
+- `Pipeline/TaskGraph/execution_authority.py`;
+- `Pipeline/TaskGraph/taskcontrol_smoke_test.py`;
+- `Pipeline/TaskGraph/phase1_execution_authority_smoke_test.py`;
+- `Pipeline/TaskGraph/README.md`.
+
+### Evidence record model
+
+Phase 3A defines immutable records under:
+
+```text
+Pipeline/TaskGraph/evidence/<TASK-ID>/records/<RECORD-ID>.json
 ```
 
-Production GDD RAG checks:
+with committed artifacts conventionally stored under:
 
-```powershell
-docker compose run --rm codex-review python3 Pipeline/GDDRAG/tests/gdd_rag_smoke_test.py
-docker compose run --rm codex-review python3 Pipeline/GDDRAG/tests/integrity_regression_test.py
-docker compose run --rm codex-review python3 Pipeline/GDDRAG/tests/retrieval_regression_test.py
-docker compose run --rm codex-review python3 Pipeline/GDDRAG/gddctl.py status
-docker compose run --rm codex-review python3 Pipeline/GDDRAG/gddctl.py validate
+```text
+Pipeline/TaskGraph/evidence/<TASK-ID>/artifacts/
 ```
 
-Current policy checks:
+Supported record types:
+
+- `delivery`;
+- `revalidation`.
+
+Records bind evidence to:
+
+- exact task ID;
+- task-contract revision and semantic canonical JSON hash;
+- canonical GDD path and normalized text hash;
+- validated Git commit and tree;
+- completion-gate results;
+- conformance-surface Git blob SHAs;
+- committed evidence-artifact blob SHAs;
+- required human approval;
+- delivery or revalidation lineage.
+
+Delivery records require their validated commit/tree to equal the recorded integrated commit/tree.
+
+Revalidation records require an existing same-task basis record and valid ancestry with no revalidation cycle.
+
+Records cannot recreate mutable authority fields such as `status`, `complete`, `current`, `ready`, or `authorized`.
+
+### Repository authority boundary
+
+The evaluator reads contracts, GDD text, evidence records, and evidence artifacts from **committed Git objects at HEAD**, not from uncommitted working-copy contents.
+
+A dirty working tree is reported as a warning, but it does not alter the derived state of committed HEAD.
+
+This was demonstrated directly: while Phase 3A source files were still uncommitted, `taskcontrol state` reported committed HEAD and warned that the working tree was dirty.
+
+### Deterministic current-state checks
+
+A record can support conformance only when the evaluator can verify the required Git and evidence relationships, including:
+
+- validated commit exists and is ancestral to current HEAD;
+- recorded tree matches the actual tree of the validated commit;
+- task-contract revision/hash is correct at the validated commit and current HEAD;
+- canonical GDD hash is correct at the validated commit and current HEAD;
+- every current completion gate has exactly one passing gate result;
+- evidence artifacts are committed and match recorded Git blob SHAs;
+- conformance surfaces match both the validated commit and current HEAD;
+- required human approval exists;
+- revalidation basis records are valid and acyclic;
+- duplicate, malformed, contradictory, or incomparable evidence is not silently accepted.
+
+### Derived states
+
+Phase 3A implements deterministic states including:
+
+- `aggregate`;
+- `not_delivered`;
+- `conformant`;
+- `needs_revalidation`;
+- `needs_replan`;
+- `needs_human`;
+- `invalid_evidence`;
+- `ambiguous_evidence`;
+- `superseded`;
+- `cancelled`.
+
+When multiple otherwise-current records exist, Git ancestry is used to select a strict descendant. Incomparable maximal records produce `ambiguous_evidence`; timestamps do not decide authority.
+
+### New inspection command
+
+Human-readable:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py state NSC-023
+```
+
+Structured output:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py state NSC-023 --json
+```
+
+Current real-project results before any production evidence record exists:
+
+```text
+NSC-001 -> aggregate
+NSC-023 -> not_delivered
+```
+
+NSC-023 reports:
+
+```text
+no_committed_evidence: No committed delivery or revalidation record exists.
+```
+
+This is intentionally stricter than the historical bootstrap's `complete` observation.
+
+### Phase 3A regression status
+
+The conformance evaluator smoke test passes and proves, in a temporary Git repository, at least:
+
+1. no records -> `not_delivered`;
+2. valid committed delivery -> `conformant`;
+3. unrelated descendant commit with unchanged conformance surfaces -> still `conformant`;
+4. tracked implementation-surface change -> `needs_revalidation`;
+5. GDD change -> `needs_revalidation`;
+6. task-contract revision/hash change -> `needs_replan`;
+7. missing required human approval -> `needs_human`;
+8. malformed/missing gate, wrong tree/blob, or altered evidence artifact -> `invalid_evidence`;
+9. validated commit not ancestral to HEAD -> stale/revalidation-required state;
+10. valid revalidation after a tracked change -> `conformant`;
+11. incomparable current evidence -> `ambiguous_evidence`;
+12. uncommitted evidence is ignored because authority is committed HEAD.
+
+Existing TaskGraph transform, graph validation, persistence, taskcontrol, migration, quality-audit, and Phase 1 authorization regressions also pass.
+
+The Python `py_compile` command is not used through `codex-review` because Python attempts to write `__pycache__` into the intentionally read-only repository mount. The actual smoke tests import and execute the new modules successfully.
+
+## Current Dispatch Policy
+
+Evidence-derived state inspection exists, but **dependency readiness and autonomous dispatch are not enabled**.
+
+Current readiness command:
 
 ```powershell
 docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py ready
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py authorize NSC-003
 ```
 
-Expected policy state:
+Expected output begins:
 
-- readiness unavailable;
-- autonomous authorization denied.
+```text
+TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED
+```
 
-Temporary broad Claude permissions used during RAG investigation were removed. `.claude/settings.local.json` is back to its narrow read-only local policy. This permission file does not control Docker/Codex Python tests.
+and explicitly states:
+
+- evidence-derived current-state inspection exists through `taskcontrol state`;
+- production delivery/revalidation evidence has not yet been proven on a real task;
+- dependency readiness is not derived;
+- dispatch authorization is not enabled;
+- state inspection alone never authorizes execution;
+- zero tasks are authorized for autonomous dispatch.
+
+Authorization command:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py authorize NSC-023
+```
+
+Expected result:
+
+```text
+EXECUTION AUTHORIZATION: DENIED
+reason_code: evidence_derived_dispatch_policy_not_enabled
+```
+
+A nonzero exit from `authorize` is an intentional policy denial, not a Docker failure.
 
 ## Source-of-Truth Boundaries
 
@@ -313,11 +426,11 @@ The current human-approved GDD and explicit approved design decisions define int
 
 ### Production GDD retrieval
 
-`Pipeline/GDDRAG` provides current, hash-bound, integrity-validated retrieval over the canonical GDD. It is not a substitute for the complete canon when retrieval coverage has not been proven.
+`Pipeline/GDDRAG` provides current, hash-bound, integrity-validated retrieval over the canonical GDD. It is not a substitute for complete canon when retrieval coverage has not been proven.
 
 ### Task contracts
 
-`Tasks/*.yaml` defines approved work identity, scope, dependencies, acceptance criteria, completion gates, downstream obligations, exclusive resources, and provenance.
+`Tasks/*.yaml` defines approved work identity, scope, dependencies, acceptance criteria, completion gates, downstream obligations, exclusive resources, contract revision/disposition, and provenance.
 
 Task contracts do not contain current execution or completion truth.
 
@@ -327,123 +440,119 @@ The integrated Git tree is the authority for what code and assets are present.
 
 Presence alone is not completion proof.
 
+### Delivery/revalidation records
+
+Phase 3 records are immutable evidence claims tied to exact task, canon, Git, gate, artifact, and approval identities.
+
+A record does not contain mutable current-completion authority.
+
 ### Current conformance
 
-Current conformance must eventually be derived from:
+`Pipeline/TaskGraph/current_conformance.py` deterministically evaluates committed evidence against current committed HEAD.
 
-- exact task-contract revision and hash;
-- current governing canon identity and hash;
-- exact tested/integrated Git tree;
-- required deterministic, Unity, runtime, and semantic evidence;
-- human approval where required;
-- invalidation or revalidation after relevant design or implementation changes.
+State inspection is now implemented.
 
-This evidence-derived model is not implemented yet.
+Production proof is not yet complete because no real project task has a committed Phase 3 delivery/revalidation record.
 
 ### Reconciliation
 
-Reconciliation outputs are immutable point-in-time observations.
+Reconciliation outputs remain immutable point-in-time observations. They may propose graph changes but do not directly mutate living task contracts or current conformance state.
 
-A reconciliation run may propose new, changed, conflicting, stale, or superseded work, but it may not directly mutate the living task contracts.
-
-Routine GDD iteration should eventually use reviewed, scoped impact analysis rather than automatically regenerating global project truth after every edit.
+Routine GDD iteration should eventually use reviewed, scoped impact analysis rather than global reconciliation after every edit.
 
 ### Architecture review evidence
 
-The preserved review run is primary evidence for the accepted corrections, but reviewer recommendations are not automatic project decisions. Human authority decides which recommendations to adopt.
+The preserved architecture review is primary evidence for the accepted correction direction, but reviewer recommendations do not automatically become project decisions.
 
 ## Immediate Next Goal
 
-### Phase 3 — Minimum Delivery/Revalidation Evidence and Derived Conformance
+### Phase 3B — First Real Delivery Evidence Record
 
-Build only enough state and validation to answer:
+Use `NSC-023 — Fixed Isometric Camera` as the first real evidence-system proving case.
 
-> Does this exact task contract currently conform on the integrated project state?
+This choice is **not** a gameplay-priority decision. It is selected because the camera:
 
-Minimum authority inputs:
+- already exists in the integrated project;
+- has no task dependencies;
+- has two concrete completion gates;
+- already has known Unity validation coverage;
+- does not require unresolved mouse/input design decisions.
+
+Phase 3B sequence:
 
 ```text
-task-contract revision/hash
-+ current canon identity/hash
-+ exact tested and integrated Git tree
-+ required deterministic/Unity/runtime evidence
-+ human approval where required
-+ invalidation/revalidation state
-= derived current conformance
+clean committed Phase 3A
+→ run real camera Unity validation on one exact integrated commit
+→ preserve the exact test XML/log evidence as committed artifacts
+→ identify and record exact camera conformance-surface Git blob SHAs
+→ create a committed DEL-NSC-023-... delivery record
+→ taskcontrol state NSC-023 becomes conformant
 ```
 
-Phase 3 must not recreate mutable completion truth under another filename.
+The delivery record must bind validation to the exact integrated commit/tree. Evidence created only on a pre-merge candidate is insufficient unless the exact tested tree is also the integrated tree or post-merge validation is performed.
 
-It must account for at least:
+After the first real delivery chain is proven, test the revalidation path through a genuinely relevant later change:
 
-- evidence produced before versus after merge;
-- squash or conflict-resolved merges that change the tested tree;
-- later relevant code or GDD changes;
-- reverts and semantic overwrites;
-- contract revision or supersession;
-- duplicate or contradictory delivery records;
-- missing required gate evidence.
+```text
+relevant camera surface or governing canon changes
+→ taskcontrol state becomes needs_revalidation
+→ rerun the required gates on the new integrated state
+→ commit REV-NSC-023-... revalidation evidence
+→ taskcontrol state returns to conformant
+```
 
-The first implementation should be the smallest evidence model needed for one real task, not a general autonomous platform.
+Do not manufacture a meaningless production change solely to force revalidation; the synthetic regression already proves evaluator mechanics. Use a real relevant change when one naturally occurs, or perform a controlled evidence exercise only if explicitly approved.
 
-Autonomous dispatch remains disabled until this boundary is trustworthy.
+## Real Gameplay Task Selection After the Evidence Proof
 
-### Real-task selection
+The first gameplay implementation task is **not automatically selected** by this document, the graph, or reviewer consensus.
 
-The next real task is **not automatically selected by this document, the task graph, or reviewer consensus**.
+`NSC-037` was discussed during architecture review as a possible delivery-lane experiment. It is not the committed gameplay priority.
 
-`NSC-037` was discussed as a review/test candidate. It is not the committed next game-development task.
+`NSC-003` remains a possible high-leverage gameplay anchor, but it should not be handed to a worker unchanged merely because its task contract currently says `single_agent`.
 
-`NSC-003` remains a possible high-leverage anchor, but it must not be handed to a worker unchanged merely because the bootstrap labels it `single_agent`.
-
-Before executing NSC-003, human review should decide:
+Before implementing NSC-003, human review should resolve:
 
 - which Input Action owns click-to-move/select;
 - arbitration among UI click, movement, Fireball, Frost Field, Force Wave, and door selection;
-- click versus held-pointer steering behavior;
+- click versus held-pointer steering;
 - destination replacement and cancellation;
 - approach/arrival semantics;
 - movement pathing expectations;
-- movement-restriction ownership and release semantics.
+- movement-restriction ownership/release semantics.
 
-Human review should also decide whether to supersede the current NSC-003 contract with smaller contracts, such as:
+Human review should also decide whether NSC-003 should be superseded by smaller contracts, for example:
 
 - runtime input and shared pointer-projection foundation;
 - mouse-directed movement, restriction, reset, and suspension.
 
-Task selection and any split must be explicitly approved before implementation.
-
 ## Deferred Until Evidence Justifies It
 
-Do not begin these merely because schema 2.0 and production RAG now exist:
+Do not enable or build these merely because Phase 3A exists:
 
+- dependency-derived `taskcontrol ready`;
+- autonomous execution authorization;
 - autonomous task claiming or continuous dispatch;
 - parallel workers or broad worktree orchestration;
-- automatic merge or merge queues;
+- automatic merge/merge queues;
 - broad GitHub Issues/Projects synchronization;
 - automatic backlog replenishment;
 - full-game speculative decomposition;
-- Progressive Decomposer implementation as a bundled platform;
-- Artifact Authority implementation without a real blocking design need;
-- top-k-only task context packs presented as complete canon;
+- Progressive Decomposer as a bundled platform;
+- Artifact Authority without a real blocking design need;
+- top-k-only task context presented as complete canon;
 - automatic GDD impact analysis without a reviewed causal model;
 - a general supervisor before repeated delivery bottlenecks justify one.
 
-These remain candidates for later phases, driven by observed production needs rather than roadmap momentum.
+These remain later candidates driven by observed production needs rather than roadmap momentum.
 
 ## Obsolete Branch/Plan Warning
 
 Do not resume `milestone-2a-nsc-003-context` unchanged.
 
-That branch predates:
+That branch predates the accepted architecture corrections, task-contract schema 2.0, reviewed migration corrections, production GDD RAG integrity boundary, and Phase 3 conformance model.
 
-- the accepted architecture review corrections;
-- the Phase 1 execution-authority guard;
-- task-contract schema 2.0;
-- the reviewed migration quality corrections;
-- the production GDD RAG integrity boundary.
-
-Useful work should be rebased or recreated from the corrected current repository state rather than continuing the obsolete plan as written.
+Useful ideas should be recreated from the corrected current repository state rather than continuing the obsolete plan as written.
 
 ## Next Window Instructions
 
@@ -455,22 +564,24 @@ Read, in order:
 4. `Docs/AI-Pipeline/DECISIONS.md`;
 5. `Pipeline/TaskGraph/README.md`;
 6. `Pipeline/TaskGraph/TASK_CONTRACT_SCHEMA_V2.md`;
-7. `Pipeline/GDDRAG/README.md`;
-8. `Pipeline/GDDRAG/INTEGRITY.md`;
-9. `Pipeline/ArchitectureReview/evidence/20260821T222222Z-40fdf9ce/` when reviewing the correction rationale;
-10. inspect the actual repository and branch state.
+7. `Pipeline/TaskGraph/CONFORMANCE_RECORDS.md`;
+8. `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`;
+9. `Pipeline/GDDRAG/README.md`;
+10. `Pipeline/GDDRAG/INTEGRITY.md`;
+11. `Pipeline/ArchitectureReview/evidence/20260821T222222Z-40fdf9ce/` when reviewing correction rationale;
+12. inspect the actual repository/branch state.
 
 Then:
 
-1. confirm the combined TaskGraph and GDDRAG tests still pass;
-2. confirm `taskcontrol ready` remains unavailable;
-3. confirm `taskcontrol authorize <task>` remains denied;
-4. merge the completed correction/integration branch into `main` if it is not already integrated;
-5. create a fresh Phase 3 branch from current `main`;
-6. define the minimum evidence-derived conformance model;
-7. select one real bounded task through explicit human review;
-8. do not automatically select NSC-037 or execute the current NSC-003 contract unchanged;
-9. do not treat top-k RAG retrieval as complete canon;
-10. do not enable autonomous dispatch yet.
+1. confirm Phase 3A is committed and the working tree is clean;
+2. rerun `conformance_evaluator_smoke_test.py` if the evaluator changed;
+3. confirm `taskcontrol state NSC-001` is `aggregate`;
+4. confirm `taskcontrol state NSC-023` is `not_delivered` before production evidence exists;
+5. confirm `taskcontrol ready` remains unavailable because dispatch policy is not enabled;
+6. confirm `taskcontrol authorize <task>` remains denied;
+7. begin Phase 3B by running the real NSC-023 camera validation gates against one exact integrated commit;
+8. preserve evidence artifacts and build the first committed delivery record;
+9. verify `taskcontrol state NSC-023` becomes `conformant`;
+10. do not enable dependency readiness or autonomous dispatch yet.
 
 A new window should be able to resume from repository state without the prior chat transcript.

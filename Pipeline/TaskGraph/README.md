@@ -27,6 +27,24 @@ See:
 - `Docs/AI-Pipeline/ADR-031_TASK_STATUS_ADVISORY.md`
 - `Docs/AI-Pipeline/ADR-032_TASK_CONTRACT_SCHEMA_V2.md`
 
+Phase 3A adds committed delivery/revalidation records and a deterministic current-conformance evaluator. Evidence-derived current-state inspection now exists. Production delivery/revalidation evidence has not yet been proven on a real task, and dependency-readiness and dispatch authorization policy remain disabled. State inspection alone never authorizes execution; zero tasks may be autonomously dispatched. See `CONFORMANCE_RECORDS.md` and `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`.
+
+Inspect committed-HEAD conformance for one schema-v2 task:
+
+```powershell
+python3 Pipeline/TaskGraph/taskcontrol.py state NSC-003
+```
+
+```powershell
+python3 Pipeline/TaskGraph/taskcontrol.py state NSC-003 --json
+```
+
+Run the synthetic Phase 3A Git-object regression suite:
+
+```powershell
+python3 Pipeline/TaskGraph/conformance_evaluator_smoke_test.py
+```
+
 ## Phase 2 files
 
 - `task_contract_schema.py` — shared schema constants and deterministic entry normalization.
@@ -147,6 +165,8 @@ Readiness intentionally remains unavailable:
 docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py ready
 ```
 
+This command does not derive a dependency-ready frontier. Current-state inspection is available, but the dependency-readiness and dispatch policy is not enabled.
+
 Authorization intentionally remains denied:
 
 ```powershell
@@ -154,6 +174,7 @@ docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py a
 ```
 
 The authorization command intentionally returns exit code `2`; Docker Desktop may offer Gordon because the process is nonzero, but the denial is expected.
+Its reason code is `evidence_derived_dispatch_policy_not_enabled`. A derived state, including `conformant`, is inspection output only and never grants execution authority.
 
 ## Replacing an uncommitted first migration
 
@@ -177,4 +198,4 @@ The old reconciliation, verification, approval, and bootstrap records remain imm
 
 ## Next phase
 
-After the reviewed v2 migration is committed, introduce the minimum delivery/revalidation evidence model needed to derive current conformance for one real task. Do not enable autonomous dispatch until that evidence is bound to current canon and the exact integrated Git tree.
+Use the Phase 3A model for a separately reviewed real delivery so production delivery/revalidation evidence can be proven on a real task. Do not derive dependency readiness or enable dispatch authority until the broader evidence-backed dispatch policy is explicitly designed and approved.
