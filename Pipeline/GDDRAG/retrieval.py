@@ -5,8 +5,9 @@ from __future__ import annotations
 Adapted from the proven Assignment 4 retrieval approach: same
 tokenizer/stemmer, weighted field scoring, phrase matching, and
 query-coverage scoring. See Pipeline/GDDRAG/README.md for the historical
-lineage. This module reads only the production knowledge base under
-Pipeline/GDDRAG/knowledge_base/ and never calls an LLM or external API.
+lineage. Every retriever instance validates the index against the current
+canonical GDD before serving results, so direct callers cannot bypass the
+freshness and chunk-integrity boundary. No LLM or external API is used.
 """
 
 import argparse
@@ -16,6 +17,9 @@ import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+from index_builder import CANONICAL_GDD_PATH
+from integrity import validate_current_knowledge_base as validate_knowledge_base
 
 RETRIEVER_VERSION = "1.0"
 
@@ -116,8 +120,13 @@ def build_ngrams(tokens: list[str], minimum: int = 2, maximum: int = 4) -> list[
 
 
 class GDDRetriever:
-    def __init__(self, knowledge_base_path: Path) -> None:
+    def __init__(
+        self,
+        knowledge_base_path: Path,
+        source_path: Path = CANONICAL_GDD_PATH,
+    ) -> None:
         self.knowledge_base_path = knowledge_base_path
+        self.source_path = source_path
         self.data = self._load_knowledge_base()
         self._validate_knowledge_base()
 
@@ -135,19 +144,12 @@ class GDDRetriever:
             raise ValueError(f"Knowledge base is not valid JSON: {self.knowledge_base_path}") from exc
 
     def _validate_knowledge_base(self) -> None:
-        required_top_level = {"document", "chunking", "retrieval_guidance", "chunks"}
-        missing = required_top_level.difference(self.data)
-        if missing:
-            raise ValueError(f"Knowledge base is missing keys: {sorted(missing)}")
-
-        chunks = self.data["chunks"]
-        declared_count = int(self.data["document"]["total_chunks"])
-        if declared_count != len(chunks):
-            raise ValueError(f"Chunk count mismatch: declared {declared_count}, found {len(chunks)}")
-
-        chunk_ids = [chunk["chunk_id"] for chunk in chunks]
-        if len(chunk_ids) != len(set(chunk_ids)):
-            raise ValueError("Knowledge base contains duplicate chunk IDs")
+        result = validate_knowledge_base(self.data, source_path=self.source_path)
+        if not result.ok:
+            details = "\n".join(f"  - {finding}" for finding in result.findings)
+            raise ValueError(
+                "Knowledge base is not valid/current and cannot be searched:\n" + details
+            )
 
     def _eligible_chunks(self, domain: str | None, canonical_only: bool) -> list[dict[str, Any]]:
         selected_domain = domain or self.default_domain

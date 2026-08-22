@@ -62,48 +62,30 @@ def check_results_are_stably_ordered(retriever: GDDRetriever) -> None:
 
 
 def check_tie_break_order_directly() -> None:
-    # A minimal synthetic knowledge base isolates the sort-key tie-break behavior
-    # from real GDD content, so this assertion cannot pass by coincidental scoring.
-    knowledge_base = {
-        "document": {"total_chunks": 2},
-        "chunking": {"recommended_top_k": 4},
-        "retrieval_guidance": {"default_filter": {"domain": "game_design", "canonical": True}},
-        "chunks": [
-            {
-                "chunk_id": "nsc-gdd-900",
-                "title": "Duplicate Topic",
-                "section": "Test",
-                "subsection": None,
-                "domain": "game_design",
-                "canonical": True,
-                "source": {"file": "Docs/GDD/No_Safe_Circle_GDD.md", "start_line": 1, "end_line": 1},
-                "text": "identical scoring content for tie break test",
-            },
-            {
-                "chunk_id": "nsc-gdd-899",
-                "title": "Duplicate Topic",
-                "section": "Test",
-                "subsection": None,
-                "domain": "game_design",
-                "canonical": True,
-                "source": {"file": "Docs/GDD/No_Safe_Circle_GDD.md", "start_line": 2, "end_line": 2},
-                "text": "identical scoring content for tie break test",
-            },
-        ],
-    }
+    # Build a fully valid synthetic index containing two identically scored chunks.
+    # Direct retriever construction now enforces the same integrity boundary as gddctl.
+    source_text = (
+        "# Fixture Game\n\n"
+        "## Test\n\n"
+        "identical scoring content for tie break test\n\n"
+        "identical scoring content for tie break test\n"
+    )
 
     with tempfile.TemporaryDirectory(prefix="gddrag-tiebreak-") as temp_dir:
-        kb_path = Path(temp_dir) / "kb.json"
-        import json
+        root = Path(temp_dir)
+        source_path = root / "No_Safe_Circle_GDD.md"
+        kb_path = root / "kb.json"
+        source_path.write_text(source_text, encoding="utf-8", newline="\n")
+        knowledge_base = build_knowledge_base(source_path=source_path, max_chars=20)
+        write_knowledge_base(knowledge_base, kb_path)
+        retriever = GDDRetriever(kb_path, source_path=source_path)
 
-        kb_path.write_text(json.dumps(knowledge_base), encoding="utf-8")
-        retriever = GDDRetriever(kb_path)
+        results = retriever.retrieve("duplicate topic identical scoring content", top_k=2)
 
-    results = retriever.retrieve("duplicate topic identical scoring content", top_k=2)
     assert len(results) == 2
     assert results[0]["score"] == results[1]["score"]
-    assert results[0]["chunk_id"] == "nsc-gdd-899", "Tied scores must break by chunk_id ascending."
-    assert results[1]["chunk_id"] == "nsc-gdd-900"
+    assert results[0]["chunk_id"] == "nsc-gdd-001", "Tied scores must break by chunk_id ascending."
+    assert results[1]["chunk_id"] == "nsc-gdd-002"
 
 
 def check_unrelated_content_is_not_returned(retriever: GDDRetriever) -> None:
