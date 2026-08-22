@@ -13,7 +13,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
 {
     public static class DoorPrototypeSceneBuilder
     {
-        private const string SceneFolder = "Assets/NoSafeCircle/DoorPrototype/Scenes";
+        private const string SceneFolder = "Assets/Scenes";
         private const string ScenePath = SceneFolder + "/DoorPrototype.unity";
 
         // Classic 2:1 dimetric isometric camera angle (rotate -45 degrees around Y to face
