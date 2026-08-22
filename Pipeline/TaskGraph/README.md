@@ -1,6 +1,6 @@
 # Persistent Task Graph and Task Contracts
 
-This directory contains the deterministic tooling for the No Safe Circle persistent work graph.
+This directory contains deterministic tooling for the No Safe Circle persistent work graph.
 
 ## Current architecture correction
 
@@ -23,20 +23,39 @@ Tasks/*.yaml = definition + running state + validation state + completion truth
 See:
 
 - `TASK_CONTRACT_SCHEMA_V2.md`
+- `TASK_CONTRACT_V2_QUALITY_REVIEW.md`
 - `Docs/AI-Pipeline/ADR-031_TASK_STATUS_ADVISORY.md`
 - `Docs/AI-Pipeline/ADR-032_TASK_CONTRACT_SCHEMA_V2.md`
 
 ## Phase 2 files
 
 - `task_contract_schema.py` — shared schema constants and deterministic entry normalization.
-- `task_contract_migration.py` — idempotent v1-to-v2 task conversion plus explicit reviewed migration rules.
+- `task_contract_migration.py` — idempotent v1-to-v2 task conversion plus explicit human-reviewed migration rules.
 - `migrate_task_contracts_v2.py` — repository migration planner/checker/applicator.
-- `migrate_task_contracts_v2_smoke_test.py` — end-to-end synthetic migration, validation, recovery, and idempotence test.
+- `migrate_task_contracts_v2_smoke_test.py` — end-to-end synthetic migration, validation, quality-audit, recovery, and idempotence test.
 - `task_contract_quality_audit.py` — heuristic post-migration review for duplicate acceptance criteria and completion gates that may actually be downstream obligations.
 - `task_contract_quality_audit_smoke_test.py` — deterministic audit regression test.
 - `work_graph_validate.py` — validates a uniform v1 graph during transition or the final v2 graph; mixed live graphs fail closed.
 - `persistent_work_graph.py` — loads one uniform live schema and rejects interrupted mixed state.
-- `taskcontrol.py` — inspection CLI; execution authority remains disabled.
+- `taskcontrol.py` — inspection CLI; readiness and execution authority remain disabled.
+
+## Reviewed migration corrections
+
+The first real migration quality audit found two candidates, and manual inspection found one additional duplicate that the heuristic did not flag.
+
+The final migration rules therefore:
+
+- merge NSC-003's duplicate gameplay-suspend acceptance criteria;
+- move NSC-003's future pointer-consumer validation from a completion gate to a downstream integration obligation;
+- merge NSC-019's duplicate gameplay-suspend acceptance criteria;
+- merge NSC-019's duplicate reset acceptance criteria;
+- preserve NSC-023's future visual-foundation compatibility check as a downstream integration obligation.
+
+The reviewed migration identity is:
+
+```text
+task-contract-schema-v2-20260822-r2
+```
 
 ## Run the Phase 2 checks
 
@@ -63,11 +82,11 @@ docker compose run --rm codex-review python3 Pipeline/TaskGraph/phase1_execution
 ```
 
 ```powershell
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/migrate_task_contracts_v2_smoke_test.py
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/task_contract_quality_audit_smoke_test.py
 ```
 
 ```powershell
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/task_contract_quality_audit_smoke_test.py
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/migrate_task_contracts_v2_smoke_test.py
 ```
 
 ## Check the real migration
@@ -82,7 +101,7 @@ Review the task count, historical status-observation counts, completion-gate cou
 
 ## Apply the real migration
 
-The review container mounts the repository read-only, so use the ordinary read/write `codex` service for apply:
+The `codex-review` service mounts the repository read-only. Use the writable `codex` service for `--apply`:
 
 ```powershell
 docker compose run --rm codex python3 Pipeline/TaskGraph/migrate_task_contracts_v2.py --apply
@@ -110,6 +129,18 @@ Expected task schema:
 2.0
 ```
 
+Run the quality audit after migration:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/task_contract_quality_audit.py --strict
+```
+
+Expected result:
+
+```text
+Total review findings:                  0
+```
+
 Readiness intentionally remains unavailable:
 
 ```powershell
@@ -122,28 +153,21 @@ Authorization intentionally remains denied:
 docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py authorize NSC-003
 ```
 
-## Audit contract quality before committing the migrated files
+The authorization command intentionally returns exit code `2`; Docker Desktop may offer Gordon because the process is nonzero, but the denial is expected.
 
-Schema validation proves the files are structurally valid. It does not prove that reconciliation produced non-duplicated acceptance criteria or that every completion gate is achievable when that task is delivered.
+## Replacing an uncommitted first migration
 
-Run:
-
-```powershell
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/task_contract_quality_audit.py
-```
-
-The audit is deliberately heuristic. It reports review candidates but does not edit files automatically. In particular, inspect:
-
-- duplicate or near-duplicate acceptance criteria;
-- completion gates containing future/downstream language such as `once ... exists`.
-
-Do not commit the migrated contracts until these findings are reviewed. Use `--strict` only when a non-zero exit code is useful for automation:
+If the earlier migration identity `task-contract-schema-v2-20260822` was applied locally but not committed, discard only those generated outputs before running the reviewed migration:
 
 ```powershell
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/task_contract_quality_audit.py --strict
+git restore -- Tasks
 ```
 
-Exit code `2` means human review candidates were found; it does not mean Docker failed.
+```powershell
+Remove-Item Pipeline/TaskGraph/TASK_CONTRACT_V2_MIGRATION.json
+```
+
+Then pull the reviewed migration tooling, run `--check`, and apply again.
 
 ## Historical bootstrap boundary
 
@@ -153,4 +177,4 @@ The old reconciliation, verification, approval, and bootstrap records remain imm
 
 ## Next phase
 
-After the real v2 migration is reviewed and committed, introduce the minimum delivery/revalidation evidence model needed to derive current conformance for one real task. Do not enable autonomous dispatch until that evidence is bound to current canon and the exact integrated Git tree.
+After the reviewed v2 migration is committed, introduce the minimum delivery/revalidation evidence model needed to derive current conformance for one real task. Do not enable autonomous dispatch until that evidence is bound to current canon and the exact integrated Git tree.
