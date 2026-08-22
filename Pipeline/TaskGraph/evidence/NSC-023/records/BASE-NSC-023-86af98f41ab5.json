@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "record_type": "baseline",
+  "record_id": "BASE-NSC-023-86af98f41ab5",
+  "task_id": "NSC-023",
+  "task_contract": {
+    "path": "Tasks/NSC-023.yaml",
+    "revision": 1,
+    "sha256": "49d6ef99fab8a4a405d1ef16abaf5f84810fe45f511c618437978579957df88c"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "ee2eebd911e92feffc00f7c443873dde31f54e4188244832b2ea018bacba958c"
+  },
+  "validated_state": {
+    "commit": "86af98f41ab53016ef55eca9516cc339a1e4f5d1",
+    "tree": "3e89c4a4879d1bf4179ae48f95b85dee1abc0d4d"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "blob_sha": "5aed87d28ed649fd861c0e35e9d046ec99ce78a2",
+      "role": "camera_authoring"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+      "blob_sha": "b0b4e7826d97339532771ddc8a63509fd2eb6c0f",
+      "role": "runtime_camera_follow"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "d3ac44eaf6b8c12e02db7bd0e5652bb8d7b19c55",
+      "role": "committed_scene"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity.meta",
+      "blob_sha": "4e3c78726f7091c0ef0f77460f359b076e673bc6",
+      "role": "scene_asset_identity"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/CommittedSceneCameraConformanceTests.cs",
+      "blob_sha": "998ee74f2e50e88ac841714dbe81a402aefbc9f3",
+      "role": "completion_gate_test"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "blob_sha": "9400822723d7b44ef7a6cf80ab257ba2bdb9c3e1",
+      "role": "builder_regression_test"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NoSafeCircle.DoorPrototype.Tests.Editor.asmdef",
+      "blob_sha": "8050fe85f86e911e58e7a0ebb9edac46e6c4ef55",
+      "role": "test_assembly"
+    },
+    {
+      "path": "ProjectSettings/ProjectVersion.txt",
+      "blob_sha": "93366d537cbb7326567cbbf55872a00d336c5c99",
+      "role": "unity_toolchain"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/CommittedSceneCameraConformanceTests-86af98f41ab5.xml",
+          "blob_sha": "0fc2a56bbd79aaab567cade3554ad2a8a0d34a93"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/DoorPrototypeSceneBuilderTests-86af98f41ab5.xml",
+          "blob_sha": "ffdca75975f7e6e17cd3b968eec39ec97cf1b6f8"
+        }
+      ],
+      "notes": "Clean EditMode validation passed the in-memory builder camera checks and direct inspection of the authoritative Assets/Scenes/DoorPrototype.unity fixed orthographic isometric camera."
+    },
+    {
+      "gate_id": "VAL-002",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/CommittedSceneCameraConformanceTests-86af98f41ab5.xml",
+          "blob_sha": "0fc2a56bbd79aaab567cade3554ad2a8a0d34a93"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/DoorPrototypeSceneBuilderTests-86af98f41ab5.xml",
+          "blob_sha": "ffdca75975f7e6e17cd3b968eec39ec97cf1b6f8"
+        }
+      ],
+      "notes": "Clean EditMode validation confirmed that the camera follows player translation while preserving its offset and fixed rotation in the authoritative committed scene."
+    }
+  ],
+  "human_approval": {
+    "required": true,
+    "decision": "approved",
+    "approved_by": "Vincent Liguori",
+    "notes": "The human approver explicitly opened Assets/Scenes/DoorPrototype.unity without rebuilding it, entered Play Mode, and confirmed orthographic isometric presentation, player-follow translation, fixed camera rotation, usable initial framing, and no blocking missing-reference or Console errors. Git remained clean after the check."
+  },
+  "recorded_at": "2026-08-22T20:06:48Z",
+  "baseline": {
+    "reason_type": "pre_evidence_existing_implementation",
+    "summary": "Establish the first Phase 3 evidence baseline for the pre-existing NSC-023 fixed isometric camera after centralizing the authoritative DoorPrototype scene under Assets/Scenes."
+  }
+}

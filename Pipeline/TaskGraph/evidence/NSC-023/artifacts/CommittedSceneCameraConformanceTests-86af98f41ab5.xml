@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="2" result="Passed" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-22 19:56:50Z" end-time="2026-08-22 19:56:50Z" duration="0.2166375">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-08-22 19:56:50Z" end-time="2026-08-22 19:56:50Z" duration="0.216638" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1017" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-08-22 19:56:50Z" end-time="2026-08-22 19:56:50Z" duration="0.209357" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="59968" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1018" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-08-22 19:56:50Z" end-time="2026-08-22 19:56:50Z" duration="0.208503" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1019" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-08-22 19:56:50Z" end-time="2026-08-22 19:56:50Z" duration="0.207921" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1020" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-08-22 19:56:50Z" end-time="2026-08-22 19:56:50Z" duration="0.207359" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1021" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-08-22 19:56:50Z" end-time="2026-08-22 19:56:50Z" duration="0.206665" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1001" name="CommittedSceneCameraConformanceTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-08-22 19:56:50Z" end-time="2026-08-22 19:56:50Z" duration="0.202914" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1002" name="CommittedScene_MainCamera_IsFixedOrthographicIsometric" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests.CommittedScene_MainCamera_IsFixedOrthographicIsometric" methodname="CommittedScene_MainCamera_IsFixedOrthographicIsometric" classname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests" runstate="Runnable" seed="1552960510" result="Passed" start-time="2026-08-22 19:56:50Z" end-time="2026-08-22 19:56:50Z" duration="0.120182" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1003" name="CommittedScene_MainCamera_TranslatesWithPlayerWithoutRotating" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests.CommittedScene_MainCamera_TranslatesWithPlayerWithoutRotating" methodname="CommittedScene_MainCamera_TranslatesWithPlayerWithoutRotating" classname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests" runstate="Runnable" seed="676173467" result="Passed" start-time="2026-08-22 19:56:50Z" end-time="2026-08-22 19:56:50Z" duration="0.067950" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
