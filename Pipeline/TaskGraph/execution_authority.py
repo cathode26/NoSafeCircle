@@ -7,9 +7,10 @@ CURRENT_REASON_CODE = "evidence_derived_dispatch_policy_not_enabled"
 # Compatibility alias retained for the Phase 1 regression harness.
 PHASE1_REASON_CODE = CURRENT_REASON_CODE
 DENIAL_MESSAGE = (
-    "Evidence-derived current-state inspection exists, but production delivery/revalidation "
-    "evidence has not yet been proven on a real task and dependency-readiness and dispatch "
-    "authorization policy are not enabled. State inspection alone never authorizes execution; "
+    "Evidence-derived current conformance has been proven on at least one real task, but a "
+    "conformant result does not establish dependency readiness. Dependency-readiness policy "
+    "and dispatch authorization policy have not been implemented or approved. State inspection "
+    "and a conformant result never authorize autonomous execution; "
     "zero tasks may be autonomously dispatched."
 )
 

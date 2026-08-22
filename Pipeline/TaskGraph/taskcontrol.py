@@ -212,9 +212,11 @@ def command_ready(graph) -> int:
     if _is_v2(graph):
         print("TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED")
         print("Evidence-derived current-state inspection exists via taskcontrol state.")
-        print("Production delivery/revalidation evidence has not yet been proven on a real task.")
-        print("Dependency readiness is not derived, and dispatch authorization is not enabled.")
-        print("State inspection alone never authorizes execution.")
+        print("Evidence-derived current conformance has been proven on at least one real task.")
+        print("A conformant result does not establish dependency readiness.")
+        print("Dependency-readiness policy has not been implemented or approved.")
+        print("Dispatch authorization policy has not been implemented or approved.")
+        print("State inspection and a conformant result never authorize autonomous execution.")
         print("Zero tasks are authorized for autonomous dispatch.")
         return 0
 

@@ -2,24 +2,26 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-22, after completing provider-neutral Execution Crew preparatory Stage 1 and proving the clean Unity runner on `phase-3-evidence-derived-conformance`.
+Last updated: 2026-08-22, after completing Architecture Correction Phase 3B with the first committed, production evidence-derived conformance proof.
 
 ## Current Phase
 
-**Architecture Correction Phase 3A — Evidence-Derived Current Conformance Evaluator — IMPLEMENTED AND TESTED.**
+**Architecture Correction Phase 3A — Evidence-Derived Current Conformance Evaluator — COMPLETE.**
+
+**Architecture Correction Phase 3B — First Real Production Baseline — COMPLETE.**
 
 The repository now has the deterministic machinery to inspect the current conformance state of a schema-v2 task contract from committed Git evidence.
 
 Phase 3A adds:
 
-- immutable delivery/revalidation record schemas;
+- immutable delivery, baseline, and revalidation record schemas;
 - deterministic record validation;
 - a current-conformance evaluator that reads committed Git objects rather than trusting uncommitted working-copy state;
 - `taskcontrol state <task>` and `taskcontrol state <task> --json`;
 - deterministic conformance states and findings;
 - regression coverage in a temporary Git repository for valid, stale, invalid, ambiguous, and revalidated evidence chains.
 
-Phase 3A does **not** enable dependency readiness or autonomous dispatch.
+Phase 3A and Phase 3B do **not** enable dependency readiness or autonomous dispatch.
 
 Current policy remains:
 
@@ -27,7 +29,7 @@ Current policy remains:
 TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED
 ```
 
-`taskcontrol ready` explains that evidence-derived state inspection exists, but production delivery/revalidation evidence has not yet been proven on a real task, dependency readiness is not derived, and dispatch authorization is not enabled.
+`taskcontrol ready` explains that evidence-derived current conformance has been proven on at least one real task, but a conformant result does not establish dependency readiness. Dependency-readiness policy and dispatch authorization policy have not been implemented or approved.
 
 `taskcontrol authorize <task>` still returns:
 
@@ -41,15 +43,11 @@ with reason code:
 evidence_derived_dispatch_policy_not_enabled
 ```
 
-State inspection alone never authorizes execution.
+State inspection and a conformant result never authorize autonomous execution. Zero tasks are authorized for autonomous dispatch.
 
-The next slice is:
+The next repository action is combined regression testing followed by merging `phase-3-evidence-derived-conformance` into `main`.
 
-**Phase 3B — First Real Delivery Evidence Record.**
-
-After Phase 3 is merged, a planned follow-up will extract a provider-neutral `AgentRuntime` and production `ExecutionCrew` supporting Claude Code and OpenAI/Codex. See `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md` and `Docs/AI-Pipeline/ADR-034_PROVIDER_NEUTRAL_AGENT_RUNTIME.md`. No provider-runtime implementation has started, and this follow-up does not replace Phase 3B as the immediate milestone.
-
-The planned proving case is `NSC-023 — Fixed Isometric Camera` because it already exists in the integrated game, has no task dependencies, has two concrete completion gates, and avoids the unresolved control-design questions around NSC-003. This is an evidence-system proof, not a change in gameplay priority.
+After that merge, provider-neutral `AgentRuntime` and production `ExecutionCrew` work begins on a new branch. See `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md` and `Docs/AI-Pipeline/ADR-034_PROVIDER_NEUTRAL_AGENT_RUNTIME.md`. No provider-runtime implementation has started on this branch.
 
 ## Architecture Review Result
 
@@ -183,7 +181,7 @@ The only task historically observed as `complete` at bootstrap was:
 
 `NSC-023 — Fixed Isometric Camera`
 
-That historical observation is **not** Phase 3 conformance evidence. Until a committed Phase 3 delivery or revalidation record exists, the evaluator correctly reports NSC-023 as `not_delivered`.
+That historical observation was **not** Phase 3 conformance evidence. Before the baseline record was committed, the evaluator correctly ignored the uncommitted evidence and reported NSC-023 as `not_delivered`. Once the evidence was committed, the derived state changed to `conformant`.
 
 ## Production GDD RAG — CURRENT AND VALIDATED
 
@@ -270,6 +268,7 @@ Pipeline/TaskGraph/evidence/<TASK-ID>/artifacts/
 Supported record types:
 
 - `delivery`;
+- `baseline`;
 - `revalidation`.
 
 Records bind evidence to:
@@ -330,7 +329,7 @@ Phase 3A implements deterministic states including:
 
 When multiple otherwise-current records exist, Git ancestry is used to select a strict descendant. Incomparable maximal records produce `ambiguous_evidence`; timestamps do not decide authority.
 
-### New inspection command
+### First real production conformance proof
 
 Human-readable:
 
@@ -344,20 +343,33 @@ Structured output:
 docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py state NSC-023 --json
 ```
 
-Current real-project results before any production evidence record exists:
+Current real-project result:
 
 ```text
 NSC-001 -> aggregate
-NSC-023 -> not_delivered
+NSC-023 -> conformant
 ```
 
-NSC-023 reports:
+NSC-023 selects:
 
 ```text
-no_committed_evidence: No committed delivery or revalidation record exists.
+BASE-NSC-023-86af98f41ab5
 ```
 
-This is intentionally stricter than the historical bootstrap's `complete` observation.
+The production proof is bound to:
+
+- validated implementation commit: `86af98f41ab53016ef55eca9516cc339a1e4f5d1`;
+- validated implementation tree: `3e89c4a4879d1bf4179ae48f95b85dee1abc0d4d`;
+- evidence commit: `8933e67c7767abf45634f7bade79c734f334eea5`;
+- authoritative centralized scene: `Assets/Scenes/DoorPrototype.unity`;
+- scene meta GUID: `92dbd0a3e6c18e245896a66c5120379d`;
+- in-memory builder suite: 12 passed, 0 failed;
+- direct committed-scene camera suite: 2 passed, 0 failed;
+- Unity version for both runs: `6000.1.8f1`;
+- repository state after both runs: clean;
+- required human Play Mode approval: explicitly approved by Vincent Liguori.
+
+Uncommitted evidence was correctly ignored before commit. Committing the evidence changed the derived state from `not_delivered` to `conformant`.
 
 ### Phase 3A regression status
 
@@ -382,7 +394,7 @@ The Python `py_compile` command is not used through `codex-review` because Pytho
 
 ## Provider-Neutral Execution Crew Preparatory Stage 1 — COMPLETE
 
-Stage 1 of `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md` established the canonical provider-neutral Unity testing policy and deterministic clean runner while leaving Phase 3B as the current immediate milestone.
+Stage 1 of `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md` established the canonical provider-neutral Unity testing policy and deterministic clean runner before the Phase 3B proof.
 
 Implemented:
 
@@ -414,7 +426,7 @@ The clean runner was also proven through a real Unity run with these exact facts
 - Unity exit code: 0;
 - repository clean before and after the run.
 
-The runner proves Unity and Git execution facts. It does not create Phase 3 conformance, enable readiness or authorization, or create a delivery or baseline evidence record. `taskcontrol ready` remains unavailable and `taskcontrol authorize` remains denied.
+The runner proves Unity and Git execution facts. The separately committed NSC-023 baseline record binds those facts into Phase 3 conformance evidence. Neither the runner nor a conformant result enables readiness or authorization; `taskcontrol ready` remains unavailable and `taskcontrol authorize` remains denied.
 
 Stage 1 did **not** implement `AgentRuntime`, provider adapters, `ExecutionCrew`, or a dedicated test-author agent. Those remain later stages with the entry criteria and authority boundaries defined by the plan and ADR-034.
 
@@ -437,10 +449,11 @@ TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED
 and explicitly states:
 
 - evidence-derived current-state inspection exists through `taskcontrol state`;
-- production delivery/revalidation evidence has not yet been proven on a real task;
-- dependency readiness is not derived;
-- dispatch authorization is not enabled;
-- state inspection alone never authorizes execution;
+- evidence-derived current conformance has been proven on at least one real task;
+- a conformant result does not establish dependency readiness;
+- dependency-readiness policy has not been implemented or approved;
+- dispatch authorization policy has not been implemented or approved;
+- state inspection and a conformant result never authorize autonomous execution;
 - zero tasks are authorized for autonomous dispatch.
 
 Authorization command:
@@ -492,7 +505,7 @@ A record does not contain mutable current-completion authority.
 
 State inspection is now implemented.
 
-Production proof is not yet complete because no real project task has a committed Phase 3 delivery/revalidation record.
+Production proof now exists for NSC-023 through committed baseline `BASE-NSC-023-86af98f41ab5`. No real production revalidation record exists yet.
 
 ### Reconciliation
 
@@ -506,30 +519,9 @@ The preserved architecture review is primary evidence for the accepted correctio
 
 ## Immediate Next Goal
 
-### Phase 3B — First Real Delivery Evidence Record
+Run combined regression testing, then merge `phase-3-evidence-derived-conformance` into `main`.
 
-Use `NSC-023 — Fixed Isometric Camera` as the first real evidence-system proving case.
-
-This choice is **not** a gameplay-priority decision. It is selected because the camera:
-
-- already exists in the integrated project;
-- has no task dependencies;
-- has two concrete completion gates;
-- already has known Unity validation coverage;
-- does not require unresolved mouse/input design decisions.
-
-Phase 3B sequence:
-
-1. refactor the destructive `DoorPrototypeSceneBuilderTests` harness under the new policy;
-2. add committed-scene camera conformance tests;
-3. prove both suites through `Pipeline/Testing/run_unity_tests_clean.ps1`;
-4. create the first real NSC-023 baseline evidence record.
-
-The resulting evidence record must preserve the exact required Unity artifacts, identify the exact camera conformance-surface Git blob SHAs, and be evaluated through `taskcontrol state NSC-023`. Until that record is committed and passes deterministic evaluation, NSC-023 remains `not_delivered`.
-
-The delivery record must bind validation to the exact integrated commit/tree. Evidence created only on a pre-merge candidate is insufficient unless the exact tested tree is also the integrated tree or post-merge validation is performed.
-
-After the first real delivery chain is proven, test the revalidation path through a genuinely relevant later change:
+No real production revalidation record exists yet. Do not fabricate a gameplay, contract, GDD, scene, implementation, or test change merely to produce one. The first legitimate relevant change will exercise the production revalidation path:
 
 ```text
 relevant camera surface or governing canon changes
@@ -539,7 +531,9 @@ relevant camera surface or governing canon changes
 → taskcontrol state returns to conformant
 ```
 
-Do not manufacture a meaningless production change solely to force revalidation; the synthetic regression already proves evaluator mechanics. Use a real relevant change when one naturally occurs, or perform a controlled evidence exercise only if explicitly approved.
+The synthetic regression already proves evaluator mechanics. Production revalidation must wait for a real relevant change.
+
+After the Phase 3 branch is merged, begin provider-neutral `AgentRuntime` and `ExecutionCrew` work on a new branch. No provider runtime implementation has started on this branch.
 
 ## Real Gameplay Task Selection After the Evidence Proof
 
@@ -566,7 +560,7 @@ Human review should also decide whether NSC-003 should be superseded by smaller 
 
 ## Deferred Until Evidence Justifies It
 
-Do not enable or build these merely because Phase 3A exists:
+Do not enable or build these merely because Phase 3 exists:
 
 - dependency-derived `taskcontrol ready`;
 - autonomous execution authorization;
@@ -614,12 +608,10 @@ Then:
 1. confirm Phase 3A is committed and the working tree is clean;
 2. rerun `conformance_evaluator_smoke_test.py` if the evaluator changed;
 3. confirm `taskcontrol state NSC-001` is `aggregate`;
-4. confirm `taskcontrol state NSC-023` is `not_delivered` before production evidence exists;
+4. confirm `taskcontrol state NSC-023` is `conformant` and selects `BASE-NSC-023-86af98f41ab5`;
 5. confirm `taskcontrol ready` remains unavailable because dispatch policy is not enabled;
 6. confirm `taskcontrol authorize <task>` remains denied;
-7. begin Phase 3B by running the real NSC-023 camera validation gates against one exact integrated commit;
-8. preserve evidence artifacts and build the first committed delivery record;
-9. verify `taskcontrol state NSC-023` becomes `conformant`;
-10. do not enable dependency readiness or autonomous dispatch yet.
+7. run combined regression testing and merge `phase-3-evidence-derived-conformance` into `main`;
+8. begin provider-neutral `AgentRuntime` and `ExecutionCrew` work afterward on a new branch.
 
 A new window should be able to resume from repository state without the prior chat transcript.

@@ -122,4 +122,10 @@ python3 Pipeline/TaskGraph/taskcontrol.py state NSC-003 --json
 python3 Pipeline/TaskGraph/conformance_evaluator_smoke_test.py
 ```
 
-Phase 3A enables evidence-derived current-state inspection through `taskcontrol state`. Baseline evidence is immutable history, never mutable current/completion/readiness authority. No production delivery, baseline, or revalidation evidence is introduced here. Dependency-readiness and dispatch authorization policy are not enabled: `taskcontrol ready` remains unavailable, `taskcontrol authorize` remains denied with exit code `2`, and zero tasks may be autonomously dispatched. State inspection alone, including a `conformant` result, never authorizes execution.
+Phase 3A enables evidence-derived current-state inspection through `taskcontrol state`. Baseline evidence is immutable history, never mutable current/completion/readiness authority.
+
+NSC-023 is the first real production baseline example. At committed HEAD, `BASE-NSC-023-86af98f41ab5` proves the current state of the Fixed Isometric Camera as `conformant`. Its validated implementation is commit `86af98f41ab53016ef55eca9516cc339a1e4f5d1`, tree `3e89c4a4879d1bf4179ae48f95b85dee1abc0d4d`, and its evidence was committed in `8933e67c7767abf45634f7bade79c734f334eea5`. Uncommitted evidence was correctly ignored before that evidence commit.
+
+No real production revalidation record exists yet. Do not fabricate a gameplay, contract, GDD, or implementation change merely to produce one; the first legitimate relevant change will exercise production revalidation.
+
+A conformant result does not establish dependency readiness. Dependency-readiness policy and dispatch authorization policy have not been implemented or approved: `taskcontrol ready` remains unavailable, `taskcontrol authorize` remains denied with exit code `2` and reason code `evidence_derived_dispatch_policy_not_enabled`, and zero tasks may be autonomously dispatched. State inspection and a conformant result never authorize autonomous execution.

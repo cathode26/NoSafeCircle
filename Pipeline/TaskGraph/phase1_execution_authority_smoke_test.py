@@ -37,7 +37,11 @@ def main() -> int:
     assert assessment.authorized is False
     assert assessment.reason_code == CURRENT_REASON_CODE
     assert CURRENT_REASON_CODE == "evidence_derived_dispatch_policy_not_enabled"
-    assert "State inspection alone never authorizes execution" in assessment.message
+    assert "Evidence-derived current conformance has been proven on at least one real task" in assessment.message
+    assert "a conformant result does not establish dependency readiness" in assessment.message
+    assert "Dependency-readiness policy and dispatch authorization policy have not been implemented or approved" in assessment.message
+    assert "State inspection and a conformant result never authorize autonomous execution" in assessment.message
+    assert "zero tasks may be autonomously dispatched" in assessment.message
     try:
         require_execution_authorization(task)
     except UnsafeExecutionAuthorizationError as exc:

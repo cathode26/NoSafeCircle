@@ -27,7 +27,9 @@ See:
 - `Docs/AI-Pipeline/ADR-031_TASK_STATUS_ADVISORY.md`
 - `Docs/AI-Pipeline/ADR-032_TASK_CONTRACT_SCHEMA_V2.md`
 
-Phase 3A adds committed delivery, historical-adoption baseline, and revalidation records plus a deterministic current-conformance evaluator. Evidence-derived current-state inspection now exists. No production evidence record is introduced by this extension, and dependency-readiness and dispatch authorization policy remain disabled. State inspection alone never authorizes execution; zero tasks may be autonomously dispatched. See `CONFORMANCE_RECORDS.md` and `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`.
+Phase 3A adds committed delivery, historical-adoption baseline, and revalidation records plus a deterministic current-conformance evaluator. Phase 3B has now proven evidence-derived current conformance on the first real task: committed baseline `BASE-NSC-023-86af98f41ab5` selects as current for NSC-023 and derives `conformant`. No real production revalidation record exists yet.
+
+A conformant result does not establish dependency readiness. Dependency-readiness policy and dispatch authorization policy have not been implemented or approved. `taskcontrol ready` remains unavailable, `taskcontrol authorize` remains denied, and state inspection and a conformant result never authorize autonomous execution. Zero tasks may be autonomously dispatched. See `CONFORMANCE_RECORDS.md` and `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`.
 
 Inspect committed-HEAD conformance for one schema-v2 task:
 
@@ -165,7 +167,7 @@ Readiness intentionally remains unavailable:
 docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py ready
 ```
 
-This command does not derive a dependency-ready frontier. Current-state inspection is available, but the dependency-readiness and dispatch policy is not enabled.
+This command does not derive a dependency-ready frontier. Evidence-derived current conformance has been proven on NSC-023, but a conformant result does not establish dependency readiness. Dependency-readiness and dispatch authorization policies have not been implemented or approved.
 
 Authorization intentionally remains denied:
 
@@ -198,4 +200,4 @@ The old reconciliation, verification, approval, and bootstrap records remain imm
 
 ## Next phase
 
-Use the Phase 3A model for separately reviewed real evidence so production delivery/baseline/revalidation evidence can be proven on a real task. Do not derive dependency readiness or enable dispatch authority until the broader evidence-backed dispatch policy is explicitly designed and approved.
+The first real production baseline has proven NSC-023 conformant. Do not fabricate a gameplay, contract, GDD, or implementation change merely to create a revalidation record. The first legitimate relevant change will exercise production revalidation. Dependency readiness and dispatch authority remain disabled until their policies are explicitly designed and approved.

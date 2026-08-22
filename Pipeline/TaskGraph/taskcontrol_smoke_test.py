@@ -32,8 +32,11 @@ def main() -> int:
         ready_output = output.getvalue()
         assert "TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED" in ready_output
         assert "Evidence-derived current-state inspection exists" in ready_output
-        assert "Dependency readiness is not derived" in ready_output
-        assert "State inspection alone never authorizes execution" in ready_output
+        assert "Evidence-derived current conformance has been proven on at least one real task" in ready_output
+        assert "A conformant result does not establish dependency readiness" in ready_output
+        assert "Dependency-readiness policy has not been implemented or approved" in ready_output
+        assert "Dispatch authorization policy has not been implemented or approved" in ready_output
+        assert "State inspection and a conformant result never authorize autonomous execution" in ready_output
         assert "Zero tasks are authorized for autonomous dispatch" in ready_output
 
         output = StringIO()
@@ -41,7 +44,7 @@ def main() -> int:
             assert command_authorize(graph, "NSC-003") == 2
         authorize_output = output.getvalue()
         assert "reason_code: evidence_derived_dispatch_policy_not_enabled" in authorize_output
-        assert "State inspection alone never authorizes execution" in authorize_output
+        assert "State inspection and a conformant result never authorize autonomous execution" in authorize_output
 
         output = StringIO()
         with redirect_stdout(output):
