@@ -11,7 +11,11 @@ from task_contract_schema import (
     require_text,
 )
 
-MIGRATION_ID = "task-contract-schema-v2-20260822"
+# Revision 2 incorporates the human-reviewed post-migration quality findings:
+# - NSC-003's future pointer-consumer check is a downstream integration obligation.
+# - duplicate movement suspend criteria are merged.
+# - duplicate door suspend/reset criteria are merged.
+MIGRATION_ID = "task-contract-schema-v2-20260822-r2"
 
 # The camera's only v1 `validation_requirements` entry explicitly described a
 # later Tilemap/SpriteRenderer compatibility check. It is not a gate that must
@@ -35,7 +39,146 @@ CAMERA_COMPLETION_GATES = [
     },
 ]
 
+NSC_003_ACCEPTANCE_CRITERIA = [
+    {
+        "reference": "GDD §2 Move and Aim",
+        "requirement": (
+            "Movement is mouse-directed: a click sets a destination the wizard walks toward, "
+            "and holding continues steering toward the current cursor position, consumed through "
+            "Unity Input System/Input Actions rather than direct hardware polling."
+        ),
+    },
+    {
+        "reference": "GDD §2 Player Movement ownership",
+        "requirement": (
+            "Exposes a shared world-space pointer target produced by projecting the cursor onto "
+            "the gameplay plane, consumable by cursor-aimed spells and Door/Interaction without "
+            "those systems independently projecting screen coordinates."
+        ),
+    },
+    {
+        "reference": (
+            "GDD §2 Player Movement ownership; "
+            "§4 Development Agent Ownership Invariants"
+        ),
+        "requirement": (
+            "Exposes an owner-controlled movement-restriction request/release interface that "
+            "Charged Fireball can use to restrict movement while charging without Fireball "
+            "mutating movement internals directly."
+        ),
+    },
+    {
+        "reference": "GDD §2 Floor-run restart ownership",
+        "requirement": (
+            "Exposes an owner-controlled reset entry point that restores player position/movement "
+            "state to the floor's initial state, consumed by the Floor Run/Restart Orchestrator "
+            "rather than having position mutated externally."
+        ),
+    },
+    {
+        "reference": (
+            "GDD §2 Victory/input-shutdown ownership; "
+            "§4 Development Agent Ownership Invariants and final escape/victory coordination"
+        ),
+        "requirement": (
+            "Exposes an owner-controlled gameplay-enable/suspend interface, consumed by the Game "
+            "Flow/Victory capability, that immediately stops or cancels any in-progress "
+            "input-driven movement (including an active click-to-destination approach), rejects "
+            "new movement commands while suspended, and can be re-enabled only through an "
+            "authorized reset/test flow rather than external mutation of movement internals."
+        ),
+    },
+]
+
+NSC_019_ACCEPTANCE_CRITERIA = [
+    {
+        "reference": "Section 2 — Open Sealed Door",
+        "requirement": (
+            "Clicking a sealed door issues a combined approach-and-interact request using the "
+            "shared world-space pointer target exposed by Player Movement; Door and Interaction "
+            "does not independently project screen-to-world coordinates."
+        ),
+    },
+    {
+        "reference": (
+            "Section 2 — Open Sealed Door; "
+            "Section 3 — Door and Pursuit Rules"
+        ),
+        "requirement": (
+            "The wizard automatically moves to the door's interaction position; when arm's-reach "
+            "range is reached, the five-second opening timer starts automatically with no "
+            "sustained button hold required."
+        ),
+    },
+    {
+        "reference": "Section 2 — Open Sealed Door",
+        "requirement": (
+            "After the door is selected, cursor movement/drift away from the door does not cancel "
+            "the approach request or the running timer."
+        ),
+    },
+    {
+        "reference": (
+            "Section 2 — Setbacks; "
+            "Section 3 — Door and Pursuit Rules"
+        ),
+        "requirement": (
+            "Taking damage, moving away once timing has begun, or issuing another command that "
+            "cancels/replaces the door interaction resets progress to zero."
+        ),
+    },
+    {
+        "reference": "Section 5 — Runtime Implementation",
+        "requirement": (
+            "Door selection/approach input is consumed through the project's Unity Input "
+            "System/Input Actions layer rather than independent direct hardware polling."
+        ),
+    },
+    {
+        "reference": (
+            "GDD §2 Victory/input-shutdown ownership; "
+            "§4 Development Agent Ownership Invariants and final escape/victory coordination; "
+            "§5 Game Flow/Victory capability"
+        ),
+        "requirement": (
+            "Exposes an owner-controlled gameplay-enable/suspend interface, consumed by the Game "
+            "Flow/Victory capability, that immediately cancels or stops any in-progress door "
+            "approach/opening timer, rejects new door-selection or door-interaction commands while "
+            "suspended, and can be re-enabled only through an authorized reset/test flow."
+        ),
+    },
+    {
+        "reference": "GDD §2 Floor-run restart ownership",
+        "requirement": (
+            "Exposes an owner-controlled reset entry point that returns all owned interaction and "
+            "opening state—including progress, interacting state, open state, and doorway-blocker "
+            "enablement—to floor-initial values, consumed by the Floor Run/Restart Orchestrator "
+            "rather than having internals mutated externally."
+        ),
+    },
+    {
+        "reference": (
+            "Section 2 — Open Sealed Door; "
+            "Section 3 — Door Passability Contract"
+        ),
+        "requirement": (
+            "Completing five uninterrupted seconds transitions the door's semantic state from "
+            "sealed to open (player-traversable); door-close-lock-break-lifecycle owns publishing "
+            "this resulting open state through the shared navigation-owned passability interface."
+        ),
+    },
+]
+
+ACCEPTANCE_CRITERIA_OVERRIDES: dict[str, list[dict[str, str]]] = {
+    "NSC-003": NSC_003_ACCEPTANCE_CRITERIA,
+    "NSC-019": NSC_019_ACCEPTANCE_CRITERIA,
+}
+
 DOWNSTREAM_VALIDATION_INDEXES: dict[str, set[int]] = {
+    # The movement contract owns producing the shared pointer target. Proving
+    # that a later spell/door consumer integrates with it belongs to that
+    # downstream integration work, not movement's own completion gate.
+    "NSC-003": {1},
     "NSC-023": {0},
 }
 COMPLETION_GATE_OVERRIDES: dict[str, list[dict[str, str]]] = {
@@ -123,24 +266,37 @@ def migrate_v1_task(task: dict[str, Any]) -> dict[str, Any]:
         )
 
     downstream_indexes = DOWNSTREAM_VALIDATION_INDEXES.get(task_id, set())
-    invalid_indexes = sorted(index for index in downstream_indexes if index < 0 or index >= len(raw_validation))
+    invalid_indexes = sorted(
+        index
+        for index in downstream_indexes
+        if index < 0 or index >= len(raw_validation)
+    )
     if invalid_indexes:
         raise TaskContractMigrationError(
             f"{task_id} migration rules reference missing validation indexes: {invalid_indexes}."
         )
 
     completion_source = [
-        entry for index, entry in enumerate(raw_validation) if index not in downstream_indexes
+        entry
+        for index, entry in enumerate(raw_validation)
+        if index not in downstream_indexes
     ]
     downstream_source = [
-        entry for index, entry in enumerate(raw_validation) if index in downstream_indexes
+        entry
+        for index, entry in enumerate(raw_validation)
+        if index in downstream_indexes
     ]
     if task_id in COMPLETION_GATE_OVERRIDES:
         completion_source = COMPLETION_GATE_OVERRIDES[task_id]
 
+    acceptance_source = ACCEPTANCE_CRITERIA_OVERRIDES.get(
+        task_id,
+        task.get("acceptance_criteria", []),
+    )
+
     try:
         acceptance_criteria = normalize_contract_entries(
-            task.get("acceptance_criteria", []),
+            acceptance_source,
             id_field="criterion_id",
             id_prefix="AC",
             label=f"{task_id}.acceptance_criteria",
@@ -196,7 +352,9 @@ def migrate_v1_task(task: dict[str, Any]) -> dict[str, Any]:
         "source_scope": task.get("source_scope", ""),
         "confidence": task.get("confidence", ""),
         "notes": task.get("notes", ""),
-        "repository_state_at_bootstrap": task.get("repository_state_at_bootstrap", ""),
+        "repository_state_at_bootstrap": task.get(
+            "repository_state_at_bootstrap", ""
+        ),
         "repository_evidence_at_bootstrap": deepcopy(
             task.get("repository_evidence_at_bootstrap", [])
         ),
