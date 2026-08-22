@@ -47,6 +47,12 @@ def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def sha256_normalized_utf8(value: bytes) -> str:
+    text = value.decode("utf-8-sig")
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    return sha256_bytes(normalized.encode("utf-8"))
+
+
 def load_json_object(path: Path, label: str) -> dict[str, Any]:
     if not path.is_file():
         raise TaskContractMigrationApplyError(f"Missing {label}: {path}")
@@ -207,7 +213,7 @@ def verify_existing_report(root: Path) -> dict[str, Any] | None:
             raise TaskContractMigrationApplyError(
                 f"Migrated task bound by the report is missing: {relative}"
             )
-        actual = sha256_bytes(path.read_bytes())
+        actual = sha256_normalized_utf8(path.read_bytes())
         if actual != expected:
             raise TaskContractMigrationApplyError(
                 f"Migrated task no longer matches report: {relative}"

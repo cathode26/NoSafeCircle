@@ -6,6 +6,7 @@ from pathlib import Path
 
 from migrate_task_contracts_v2 import (
     REPORT_RELATIVE,
+    TaskContractMigrationApplyError,
     apply_migration,
     plan_migration,
     verify_existing_report,
@@ -365,6 +366,26 @@ def main() -> int:
 
         apply_migration(plan)
         assert verify_existing_report(root) is not None
+
+        migrated_path = root / "Tasks" / "NSC-003.yaml"
+        migrated_lf_bytes = migrated_path.read_bytes()
+        migrated_path.write_bytes(migrated_lf_bytes.replace(b"\n", b"\r\n"))
+        assert verify_existing_report(root) is not None
+
+        migrated_path.write_bytes(b"\xef\xbb\xbf" + migrated_path.read_bytes())
+        assert verify_existing_report(root) is not None
+
+        migrated_path.write_bytes(
+            migrated_path.read_bytes().replace(b"Player Movement", b"Player Motion", 1)
+        )
+        try:
+            verify_existing_report(root)
+        except TaskContractMigrationApplyError as exc:
+            assert "Migrated task no longer matches report" in str(exc)
+        else:
+            raise AssertionError("Semantic target changes must fail report verification.")
+        migrated_path.write_bytes(migrated_lf_bytes)
+
         graph = load_persistent_work_graph(root)
         assert graph.validation.task_schema_version == "2.0"
         assert graph.tasks_by_id["NSC-023"]["contract_disposition"] == "active"
