@@ -13,8 +13,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 {
     public class DoorPrototypeSceneBuilderTests
     {
-        private const string CanonicalScenePath =
-            "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity";
+        private const string CanonicalScenePath = "Assets/Scenes/DoorPrototype.unity";
 
         [SetUp]
         public void SetUp()

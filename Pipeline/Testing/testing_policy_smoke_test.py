@@ -33,6 +33,7 @@ def main() -> int:
         "Test classification",
         "Non-mutation invariant",
         "Scene-builder and prefab-builder rules",
+        "Unity asset identity",
         "Committed-artifact conformance tests",
         "Isolation and repeatability",
         "Contract and gate mapping",
@@ -49,6 +50,9 @@ def main() -> int:
     require(policy, r"fresh in-memory test scene|in-memory scene-builder", "In-memory builder rule missing")
     require(policy, r"open the exact committed scene or prefab deliberately", "Committed-artifact rule missing")
     require(policy, r"builder produces this.+committed artifact currently contains this", "Builder/artifact distinction missing")
+    require(policy, r"move scenes, prefabs, and other Unity assets together with their `?\.meta`? files", "Asset/meta move rule missing")
+    require(policy, r"never delete or regenerate a tracked `?\.meta`? file as a relocation mechanism", "Tracked meta identity rule missing")
+    require(policy, r"duplicate authoritative scenes with the same filename are prohibited", "Duplicate authoritative scene rule missing")
 
     policy_path = r"Docs/Engineering/UNITY_TESTING_POLICY\.md"
     require(claude, rf"@{policy_path}", "CLAUDE.md does not import the canonical policy")

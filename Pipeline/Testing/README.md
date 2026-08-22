@@ -4,6 +4,8 @@
 
 The immediate incident was a destructive camera-related Edit Mode test run. `DoorPrototypeSceneBuilderTests` passed all 11 assertions while calling the production `DoorPrototypeSceneBuilder.Build()` entry point. That entry point opens, clears, rebuilds, and saves the tracked canonical `DoorPrototype.unity` scene, so a nominally passing run rewrote a production asset.
 
+`Assets/Scenes/DoorPrototype.unity` is the sole authoritative Door Prototype scene. Its Unity asset identity is preserved by moving it together with `Assets/Scenes/DoorPrototype.unity.meta`.
+
 ## Authority boundary
 
 The selected task contract and current approved GDD define required behavior. The testing policy defines how it may be proven safely. Neither this directory, the runner, nor an agent's assessment is game-design canon. The runner reports deterministic Unity and Git facts; it does not create conformance, readiness, delivery, or execution authorization.

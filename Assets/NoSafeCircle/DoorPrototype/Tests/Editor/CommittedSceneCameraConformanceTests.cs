@@ -10,8 +10,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 {
     public class CommittedSceneCameraConformanceTests
     {
-        private const string CanonicalScenePath =
-            "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity";
+        private const string CanonicalScenePath = "Assets/Scenes/DoorPrototype.unity";
 
         [SetUp]
         public void SetUp()

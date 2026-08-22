@@ -39,6 +39,12 @@ The classification must appear in the test-author handoff and determines the req
 - When safe testing requires a new seam, add only a narrow non-saving seam that preserves production behavior.
 - A test-author role must request production testability changes rather than silently making them.
 
+## Unity asset identity
+
+- Move scenes, prefabs, and other Unity assets together with their `.meta` files.
+- Never delete or regenerate a tracked `.meta` file as a relocation mechanism.
+- Duplicate authoritative scenes with the same filename are prohibited.
+
 ## Committed-artifact conformance tests
 
 - Open the exact committed scene or prefab deliberately.
