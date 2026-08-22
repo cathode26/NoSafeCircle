@@ -1,4 +1,4 @@
-# Delivery/Revalidation Evidence Records
+# Delivery/Baseline/Revalidation Evidence Records
 
 Phase 3A derives the current conformance of one schema-v2 task from immutable, committed evidence. Records are historical facts; they never contain mutable readiness or completion authority.
 
@@ -13,7 +13,7 @@ Only files committed at `HEAD` are read. Uncommitted records, contracts, canon, 
 
 ## Common schema 1.0
 
-Every record has exactly these common fields plus either `delivery` or `revalidation`:
+Every record has exactly these common fields plus exactly one of `delivery`, `baseline`, or `revalidation`:
 
 ```json
 {
@@ -72,6 +72,17 @@ Delivery records add:
 
 `validated_state` must exactly equal the integrated commit/tree.
 
+Baseline records establish the first trustworthy evidence state for an implementation that existed before this evidence system. They do not claim when that implementation was authored or delivered. Their IDs use the `BASE-` prefix, and they add:
+
+```json
+"baseline": {
+  "reason_type": "pre_evidence_existing_implementation",
+  "summary": "Why this existing implementation is being baselined"
+}
+```
+
+The summary must be non-empty. The validated commit/tree is the actual integrated state tested. Baselines contain no `base_commit`, `candidate_commit`, or `integrated_commit` fields. A valid baseline establishes conformant state exactly as a valid delivery does.
+
 Revalidation records add:
 
 ```json
@@ -82,7 +93,7 @@ Revalidation records add:
 }
 ```
 
-Allowed reasons are `code_change`, `gdd_change`, `contract_change`, `periodic`, and `manual`. The basis must be a same-task committed record, basis chains must be acyclic, and the basis validated commit must be an ancestor of the revalidation commit.
+Allowed reasons are `code_change`, `gdd_change`, `contract_change`, `periodic`, and `manual`. The basis may be a delivery, baseline, or prior revalidation record. It must be a same-task committed record, basis chains must be acyclic, and the basis validated commit must be an ancestor of the revalidation commit.
 
 ## Validation and selection
 
@@ -111,4 +122,4 @@ python3 Pipeline/TaskGraph/taskcontrol.py state NSC-003 --json
 python3 Pipeline/TaskGraph/conformance_evaluator_smoke_test.py
 ```
 
-Phase 3A enables evidence-derived current-state inspection through `taskcontrol state`. No production delivery/revalidation evidence has yet been proven on a real task. Dependency-readiness and dispatch authorization policy are not enabled: `taskcontrol ready` remains unavailable, `taskcontrol authorize` remains denied with exit code `2`, and zero tasks may be autonomously dispatched. State inspection alone, including a `conformant` result, never authorizes execution.
+Phase 3A enables evidence-derived current-state inspection through `taskcontrol state`. Baseline evidence is immutable history, never mutable current/completion/readiness authority. No production delivery, baseline, or revalidation evidence is introduced here. Dependency-readiness and dispatch authorization policy are not enabled: `taskcontrol ready` remains unavailable, `taskcontrol authorize` remains denied with exit code `2`, and zero tasks may be autonomously dispatched. State inspection alone, including a `conformant` result, never authorizes execution.

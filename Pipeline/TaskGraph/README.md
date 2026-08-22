@@ -27,7 +27,7 @@ See:
 - `Docs/AI-Pipeline/ADR-031_TASK_STATUS_ADVISORY.md`
 - `Docs/AI-Pipeline/ADR-032_TASK_CONTRACT_SCHEMA_V2.md`
 
-Phase 3A adds committed delivery/revalidation records and a deterministic current-conformance evaluator. Evidence-derived current-state inspection now exists. Production delivery/revalidation evidence has not yet been proven on a real task, and dependency-readiness and dispatch authorization policy remain disabled. State inspection alone never authorizes execution; zero tasks may be autonomously dispatched. See `CONFORMANCE_RECORDS.md` and `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`.
+Phase 3A adds committed delivery, historical-adoption baseline, and revalidation records plus a deterministic current-conformance evaluator. Evidence-derived current-state inspection now exists. No production evidence record is introduced by this extension, and dependency-readiness and dispatch authorization policy remain disabled. State inspection alone never authorizes execution; zero tasks may be autonomously dispatched. See `CONFORMANCE_RECORDS.md` and `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`.
 
 Inspect committed-HEAD conformance for one schema-v2 task:
 
@@ -198,4 +198,4 @@ The old reconciliation, verification, approval, and bootstrap records remain imm
 
 ## Next phase
 
-Use the Phase 3A model for a separately reviewed real delivery so production delivery/revalidation evidence can be proven on a real task. Do not derive dependency readiness or enable dispatch authority until the broader evidence-backed dispatch policy is explicitly designed and approved.
+Use the Phase 3A model for separately reviewed real evidence so production delivery/baseline/revalidation evidence can be proven on a real task. Do not derive dependency readiness or enable dispatch authority until the broader evidence-backed dispatch policy is explicitly designed and approved.

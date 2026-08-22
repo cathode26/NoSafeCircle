@@ -158,7 +158,7 @@ def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") ->
             (_finding("record_structure_invalid", str(exc)),), dirty)
     if not records:
         return ConformanceState(task_id, title, "not_delivered", head, head_tree, None,
-            (_finding("no_committed_evidence", "No committed delivery or revalidation record exists."),), dirty)
+            (_finding("no_committed_evidence", "No committed delivery, baseline, or revalidation record exists."),), dirty)
 
     invalid = _validate_basis_graph(repo, records)
     current_contract_hash = semantic_json_sha256(repo.read(head, task_path))

@@ -167,9 +167,14 @@ def validate_record_shape(record: Any, path: str) -> dict[str, Any]:
     if forbidden:
         raise ConformanceRecordError(f"{path}: mutable authority fields are forbidden: {sorted(forbidden)}.")
     record_type = record.get("record_type")
-    specific = "delivery" if record_type == "delivery" else "revalidation" if record_type == "revalidation" else None
+    specific = (
+        "delivery" if record_type == "delivery"
+        else "baseline" if record_type == "baseline"
+        else "revalidation" if record_type == "revalidation"
+        else None
+    )
     if specific is None:
-        raise ConformanceRecordError(f"{path}: record_type must be delivery or revalidation.")
+        raise ConformanceRecordError(f"{path}: record_type must be delivery, baseline, or revalidation.")
     _object(record, path, common | {specific})
     if record["schema_version"] != SCHEMA_VERSION:
         raise ConformanceRecordError(f"{path}: unsupported schema_version {record['schema_version']!r}.")
@@ -178,7 +183,7 @@ def validate_record_shape(record: Any, path: str) -> dict[str, Any]:
     if not TASK_ID_RE.fullmatch(task_id):
         raise ConformanceRecordError(f"{path}: invalid task_id {task_id!r}.")
     record_id = _text(record["record_id"], f"{path}.record_id")
-    prefix = "DEL-" if record_type == "delivery" else "REV-"
+    prefix = {"delivery": "DEL-", "baseline": "BASE-", "revalidation": "REV-"}[record_type]
     if not record_id.startswith(f"{prefix}{task_id}-"):
         raise ConformanceRecordError(f"{path}: record_id prefix/task identity mismatch.")
     expected_prefix = f"{EVIDENCE_ROOT}/{task_id}/records/"
@@ -247,6 +252,11 @@ def validate_record_shape(record: Any, path: str) -> dict[str, Any]:
             _sha(delivery[field], f"{path}.delivery.{field}")
         if state["commit"] != delivery["integrated_commit"] or state["tree"] != delivery["integrated_tree"]:
             raise ConformanceRecordError(f"{path}: delivery integrated and validated states must match.")
+    elif record_type == "baseline":
+        baseline = _object(record["baseline"], f"{path}.baseline", {"reason_type", "summary"})
+        if baseline["reason_type"] != "pre_evidence_existing_implementation":
+            raise ConformanceRecordError(f"{path}.baseline.reason_type is unsupported.")
+        _text(baseline["summary"], f"{path}.baseline.summary")
     else:
         revalidation = _object(record["revalidation"], f"{path}.revalidation", {"basis_record_id", "reason_type", "summary"})
         _text(revalidation["basis_record_id"], f"{path}.revalidation.basis_record_id")

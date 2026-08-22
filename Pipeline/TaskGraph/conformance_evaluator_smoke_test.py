@@ -85,6 +85,11 @@ def record(root: Path, record_id: str, validated: str, tree: str, *,
     }
     if record_type == "delivery":
         value["delivery"] = {"base_commit": validated, "candidate_commit": validated, "integrated_commit": validated, "integrated_tree": tree}
+    elif record_type == "baseline":
+        value["baseline"] = {
+            "reason_type": "pre_evidence_existing_implementation",
+            "summary": "Synthetic pre-evidence implementation baseline",
+        }
     else:
         value["revalidation"] = {"basis_record_id": basis, "reason_type": "code_change", "summary": "synthetic revalidation"}
     return value
@@ -120,6 +125,44 @@ def scenario_progression(root: Path) -> None:
     uncommitted = record(root, f"DEL-{TASK_ID}-UNCOMMITTED", changed, changed_tree)
     write_json(root, f"Pipeline/TaskGraph/evidence/{TASK_ID}/records/{uncommitted['record_id']}.json", uncommitted)
     expect(root, "conformant")
+
+
+def scenario_baseline_progression(root: Path) -> None:
+    validated, tree = initialize(root)
+    baseline_id = f"BASE-{TASK_ID}-001"
+    add_record(root, record(root, baseline_id, validated, tree, record_type="baseline"))
+    expect(root, "conformant")
+    write(root, SURFACE, "version two\n")
+    changed = commit(root, "surface change after baseline")
+    expect(root, "needs_revalidation")
+    changed_tree = run(root, "git", "rev-parse", "HEAD^{tree}")
+    add_record(root, record(root, f"REV-{TASK_ID}-001", changed, changed_tree,
+                            record_type="revalidation", basis=baseline_id))
+    expect(root, "conformant")
+
+
+def scenario_uncommitted_baseline(root: Path) -> None:
+    validated, tree = initialize(root)
+    value = record(root, f"BASE-{TASK_ID}-UNCOMMITTED", validated, tree, record_type="baseline")
+    write_json(root, f"Pipeline/TaskGraph/evidence/{TASK_ID}/records/{value['record_id']}.json", value)
+    expect(root, "not_delivered")
+
+
+def scenario_invalid_baseline(root: Path, corruption: str) -> None:
+    validated, tree = initialize(root)
+    value = record(root, f"BASE-{TASK_ID}-001", validated, tree, record_type="baseline")
+    if corruption == "missing_gate":
+        value["gate_results"] = []
+    elif corruption == "wrong_gate_evidence":
+        value["gate_results"][0]["evidence"][0]["blob_sha"] = "0" * 40
+    elif corruption == "delivery_field":
+        value["delivery"] = {"base_commit": validated}
+    elif corruption == "revalidation_field":
+        value["revalidation"] = {"basis_record_id": "anything"}
+    elif corruption == "mutable_authority":
+        value["ready"] = True
+    add_record(root, value)
+    expect(root, "invalid_evidence")
 
 
 def scenario_stale_and_replan(root: Path, change: str) -> None:
@@ -208,6 +251,10 @@ def fresh(callback, *args) -> None:
 
 def main() -> int:
     fresh(scenario_progression)
+    fresh(scenario_baseline_progression)
+    fresh(scenario_uncommitted_baseline)
+    for corruption in ("missing_gate", "wrong_gate_evidence", "delivery_field", "revalidation_field", "mutable_authority"):
+        fresh(scenario_invalid_baseline, corruption)
     fresh(scenario_stale_and_replan, "gdd")
     fresh(scenario_stale_and_replan, "contract")
     fresh(scenario_human)
