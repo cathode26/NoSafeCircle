@@ -1,136 +1,125 @@
-# Persistent Work Graph
+# Persistent Task Graph and Task Contracts
 
-This directory contains deterministic tooling for creating and inspecting the No Safe Circle `Tasks/*.yaml` work graph.
+This directory contains the deterministic tooling for the No Safe Circle persistent work graph.
 
-## Current safety boundary
+## Current architecture correction
 
-The initial graph was bootstrapped from one human-approved, independently verified reconciliation snapshot. That bootstrap remains valuable for stable task identity, scope, dependencies, acceptance criteria, validation requirements, and exclusive-resource planning.
+The initial bootstrap successfully established stable `NSC-###` identities, dependencies, parent hierarchy, and exclusive-resource coordination. The adversarial architecture review then found that schema-v1 task files incorrectly combined work definitions with mutable completion claims.
 
-However, the adversarial architecture review identified an important Phase 1 defect:
+Phase 1 disabled autonomous execution authority.
 
-> The mutable `status` field in `Tasks/*.yaml` is planning metadata, not evidence that implementation is currently integrated and valid.
-
-A one-line edit from `open` to `complete` can change the legacy ready frontier. It cannot prove that:
-
-- implementation exists on the current integrated branch;
-- the tested tree is the integrated tree;
-- required Unity/runtime validation passed;
-- the governing GDD requirement is still current;
-- a later change did not invalidate the result.
-
-Until Phase 2 introduces evidence-derived conformance, **autonomous dispatch is disabled**.
-
-## Phase 1 execution-authority guard
-
-`taskcontrol ready` now prints an explicitly advisory human-planning list:
-
-```powershell
-python3 Pipeline/TaskGraph/taskcontrol.py ready
-```
-
-Its output is headed:
+Phase 2 introduces **task-contract schema 2.0**:
 
 ```text
-ADVISORY READY WORK — NOT AUTHORIZED FOR AUTONOMOUS DISPATCH
+Tasks/*.yaml = approved definition of work
 ```
 
-The legacy Python API named `ready_tasks()` intentionally raises instead of returning candidates. Human-facing code must use the explicitly named `advisory_ready_tasks()` function.
-
-Execution authority can be checked directly:
-
-```powershell
-python3 Pipeline/TaskGraph/taskcontrol.py authorize NSC-003
-```
-
-During Phase 1 this command always returns `DENIED` with exit code `2`, regardless of whether the task YAML says `open` or `complete`.
-
-No current or future dispatcher may launch a worker solely from:
-
-- a task's YAML `status` value;
-- the output of `taskcontrol ready`;
-- the `advisory_ready_tasks()` function.
-
-## Useful commands
-
-```powershell
-python3 Pipeline/TaskGraph/taskcontrol.py validate
-python3 Pipeline/TaskGraph/taskcontrol.py list
-python3 Pipeline/TaskGraph/taskcontrol.py show NSC-003
-python3 Pipeline/TaskGraph/taskcontrol.py ready
-python3 Pipeline/TaskGraph/taskcontrol.py authorize NSC-003
-python3 Pipeline/TaskGraph/taskcontrol.py graph
-```
-
-`validate`, `list`, `show`, `ready`, and `graph` may display the current legacy YAML status, but they label it as advisory. They do not establish completion truth.
-
-## Regression tests
-
-Run the existing persistent-graph smoke test:
-
-```powershell
-python3 Pipeline/TaskGraph/taskcontrol_smoke_test.py
-```
-
-Run the Phase 1 authority regression test:
-
-```powershell
-python3 Pipeline/TaskGraph/phase1_execution_authority_smoke_test.py
-```
-
-The Phase 1 regression proves all of the following:
-
-1. changing a dependency's YAML status can change the advisory frontier;
-2. the same edit does not create execution authority;
-3. the old ambiguous `ready_tasks()` API fails closed;
-4. `taskcontrol authorize` denies the candidate;
-5. even changing the candidate itself to `complete` does not authorize it.
-
-## Transitional manual delivery record
-
-For the first real delivery slices, use:
+not:
 
 ```text
-Pipeline/TaskGraph/MANUAL_DELIVERY_RECORD_TEMPLATE.md
+Tasks/*.yaml = definition + running state + validation state + completion truth
 ```
 
-This form captures task/GDD/base identities, commits, Unity evidence, human validation, integration details, and throughput measurements. It is an audit aid only and is not consumed as automatic completion authority.
+See:
 
-## Bootstrap safety boundary
+- `TASK_CONTRACT_SCHEMA_V2.md`
+- `Docs/AI-Pipeline/ADR-031_TASK_STATUS_ADVISORY.md`
+- `Docs/AI-Pipeline/ADR-032_TASK_CONTRACT_SCHEMA_V2.md`
 
-Reconciliation and verification never directly mutate `Tasks/*.yaml`.
+## Phase 2 files
 
-The initial bootstrap proceeded through these stages:
+- `task_contract_schema.py` — shared schema constants and deterministic entry normalization.
+- `task_contract_migration.py` — idempotent v1-to-v2 task conversion plus explicit reviewed migration rules.
+- `migrate_task_contracts_v2.py` — repository migration planner/checker/applicator.
+- `migrate_task_contracts_v2_smoke_test.py` — end-to-end synthetic migration, validation, recovery, and idempotence test.
+- `work_graph_validate.py` — validates a uniform v1 graph during transition or the final v2 graph; mixed live graphs fail closed.
+- `persistent_work_graph.py` — loads one uniform live schema and rejects interrupted mixed state.
+- `taskcontrol.py` — inspection CLI; execution authority remains disabled.
 
-1. Reconciliation created an immutable candidate and proposed graph delta.
-2. Independent verification refined and re-verified the candidate.
-3. A human approved one exact candidate/delta pair.
-4. The deterministic Work Graph Seeder verified hashes and created the persistent graph.
+## Run the Phase 2 checks
 
-The approval record binds immutable inputs by SHA-256:
+From the repository root:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/work_graph_transform_smoke_test.py
+```
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/work_graph_validate_smoke_test.py
+```
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/work_graph_persist_smoke_test.py
+```
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol_smoke_test.py
+```
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/phase1_execution_authority_smoke_test.py
+```
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/migrate_task_contracts_v2_smoke_test.py
+```
+
+## Check the real migration
+
+This validates all real tasks and prints the exact migration summary without writing:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/migrate_task_contracts_v2.py --check
+```
+
+Review the task count, historical status-observation counts, completion-gate count, and downstream-obligation count.
+
+## Apply the real migration
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/migrate_task_contracts_v2.py --apply
+```
+
+The migrator:
+
+1. reads every `Tasks/NSC-*.yaml` file;
+2. converts v1 or preserves already-valid v2 contracts;
+3. validates the complete target graph before writing;
+4. checks source hashes immediately before publication;
+5. atomically replaces each task file;
+6. publishes `TASK_CONTRACT_V2_MIGRATION.json` last;
+7. supports safe rerun after interruption.
+
+Then run:
+
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py validate
+```
+
+Expected task schema:
 
 ```text
-Pipeline/TaskGraph/APPROVED_BOOTSTRAP.json
+2.0
 ```
 
-Bootstrap completion is recorded in:
+Readiness intentionally remains unavailable:
 
-```text
-Pipeline/TaskGraph/BOOTSTRAP_PERSISTED.json
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py ready
 ```
 
-The bootstrap is intentionally one-shot. Do not rerun `seed_work_graph.py --apply` against an already-bootstrapped repository.
+Authorization intentionally remains denied:
 
-## Phase 2 direction
+```powershell
+docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py authorize NSC-003
+```
 
-Phase 2 will migrate task files toward pure work contracts and derive current state from separate evidence, including:
+## Historical bootstrap boundary
 
-- task-contract revision/hash;
-- governing requirement revision/hash;
-- integrated Git tree;
-- required validation evidence;
-- human approval where required;
-- invalidation or revalidation after relevant GDD/code changes.
+Do not rerun the one-time bootstrap on this repository.
 
-That future model will replace mutable YAML completion claims with evidence-derived states such as `ready`, `in_progress`, `blocked`, `needs_replan`, `needs_revalidation`, and `complete`.
+The old reconciliation, verification, approval, and bootstrap records remain immutable history. Schema 2.0 migrates the living task contracts; it does not rewrite the evidence that originally produced them.
 
-Phase 1 deliberately does not invent that full schema yet. It only prevents the current legacy status field from being mistaken for autonomous execution authority.
+## Next phase
+
+After the real v2 migration is committed, introduce the minimum delivery/revalidation evidence model needed to derive current conformance for one real task. Do not enable autonomous dispatch until that evidence is bound to current canon and the exact integrated Git tree.

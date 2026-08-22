@@ -6,14 +6,14 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
-from bootstrap_inputs import ApprovedBootstrapInputs, BootstrapInputError, load_approved_bootstrap_inputs
+from task_contract_migration import migrate_v1_task
+from task_contract_schema import LEGACY_BOOTSTRAP_STATUSES
 
 PROJECT_ROOT_KEY = "no-safe-circle"
 WORK_ID_PREFIX = "NSC"
 WORK_ID_MIN_WIDTH = 3
 
 ALLOWED_KINDS = {"feature", "artifact", "implementation"}
-ALLOWED_STATUSES = {"open", "complete"}
 ALLOWED_EXECUTION_SCOPES = {
     "single_agent",
     "needs_execution_decomposition",
@@ -64,7 +64,6 @@ def candidate_dependency_keys(candidate_item: dict[str, Any], context: str) -> l
     raw = candidate_item.get("depends_on", [])
     if not isinstance(raw, list):
         raise WorkGraphTransformError(f"{context}.depends_on must be a list.")
-
     keys: list[str] = []
     for index, entry in enumerate(raw):
         if isinstance(entry, str):
@@ -86,7 +85,6 @@ def candidate_resource_keys(candidate_item: dict[str, Any], context: str) -> lis
     raw = candidate_item.get("exclusive_resources", [])
     if not isinstance(raw, list):
         raise WorkGraphTransformError(f"{context}.exclusive_resources must be a list.")
-
     keys: list[str] = []
     for index, entry in enumerate(raw):
         if isinstance(entry, str):
@@ -105,16 +103,6 @@ def candidate_resource_keys(candidate_item: dict[str, Any], context: str) -> lis
 
 
 def allocate_stable_ids(seed_records: list[dict[str, Any]]) -> dict[str, str]:
-    """Assign deterministic bootstrap IDs, reserving NSC-001 for the project root.
-
-    The approved proposal contains a real `no-safe-circle` feature record. It is the durable
-    project-root node, not an out-of-band sentinel. Give that root NSC-001 for readability,
-    then preserve the exact approved seed-record order for every remaining record. The proposal
-    is SHA-256 bound by human approval, so the allocation is deterministic for this bootstrap.
-    The resulting map becomes durable state; future reconciliation reuses reconciliation_key
-    traceability rather than reallocating these IDs.
-    """
-
     approved_keys: list[str] = []
     seen: set[str] = set()
     for index, record in enumerate(seed_records):
@@ -125,16 +113,14 @@ def allocate_stable_ids(seed_records: list[dict[str, Any]]) -> dict[str, str]:
             raise WorkGraphTransformError(f"Duplicate reconciliation_key in seed records: {key}")
         seen.add(key)
         approved_keys.append(key)
-
     if PROJECT_ROOT_KEY not in seen:
         raise WorkGraphTransformError(
             f"Approved seed records are missing required project-root feature {PROJECT_ROOT_KEY!r}."
         )
-
-    ordered_keys = [PROJECT_ROOT_KEY] + [key for key in approved_keys if key != PROJECT_ROOT_KEY]
+    ordered = [PROJECT_ROOT_KEY] + [key for key in approved_keys if key != PROJECT_ROOT_KEY]
     return {
         key: f"{WORK_ID_PREFIX}-{index:0{WORK_ID_MIN_WIDTH}d}"
-        for index, key in enumerate(ordered_keys, start=1)
+        for index, key in enumerate(ordered, start=1)
     }
 
 
@@ -142,7 +128,6 @@ def index_candidate(candidate: dict[str, Any]) -> dict[str, dict[str, Any]]:
     raw_items = candidate.get("work_items")
     if not isinstance(raw_items, list) or not raw_items:
         raise WorkGraphTransformError("Approved candidate contains no work_items.")
-
     by_key: dict[str, dict[str, Any]] = {}
     for index, item in enumerate(raw_items):
         if not isinstance(item, dict):
@@ -171,7 +156,6 @@ def transform_task(
 ) -> dict[str, Any]:
     key = require_text(seed, "reconciliation_key", "seed record")
     context = f"seed record {key!r}"
-
     title = require_text(seed, "title", context)
     kind = require_text(seed, "kind", context)
     status = require_text(seed, "proposed_status", context)
@@ -179,16 +163,16 @@ def transform_task(
 
     if kind not in ALLOWED_KINDS:
         raise WorkGraphTransformError(f"{key} has unsupported kind: {kind!r}")
-    if status not in ALLOWED_STATUSES:
-        raise WorkGraphTransformError(f"{key} has unsupported status: {status!r}")
+    if status not in LEGACY_BOOTSTRAP_STATUSES:
+        raise WorkGraphTransformError(f"{key} has unsupported proposed_status: {status!r}")
     if execution_scope not in ALLOWED_EXECUTION_SCOPES:
         raise WorkGraphTransformError(f"{key} has unsupported execution_scope: {execution_scope!r}")
 
-    parent_key_raw = seed.get("parent_reconciliation_key", "")
-    if parent_key_raw is None:
+    parent_raw = seed.get("parent_reconciliation_key", "")
+    if parent_raw is None:
         parent_key = ""
-    elif isinstance(parent_key_raw, str):
-        parent_key = parent_key_raw.strip()
+    elif isinstance(parent_raw, str):
+        parent_key = parent_raw.strip()
     else:
         raise WorkGraphTransformError(f"{context}.parent_reconciliation_key must be a string or null.")
 
@@ -206,10 +190,12 @@ def transform_task(
     require_match("status", status, candidate_item.get("graph_status"), key)
     require_match("execution_scope", execution_scope, candidate_item.get("execution_scope"), key)
     require_match("parent", parent_key, str(candidate_item.get("parent_key") or "").strip(), key)
-
-    candidate_dependencies = candidate_dependency_keys(candidate_item, f"candidate {key!r}")
-    require_match("dependencies", dependency_keys, candidate_dependencies, key)
-
+    require_match(
+        "dependencies",
+        dependency_keys,
+        candidate_dependency_keys(candidate_item, f"candidate {key!r}"),
+        key,
+    )
     candidate_resources = candidate_resource_keys(candidate_item, f"candidate {key!r}")
     if set(resource_keys) != set(candidate_resources):
         raise WorkGraphTransformError(
@@ -222,9 +208,8 @@ def transform_task(
             f"Project-root feature {PROJECT_ROOT_KEY!r} must not have a parent; got {parent_key!r}."
         )
 
-    if not parent_key:
-        parent_id = ""
-    else:
+    parent_id = ""
+    if parent_key:
         try:
             parent_id = id_map[parent_key]
         except KeyError as exc:
@@ -243,10 +228,10 @@ def transform_task(
                 f"{key} depends on {dependency_key!r}, which is not a seeded work record."
             ) from exc
 
-    acceptance_criteria = require_list(seed, "acceptance_criteria", context)
-    validation_requirements = require_list(seed, "validation_requirements", context)
-
-    task: dict[str, Any] = {
+    # Build the former v1 shape only as a deterministic compatibility input to
+    # the v2 migration. The returned task is schema 2.0 and contains no mutable
+    # operational status field.
+    legacy_task: dict[str, Any] = {
         "schema_version": "1.0",
         "id": id_map[key],
         "title": title,
@@ -261,8 +246,8 @@ def transform_task(
         "parent": parent_id,
         "depends_on": dependency_ids,
         "exclusive_resources": resource_keys,
-        "acceptance_criteria": deepcopy(acceptance_criteria),
-        "validation_requirements": deepcopy(validation_requirements),
+        "acceptance_criteria": deepcopy(require_list(seed, "acceptance_criteria", context)),
+        "validation_requirements": deepcopy(require_list(seed, "validation_requirements", context)),
         "gdd_evidence": deepcopy(candidate_item.get("gdd_evidence", [])),
         "basis": candidate_item.get("basis", ""),
         "source_scope": candidate_item.get("source_scope", ""),
@@ -275,8 +260,6 @@ def transform_task(
             "verification_run_id": verification_run_id,
         },
     }
-
-    # Preserve optional operational fields if a future verified candidate starts emitting them.
     for field in (
         "artifact_path",
         "scope",
@@ -287,11 +270,11 @@ def transform_task(
         "claims",
     ):
         if field in candidate_item:
-            task[field] = deepcopy(candidate_item[field])
+            legacy_task[field] = deepcopy(candidate_item[field])
         elif field in seed:
-            task[field] = deepcopy(seed[field])
+            legacy_task[field] = deepcopy(seed[field])
 
-    return task
+    return migrate_v1_task(legacy_task)
 
 
 def transform_resource_groups(
@@ -301,7 +284,6 @@ def transform_resource_groups(
 ) -> tuple[dict[str, Any], ...]:
     transformed: list[dict[str, Any]] = []
     seen_resources: set[str] = set()
-
     for index, group in enumerate(groups):
         if not isinstance(group, dict):
             raise WorkGraphTransformError(f"exclusive_resource_groups[{index}] is not an object.")
@@ -309,43 +291,37 @@ def transform_resource_groups(
         if resource_key in seen_resources:
             raise WorkGraphTransformError(f"Duplicate exclusive resource group: {resource_key}")
         seen_resources.add(resource_key)
-
         work_keys = normalize_string_list(
             group.get("work_keys", []),
             f"exclusive_resource_groups[{index}].work_keys",
         )
-        task_ids: list[str] = []
+        work_ids: list[str] = []
         for work_key in work_keys:
             if work_key not in id_map:
                 raise WorkGraphTransformError(
                     f"Resource group {resource_key!r} references unseeded work key {work_key!r}."
                 )
-            task = tasks_by_key[work_key]
-            if resource_key not in task["exclusive_resources"]:
+            if resource_key not in tasks_by_key[work_key]["exclusive_resources"]:
                 raise WorkGraphTransformError(
                     f"Resource group {resource_key!r} claims {work_key!r}, but that task does not claim the resource."
                 )
-            task_ids.append(id_map[work_key])
-
+            work_ids.append(id_map[work_key])
         transformed.append(
             {
                 "resource_key": resource_key,
-                "work_ids": task_ids,
+                "work_ids": work_ids,
                 "reconciliation_keys": work_keys,
             }
         )
-
     return tuple(transformed)
 
 
-def build_work_graph_plan(inputs: ApprovedBootstrapInputs) -> WorkGraphPlan:
-    seed_records = inputs.seed_records
-    id_map = allocate_stable_ids(seed_records)
+def build_work_graph_plan(inputs: Any) -> WorkGraphPlan:
+    id_map = allocate_stable_ids(inputs.seed_records)
     candidate_by_key = index_candidate(inputs.candidate)
-
     tasks: list[dict[str, Any]] = []
-    tasks_by_key: dict[str, dict[str, Any]] = {}
-    for seed in seed_records:
+    by_key: dict[str, dict[str, Any]] = {}
+    for seed in inputs.seed_records:
         key = require_text(seed, "reconciliation_key", "seed record")
         candidate_item = candidate_by_key.get(key)
         if candidate_item is None:
@@ -360,80 +336,63 @@ def build_work_graph_plan(inputs: ApprovedBootstrapInputs) -> WorkGraphPlan:
             inputs.verification_run_id,
         )
         tasks.append(task)
-        tasks_by_key[key] = task
-
-    resource_groups = transform_resource_groups(
-        inputs.exclusive_resource_groups,
-        id_map,
-        tasks_by_key,
-    )
-
+        by_key[key] = task
     return WorkGraphPlan(
         id_map=id_map,
         tasks=tuple(tasks),
-        resource_groups=resource_groups,
+        resource_groups=transform_resource_groups(
+            inputs.exclusive_resource_groups, id_map, by_key
+        ),
         project_requirements=tuple(deepcopy(inputs.proposed_non_code_records)),
     )
 
 
-def print_plan_summary(plan: WorkGraphPlan, inputs: ApprovedBootstrapInputs, show_id_map: bool) -> None:
+def print_plan_summary(plan: WorkGraphPlan, inputs: Any, show_id_map: bool) -> None:
     kinds = Counter(task["kind"] for task in plan.tasks)
-    statuses = Counter(task["status"] for task in plan.tasks)
+    observations = Counter(
+        task["provenance"].get("bootstrap_status_observation") for task in plan.tasks
+    )
     scopes = Counter(task["execution_scope"] for task in plan.tasks)
-    dependency_edges = sum(len(task["depends_on"]) for task in plan.tasks)
-    root_items = sum(1 for task in plan.tasks if not task["parent"])
-
     print("Work graph seed transform: PASS")
-    print(f"Reconciliation run:   {inputs.source_reconciliation_run_id}")
-    print(f"Verification run:     {inputs.verification_run_id}")
-    print(f"Task records:         {len(plan.tasks)}")
+    print("Task contract schema:  2.0")
+    print(f"Reconciliation run:    {inputs.source_reconciliation_run_id}")
+    print(f"Verification run:      {inputs.verification_run_id}")
+    print(f"Task records:          {len(plan.tasks)}")
     print(
-        "Kinds:                "
+        "Kinds:                 "
         + ", ".join(f"{name}={kinds.get(name, 0)}" for name in ("feature", "artifact", "implementation"))
     )
     print(
-        "Statuses:             "
-        + ", ".join(f"{name}={statuses.get(name, 0)}" for name in ("open", "complete"))
+        "Bootstrap observations: "
+        + ", ".join(f"{name}={observations.get(name, 0)}" for name in ("open", "complete"))
     )
     print(
-        "Execution scopes:     "
+        "Execution scopes:      "
         + ", ".join(f"{name}={count}" for name, count in sorted(scopes.items()))
     )
-    print(f"Dependency edges:     {dependency_edges}")
-    print(f"Top-level task nodes: {root_items}")
-    print(f"Resource groups:      {len(plan.resource_groups)}")
-    print(f"Project requirements: {len(plan.project_requirements)}")
-    print("ID allocation:        project root NSC-001; remaining approved seed-record order")
-
+    print(f"Dependency edges:      {sum(len(task['depends_on']) for task in plan.tasks)}")
+    print(f"Resource groups:       {len(plan.resource_groups)}")
+    print(f"Project requirements:  {len(plan.project_requirements)}")
     if show_id_map:
         print("\nStable bootstrap ID map:")
         for key, work_id in plan.id_map.items():
             print(f"  {work_id}  {key}")
-
     print("\nNo Tasks/ files were written.")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description=(
-            "Transform the exact approved bootstrap proposal into deterministic in-memory task records. "
-            "This command does not write Tasks/*.yaml."
-        )
+        description="Transform an approved bootstrap proposal into schema-v2 in-memory task contracts."
     )
-    parser.add_argument(
-        "--show-id-map",
-        action="store_true",
-        help="Print the complete reconciliation_key -> NSC-* allocation.",
-    )
+    parser.add_argument("--show-id-map", action="store_true")
     args = parser.parse_args()
-
     try:
+        from bootstrap_inputs import BootstrapInputError, load_approved_bootstrap_inputs
         inputs = load_approved_bootstrap_inputs()
         plan = build_work_graph_plan(inputs)
     except (BootstrapInputError, WorkGraphTransformError) as exc:
         print(f"Work graph seed transform: FAIL\n{exc}")
         return 1
-
     print_plan_summary(plan, inputs, args.show_id_map)
     return 0
 

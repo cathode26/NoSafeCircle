@@ -5,9 +5,31 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
 
-from work_graph_transform import PROJECT_ROOT_KEY, WorkGraphPlan
+from task_contract_schema import (
+    ALLOWED_CONTRACT_DISPOSITIONS,
+    FORBIDDEN_V2_OPERATIONAL_FIELDS,
+    LEGACY_BOOTSTRAP_STATUSES,
+    TASK_CONTRACT_SCHEMA_VERSION,
+)
 
+PROJECT_ROOT_KEY = "no-safe-circle"
 WORK_ID_PATTERN = re.compile(r"^NSC-(\d{3,})$")
+ENTRY_ID_PATTERNS = {
+    "acceptance_criteria": ("criterion_id", re.compile(r"^AC-\d{3,}$")),
+    "completion_gates": ("gate_id", re.compile(r"^VAL-\d{3,}$")),
+    "downstream_integration_obligations": (
+        "obligation_id",
+        re.compile(r"^INT-\d{3,}$"),
+    ),
+}
+ALLOWED_KINDS = {"feature", "artifact", "implementation"}
+ALLOWED_EXECUTION_SCOPES = {
+    "single_agent",
+    "needs_execution_decomposition",
+    "human_integration_required",
+    "not_applicable",
+    "unknown",
+}
 
 
 class WorkGraphValidationError(RuntimeError):
@@ -23,6 +45,7 @@ class WorkGraphValidationSummary:
     root_key: str
     resource_group_count: int
     project_requirement_count: int
+    task_schema_version: str
 
 
 def _require_non_empty_text(value: Any, label: str) -> str:
@@ -34,6 +57,12 @@ def _require_non_empty_text(value: Any, label: str) -> str:
 def _require_list(value: Any, label: str) -> list[Any]:
     if not isinstance(value, list):
         raise WorkGraphValidationError(f"{label} must be a list.")
+    return value
+
+
+def _require_positive_int(value: Any, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise WorkGraphValidationError(f"{label} must be a positive integer.")
     return value
 
 
@@ -67,7 +96,119 @@ def _detect_cycle(edges: dict[str, list[str]], label: str) -> None:
         visit(node)
 
 
-def validate_work_graph_plan(plan: WorkGraphPlan) -> WorkGraphValidationSummary:
+def _task_schema_version(tasks: tuple[dict[str, Any], ...]) -> str:
+    versions = {
+        task.get("schema_version")
+        for task in tasks
+        if isinstance(task, dict)
+    }
+    if len(versions) != 1:
+        raise WorkGraphValidationError(
+            f"Live task graph must use one uniform schema version; found {sorted(map(str, versions))}."
+        )
+    version = next(iter(versions))
+    if version not in {"1.0", TASK_CONTRACT_SCHEMA_VERSION}:
+        raise WorkGraphValidationError(f"Unsupported task schema_version: {version!r}")
+    return str(version)
+
+
+def _validate_numbered_entries(task_id: str, task: dict[str, Any], field: str) -> None:
+    id_field, pattern = ENTRY_ID_PATTERNS[field]
+    entries = _require_list(task.get(field), f"{task_id}.{field}")
+    seen: set[str] = set()
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise WorkGraphValidationError(f"{task_id}.{field}[{index}] must be an object.")
+        entry_id = _require_non_empty_text(
+            entry.get(id_field), f"{task_id}.{field}[{index}].{id_field}"
+        )
+        if not pattern.fullmatch(entry_id):
+            raise WorkGraphValidationError(
+                f"{task_id}.{field}[{index}].{id_field} has invalid format: {entry_id!r}"
+            )
+        if entry_id in seen:
+            raise WorkGraphValidationError(
+                f"{task_id}.{field} contains duplicate {id_field} {entry_id!r}."
+            )
+        seen.add(entry_id)
+        _require_non_empty_text(
+            entry.get("requirement"), f"{task_id}.{field}[{index}].requirement"
+        )
+        reference = entry.get("reference", "")
+        if not isinstance(reference, str):
+            raise WorkGraphValidationError(
+                f"{task_id}.{field}[{index}].reference must be a string."
+            )
+
+
+def _validate_v1_task(task_id: str, task: dict[str, Any]) -> None:
+    status = _require_non_empty_text(task.get("status"), f"{task_id}.status")
+    if status not in LEGACY_BOOTSTRAP_STATUSES:
+        raise WorkGraphValidationError(f"{task_id} has invalid legacy status: {status!r}")
+    _require_list(task.get("validation_requirements"), f"{task_id}.validation_requirements")
+    source = task.get("bootstrap_source")
+    if not isinstance(source, dict):
+        raise WorkGraphValidationError(f"{task_id}.bootstrap_source must be an object.")
+    _require_non_empty_text(
+        source.get("reconciliation_run_id"),
+        f"{task_id}.bootstrap_source.reconciliation_run_id",
+    )
+    _require_non_empty_text(
+        source.get("verification_run_id"),
+        f"{task_id}.bootstrap_source.verification_run_id",
+    )
+
+
+def _validate_v2_task(task_id: str, task: dict[str, Any]) -> None:
+    for field in FORBIDDEN_V2_OPERATIONAL_FIELDS:
+        if field in task:
+            raise WorkGraphValidationError(
+                f"{task_id} schema v2 contract may not contain legacy field {field!r}."
+            )
+
+    _require_positive_int(task.get("contract_revision"), f"{task_id}.contract_revision")
+    disposition = _require_non_empty_text(
+        task.get("contract_disposition"), f"{task_id}.contract_disposition"
+    )
+    if disposition not in ALLOWED_CONTRACT_DISPOSITIONS:
+        raise WorkGraphValidationError(
+            f"{task_id} has invalid contract_disposition: {disposition!r}"
+        )
+
+    superseded_by = str(task.get("superseded_by") or "").strip()
+    if disposition == "superseded" and not superseded_by:
+        raise WorkGraphValidationError(
+            f"Superseded task {task_id} must identify superseded_by."
+        )
+    if disposition != "superseded" and superseded_by:
+        raise WorkGraphValidationError(
+            f"{task_id}.superseded_by is only valid when contract_disposition='superseded'."
+        )
+
+    for field in ENTRY_ID_PATTERNS:
+        _validate_numbered_entries(task_id, task, field)
+
+    provenance = task.get("provenance")
+    if not isinstance(provenance, dict):
+        raise WorkGraphValidationError(f"{task_id}.provenance must be an object.")
+    origin = _require_non_empty_text(provenance.get("origin"), f"{task_id}.provenance.origin")
+    if origin == "verified_reconciliation_bootstrap":
+        _require_non_empty_text(
+            provenance.get("reconciliation_run_id"),
+            f"{task_id}.provenance.reconciliation_run_id",
+        )
+        _require_non_empty_text(
+            provenance.get("verification_run_id"),
+            f"{task_id}.provenance.verification_run_id",
+        )
+    observed_status = provenance.get("bootstrap_status_observation")
+    if observed_status is not None and observed_status not in LEGACY_BOOTSTRAP_STATUSES:
+        raise WorkGraphValidationError(
+            f"{task_id}.provenance.bootstrap_status_observation is invalid: {observed_status!r}"
+        )
+
+
+def validate_work_graph_plan(plan: Any) -> WorkGraphValidationSummary:
     if not plan.tasks:
         raise WorkGraphValidationError("Work graph contains no tasks.")
     if len(plan.id_map) != len(plan.tasks):
@@ -75,9 +216,9 @@ def validate_work_graph_plan(plan: WorkGraphPlan) -> WorkGraphValidationSummary:
             f"ID map/task count mismatch: id_map={len(plan.id_map)}, tasks={len(plan.tasks)}"
         )
 
+    schema_version = _task_schema_version(plan.tasks)
     tasks_by_id: dict[str, dict[str, Any]] = {}
     tasks_by_key: dict[str, dict[str, Any]] = {}
-    numeric_ids: list[int] = []
 
     for index, task in enumerate(plan.tasks):
         if not isinstance(task, dict):
@@ -89,25 +230,22 @@ def validate_work_graph_plan(plan: WorkGraphPlan) -> WorkGraphValidationSummary:
         )
         title = _require_non_empty_text(task.get("title"), f"{task_id}.title")
         kind = _require_non_empty_text(task.get("kind"), f"{task_id}.kind")
-        status = _require_non_empty_text(task.get("status"), f"{task_id}.status")
         scope = _require_non_empty_text(task.get("execution_scope"), f"{task_id}.execution_scope")
 
         if task_id in tasks_by_id:
             raise WorkGraphValidationError(f"Duplicate task id: {task_id}")
         if key in tasks_by_key:
             raise WorkGraphValidationError(f"Duplicate reconciliation_key: {key}")
-
-        match = WORK_ID_PATTERN.fullmatch(task_id)
-        if not match:
+        if not WORK_ID_PATTERN.fullmatch(task_id):
             raise WorkGraphValidationError(f"Invalid persistent task id: {task_id!r}")
-        numeric_ids.append(int(match.group(1)))
-
-        expected_id = plan.id_map.get(key)
-        if expected_id != task_id:
+        if plan.id_map.get(key) != task_id:
             raise WorkGraphValidationError(
-                f"ID map mismatch for {key}: expected {expected_id!r}, task has {task_id!r}"
+                f"ID map mismatch for {key}: expected {plan.id_map.get(key)!r}, task has {task_id!r}"
             )
-
+        if kind not in ALLOWED_KINDS:
+            raise WorkGraphValidationError(f"{task_id} has invalid kind: {kind!r}")
+        if scope not in ALLOWED_EXECUTION_SCOPES:
+            raise WorkGraphValidationError(f"{task_id} has invalid execution_scope: {scope!r}")
         if kind == "feature" and scope == "single_agent":
             raise WorkGraphValidationError(
                 f"Feature node {task_id} ({title}) may not be directly single-agent executable."
@@ -117,43 +255,30 @@ def validate_work_graph_plan(plan: WorkGraphPlan) -> WorkGraphValidationSummary:
                 f"Single-agent work {task_id} must be implementation/artifact, not {kind!r}."
             )
 
-        for field in ("depends_on", "exclusive_resources", "acceptance_criteria", "validation_requirements"):
+        for field in ("depends_on", "exclusive_resources", "acceptance_criteria"):
             _require_list(task.get(field), f"{task_id}.{field}")
 
-        bootstrap_source = task.get("bootstrap_source")
-        if not isinstance(bootstrap_source, dict):
-            raise WorkGraphValidationError(f"{task_id}.bootstrap_source must be an object.")
-        _require_non_empty_text(
-            bootstrap_source.get("reconciliation_run_id"),
-            f"{task_id}.bootstrap_source.reconciliation_run_id",
-        )
-        _require_non_empty_text(
-            bootstrap_source.get("verification_run_id"),
-            f"{task_id}.bootstrap_source.verification_run_id",
-        )
+        if schema_version == "1.0":
+            _validate_v1_task(task_id, task)
+        else:
+            _validate_v2_task(task_id, task)
 
         tasks_by_id[task_id] = task
         tasks_by_key[key] = task
-
-    expected_numbers = list(range(1, len(plan.tasks) + 1))
-    if sorted(numeric_ids) != expected_numbers:
-        raise WorkGraphValidationError(
-            "Persistent task IDs must form one contiguous bootstrap range: "
-            f"expected 1..{len(plan.tasks)}, got {sorted(numeric_ids)}"
-        )
 
     root_tasks = [task for task in plan.tasks if not str(task.get("parent") or "").strip()]
     if len(root_tasks) != 1:
         raise WorkGraphValidationError(
             f"Work graph must contain exactly one root task; found {len(root_tasks)}."
         )
-
     root = root_tasks[0]
     if root["id"] != "NSC-001" or root["reconciliation_key"] != PROJECT_ROOT_KEY:
         raise WorkGraphValidationError(
             "Work graph root must be NSC-001 / no-safe-circle; "
             f"got {root['id']} / {root['reconciliation_key']}"
         )
+    if schema_version == TASK_CONTRACT_SCHEMA_VERSION and root["contract_disposition"] != "active":
+        raise WorkGraphValidationError("Project root contract must remain active.")
 
     parent_edges: dict[str, list[str]] = {task_id: [] for task_id in tasks_by_id}
     parent_edge_count = 0
@@ -173,10 +298,8 @@ def validate_work_graph_plan(plan: WorkGraphPlan) -> WorkGraphValidationSummary:
             )
         parent_edges[task_id].append(parent)
         parent_edge_count += 1
-
     _detect_cycle(parent_edges, "Parent hierarchy")
 
-    # Every node must eventually reach the single project root.
     for task_id in tasks_by_id:
         cursor = task_id
         seen: set[str] = set()
@@ -209,26 +332,34 @@ def validate_work_graph_plan(plan: WorkGraphPlan) -> WorkGraphValidationSummary:
                 raise WorkGraphValidationError(
                     f"Task {task_id} references missing dependency {dependency_id!r}."
                 )
+            if schema_version == TASK_CONTRACT_SCHEMA_VERSION:
+                if (
+                    task["contract_disposition"] == "active"
+                    and tasks_by_id[dependency_id]["contract_disposition"] != "active"
+                ):
+                    raise WorkGraphValidationError(
+                        f"Active task {task_id} may not depend on non-active task {dependency_id}."
+                    )
             dependency_edges[task_id].append(dependency_id)
             dependency_edge_count += 1
-
     _detect_cycle(dependency_edges, "Dependency graph")
 
-    # All task bootstrap provenance must point at the same approved source/verification pair.
-    provenance_pairs = {
-        (
-            task["bootstrap_source"]["reconciliation_run_id"],
-            task["bootstrap_source"]["verification_run_id"],
-        )
-        for task in plan.tasks
-    }
-    if len(provenance_pairs) != 1:
-        raise WorkGraphValidationError(
-            f"Tasks contain mixed bootstrap provenance: {sorted(provenance_pairs)!r}"
-        )
+    if schema_version == TASK_CONTRACT_SCHEMA_VERSION:
+        for task_id, task in tasks_by_id.items():
+            target = str(task.get("superseded_by") or "").strip()
+            if not target:
+                continue
+            if target == task_id:
+                raise WorkGraphValidationError(f"Task {task_id} may not supersede itself.")
+            if target not in tasks_by_id:
+                raise WorkGraphValidationError(
+                    f"Superseded task {task_id} references missing replacement {target!r}."
+                )
+            if tasks_by_id[target]["contract_disposition"] != "active":
+                raise WorkGraphValidationError(
+                    f"Superseded task {task_id} replacement {target} must be active."
+                )
 
-    # Validate resource groups and also prove that every resource shared by multiple tasks has
-    # one exact group. Single-owner resources do not need a coordination group.
     claimed_by: dict[str, set[str]] = defaultdict(set)
     for task_id, task in tasks_by_id.items():
         resources = task["exclusive_resources"]
@@ -251,23 +382,17 @@ def validate_work_graph_plan(plan: WorkGraphPlan) -> WorkGraphValidationSummary:
         )
         if resource_key in groups_by_resource:
             raise WorkGraphValidationError(f"Duplicate resource group: {resource_key}")
-
         work_ids = _require_list(group.get("work_ids"), f"resource group {resource_key}.work_ids")
-        reconciliation_keys = _require_list(
+        keys = _require_list(
             group.get("reconciliation_keys"),
             f"resource group {resource_key}.reconciliation_keys",
         )
-        if len(work_ids) != len(reconciliation_keys):
+        if len(work_ids) != len(keys):
             raise WorkGraphValidationError(
                 f"Resource group {resource_key} has mismatched ID/key membership lengths."
             )
-        if len(work_ids) != len(set(work_ids)):
-            raise WorkGraphValidationError(
-                f"Resource group {resource_key} contains duplicate work IDs."
-            )
-
         members: set[str] = set()
-        for work_id, reconciliation_key in zip(work_ids, reconciliation_keys):
+        for work_id, reconciliation_key in zip(work_ids, keys):
             work_id = _require_non_empty_text(work_id, f"resource group {resource_key}.work_id")
             reconciliation_key = _require_non_empty_text(
                 reconciliation_key, f"resource group {resource_key}.reconciliation_key"
@@ -302,7 +427,6 @@ def validate_work_graph_plan(plan: WorkGraphPlan) -> WorkGraphValidationSummary:
                 f"Resource group {resource_key!r} does not exactly match task claims: "
                 f"group={sorted(grouped)}, claims={sorted(owners)}"
             )
-
     for resource_key, members in groups_by_resource.items():
         owners = claimed_by.get(resource_key, set())
         if members != owners:
@@ -341,4 +465,5 @@ def validate_work_graph_plan(plan: WorkGraphPlan) -> WorkGraphValidationSummary:
         root_key=root["reconciliation_key"],
         resource_group_count=len(plan.resource_groups),
         project_requirement_count=len(plan.project_requirements),
+        task_schema_version=schema_version,
     )

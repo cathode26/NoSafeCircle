@@ -5,21 +5,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from work_graph_transform import (
-    ALLOWED_EXECUTION_SCOPES,
-    ALLOWED_KINDS,
-    ALLOWED_STATUSES,
-    WorkGraphPlan,
-)
+from work_graph_transform import WorkGraphPlan
 from work_graph_validate import WorkGraphValidationSummary, validate_work_graph_plan
 
 ROOT = Path(__file__).resolve().parents[2]
-TASKS_DIR = ROOT / "Tasks"
-TASKGRAPH_DIR = ROOT / "Pipeline" / "TaskGraph"
-BOOTSTRAP_MARKER_PATH = TASKGRAPH_DIR / "BOOTSTRAP_PERSISTED.json"
-ID_MAP_PATH = TASKGRAPH_DIR / "WORK_ID_MAP.json"
-PROJECT_REQUIREMENTS_PATH = TASKGRAPH_DIR / "PROJECT_REQUIREMENTS.yaml"
-RESOURCE_GROUPS_PATH = TASKGRAPH_DIR / "RESOURCE_GROUPS.yaml"
 SERIALIZATION_FORMAT = "yaml_1_2_json_subset"
 
 
@@ -88,9 +77,10 @@ def _validate_bootstrap_marker(marker: dict[str, Any], root: Path) -> None:
     if not isinstance(baseline_hashes, dict) or not baseline_hashes:
         raise PersistentWorkGraphError("Bootstrap marker is missing output_sha256 baseline entries.")
 
-    # The hashes are a historical bootstrap baseline, not an immutable checksum for live task
-    # state. Legitimate task status changes will change task bytes. We do, however, require every
-    # baseline output path to continue to exist so bootstrap state cannot silently disappear.
+    # These hashes preserve historical bootstrap identity. Live contract bytes
+    # legitimately change during approved schema migrations and later contract
+    # revisions, so the loader requires the original paths to remain present but
+    # does not compare current bytes with the old bootstrap hashes.
     root_resolved = root.resolve()
     for relative_path in baseline_hashes:
         if not isinstance(relative_path, str) or not relative_path.strip():
@@ -108,73 +98,51 @@ def _validate_bootstrap_marker(marker: dict[str, Any], root: Path) -> None:
             )
 
 
-def _validate_live_task_contract(task: dict[str, Any], path: Path) -> None:
-    task_id = _require_text(task, "id", f"task {path.name}")
-    kind = _require_text(task, "kind", task_id)
-    status = _require_text(task, "status", task_id)
-    execution_scope = _require_text(task, "execution_scope", task_id)
-
-    if kind not in ALLOWED_KINDS:
-        raise PersistentWorkGraphError(f"{task_id} has invalid kind: {kind!r}")
-    if status not in ALLOWED_STATUSES:
-        raise PersistentWorkGraphError(f"{task_id} has invalid status: {status!r}")
-    if execution_scope not in ALLOWED_EXECUTION_SCOPES:
-        raise PersistentWorkGraphError(
-            f"{task_id} has invalid execution_scope: {execution_scope!r}"
-        )
-    if (
-        status == "open"
-        and kind in {"implementation", "artifact"}
-        and execution_scope == "not_applicable"
-    ):
-        raise PersistentWorkGraphError(
-            f"Open executable work {task_id} may not use execution_scope='not_applicable'."
-        )
-
-
 def _load_tasks(tasks_dir: Path) -> tuple[dict[str, Any], ...]:
     if not tasks_dir.is_dir():
         raise PersistentWorkGraphError(f"Persistent Tasks directory does not exist: {tasks_dir}")
-
     paths = sorted(tasks_dir.glob("NSC-*.yaml"))
     if not paths:
         raise PersistentWorkGraphError("Persistent Tasks directory contains no NSC-*.yaml files.")
 
     tasks: list[dict[str, Any]] = []
+    versions: set[str] = set()
     for path in paths:
         task = _load_json_object(path, "task")
-        file_id = path.stem
         task_id = _require_text(task, "id", f"task {path.name}")
-        if task_id != file_id:
+        if task_id != path.stem:
             raise PersistentWorkGraphError(
                 f"Task filename/id mismatch: {path.name} contains id {task_id!r}."
             )
-        _validate_live_task_contract(task, path)
+        version = task.get("schema_version")
+        if not isinstance(version, str):
+            raise PersistentWorkGraphError(f"{task_id}.schema_version must be a string.")
+        versions.add(version)
         tasks.append(task)
+
+    if len(versions) != 1:
+        raise PersistentWorkGraphError(
+            f"Live task graph is partially migrated; found schema versions {sorted(versions)}. "
+            "Re-run the idempotent v2 migrator to complete or recover the migration."
+        )
     return tuple(tasks)
 
 
 def load_persistent_work_graph(root: Path = ROOT) -> PersistentWorkGraph:
-    """Load and structurally validate the live persistent work graph.
-
-    BOOTSTRAP_PERSISTED.json proves the one-time bootstrap completed. Its SHA-256 entries are
-    intentionally treated as a historical baseline rather than live-file checksums because task
-    state is expected to evolve after bootstrap.
-    """
-
     taskgraph_dir = root / "Pipeline" / "TaskGraph"
-    marker_path = taskgraph_dir / "BOOTSTRAP_PERSISTED.json"
-    id_map_path = taskgraph_dir / "WORK_ID_MAP.json"
-    project_requirements_path = taskgraph_dir / "PROJECT_REQUIREMENTS.yaml"
-    resource_groups_path = taskgraph_dir / "RESOURCE_GROUPS.yaml"
-    tasks_dir = root / "Tasks"
-
-    marker = _load_json_object(marker_path, "bootstrap completion marker")
+    marker = _load_json_object(
+        taskgraph_dir / "BOOTSTRAP_PERSISTED.json",
+        "bootstrap completion marker",
+    )
     _validate_bootstrap_marker(marker, root)
 
-    id_map_payload = _load_json_object(id_map_path, "work ID map")
-    requirements_payload = _load_json_object(project_requirements_path, "project requirements")
-    resources_payload = _load_json_object(resource_groups_path, "resource groups")
+    id_map_payload = _load_json_object(taskgraph_dir / "WORK_ID_MAP.json", "work ID map")
+    requirements_payload = _load_json_object(
+        taskgraph_dir / "PROJECT_REQUIREMENTS.yaml", "project requirements"
+    )
+    resources_payload = _load_json_object(
+        taskgraph_dir / "RESOURCE_GROUPS.yaml", "resource groups"
+    )
 
     id_map = id_map_payload.get("id_map")
     if not isinstance(id_map, dict) or not id_map:
@@ -188,26 +156,19 @@ def load_persistent_work_graph(root: Path = ROOT) -> PersistentWorkGraph:
     requirements = requirements_payload.get("requirements")
     if not isinstance(requirements, list):
         raise PersistentWorkGraphError("PROJECT_REQUIREMENTS.yaml is missing requirements list.")
-
     resource_groups = resources_payload.get("resource_groups")
     if not isinstance(resource_groups, list):
         raise PersistentWorkGraphError("RESOURCE_GROUPS.yaml is missing resource_groups list.")
 
-    tasks = _load_tasks(tasks_dir)
-
-    baseline_count = marker.get("task_count")
-    if not isinstance(baseline_count, int) or baseline_count < 1:
-        raise PersistentWorkGraphError("Bootstrap marker contains invalid task_count.")
-    if len(tasks) < baseline_count:
-        raise PersistentWorkGraphError(
-            f"Live graph has fewer tasks ({len(tasks)}) than the bootstrap baseline ({baseline_count})."
-        )
-
+    tasks = _load_tasks(root / "Tasks")
     plan = WorkGraphPlan(
         id_map=normalized_id_map,
         tasks=tasks,
         resource_groups=tuple(resource_groups),
         project_requirements=tuple(requirements),
     )
-    validation = validate_work_graph_plan(plan)
+    try:
+        validation = validate_work_graph_plan(plan)
+    except Exception as exc:
+        raise PersistentWorkGraphError(f"Persistent work graph validation failed: {exc}") from exc
     return PersistentWorkGraph(plan=plan, marker=marker, validation=validation)
