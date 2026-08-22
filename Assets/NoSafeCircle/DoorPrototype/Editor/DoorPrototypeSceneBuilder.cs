@@ -51,6 +51,25 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 ? EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single)
                 : EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
+            RebuildSceneContents(scene);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.Refresh();
+
+            Debug.Log($"Door Prototype scene built at {ScenePath}");
+        }
+
+        // Test-only seam: rebuilds the current in-memory Editor scene without opening,
+        // saving, or refreshing any asset. Production Build() delegates to the same
+        // construction path before performing its normal canonical-scene save.
+        public static void BuildInMemoryForTests()
+        {
+            RebuildSceneContents(SceneManager.GetActiveScene());
+        }
+
+        private static void RebuildSceneContents(Scene scene)
+        {
             ClearExistingObjects(scene);
 
             BuildLighting();
@@ -70,12 +89,6 @@ namespace NoSafeCircle.DoorPrototype.Editor
             BuildCamera(movement.transform);
 
             BuildUI(door, debugControl, mana, debugManaControl);
-
-            EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene, ScenePath);
-            AssetDatabase.Refresh();
-
-            Debug.Log($"Door Prototype scene built at {ScenePath}");
         }
 
         private static void EnsureFolder(string path)

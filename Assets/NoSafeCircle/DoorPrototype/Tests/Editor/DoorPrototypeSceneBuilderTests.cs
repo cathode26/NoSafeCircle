@@ -1,7 +1,9 @@
+using System.IO;
 using System.Reflection;
 using NUnit.Framework;
 using NoSafeCircle.DoorPrototype.Editor;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
@@ -11,10 +13,25 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 {
     public class DoorPrototypeSceneBuilderTests
     {
+        private const string CanonicalScenePath =
+            "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity";
+
+        [SetUp]
+        public void SetUp()
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        }
+
         [Test]
         public void Build_ProgressFillImage_HasSpriteAssignedSoFillAmountIsVisible()
         {
-            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var fillImage = GameObject.Find("Canvas/ProgressFill/Fill")?.GetComponent<Image>();
 
@@ -28,8 +45,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Test]
         public void Build_RunTwice_DoesNotDuplicateProgressFillHierarchy()
         {
-            DoorPrototypeSceneBuilder.Build();
-            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var canvas = GameObject.Find("Canvas");
             var progressFillCount = 0;
@@ -45,7 +62,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Test]
         public void Build_ControlsHud_ExistsSeparateFromPromptAndProgressIndicator()
         {
-            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var hud = GameObject.Find("Canvas/ControlsHud");
             Assert.IsNotNull(hud, "Expected a 'ControlsHud' object directly under Canvas.");
@@ -59,7 +76,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Test]
         public void Build_ControlsHud_TextMatchesActualImplementedControls()
         {
-            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var hudText = GameObject.Find("Canvas/ControlsHud/Text")?.GetComponent<Text>();
             Assert.IsNotNull(hudText, "Expected a 'Text' element under Canvas/ControlsHud.");
@@ -80,8 +97,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Test]
         public void Build_RunTwice_DoesNotDuplicateControlsHud()
         {
-            DoorPrototypeSceneBuilder.Build();
-            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var canvas = GameObject.Find("Canvas");
             var hudCount = 0;
@@ -96,7 +113,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Test]
         public void Build_MainCamera_IsFixedOrthographicIsometric()
         {
-            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
             Assert.IsNotNull(camera, "Expected a 'Main Camera' with a Camera component.");
@@ -120,8 +137,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Test]
         public void Build_RunTwice_MainCameraStaysSingleAndFixed()
         {
-            DoorPrototypeSceneBuilder.Build();
-            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var cameras = Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
             Assert.AreEqual(1, cameras.Length, "Re-running the scene builder must not duplicate the Main Camera.");
@@ -135,7 +152,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             // check - a camera can satisfy that and still be positioned on the wrong side, or
             // frame the gameplay space badly. What actually matters is that the player and the
             // starting door both land comfortably inside the camera's viewport.
-            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
             var player = GameObject.Find("Player");
@@ -158,7 +175,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Test]
         public void Build_MainCamera_HasFollowComponentTargetingPlayer()
         {
-            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var camera = GameObject.Find("Main Camera");
             var follow = camera?.GetComponent<IsometricCameraFollow>();
@@ -173,7 +190,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Test]
         public void Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed()
         {
-            DoorPrototypeSceneBuilder.Build();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
             var cameraObject = GameObject.Find("Main Camera");
             var player = GameObject.Find("Player");
@@ -203,6 +220,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             // real follow target exists. This locks in the fallback: if that ordering is ever
             // broken, BuildCamera must warn rather than silently place the camera at the world
             // origin with no indication the framing requirement was violated.
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
             var buildCamera = typeof(DoorPrototypeSceneBuilder).GetMethod("BuildCamera",
                 BindingFlags.NonPublic | BindingFlags.Static);
             Assert.IsNotNull(buildCamera, "Expected a private static BuildCamera(Transform) method.");
@@ -219,6 +238,17 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
             Assert.IsNotNull(camera, "BuildCamera must still create a Main Camera even without a follow target.");
             Assert.IsTrue(camera.orthographic);
+        }
+
+        [Test]
+        public void BuildInMemory_CanonicalSceneBytesRemainUnchanged()
+        {
+            var bytesBefore = File.ReadAllBytes(CanonicalScenePath);
+
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            CollectionAssert.AreEqual(bytesBefore, File.ReadAllBytes(CanonicalScenePath),
+                "The in-memory builder must never rewrite the canonical DoorPrototype scene.");
         }
     }
 }
