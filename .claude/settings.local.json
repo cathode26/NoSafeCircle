@@ -2,19 +2,7 @@
   "permissions": {
     "allow": [
       "Read(//home/agent/.claude/usage-data/**)",
-      "Read(//proc/1/**)",
-      "Bash(python3 -c ' *)",
-      "Bash(python3 *)",
-      "Bash(echo \"test change\")",
-      "Bash(echo \"exit=$?\")",
-      "Bash(git status *)",
-      "Bash(git rev-parse *)",
-      "Bash(git -C /workspace rev-parse --git-dir)",
-      "Bash(find / -maxdepth 6 -iname \"NoSafeCircle*\" -type d)",
-      "Bash(find / -maxdepth 8 -path \"*worktrees/NoSafeCircle-M2A\")",
-      "Bash(find / -maxdepth 4 -iname \"*.git\" -type d)",
-      "Bash(env)",
-      "Bash(mount)"
+      "Read(//proc/1/**)"
     ]
   }
 }
