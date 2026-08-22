@@ -36,6 +36,8 @@ The next infrastructure work should also advance a real No Safe Circle task rath
 4. Read `Docs/AI-Pipeline/DECISIONS.md` when the work touches architecture, Git workflow, task semantics, autonomy, RAG, GER, evaluation, refinement, validation, progressive decomposition, or artifact authority.
 5. Inspect the actual repository state before changing anything.
 
+Any work touching Unity tests, validation harnesses, scenes, prefabs, builders/generators, or evidence-producing Unity runs must also read `Docs/Engineering/UNITY_TESTING_POLICY.md`.
+
 For current post-M1 work, the primary milestone context is:
 
 `Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md`

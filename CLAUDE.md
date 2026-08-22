@@ -14,6 +14,12 @@ Use these sources instead:
 
 If this operating guidance and current project canon/state appear inconsistent, do not manufacture a reconciliation fact from this file. Follow the active task's explicit source boundaries and surface the discrepancy for review when necessary.
 
+## Required engineering policy
+
+@Docs/Engineering/UNITY_TESTING_POLICY.md
+
+The imported document is engineering operating guidance, not game-design canon. It does not weaken or replace the source-of-truth boundary above.
+
 ## Global operating rules
 
 - Do not expand approved feature/task scope without authorization.
