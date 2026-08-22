@@ -1,0 +1,52 @@
+{
+  "run_id": "20260821T222222Z-40fdf9ce",
+  "started_at": "2026-08-21T22:22:22.172566+00:00",
+  "frozen_head": "aacbd57e10c9b4e9e40ef356935877527bc2411e",
+  "dirty_worktree_allowed": false,
+  "model_pool": [
+    "gpt-5.6-sol"
+  ],
+  "synthesis_model": "gpt-5.6-sol",
+  "adversary_model": "gpt-5.6-sol",
+  "seed": 426724778,
+  "roles": [
+    {
+      "key": "game_technical_director",
+      "name": "Pragmatic Game Technical Director"
+    },
+    {
+      "key": "workflow_systems_architect",
+      "name": "Workflow and Distributed-Systems Architect"
+    },
+    {
+      "key": "llm_reliability_engineer",
+      "name": "LLM Reliability Engineer"
+    },
+    {
+      "key": "unity_production_engineer",
+      "name": "Unity Production Engineer"
+    },
+    {
+      "key": "yagni_complexity_critic",
+      "name": "YAGNI and Complexity Critic"
+    },
+    {
+      "key": "autonomous_agent_architect",
+      "name": "Autonomous-Agent Architect"
+    },
+    {
+      "key": "adversarial_qa",
+      "name": "Adversarial QA and Failure-Mode Reviewer"
+    },
+    {
+      "key": "game_producer",
+      "name": "Game Producer and Throughput Reviewer"
+    }
+  ],
+  "status": "complete",
+  "reviews_completed_at": "2026-08-21T22:39:58.063165+00:00",
+  "completed_review_count": 8,
+  "synthesis_completed_at": "2026-08-21T22:50:55.806405+00:00",
+  "completed_at": "2026-08-21T23:02:15.041785+00:00",
+  "review_count": 8
+}
