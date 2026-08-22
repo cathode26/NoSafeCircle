@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed, pending human review.
+Accepted — 2026-08-22.
 
 ## Context
 
