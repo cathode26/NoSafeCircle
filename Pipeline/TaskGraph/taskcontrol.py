@@ -5,6 +5,10 @@ import sys
 from collections import defaultdict
 from typing import Any
 
+from execution_authority import (
+    UnsafeExecutionAuthorizationError,
+    assess_execution_authorization,
+)
 from persistent_work_graph import PersistentWorkGraphError, load_persistent_work_graph
 from work_graph_validate import WorkGraphValidationError
 
@@ -37,7 +41,7 @@ def _resolve_task(graph, selector: str) -> dict[str, Any]:
 def _format_task_row(task: dict[str, Any]) -> str:
     return (
         f"{task['id']:<8} "
-        f"{task['status']:<9} "
+        f"{task['status']:<13} "
         f"{task['kind']:<14} "
         f"{task['execution_scope']:<29} "
         f"{task['title']}"
@@ -49,17 +53,18 @@ def command_validate(graph) -> int:
     complete = sum(1 for task in graph.plan.tasks if task["status"] == "complete")
     open_count = len(graph.plan.tasks) - complete
     print("taskcontrol validate: PASS")
-    print(f"Tasks:                {summary.task_count}")
-    print(f"Open:                 {open_count}")
-    print(f"Complete:             {complete}")
-    print(f"Root:                 {summary.root_id} ({summary.root_key})")
-    print(f"Parent edges:         {summary.parent_edge_count}")
-    print(f"Dependency edges:     {summary.dependency_edge_count}")
-    print(f"Resource groups:      {summary.resource_group_count}")
-    print(f"Project requirements: {summary.project_requirement_count}")
-    print("Parent hierarchy:     connected + acyclic")
-    print("Dependency graph:     acyclic")
-    print("Bootstrap marker:     present + complete")
+    print(f"Tasks:                         {summary.task_count}")
+    print(f"Legacy YAML open:              {open_count}")
+    print(f"Legacy YAML complete:          {complete}")
+    print(f"Root:                          {summary.root_id} ({summary.root_key})")
+    print(f"Parent edges:                  {summary.parent_edge_count}")
+    print(f"Dependency edges:              {summary.dependency_edge_count}")
+    print(f"Resource groups:               {summary.resource_group_count}")
+    print(f"Project requirements:          {summary.project_requirement_count}")
+    print("Parent hierarchy:              connected + acyclic")
+    print("Dependency graph:              acyclic")
+    print("Bootstrap marker:              present + complete")
+    print("Autonomous dispatch authority: DISABLED (Phase 1 safety guard)")
     return 0
 
 
@@ -70,11 +75,11 @@ def command_list(graph, status: str | None, kind: str | None) -> int:
     if kind:
         tasks = [task for task in tasks if task["kind"] == kind]
 
-    print("ID       STATUS    KIND           EXECUTION_SCOPE               TITLE")
-    print("-------- --------- -------------- ----------------------------- -----")
+    print("ID       LEGACY_STATUS KIND           EXECUTION_SCOPE               TITLE")
+    print("-------- ------------- -------------- ----------------------------- -----")
     for task in tasks:
         print(_format_task_row(task))
-    print(f"\n{len(tasks)} task(s).")
+    print(f"\n{len(tasks)} task(s). Legacy status is advisory only.")
     return 0
 
 
@@ -102,7 +107,7 @@ def command_show(graph, selector: str) -> int:
     print(f"{task['id']} — {task['title']}")
     print(f"reconciliation_key: {task['reconciliation_key']}")
     print(f"kind/type:          {task['kind']} / {task.get('type', '')}")
-    print(f"status:             {task['status']}")
+    print(f"legacy_status:      {task['status']} (advisory only)")
     print(f"execution_scope:    {task['execution_scope']}")
     if task.get("execution_reason"):
         print(f"execution_reason:   {task['execution_reason']}")
@@ -124,7 +129,10 @@ def command_show(graph, selector: str) -> int:
     else:
         for dependency_id in dependencies:
             dependency = by_id[dependency_id]
-            print(f"  - {dependency_id} [{dependency['status']}] {dependency['title']}")
+            print(
+                f"  - {dependency_id} "
+                f"[legacy_status={dependency['status']}] {dependency['title']}"
+            )
 
     print("\nExclusive resources:")
     resources = task.get("exclusive_resources", [])
@@ -140,10 +148,18 @@ def command_show(graph, selector: str) -> int:
     if task.get("notes"):
         print(f"\nNotes:\n  {task['notes']}")
     print(f"\nRepository state at bootstrap: {task.get('repository_state_at_bootstrap', '')}")
+    print("Execution authorization: not derivable from this task file")
     return 0
 
 
-def ready_tasks(graph) -> list[dict[str, Any]]:
+def advisory_ready_tasks(graph) -> list[dict[str, Any]]:
+    """Return the legacy status-derived frontier for human planning only.
+
+    This calculation intentionally preserves the Milestone 1 bootstrap behavior
+    so humans can inspect the graph. It is not execution authority and must not
+    be consumed by an autonomous dispatcher.
+    """
+
     by_id = graph.tasks_by_id
     ready: list[dict[str, Any]] = []
     for task in graph.plan.tasks:
@@ -158,9 +174,22 @@ def ready_tasks(graph) -> list[dict[str, Any]]:
     return _sorted_tasks(ready)
 
 
+def ready_tasks(graph) -> list[dict[str, Any]]:
+    """Reject the old ambiguous API instead of returning dispatch candidates."""
+
+    _ = graph
+    raise UnsafeExecutionAuthorizationError(
+        "ready_tasks() is disabled because legacy Tasks/*.yaml status cannot "
+        "authorize execution. Use advisory_ready_tasks() only for human planning, "
+        "and use evidence-derived authorization after Phase 2 is implemented."
+    )
+
+
 def command_ready(graph) -> int:
-    tasks = ready_tasks(graph)
-    print("READY WORK")
+    tasks = advisory_ready_tasks(graph)
+    print("ADVISORY READY WORK — NOT AUTHORIZED FOR AUTONOMOUS DISPATCH")
+    print("Derived from mutable legacy Tasks/*.yaml status fields.")
+    print("Use this list for human planning only; `taskcontrol authorize` currently denies all tasks.\n")
     if not tasks:
         print("  (none)")
         return 0
@@ -169,8 +198,21 @@ def command_ready(graph) -> int:
     print("-------- -------------- -----")
     for task in tasks:
         print(f"{task['id']:<8} {task['kind']:<14} {task['title']}")
-    print(f"\n{len(tasks)} ready task(s).")
+    print(f"\n{len(tasks)} advisory task(s). Zero autonomously authorized task(s).")
     return 0
+
+
+def command_authorize(graph, selector: str) -> int:
+    task = _resolve_task(graph, selector)
+    assessment = assess_execution_authorization(task)
+
+    state = "AUTHORIZED" if assessment.authorized else "DENIED"
+    print(f"EXECUTION AUTHORIZATION: {state}")
+    print(f"task:          {task['id']} — {task['title']}")
+    print(f"legacy_status: {task['status']}")
+    print(f"reason_code:   {assessment.reason_code}")
+    print(f"reason:        {assessment.message}")
+    return 0 if assessment.authorized else 2
 
 
 def command_graph(graph) -> int:
@@ -187,15 +229,15 @@ def command_graph(graph) -> int:
 
     def render(task_id: str, depth: int) -> None:
         task = by_id[task_id]
-        status = "complete" if task["status"] == "complete" else "open"
+        legacy_status = "complete" if task["status"] == "complete" else "open"
         scope = task["execution_scope"]
         prefix = "  " * depth
         dep_suffix = ""
         if task["depends_on"]:
             dep_suffix = " deps=" + ",".join(task["depends_on"])
         print(
-            f"{prefix}{task_id} [{status}] [{task['kind']}] [{scope}] "
-            f"{task['title']}{dep_suffix}"
+            f"{prefix}{task_id} [legacy_status={legacy_status}] "
+            f"[{task['kind']}] [{scope}] {task['title']}{dep_suffix}"
         )
         for child_id in children.get(task_id, []):
             render(child_id, depth + 1)
@@ -213,13 +255,27 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("validate", help="Validate the current persistent work graph.")
 
     list_parser = subparsers.add_parser("list", help="List persistent work items.")
-    list_parser.add_argument("--status", choices=("open", "complete"))
+    list_parser.add_argument(
+        "--status",
+        choices=("open", "complete"),
+        help="Filter by legacy advisory YAML status.",
+    )
     list_parser.add_argument("--kind", choices=("feature", "artifact", "implementation"))
 
     show_parser = subparsers.add_parser("show", help="Show one work item by NSC ID or reconciliation key.")
     show_parser.add_argument("task")
 
-    subparsers.add_parser("ready", help="List open single-agent executable work with complete dependencies.")
+    subparsers.add_parser(
+        "ready",
+        help="List the legacy status-derived advisory frontier; never authorizes dispatch.",
+    )
+
+    authorize_parser = subparsers.add_parser(
+        "authorize",
+        help="Check autonomous execution authority. Phase 1 intentionally denies all tasks.",
+    )
+    authorize_parser.add_argument("task")
+
     subparsers.add_parser("graph", help="Print the parent hierarchy and dependency references.")
     return parser
 
@@ -238,10 +294,18 @@ def main(argv: list[str] | None = None) -> int:
             return command_show(graph, args.task)
         if args.command == "ready":
             return command_ready(graph)
+        if args.command == "authorize":
+            return command_authorize(graph, args.task)
         if args.command == "graph":
             return command_graph(graph)
         parser.error(f"Unknown command: {args.command}")
-    except (PersistentWorkGraphError, WorkGraphValidationError, ValueError, KeyError) as exc:
+    except (
+        PersistentWorkGraphError,
+        UnsafeExecutionAuthorizationError,
+        WorkGraphValidationError,
+        ValueError,
+        KeyError,
+    ) as exc:
         print(f"taskcontrol {args.command}: FAIL\n{exc}", file=sys.stderr)
         return 1
 

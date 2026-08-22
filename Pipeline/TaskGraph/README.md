@@ -1,83 +1,136 @@
-# Milestone 1 Task Graph Bootstrap
+# Persistent Work Graph
 
-This directory contains deterministic tooling for turning one human-approved, independently verified reconciliation snapshot into the initial persistent `Tasks/*.yaml` work graph.
+This directory contains deterministic tooling for creating and inspecting the No Safe Circle `Tasks/*.yaml` work graph.
 
-## Safety boundary
+## Current safety boundary
 
-Reconciliation and verification never mutate `Tasks/*.yaml`.
+The initial graph was bootstrapped from one human-approved, independently verified reconciliation snapshot. That bootstrap remains valuable for stable task identity, scope, dependencies, acceptance criteria, validation requirements, and exclusive-resource planning.
 
-Bootstrap proceeds through these stages:
+However, the adversarial architecture review identified an important Phase 1 defect:
 
-1. Reconciliation creates an immutable candidate and proposed bootstrap graph delta.
-2. Independent verification refines/re-verifies the candidate until material findings are zero or the run is rejected.
-3. A human explicitly approves one exact verified candidate/delta pair.
-4. The deterministic Work Graph Seeder checks the approval manifest and creates the initial persistent graph.
-5. Later reconciliation runs propose diffs; they never directly rewrite the graph.
+> The mutable `status` field in `Tasks/*.yaml` is planning metadata, not evidence that implementation is currently integrated and valid.
 
-The approval record binds the immutable candidate, graph delta, and verification summary by SHA-256 so a mutable `outputs/current/` pointer cannot silently change what was approved.
+A one-line edit from `open` to `complete` can change the legacy ready frontier. It cannot prove that:
 
-## Bootstrap approval check
+- implementation exists on the current integrated branch;
+- the tested tree is the integrated tree;
+- required Unity/runtime validation passed;
+- the governing GDD requirement is still current;
+- a later change did not invalidate the result.
 
-Run:
+Until Phase 2 introduces evidence-derived conformance, **autonomous dispatch is disabled**.
 
-```powershell
-python Pipeline/TaskGraph/approve_verified_bootstrap.py
-```
+## Phase 1 execution-authority guard
 
-This performs deterministic checks only and writes nothing.
-
-After reviewing the printed identities and SHA-256 hashes, explicitly record approval with:
+`taskcontrol ready` now prints an explicitly advisory human-planning list:
 
 ```powershell
-python Pipeline/TaskGraph/approve_verified_bootstrap.py --approve --approved-by Vincent
+python3 Pipeline/TaskGraph/taskcontrol.py ready
 ```
 
-This creates the intentionally write-once:
+Its output is headed:
+
+```text
+ADVISORY READY WORK — NOT AUTHORIZED FOR AUTONOMOUS DISPATCH
+```
+
+The legacy Python API named `ready_tasks()` intentionally raises instead of returning candidates. Human-facing code must use the explicitly named `advisory_ready_tasks()` function.
+
+Execution authority can be checked directly:
+
+```powershell
+python3 Pipeline/TaskGraph/taskcontrol.py authorize NSC-003
+```
+
+During Phase 1 this command always returns `DENIED` with exit code `2`, regardless of whether the task YAML says `open` or `complete`.
+
+No current or future dispatcher may launch a worker solely from:
+
+- a task's YAML `status` value;
+- the output of `taskcontrol ready`;
+- the `advisory_ready_tasks()` function.
+
+## Useful commands
+
+```powershell
+python3 Pipeline/TaskGraph/taskcontrol.py validate
+python3 Pipeline/TaskGraph/taskcontrol.py list
+python3 Pipeline/TaskGraph/taskcontrol.py show NSC-003
+python3 Pipeline/TaskGraph/taskcontrol.py ready
+python3 Pipeline/TaskGraph/taskcontrol.py authorize NSC-003
+python3 Pipeline/TaskGraph/taskcontrol.py graph
+```
+
+`validate`, `list`, `show`, `ready`, and `graph` may display the current legacy YAML status, but they label it as advisory. They do not establish completion truth.
+
+## Regression tests
+
+Run the existing persistent-graph smoke test:
+
+```powershell
+python3 Pipeline/TaskGraph/taskcontrol_smoke_test.py
+```
+
+Run the Phase 1 authority regression test:
+
+```powershell
+python3 Pipeline/TaskGraph/phase1_execution_authority_smoke_test.py
+```
+
+The Phase 1 regression proves all of the following:
+
+1. changing a dependency's YAML status can change the advisory frontier;
+2. the same edit does not create execution authority;
+3. the old ambiguous `ready_tasks()` API fails closed;
+4. `taskcontrol authorize` denies the candidate;
+5. even changing the candidate itself to `complete` does not authorize it.
+
+## Transitional manual delivery record
+
+For the first real delivery slices, use:
+
+```text
+Pipeline/TaskGraph/MANUAL_DELIVERY_RECORD_TEMPLATE.md
+```
+
+This form captures task/GDD/base identities, commits, Unity evidence, human validation, integration details, and throughput measurements. It is an audit aid only and is not consumed as automatic completion authority.
+
+## Bootstrap safety boundary
+
+Reconciliation and verification never directly mutate `Tasks/*.yaml`.
+
+The initial bootstrap proceeded through these stages:
+
+1. Reconciliation created an immutable candidate and proposed graph delta.
+2. Independent verification refined and re-verified the candidate.
+3. A human approved one exact candidate/delta pair.
+4. The deterministic Work Graph Seeder verified hashes and created the persistent graph.
+
+The approval record binds immutable inputs by SHA-256:
 
 ```text
 Pipeline/TaskGraph/APPROVED_BOOTSTRAP.json
 ```
 
-## Stage 1 — Approval + immutable input loader
+Bootstrap completion is recorded in:
 
-Run:
-
-```powershell
-python Pipeline/TaskGraph/bootstrap_inputs_smoke_test.py
-python Pipeline/TaskGraph/bootstrap_inputs.py
+```text
+Pipeline/TaskGraph/BOOTSTRAP_PERSISTED.json
 ```
 
-`bootstrap_inputs.py` never reads `outputs/current/` after approval. It loads only the immutable artifacts named by `APPROVED_BOOTSTRAP.json`, recomputes all bound SHA-256 values, checks reconciliation/verification identity and zero final material findings, and confirms every proposed seed key exists in the approved candidate.
+The bootstrap is intentionally one-shot. Do not rerun `seed_work_graph.py --apply` against an already-bootstrapped repository.
 
-## Stage 2 — Stable IDs + in-memory task transform
+## Phase 2 direction
 
-Run:
+Phase 2 will migrate task files toward pure work contracts and derive current state from separate evidence, including:
 
-```powershell
-python Pipeline/TaskGraph/work_graph_transform_smoke_test.py
-python Pipeline/TaskGraph/work_graph_transform.py
-```
+- task-contract revision/hash;
+- governing requirement revision/hash;
+- integrated Git tree;
+- required validation evidence;
+- human approval where required;
+- invalidation or revalidation after relevant GDD/code changes.
 
-To inspect the complete initial ID allocation:
+That future model will replace mutable YAML completion claims with evidence-derived states such as `ready`, `in_progress`, `blocked`, `needs_replan`, `needs_revalidation`, and `complete`.
 
-```powershell
-python Pipeline/TaskGraph/work_graph_transform.py --show-id-map
-```
-
-This stage still writes nothing under `Tasks/`.
-
-The initial stable IDs are allocated in the exact order of the human-approved `proposed_seed_records` list. Because the approved graph delta itself is SHA-256 bound, the initial allocation is reproducible. Once written by the later seed writer, that `reconciliation_key -> NSC-*` mapping becomes durable state and is never regenerated from a later reconciliation.
-
-The transformer mechanically:
-
-- cross-checks operational identity/topology between the approved delta and approved candidate;
-- treats `no-safe-circle` as the project-root sentinel rather than inventing a task for it;
-- converts parent/dependency reconciliation keys into stable `NSC-*` IDs;
-- keeps exclusive-resource locks separate from dependency edges;
-- preserves acceptance criteria, validation requirements, execution/decomposition metadata, provenance, and useful bootstrap repository evidence;
-- carries non-code project requirements separately from executable work;
-- rejects missing parents/dependencies, self-dependencies, unknown resource-group members, or delta/candidate disagreement instead of guessing.
-
-## Next
-
-Stage 3 adds deterministic graph validation and a dry-run report over the in-memory plan. Only after that passes will the atomic seed writer be allowed to create `Tasks/*.yaml` and the durable ID map.
+Phase 1 deliberately does not invent that full schema yet. It only prevents the current legacy status field from being mistaken for autonomous execution authority.
