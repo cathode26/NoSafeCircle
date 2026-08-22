@@ -22,9 +22,9 @@ from index_builder import (
     build_knowledge_base,
     load_knowledge_base,
     status_report,
-    validate_knowledge_base,
     write_knowledge_base,
 )
+from integrity import validate_current_knowledge_base as validate_knowledge_base
 from retrieval import GDDRetriever
 
 
@@ -77,10 +77,12 @@ def command_search(
         print("Run `python Pipeline/GDDRAG/gddctl.py rebuild` to refresh the index.", file=sys.stderr)
         return 1
 
-    retriever = GDDRetriever(knowledge_base_path)
     try:
+        # GDDRetriever performs the same full freshness/integrity validation so
+        # direct consumers cannot bypass the trust boundary used by this CLI.
+        retriever = GDDRetriever(knowledge_base_path)
         results = retriever.retrieve(query=query, top_k=top_k)
-    except ValueError as exc:
+    except (FileNotFoundError, ValueError) as exc:
         print(f"gddctl search: FAIL\n{exc}", file=sys.stderr)
         return 1
 
