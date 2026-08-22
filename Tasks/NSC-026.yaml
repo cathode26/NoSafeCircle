@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-026",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Tilemap and SpriteRenderer World Visual Foundation",
   "reconciliation_key": "world-visual-foundation",
   "kind": "implementation",
   "type": "world-foundation",
-  "status": "open",
   "execution_scope": "needs_execution_decomposition",
   "execution_reason": "This item bundles multiple independently verifiable responsibilities: introducing Tilemap-based floor/wall authoring, converting the door visual and other builder-generated objects to SpriteRenderer prefabs with sorting configuration, and preserving/validating separation from the existing collision/walkability layer across several already-generated scene objects (Floor, Walls, DoorRoot, Player visual). That combination spans more than one bounded, independently testable unit for a single agent.",
   "decomposition_state": "concrete",
@@ -21,31 +22,38 @@
   "acceptance_criteria": [
     {
       "reference": "GDD - Environment Presentation and Authoring Direction",
-      "requirement": "Floors, walls, and repeatable architectural tiles are authored using Unity Isometric Tilemaps (com.unity.2d.tilemap)."
+      "requirement": "Floors, walls, and repeatable architectural tiles are authored using Unity Isometric Tilemaps (com.unity.2d.tilemap).",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "GDD - Environment Presentation and Authoring Direction",
-      "requirement": "The wizard, enemies, doors, props, obstacles, and other independently sorted/interactive objects use world-space SpriteRenderer prefabs rather than being painted into the Tilemap, following consistent isometric sorting conventions."
+      "requirement": "The wizard, enemies, doors, props, obstacles, and other independently sorted/interactive objects use world-space SpriteRenderer prefabs rather than being painted into the Tilemap, following consistent isometric sorting conventions.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "GDD - Environment Presentation and Authoring Direction",
-      "requirement": "The gameplay/simulation layer (walkability, collision, trigger volumes, door state, pursuit logic) remains defined independently of the visual Tilemap/SpriteRenderer layer so visual assets can be revised without changing gameplay rules."
+      "requirement": "The gameplay/simulation layer (walkability, collision, trigger volumes, door state, pursuit logic) remains defined independently of the visual Tilemap/SpriteRenderer layer so visual assets can be revised without changing gameplay rules.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "GDD - Runtime Implementation",
-      "requirement": "The world/floor representation supports all five spaces existing inside one continuous Unity scene with no scene-loading or cross-scene state transfer required."
+      "requirement": "The world/floor representation supports all five spaces existing inside one continuous Unity scene with no scene-loading or cross-scene state transfer required.",
+      "criterion_id": "AC-004"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "GDD - Unity Validation Agent role (Section 4)",
-      "requirement": "Isometric sprite-sorting checks confirming SpriteRenderer objects sort correctly relative to Tilemap geometry and each other."
+      "requirement": "Isometric sprite-sorting checks confirming SpriteRenderer objects sort correctly relative to Tilemap geometry and each other.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "GDD - Unity Validation Agent role (Section 4)",
-      "requirement": "Alignment checks between Tilemap visuals and gameplay geometry (collision/walkability) so the visible and simulated layouts do not desynchronize."
+      "requirement": "Alignment checks between Tilemap visuals and gameplay geometry (collision/walkability) so the visible and simulated layouts do not desynchronize.",
+      "gate_id": "VAL-002"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "GDD - Environment Presentation and Authoring Direction",
@@ -81,8 +89,12 @@
       "observation": "No Grid/Tilemap/TilemapRenderer serialized objects are present in the scene; door and wall visuals are serialized MeshRenderer/BoxCollider/MeshFilter primitives, not SpriteRenderer prefabs."
     }
   ],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

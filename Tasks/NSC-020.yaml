@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-020",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Shared Doorway-Crossing State (Forward-Side Crossing Detection)",
   "reconciliation_key": "doorway-crossing-state",
   "kind": "implementation",
   "type": "gameplay_system",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "Bounded to adding one detection/state capability to the existing door object and exposing it through a small interface; touches a known, small set of files.",
   "decomposition_state": "concrete",
@@ -20,23 +21,28 @@
   "acceptance_criteria": [
     {
       "reference": "Section 3 — Door and Pursuit Rules",
-      "requirement": "Detects, for an open door, when the wizard has actually crossed to that door's forward side; opening the door alone does not set crossing state."
+      "requirement": "Detects, for an open door, when the wizard has actually crossed to that door's forward side; opening the door alone does not set crossing state.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Section 4 — Door and Interaction Agent row",
-      "requirement": "Exposes the crossing state/event through a stable owner-side interface consumed by door close/lock and final-escape victory, so those consumers do not implement their own crossing detector."
+      "requirement": "Exposes the crossing state/event through a stable owner-side interface consumed by door close/lock and final-escape victory, so those consumers do not implement their own crossing detector.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled reset entry point for its crossing state, consumed by the Floor Run/Restart Orchestrator."
+      "requirement": "Exposes an owner-controlled reset entry point for its crossing state, consumed by the Floor Run/Restart Orchestrator.",
+      "criterion_id": "AC-003"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Section 4 — Example Game-Specific Agent Task",
-      "requirement": "Validate that crossing is detected only after the door is open and the wizard has reached the forward side, not merely on interaction completion."
+      "requirement": "Validate that crossing is detected only after the door is open and the wizard has reached the forward side, not merely on interaction completion.",
+      "gate_id": "VAL-001"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 3 — Door and Pursuit Rules",
@@ -67,8 +73,12 @@
       "observation": "Complete() only sets IsOpen=true, disables doorVisual and doorwayBlocker, and resets Progress; there is no forward-side crossing trigger, event, property, or any related state anywhere in this file or elsewhere in the DoorPrototype scripts."
     }
   ],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

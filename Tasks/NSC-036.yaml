@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-036",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Delivery and Build",
   "reconciliation_key": "delivery-and-build",
   "kind": "feature",
   "type": "delivery",
-  "status": "open",
   "execution_scope": "not_applicable",
   "execution_reason": "Organizational feature grouping delivery/build obligations; not itself directly executable.",
   "decomposition_state": "coarse",
@@ -16,10 +17,12 @@
   "acceptance_criteria": [
     {
       "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
-      "requirement": "A Windows Standalone build of the completed game is the required delivery artifact for the capstone."
+      "requirement": "A Windows Standalone build of the completed game is the required delivery artifact for the capstone.",
+      "criterion_id": "AC-001"
     }
   ],
-  "validation_requirements": [],
+  "completion_gates": [],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
@@ -36,8 +39,12 @@
   "notes": "Aggregate repository_state of 'missing' reflects that its sole currently-known concrete descendant (windows-build-scene-registration) has confirmed zero registered scenes and no other build-configuration evidence was found. Per the feature-aggregate rule, evidence is kept on the child implementation item rather than duplicated here.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

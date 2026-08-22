@@ -1,32 +1,48 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-023",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Fixed Isometric Camera",
   "reconciliation_key": "fixed-isometric-camera",
   "kind": "implementation",
   "type": "world-foundation",
-  "status": "complete",
-  "execution_scope": "not_applicable",
-  "execution_reason": "Already implemented and test-validated; not awaiting dispatch or further execution decomposition.",
-  "decomposition_state": "not_applicable",
-  "decomposition_reason": "Work is already complete and atomic; no further decomposition is meaningful.",
+  "execution_scope": "single_agent",
+  "execution_reason": "The fixed-camera behavior is a bounded implementation contract. Historical delivery does not make its execution scope not-applicable; current completion is derived elsewhere.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The fixed projection/no-free-rotation behavior is a concrete bounded contract. Delivery state is intentionally separate from decomposition state.",
   "parent": "NSC-022",
   "depends_on": [],
   "exclusive_resources": [],
   "acceptance_criteria": [
     {
       "reference": "GDD - Executive Summary / 2.5D Isometric Visual and World Representation",
-      "requirement": "Camera renders the gameplay world using a fixed orthographic 2.5D isometric projection at a consistent dimetric angle."
+      "requirement": "Camera renders the gameplay world using a fixed orthographic 2.5D isometric projection at a consistent dimetric angle.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "GDD - 2.5D Isometric Visual and World Representation",
-      "requirement": "No player-controllable free rotation of the world view is exposed; the camera's rotation never changes at runtime."
+      "requirement": "No player-controllable free rotation of the world view is exposed; the camera's rotation never changes at runtime.",
+      "criterion_id": "AC-002"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
+    {
+      "reference": "Bootstrap repository evidence — DoorPrototypeSceneBuilderTests",
+      "requirement": "Unity validation confirms the canonical camera is orthographic and uses the fixed approved isometric rotation without a runtime rotation controller.",
+      "gate_id": "VAL-001"
+    },
+    {
+      "reference": "Bootstrap repository evidence — IsometricCameraFollow validation",
+      "requirement": "Unity validation confirms target-follow translation does not change the camera's fixed rotation.",
+      "gate_id": "VAL-002"
+    }
+  ],
+  "downstream_integration_obligations": [
     {
       "reference": "GDD - Camera completion and future integration",
-      "requirement": "Once the Tilemap/SpriteRenderer world-visual foundation exists, validate that the fixed isometric camera framing remains visually compatible with the new visual layer (alignment/sorting check), without reopening the already-satisfied fixed-angle/no-rotation requirement."
+      "requirement": "Once the Tilemap/SpriteRenderer world-visual foundation exists, validate that the fixed isometric camera framing remains visually compatible with the new visual layer (alignment/sorting check), without reopening the already-satisfied fixed-angle/no-rotation requirement.",
+      "obligation_id": "INT-001"
     }
   ],
   "gdd_evidence": [
@@ -66,8 +82,12 @@
       "observation": "Build_MainCamera_IsFixedOrthographicIsometric asserts orthographic mode and rotation equal to Quaternion.Euler(30,-45,0) within 0.01 degrees and absence of any Rotate/Orbit-named component; Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed asserts rotation is unchanged after the player moves and LateUpdate runs."
     }
   ],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "complete",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

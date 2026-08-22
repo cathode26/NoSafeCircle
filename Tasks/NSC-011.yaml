@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-011",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Active Enemy Registry",
   "reconciliation_key": "active-enemy-registry",
   "kind": "implementation",
   "type": "implementation",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "Self-contained bookkeeping component (count/capacity tracking with register/unregister and a reset entry point) with no other current-repository system to integrate against; a single agent can implement and validate it in isolation.",
   "decomposition_state": "concrete",
@@ -16,39 +17,48 @@
   "acceptance_criteria": [
     {
       "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Registry exposes the current active enemy count and remaining capacity under the hard cap of fifteen active enemies."
+      "requirement": "Registry exposes the current active enemy count and remaining capacity under the hard cap of fifteen active enemies.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Enemy activation registers an enemy; only a defeat-driven unregister call (consumed by Enemy Health/Defeat) removes an enemy from the active count."
+      "requirement": "Enemy activation registers an enemy; only a defeat-driven unregister call (consumed by Enemy Health/Defeat) removes an enemy from the active count.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Target loss, entering search state, crossing between rooms, and waiting behind a locked door do not remove a surviving persistent enemy from the registry."
+      "requirement": "Target loss, entering search state, crossing between rooms, and waiting behind a locked door do not remove a surviving persistent enemy from the registry.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Registry exposes an owner-controlled reset entry point that returns bookkeeping to the floor's initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating registry internals directly."
+      "requirement": "Registry exposes an owner-controlled reset entry point that returns bookkeeping to the floor's initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating registry internals directly.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "Section 2 — Win and Loss Conditions (Loss); Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "After a floor restart, the registry's reported active count and remaining capacity agree with the set of live persistent enemies restored by the enemy-owned resets: an enemy restored to an active state is represented through the normal activation-registration path rather than being independently counted or omitted by restart-side adjustment, so admission gating resumes from accurate bookkeeping."
+      "requirement": "After a floor restart, the registry's reported active count and remaining capacity agree with the set of live persistent enemies restored by the enemy-owned resets: an enemy restored to an active state is represented through the normal activation-registration path rather than being independently counted or omitted by restart-side adjustment, so admission gating resumes from accurate bookkeeping.",
+      "criterion_id": "AC-005"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Verify the registry's reported active count and remaining capacity stay accurate as enemies are registered and unregistered, including at the fifteen-enemy hard cap boundary."
+      "requirement": "Verify the registry's reported active count and remaining capacity stay accurate as enemies are registered and unregistered, including at the fifteen-enemy hard cap boundary.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Verify target loss, search-state transition, room crossing, and waiting behind a locked door do not remove a surviving enemy from the registry's active count."
+      "requirement": "Verify target loss, search-state transition, room crossing, and waiting behind a locked door do not remove a surviving enemy from the registry's active count.",
+      "gate_id": "VAL-002"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart returns registry bookkeeping to the floor's initial state through its owner-controlled reset entry point, and that the post-restart active count matches the live set of persistent enemies restored to their initial AI state rather than assuming an empty registry."
+      "requirement": "Verify floor restart returns registry bookkeeping to the floor's initial state through its owner-controlled reset entry point, and that the post-restart active count matches the live set of persistent enemies restored to their initial AI state rather than assuming an empty registry.",
+      "gate_id": "VAL-003"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
@@ -77,8 +87,12 @@
   "notes": "A repository-wide grep across Assets/ for 'Registry' found no matches; this component does not exist in any form, including as builder-capability scaffolding.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-001",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "No Safe Circle",
   "reconciliation_key": "no-safe-circle",
   "kind": "feature",
   "type": "root",
-  "status": "open",
   "execution_scope": "not_applicable",
   "execution_reason": "Root feature is not directly executable; it exists purely to aggregate the complete work graph.",
   "decomposition_state": "coarse",
@@ -16,10 +17,12 @@
   "acceptance_criteria": [
     {
       "reference": "Section 3 - Required Scope, Exclusions, and Stretch Goals",
-      "requirement": "The completed game satisfies the stated Required Scope: one wizard, one handcrafted 2.5D isometric floor with five connected spaces, three spells, two enemy archetypes, mana regeneration, sealed doors, cross-room pursuit, death and restart, essential feedback, and a Windows build."
+      "requirement": "The completed game satisfies the stated Required Scope: one wizard, one handcrafted 2.5D isometric floor with five connected spaces, three spells, two enemy archetypes, mana regeneration, sealed doors, cross-room pursuit, death and restart, essential feedback, and a Windows build.",
+      "criterion_id": "AC-001"
     }
   ],
-  "validation_requirements": [],
+  "completion_gates": [],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 1 - Executive Summary",
@@ -32,8 +35,12 @@
   "notes": "This worker only directly inspected the global_pipeline domain (delivery/build and non-code/process requirements). Aggregate repository_state of 'partial' reflects that the GDD's own Current Prototype Scene Evidence section confirms a working DoorPrototype scene/script set exists, while the confirmed zero-scene Windows build registration (see windows-build-scene-registration) and the broad required scope described in Section 3 indicate most required systems remain open. Per the feature-aggregate rule, no child repository_evidence is duplicated here; other domain workers' own root-adjacent findings should be reconciled against this at merge time.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-021",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Door Close/Lock, Health Restore Request, Durability, and Locked-to-Broken Lifecycle",
   "reconciliation_key": "door-close-lock-break-lifecycle",
   "kind": "implementation",
   "type": "gameplay_system",
-  "status": "open",
   "execution_scope": "needs_execution_decomposition",
   "execution_reason": "This item currently bundles several independently verifiable responsibilities — core close/lock state-machine and durability/damage-API logic, player-facing breach feedback presentation (visual/audio), and navigation-passability publication integration against a not-yet-existing navigation layer — which together span more files, subsystems, and validation concerns than is safe to hand to one implementation agent at once, even though the underlying design is fully concrete.",
   "decomposition_state": "concrete",
@@ -25,63 +26,78 @@
   "acceptance_criteria": [
     {
       "reference": "Section 2 — Close and Lock",
-      "requirement": "After doorway-crossing-state confirms forward-side crossing, the door automatically closes and locks with no additional player input."
+      "requirement": "After doorway-crossing-state confirms forward-side crossing, the door automatically closes and locks with no additional player input.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Section 2 — Player Health ownership",
-      "requirement": "Completing the automatic close/lock requests the small fixed health restoration through the Player Health owner-controlled restore interface (clamped to max health); this component never writes Player Health state directly."
+      "requirement": "Completing the automatic close/lock requests the small fixed health restoration through the Player Health owner-controlled restore interface (clamped to max health); this component never writes Player Health state directly.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Section 3 — Door and Pursuit Rules",
-      "requirement": "Once locked, the door cannot be reopened, unlocked, or crossed again by the player; the floor is a forward-only escape sequence, including after any door has broken."
+      "requirement": "Once locked, the door cannot be reopened, unlocked, or crossed again by the player; the floor is a forward-only escape sequence, including after any door has broken.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "Section 3 — Locked-door attack and durability ownership",
-      "requirement": "Exposes runtime durability and an owner-controlled damage-receive interface that other systems (e.g., enemy locked-door attacks) call to reduce durability; owns the locked-to-broken state transition; requesting systems never write durability or semantic door state directly."
+      "requirement": "Exposes runtime durability and an owner-controlled damage-receive interface that other systems (e.g., enemy locked-door attacks) call to reduce durability; owns the locked-to-broken state transition; requesting systems never write durability or semantic door state directly.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "Section 3 — Door and Pursuit Rules",
-      "requirement": "When durability reaches zero the door breaks; a broken door remains open and cannot be closed or relocked for the remainder of the run, permits forward enemy traversal, and is not a return path for the player."
+      "requirement": "When durability reaches zero the door breaks; a broken door remains open and cannot be closed or relocked for the remainder of the run, permits forward enemy traversal, and is not a return path for the player.",
+      "criterion_id": "AC-005"
     },
     {
       "reference": "Section 3 — Door passability contract",
-      "requirement": "Publishes semantic door state (sealed/open/locked/broken) through the shared navigation-owned passability interface so sealed/locked blocks enemy traversal and open/broken permits it; this component does not directly manipulate NavMesh or doorway passability itself."
+      "requirement": "Publishes semantic door state (sealed/open/locked/broken) through the shared navigation-owned passability interface so sealed/locked blocks enemy traversal and open/broken permits it; this component does not directly manipulate NavMesh or doorway passability itself.",
+      "criterion_id": "AC-006"
     },
     {
       "reference": "Section 2 — Door feedback",
-      "requirement": "Provides required player-facing breach feedback — banging, shaking, cracks, and a durability indicator — as the door nears breaking; this is implementation behavior, not validation-only prose."
+      "requirement": "Provides required player-facing breach feedback — banging, shaking, cracks, and a durability indicator — as the door nears breaking; this is implementation behavior, not validation-only prose.",
+      "criterion_id": "AC-007"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled reset entry point for door lifecycle/crossing/durability state, consumed by the Floor Run/Restart Orchestrator."
+      "requirement": "Exposes an owner-controlled reset entry point for door lifecycle/crossing/durability state, consumed by the Floor Run/Restart Orchestrator.",
+      "criterion_id": "AC-008"
     },
     {
       "reference": "Section 4 — Dungeon Encounter Agent",
-      "requirement": "Exposes a per-door authorable/serialized durability value so Dungeon Encounter can configure it per door, without Dungeon Encounter owning runtime durability state, damage intake, or the locked-to-broken transition."
+      "requirement": "Exposes a per-door authorable/serialized durability value so Dungeon Encounter can configure it per door, without Dungeon Encounter owning runtime durability state, damage intake, or the locked-to-broken transition.",
+      "criterion_id": "AC-009"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Section 3 — Door and Pursuit Rules",
-      "requirement": "Validate that a surviving enemy still actively tracking/pursuing the player and blocked by the locked door continues attacking it until it breaks, and that pursuit resumes through the doorway once broken (exercised jointly with the enemy_behavior domain's locked-door attack owner)."
+      "requirement": "Validate that a surviving enemy still actively tracking/pursuing the player and blocked by the locked door continues attacking it until it breaks, and that pursuit resumes through the doorway once broken (exercised jointly with the enemy_behavior domain's locked-door attack owner).",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Section 3 — Door and Pursuit Rules",
-      "requirement": "Validate that a broken or locked door is never a return path for the player, including after breaking."
+      "requirement": "Validate that a broken or locked door is never a return path for the player, including after breaking.",
+      "gate_id": "VAL-002"
     },
     {
       "reference": "Section 2 — Door feedback",
-      "requirement": "Validate that breach feedback (banging/shaking/crack/durability indicator) is player-perceivable before the door actually breaks."
+      "requirement": "Validate that breach feedback (banging/shaking/crack/durability indicator) is player-perceivable before the door actually breaks.",
+      "gate_id": "VAL-003"
     },
     {
       "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "Crossing an opened doorway causes automatic close-and-lock with no second player input required, and this behavior is readable/expected by a first-time player."
+      "requirement": "Crossing an opened doorway causes automatic close-and-lock with no second player input required, and this behavior is readable/expected by a first-time player.",
+      "gate_id": "VAL-004"
     },
     {
       "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "Failure caused by waiting too long — allowing a locked door to break under sustained pursuer pressure — is readable to the player through durability/breach feedback."
+      "requirement": "Failure caused by waiting too long — allowing a locked door to break under sustained pursuer pressure — is readable to the player through durability/breach feedback.",
+      "gate_id": "VAL-005"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 2 — Player Actions and Systems, 'Close and Lock'",
@@ -130,8 +146,12 @@
       "observation": "com.unity.ai.navigation is not declared, and no NavMesh-related script exists under Assets/NoSafeCircle, confirming the gameplay navigation/passability layer this work must publish to does not yet exist."
     }
   ],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

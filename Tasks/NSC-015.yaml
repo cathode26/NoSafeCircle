@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-015",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Melee Enemy Archetype",
   "reconciliation_key": "melee-enemy",
   "kind": "implementation",
   "type": "enemy_archetype",
-  "status": "open",
   "execution_scope": "needs_execution_decomposition",
   "execution_reason": "Integrates several distinct subsystem contracts (shared pursuit/locomotion consumption, Enemy Health/Defeat participation, Active Enemy Registry participation, melee attack execution, and SpriteRenderer prefab presentation/sorting) into one assembled archetype; each integration point has its own validation concern, exceeding a single bounded agent handoff.",
   "decomposition_state": "concrete",
@@ -23,51 +24,63 @@
   "acceptance_criteria": [
     {
       "reference": "Required Enemy Roster",
-      "requirement": "Runs at the wizard and attacks at close range once the shared pursuit foundation acquires the player as target."
+      "requirement": "Runs at the wizard and attacks at close range once the shared pursuit foundation acquires the player as target.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Required Enemy Roster",
-      "requirement": "Deals damage to the player exclusively through the shared Player Health damage interface (existing PlayerHealth.TakeDamage), never writing separate player-health state."
+      "requirement": "Deals damage to the player exclusively through the shared Player Health damage interface (existing PlayerHealth.TakeDamage), never writing separate player-health state.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Resources, Feedback, and Failure",
-      "requirement": "A retreating player cannot maintain indefinite safety through ordinary movement alone; Melee Enemy pursuit gradually closes distance over time, with exact speed/tuning left to playtesting."
+      "requirement": "A retreating player cannot maintain indefinite safety through ordinary movement alone; Melee Enemy pursuit gradually closes distance over time, with exact speed/tuning left to playtesting.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "Spell and Enemy Interactions",
-      "requirement": "Multiple simultaneously pursuing Melee Enemies exhibit natural clustering while chasing (not rigid uniform spacing), preserving the relevance of Charged Fireball area damage and Frost Field formation-stretching."
+      "requirement": "Multiple simultaneously pursuing Melee Enemies exhibit natural clustering while chasing (not rigid uniform spacing), preserving the relevance of Charged Fireball area damage and Frost Field formation-stretching.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "Environment Presentation and Authoring Direction",
-      "requirement": "Delivers a usable assembled world-space SpriteRenderer archetype prefab integrating the shared pursuit/locomotion foundation, Enemy Health/Defeat participation, Active Enemy Registry participation, and Melee attack behavior."
+      "requirement": "Delivers a usable assembled world-space SpriteRenderer archetype prefab integrating the shared pursuit/locomotion foundation, Enemy Health/Defeat participation, Active Enemy Registry participation, and Melee attack behavior.",
+      "criterion_id": "AC-005"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled attack-state reset entry point that clears any in-progress attack cooldown/windup and cancels an in-flight melee attack when the Floor Run/Restart Orchestrator invokes floor restart, so no mid-execution attack state carries over from a failed run."
+      "requirement": "Exposes an owner-controlled attack-state reset entry point that clears any in-progress attack cooldown/windup and cancels an in-flight melee attack when the Floor Run/Restart Orchestrator invokes floor restart, so no mid-execution attack state carries over from a failed run.",
+      "criterion_id": "AC-006"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled restart/reset entry point that clears melee attack execution/wind-up state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly."
+      "requirement": "Exposes an owner-controlled restart/reset entry point that clears melee attack execution/wind-up state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly.",
+      "criterion_id": "AC-007"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Spell and Enemy Interactions",
-      "requirement": "Exercise multiple simultaneously pursuing Melee Enemies (not only one) to validate that clustering behavior remains meaningful for area-damage/formation-stretch interactions."
+      "requirement": "Exercise multiple simultaneously pursuing Melee Enemies (not only one) to validate that clustering behavior remains meaningful for area-damage/formation-stretch interactions.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Required Enemy Roster",
-      "requirement": "Verify melee damage is applied only through PlayerHealth.TakeDamage and not through any duplicated health-writing path."
+      "requirement": "Verify melee damage is applied only through PlayerHealth.TakeDamage and not through any duplicated health-writing path.",
+      "gate_id": "VAL-002"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify a mid-windup/mid-swing Melee Enemy attack is cancelled and cooldown/windup state is cleared by floor restart, with no attack state surviving into the next run."
+      "requirement": "Verify a mid-windup/mid-swing Melee Enemy attack is cancelled and cooldown/windup state is cleared by floor restart, with no attack state surviving into the next run.",
+      "gate_id": "VAL-003"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart clears melee attack execution/wind-up state through the owner-controlled reset entry point."
+      "requirement": "Verify floor restart clears melee attack execution/wind-up state through the owner-controlled reset entry point.",
+      "gate_id": "VAL-004"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Required Enemy Roster",
@@ -96,8 +109,12 @@
   "notes": "Frost Field's slowdown application/restoration is owned by enemy-status-effect-displacement (a different domain); this item only needs to expose a locomotion speed that can be externally modified, and no formal dependency in that direction is added since the GDD makes status-effect the consumer of this behavior, not the reverse.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

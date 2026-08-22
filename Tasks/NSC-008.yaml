@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-008",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Frost Field",
   "reconciliation_key": "frost-field",
   "kind": "implementation",
   "type": "spell",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "Frost Field is one cohesive spell component (cast/placement/active-field state, mana spend, feedback, trigger call to the enemy-owned status-effect interface, reset, suspend); splitting it further is not supported by approved design.",
   "decomposition_state": "concrete",
@@ -23,43 +24,53 @@
   "acceptance_criteria": [
     {
       "reference": "Section 2 — Player Actions and Systems / Frost Field targeting and feedback bullet",
-      "requirement": "Frost Field places its temporary slow area at the current shared world-space pointer target exposed by Player Movement, without independently projecting screen-to-world coordinates."
+      "requirement": "Frost Field places its temporary slow area at the current shared world-space pointer target exposed by Player Movement, without independently projecting screen-to-world coordinates.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Section 2 — Frost Field targeting and feedback bullet",
-      "requirement": "Frost Field provides player-facing feedback that makes the cast and the active field readable during placement and while active; the exact visual/audio treatment is an implementation choice."
+      "requirement": "Frost Field provides player-facing feedback that makes the cast and the active field readable during placement and while active; the exact visual/audio treatment is an implementation choice.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Section 4 — Wizard Combat Agent row",
-      "requirement": "Frost Field triggers the enemy slowdown effect through the Enemy Pursuit/status-effect owner-controlled interface; it does not itself implement enemy slowdown application, restoration, Ranged Enemy targeting, or Ranged Enemy attacks."
+      "requirement": "Frost Field triggers the enemy slowdown effect through the Enemy Pursuit/status-effect owner-controlled interface; it does not itself implement enemy slowdown application, restoration, Ranged Enemy targeting, or Ranged Enemy attacks.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "Section 2 — Resources, Feedback, and Failure / Development Agent Ownership Invariants",
-      "requirement": "Frost Field spends mana through Player Mana's existing owner-controlled Spend interface when cast."
+      "requirement": "Frost Field spends mana through Player Mana's existing owner-controlled Spend interface when cast.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "Section 5 — Runtime Implementation",
-      "requirement": "Frost Field's casting input is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+      "requirement": "Frost Field's casting input is routed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling.",
+      "criterion_id": "AC-005"
     },
     {
       "reference": "Section 2 — Spell-local state ownership bullet",
-      "requirement": "Frost Field owns its Wizard-Combat-side cast/placement/active-field state and exposes an owner-controlled reset entry point for that state, consumed by the Floor Run/Restart Orchestrator."
+      "requirement": "Frost Field owns its Wizard-Combat-side cast/placement/active-field state and exposes an owner-controlled reset entry point for that state, consumed by the Floor Run/Restart Orchestrator.",
+      "criterion_id": "AC-006"
     },
     {
       "reference": "Section 2 — Victory/input-shutdown ownership bullet",
-      "requirement": "Frost Field exposes an owner-controlled gameplay-enable/suspend interface that immediately stops active casting/placement, rejects new cast input while suspended, and can be re-enabled by an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+      "requirement": "Frost Field exposes an owner-controlled gameplay-enable/suspend interface that immediately stops active casting/placement, rejects new cast input while suspended, and can be re-enabled by an authorized reset/test flow, consumed by the Game Flow/Victory capability.",
+      "criterion_id": "AC-007"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Section 2 — Spell and Enemy Interactions, Frost Field row",
-      "requirement": "Validate that casting Frost Field creates a readable opening against a melee group (stretches pursuit) without itself guaranteeing a fully safe Fireball charge in every position, matching the resource-tradeoff description."
+      "requirement": "Validate that casting Frost Field creates a readable opening against a melee group (stretches pursuit) without itself guaranteeing a fully safe Fireball charge in every position, matching the resource-tradeoff description.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Validate that triggering a floor restart while a Frost Field cast/placement is active clears Frost Field's own casting-side state through its reset entry point."
+      "requirement": "Validate that triggering a floor restart while a Frost Field cast/placement is active clears Frost Field's own casting-side state through its reset entry point.",
+      "gate_id": "VAL-002"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 2 — Player Actions and Systems, Frost Field row",
@@ -88,8 +99,12 @@
   "notes": "No dependency on player-mana is needed because PlayerMana.Spend already exists and is directly usable; Frost Field's real prerequisites are the still-unfinished Player-Movement pointer projection and the still-unfinished Enemy Pursuit status-effect owner.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-005",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Player Mana Ownership, Restart Reset, and Denied-Cast Feedback",
   "reconciliation_key": "player-mana",
   "kind": "implementation",
   "type": "implementation",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "Bounded addition to one existing component (PlayerMana.cs) that does not require new scene-wired UI, since the existing PlayerManaUI/fill Image can consume a new denied-cast event without builder changes.",
   "decomposition_state": "concrete",
@@ -16,31 +17,38 @@
   "acceptance_criteria": [
     {
       "reference": "GDD §5 Runtime Implementation",
-      "requirement": "Exposes an owner-controlled reset entry point that restores current mana to full and clears post-cast regeneration-delay timer state for floor restart."
+      "requirement": "Exposes an owner-controlled reset entry point that restores current mana to full and clears post-cast regeneration-delay timer state for floor restart.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "GDD §3 Player Experience Success Criteria — Failure is readable",
-      "requirement": "Exposes a signal (e.g. an event) when a cast attempt is denied due to insufficient mana, distinct from a successful spend, so a consuming spell/UI can present readable low-mana feedback; exact presentation is an implementation choice."
+      "requirement": "Exposes a signal (e.g. an event) when a cast attempt is denied due to insufficient mana, distinct from a successful spend, so a consuming spell/UI can present readable low-mana feedback; exact presentation is an implementation choice.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "GDD §2 Player Mana ownership",
-      "requirement": "Continues to own only current mana and post-cast regeneration-delay state; does not absorb Fireball/Frost Field/Force Wave spell-local cooldown, charge, cast, placement, or active-field state."
+      "requirement": "Continues to own only current mana and post-cast regeneration-delay state; does not absorb Fireball/Frost Field/Force Wave spell-local cooldown, charge, cast, placement, or active-field state.",
+      "criterion_id": "AC-003"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "GDD §2 Resources, Feedback, and Failure",
-      "requirement": "Existing Play Mode coverage of Spend/regen/post-cast-delay behavior (PlayerManaPlayModeTests.cs) continues to pass and is extended to cover the new reset entry point and denied-cast signal."
+      "requirement": "Existing Play Mode coverage of Spend/regen/post-cast-delay behavior (PlayerManaPlayModeTests.cs) continues to pass and is extended to cover the new reset entry point and denied-cast signal.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "GDD §3 Player Experience Success Criteria",
-      "requirement": "Validate that failure is readable through low-mana feedback as one of the stated readable failure causes."
+      "requirement": "Validate that failure is readable through low-mana feedback as one of the stated readable failure causes.",
+      "gate_id": "VAL-002"
     },
     {
       "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "Failure caused by low mana is readable to the player through the mana indicator, as part of the required 'failure is readable' success criterion."
+      "requirement": "Failure caused by low mana is readable to the player through the mana indicator, as part of the required 'failure is readable' success criterion.",
+      "gate_id": "VAL-003"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "GDD §2 Resources, Feedback, and Failure — Player Mana ownership",
@@ -82,8 +90,12 @@
       "observation": "Real Play Mode tests cover Spend success/failure, post-cast-delay non-regeneration, regeneration after delay, and delay-reset on subsequent spend."
     }
   ],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

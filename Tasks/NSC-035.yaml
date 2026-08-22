@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-035",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Final Escape / Victory (Game Flow/Victory Capability)",
   "reconciliation_key": "final-escape-victory",
   "kind": "implementation",
   "type": "run_lifecycle",
-  "status": "open",
   "execution_scope": "needs_execution_decomposition",
   "execution_reason": "The capability must integrate against six separate owner suspend interfaces plus the crossing-state trigger plus a scene-built overlay; that many independently-owned integration points exceeds a single bounded agent handoff, and none of the consumed owner interfaces exist yet.",
   "decomposition_state": "concrete",
@@ -26,31 +27,38 @@
   "acceptance_criteria": [
     {
       "reference": "Win and Loss Conditions",
-      "requirement": "Victory is triggered exactly when the shared doorway-crossing state (owned by Door and Interaction) reports forward-side crossing of the final door; no independent crossing check is implemented."
+      "requirement": "Victory is triggered exactly when the shared doorway-crossing state (owned by Door and Interaction) reports forward-side crossing of the final door; no independent crossing check is implemented.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Win and Loss Conditions",
-      "requirement": "On victory, a simple player-facing 'You Escaped' overlay is displayed; no additional post-victory progression, menu flow, or meta-progression is implemented."
+      "requirement": "On victory, a simple player-facing 'You Escaped' overlay is displayed; no additional post-victory progression, menu flow, or meta-progression is implemented.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Victory/input-shutdown ownership",
-      "requirement": "On victory, the capability calls owner-controlled suspend entry points on Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave; each suspend call stops that system's already-active input-driven activity (e.g., an in-progress door approach or spell charge) and causes new gameplay commands to that system to be rejected while suspended."
+      "requirement": "On victory, the capability calls owner-controlled suspend entry points on Player Movement, Door/Interaction, Fireball, Frost Field, and Force Wave; each suspend call stops that system's already-active input-driven activity (e.g., an in-progress door approach or spell charge) and causes new gameplay commands to that system to be rejected while suspended.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "Victory/input-shutdown ownership",
-      "requirement": "The capability does not directly mutate movement/door/spell-internal state; it only invokes each owner's exposed suspend/re-enable interface, and re-enable is reachable only through an authorized reset/test flow."
+      "requirement": "The capability does not directly mutate movement/door/spell-internal state; it only invokes each owner's exposed suspend/re-enable interface, and re-enable is reachable only through an authorized reset/test flow.",
+      "criterion_id": "AC-004"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Win and Loss Conditions",
-      "requirement": "Play Mode check: crossing the final door's forward side triggers the You Escaped overlay and halts movement, door interaction, and all three spells' input-driven activity, including activity already in progress at the moment of crossing."
+      "requirement": "Play Mode check: crossing the final door's forward side triggers the You Escaped overlay and halts movement, door interaction, and all three spells' input-driven activity, including activity already in progress at the moment of crossing.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Victory/input-shutdown ownership",
-      "requirement": "Play Mode check: after victory, issuing movement/door/spell input produces no gameplay effect until an authorized re-enable/reset flow runs."
+      "requirement": "Play Mode check: after victory, issuing movement/door/spell input produces no gameplay effect until an authorized re-enable/reset flow runs.",
+      "gate_id": "VAL-002"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Win and Loss Conditions",
@@ -67,8 +75,12 @@
   "notes": "If a future graph introduces a single shared input-gating owner that centralizes these consumers, victory should depend on that owner instead of duplicating six edges (per prompt guidance); no such owner currently exists.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }

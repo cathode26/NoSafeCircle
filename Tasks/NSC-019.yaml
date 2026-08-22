@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "id": "NSC-019",
+  "contract_revision": 1,
+  "contract_disposition": "active",
   "title": "Cursor-Targeted Door Opening (Click-to-Approach, Arm's-Reach Auto-Timer, Interruption)",
   "reconciliation_key": "door-open-interaction",
   "kind": "implementation",
   "type": "gameplay_system",
-  "status": "open",
   "execution_scope": "single_agent",
   "execution_reason": "The work is bounded to a known, small set of files (DoorInteractable.cs, PlayerInteractionController.cs, the scene/builder wiring) implementing one cohesive interaction flow; it is not yet dispatch-ready until player-movement's shared pointer projection exists, but its own scope is not so broad that it needs further execution splitting.",
   "decomposition_state": "concrete",
@@ -23,63 +24,68 @@
   "acceptance_criteria": [
     {
       "reference": "Section 2 — Open Sealed Door",
-      "requirement": "Clicking a sealed door issues a combined approach-and-interact request using the shared world-space pointer target exposed by Player Movement; Door and Interaction does not independently project screen-to-world coordinates."
+      "requirement": "Clicking a sealed door issues a combined approach-and-interact request using the shared world-space pointer target exposed by Player Movement; Door and Interaction does not independently project screen-to-world coordinates.",
+      "criterion_id": "AC-001"
     },
     {
       "reference": "Section 2 — Open Sealed Door; Section 3 — Door and Pursuit Rules",
-      "requirement": "The wizard automatically moves to the door's interaction position; when arm's-reach range is reached, the five-second opening timer starts automatically with no sustained button hold required."
+      "requirement": "The wizard automatically moves to the door's interaction position; when arm's-reach range is reached, the five-second opening timer starts automatically with no sustained button hold required.",
+      "criterion_id": "AC-002"
     },
     {
       "reference": "Section 2 — Open Sealed Door",
-      "requirement": "After the door is selected, cursor movement/drift away from the door does not cancel the approach request or the running timer."
+      "requirement": "After the door is selected, cursor movement/drift away from the door does not cancel the approach request or the running timer.",
+      "criterion_id": "AC-003"
     },
     {
       "reference": "Section 2 — Setbacks; Section 3 — Door and Pursuit Rules",
-      "requirement": "Taking damage, moving away once timing has begun, or issuing another command that cancels/replaces the door interaction resets progress to zero."
+      "requirement": "Taking damage, moving away once timing has begun, or issuing another command that cancels/replaces the door interaction resets progress to zero.",
+      "criterion_id": "AC-004"
     },
     {
       "reference": "Section 5 — Runtime Implementation",
-      "requirement": "Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling."
+      "requirement": "Door selection/approach input is consumed through the project's Unity Input System/Input Actions layer rather than independent direct hardware polling.",
+      "criterion_id": "AC-005"
     },
     {
-      "reference": "Section 2 — Victory/input-shutdown ownership; Section 4 — Final escape/victory coordination; Section 5 — Runtime Implementation (Game Flow/Victory capability)",
-      "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface that immediately cancels an in-progress door approach/opening timer, rejects new door-selection commands while suspended, and can be re-enabled only through an authorized reset/test flow."
-    },
-    {
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled reset entry point that returns its owned interaction/opening state (opening progress, interacting flag, open flag, and doorway-blocker state) to floor-initial values, consumed by the Floor Run/Restart Orchestrator."
-    },
-    {
-      "reference": "Section 2 — Open Sealed Door; Section 3 — Door Passability Contract",
-      "requirement": "Completing five uninterrupted seconds transitions the door's semantic state from sealed to open (player-traversable); door-close-lock-break-lifecycle owns publishing this resulting open state through the shared navigation-owned passability interface."
+      "reference": "GDD §2 Victory/input-shutdown ownership; §4 Development Agent Ownership Invariants and final escape/victory coordination; §5 Game Flow/Victory capability",
+      "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface, consumed by the Game Flow/Victory capability, that immediately cancels or stops any in-progress door approach/opening timer, rejects new door-selection or door-interaction commands while suspended, and can be re-enabled only through an authorized reset/test flow.",
+      "criterion_id": "AC-006"
     },
     {
       "reference": "GDD §2 Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled reset entry point that returns owned opening state (interaction progress, open flag, doorway-blocker enablement) to floor-initial values, consumed by the Floor Run/Restart Orchestrator rather than having internals mutated externally."
+      "requirement": "Exposes an owner-controlled reset entry point that returns all owned interaction and opening state—including progress, interacting state, open state, and doorway-blocker enablement—to floor-initial values, consumed by the Floor Run/Restart Orchestrator rather than having internals mutated externally.",
+      "criterion_id": "AC-007"
     },
     {
-      "reference": "GDD §2 Victory/input-shutdown ownership; §4 Development Agent Ownership Invariants",
-      "requirement": "Exposes an owner-controlled gameplay-enable/suspend interface that immediately stops an in-progress door approach/opening timer, rejects new door-interaction commands while suspended, and can be re-enabled only through an authorized reset/test flow, consumed by the Game Flow/Victory capability."
+      "reference": "Section 2 — Open Sealed Door; Section 3 — Door Passability Contract",
+      "requirement": "Completing five uninterrupted seconds transitions the door's semantic state from sealed to open (player-traversable); door-close-lock-break-lifecycle owns publishing this resulting open state through the shared navigation-owned passability interface.",
+      "criterion_id": "AC-008"
     }
   ],
-  "validation_requirements": [
+  "completion_gates": [
     {
       "reference": "Section 3 — Player Experience Success Criteria",
-      "requirement": "Validate that a first-time player understands reaching the door alone is insufficient and that the automatic five-second timer must complete uninterrupted."
+      "requirement": "Validate that a first-time player understands reaching the door alone is insufficient and that the automatic five-second timer must complete uninterrupted.",
+      "gate_id": "VAL-001"
     },
     {
       "reference": "Section 4 — Unity Validation Agent row; Example Game-Specific Agent Task",
-      "requirement": "Validate cursor-targeted door range and cursor-drift behavior: drift after selection does not cancel, while damage/moving away during timing does."
+      "requirement": "Validate cursor-targeted door range and cursor-drift behavior: drift after selection does not cancel, while damage/moving away during timing does.",
+      "gate_id": "VAL-002"
     },
     {
       "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "A first-time player understands that clicking a door sends the wizard to it, and that reaching the door is not enough — the automatic opening timer still requires five safe, uninterrupted seconds."
+      "requirement": "A first-time player understands that clicking a door sends the wizard to it, and that reaching the door is not enough — the automatic opening timer still requires five safe, uninterrupted seconds.",
+      "gate_id": "VAL-003"
     },
     {
       "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "Door interaction requires accurate cursor target selection only on the initial click; the wizard's automatic approach, the timer's automatic start on arrival, and tolerance of normal cursor drift after selection are all readable to a first-time player."
+      "requirement": "Door interaction requires accurate cursor target selection only on the initial click; the wizard's automatic approach, the timer's automatic start on arrival, and tolerance of normal cursor drift after selection are all readable to a first-time player.",
+      "gate_id": "VAL-004"
     }
   ],
+  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 2 — Player Actions and Systems, 'Open Sealed Door'",
@@ -135,8 +141,12 @@
       "observation": "The 'Player' action map defines Move/Look/Attack/Interact/Crouch/Jump/Previous/Next/Sprint actions; 'Interact' uses a Hold interaction with no visible mouse/pointer binding in the reviewed section. No gameplay-map Point/Click action exists; Point/Click bindings only exist in the separate 'UI' action map used for UI navigation."
     }
   ],
-  "bootstrap_source": {
+  "provenance": {
+    "origin": "verified_reconciliation_bootstrap",
+    "source_schema_version": "1.0",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de"
+    "verification_run_id": "20260821T195959Z-43dba5de",
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2"
   }
 }
