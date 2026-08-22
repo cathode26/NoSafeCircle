@@ -47,6 +47,8 @@ The next slice is:
 
 **Phase 3B — First Real Delivery Evidence Record.**
 
+After Phase 3 is merged, a planned follow-up will extract a provider-neutral `AgentRuntime` and production `ExecutionCrew` supporting Claude Code and OpenAI/Codex. See `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md` and `Docs/AI-Pipeline/ADR-034_PROVIDER_NEUTRAL_AGENT_RUNTIME.md`. No provider-runtime implementation has started, and this follow-up does not replace Phase 3B as the immediate milestone.
+
 The planned proving case is `NSC-023 — Fixed Isometric Camera` because it already exists in the integrated game, has no task dependencies, has two concrete completion gates, and avoids the unresolved control-design questions around NSC-003. This is an evidence-system proof, not a change in gameplay priority.
 
 ## Architecture Review Result

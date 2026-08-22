@@ -52,6 +52,7 @@ Completed persistent graph semantics, stable IDs, readiness, taskcontrol | `01_M
 **Current next milestone:** RAG canon retrieval, Unity/code scanner, context packs, progressive decomposition, artifact authority | `02_RAG_SCANNER_CONTEXT.md`
 Supervisor, task claiming, Git branches, worktrees, GitHub Issues/Projects/PRs | `03_SUPERVISOR_GIT_GITHUB_CONTEXT.md`
 Assignment 3 crew, Assignment 6 GER, bounded repair loops, deterministic tests, Unity/runtime validation, evaluator specializations | `04_EXECUTION_GER_VALIDATION_CONTEXT.md`
+Provider-neutral AgentRuntime, Claude/OpenAI adapters, and production Execution Crew architecture | `06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`
 Continuous autonomous ticket processing, budgets, blockers, parallel workers, planning refresh | `05_CONTINUOUS_AUTONOMY_CONTEXT.md`
 
 ## Milestone 1 Commands
