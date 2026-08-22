@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-22, after completing and regression-testing Architecture Correction Phase 3A on `phase-3-evidence-derived-conformance`.
+Last updated: 2026-08-22, after completing provider-neutral Execution Crew preparatory Stage 1 and proving the clean Unity runner on `phase-3-evidence-derived-conformance`.
 
 ## Current Phase
 
@@ -380,6 +380,44 @@ Existing TaskGraph transform, graph validation, persistence, taskcontrol, migrat
 
 The Python `py_compile` command is not used through `codex-review` because Python attempts to write `__pycache__` into the intentionally read-only repository mount. The actual smoke tests import and execute the new modules successfully.
 
+## Provider-Neutral Execution Crew Preparatory Stage 1 — COMPLETE
+
+Stage 1 of `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md` established the canonical provider-neutral Unity testing policy and deterministic clean runner while leaving Phase 3B as the current immediate milestone.
+
+Implemented:
+
+- `Docs/Engineering/UNITY_TESTING_POLICY.md`;
+- the provider-neutral testing-policy instruction bridge in `AGENTS.md`;
+- the testing-policy import in `CLAUDE.md`;
+- `Pipeline/Testing/run_unity_tests_clean.ps1`;
+- `Pipeline/Testing/testing_policy_smoke_test.py`;
+- `Pipeline/Testing/README.md`.
+
+Deterministic checks passed:
+
+- `testing_policy_smoke_test.py`;
+- Windows PowerShell syntax parsing of `run_unity_tests_clean.ps1`.
+
+The clean runner was also proven through a real Unity run with these exact facts:
+
+- branch: `phase-3-evidence-derived-conformance`;
+- commit: `1d3ed42db6fd595283bd1b57a008a4f4c5438796`;
+- tree: `9ce6f9fae545bc187f6b3869c4c36b17ac5f8a45`;
+- Unity: `6000.1.8f1`;
+- platform: `PlayMode`;
+- filter: `NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests`;
+- total: 5;
+- passed: 5;
+- failed: 0;
+- skipped: 0;
+- result: `Passed`;
+- Unity exit code: 0;
+- repository clean before and after the run.
+
+The runner proves Unity and Git execution facts. It does not create Phase 3 conformance, enable readiness or authorization, or create a delivery or baseline evidence record. `taskcontrol ready` remains unavailable and `taskcontrol authorize` remains denied.
+
+Stage 1 did **not** implement `AgentRuntime`, provider adapters, `ExecutionCrew`, or a dedicated test-author agent. Those remain later stages with the entry criteria and authority boundaries defined by the plan and ADR-034.
+
 ## Current Dispatch Policy
 
 Evidence-derived state inspection exists, but **dependency readiness and autonomous dispatch are not enabled**.
@@ -482,14 +520,12 @@ This choice is **not** a gameplay-priority decision. It is selected because the 
 
 Phase 3B sequence:
 
-```text
-clean committed Phase 3A
-→ run real camera Unity validation on one exact integrated commit
-→ preserve the exact test XML/log evidence as committed artifacts
-→ identify and record exact camera conformance-surface Git blob SHAs
-→ create a committed DEL-NSC-023-... delivery record
-→ taskcontrol state NSC-023 becomes conformant
-```
+1. refactor the destructive `DoorPrototypeSceneBuilderTests` harness under the new policy;
+2. add committed-scene camera conformance tests;
+3. prove both suites through `Pipeline/Testing/run_unity_tests_clean.ps1`;
+4. create the first real NSC-023 baseline evidence record.
+
+The resulting evidence record must preserve the exact required Unity artifacts, identify the exact camera conformance-surface Git blob SHAs, and be evaluated through `taskcontrol state NSC-023`. Until that record is committed and passes deterministic evaluation, NSC-023 remains `not_delivered`.
 
 The delivery record must bind validation to the exact integrated commit/tree. Evidence created only on a pre-merge candidate is insufficient unless the exact tested tree is also the integrated tree or post-merge validation is performed.
 
