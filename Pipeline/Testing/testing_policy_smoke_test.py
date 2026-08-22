@@ -59,14 +59,29 @@ def main() -> int:
     require(runner, r"status.+--porcelain=v1.+--untracked-files=all", "Runner does not inspect tracked and untracked status")
     if len(re.findall(r"Get-WorkingTreeStatus", runner)) < 3:
         raise AssertionError("Runner does not check Git status both before and after Unity")
-    require(runner, r"rev-parse.+HEAD", "Runner does not record HEAD")
-    require(runner, r"rev-parse.+HEAD\^\{tree\}", "Runner does not record the Git tree")
+    require(runner, r"preHead\s*=.+rev-parse.+HEAD", "Runner does not record HEAD before Unity")
+    require(runner, r"postHead\s*=.+rev-parse.+HEAD", "Runner does not record HEAD after Unity")
+    require(runner, r"preTree\s*=.+rev-parse.+HEAD\^\{tree\}", "Runner does not record the Git tree before Unity")
+    require(runner, r"postTree\s*=.+rev-parse.+HEAD\^\{tree\}", "Runner does not record the Git tree after Unity")
+    require(runner, r"finally\s*\{.+postHead.+postTree.+postStatus", "Runner does not preserve post-run Git checks on failures")
     require(runner, r"\[System\.IO\.Path\]::GetTempPath\(\)", "Runner does not use the OS temporary directory")
     for argument in ("-batchmode", "-projectPath", "-runTests", "-testPlatform", "-testFilter", "-testResults", "-logFile"):
         require(runner, re.escape(argument), f"Unity invocation is missing {argument}")
-    if re.search(r"(?im)^\s*-quit(?:\s|$)", runner):
+    if re.search(r"(?i)(?<![\w])-quit(?![\w])", runner):
         raise AssertionError("Runner must not invoke Unity with -quit")
-    require(runner, r"unityExitCode\s*=\s*\$LASTEXITCODE", "Runner does not capture Unity's exit code")
+    require(runner, r"Start-Process.+-Wait.+-PassThru", "Runner does not explicitly wait for the Unity process")
+    require(runner, r"unityExitCode\s*=\s*\$unityProcess\.ExitCode", "Runner does not capture the process object's exit code")
+    if re.search(r"unityExitCode\s*=\s*\$LASTEXITCODE", runner, re.IGNORECASE):
+        raise AssertionError("Runner must not use LASTEXITCODE as Unity's process exit code")
+    for value in ("resolvedProjectPath", "TestFilter", "xmlPath", "logPath"):
+        require(runner, rf"ConvertTo-WindowsCommandLineArgument\s+\${value}", f"Runner does not quote {value} for Unity")
+    require(runner, r"xmlPublicationDeadline\s*=.+AddSeconds\(.+do\s*\{.+Test-Path.+xmlPath.+Start-Sleep.+\}\s*while", "Runner does not use bounded XML publication polling")
+    stop_with_code = re.search(r"function\s+Stop-WithCode\s*\{(?P<body>.*?)^\}", runner, re.IGNORECASE | re.MULTILINE | re.DOTALL)
+    if stop_with_code is None:
+        raise AssertionError("Runner does not define Stop-WithCode")
+    if re.search(r"\bWrite-Error\b", stop_with_code.group("body"), re.IGNORECASE):
+        raise AssertionError("Stop-WithCode must not use Write-Error")
+    require(stop_with_code.group("body"), r"\[Console\]::Error\.WriteLine", "Stop-WithCode does not write failure output to stderr")
     require(runner, r"Test-Path.+xmlPath", "Runner does not require XML output")
     require(runner, r"SelectSingleNode\(\"/test-run\"\)", "Runner does not parse the test-run element")
     require(runner, r"GetAttribute\(\$attributeName\)", "Runner does not parse numeric test-run attributes")

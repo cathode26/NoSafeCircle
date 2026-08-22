@@ -13,14 +13,18 @@ The selected task contract and current approved GDD define required behavior. Th
 From the repository root in Windows PowerShell:
 
 ```powershell
-& .\Pipeline\Testing\run_unity_tests_clean.ps1 -TestPlatform EditMode -TestFilter "NoSafeCircle.DoorPrototype.Tests.Editor"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\Testing\run_unity_tests_clean.ps1 -TestPlatform EditMode -TestFilter "NoSafeCircle.DoorPrototype.Tests.Editor"
 ```
 
 ```powershell
-& .\Pipeline\Testing\run_unity_tests_clean.ps1 -TestPlatform PlayMode -TestFilter "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\Testing\run_unity_tests_clean.ps1 -TestPlatform PlayMode -TestFilter "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests"
 ```
 
-Use `-UnityExecutable` to override the Unity Hub-derived executable path or `-ProjectPath` to select the Unity project. The project must begin completely clean, including untracked files. The runner fails if Unity changes HEAD or leaves any working-tree change, even when all assertions pass. It never restores or hides the changes.
+Using `powershell.exe -NoProfile -ExecutionPolicy Bypass -File` prevents a local execution policy from blocking the committed wrapper. Use `-UnityExecutable` to override the Unity Hub-derived executable path or `-ProjectPath` to select the Unity project. The project must begin completely clean, including untracked files.
+
+The runner waits for the exact Unity process to finish, captures that process's exit code, and then waits for a short bounded period for the XML result to become visible. It still performs the post-run HEAD, tree, and status checks when Unity fails or XML is absent. The runner fails if Unity changes HEAD or leaves any working-tree change, even when all assertions pass. It never restores or hides the changes, and it preserves the unique temporary artifact directory on every result.
+
+These safeguards improve test execution but do not establish that Stage 1 is complete.
 
 ## Artifacts and later evidence
 

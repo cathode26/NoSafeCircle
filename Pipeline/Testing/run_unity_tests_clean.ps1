@@ -36,8 +36,40 @@ function Get-WorkingTreeStatus {
 
 function Stop-WithCode {
     param([int]$Code, [string]$Message)
-    Write-Error $Message
+    [Console]::Error.WriteLine($Message)
     exit $Code
+}
+
+function ConvertTo-WindowsCommandLineArgument {
+    param([AllowEmptyString()][string]$Argument)
+
+    # Start-Process in Windows PowerShell 5.1 joins ArgumentList into one command
+    # line. Quote each value using the CommandLineToArgvW escaping rules.
+    $quoted = New-Object System.Text.StringBuilder
+    [void]$quoted.Append('"')
+    $backslashes = 0
+    foreach ($character in $Argument.ToCharArray()) {
+        if ($character -eq '\') {
+            $backslashes++
+            continue
+        }
+        if ($character -eq '"') {
+            [void]$quoted.Append(('\' * (($backslashes * 2) + 1)))
+            [void]$quoted.Append('"')
+            $backslashes = 0
+            continue
+        }
+        if ($backslashes -gt 0) {
+            [void]$quoted.Append(('\' * $backslashes))
+            $backslashes = 0
+        }
+        [void]$quoted.Append($character)
+    }
+    if ($backslashes -gt 0) {
+        [void]$quoted.Append(('\' * ($backslashes * 2)))
+    }
+    [void]$quoted.Append('"')
+    return $quoted.ToString()
 }
 
 try {
@@ -86,16 +118,27 @@ try {
 
     $unityExitCode = $null
     $invocationFailure = $null
+    $xmlPublished = $false
     try {
-        & $UnityExecutable `
-            -batchmode `
-            -projectPath $resolvedProjectPath `
-            -runTests `
-            -testPlatform $TestPlatform `
-            -testFilter $TestFilter `
-            -testResults $xmlPath `
-            -logFile $logPath
-        $unityExitCode = $LASTEXITCODE
+        $unityArguments = @(
+            "-batchmode",
+            "-projectPath", (ConvertTo-WindowsCommandLineArgument $resolvedProjectPath),
+            "-runTests",
+            "-testPlatform", (ConvertTo-WindowsCommandLineArgument $TestPlatform),
+            "-testFilter", (ConvertTo-WindowsCommandLineArgument $TestFilter),
+            "-testResults", (ConvertTo-WindowsCommandLineArgument $xmlPath),
+            "-logFile", (ConvertTo-WindowsCommandLineArgument $logPath)
+        )
+        $unityProcess = Start-Process -FilePath $UnityExecutable -ArgumentList $unityArguments -Wait -PassThru
+        $unityExitCode = $unityProcess.ExitCode
+
+        $xmlPublicationDeadline = [DateTime]::UtcNow.AddSeconds(5)
+        do {
+            $xmlPublished = Test-Path -LiteralPath $xmlPath -PathType Leaf
+            if (-not $xmlPublished -and [DateTime]::UtcNow -lt $xmlPublicationDeadline) {
+                Start-Sleep -Milliseconds 100
+            }
+        } while (-not $xmlPublished -and [DateTime]::UtcNow -lt $xmlPublicationDeadline)
     }
     catch {
         $invocationFailure = $_.Exception.Message
@@ -134,7 +177,7 @@ try {
     if ($unityExitCode -ne 0) {
         Stop-WithCode $ExitUnity "UNITY FAILURE: Unity exited with code $unityExitCode.`nXML: $xmlPath`nLog: $logPath"
     }
-    if (-not (Test-Path -LiteralPath $xmlPath -PathType Leaf)) {
+    if (-not $xmlPublished) {
         Stop-WithCode $ExitResult "RESULT FAILURE: Unity did not create the required XML result file: $xmlPath"
     }
 
