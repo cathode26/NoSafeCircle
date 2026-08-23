@@ -5,6 +5,7 @@ import json
 import os
 import random
 import subprocess
+import tempfile
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -15,6 +16,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 REVIEW_ROOT = ROOT / "Pipeline" / "ArchitectureReview"
 OUTPUT_ROOT = REVIEW_ROOT / "outputs"
+PROVIDER_NAMESPACE = "claude"
 
 MAX_WORKERS = int(os.environ.get("ARCH_REVIEW_MAX_WORKERS", "8"))
 REVIEW_TIMEOUT = int(os.environ.get("ARCH_REVIEW_TIMEOUT_SECONDS", "1800"))
@@ -322,9 +324,60 @@ def utc_now() -> str:
 
 def safe_write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def configure_provider_namespace(namespace: str) -> None:
+    """Select the provider-owned output tree for this integration."""
+    if namespace not in {"claude", "codex"}:
+        raise ValueError(f"Unsupported ArchitectureReview provider namespace: {namespace!r}")
+    global PROVIDER_NAMESPACE
+    PROVIDER_NAMESPACE = namespace
+
+
+def provider_output_root() -> Path:
+    return OUTPUT_ROOT / PROVIDER_NAMESPACE
+
+
+def publish_latest(
+    *, run_dir: Path, run_id: str, frozen_head: str,
+    synthesis: dict[str, Any], adversary: dict[str, Any],
+) -> None:
+    """Publish convenience views only after the caller has completed the run."""
+    manifest_path = run_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("status") != "complete"
+        or manifest.get("provider_namespace") != PROVIDER_NAMESPACE
+    ):
+        raise RuntimeError("ArchitectureReview latest may only publish a complete run owned by the configured provider.")
+    latest_record = {
+        "provider_namespace": PROVIDER_NAMESPACE,
+        "run_id": run_id,
+        "run_path": run_dir.relative_to(ROOT).as_posix(),
+        "frozen_head": frozen_head,
+    }
+    provider_latest = provider_output_root() / "latest"
+    safe_write_json(provider_latest / "LATEST.json", latest_record)
+    safe_write_json(provider_latest / "synthesis.json", synthesis)
+    safe_write_json(provider_latest / "adversarial_critique.json", adversary)
+
+    global_latest = OUTPUT_ROOT / "latest"
+    for stale_name in ("synthesis.json", "adversarial_critique.json"):
+        stale_path = global_latest / stale_name
+        if stale_path.exists():
+            stale_path.unlink()
+    safe_write_json(global_latest / "LATEST.json", latest_record)
 
 
 def git_head() -> str:
@@ -355,6 +408,11 @@ def git_dirty() -> bool:
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "Could not read git status.")
     return bool(result.stdout.strip())
+
+
+def configure_invocation_run_root(run_dir: Path) -> None:
+    """Allow a provider integration to bind audit artifacts to a review run."""
+    _ = run_dir
 
 
 def invoke_read_only_agent(
@@ -456,6 +514,24 @@ The frozen repository commit for this review is:
 Inspect the repository directly using Read/Glob/Grep. Architecture documents are claims
 to verify against implementation and repository history, not unquestioned truth.
 
+Experimental independence rule: do not inspect prior ArchitectureReview reviewer
+outputs, syntheses, or critiques. Do not inspect `Pipeline/ArchitectureReview/outputs/`
+from prior or other-provider runs, and do not inspect preserved ArchitectureReview
+evidence merely to learn previous reviewers' conclusions. Form your independent review
+from architecture documents, implementation, tests, Git history, Unity/project evidence,
+and other primary repository evidence. Do not inspect sibling reviewer outputs or their
+AgentRuntime logs.
+
+When architecture or current-state documents summarize or quote prior
+ArchitectureReview conclusions, distinguish implemented architecture and accepted
+project decisions from prior reviewer opinions. Ignore prior ArchitectureReview
+verdicts, reviewer recommendations, synthesis conclusions, adversarial critique
+conclusions, and reviewer vote/count summaries. Do not use those prior reviewer opinions
+as evidence for your new independent verdict. You may use the current implementation,
+tests, accepted ADR decisions, Git history, Unity/project state, task/evidence structures,
+and current documented architecture facts, but independently decide whether they are
+good or bad.
+
 Start with these documents, then inspect implementation/tests/history where needed:
 
 {docs}
@@ -516,6 +592,10 @@ Eight independent reviews are stored in:
 Read every `*.json` review in that directory and inspect the repository yourself where
 needed.
 
+Use only the eight human-facing review files from this current run plus primary
+repository evidence as needed. Do not read prior-run or other-provider reviews,
+syntheses, critiques, or provider/AgentRuntime logs.
+
 Your job is NOT to count votes. These reviewers share model-family biases and repeated
 claims are not independent proof. Evaluate arguments and repository evidence.
 
@@ -550,6 +630,10 @@ Read:
 - synthesis: `{synthesis_rel}`
 - all independent reviews: `{review_rel}/`
 - repository architecture and implementation evidence as needed
+
+Use only that current-run synthesis, the eight current-run human-facing reviews, and
+primary repository evidence as needed. Ignore all prior-run or other-provider
+ArchitectureReview conclusions and provider/AgentRuntime logs.
 
 Build the strongest technical and production case AGAINST the synthesis.
 
@@ -636,10 +720,11 @@ def main() -> int:
     frozen_head = git_head()
     seed = args.seed if args.seed is not None else random.SystemRandom().randrange(1, 2**31)
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
-    run_dir = OUTPUT_ROOT / "runs" / run_id
+    run_dir = provider_output_root() / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
 
     manifest = {
+        "provider_namespace": PROVIDER_NAMESPACE,
         "run_id": run_id,
         "started_at": utc_now(),
         "frozen_head": frozen_head,
@@ -683,14 +768,10 @@ def main() -> int:
     manifest["review_count"] = len(review_results)
     safe_write_json(run_dir / "manifest.json", manifest)
 
-    current = OUTPUT_ROOT / "current"
-    current.mkdir(parents=True, exist_ok=True)
-    safe_write_json(
-        current / "LATEST.json",
-        {"run_id": run_id, "run_path": run_dir.relative_to(ROOT).as_posix()},
+    publish_latest(
+        run_dir=run_dir, run_id=run_id, frozen_head=frozen_head,
+        synthesis=synthesis, adversary=adversary,
     )
-    safe_write_json(current / "synthesis.json", synthesis)
-    safe_write_json(current / "adversarial_critique.json", adversary)
 
     print(f"Architecture review complete: {run_dir.relative_to(ROOT).as_posix()}")
     print(f"Synthesis: {synthesis_path.relative_to(ROOT).as_posix()}")

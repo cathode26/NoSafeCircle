@@ -26,6 +26,7 @@ def main() -> int:
         review_dir.mkdir()
 
         manifest = {
+            "provider_namespace": "codex",
             "run_id": "smoke-run",
             "seed": 12345,
             "frozen_head": "deadbeef",
@@ -91,6 +92,28 @@ def main() -> int:
             )
             is None
         )
+
+    original_output_root = base.OUTPUT_ROOT
+    original_git_head = base.git_head
+    with tempfile.TemporaryDirectory(prefix="resume-namespace-", dir=base.REVIEW_ROOT) as temp_text:
+        base.OUTPUT_ROOT = Path(temp_text)
+        base.configure_provider_namespace("codex")
+        mismatch_dir = base.provider_output_root() / "runs" / "same-id"
+        write_json(mismatch_dir / "manifest.json", {
+            "provider_namespace": "claude", "frozen_head": "deadbeef"
+        })
+        base.git_head = lambda: "deadbeef"
+        try:
+            try:
+                resume.open_resumed_run("same-id")
+            except RuntimeError as exc:
+                assert "different provider namespace" in str(exc)
+            else:
+                raise AssertionError("provider mismatch must refuse resume")
+        finally:
+            base.OUTPUT_ROOT = original_output_root
+            base.git_head = original_git_head
+            base.configure_provider_namespace("codex")
 
     print("architecture_review_resume_smoke_test: PASS")
     return 0

@@ -8,7 +8,10 @@ from typing import Any, Mapping
 from .json_values import JsonValueError, freeze_json
 
 SUPPORTED_TYPES = {"object", "array", "string", "integer", "number", "boolean", "null"}
-SUPPORTED_KEYWORDS = {"type", "properties", "required", "additionalProperties", "items", "enum"}
+SUPPORTED_KEYWORDS = {
+    "type", "properties", "required", "additionalProperties", "items", "enum",
+    "minimum", "maximum",
+}
 
 
 class SchemaValidationError(ValueError):
@@ -68,6 +71,27 @@ def _validate_schema(schema: Any, path: str) -> None:
     kind = schema.get("type")
     if kind not in SUPPORTED_TYPES:
         raise SchemaValidationError(f"{path}: a supported type is required")
+    for keyword in ("minimum", "maximum"):
+        if keyword in schema:
+            bound = schema[keyword]
+            if kind not in {"integer", "number"}:
+                raise SchemaValidationError(
+                    f"{path}: {keyword} requires integer or number type"
+                )
+            if isinstance(bound, bool) or not isinstance(bound, (int, float)):
+                raise SchemaValidationError(
+                    f"{path}: {keyword} must be a finite JSON number"
+                )
+            if isinstance(bound, float) and not math.isfinite(bound):
+                raise SchemaValidationError(
+                    f"{path}: {keyword} must be a finite JSON number"
+                )
+    if (
+        "minimum" in schema
+        and "maximum" in schema
+        and schema["minimum"] > schema["maximum"]
+    ):
+        raise SchemaValidationError(f"{path}: minimum may not exceed maximum")
     if "enum" in schema:
         enum = schema["enum"]
         if not isinstance(enum, (list, tuple)) or not enum:
@@ -136,6 +160,11 @@ def _validate_instance(value: Any, schema: Mapping[str, Any], path: str) -> None
     kind = schema["type"]
     if not _matches_type(value, kind):
         raise SchemaValidationError(f"{path}: expected {kind}")
+    if kind in {"integer", "number"}:
+        if "minimum" in schema and value < schema["minimum"]:
+            raise SchemaValidationError(f"{path}: value is below minimum")
+        if "maximum" in schema and value > schema["maximum"]:
+            raise SchemaValidationError(f"{path}: value is above maximum")
     if "enum" in schema and not any(
         _json_equal(value, item) for item in schema["enum"]
     ):

@@ -13,7 +13,7 @@ The review does **not** assume that the current milestone order, persistent work
 
 The active review path uses **OpenAI Codex CLI authenticated with the user's ChatGPT account**.
 
-The original Claude runner remains in `architecture_review.py` because the shared schemas, prompts, role definitions, and output contract live there. `architecture_review_codex.py` swaps in Codex and delegates stage execution to the resumable orchestrator in `architecture_review_resume.py`.
+The original Claude runner remains in `architecture_review.py` because the shared schemas, prompts, role definitions, and output contract live there. The active `architecture_review_codex.py` integration maps each invocation to generic AgentRuntime; `AgentRunner` selects `OpenAICodexProvider` and the concrete configured model before the resumable orchestrator consumes the familiar result shape.
 
 Run the Codex path through the Docker `codex-review` service. Docker is the security boundary: the repository is mounted read-only, while only `Pipeline/ArchitectureReview/outputs/` is writable. Codex therefore runs with its nested sandbox disabled (`danger-full-access`) so container sandbox restrictions do not block repository inspection.
 
@@ -50,6 +50,8 @@ Every reviewer is explicitly told to challenge:
 - whether infrastructure solves observed failures or hypothetical failures;
 - whether a materially different architecture would be better;
 - whether the pipeline will increase game-development throughput enough to justify its cost.
+
+Reviewers are also told not to inspect prior or other-provider ArchitectureReview conclusions. When normal architecture or current-state documents contain historical review summaries, independent reviewers ignore the prior verdicts, recommendations, synthesis/adversarial conclusions, and vote/count summaries while still using implemented architecture, accepted decisions, and current primary evidence. They independently judge whether those facts and decisions are good or bad. Synthesis uses only its eight current-run reviews plus primary evidence; the adversarial critic uses only that current-run synthesis and reviews plus primary evidence. This preserves review provenance and supports a later Claude-versus-Codex comparison without implementing that comparison yet. Each provider retains all eight independent reviewer roles.
 
 The target is not architectural elegance by itself. The system must be both technically sound and capable of increasing real gameplay-development throughput.
 
@@ -94,7 +96,7 @@ docker compose run --rm codex-review python3 Pipeline/ArchitectureReview/archite
 Run the small live structured-output test:
 
 ```powershell
-docker compose run --rm codex-review python3 Pipeline/ArchitectureReview/codex_provider_live_smoke_test.py
+docker compose run --rm -e NSC_RUN_OPENAI_CODEX_SMOKE=1 codex-review python3 Pipeline/ArchitectureReview/codex_provider_live_smoke_test.py
 ```
 
 ## Run the Full Review
@@ -121,7 +123,7 @@ docker compose run --rm -e ARCH_REVIEW_MAX_WORKERS=4 codex-review python3 Pipeli
 
 Every completed reviewer is written immediately. If one reviewer, synthesis, or the final adversarial critique fails, successful work remains under the same run directory.
 
-Resume with the run ID printed in the failure message or visible under `Pipeline/ArchitectureReview/outputs/runs/`:
+Resume with the run ID printed in the failure message or visible under `Pipeline/ArchitectureReview/outputs/codex/runs/`:
 
 ```powershell
 docker compose run --rm -e ARCH_REVIEW_MAX_WORKERS=4 codex-review python3 Pipeline/ArchitectureReview/architecture_review_codex.py --resume-run <run-id>
@@ -134,6 +136,7 @@ The resume command:
 - reuses a completed synthesis;
 - reruns only the adversarial critique if that is the missing stage;
 - refuses to resume if the checked-out Git commit differs from the run's frozen commit;
+- refuses to resume a run owned by a different provider namespace;
 - preserves prior failures in `failure_history.json`.
 
 Do not begin a new run after a partial failure unless a deliberately fresh independent review is desired.
@@ -171,11 +174,20 @@ Codex does not expose Claude's `--max-turns` control. Each agent is bounded by t
 
 ## Outputs
 
-Each run creates immutable output under:
+Each provider owns its run and latest-complete output under:
 
 ```text
-Pipeline/ArchitectureReview/outputs/runs/<run-id>/
+Pipeline/ArchitectureReview/outputs/
+  claude/
+    runs/<run-id>/
+    latest/
+  codex/
+    runs/<run-id>/
+    latest/
+  latest/
 ```
+
+The direct historical/default Claude path uses `claude`; the active AgentRuntime-backed OpenAI path uses the stable `codex` namespace. Every manifest records `provider_namespace`, and resume remains within that namespace.
 
 Contents include:
 
@@ -183,6 +195,11 @@ Contents include:
 manifest.json
 model_assignments.json
 failure_history.json            # only when a stage has failed
+agent_runtime/
+  <unique-invocation-id>/
+    request.json
+    provider.log
+    result.json
 reviews/
   adversarial_qa.json
   autonomous_agent_architect.json
@@ -196,11 +213,13 @@ synthesis.json
 adversarial_critique.json
 ```
 
-The latest completed synthesis and critique are copied to:
+Each provider's latest completed synthesis and critique are copied to its `latest/` directory. A single atomic pointer to the most recently completed run regardless of provider is published at:
 
 ```text
-Pipeline/ArchitectureReview/outputs/current/
+Pipeline/ArchitectureReview/outputs/latest/LATEST.json
 ```
+
+Each provider-specific latest directory contains `LATEST.json`, `synthesis.json`, and `adversarial_critique.json`. The global `latest/` directory contains only `LATEST.json`, whose `provider_namespace`, `run_id`, `run_path`, and `frozen_head` identify one immutable provider-scoped completed run; consumers follow `run_path` for its synthesis and adversarial critique. Failed or partial runs never update these convenience views. Accepted historical evidence remains separately under `Pipeline/ArchitectureReview/evidence/` and is not moved with generated output.
 
 Generated outputs are ignored by Git by default. Each result records the provider, selected model, reasoning effort, and duration.
 

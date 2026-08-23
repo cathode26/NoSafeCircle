@@ -133,9 +133,9 @@ Normalized usage is provider-local audit data. Claude and Codex cache and reason
 | `allowed_capabilities` | Claude Code initial mapping | OpenAI/Codex initial mapping |
 | --- | --- | --- |
 | empty set | Supported for structured-output-only work | Supported in an empty contained workspace |
-| `repository_read` | `Read` | Unsupported; fail closed |
-| `repository_search` | `Glob`, `Grep` | Unsupported; fail closed |
-| `repository_read` + `repository_search` | `Read`, `Glob`, `Grep` | Unsupported; fail closed |
+| `repository_read` | `Read` | Supported with explicit externally read-only profile |
+| `repository_search` | `Glob`, `Grep` | Supported with explicit externally read-only profile |
+| `repository_read` + `repository_search` | `Read`, `Glob`, `Grep` | Supported with explicit externally read-only profile |
 | `repository_write` | Unsupported; fail closed | Unsupported; fail closed |
 | `approved_command_execution` | Unsupported; fail closed | Unsupported; fail closed |
 
@@ -212,6 +212,12 @@ Docker lifecycle stderr is not itself a provider failure when the eventual adapt
 - `internal_error`: adapter/process setup, temporary-file, transcript-processing, unexpected successful stderr, or other unexpected local failure.
 
 Stage 4 implementation must add `ProviderOutputInvalid`, or an equivalently named provider-neutral exception, to `providers/base.py` and map it to `schema_error`. It covers malformed or missing Claude result envelopes or `structured_output`; malformed or missing Codex final output; a missing valid Codex completed-turn event; and any provider output that cannot produce a structured-output candidate. `AgentRunner` remains responsible for validating a successfully parsed candidate against `AgentRequest.output_schema`.
+
+## Stage 4C implemented Codex mapping
+
+`OpenAICodexProvider` now supports `()`, `repository_read`, `repository_search`, and their combination. Repository-capable calls require an explicit externally enforced read-only provider profile; ArchitectureReview supplies it because `codex-review` mounts the repository read-only. Empty calls use a fresh temporary workspace outside the repository. Repository write, approved command execution, non-null token limits, and fallback fail closed.
+
+Codex receives the concrete model selected by RuntimeConfiguration, a validated provider reasoning effort, schema/final-output temporary files, stdin prompt, and JSONL output mode. The shared process runner enforces `min(timeout_seconds, turn_limit * 30)`. Exact JSONL stdout is the provider log; the last valid completed-turn event supplies usage, with reasoning output added to normalized output tokens. AgentRunner remains final schema authority.
 
 Provider-specific failure envelopes have not yet been observed. Fixtures covering them are required before production use; ambiguous failures must not be guessed into a more specific classification.
 

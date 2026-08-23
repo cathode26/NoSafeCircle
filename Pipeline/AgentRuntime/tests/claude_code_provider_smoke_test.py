@@ -765,10 +765,11 @@ def test_transport_contract_exports_and_repository_cleanliness() -> None:
     modules = {
         path.name for path in (ROOT / "Pipeline/AgentRuntime/providers").glob("*.py")
     }
-    assert modules == {"__init__.py", "base.py", "claude_code.py", "fake.py"}
+    assert modules == {
+        "__init__.py", "base.py", "claude_code.py", "fake.py", "openai_codex.py"
+    }
     assert not (ROOT / "Pipeline/AgentRuntime/providers/codex.py").exists()
     assert not (ROOT / "Pipeline/AgentRuntime/providers/openai.py").exists()
-    assert not (ROOT / "Pipeline/AgentRuntime/providers/openai_codex.py").exists()
 
 
 def main() -> None:

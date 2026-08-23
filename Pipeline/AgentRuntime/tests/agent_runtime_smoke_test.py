@@ -230,7 +230,7 @@ def test_contracts_and_immutability() -> None:
     rejects(lambda: request(output_schema={"type": "string", "enum": [1]}))
     rejects(lambda: request(output_schema={"type": "number", "enum": [1, 1.0]}))
     assert request(output_schema={"type": "string", "enum": ["a", "b"]})
-    rejects(lambda: request(output_schema={"type": "number", "minimum": 0}))
+    assert request(output_schema={"type": "number", "minimum": 0, "maximum": 1})
 
     for number in (math.nan, math.inf, -math.inf):
         rejects(lambda number=number: Budgets(1, number))
@@ -304,6 +304,23 @@ def test_json_and_schema_containers() -> None:
     rejects(lambda: validate_instance(cyclic, {"type": "array", "items": {"type": "null"}}), SchemaValidationError)
     rejects(lambda: validate_instance({1: "bad"}, {"type": "object"}), SchemaValidationError)
     rejects(lambda: validate_instance("ok", {"type": "string", "enum": ["\ud800"]}), SchemaValidationError)
+
+
+def test_numeric_schema_bounds() -> None:
+    validate_instance(0.5, {"type": "number", "minimum": 0})
+    validate_instance(0.5, {"type": "number", "maximum": 1})
+    validate_instance(2, {"type": "integer", "minimum": 2, "maximum": 2})
+    huge_integer = 10 ** 10000
+    validate_instance(huge_integer, {"type": "integer", "minimum": huge_integer})
+    for schema in (
+        {"type": "number", "minimum": 2, "maximum": 1},
+        {"type": "string", "minimum": 0},
+        {"type": "number", "minimum": True},
+        {"type": "number", "maximum": math.inf},
+    ):
+        rejects(lambda schema=schema: validate_instance(1, schema), SchemaValidationError)
+    rejects(lambda: validate_instance(-0.1, {"type": "number", "minimum": 0}), SchemaValidationError)
+    rejects(lambda: validate_instance(3, {"type": "integer", "maximum": 2}), SchemaValidationError)
     deep: Any = None
     for _ in range(MAX_JSON_NESTING_DEPTH + 1):
         deep = [deep]
@@ -718,7 +735,7 @@ def test_static_provider_neutrality() -> None:
         path.name for path in (ROOT / "Pipeline/AgentRuntime/providers").glob("*.py")
     }
     assert provider_modules == {
-        "__init__.py", "base.py", "claude_code.py", "fake.py"
+        "__init__.py", "base.py", "claude_code.py", "fake.py", "openai_codex.py"
     }
 
 
@@ -774,6 +791,7 @@ def main() -> None:
 
     test_contracts_and_immutability()
     test_json_and_schema_containers()
+    test_numeric_schema_bounds()
     test_exact_nested_and_text_boundaries()
     test_configuration()
     test_exact_type_boundaries()

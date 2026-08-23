@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-23, for Stage 4B.3 AgentRuntime / TaskExecution separation on `provider-adapters`.
+Last updated: 2026-08-23, for Stage 4C OpenAI/Codex AgentRuntime and ArchitectureReview migration on `provider-adapters`.
 
 ## Current Phase
 
@@ -45,9 +45,11 @@ Live CLI discovery is complete. Non-production-write structured-output success p
 
 **Stage 4B.2 — Practical Repository Read/Search** extends the existing Claude adapter for this trusted single-user local environment. `repository_read` maps to Claude `Read`; `repository_search` maps to Claude `Glob` and `Grep`; their combination exposes all three. Repository-capable calls use the actual source repository root (`/workspace` in Docker), while empty-capability calls retain their fresh empty temporary workspace and no-tool behavior. Validated `context_paths` are accepted only with repository capability and become prompt guidance rather than a hardened sandbox boundary.
 
-**Stage 4B.3 — AgentRuntime / TaskExecution Separation** corrects the generic runtime boundary before broader production adoption. `AgentRuntime` now accepts `AgentInvocationRequest` with no `task_id`, `TaskContractIdentity`, or `Tasks/*.yaml` semantics. New `Pipeline/TaskExecution` owns `TaskExecutionRequest`, validates NSC task identity, publishes a separate immutable `task_request.json`, and delegates the exact contained invocation downward to `AgentRunner`. AgentRuntime never imports TaskExecution. ArchitectureReview has not yet migrated, and no OpenAI/Codex AgentRuntime provider has been implemented.
+**Stage 4C — OpenAI/Codex Provider and ArchitectureReview Migration** adds `OpenAICodexProvider` behind generic AgentRuntime. The active OpenAI ArchitectureReview path now constructs task-neutral `AgentInvocationRequest` values and calls `AgentRunner`; provider subprocess, JSONL/final-output parsing, usage normalization, timeout translation, and failure normalization live in AgentRuntime. Invocation audit artifacts are nested under each ArchitectureReview run. TaskExecution is not involved.
 
-Repository writing, shell and approved command execution, web access, non-null token limits, provider fallback, and production orchestration remain unsupported. Stage 4C remains the OpenAI/Codex Provider stage. Once repository read/search is live-validated, infrastructure effort should move toward useful Execution Crew and real game-development capability rather than more repository-security research.
+AgentRuntime `approved_command_execution`, repository writing, web access, non-null token limits, provider fallback, and production orchestration remain unsupported. The Codex ArchitectureReview repository read/search implementation uses Codex's ordinary read-only shell/file inspection inside the externally read-only `codex-review` Docker environment; that is not approved command execution. Stage 4C remains the OpenAI/Codex Provider stage.
+
+ArchitectureReview generated runs and provider-latest views are separated under `outputs/claude/` and `outputs/codex/`; those provider-specific latest views retain convenience copies. Global `outputs/latest/` contains only one atomic `LATEST.json` pointer identifying the most recently completed provider-scoped run across providers. Manifests record the explicit provider namespace, resume cannot cross it, and failed/partial runs do not publish latest. Each provider retains eight independent reviewer roles. New independent reviewers ignore prior review opinions even when summarized in architecture/current-state documentation, while still using implemented architecture, accepted decisions, and current documented facts as evidence to judge independently. This preserves review provenance and supports a later Claude-versus-Codex comparison without implementing that comparison pipeline.
 
 **Provider-Neutral Execution Crew Plan — Stage 4: Implement Claude Code and OpenAI/Codex adapters against the same AgentRuntime fixtures.**
 

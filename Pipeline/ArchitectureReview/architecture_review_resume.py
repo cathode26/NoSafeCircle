@@ -173,10 +173,11 @@ def create_new_run(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         + "-"
         + uuid.uuid4().hex[:8]
     )
-    run_dir = base.OUTPUT_ROOT / "runs" / run_id
+    run_dir = base.provider_output_root() / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
 
     manifest = {
+        "provider_namespace": base.PROVIDER_NAMESPACE,
         "run_id": run_id,
         "started_at": base.utc_now(),
         "frozen_head": frozen_head,
@@ -199,7 +200,7 @@ def open_resumed_run(run_id: str) -> tuple[Path, dict[str, Any]]:
     if "/" in run_id or "\\" in run_id or run_id in {"", ".", ".."}:
         raise RuntimeError("--resume-run must be a run ID, not a path.")
 
-    run_dir = base.OUTPUT_ROOT / "runs" / run_id
+    run_dir = base.provider_output_root() / "runs" / run_id
     manifest_path = run_dir / "manifest.json"
     if not manifest_path.exists():
         raise RuntimeError(f"Architecture-review run not found: {run_id}")
@@ -207,6 +208,13 @@ def open_resumed_run(run_id: str) -> tuple[Path, dict[str, Any]]:
     manifest = load_json(manifest_path)
     if not isinstance(manifest, dict):
         raise RuntimeError(f"Invalid architecture-review manifest: {manifest_path}")
+
+    provider_namespace = manifest.get("provider_namespace")
+    if provider_namespace != base.PROVIDER_NAMESPACE:
+        raise RuntimeError(
+            "Cannot resume an ArchitectureReview run owned by a different provider "
+            f"namespace: manifest={provider_namespace!r}, configured={base.PROVIDER_NAMESPACE!r}."
+        )
 
     frozen_head = str(manifest.get("frozen_head", ""))
     current_head = base.git_head()
@@ -261,6 +269,7 @@ def main() -> int:
     frozen_head = str(manifest["frozen_head"])
     seed = int(manifest["seed"])
     run_id = str(manifest["run_id"])
+    base.configure_invocation_run_root(run_dir)
 
     review_results = run_reviews_resumable(
         run_dir=run_dir,
@@ -347,18 +356,10 @@ def main() -> int:
         review_count=len(review_results),
     )
 
-    current = base.OUTPUT_ROOT / "current"
-    current.mkdir(parents=True, exist_ok=True)
-    base.safe_write_json(
-        current / "LATEST.json",
-        {
-            "run_id": run_id,
-            "run_path": run_dir.relative_to(base.ROOT).as_posix(),
-            "frozen_head": frozen_head,
-        },
+    base.publish_latest(
+        run_dir=run_dir, run_id=run_id, frozen_head=frozen_head,
+        synthesis=synthesis, adversary=adversary,
     )
-    base.safe_write_json(current / "synthesis.json", synthesis)
-    base.safe_write_json(current / "adversarial_critique.json", adversary)
 
     print(f"Architecture review complete: {run_dir.relative_to(base.ROOT).as_posix()}")
     print(f"Synthesis: {synthesis_path.relative_to(base.ROOT).as_posix()}")

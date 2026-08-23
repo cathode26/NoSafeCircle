@@ -292,3 +292,13 @@ This is a lightweight decision log. Add new entries when a decision materially c
 **Decision:** `AgentRuntime` owns one generic bounded provider invocation through `AgentInvocationRequest`; it does not know NSC task IDs, task-contract identity, or `Tasks/*.yaml`. `Pipeline/TaskExecution` owns `TaskExecutionRequest` and delegates the exact contained invocation downward while retaining a separate immutable task audit artifact.
 
 **Reason:** Generic workflows such as ArchitectureReview and Reconciliation must be able to use AgentRuntime honestly, while ExecutionCrew task work must retain NSC task semantics and audit identity without contaminating the provider-neutral layer.
+
+---
+
+## ADR-040 — OpenAI/Codex AgentRuntime and ArchitectureReview migration
+
+**Accepted:** 2026-08-23.
+
+**Decision:** Implement OpenAI/Codex behind generic AgentRuntime and migrate the active OpenAI ArchitectureReview path through `AgentInvocationRequest -> AgentRunner -> OpenAICodexProvider`. Repository read/search relies on the explicit externally read-only `codex-review` Docker profile. TaskExecution, repository writes, approved command execution, and provider fallback are not involved.
+
+**Reason:** A real existing non-task consumer proves the corrected provider-neutral invocation boundary without inventing task identity or prematurely building ExecutionCrew.
