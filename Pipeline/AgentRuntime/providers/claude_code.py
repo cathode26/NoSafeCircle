@@ -207,6 +207,8 @@ class ClaudeCodeProvider:
             "--json-schema",
             schema,
             "--no-session-persistence",
+            "--setting-sources",
+            "user,project",
             "--tools",
             ",".join(tools),
         )

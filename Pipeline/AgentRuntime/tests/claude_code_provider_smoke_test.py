@@ -181,6 +181,13 @@ def list_option(argv: tuple[str, ...], name: str) -> tuple[str, ...]:
     return tuple(values)
 
 
+def assert_bounded_setting_sources(argv: tuple[str, ...]) -> None:
+    assert argv.count("--setting-sources") == 1
+    setting_sources = option(argv, "--setting-sources")
+    assert setting_sources == "user,project"
+    assert "local" not in setting_sources.split(",")
+
+
 def tree_hashes(path: Path) -> dict[str, str]:
     return {
         candidate.relative_to(path).as_posix(): hashlib.sha256(
@@ -234,12 +241,15 @@ def test_empty_capability_exact_invocation() -> None:
             "--json-schema",
             expected_schema,
             "--no-session-persistence",
+            "--setting-sources",
+            "user,project",
             "--tools",
             "",
             "--disallowedTools",
             DISALLOWED,
         )
         assert "--allowedTools" not in argv
+        assert_bounded_setting_sources(argv)
         assert option(argv, "--model") == MODEL
         assert option(argv, "--max-turns") == "7"
         assert call["timeout_seconds"] == 12.5
@@ -268,6 +278,7 @@ def test_repository_capability_invocations() -> None:
         ClaudeCodeProvider(process_runner=fake).invoke(candidate, MODEL)
         assert len(fake.calls) == 1
         call = fake.calls[0]
+        assert_bounded_setting_sources(call["argv"])
         assert call["cwd"] == ROOT
         assert option(call["argv"], "--tools") == expected_tools
         assert option(call["argv"], "--disallowedTools") == DISALLOWED
@@ -402,6 +413,7 @@ def test_isolated_writable_repository_policy() -> None:
         )
         provider.invoke(candidate, MODEL)
         call = fake.calls[0]
+        assert_bounded_setting_sources(call["argv"])
         assert call["cwd"] == repository.resolve()
         assert option(call["argv"], "--tools") == "Read,Glob,Grep,Edit,Write"
         assert option(call["argv"], "--disallowedTools") == WRITE_DISALLOWED

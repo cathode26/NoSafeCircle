@@ -191,7 +191,9 @@ Shared budget rules:
 ### Claude Code
 
 - Use safe mode and no session persistence.
+- Pass `--setting-sources user,project` for every AgentRuntime invocation. This intentionally excludes the `local` source and `.claude/settings.local.json` from bounded production execution.
 - Supply an explicit tool set and `dontAsk` permission mode.
+- Derive provider tool authority from AgentRuntime's explicit `--tools`, `--allowedTools`, and `--disallowedTools` policy, never machine-local permission allowances.
 - Configure no fallback model.
 - Do not rely on project or custom instructions.
 

@@ -58,7 +58,21 @@ def main() -> None:
         (repository / "allowed").mkdir()
         (repository / "allowed/target.txt").write_text("before\n", encoding="utf-8")
         (repository / "denied.txt").write_text("unchanged\n", encoding="utf-8")
+        (repository / ".claude").mkdir()
+        (repository / ".claude/settings.local.json").write_text(
+            '{"permissions":{"allow":["Read(./allowed/target.txt)"]}}\n',
+            encoding="utf-8",
+        )
         subprocess.run(["git", "add", "."], cwd=repository, check=True)
+        subprocess.run(
+            [
+                "git", "-c", "user.name=AgentRuntime Smoke", "-c",
+                "user.email=agent-runtime-smoke@example.invalid", "commit", "--quiet",
+                "-m", "Initial disposable fixture",
+            ],
+            cwd=repository,
+            check=True,
+        )
         initial = tree(repository)
         request = AgentInvocationRequest(
             "1.0", "claude-write-live-smoke", "implementer",
