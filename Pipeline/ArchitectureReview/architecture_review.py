@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import random
 import subprocess
 import tempfile
-import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,11 +30,6 @@ ADVERSARY_MODEL = os.environ.get("ARCH_REVIEW_ADVERSARY_MODEL", "opus").strip() 
 
 if not MODEL_POOL:
     raise RuntimeError("ARCH_REVIEW_MODELS must contain at least one model.")
-
-CLAUDE_DISALLOWED_TOOLS = (
-    "Edit,Write,NotebookEdit,Bash,WebFetch,WebSearch,Task,TaskOutput,"
-    "EnterPlanMode,ExitPlanMode,AskUserQuestion"
-)
 
 ARCHITECTURE_DOCS = [
     "AI_PIPELINE.md",
@@ -423,70 +415,11 @@ def invoke_read_only_agent(
     schema: dict[str, Any],
     max_turns: int,
 ) -> dict[str, Any]:
-    command = [
-        "claude",
-        "-p",
-        "--model",
-        model,
-        "--output-format",
-        "json",
-        "--no-session-persistence",
-        "--max-turns",
-        str(max_turns),
-        "--permission-mode",
-        "dontAsk",
-        "--tools",
-        "Read,Glob,Grep",
-        "--allowedTools",
-        "Read,Glob,Grep",
-        "--disallowedTools",
-        CLAUDE_DISALLOWED_TOOLS,
-        "--json-schema",
-        json.dumps(schema, separators=(",", ":"), ensure_ascii=False),
-        "--input-format",
-        "text",
-    ]
-
-    started = time.monotonic()
-    print(f"Starting: {agent_name} [{model}]")
-    try:
-        process = subprocess.run(
-            command,
-            cwd=ROOT,
-            input=prompt,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=REVIEW_TIMEOUT,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"{agent_name} [{model}] timed out after {REVIEW_TIMEOUT}s.") from exc
-
-    duration = round(time.monotonic() - started, 2)
-    if process.returncode != 0:
-        raise RuntimeError(
-            f"{agent_name} [{model}] failed with exit code {process.returncode}:\n"
-            f"{(process.stderr or process.stdout or '').strip()}"
-        )
-
-    try:
-        envelope = json.loads(process.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"{agent_name} [{model}] returned invalid Claude JSON.") from exc
-
-    structured = envelope.get("structured_output")
-    if not isinstance(structured, dict):
-        raise RuntimeError(f"{agent_name} [{model}] did not return structured_output.")
-
-    print(f"Completed: {agent_name} [{model}] in {duration}s")
-    return {
-        "agent": agent_name,
-        "model": model,
-        "duration_seconds": duration,
-        "result": structured,
-    }
+    _ = agent_name, model, prompt, schema, max_turns
+    raise RuntimeError(
+        "ArchitectureReview has no configured provider adapter. Run "
+        "architecture_review_claude.py or architecture_review_codex.py."
+    )
 
 
 def common_review_prompt(*, role_name: str, role_focus: str, frozen_head: str) -> str:
@@ -700,86 +633,10 @@ def run_reviews(*, run_dir: Path, frozen_head: str, seed: int) -> list[dict[str,
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Run independent adversarial architecture reviews, synthesis, and red-team critique."
+    raise RuntimeError(
+        "architecture_review.py is a shared module, not a provider entry point. "
+        "Run architecture_review_claude.py or architecture_review_codex.py."
     )
-    parser.add_argument("--seed", type=int, default=None, help="Model-assignment seed.")
-    parser.add_argument(
-        "--allow-dirty",
-        action="store_true",
-        help="Allow running against a dirty working tree. Normally the review requires a frozen commit.",
-    )
-    args = parser.parse_args()
-
-    if git_dirty() and not args.allow_dirty:
-        raise RuntimeError(
-            "Working tree is dirty. Commit/stash changes or pass --allow-dirty. "
-            "A frozen clean commit is strongly preferred for architecture review."
-        )
-
-    frozen_head = git_head()
-    seed = args.seed if args.seed is not None else random.SystemRandom().randrange(1, 2**31)
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
-    run_dir = provider_output_root() / "runs" / run_id
-    run_dir.mkdir(parents=True, exist_ok=False)
-
-    manifest = {
-        "provider_namespace": PROVIDER_NAMESPACE,
-        "run_id": run_id,
-        "started_at": utc_now(),
-        "frozen_head": frozen_head,
-        "dirty_worktree_allowed": bool(args.allow_dirty),
-        "model_pool": MODEL_POOL,
-        "synthesis_model": SYNTHESIS_MODEL,
-        "adversary_model": ADVERSARY_MODEL,
-        "seed": seed,
-        "roles": [{"key": r["key"], "name": r["name"]} for r in ROLE_SPECS],
-    }
-    safe_write_json(run_dir / "manifest.json", manifest)
-
-    review_results = run_reviews(run_dir=run_dir, frozen_head=frozen_head, seed=seed)
-    review_dir = run_dir / "reviews"
-
-    synthesis = invoke_read_only_agent(
-        agent_name="Architecture Synthesis",
-        model=SYNTHESIS_MODEL,
-        prompt=synthesis_prompt(frozen_head=frozen_head, review_dir=review_dir),
-        schema=SYNTHESIS_SCHEMA,
-        max_turns=SYNTHESIS_MAX_TURNS,
-    )
-    synthesis_path = run_dir / "synthesis.json"
-    safe_write_json(synthesis_path, synthesis)
-
-    adversary = invoke_read_only_agent(
-        agent_name="Adversarial Synthesis Critic",
-        model=ADVERSARY_MODEL,
-        prompt=adversary_prompt(
-            frozen_head=frozen_head,
-            synthesis_path=synthesis_path,
-            review_dir=review_dir,
-        ),
-        schema=ADVERSARY_SCHEMA,
-        max_turns=ADVERSARY_MAX_TURNS,
-    )
-    safe_write_json(run_dir / "adversarial_critique.json", adversary)
-
-    manifest["completed_at"] = utc_now()
-    manifest["status"] = "complete"
-    manifest["review_count"] = len(review_results)
-    safe_write_json(run_dir / "manifest.json", manifest)
-
-    publish_latest(
-        run_dir=run_dir, run_id=run_id, frozen_head=frozen_head,
-        synthesis=synthesis, adversary=adversary,
-    )
-
-    print(f"Architecture review complete: {run_dir.relative_to(ROOT).as_posix()}")
-    print(f"Synthesis: {synthesis_path.relative_to(ROOT).as_posix()}")
-    print(
-        "Adversarial critique: "
-        f"{(run_dir / 'adversarial_critique.json').relative_to(ROOT).as_posix()}"
-    )
-    return 0
 
 
 if __name__ == "__main__":

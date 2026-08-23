@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-23, for Stage 4C OpenAI/Codex AgentRuntime and ArchitectureReview migration on `provider-adapters`.
+Last updated: 2026-08-23, for Stage 4D Claude ArchitectureReview migration to generic AgentRuntime on `provider-adapters`.
 
 ## Current Phase
 
@@ -47,7 +47,9 @@ Live CLI discovery is complete. Non-production-write structured-output success p
 
 **Stage 4C — OpenAI/Codex Provider and ArchitectureReview Migration** adds `OpenAICodexProvider` behind generic AgentRuntime. The active OpenAI ArchitectureReview path now constructs task-neutral `AgentInvocationRequest` values and calls `AgentRunner`; provider subprocess, JSONL/final-output parsing, usage normalization, timeout translation, and failure normalization live in AgentRuntime. Invocation audit artifacts are nested under each ArchitectureReview run. TaskExecution is not involved.
 
-AgentRuntime `approved_command_execution`, repository writing, web access, non-null token limits, provider fallback, and production orchestration remain unsupported. The Codex ArchitectureReview repository read/search implementation uses Codex's ordinary read-only shell/file inspection inside the externally read-only `codex-review` Docker environment; that is not approved command execution. Stage 4C remains the OpenAI/Codex Provider stage.
+**Stage 4D — Claude ArchitectureReview Migration** adds the equivalent active `architecture_review_claude.py -> AgentInvocationRequest -> AgentRunner -> ClaudeCodeProvider` path. Claude reviewers retain shared Read/Glob/Grep prompt language, the same eight independent roles, synthesis, adversarial critique, resumability, and provider-owned `outputs/claude/` artifacts. The shared module no longer directly launches Claude. Provider comparison and a dual-provider launcher remain future work.
+
+AgentRuntime `approved_command_execution`, repository writing, web access, non-null token limits, provider fallback, and production orchestration remain unsupported. The Codex ArchitectureReview repository read/search implementation uses Codex's ordinary read-only shell/file inspection inside the externally read-only `codex-review` Docker environment; that is not approved command execution. Claude uses native Read/Glob/Grep through the separate read-only `claude-review` service.
 
 ArchitectureReview generated runs and provider-latest views are separated under `outputs/claude/` and `outputs/codex/`; those provider-specific latest views retain convenience copies. Global `outputs/latest/` contains only one atomic `LATEST.json` pointer identifying the most recently completed provider-scoped run across providers. Manifests record the explicit provider namespace, resume cannot cross it, and failed/partial runs do not publish latest. Each provider retains eight independent reviewer roles. New independent reviewers ignore prior review opinions even when summarized in architecture/current-state documentation, while still using implemented architecture, accepted decisions, and current documented facts as evidence to judge independently. This preserves review provenance and supports a later Claude-versus-Codex comparison without implementing that comparison pipeline.
 
@@ -737,7 +739,7 @@ Then:
 1. confirm the intended `provider-adapters` branch and inspect the working tree without discarding existing changes;
 2. confirm ADR-035 remains recorded as accepted/amended and ADR-036 records the transport ownership decision;
 3. read ADR-039 and inspect `Pipeline/TaskExecution` before adding any task-associated consumer;
-4. migrate ArchitectureReview through generic AgentRuntime using Claude in the next reviewed slice; do not implement the OpenAI/Codex provider as part of that migration;
+4. keep both active ArchitectureReview entry points on generic AgentRuntime: `architecture_review_claude.py` for Claude and `architecture_review_codex.py` for Codex; provider comparison and a dual-provider launcher remain future work;
 5. use only opt-in, non-production-write live smoke tests during Stage 4;
 6. do not implement production `ExecutionCrew` roles until both adapters pass the shared fixture suite;
 7. keep `taskcontrol ready` unavailable and `taskcontrol authorize` denied.

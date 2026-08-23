@@ -4,6 +4,8 @@
 
 This document records behavior observed through opt-in live CLI probes that were isolated from production writes, plus the later bounded adopt-versus-build transport spike. It does not infer capabilities from generic provider knowledge. Unobserved behavior remains unsupported or unresolved until fixtures and evidence establish it.
 
+Both `ClaudeCodeProvider` and `OpenAICodexProvider` are generic AgentRuntime providers with active ArchitectureReview integrations. Claude enters through `architecture_review_claude.py`; Codex enters through `architecture_review_codex.py`. Both preserve the same eight shared review roles and independent provider-owned outputs. Neither has AgentRuntime repository-write or approved-command-execution authority, and comparison/dual-provider orchestration remains future work.
+
 ## Tested versions and commands
 
 ### Claude Code

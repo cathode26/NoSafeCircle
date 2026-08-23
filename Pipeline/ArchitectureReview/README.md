@@ -9,13 +9,11 @@ It answers two questions in order:
 
 The review does **not** assume that the current milestone order, persistent work graph, `Tasks/*.yaml`, `taskcontrol`, reconciliation strategy, or verification strategy are correct merely because they already exist.
 
-## Current Provider
+## Current Providers
 
-The active review path uses **OpenAI Codex CLI authenticated with the user's ChatGPT account**.
+Both Claude Code and OpenAI/Codex are active through generic AgentRuntime. Use `architecture_review_claude.py` for Claude and `architecture_review_codex.py` for Codex. Both paths map every reviewer, synthesis, and adversarial-critic invocation through `AgentInvocationRequest` and `AgentRunner`; the shared `architecture_review.py` owns schemas, exactly eight role definitions, prompts, and output helpers but does not launch a model directly.
 
-The original Claude runner remains in `architecture_review.py` because the shared schemas, prompts, role definitions, and output contract live there. The active `architecture_review_codex.py` integration maps each invocation to generic AgentRuntime; `AgentRunner` selects `OpenAICodexProvider` and the concrete configured model before the resumable orchestrator consumes the familiar result shape.
-
-Run the Codex path through the Docker `codex-review` service. Docker is the security boundary: the repository is mounted read-only, while only `Pipeline/ArchitectureReview/outputs/` is writable. Codex therefore runs with its nested sandbox disabled (`danger-full-access`) so container sandbox restrictions do not block repository inspection.
+Run these paths through `claude-review` and `codex-review`. Docker is the filesystem boundary: the repository is mounted read-only, while only `Pipeline/ArchitectureReview/outputs/` is writable. AgentRuntime grants neither provider repository-write nor approved-command-execution authority.
 
 ## Review Stages
 
@@ -57,10 +55,14 @@ The target is not architectural elegance by itself. The system must be both tech
 
 ## Docker Setup
 
-Build the review service from the repository root:
+Build either review service from the repository root:
 
 ```powershell
 docker compose build codex-review
+```
+
+```powershell
+docker compose build claude-review
 ```
 
 Codex authentication is persisted in the shared `codex-config` Docker volume. If login is required:
@@ -75,9 +77,11 @@ Check authentication:
 docker compose run --rm codex codex login status
 ```
 
+Claude authentication uses the existing `claude-config` volume shared with the normal `claude` development service.
+
 ## Smoke Tests
 
-Run the shared-contract and Codex-provider tests:
+Run the shared-contract and provider-adapter tests:
 
 ```powershell
 docker compose run --rm codex-review python3 Pipeline/ArchitectureReview/architecture_review_smoke_test.py
@@ -85,6 +89,10 @@ docker compose run --rm codex-review python3 Pipeline/ArchitectureReview/archite
 
 ```powershell
 docker compose run --rm codex-review python3 Pipeline/ArchitectureReview/architecture_review_codex_smoke_test.py
+```
+
+```powershell
+docker compose run --rm claude-review python3 Pipeline/ArchitectureReview/architecture_review_claude_smoke_test.py
 ```
 
 Run the deterministic resume/reuse test:
@@ -99,12 +107,20 @@ Run the small live structured-output test:
 docker compose run --rm -e NSC_RUN_OPENAI_CODEX_SMOKE=1 codex-review python3 Pipeline/ArchitectureReview/codex_provider_live_smoke_test.py
 ```
 
+```powershell
+docker compose run --rm -e NSC_RUN_ARCH_REVIEW_CLAUDE_SMOKE=1 claude-review python3 Pipeline/ArchitectureReview/claude_provider_live_smoke_test.py
+```
+
 ## Run the Full Review
 
-The recommended first production run uses four concurrent reviewers. It still runs all eight roles, in two waves, reducing the chance that a burst failure loses progress:
+Each provider runs all eight independent reviewers. The default worker budget is eight; do not reduce it merely because a future launcher may run both providers concurrently:
 
 ```powershell
-docker compose run --rm -e ARCH_REVIEW_MAX_WORKERS=4 codex-review python3 Pipeline/ArchitectureReview/architecture_review_codex.py
+docker compose run --rm codex-review python3 Pipeline/ArchitectureReview/architecture_review_codex.py
+```
+
+```powershell
+docker compose run --rm claude-review python3 Pipeline/ArchitectureReview/architecture_review_claude.py
 ```
 
 The runner requires a clean working tree by default so every reviewer evaluates one frozen commit. To deliberately override that protection:
@@ -187,7 +203,7 @@ Pipeline/ArchitectureReview/outputs/
   latest/
 ```
 
-The direct historical/default Claude path uses `claude`; the active AgentRuntime-backed OpenAI path uses the stable `codex` namespace. Every manifest records `provider_namespace`, and resume remains within that namespace.
+The AgentRuntime-backed Claude path uses `claude`; the AgentRuntime-backed OpenAI path uses `codex`. Every manifest records `provider_namespace`, and resume remains within that namespace. Comparison and dual-provider orchestration remain future work.
 
 Contents include:
 

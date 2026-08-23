@@ -302,3 +302,13 @@ This is a lightweight decision log. Add new entries when a decision materially c
 **Decision:** Implement OpenAI/Codex behind generic AgentRuntime and migrate the active OpenAI ArchitectureReview path through `AgentInvocationRequest -> AgentRunner -> OpenAICodexProvider`. Repository read/search relies on the explicit externally read-only `codex-review` Docker profile. TaskExecution, repository writes, approved command execution, and provider fallback are not involved.
 
 **Reason:** A real existing non-task consumer proves the corrected provider-neutral invocation boundary without inventing task identity or prematurely building ExecutionCrew.
+
+---
+
+## ADR-041 — Claude ArchitectureReview uses generic AgentRuntime
+
+**Accepted:** 2026-08-23.
+
+**Decision:** Claude ArchitectureReview uses `architecture_review_claude.py -> AgentInvocationRequest -> AgentRunner -> ClaudeCodeProvider`. It retains the shared eight reviewer roles, synthesis, adversarial critique, resumable provider-owned `outputs/claude/` layout, and fail-closed Claude capability policy. The shared module does not directly launch a provider. Repository writes, approved command execution, TaskExecution, fallback, comparison, and dual-provider orchestration are excluded.
+
+**Reason:** Claude and Codex should exercise the same generic invocation and audit boundary while preserving experimentally independent provider runs and the already-accepted provider policies.
