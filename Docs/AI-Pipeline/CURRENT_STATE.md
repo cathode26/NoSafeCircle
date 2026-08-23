@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-22, after the provider-neutral `AgentRuntime` Stage 3 foundation was committed and pushed on `provider-neutral-execution-crew`.
+Last updated: 2026-08-23, during Stage 4A provider-adapter mapping and enforcement work on `provider-adapters`.
 
 ## Current Phase
 
@@ -18,12 +18,12 @@ Phase 3 was fast-forward merged into `main` at:
 43fdf0a163e281204906abd43a241db211587a0f
 ```
 
-**Provider-Neutral Execution Crew Plan — Stage 3: COMPLETE.**
+**Provider-Neutral Execution Crew Plan — Stage 4A: MAPPING AND ENFORCEMENT DECISION COMPLETE.**
 
 The current development branch is:
 
 ```text
-provider-neutral-execution-crew
+provider-adapters
 ```
 
 The Stage 3 foundation now implements:
@@ -39,13 +39,15 @@ The Stage 3 foundation now implements:
 - a deterministic, side-effect-free `FakeProvider`;
 - an adversarial regression suite covering provider trust boundaries, path safety, schema failures, immutable artifacts, malformed provider values, and historical-directory protection.
 
-The Stage 3 implementation is committed and pushed on `provider-neutral-execution-crew`. Before merging it into `main`, the topic branch must be aligned with the current `main` history and its AgentRuntime regression suite rerun. If the branch is rebased, the Stage 3 commit SHA will change; use the actual Git branch state rather than hard-coding the pre-rebase SHA as permanent authority.
+The Stage 3 implementation is integrated; Stage 4A changes are documentation and decision work only.
 
-The next planned architecture stage is:
+Live CLI discovery is complete. Non-production-write structured-output success probes completed for Claude Code and OpenAI/Codex. The corrected Stage 4A mapping and enforcement decision is complete, and ADR-035 was accepted on 2026-08-23.
+
+The active bounded slice is the prerequisite AgentRuntime request-schema revision. It will make `turn_limit` optional: null means no hard provider-internal turn limit was requested, while non-null requires proven enforcement or rejection. It will also add provider-neutral `ProviderOutputInvalid` and normalize it to `schema_error`.
+
+No live provider adapter code has started. Adapter implementation remains blocked until this prerequisite code change is implemented and reviewed. Repository writing and approved command execution are not approved and remain unsupported.
 
 **Provider-Neutral Execution Crew Plan — Stage 4: Implement Claude Code and OpenAI/Codex adapters against the same AgentRuntime fixtures.**
-
-Stage 4 has **not** started yet. Before implementing either live adapter, the provider-specific invocation, permission, sandbox, write-boundary, structured-output, timeout, usage, and raw-log mappings must be documented and reviewed.
 
 No production `ExecutionCrew` role orchestration, Unity execution by an agent, GER integration, task selection, dependency readiness, autonomous dispatch, automatic Git commit/merge behavior, or live provider fallback has been enabled.
 
@@ -615,44 +617,11 @@ The preserved architecture review is primary evidence for the accepted correctio
 
 ## Immediate Next Goal
 
-### Finish Stage 3 integration, then begin Stage 4 provider adapters
+### Implement the prerequisite AgentRuntime contract revision
 
-The provider-neutral AgentRuntime foundation is implemented, regression-tested, committed, and pushed on `provider-neutral-execution-crew`.
+Stage 3 is integrated. Stage 4A live CLI discovery, corrected capability mapping, and the enforcement decision are complete. ADR-035 is accepted.
 
-The immediate repository action is to integrate Stage 3 cleanly:
-
-```text
-align provider-neutral-execution-crew with current main
-→ rerun AgentRuntime and key integration regressions
-→ update/push the rebased topic branch if necessary
-→ fast-forward merge Stage 3 into main
-→ create a new provider-adapters branch from merged main
-```
-
-Do not treat a pre-rebase Stage 3 commit SHA as permanent if the topic branch is rewritten during alignment.
-
-After Stage 3 is merged, begin:
-
-**Provider-Neutral Execution Crew Plan — Stage 4: Claude Code and OpenAI/Codex provider adapters.**
-
-Before implementation, document and review how each provider maps the shared AgentRuntime concepts:
-
-- provider invocation mechanism;
-- capability-class to concrete model mapping;
-- prompt/context delivery;
-- structured-output mechanism;
-- timeout behavior;
-- raw-log capture;
-- usage extraction;
-- `repository_read`;
-- `repository_search`;
-- `repository_write`;
-- `approved_command_execution`;
-- permission/sandbox translation;
-- write-boundary enforcement;
-- behavior when a required restriction cannot be enforced.
-
-The adapters must both consume the same provider-neutral `AgentRequest`, return the same provider-neutral result boundary, and pass the same shared conformance fixtures.
+The active bounded slice is a separately reviewed AgentRuntime contract revision that bumps the request schema and makes `turn_limit` optional. Null means no hard provider-internal turn limit was requested; non-null requires proven enforcement or rejection. The same prerequisite adds `ProviderOutputInvalid` and normalizes it to `schema_error`. No live provider adapter code has started, and adapter implementation remains blocked until this prerequisite code change is implemented and reviewed.
 
 Stage 4 must remain bounded:
 
@@ -736,36 +705,23 @@ Read, in order:
 4. `Docs/AI-Pipeline/DECISIONS.md`;
 5. `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`;
 6. `Docs/AI-Pipeline/ADR-034_PROVIDER_NEUTRAL_AGENT_RUNTIME.md`;
-7. `Pipeline/AgentRuntime/README.md`;
-8. `Pipeline/AgentRuntime/contracts.py`;
-9. `Pipeline/AgentRuntime/agent_runner.py`;
-10. `Pipeline/AgentRuntime/providers/base.py`;
-11. `Pipeline/AgentRuntime/tests/agent_runtime_smoke_test.py`;
-12. `Pipeline/TaskGraph/README.md`;
-13. `Pipeline/TaskGraph/TASK_CONTRACT_SCHEMA_V2.md`;
-14. `Pipeline/TaskGraph/CONFORMANCE_RECORDS.md`;
-15. `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`;
-16. `Pipeline/GDDRAG/README.md`;
-17. `Pipeline/GDDRAG/INTEGRITY.md`;
-18. inspect `AgentCrew/orchestrator.py` and `Assignment6GER/ger_pipeline.py` only as historical reusable prototypes, not production runtime authority;
-19. inspect the actual repository and branch state.
+7. `Docs/AI-Pipeline/07_PROVIDER_ADAPTER_CAPABILITY_MAPPING.md`;
+8. `Docs/AI-Pipeline/ADR-035_PROVIDER_ADAPTER_ENFORCEMENT.md`;
+9. `Pipeline/AgentRuntime/README.md`;
+10. `Pipeline/AgentRuntime/contracts.py`;
+11. `Pipeline/AgentRuntime/agent_runner.py`;
+12. `Pipeline/AgentRuntime/providers/base.py`;
+13. `Pipeline/AgentRuntime/tests/agent_runtime_smoke_test.py`;
+14. inspect the actual repository and branch state.
 
 Then:
 
-1. confirm the current branch and compare it with current `main`;
-2. confirm the working tree is clean;
-3. confirm Stage 3 AgentRuntime files are committed and the smoke suite passes;
-4. align/rebase `provider-neutral-execution-crew` with current `main` if necessary;
-5. rerun `Pipeline/AgentRuntime/tests/agent_runtime_smoke_test.py`;
-6. confirm `taskcontrol state NSC-023` remains `conformant`;
-7. confirm `Pipeline/GDDRAG/gddctl.py validate` still passes;
-8. confirm the authoritative DoorPrototype scene-location regression still passes;
-9. push the aligned topic branch and fast-forward merge Stage 3 into `main`;
-10. create a new `provider-adapters` branch from merged `main`;
-11. document Claude Code and OpenAI/Codex permission/capability mappings before implementing either live adapter;
-12. implement both adapters against the same provider-neutral AgentRuntime contract and shared fixtures;
-13. use only opt-in, non-production-write live smoke tests during Stage 4;
-14. do not implement production `ExecutionCrew` roles until both adapters pass the shared fixture suite;
-15. keep `taskcontrol ready` unavailable and `taskcontrol authorize` denied.
+1. confirm the intended `provider-adapters` branch and inspect the working tree without discarding existing changes;
+2. confirm ADR-035 remains recorded as accepted;
+3. in a separate reviewed code change, bump the AgentRequest schema, make `turn_limit` optional with the approved fail-closed semantics, and add `ProviderOutputInvalid` normalized to `schema_error`;
+4. only after that prerequisite is implemented and reviewed, implement both adapters against the same provider-neutral AgentRuntime contract and shared fixtures;
+5. use only opt-in, non-production-write live smoke tests during Stage 4;
+6. do not implement production `ExecutionCrew` roles until both adapters pass the shared fixture suite;
+7. keep `taskcontrol ready` unavailable and `taskcontrol authorize` denied.
 
 A new window should be able to resume from repository state without the prior chat transcript.

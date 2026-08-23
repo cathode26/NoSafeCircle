@@ -254,3 +254,15 @@ This is a lightweight decision log. Add new entries when a decision materially c
 **Why:** Separate top-level reconciliation and verification trees made it difficult to know which files were the current answer and which verification belonged to which source snapshot.
 
 **Consequence:** `current/` may be overwritten whenever the latest candidate changes. It is never historical truth. Existing legacy `outputs/verifications/` directories can be moved once with the deterministic layout-migration utility.
+
+---
+
+## ADR-035 — Provider-adapter enforcement
+
+**Accepted:** 2026-08-23.
+
+**Decision:** Accept ADR-035's fail-closed initial provider boundaries. Adapters never weaken `AgentRequest`; unsupported capabilities and budgets are rejected. Initial Codex support is limited to empty capabilities and empty `context_paths` in a new empty temporary workspace. Initial repository writing and approved command execution remain unsupported. The accepted prerequisite is a separately reviewed request-schema revision making `turn_limit` optional, with null meaning no requested hard provider-internal limit and non-null requiring proven enforcement or rejection.
+
+**Output and error policy:** `provider.log` is exact stdout, successful stderr is empty, and malformed provider output raises provider-neutral `ProviderOutputInvalid` normalized to `schema_error`. There is no automatic fallback.
+
+**Authority:** Deterministic Git, Unity, TaskGraph, evidence, readiness, dispatch, and human authority are unchanged.

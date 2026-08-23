@@ -10,6 +10,8 @@ The pipeline is built across multiple work sessions and AI contexts. Do not rely
 
 ## Current Status Snapshot
 
+Stage 4A provider-adapter mapping and enforcement is complete, and ADR-035 was accepted on 2026-08-23. Current work is the prerequisite AgentRuntime contract revision that makes `turn_limit` optional with fail-closed semantics and adds `ProviderOutputInvalid` normalization to `schema_error`. No live provider adapter code has started; adapter implementation remains blocked until that prerequisite is implemented and reviewed.
+
 As of 2026-08-21:
 
 - **Milestone 1 — Persistent Work Graph is COMPLETE.**
@@ -55,6 +57,7 @@ Completed persistent graph semantics, stable IDs, readiness, taskcontrol | `01_M
 Supervisor, task claiming, Git branches, worktrees, GitHub Issues/Projects/PRs | `03_SUPERVISOR_GIT_GITHUB_CONTEXT.md`
 Assignment 3 crew, Assignment 6 GER, bounded repair loops, deterministic tests, Unity/runtime validation, evaluator specializations | `04_EXECUTION_GER_VALIDATION_CONTEXT.md`
 Provider-neutral AgentRuntime, Claude/OpenAI adapters, and production Execution Crew architecture | `06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`
+Provider-adapter implementation, capability mapping, and fail-closed enforcement | `07_PROVIDER_ADAPTER_CAPABILITY_MAPPING.md` and `ADR-035_PROVIDER_ADAPTER_ENFORCEMENT.md`
 Continuous autonomous ticket processing, budgets, blockers, parallel workers, planning refresh | `05_CONTINUOUS_AUTONOMY_CONTEXT.md`
 
 ## Milestone 1 Commands
