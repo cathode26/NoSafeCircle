@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-23, after Stage 4A provider-transport evaluation and the turn-budget policy amendment on `provider-adapters`.
+Last updated: 2026-08-23, for Stage 4B.2 practical repository read/search on `provider-adapters`.
 
 ## Current Phase
 
@@ -43,9 +43,9 @@ The Stage 3 implementation is integrated; Stage 4A changes are documentation and
 
 Live CLI discovery is complete. Non-production-write structured-output success probes completed for Claude Code and OpenAI/Codex. The provider-transport adopt-versus-build spike is also complete: `agent-mux` and `agent-shell` were evaluated and are not being adopted as production dependencies. ADR-035 was amended on 2026-08-23 to keep `AgentRequest` schema 1.0 and its required integer `turn_limit`, with explicit provider-specific enforcement mappings.
 
-The active bounded slice is now only the provider-neutral `ProviderOutputInvalid` prerequisite. It must be added to the AgentRuntime provider boundary and normalized to `schema_error` before live adapters are implemented. No request-schema bump is planned for Stage 4.
+**Stage 4B.2 — Practical Repository Read/Search** extends the existing Claude adapter for this trusted single-user local environment. `repository_read` maps to Claude `Read`; `repository_search` maps to Claude `Glob` and `Grep`; their combination exposes all three. Repository-capable calls use the actual source repository root (`/workspace` in Docker), while empty-capability calls retain their fresh empty temporary workspace and no-tool behavior. Validated `context_paths` are accepted only with repository capability and become prompt guidance rather than a hardened sandbox boundary.
 
-No live provider adapter code has started. Repository writing and approved command execution are not approved and remain unsupported.
+Repository writing, shell and approved command execution, web access, non-null token limits, provider fallback, and production orchestration remain unsupported. Stage 4C remains the OpenAI/Codex Provider stage. Once repository read/search is live-validated, infrastructure effort should move toward useful Execution Crew and real game-development capability rather than more repository-security research.
 
 **Provider-Neutral Execution Crew Plan — Stage 4: Implement Claude Code and OpenAI/Codex adapters against the same AgentRuntime fixtures.**
 

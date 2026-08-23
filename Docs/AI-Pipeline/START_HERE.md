@@ -10,25 +10,26 @@ The pipeline is built across multiple work sessions and AI contexts. Do not rely
 
 ## Current Status Snapshot
 
-Stage 4B is complete on `provider-adapters`. The initial fail-closed `ClaudeCodeProvider` and shared bounded `StandardProcessRunner` were committed at:
+Stage 4B is complete on `provider-adapters`. The current bounded extension is **Stage 4B.2 — Practical Repository Read/Search**. The initial fail-closed `ClaudeCodeProvider` and shared bounded `StandardProcessRunner` were committed at:
 
 ```text
 ae046fd828f168dac6c87c49878fe1812f6c1fd7
 ```
 
-The provider currently supports structured-output-only invocations with:
+The provider preserves structured-output invocations with empty capabilities and now also supports:
 
 ```text
-allowed_capabilities = ()
-context_paths = ()
+repository_read -> Claude Read
+repository_search -> Claude Glob and Grep
+both -> Claude Read, Glob, and Grep
 token_limit = null
 ```
 
-Every invocation runs in a fresh empty temporary workspace. Repository read/search/write and approved command execution remain unsupported. Claude is invoked directly without a shell, with safe mode, no session persistence, an explicit concrete model, native `--max-turns`, an independent external timeout, strict result-envelope parsing, exact provider-log preservation, and whole-process-group cleanup.
+Empty-capability invocations still run in a fresh empty temporary workspace with no tools. Repository-capable invocations run in the actual repository root (`/workspace` in Docker) and may accept validated repository-relative `context_paths` as prompt guidance. Repository writing, shell and approved command execution, and web access remain unsupported. See ADR-038 for the trusted single-user boundary and accepted limited read-containment risk.
 
 The deterministic AgentRuntime, process-runner, and Claude-provider suites all pass. No live `ClaudeCodeProvider` invocation has yet been performed through `AgentRunner`; validation to date consists of the earlier isolated CLI discovery probe plus deterministic injected-process and real bounded child-process fixtures.
 
-The next implementation slice is Stage 4C: the initial OpenAI/Codex provider against the same provider-neutral contract and shared process transport. Initial Codex support remains empty-capability/empty-context only in a fresh temporary workspace, using the approved temporary timeout translation:
+Stage 4C remains the OpenAI/Codex Provider stage; it is not renamed. After practical Claude read/search validation, infrastructure should move toward useful Execution Crew and game-development capability rather than further repository-security research. Initial Codex support remains empty-capability/empty-context only in a fresh temporary workspace, using the approved temporary timeout translation:
 
 ```text
 effective_timeout_seconds = min(timeout_seconds, turn_limit * 30)
@@ -36,7 +37,7 @@ effective_timeout_seconds = min(timeout_seconds, turn_limit * 30)
 
 This is a bounded-execution policy, not a cross-provider-equivalent turn measurement.
 
-Full Reconciliation is not yet supported through AgentRuntime because the accepted Claude provider does not have repository read/search capability. Reconciliation migration still requires a separately reviewed containment or frozen-evidence-package design.
+AgentRuntime now has the repository inspection capability needed by future repository-aware roles. This slice does not implement ExecutionCrew, Reconciliation orchestration, TaskGraph changes, or write/command authority.
 
 As of 2026-08-21:
 
@@ -60,7 +61,7 @@ The next infrastructure work should also advance a real No Safe Circle task rath
 
 1. Read `Docs/AI-Pipeline/CURRENT_STATE.md`.
 2. Read `Docs/AI-Pipeline/08_STAGE_4B_CLAUDE_CODE_PROVIDER.md` for the latest provider implementation state.
-3. Read `Docs/AI-Pipeline/ADR-037_CLAUDE_CODE_PROVIDER_BOUNDARY.md` for the accepted Claude capability and process-lifecycle boundary.
+3. Read `Docs/AI-Pipeline/ADR-037_CLAUDE_CODE_PROVIDER_BOUNDARY.md` and `Docs/AI-Pipeline/ADR-038_PRACTICAL_REPOSITORY_READ_SEARCH.md` for the Claude boundaries.
 4. Read `Docs/AI-Pipeline/00_MASTER_CONTEXT.md` for the target architecture.
 5. Read the milestone/context file named by `CURRENT_STATE.md`.
 6. Read `Docs/AI-Pipeline/DECISIONS.md` when the work touches architecture, Git workflow, task semantics, autonomy, RAG, GER, evaluation, refinement, validation, progressive decomposition, or artifact authority.

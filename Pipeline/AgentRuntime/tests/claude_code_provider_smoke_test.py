@@ -6,7 +6,6 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError, replace
 import hashlib
 import inspect
-import itertools
 import json
 from pathlib import Path
 import subprocess
@@ -245,39 +244,67 @@ def test_empty_capability_exact_invocation() -> None:
         assert not call["cwd"].exists()
 
 
-def test_every_rejected_capability_and_budget_combination() -> None:
-    all_capabilities = (
-        "repository_read",
-        "repository_search",
+def test_repository_capability_invocations() -> None:
+    cases = (
+        (("repository_read",), "Read"),
+        (("repository_search",), "Glob,Grep"),
+        (("repository_read", "repository_search"), "Read,Glob,Grep"),
+    )
+    for capabilities, expected_tools in cases:
+        fake = FakeProcessRunner()
+        candidate = request(capabilities=capabilities)
+        ClaudeCodeProvider(process_runner=fake).invoke(candidate, MODEL)
+        assert len(fake.calls) == 1
+        call = fake.calls[0]
+        assert call["cwd"] == ROOT
+        assert option(call["argv"], "--tools") == expected_tools
+        assert option(call["argv"], "--disallowedTools") == DISALLOWED
+        assert "Bash" not in expected_tools
+        assert "Edit" not in expected_tools
+        assert "Write" not in expected_tools
+        assert "WebSearch" not in expected_tools
+        assert "WebFetch" not in expected_tools
+        effective_prompt = call["stdin"].decode("utf-8")
+        assert effective_prompt.startswith("Return the bounded result.\n\n")
+        assert "Repository context:" in effective_prompt
+        assert "Repository root: /workspace" in effective_prompt
+        assert "Use repository tools only for the No Safe Circle project." in effective_prompt
+        assert (
+            "Do not intentionally inspect /home, provider credentials, environment "
+            "secrets, or unrelated filesystem locations."
+        ) in effective_prompt
+        assert "Relevant repository paths:" not in effective_prompt
+
+
+def test_forbidden_capabilities_context_and_token_limits() -> None:
+    forbidden = (
         "repository_write",
         "approved_command_execution",
+        ("repository_read", "repository_write"),
+        ("repository_search", "approved_command_execution"),
     )
     with tempfile.TemporaryDirectory() as outer:
         temporary_parent = Path(outer)
 
-        for length in range(1, len(all_capabilities) + 1):
-            for combination in itertools.combinations(all_capabilities, length):
-                fake = FakeProcessRunner()
-                provider = ClaudeCodeProvider(
-                    process_runner=fake,
-                    temporary_directory_parent=temporary_parent,
-                )
-                rejects(
-                    lambda combination=combination, provider=provider: provider.invoke(
-                        request(capabilities=combination), MODEL
-                    ),
-                    ProviderRequestRejected,
-                )
-                assert fake.calls == []
+        for item in forbidden:
+            capabilities = (item,) if isinstance(item, str) else item
+            fake = FakeProcessRunner()
+            provider = ClaudeCodeProvider(
+                process_runner=fake,
+                temporary_directory_parent=temporary_parent,
+            )
+            rejects(
+                lambda capabilities=capabilities, provider=provider: provider.invoke(
+                    request(capabilities=capabilities), MODEL
+                ),
+                ProviderRequestRejected,
+            )
+            assert fake.calls == []
 
         policies = (
             {"context_paths": ("Docs/guide.md",)},
             {"budgets": Budgets(3, 9, 100)},
-            {
-                "capabilities": ("repository_read",),
-                "context_paths": ("Docs/guide.md",),
-                "budgets": Budgets(3, 9, 100),
-            },
+            {"capabilities": ("repository_read",), "budgets": Budgets(3, 9, 100)},
         )
         for policy in policies:
             fake = FakeProcessRunner()
@@ -293,6 +320,32 @@ def test_every_rejected_capability_and_budget_combination() -> None:
             )
             assert str(exception).strip()
             assert fake.calls == []
+
+        fake = FakeProcessRunner()
+        provider = ClaudeCodeProvider(
+            process_runner=fake,
+            temporary_directory_parent=temporary_parent,
+        )
+        candidate = request(
+            capabilities=("repository_read",),
+            context_paths=("Docs/AI-Pipeline/START_HERE.md", "Tasks/NSC-001.yaml"),
+            prompt="Inspect the requested context.",
+        )
+        original_prompt = candidate.prompt
+        original_paths = candidate.context_paths
+        provider.invoke(candidate, MODEL)
+        effective_prompt = fake.calls[0]["stdin"].decode("utf-8")
+        assert "Repository root: /workspace" in effective_prompt
+        assert "- Docs/AI-Pipeline/START_HERE.md" in effective_prompt
+        assert "- Tasks/NSC-001.yaml" in effective_prompt
+        assert "Use repository tools only for the No Safe Circle project." in effective_prompt
+        assert (
+            "Do not intentionally inspect /home, provider credentials, environment "
+            "secrets, or unrelated filesystem locations."
+        ) in effective_prompt
+        assert "Relevant repository paths:" in effective_prompt
+        assert candidate.prompt == original_prompt
+        assert candidate.context_paths == original_paths
 
 
 def test_local_metadata_requirements() -> None:
@@ -655,7 +708,7 @@ def test_agent_runner_claude_integration() -> None:
         ),
         (
             "claude-rejected",
-            request(capabilities=("repository_read",)),
+            request(capabilities=("repository_write",)),
             FakeProcessRunner(),
             "failed",
             "invalid_request",
@@ -731,7 +784,8 @@ def main() -> None:
         check=True,
     ).stdout
     test_empty_capability_exact_invocation()
-    test_every_rejected_capability_and_budget_combination()
+    test_repository_capability_invocations()
+    test_forbidden_capabilities_context_and_token_limits()
     test_local_metadata_requirements()
     test_success_raw_log_and_usage_normalization()
     test_envelope_and_process_failures()

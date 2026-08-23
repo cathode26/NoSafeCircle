@@ -27,6 +27,10 @@ from .base import (
 
 
 _DISALLOWED_TOOLS = "Bash,Edit,Write,NotebookEdit,WebSearch,WebFetch"
+_REPOSITORY_CAPABILITIES = frozenset({"repository_read", "repository_search"})
+_FORBIDDEN_CAPABILITIES = frozenset(
+    {"repository_write", "approved_command_execution"}
+)
 _MODEL_ALIASES = frozenset({"default", "haiku", "opus", "sonnet"})
 _SOURCE_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 _MISSING = object()
@@ -66,6 +70,15 @@ class ClaudeCodeProvider:
         argv = self._build_argv(request, model)
         prompt = self._prompt(request)
 
+        if request.allowed_capabilities:
+            result = self._run(
+                argv,
+                prompt,
+                _SOURCE_REPOSITORY_ROOT,
+                request.budgets.timeout_seconds,
+            )
+            return self._response_from_result(result)
+
         parent = self._temporary_parent()
         try:
             with tempfile.TemporaryDirectory(
@@ -89,13 +102,16 @@ class ClaudeCodeProvider:
 
     @staticmethod
     def _validate_request_policy(request: AgentRequest) -> None:
-        if request.allowed_capabilities:
+        capabilities = frozenset(request.allowed_capabilities)
+        if capabilities & _FORBIDDEN_CAPABILITIES:
             raise ProviderRequestRejected(
-                "Claude Code currently requires an empty allowed_capabilities set"
+                "Claude Code does not support repository writing or command execution"
             )
-        if request.context_paths:
+        if not capabilities <= _REPOSITORY_CAPABILITIES:
+            raise ProviderRequestRejected("Claude Code capability set is unsupported")
+        if request.context_paths and not capabilities:
             raise ProviderRequestRejected(
-                "Claude Code currently requires empty context_paths"
+                "Claude Code requires a repository capability for context_paths"
             )
         if request.budgets.token_limit is not None:
             raise ProviderRequestRejected(
@@ -132,6 +148,11 @@ class ClaudeCodeProvider:
             raise ProviderTransportError(
                 "Claude Code output schema serialization failed"
             ) from exc
+        tools = []
+        if "repository_read" in request.allowed_capabilities:
+            tools.append("Read")
+        if "repository_search" in request.allowed_capabilities:
+            tools.extend(("Glob", "Grep"))
         return (
             self.executable,
             "-p",
@@ -150,15 +171,36 @@ class ClaudeCodeProvider:
             schema,
             "--no-session-persistence",
             "--tools",
-            "",
+            ",".join(tools),
             "--disallowedTools",
             _DISALLOWED_TOOLS,
         )
 
     @staticmethod
     def _prompt(request: AgentRequest) -> bytes:
+        effective_prompt = request.prompt
+        if request.allowed_capabilities:
+            path_guidance = ""
+            if request.context_paths:
+                paths = "\n".join(f"- {path}" for path in request.context_paths)
+                path_guidance = (
+                    "\n\nRelevant repository paths:\n"
+                    f"{paths}\n\n"
+                    "These paths are the primary context for this task, but other "
+                    "repository files may be inspected when needed to understand "
+                    "dependencies."
+                )
+            effective_prompt = (
+                f"{request.prompt}\n\n"
+                "Repository context:\n"
+                f"Repository root: {_SOURCE_REPOSITORY_ROOT.as_posix()}\n"
+                "Use repository tools only for the No Safe Circle project.\n"
+                "Do not intentionally inspect /home, provider credentials, "
+                "environment secrets, or unrelated filesystem locations."
+                f"{path_guidance}"
+            )
         try:
-            return request.prompt.encode("utf-8")
+            return effective_prompt.encode("utf-8")
         except UnicodeError as exc:
             raise ProviderTransportError(
                 "Claude Code prompt could not be encoded as UTF-8"
