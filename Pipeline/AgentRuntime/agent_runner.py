@@ -19,6 +19,8 @@ from .providers.base import (
     ProviderInvocationResponse,
     ProviderOutputInvalid,
     ProviderPermissionDenied,
+    ProviderRequestRejected,
+    ProviderTransportError,
     ProviderTimeout,
 )
 from .schema_validation import SchemaValidationError, validate_instance
@@ -179,6 +181,14 @@ class AgentRunner:
         except ProviderOutputInvalid as exc:
             return self._provider_exception_result(
                 request, run_dir, selection, "schema_error", exc, started
+            )
+        except ProviderRequestRejected as exc:
+            return self._provider_exception_result(
+                request, run_dir, selection, "invalid_request", exc, started
+            )
+        except ProviderTransportError as exc:
+            return self._provider_exception_result(
+                request, run_dir, selection, "internal_error", exc, started
             )
         except (ProviderFailure, ProviderInvocationError) as exc:
             return self._provider_exception_result(

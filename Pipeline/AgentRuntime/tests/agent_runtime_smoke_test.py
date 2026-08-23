@@ -37,6 +37,8 @@ from Pipeline.AgentRuntime.providers.base import (
     ProviderInvocationError,
     ProviderInvocationResponse,
     ProviderOutputInvalid,
+    ProviderRequestRejected,
+    ProviderTransportError,
     ProviderTimeout,
 )
 from Pipeline.AgentRuntime.providers.fake import FakeProvider
@@ -536,6 +538,8 @@ def test_success_artifacts_and_claims() -> AgentResult:
 
 def test_failure_normalization() -> None:
     assert ProviderOutputInvalid.__bases__ == (ProviderInvocationError,)
+    assert ProviderRequestRejected.__bases__ == (ProviderInvocationError,)
+    assert ProviderTransportError.__bases__ == (ProviderInvocationError,)
     config = configuration()
     scenarios = {
         "provider_error": "provider_error",
@@ -579,6 +583,47 @@ def test_failure_normalization() -> None:
         serialized = json.loads((invalid_run_dir / "result.json").read_text("utf-8"))
         assert serialized["failure_classification"] == "schema_error"
         assert AgentResult.from_dict(serialized) == outcome
+
+        transport_request = replace(request(), run_id="transport-error-artifacts")
+        transport_raw_log = "exact transport raw log\r\n"
+        outcome = AgentRunner(
+            root,
+            config,
+            {"fake": RaisingProvider(ProviderTransportError(
+                "local transcript failure", raw_log=transport_raw_log
+            ))},
+        ).run(transport_request)
+        transport_run_dir = root / transport_request.run_id
+        assert outcome.status == "failed"
+        assert outcome.failure_classification == "internal_error"
+        assert outcome.structured_output is None
+        assert outcome.provider == "fake" and outcome.model == "fake-standard"
+        assert outcome.failure_message == "local transcript failure"
+        assert (transport_run_dir / "provider.log").read_bytes() == (
+            transport_raw_log.encode("utf-8")
+        )
+        assert (transport_run_dir / "request.json").is_file()
+        assert (transport_run_dir / "result.json").is_file()
+
+        rejected_request = replace(request(), run_id="request-rejected-artifacts")
+        rejected_raw_log = "exact rejected-request raw log\r\n"
+        outcome = AgentRunner(
+            root,
+            config,
+            {"fake": RaisingProvider(ProviderRequestRejected(
+                "unsupported provider policy", raw_log=rejected_raw_log
+            ))},
+        ).run(rejected_request)
+        rejected_run_dir = root / rejected_request.run_id
+        assert outcome.failure_classification == "invalid_request"
+        assert outcome.provider == "fake" and outcome.model == "fake-standard"
+        assert outcome.structured_output is None
+        assert outcome.failure_message == "unsupported provider policy"
+        assert (rejected_run_dir / "provider.log").read_bytes() == (
+            rejected_raw_log.encode("utf-8")
+        )
+        assert (rejected_run_dir / "request.json").is_file()
+        assert (rejected_run_dir / "result.json").is_file()
 
         whitespace = replace(request(), run_id="whitespace-failure")
         outcome = AgentRunner(
@@ -685,7 +730,9 @@ def test_static_provider_neutrality() -> None:
     provider_modules = {
         path.name for path in (ROOT / "Pipeline/AgentRuntime/providers").glob("*.py")
     }
-    assert provider_modules == {"__init__.py", "base.py", "fake.py"}
+    assert provider_modules == {
+        "__init__.py", "base.py", "claude_code.py", "fake.py"
+    }
 
 
 def test_request_schema_and_authority_boundaries() -> None:

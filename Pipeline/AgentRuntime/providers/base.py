@@ -26,6 +26,14 @@ class ProviderOutputInvalid(ProviderInvocationError):
     pass
 
 
+class ProviderTransportError(ProviderInvocationError):
+    """Local provider transport or transcript processing failed."""
+
+
+class ProviderRequestRejected(ProviderInvocationError):
+    """The selected provider cannot safely honor the requested policy."""
+
+
 class ProviderFailure(ProviderInvocationError):
     pass
 
