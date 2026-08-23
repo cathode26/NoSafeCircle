@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — 2026-08-22.
+Accepted — 2026-08-22. Amended by ADR-039 on 2026-08-23.
 
 ## Context
 
@@ -16,9 +16,9 @@ Production execution must support both Claude Code and OpenAI/Codex without dupl
 
 The proposed production architecture adopts these rules:
 
-1. Production agent roles, task-facing request/result contracts, prompts, and schemas are provider-neutral.
+1. Production agent roles, invocation request/result contracts, prompts, and schemas are provider-neutral.
 2. Claude Code and OpenAI/Codex are interchangeable provider adapters behind one production `AgentRuntime` interface.
-3. Both adapters consume the same conceptual `AgentRequest` and return the same conceptual `AgentResult`.
+3. Both adapters consume the same generic `AgentInvocationRequest` and return the same conceptual `AgentResult`.
 4. Provider adapters may translate permissions, context delivery, structured-output mechanisms, model names, timeouts, usage, logs, and provider failures. They may not change task meaning, validation policy, or evidence authority.
 5. Model selection uses provider-neutral capability classes configured outside role prompts.
 6. Historical coursework directories remain preserved: `AgentCrew/` is Assignment 3 evidence and `Assignment6GER/` is Assignment 6 evidence. Later compatibility uses wrappers or adapters rather than rewriting history.
@@ -26,6 +26,8 @@ The proposed production architecture adopts these rules:
 8. Implementation is staged. The canonical Unity testing policy and clean deterministic runner come first; provider runtime extraction begins only after Phase 3 is merged and does not interrupt Phase 3B.
 
 The detailed staged plan and target layout are recorded in `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`.
+
+ADR-039 corrects an implementation mistake in the initial Stage 3 contract: NSC task identity is not part of generic provider invocation. `TaskExecution` owns task identity and depends downward on `AgentRuntime`; generic workflows may invoke AgentRuntime directly.
 
 ## Consequences
 

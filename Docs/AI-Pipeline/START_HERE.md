@@ -10,7 +10,7 @@ The pipeline is built across multiple work sessions and AI contexts. Do not rely
 
 ## Current Status Snapshot
 
-Stage 4B is complete on `provider-adapters`. The current bounded extension is **Stage 4B.2 — Practical Repository Read/Search**. The initial fail-closed `ClaudeCodeProvider` and shared bounded `StandardProcessRunner` were committed at:
+Stage 4B.2 practical repository read/search remains complete on `provider-adapters`. The current bounded correction is **Stage 4B.3 — AgentRuntime / TaskExecution Separation**. The initial fail-closed `ClaudeCodeProvider` and shared bounded `StandardProcessRunner` were committed at:
 
 ```text
 ae046fd828f168dac6c87c49878fe1812f6c1fd7
@@ -37,7 +37,7 @@ effective_timeout_seconds = min(timeout_seconds, turn_limit * 30)
 
 This is a bounded-execution policy, not a cross-provider-equivalent turn measurement.
 
-AgentRuntime now has the repository inspection capability needed by future repository-aware roles. This slice does not implement ExecutionCrew, Reconciliation orchestration, TaskGraph changes, or write/command authority.
+AgentRuntime now exposes the generic `AgentInvocationRequest` and has no dependency on NSC task IDs or `Tasks/*.yaml`. `Pipeline/TaskExecution` owns `TaskExecutionRequest`, task contract identity, and thin delegation to AgentRuntime with a separate immutable task audit artifact. ArchitectureReview has not yet migrated; the next useful proof is routing it through generic AgentRuntime using Claude. OpenAI/Codex provider implementation, ExecutionCrew, Reconciliation orchestration, TaskGraph changes, and write/command authority remain out of scope.
 
 As of 2026-08-21:
 

@@ -14,10 +14,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from Pipeline.AgentRuntime.contracts import (
-    AgentRequest,
+    AgentInvocationRequest,
     Budgets,
-    SCHEMA_VERSION,
-    TaskContractIdentity,
+    AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
     WriteBoundaries,
 )
 from Pipeline.AgentRuntime.providers import ClaudeCodeProvider
@@ -42,11 +41,9 @@ def main() -> None:
         "required": ["read_found", "search_found", "summary"],
         "additionalProperties": False,
     }
-    request = AgentRequest(
-        SCHEMA_VERSION,
+    request = AgentInvocationRequest(
+        AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
         "claude-repository-live-smoke",
-        "NSC-001",
-        TaskContractIdentity("Tasks/NSC-001.yaml", 1, "a" * 64),
         "validator",
         (
             "Use Read to inspect Pipeline/AgentRuntime/README.md and confirm it "

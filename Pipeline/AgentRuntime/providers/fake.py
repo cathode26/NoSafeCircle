@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from ..contracts import AgentRequest, Usage
+from ..contracts import AgentInvocationRequest, Usage
 from .base import (
     ProviderBudgetExhausted,
     ProviderFailure,
@@ -29,7 +29,7 @@ class FakeProvider:
     def provider_identifier(self) -> str:
         return "fake"
 
-    def invoke(self, request: AgentRequest, model: str) -> ProviderInvocationResponse:
+    def invoke(self, request: AgentInvocationRequest, model: str) -> ProviderInvocationResponse:
         errors = {
             "provider_error": ProviderFailure,
             "timeout": ProviderTimeout,

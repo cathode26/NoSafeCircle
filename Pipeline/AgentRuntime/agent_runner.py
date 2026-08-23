@@ -10,7 +10,12 @@ import time
 from typing import Any, Mapping
 
 from .config import ProviderSelection, RuntimeConfiguration
-from .contracts import AgentRequest, AgentResult, ContractValidationError, SCHEMA_VERSION
+from .contracts import (
+    AGENT_RESULT_SCHEMA_VERSION,
+    AgentInvocationRequest,
+    AgentResult,
+    ContractValidationError,
+)
 from .json_values import JsonValueError, freeze_json, validate_json, validate_text
 from .providers.base import (
     ProviderBudgetExhausted,
@@ -103,13 +108,13 @@ class AgentRunner:
         self.configuration = configuration
         self.registry = dict(registry)
 
-    def run(self, request: AgentRequest) -> AgentResult:
-        if type(request) is not AgentRequest:
-            raise ContractValidationError("request must be an exact AgentRequest")
+    def run(self, request: AgentInvocationRequest) -> AgentResult:
+        if type(request) is not AgentInvocationRequest:
+            raise ContractValidationError("request must be an exact AgentInvocationRequest")
 
         run_dir = self._create_run_directory(request)
         try:
-            _publish(run_dir / "request.json", _json(AgentRequest.to_dict(request)))
+            _publish(run_dir / "request.json", _json(AgentInvocationRequest.to_dict(request)))
         except BaseException:
             try:
                 run_dir.rmdir()
@@ -145,7 +150,7 @@ class AgentRunner:
 
         return self._invoke_and_publish(request, run_dir, selection, provider)
 
-    def _create_run_directory(self, request: AgentRequest) -> Path:
+    def _create_run_directory(self, request: AgentInvocationRequest) -> Path:
         self.run_root.mkdir(parents=True, exist_ok=True)
         run_dir = self.run_root / request.run_id
         try:
@@ -158,7 +163,7 @@ class AgentRunner:
 
     def _invoke_and_publish(
         self,
-        request: AgentRequest,
+        request: AgentInvocationRequest,
         run_dir: Path,
         selection: ProviderSelection,
         provider: Any,
@@ -230,7 +235,7 @@ class AgentRunner:
             changed = tuple(changed_owned)
             tests = tuple(tests_owned)
             metadata_result = AgentResult(
-                SCHEMA_VERSION, request.run_id, selection.provider, selection.model,
+                AGENT_RESULT_SCHEMA_VERSION, request.run_id, selection.provider, selection.model,
                 request.role, "failed", "schema_error", "structured output rejected",
                 None, changed, duration, usage, "provider.log", execution, tests,
             )
@@ -248,7 +253,7 @@ class AgentRunner:
             return self._publish_result(
                 request, run_dir,
                 AgentResult(
-                    SCHEMA_VERSION, request.run_id, selection.provider,
+                    AGENT_RESULT_SCHEMA_VERSION, request.run_id, selection.provider,
                     selection.model, request.role, "failed", "schema_error",
                     _safe_exception_message(exc), None,
                     metadata_result.claimed_changed_paths, duration,
@@ -261,7 +266,7 @@ class AgentRunner:
 
         try:
             result = AgentResult(
-                SCHEMA_VERSION, request.run_id, selection.provider,
+                AGENT_RESULT_SCHEMA_VERSION, request.run_id, selection.provider,
                 selection.model, request.role, "succeeded", "none", None,
                 frozen_output, metadata_result.claimed_changed_paths,
                 duration, metadata_result.usage, "provider.log",
@@ -278,7 +283,7 @@ class AgentRunner:
 
     def _provider_exception_result(
         self,
-        request: AgentRequest,
+        request: AgentInvocationRequest,
         run_dir: Path,
         selection: ProviderSelection,
         classification: str,
@@ -297,7 +302,7 @@ class AgentRunner:
 
     def _publish_failure(
         self,
-        request: AgentRequest,
+        request: AgentInvocationRequest,
         run_dir: Path,
         selection: ProviderSelection | None,
         classification: str,
@@ -306,7 +311,7 @@ class AgentRunner:
         duration: float,
     ) -> AgentResult:
         result = AgentResult(
-            SCHEMA_VERSION, request.run_id,
+            AGENT_RESULT_SCHEMA_VERSION, request.run_id,
             None if selection is None else selection.provider,
             None if selection is None else selection.model,
             request.role, "failed", classification, message, None, (),
@@ -316,7 +321,7 @@ class AgentRunner:
 
     def _publish_result(
         self,
-        request: AgentRequest,
+        request: AgentInvocationRequest,
         run_dir: Path,
         result: AgentResult,
         raw_log: str,
@@ -328,7 +333,7 @@ class AgentRunner:
 
     @staticmethod
     def _validate_result_identity(
-        request: AgentRequest,
+        request: AgentInvocationRequest,
         result: AgentResult,
         run_dir: Path,
     ) -> None:

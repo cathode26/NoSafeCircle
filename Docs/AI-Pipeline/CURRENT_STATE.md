@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-23, for Stage 4B.2 practical repository read/search on `provider-adapters`.
+Last updated: 2026-08-23, for Stage 4B.3 AgentRuntime / TaskExecution separation on `provider-adapters`.
 
 ## Current Phase
 
@@ -28,7 +28,7 @@ provider-adapters
 
 The Stage 3 foundation now implements:
 
-- provider-neutral immutable `AgentRequest` and `AgentResult` contracts;
+- provider-neutral immutable `AgentInvocationRequest` and `AgentResult` contracts;
 - semantic capability and write-boundary contracts;
 - `low_cost`, `standard`, and `high_reasoning` model capability classes;
 - strict provider configuration loading and validation;
@@ -44,6 +44,8 @@ The Stage 3 implementation is integrated; Stage 4A changes are documentation and
 Live CLI discovery is complete. Non-production-write structured-output success probes completed for Claude Code and OpenAI/Codex. The provider-transport adopt-versus-build spike is also complete: `agent-mux` and `agent-shell` were evaluated and are not being adopted as production dependencies. ADR-035 was amended on 2026-08-23 to keep `AgentRequest` schema 1.0 and its required integer `turn_limit`, with explicit provider-specific enforcement mappings.
 
 **Stage 4B.2 — Practical Repository Read/Search** extends the existing Claude adapter for this trusted single-user local environment. `repository_read` maps to Claude `Read`; `repository_search` maps to Claude `Glob` and `Grep`; their combination exposes all three. Repository-capable calls use the actual source repository root (`/workspace` in Docker), while empty-capability calls retain their fresh empty temporary workspace and no-tool behavior. Validated `context_paths` are accepted only with repository capability and become prompt guidance rather than a hardened sandbox boundary.
+
+**Stage 4B.3 — AgentRuntime / TaskExecution Separation** corrects the generic runtime boundary before broader production adoption. `AgentRuntime` now accepts `AgentInvocationRequest` with no `task_id`, `TaskContractIdentity`, or `Tasks/*.yaml` semantics. New `Pipeline/TaskExecution` owns `TaskExecutionRequest`, validates NSC task identity, publishes a separate immutable `task_request.json`, and delegates the exact contained invocation downward to `AgentRunner`. AgentRuntime never imports TaskExecution. ArchitectureReview has not yet migrated, and no OpenAI/Codex AgentRuntime provider has been implemented.
 
 Repository writing, shell and approved command execution, web access, non-null token limits, provider fallback, and production orchestration remain unsupported. Stage 4C remains the OpenAI/Codex Provider stage. Once repository read/search is live-validated, infrastructure effort should move toward useful Execution Crew and real game-development capability rather than more repository-security research.
 
@@ -479,7 +481,7 @@ Implemented Stage 3 foundation files include:
 
 ### Stage 3 contract boundary
 
-`AgentRequest` and `AgentResult` are provider-neutral. Task-facing contracts and normalized run artifacts do not depend on Claude, OpenAI, Codex, MCP, provider CLI tool names, or provider-specific permission vocabulary.
+Stage 3 originally named its task-bound request `AgentRequest`. Stage 4B.3 replaces that production contract with generic `AgentInvocationRequest`; `TaskExecutionRequest` now owns NSC task identity above the runtime. `AgentResult` remains provider-neutral and schema 1.0.
 
 The runtime distinguishes provider/agent **claims** from deterministic facts. In particular:
 
@@ -624,13 +626,13 @@ The preserved architecture review is primary evidence for the accepted correctio
 
 ## Immediate Next Goal
 
-### Add `ProviderOutputInvalid`, then implement the live provider adapters
+### Migrate ArchitectureReview through generic AgentRuntime using Claude
 
-Stage 3 is integrated. Stage 4A live CLI discovery, corrected capability mapping, transport-library evaluation, and the amended enforcement decision are complete. ADR-035 is accepted and amended; ADR-036 records the decision to own the two narrow transport adapters.
+Stage 4B.2 repository read/search and Stage 4B.3 responsibility separation are complete. `AgentInvocationRequest` schema 1.0 is generic; `TaskExecutionRequest` schema 1.0 separately owns NSC identity; `AgentResult` remains schema 1.0. `ProviderOutputInvalid` normalization is already implemented.
 
-`AgentRequest` remains schema 1.0 with its required positive integer `turn_limit`. There is no Stage 4 request-schema migration. The only remaining AgentRuntime prerequisite is to add provider-neutral `ProviderOutputInvalid` and normalize it to `schema_error`, with deterministic fake-provider/regression coverage.
+The next useful production proof is to migrate ArchitectureReview through AgentRuntime using the existing Claude adapter. That later slice should retain ArchitectureReview workflow identity above AgentRuntime and should not invent a task identity. The OpenAI/Codex provider remains unimplemented.
 
-After that prerequisite is reviewed, implement the live adapters against the same provider-neutral contract and shared fixtures:
+Current provider budget policy remains:
 
 - Claude Code: native `--max-turns N` plus external `timeout_seconds`;
 - OpenAI/Codex: `effective_timeout_seconds = min(timeout_seconds, turn_limit * 30)` using the temporary 30-seconds-per-turn-budget-unit policy;
@@ -732,8 +734,8 @@ Then:
 
 1. confirm the intended `provider-adapters` branch and inspect the working tree without discarding existing changes;
 2. confirm ADR-035 remains recorded as accepted/amended and ADR-036 records the transport ownership decision;
-3. in a separate reviewed code change, add `ProviderOutputInvalid` and normalize it to `schema_error`, with deterministic regression coverage; do not bump the AgentRequest schema;
-4. after that prerequisite is implemented and reviewed, implement both adapters against the same provider-neutral AgentRuntime contract and shared fixtures using the approved turn-budget mappings;
+3. read ADR-039 and inspect `Pipeline/TaskExecution` before adding any task-associated consumer;
+4. migrate ArchitectureReview through generic AgentRuntime using Claude in the next reviewed slice; do not implement the OpenAI/Codex provider as part of that migration;
 5. use only opt-in, non-production-write live smoke tests during Stage 4;
 6. do not implement production `ExecutionCrew` roles until both adapters pass the shared fixture suite;
 7. keep `taskcontrol ready` unavailable and `taskcontrol authorize` denied.

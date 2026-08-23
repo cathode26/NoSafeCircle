@@ -8,7 +8,7 @@ from pathlib import Path
 import tempfile
 from typing import Any, Mapping
 
-from ..contracts import AgentRequest, Usage
+from ..contracts import AgentInvocationRequest, Usage
 from ..json_values import thaw_json
 from ..process_runner import (
     ProcessResult,
@@ -62,7 +62,7 @@ class ClaudeCodeProvider:
 
     def invoke(
         self,
-        request: AgentRequest,
+        request: AgentInvocationRequest,
         model: str,
     ) -> ProviderInvocationResponse:
         self._validate_request_policy(request)
@@ -101,7 +101,7 @@ class ClaudeCodeProvider:
         return self._response_from_result(result)
 
     @staticmethod
-    def _validate_request_policy(request: AgentRequest) -> None:
+    def _validate_request_policy(request: AgentInvocationRequest) -> None:
         capabilities = frozenset(request.allowed_capabilities)
         if capabilities & _FORBIDDEN_CAPABILITIES:
             raise ProviderRequestRejected(
@@ -133,7 +133,7 @@ class ClaudeCodeProvider:
 
     def _build_argv(
         self,
-        request: AgentRequest,
+        request: AgentInvocationRequest,
         model: str,
     ) -> tuple[str, ...]:
         try:
@@ -177,7 +177,7 @@ class ClaudeCodeProvider:
         )
 
     @staticmethod
-    def _prompt(request: AgentRequest) -> bytes:
+    def _prompt(request: AgentInvocationRequest) -> bytes:
         effective_prompt = request.prompt
         if request.allowed_capabilities:
             path_guidance = ""

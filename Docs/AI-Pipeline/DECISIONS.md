@@ -282,3 +282,13 @@ This is a lightweight decision log. Add new entries when a decision materially c
 **Not allowed:** A third-party transport may not become an authority layer, silently weaken capabilities, change the selected model, broaden filesystem/tool access, or substitute its own completion claims for deterministic Git/Unity/TaskGraph evidence.
 
 **Consequence:** The project owns CLI compatibility and parsing for two provider adapters, but avoids a larger dependency or fork whose policy surface would still require custom hardening.
+
+---
+
+## ADR-039 — Separate generic invocation from NSC task execution
+
+**Accepted:** 2026-08-23.
+
+**Decision:** `AgentRuntime` owns one generic bounded provider invocation through `AgentInvocationRequest`; it does not know NSC task IDs, task-contract identity, or `Tasks/*.yaml`. `Pipeline/TaskExecution` owns `TaskExecutionRequest` and delegates the exact contained invocation downward while retaining a separate immutable task audit artifact.
+
+**Reason:** Generic workflows such as ArchitectureReview and Reconciliation must be able to use AgentRuntime honestly, while ExecutionCrew task work must retain NSC task semantics and audit identity without contaminating the provider-neutral layer.

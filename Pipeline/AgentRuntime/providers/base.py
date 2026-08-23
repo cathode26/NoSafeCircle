@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from ..contracts import AgentRequest, Usage
+from ..contracts import AgentInvocationRequest, Usage
 
 @dataclass(frozen=True)
 class ProviderInvocationResponse:
@@ -56,7 +56,7 @@ class AgentProvider(Protocol):
 
     def invoke(
         self,
-        request: AgentRequest,
+        request: AgentInvocationRequest,
         model: str,
     ) -> ProviderInvocationResponse:
         ...

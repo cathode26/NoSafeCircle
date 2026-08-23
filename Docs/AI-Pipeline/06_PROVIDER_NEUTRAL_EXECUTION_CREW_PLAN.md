@@ -53,6 +53,9 @@ Pipeline/
       claude_code.py
       openai_codex.py
     config/
+  TaskExecution/
+    contracts.py
+    task_runner.py
   ExecutionCrew/
     crew.py
     roles/
@@ -72,19 +75,18 @@ This is a target layout. This documentation task creates none of those runtime, 
 The intended separation is:
 
 - `AgentRuntime/` owns provider-neutral invocation contracts, budgets, adapter selection, and normalized results;
+- `TaskExecution/` owns NSC task identity and delegates its contained generic invocation to `AgentRuntime`;
 - `ExecutionCrew/` owns the bounded role sequence and role-specific schemas;
 - `Testing/` owns deterministic test execution rather than delegating test truth to an agent;
 - `Docs/Engineering/UNITY_TESTING_POLICY.md` will define the canonical isolation and evidence policy used by people, agents, and deterministic gates.
 
 ## Provider-neutral contracts
 
-### Conceptual `AgentRequest`
+### Generic `AgentInvocationRequest`
 
 Every provider consumes the same conceptual request. Its fields should cover:
 
 - `run_id`: immutable execution-run identity;
-- `task_id`: stable task identity;
-- `task_contract_identity`: contract path, revision, and semantic hash or an equivalent immutable identity;
 - `role`: provider-neutral production role;
 - `prompt`: role instructions and bounded task instructions;
 - `context_paths`: explicit repository inputs available to the role;
@@ -96,6 +98,8 @@ Every provider consumes the same conceptual request. Its fields should cover:
 - `provider_configuration_key`: reference to external configuration that selects an adapter and provider settings without changing the request's task meaning.
 
 The request must not contain Claude-specific tool names, Codex-specific tools, or provider API payloads. Adapters translate the semantic capability and budget fields into the closest supported provider mechanisms and fail closed when a required restriction cannot be enforced.
+
+It also must not contain NSC task identity. `TaskExecutionRequest` composes `schema_version`, `task_id`, `task_contract_identity`, and an exact `AgentInvocationRequest`. This keeps the dependency direction `ExecutionCrew -> TaskExecution -> AgentRuntime`; generic workflows such as ArchitectureReview and Reconciliation may call AgentRuntime directly.
 
 ### Conceptual `AgentResult`
 
@@ -117,7 +121,7 @@ An agent's execution claim is only a claim. Deterministic tooling must independe
 
 ## Provider adapters
 
-`ClaudeCodeProvider` and `OpenAICodexProvider` implement one provider interface. Both consume the same `AgentRequest` and return the same `AgentResult`.
+`ClaudeCodeProvider` and the future `OpenAICodexProvider` implement one provider interface. Both consume the same `AgentInvocationRequest` and return the same `AgentResult`.
 
 Adapters are responsible for:
 

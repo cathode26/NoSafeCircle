@@ -23,11 +23,10 @@ if str(ROOT) not in sys.path:
 from Pipeline.AgentRuntime.agent_runner import AgentRunner, RunAlreadyExistsError
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import (
-    AgentRequest,
+    AgentInvocationRequest,
     AgentResult,
     Budgets,
-    SCHEMA_VERSION,
-    TaskContractIdentity,
+    AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
     Usage,
     WriteBoundaries,
 )
@@ -71,17 +70,15 @@ def request(
     context_paths: tuple[str, ...] = (),
     budgets: Budgets | None = None,
     prompt: str = "Return the bounded result.",
-) -> AgentRequest:
+) -> AgentInvocationRequest:
     boundaries = (
         WriteBoundaries(("Pipeline/AgentRuntime",), ())
         if "repository_write" in capabilities
         else WriteBoundaries((), ())
     )
-    return AgentRequest(
-        SCHEMA_VERSION,
+    return AgentInvocationRequest(
+        AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
         "claude-stage-4b",
-        "NSC-001",
-        TaskContractIdentity("Tasks/NSC-001.yaml", 1, "a" * 64),
         "implementer",
         prompt,
         context_paths,
@@ -629,7 +626,7 @@ def claude_configuration() -> RuntimeConfiguration:
 
 def assert_runner_artifacts(
     run_root: Path,
-    candidate: AgentRequest,
+    candidate: AgentInvocationRequest,
     result: AgentResult,
     raw_log: str,
 ) -> None:
@@ -642,7 +639,7 @@ def assert_runner_artifacts(
     assert (run_dir / "provider.log").read_bytes() == raw_log.encode("utf-8")
     request_value = json.loads((run_dir / "request.json").read_text("utf-8"))
     result_value = json.loads((run_dir / "result.json").read_text("utf-8"))
-    assert AgentRequest.from_dict(request_value) == candidate
+    assert AgentInvocationRequest.from_dict(request_value) == candidate
     assert AgentResult.from_dict(result_value) == result
     assert set(request_value).isdisjoint(AUTHORITY_FIELDS)
     assert set(result_value).isdisjoint(AUTHORITY_FIELDS)
@@ -802,7 +799,7 @@ def main() -> None:
     ).stdout
     assert before == after, "Claude provider tests modified repository files"
     assert status_before == status_after, "Claude provider tests created repository output"
-    print("ClaudeCodeProvider smoke test: PASS (Stage 4B deterministic fixtures)")
+    print("ClaudeCodeProvider smoke test: PASS (Stage 4B.3 deterministic fixtures)")
 
 
 if __name__ == "__main__":

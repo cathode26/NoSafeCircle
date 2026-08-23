@@ -23,12 +23,12 @@ if str(ROOT) not in sys.path:
 from Pipeline.AgentRuntime.agent_runner import AgentRunner, RunAlreadyExistsError, _publish
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import (
-    AgentRequest,
+    AgentInvocationRequest,
     AgentResult,
     Budgets,
     ContractValidationError,
-    SCHEMA_VERSION,
-    TaskContractIdentity,
+    AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
+    AGENT_RESULT_SCHEMA_VERSION,
     Usage,
     WriteBoundaries,
 )
@@ -54,15 +54,11 @@ SCHEMA = {
 }
 
 
-def request(**changes: Any) -> AgentRequest:
+def request(**changes: Any) -> AgentInvocationRequest:
     values = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
         "run_id": "run-001",
-        "task_id": "NSC-001",
-        "task_contract_identity": TaskContractIdentity(
-            "Tasks/NSC-001.yaml", 1, "a" * 64
-        ),
-        "role": "implementer",
+        "role": "architecture-reviewer",
         "prompt": "Do bounded work.",
         "context_paths": ("Docs/guide.md",),
         "allowed_capabilities": ("repository_read", "repository_write"),
@@ -76,7 +72,7 @@ def request(**changes: Any) -> AgentRequest:
         "provider_configuration_key": "fake-default",
     }
     values.update(changes)
-    return AgentRequest(**values)
+    return AgentInvocationRequest(**values)
 
 
 def rejects(callable_: Any, exception: type[BaseException] = ValueError) -> None:
@@ -128,7 +124,7 @@ class RaisingProvider:
     def __init__(self, exception: BaseException) -> None:
         self.exception = exception
 
-    def invoke(self, request_: AgentRequest, model: str) -> ProviderInvocationResponse:
+    def invoke(self, request_: AgentInvocationRequest, model: str) -> ProviderInvocationResponse:
         raise self.exception
 
 
@@ -138,7 +134,7 @@ class CountingProvider:
     def __init__(self) -> None:
         self.calls = 0
 
-    def invoke(self, request_: AgentRequest, model: str) -> ProviderInvocationResponse:
+    def invoke(self, request_: AgentInvocationRequest, model: str) -> ProviderInvocationResponse:
         self.calls += 1
         return ProviderInvocationResponse({"message": "unexpected"}, "")
 
@@ -146,11 +142,11 @@ class CountingProvider:
 class ContainerProvider:
     provider_identifier = "fake"
 
-    def invoke(self, request_: AgentRequest, model: str) -> Any:
+    def invoke(self, request_: AgentInvocationRequest, model: str) -> Any:
         return {"structured_output": {"message": "not a response"}}
 
 
-class BadPublicationRequest(AgentRequest):
+class BadPublicationRequest(AgentInvocationRequest):
     def to_dict(self) -> dict[str, Any]:
         return {"unsupported": object()}
 
@@ -162,11 +158,6 @@ class BadConfiguration(RuntimeConfiguration):
 
 class IdentityMismatchProvider(CountingProvider):
     provider_identifier = "other"
-
-
-class LyingIdentity(TaskContractIdentity):
-    def to_dict(self) -> dict[str, Any]:
-        return {"path": "Tasks/NSC-999.yaml", "revision": 9, "sha256": "b" * 64}
 
 
 class LyingBoundaries(WriteBoundaries):
@@ -195,7 +186,7 @@ class StaticResponseProvider:
     def __init__(self, response: Any) -> None:
         self.response = response
 
-    def invoke(self, request_: AgentRequest, model: str) -> Any:
+    def invoke(self, request_: AgentInvocationRequest, model: str) -> Any:
         return self.response
 
 
@@ -228,18 +219,11 @@ def test_contracts_and_immutability() -> None:
     detached["output_schema"]["properties"]["message"]["enum"].append("new")
     assert req.to_dict()["output_schema"]["properties"]["message"]["enum"] == ["ok"]
     rejects(lambda: operator.setitem(req.output_schema, "type", "array"), TypeError)
-    assert AgentRequest.from_dict(req.to_dict()) == req
-    rejects(lambda: AgentRequest.from_dict({**req.to_dict(), "extra": True}))
+    assert AgentInvocationRequest.from_dict(req.to_dict()) == req
+    rejects(lambda: AgentInvocationRequest.from_dict({**req.to_dict(), "extra": True}))
+    assert "task_id" not in req.to_dict()
+    assert "task_contract_identity" not in req.to_dict()
 
-    rejects(lambda: request(task_id="NSC-1"))
-    rejects(
-        lambda: request(
-            task_contract_identity=TaskContractIdentity(
-                "Tasks/NSC-002.yaml", 1, "a" * 64
-            )
-        )
-    )
-    rejects(lambda: TaskContractIdentity("Tasks/NSC-001.yaml", 1, "A" * 64))
     rejects(lambda: request(output_schema={"type": "number", "enum": [math.nan]}))
     rejects(lambda: request(output_schema={"type": "number", "enum": [math.inf]}))
     rejects(lambda: request(output_schema={"type": "string", "enum": [object()]}))
@@ -330,7 +314,6 @@ def test_json_and_schema_containers() -> None:
 
 
 def test_exact_nested_and_text_boundaries() -> None:
-    rejects(lambda: request(task_contract_identity=LyingIdentity("Tasks/NSC-001.yaml", 1, "a" * 64)), ContractValidationError)
     rejects(lambda: request(write_boundaries=LyingBoundaries(("Pipeline/AgentRuntime",), ())), ContractValidationError)
     rejects(lambda: request(budgets=LyingBudgets(1, 1, 1)), ContractValidationError)
     rejects(lambda: request(prompt="bad\ud800"), ContractValidationError)
@@ -344,7 +327,7 @@ def test_exact_nested_and_text_boundaries() -> None:
             lambda bad_path=bad_path: request(context_paths=(bad_path,)),
             ContractValidationError,
         )
-    base = AgentResult(SCHEMA_VERSION, "text-result", "fake", "model", "implementer",
+    base = AgentResult(AGENT_RESULT_SCHEMA_VERSION, "text-result", "fake", "model", "implementer",
                        "failed", "schema_error", "diagnostic", None, (), 0, None,
                        "provider.log", False, ())
     rejects(lambda: replace(base, failure_message=" \t "), ContractValidationError)
@@ -524,6 +507,10 @@ def test_success_artifacts_and_claims() -> AgentResult:
         request_bytes = (run_dir / "request.json").read_bytes()
         result_bytes = (run_dir / "result.json").read_bytes()
         assert request_bytes == canonical_bytes(req.to_dict())
+        request_value = json.loads(request_bytes)
+        assert request_value["role"] == "architecture-reviewer"
+        assert "task_id" not in request_value
+        assert "task_contract_identity" not in request_value
         assert result_bytes == canonical_bytes(result.to_dict())
         for content in (request_bytes, result_bytes):
             assert b"\r" not in content
@@ -742,14 +729,14 @@ def test_request_schema_and_authority_boundaries() -> None:
     assert serialized["budgets"]["turn_limit"] == 5
     missing_turn_limit = serialized
     del missing_turn_limit["budgets"]["turn_limit"]
-    rejects(lambda: AgentRequest.from_dict(missing_turn_limit))
+    rejects(lambda: AgentInvocationRequest.from_dict(missing_turn_limit))
 
     forbidden = {
         "complete", "conformant", "ready", "authorized", "approved",
         "integrated", "tests_passed",
     }
     for contract in (request().to_dict(), AgentResult(
-        SCHEMA_VERSION, "authority-fields", "fake", "fake-standard", "implementer",
+        AGENT_RESULT_SCHEMA_VERSION, "authority-fields", "fake", "fake-standard", "implementer",
         "failed", "schema_error", "diagnostic", None, (), 0, None,
         "provider.log", False, (),
     ).to_dict()):
@@ -819,7 +806,7 @@ def main() -> None:
     }
     unexpected = (after_lines - before_lines) - expected_new
     assert not unexpected, f"test created repository output: {sorted(unexpected)}"
-    print("AgentRuntime smoke test: PASS (Stage 3A hardening regressions)")
+    print("AgentRuntime smoke test: PASS (generic invocation hardening regressions)")
 
 
 if __name__ == "__main__":
