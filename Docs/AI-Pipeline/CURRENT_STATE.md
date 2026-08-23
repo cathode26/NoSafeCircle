@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-22, after Architecture Correction Phase 3 was fast-forward merged into `main` and the `provider-neutral-execution-crew` branch was created.
+Last updated: 2026-08-22, after the provider-neutral `AgentRuntime` Stage 3 foundation was committed and pushed on `provider-neutral-execution-crew`.
 
 ## Current Phase
 
@@ -18,27 +18,36 @@ Phase 3 was fast-forward merged into `main` at:
 43fdf0a163e281204906abd43a241db211587a0f
 ```
 
+**Provider-Neutral Execution Crew Plan — Stage 3: COMPLETE.**
+
 The current development branch is:
 
 ```text
 provider-neutral-execution-crew
 ```
 
-The active implementation stage is:
+The Stage 3 foundation now implements:
 
-**Provider-Neutral Execution Crew Plan — Stage 3: Extract the provider-neutral AgentRuntime foundation.**
-
-The next bounded slice is to implement:
-
-- provider-neutral `AgentRequest` and `AgentResult` contracts;
+- provider-neutral immutable `AgentRequest` and `AgentResult` contracts;
 - semantic capability and write-boundary contracts;
-- model capability classes;
-- immutable run-directory handling;
-- provider configuration validation;
-- a deterministic fake provider;
-- shared contract and failure-mode tests.
+- `low_cost`, `standard`, and `high_reasoning` model capability classes;
+- strict provider configuration loading and validation;
+- bounded request budgets and normalized failure classifications;
+- strict JSON value and supported-schema validation;
+- atomic, no-overwrite immutable run artifacts;
+- provider-neutral base interfaces;
+- a deterministic, side-effect-free `FakeProvider`;
+- an adversarial regression suite covering provider trust boundaries, path safety, schema failures, immutable artifacts, malformed provider values, and historical-directory protection.
 
-No live Claude Code adapter, OpenAI/Codex adapter, production `ExecutionCrew` role orchestration, task readiness, or autonomous dispatch has been implemented yet.
+The Stage 3 implementation is committed and pushed on `provider-neutral-execution-crew`. Before merging it into `main`, the topic branch must be aligned with the current `main` history and its AgentRuntime regression suite rerun. If the branch is rebased, the Stage 3 commit SHA will change; use the actual Git branch state rather than hard-coding the pre-rebase SHA as permanent authority.
+
+The next planned architecture stage is:
+
+**Provider-Neutral Execution Crew Plan — Stage 4: Implement Claude Code and OpenAI/Codex adapters against the same AgentRuntime fixtures.**
+
+Stage 4 has **not** started yet. Before implementing either live adapter, the provider-specific invocation, permission, sandbox, write-boundary, structured-output, timeout, usage, and raw-log mappings must be documented and reviewed.
+
+No production `ExecutionCrew` role orchestration, Unity execution by an agent, GER integration, task selection, dependency readiness, autonomous dispatch, automatic Git commit/merge behavior, or live provider fallback has been enabled.
 
 Architecture Correction Phase 3 remains intentionally fail-closed for execution:
 
@@ -433,7 +442,81 @@ The clean runner was also proven through a real Unity run with these exact facts
 
 The runner proves Unity and Git execution facts. The separately committed NSC-023 baseline record binds those facts into Phase 3 conformance evidence. Neither the runner nor a conformant result enables readiness or authorization; `taskcontrol ready` remains unavailable and `taskcontrol authorize` remains denied.
 
-Stage 1 did **not** implement `AgentRuntime`, provider adapters, `ExecutionCrew`, or a dedicated test-author agent. Those remain later stages with the entry criteria and authority boundaries defined by the plan and ADR-034.
+Stage 1 itself did **not** implement `AgentRuntime`, provider adapters, `ExecutionCrew`, or a dedicated test-author agent. The provider-neutral `AgentRuntime` foundation was implemented later in Stage 3; live provider adapters and production `ExecutionCrew` roles remain later stages governed by the plan and ADR-034.
+
+## Provider-Neutral Execution Crew Stage 3 — COMPLETE
+
+Stage 3 of `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md` extracted the reusable orchestration concepts demonstrated by Assignment 3 into a new production foundation under:
+
+`Pipeline/AgentRuntime/`
+
+Historical coursework remains preserved:
+
+- `AgentCrew/` remains Assignment 3 evidence and was not rewritten to use the new runtime;
+- `Assignment6GER/` remains Assignment 6 evidence and was not rewritten to use the new runtime.
+
+Implemented Stage 3 foundation files include:
+
+- `Pipeline/AgentRuntime/README.md`;
+- `Pipeline/AgentRuntime/contracts.py`;
+- `Pipeline/AgentRuntime/json_values.py`;
+- `Pipeline/AgentRuntime/schema_validation.py`;
+- `Pipeline/AgentRuntime/config.py`;
+- `Pipeline/AgentRuntime/agent_runner.py`;
+- `Pipeline/AgentRuntime/providers/base.py`;
+- `Pipeline/AgentRuntime/providers/fake.py`;
+- `Pipeline/AgentRuntime/tests/agent_runtime_smoke_test.py`;
+- `Pipeline/AgentRuntime/config/example.json`.
+
+### Stage 3 contract boundary
+
+`AgentRequest` and `AgentResult` are provider-neutral. Task-facing contracts and normalized run artifacts do not depend on Claude, OpenAI, Codex, MCP, provider CLI tool names, or provider-specific permission vocabulary.
+
+The runtime distinguishes provider/agent **claims** from deterministic facts. In particular:
+
+- claimed changed paths do not replace Git diff/scope checks;
+- claimed test commands do not prove tests ran;
+- provider success does not prove Unity success;
+- provider output does not establish integrated delivery;
+- provider output does not establish current conformance;
+- provider output does not establish readiness or dispatch authorization.
+
+### Stage 3 runtime safety
+
+The foundation now fail-closes on malformed or unsafe runtime data, including:
+
+- invalid task/contract identity;
+- unsafe repository-relative paths and Windows path aliases;
+- unsupported or missing capabilities;
+- invalid/excessive budgets;
+- malformed or cyclic JSON;
+- unsupported schema keywords;
+- mutable/polymorphic provider values crossing the trust boundary;
+- malformed raw logs or diagnostics;
+- schema-invalid structured output;
+- duplicate run identities;
+- attempts to overwrite finalized run artifacts.
+
+Provider failures are normalized into provider-neutral result classifications. Post-invocation schema failures preserve otherwise-valid non-authoritative audit claims and usage while rejecting the structured output itself.
+
+The deterministic fake provider exercises success, provider failure, timeout, permission denial, budget exhaustion, schema failure, malformed metadata, and trust-boundary cases without network, shell, Git, Unity, or repository side effects.
+
+### Stage 3 regression status
+
+The Stage 3 AgentRuntime smoke suite passes after adversarial hardening and covers the request/result contracts, configuration, provider registry, write boundaries, strict JSON/schema behavior, immutable publication, normalized failures, fake-provider scenarios, provider trust-boundary attacks, and protection of the historical Assignment 3 and Assignment 6 directories.
+
+Stage 3 does **not** implement:
+
+- a live Claude Code provider;
+- a live OpenAI/Codex provider;
+- automatic provider fallback;
+- Implementer/Test Author/Validator orchestration;
+- Unity execution initiated by an agent;
+- GER integration;
+- task selection;
+- dependency readiness;
+- dispatch authorization;
+- automatic Git branch/worktree/commit/merge behavior.
 
 ## Current Dispatch Policy
 
@@ -512,6 +595,14 @@ State inspection is now implemented.
 
 Production proof now exists for NSC-023 through committed baseline `BASE-NSC-023-86af98f41ab5`. No real production revalidation record exists yet.
 
+### AgentRuntime requests/results
+
+`Pipeline/AgentRuntime` is the provider-neutral execution boundary for future model invocations.
+
+Its immutable request, result, configuration, and provider-log artifacts are execution records and audit data. They are **not** game-design authority, deterministic validation evidence, current conformance, readiness, dispatch authorization, or human approval.
+
+Provider-reported changed paths, executed commands, tests, usage, and structured output remain claims until independently checked by the appropriate deterministic Git, Unity, schema, TaskGraph, or human process.
+
 ### Reconciliation
 
 Reconciliation outputs remain immutable point-in-time observations. They may propose graph changes but do not directly mutate living task contracts or current conformance state.
@@ -524,42 +615,63 @@ The preserved architecture review is primary evidence for the accepted correctio
 
 ## Immediate Next Goal
 
-### Provider-Neutral Execution Crew Plan — Stage 3
+### Finish Stage 3 integration, then begin Stage 4 provider adapters
 
-Extract the reusable, provider-neutral `AgentRuntime` foundation from the architectural lessons of Assignment 3 without rewriting the historical `AgentCrew/` implementation.
+The provider-neutral AgentRuntime foundation is implemented, regression-tested, committed, and pushed on `provider-neutral-execution-crew`.
 
-The first Stage 3 slice should establish:
+The immediate repository action is to integrate Stage 3 cleanly:
 
 ```text
-AgentRequest
-+ AgentResult
-+ provider interface
-+ semantic capability/write-boundary contracts
-+ immutable run layout
-+ provider configuration validation
-+ deterministic fake provider
+align provider-neutral-execution-crew with current main
+→ rerun AgentRuntime and key integration regressions
+→ update/push the rebased topic branch if necessary
+→ fast-forward merge Stage 3 into main
+→ create a new provider-adapters branch from merged main
 ```
 
-The first slice must not yet implement:
+Do not treat a pre-rebase Stage 3 commit SHA as permanent if the topic branch is rewritten during alignment.
 
-- a live Claude Code provider;
-- a live OpenAI/Codex provider;
-- Implementer/Test Author/Validator orchestration;
-- Unity execution initiated by an agent;
-- GER integration;
-- task selection;
-- dependency readiness;
-- dispatch authorization;
-- automatic Git commits, merges, or worktrees.
+After Stage 3 is merged, begin:
 
-The fake provider and shared fixtures should prove the provider-neutral contract before either live provider adapter is introduced.
+**Provider-Neutral Execution Crew Plan — Stage 4: Claude Code and OpenAI/Codex provider adapters.**
 
-Architecture Correction Phase 3 is already merged. Its current authority boundary remains active:
+Before implementation, document and review how each provider maps the shared AgentRuntime concepts:
+
+- provider invocation mechanism;
+- capability-class to concrete model mapping;
+- prompt/context delivery;
+- structured-output mechanism;
+- timeout behavior;
+- raw-log capture;
+- usage extraction;
+- `repository_read`;
+- `repository_search`;
+- `repository_write`;
+- `approved_command_execution`;
+- permission/sandbox translation;
+- write-boundary enforcement;
+- behavior when a required restriction cannot be enforced.
+
+The adapters must both consume the same provider-neutral `AgentRequest`, return the same provider-neutral result boundary, and pass the same shared conformance fixtures.
+
+Stage 4 must remain bounded:
+
+- no provider-specific task contracts or role schemas;
+- no automatic provider fallback that changes task meaning;
+- no production `ExecutionCrew` role orchestration yet;
+- no real gameplay task execution yet;
+- no Unity validation delegated to a model;
+- no Phase 3 evidence publication by an adapter;
+- no dependency readiness;
+- no dispatch authorization;
+- no automatic merge.
+
+Architecture Correction Phase 3 authority remains active:
 
 - `NSC-023` derives as `conformant`;
 - readiness remains unavailable;
 - authorization remains denied;
-- no worker or provider result establishes completion, readiness, or dispatch authority.
+- no worker, provider, runtime, or future adapter result establishes completion, readiness, or dispatch authority.
 
 No real production revalidation record exists yet. Do not fabricate a gameplay, contract, GDD, scene, implementation, or test change merely to produce one. The first legitimate relevant change will exercise the production revalidation path.
 
@@ -624,28 +736,36 @@ Read, in order:
 4. `Docs/AI-Pipeline/DECISIONS.md`;
 5. `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`;
 6. `Docs/AI-Pipeline/ADR-034_PROVIDER_NEUTRAL_AGENT_RUNTIME.md`;
-7. `Pipeline/TaskGraph/README.md`;
-8. `Pipeline/TaskGraph/TASK_CONTRACT_SCHEMA_V2.md`;
-9. `Pipeline/TaskGraph/CONFORMANCE_RECORDS.md`;
-10. `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`;
-11. `Pipeline/GDDRAG/README.md`;
-12. `Pipeline/GDDRAG/INTEGRITY.md`;
-13. inspect `AgentCrew/orchestrator.py` and `Assignment6GER/ger_pipeline.py` as historical reusable prototypes, not production runtime authority;
-14. inspect the actual repository and branch state.
+7. `Pipeline/AgentRuntime/README.md`;
+8. `Pipeline/AgentRuntime/contracts.py`;
+9. `Pipeline/AgentRuntime/agent_runner.py`;
+10. `Pipeline/AgentRuntime/providers/base.py`;
+11. `Pipeline/AgentRuntime/tests/agent_runtime_smoke_test.py`;
+12. `Pipeline/TaskGraph/README.md`;
+13. `Pipeline/TaskGraph/TASK_CONTRACT_SCHEMA_V2.md`;
+14. `Pipeline/TaskGraph/CONFORMANCE_RECORDS.md`;
+15. `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`;
+16. `Pipeline/GDDRAG/README.md`;
+17. `Pipeline/GDDRAG/INTEGRITY.md`;
+18. inspect `AgentCrew/orchestrator.py` and `Assignment6GER/ger_pipeline.py` only as historical reusable prototypes, not production runtime authority;
+19. inspect the actual repository and branch state.
 
 Then:
 
-1. confirm the current branch is `provider-neutral-execution-crew`;
-2. confirm the branch starts from merged `main` commit `43fdf0a163e281204906abd43a241db211587a0f`;
-3. confirm the working tree is clean;
-4. read `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`;
-5. read `Docs/AI-Pipeline/ADR-034_PROVIDER_NEUTRAL_AGENT_RUNTIME.md`;
-6. inspect `AgentCrew/orchestrator.py` and `Assignment6GER/ger_pipeline.py` as historical reusable prototypes, not production runtime authority;
-7. define provider-neutral request/result and provider-interface contracts;
-8. implement immutable run-directory handling and a deterministic fake provider;
-9. add shared contract, permission, budget, timeout, schema, and failure-normalization fixtures;
-10. do not implement either live provider adapter until the fake-provider foundation passes;
-11. do not implement production Execution Crew roles yet;
-12. keep `taskcontrol ready` unavailable and `taskcontrol authorize` denied.
+1. confirm the current branch and compare it with current `main`;
+2. confirm the working tree is clean;
+3. confirm Stage 3 AgentRuntime files are committed and the smoke suite passes;
+4. align/rebase `provider-neutral-execution-crew` with current `main` if necessary;
+5. rerun `Pipeline/AgentRuntime/tests/agent_runtime_smoke_test.py`;
+6. confirm `taskcontrol state NSC-023` remains `conformant`;
+7. confirm `Pipeline/GDDRAG/gddctl.py validate` still passes;
+8. confirm the authoritative DoorPrototype scene-location regression still passes;
+9. push the aligned topic branch and fast-forward merge Stage 3 into `main`;
+10. create a new `provider-adapters` branch from merged `main`;
+11. document Claude Code and OpenAI/Codex permission/capability mappings before implementing either live adapter;
+12. implement both adapters against the same provider-neutral AgentRuntime contract and shared fixtures;
+13. use only opt-in, non-production-write live smoke tests during Stage 4;
+14. do not implement production `ExecutionCrew` roles until both adapters pass the shared fixture suite;
+15. keep `taskcontrol ready` unavailable and `taskcontrol authorize` denied.
 
 A new window should be able to resume from repository state without the prior chat transcript.
