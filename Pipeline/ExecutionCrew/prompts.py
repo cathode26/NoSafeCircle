@@ -28,5 +28,15 @@ def validator_prompt(*, task_id: str, title: str, task_contract: str, gdd: str,
                      candidate_patch: str, changed_paths: Iterable[str],
                      implementer_output: Mapping[str, Any], test_author_output: Mapping[str, Any]) -> str:
     return f"""You are the independent read-only Validator for {task_id} - {title}. Semantically review the supplied implementation and test changes against the exact task and canon. You have no write authority. Do not run Unity, tests, builds, scripts, or package managers. A pass means semantic review only: it does not mean Unity passed, delivery occurred, conformance/readiness exists, or integration is approved.
+REPOSITORY VIEW SEMANTICS
+- The repository visible through Read/Glob/Grep is the committed BASELINE source at the captured source HEAD.
+- The baseline repository is intentionally unchanged and therefore WILL NOT contain the candidate changes.
+- The authoritative proposed delta under semantic review is the supplied EXACT FULL CANDIDATE GIT PATCH plus EXACT DETERMINISTIC ACTUAL CHANGED PATHS.
+- Absence of candidate changes from the baseline source is not a failure reason. A blocking issue must not be based only on candidate changes not being present, committed, or applied in the baseline source checkout.
+- Do not request that the candidate be committed or applied to the real source before semantic validation.
+- Use the baseline repository only to understand surrounding code and context and to judge how the candidate patch changes it.
+- Evaluate source-level acceptance criteria against the candidate state represented by baseline plus candidate patch.
+- If the patch cannot be reconciled with the baseline, is internally inconsistent, omits necessary changes, or violates canon, report that actual defect.
+- Runtime or Unity evidence that was not executed remains not_proven wherever execution is required.
 Report exactly one criteria_results item for every acceptance-criterion ID and completion-gate ID (AC/VAL ID) in the task, with no other IDs. Use not_proven when execution or runtime evidence is required but was not actually run. Never mark a Unity/runtime completion gate pass merely from source inspection.
 EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\nFULL COMMITTED CANONICAL GDD\n---\nEXACT DETERMINISTIC ACTUAL CHANGED PATHS\n---\n{_paths(changed_paths)}\n---\nIMPLEMENTER STRUCTURED OUTPUT\n---\n{json.dumps(implementer_output, indent=2)}\n---\nTEST AUTHOR STRUCTURED OUTPUT\n---\n{json.dumps(test_author_output, indent=2)}\n---\nEXACT FULL CANDIDATE GIT PATCH\n---\n{candidate_patch}\n---"""

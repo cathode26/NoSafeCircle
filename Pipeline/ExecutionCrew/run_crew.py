@@ -2,8 +2,9 @@
 """Run the minimum production ExecutionCrew for one human-selected task."""
 from __future__ import annotations
 
-import argparse, hashlib, json, os, re, subprocess, sys, tempfile, time
+import argparse, hashlib, json, math, os, re, subprocess, sys, tempfile, threading, time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -28,6 +29,29 @@ GDD_PATH = "Docs/GDD/No_Safe_Circle_GDD.md"
 POLICY_PATH = "Docs/Engineering/UNITY_TESTING_POLICY.md"
 
 class CrewBlocked(RuntimeError): pass
+
+class ProgressReporter:
+    """Supplemental, non-authoritative operational telemetry for one crew run."""
+    def __init__(self, path: Path, *, run_id: str, task_id: str, provider: str, started: float):
+        self.path, self.run_id, self.task_id, self.provider, self.started = path, run_id, task_id, provider, started
+        self._lock = threading.Lock()
+
+    def emit(self, event: str, message: str, **fields: Any) -> None:
+        record = {"schema_version":"1.0", "timestamp_utc":datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                  "elapsed_seconds":round(time.monotonic()-self.started,3), "event":event, "run_id":self.run_id,
+                  "task_id":self.task_id, "provider":self.provider, **fields, "message":message}
+        line=json.dumps(record,sort_keys=True,separators=(",",":"))
+        with self._lock:
+            with self.path.open("a",encoding="utf-8") as stream:
+                stream.write(line+"\n"); stream.flush()
+            print(f"[{record['timestamp_utc']}] {message}",file=sys.stderr,flush=True)
+
+def heartbeat_interval() -> float:
+    raw=os.getenv("NSC_EXECUTION_HEARTBEAT_SECONDS","15")
+    try: value=float(raw)
+    except ValueError as exc: raise CrewBlocked("NSC_EXECUTION_HEARTBEAT_SECONDS must be a positive finite number") from exc
+    if not math.isfinite(value) or value<=0: raise CrewBlocked("NSC_EXECUTION_HEARTBEAT_SECONDS must be a positive finite number")
+    return value
 
 def git(root: Path, *args: str, text: bool = True, check: bool = True):
     return subprocess.run(("git", "-C", str(root), *args), check=check, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=text)
@@ -199,8 +223,15 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
     if not implementation_paths: raise CrewBlocked("at least one --implementation-path is required")
     if not test_paths: raise CrewBlocked("at least one --test-path is required for Stage 5B")
     impl_bounds, test_bounds = WriteBoundaries(implementation_paths, test_paths), WriteBoundaries(test_paths, implementation_paths)
+    interval=heartbeat_interval()
+    run_id=run_id or f"{task_id.lower()}-{time.strftime('%Y%m%dt%H%M%Sz',time.gmtime())}"
+    run_dir=output_root/run_id; run_dir.mkdir(parents=True,exist_ok=False)
+    (run_dir/"role_results").mkdir()
+    progress=ProgressReporter(run_dir/"progress.jsonl",run_id=run_id,task_id=task_id,provider=provider_name,started=started)
+    progress.emit("run_started",f"ExecutionCrew started: {task_id} / {provider_name}")
     identity=capture_source(source); source_root=Path(identity.root).resolve(strict=True)
     if _require_physical_read_only_source and not (os.statvfs(source_root).f_flag & os.ST_RDONLY): raise CrewBlocked("production source checkout must be physically mounted read-only")
+    progress.emit("source_preflight_completed",f"Source preflight passed: HEAD {identity.head[:8]}",status="passed")
     task_raw=committed_bytes(source_root,identity.head,f"Tasks/{task_id}.yaml")
     task, contract_identity=parse_task(task_raw,task_id)
     expected_requirement_ids=tuple(
@@ -208,9 +239,6 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
         + [item["gate_id"] for item in task["completion_gates"]]
     )
     task_text=task_raw.decode("utf-8-sig"); gdd=committed_bytes(source_root,identity.head,GDD_PATH).decode("utf-8-sig"); policy=committed_bytes(source_root,identity.head,POLICY_PATH).decode("utf-8-sig")
-    run_id=run_id or f"{task_id.lower()}-{time.strftime('%Y%m%dt%H%M%Sz',time.gmtime())}"
-    run_dir=output_root/run_id; run_dir.mkdir(parents=True,exist_ok=False)
-    (run_dir/"role_results").mkdir()
     role_records=[]; reasons=[]; impl_actual=set(); test_actual=set(); validator_status=None; attempts=0
     latest_impl={}; latest_test={}; candidate_path=None; diagnostic_path=None; accepted_candidate=None
     def invoke(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries):
@@ -227,15 +255,37 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
             key)
         if key != inv.provider_configuration_key: raise CrewBlocked("provider factory configuration key changed")
         req=TaskExecutionRequest(TASK_EXECUTION_REQUEST_SCHEMA_VERSION,task_id,contract_identity,inv)
-        result=TaskExecutionRunner(run_dir/"task_execution",AgentRunner(run_dir/"agent_runtime",config,registry)).run(req)
+        display=role.replace("_"," ").title(); role_started=time.monotonic(); stopped=threading.Event()
+        progress.emit("role_started",f"{display} {attempt} started",role=role,attempt=attempt)
+        def heartbeat() -> None:
+            while not stopped.wait(interval):
+                elapsed=round(time.monotonic()-role_started,1)
+                progress.emit("role_heartbeat",f"{display} {attempt} still running: {elapsed:g}s",role=role,attempt=attempt,duration_seconds=elapsed,status="running")
+        thread=threading.Thread(target=heartbeat,name=f"execution-crew-{role}-heartbeat",daemon=True); thread.start()
+        failure: BaseException|None=None; result=None
+        try:
+            result=TaskExecutionRunner(run_dir/"task_execution",AgentRunner(run_dir/"agent_runtime",config,registry)).run(req)
+        except BaseException as exc:
+            failure=exc
+        finally:
+            stopped.set(); thread.join()
+        duration=round(time.monotonic()-role_started,3)
+        if failure is not None:
+            progress.emit("role_completed",f"{display} {attempt} completed: failed ({duration:.1f}s)",role=role,attempt=attempt,status="failed",duration_seconds=duration)
+            raise failure
+        assert result is not None
+        progress.emit("role_completed",f"{display} {attempt} completed: {result.status} ({duration:.1f}s)",role=role,attempt=attempt,status=result.status,duration_seconds=duration)
         return inv,result
     with tempfile.TemporaryDirectory(prefix="nsc-execution-crew-") as temporary:
         clone=clone_exact(source_root,identity.head,Path(temporary))
+        progress.emit("clone_completed","Disposable clone ready",status="passed")
         baseline_clone=snapshot(clone)
         preflight_role_paths(baseline_clone, implementation_paths, test_paths)
         stop=False
         for attempt in (1,2):
             attempts=attempt
+            progress.emit("attempt_started",f"Attempt {attempt}/2 started",attempt=attempt)
+            if attempt==2: progress.emit("repair_cycle_started","Repair cycle started",attempt=attempt)
             repair_actual=set()
             findings=None if attempt==1 else latest_validator.get("blocking_issues",[])
             before=snapshot(clone)
@@ -244,6 +294,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
             output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
             record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
             (run_dir/f"role_results/implementer_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
+            progress.emit("scope_check_completed",f"Implementer {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="implementer",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
             if attempt==2: repair_actual.update(actual)
             if blockers or scope: reasons += [*(f"implementer blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
             impl_patch=paths_patch(clone,identity.head,implementation_paths).decode("utf-8","replace")
@@ -253,6 +304,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
             output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
             record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
             (run_dir/f"role_results/test_author_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/test_author_{attempt}.json"); test_actual.update(actual); latest_test=output
+            progress.emit("scope_check_completed",f"Test Author {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="test_author",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
             if attempt==2: repair_actual.update(actual)
             if blockers or scope: reasons += [*(f"test author blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
             if attempt==2 and not repair_actual:
@@ -264,6 +316,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
             else: scope += validator_semantic_reasons(output, expected_requirement_ids)
             record={"role":"validator","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
             (run_dir/f"role_results/validator_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/validator_{attempt}.json"); latest_validator=output
+            progress.emit("validator_completed",f"Validator {attempt} completed: {validator_status or res.status}",role="validator",attempt=attempt,status=validator_status or res.status)
             if scope: reasons+=scope; crew_status="rejected"; stop=True; break
             if validator_status=="pass": crew_status="review_ready"; accepted_candidate=candidate; stop=True; break
             if validator_status=="blocked_by_design": reasons.append("validator blocked_by_design"); crew_status="blocked"; stop=True; break
@@ -291,6 +344,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
             if diagnostic: (run_dir/"workspace_diagnostic.patch").write_bytes(diagnostic); diagnostic_path=str(run_dir/"workspace_diagnostic.patch")
     result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"workspace_diagnostic_patch_path":diagnostic_path,"rejection_reasons":reasons,"validator_status":validator_status,"human_next_step":"Review candidate.patch; apply manually only if approved." if crew_status=="review_ready" else "Inspect diagnostics and role artifacts; no review-ready patch was emitted.","duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+    progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result
 
 def main():

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Deterministic three-role ExecutionCrew smoke; no Unity or live provider calls."""
 from __future__ import annotations
-import json, os, subprocess, sys, tempfile
+import io, json, os, subprocess, sys, tempfile, time
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,16 +12,16 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import Usage
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse
-from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, changed_paths, clone_exact, construct_real_provider, run_crew, runtime_configuration
+from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, changed_paths, clone_exact, construct_real_provider, main as crew_main, run_crew, runtime_configuration
 
-TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"
+TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
 def cmd(root,*args): return subprocess.run(("git","-C",str(root),*args),check=True,stdout=subprocess.PIPE,text=True).stdout.strip()
 def write(path,text): path.parent.mkdir(parents=True,exist_ok=True); path.write_text(text,encoding="utf-8")
 def fixture(parent):
     root=parent/"source"; root.mkdir(); subprocess.run(("git","init","-q",str(root)),check=True); cmd(root,"config","user.name","Crew Smoke"); cmd(root,"config","user.email","crew@example.invalid")
     write(root/IMPL,"public class PlayerMana { }\n"); write(root/TEST,"public class PlayerManaTests { }\n"); write(root/OTHER,"public class Other { }\n"); write(root/".gitignore","*.ignored\n")
     task={"schema_version":"2.0","id":TASK,"contract_revision":3,"contract_disposition":"active","title":"Mana","kind":"implementation","execution_scope":"single_agent","decomposition_state":"concrete","acceptance_criteria":[{"criterion_id":"AC-001","reference":"fixture","requirement":"Mana behavior is implemented."}],"completion_gates":[{"gate_id":"VAL-001","reference":"fixture","requirement":"Unity behavior is verified."}],"downstream_integration_obligations":[],"provenance":{"origin":"fixture"}}
-    write(root/f"Tasks/{TASK}.yaml",json.dumps(task)+"\n"); write(root/"Docs/GDD/No_Safe_Circle_GDD.md","# GDD\n"); write(root/"Docs/Engineering/UNITY_TESTING_POLICY.md","# Policy\nNever claim tests passed.\n")
+    write(root/f"Tasks/{TASK}.yaml",json.dumps(task)+"\n"); write(root/"Docs/GDD/No_Safe_Circle_GDD.md",f"# GDD\n{SECRET}\n"); write(root/"Docs/Engineering/UNITY_TESTING_POLICY.md","# Policy\nNever claim tests passed.\n")
     cmd(root,"add","."); cmd(root,"commit","-qm","baseline"); return root
 
 class State:
@@ -32,10 +33,13 @@ class FakeProvider:
     def invoke(self,request,model):
         s=self.state; attempt=sum(1 for r,_,_ in s.calls if r==self.role)+1; s.calls.append((self.role,request,model))
         assert request.role==self.role
+        if s.scenario=="slow" and self.role=="implementer": time.sleep(.06)
         if self.role=="validator":
             assert not self.writable and self.repo.resolve()==s.source.resolve(); assert "repository_write" not in request.allowed_capabilities; assert not request.write_boundaries.allowed_paths
             exact=subprocess.run(("git","-C",str(s.clone),"diff","--binary","--full-index","--no-ext-diff","--no-renames",cmd(s.source,"rev-parse","HEAD")),check=True,stdout=subprocess.PIPE,text=True).stdout
             assert f"EXACT FULL CANDIDATE GIT PATCH\n---\n{exact}\n---" in request.prompt and "public int Mana" in request.prompt
+            for required in ("baseline repository is intentionally unchanged", "authoritative proposed delta", "Absence of candidate changes from the baseline source is not a failure reason", "Do not request that the candidate be committed or applied to the real source before semantic validation", "Runtime or Unity evidence that was not executed remains not_proven"):
+                assert required in request.prompt
             if s.scenario=="needs_twice": status="needs_changes"
             elif s.scenario in ("repair","no_op_repair") and attempt==1: status="needs_changes"
             elif s.scenario=="design": status="blocked_by_design"
@@ -142,11 +146,29 @@ def main():
         try: execute(clone,outputs,"pass",len(list(outputs.glob("*")))+20)
         except CrewBlocked as exc: assert field in str(exc)
         else: raise AssertionError(field)
-    passed,state,d=execute(source,outputs,"pass",1); assert passed["crew_status"]=="review_ready" and (d/"candidate.patch").read_bytes(); assert [x[0] for x in state.calls]==["implementer","test_author","validator"]
+    progress_stderr=io.StringIO(); progress_stdout=io.StringIO()
+    with redirect_stderr(progress_stderr), redirect_stdout(progress_stdout): passed,state,d=execute(source,outputs,"pass",1)
+    assert passed["crew_status"]=="review_ready" and (d/"candidate.patch").read_bytes(); assert [x[0] for x in state.calls]==["implementer","test_author","validator"]
+    assert progress_stdout.getvalue()=="" and "ExecutionCrew started" in progress_stderr.getvalue() and "ExecutionCrew completed: review_ready" in progress_stderr.getvalue()
+    events=[json.loads(line) for line in (d/"progress.jsonl").read_text().splitlines() if line]
+    names=[event["event"] for event in events]; assert names[0]=="run_started" and names[-1]=="run_completed"
+    assert names.index("run_started") < names.index("role_started") < names.index("role_completed")
+    telemetry=(d/"progress.jsonl").read_text()+progress_stderr.getvalue(); assert SECRET not in telemetry and "EXACT COMMITTED TASK CONTRACT" not in telemetry
+    fake_result={"crew_status":"review_ready","machine":"parseable"}; cli_stdout=io.StringIO(); cli_stderr=io.StringIO()
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(cli_stdout), redirect_stderr(cli_stderr):
+        assert crew_main()==0
+    assert json.loads(cli_stdout.getvalue())==fake_result and cli_stderr.getvalue()==""
     assert json.loads((d/"role_results/validator_1.json").read_text())["structured_output"]["criteria_results"][1]["status"]=="not_proven"
     assert len({x[1].run_id for x in state.calls})==3; assert not state.clone.exists(); assert passed["implementation_actual_changed_paths"]==[IMPL] and passed["test_actual_changed_paths"]==[TEST]
     assert len(list((d/"task_execution").glob("*/task_request.json")))==3 and len(list((d/"agent_runtime").glob("*/result.json")))==3
     impl_record=json.loads((d/"role_results/implementer_1.json").read_text()); assert impl_record["role_claimed_paths"]==["claim-impl.cs"] and impl_record["agent_runtime_claimed_paths"]==["runtime-claim.cs"] and impl_record["deterministic_incremental_actual_changed_paths"]==[IMPL]
+    with patch.dict(os.environ,{"NSC_EXECUTION_HEARTBEAT_SECONDS":"0.01"},clear=False), redirect_stderr(io.StringIO()): slow,state,d=execute(source,outputs,"slow",61)
+    slow_events=[json.loads(line) for line in (d/"progress.jsonl").read_text().splitlines()]; heartbeats=[i for i,event in enumerate(slow_events) if event["event"]=="role_heartbeat"]
+    assert slow["crew_status"]=="review_ready" and heartbeats
+    for index in heartbeats:
+        role=slow_events[index]["role"]; attempt=slow_events[index]["attempt"]
+        completed=next(i for i,event in enumerate(slow_events) if event["event"]=="role_completed" and event["role"]==role and event["attempt"]==attempt)
+        assert index < completed and not any(event["event"]=="role_heartbeat" and event["role"]==role and event["attempt"]==attempt for event in slow_events[completed+1:])
     repaired,state,d=execute(source,outputs,"repair",2); assert repaired["crew_status"]=="review_ready" and repaired["attempts_used"]==2; assert [x[0] for x in state.calls]==["implementer","test_author","validator"]*2
     no_op,state,d=execute(source,outputs,"no_op_repair",6); assert no_op["crew_status"]=="needs_human" and [x[0] for x in state.calls]==["implementer","test_author","validator","implementer","test_author"]
     assert "repair cycle made no deterministic changes" in no_op["rejection_reasons"] and not (d/"candidate.patch").exists()
