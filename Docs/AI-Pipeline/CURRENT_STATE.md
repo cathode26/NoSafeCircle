@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-23, for Stage 5A isolated repository write support on `provider-adapters`.
+Last updated: 2026-08-23, for Stage 5B Minimum Production ExecutionCrew on `provider-adapters`.
 
 ## Current Phase
 
@@ -26,7 +26,7 @@ The current development branch is:
 provider-adapters
 ```
 
-Stage 5A enables the existing AgentRuntime `repository_write` semantic capability in both provider adapters only for the exact read/search/write combination and only with `externally_isolated_writable_repository=True`. The supplied root must be an existing directory filesystem-disjoint from the real source checkout: neither equal to it, below it, nor an ancestor containing it. Write boundaries are prompt-level semantic policy; actual Git diff enforcement remains future higher-level TaskExecution/ExecutionCrew work. `approved_command_execution`, Unity execution, readiness/dispatch, automatic commits/merges, and ExecutionCrew remain unimplemented. ArchitectureReview remains read-only.
+Stage 5A proved isolated repository writes through both provider adapters. Stage 5B is the Minimum Production ExecutionCrew: one human-selected eligible task and one provider run fresh Implementer, Unity Test Author, and read-only Validator invocations, with deterministic incremental per-role Git enforcement and at most one repair cycle. Requested role paths must be disjoint existing tracked files. Write roles share one independent disposable clone; its post-checkout snapshot, not source working-tree bytes, is the final diff baseline. The Validator inspects the physically read-only source, receives the exact accumulated patch, and must cover every task AC/VAL ID exactly once; `not_proven` is required where Unity/runtime evidence was not run. Execution containers keep `/workspace` wholly read-only and mount host crew outputs separately at `/execution-output`. Only a semantic Validator pass followed by all final clone and source checks emits review-only `candidate.patch`; other tracked diffs may produce diagnostic-only `workspace_diagnostic.patch`. Source HEAD/tree/status is independently rechecked after every provider invocation and at finalization. Claims, deterministic paths, and Unity evidence remain distinct. This stage does not apply patches, commit, merge, run Unity, enable readiness/dispatch, or make delivery/conformance claims. NSC-005 is the intended first real proving task after review and commit.
 
 The Stage 3 foundation now implements:
 
@@ -51,7 +51,7 @@ Live CLI discovery is complete. Non-production-write structured-output success p
 
 **Stage 4D — Claude ArchitectureReview Migration** adds the equivalent active `architecture_review_claude.py -> AgentInvocationRequest -> AgentRunner -> ClaudeCodeProvider` path. Claude reviewers retain shared Read/Glob/Grep prompt language, the same eight independent roles, synthesis, adversarial critique, resumability, and provider-owned `outputs/claude/` artifacts. The shared module no longer directly launches Claude. Provider comparison and a dual-provider launcher remain future work.
 
-AgentRuntime `approved_command_execution`, repository writing, web access, non-null token limits, provider fallback, and production orchestration remain unsupported. The Codex ArchitectureReview repository read/search implementation uses Codex's ordinary read-only shell/file inspection inside the externally read-only `codex-review` Docker environment; that is not approved command execution. Claude uses native Read/Glob/Grep through the separate read-only `claude-review` service.
+AgentRuntime `approved_command_execution`, web access, non-null token limits, and provider fallback remain unsupported. Repository writing is proven for both providers only in an externally isolated writable repository. Stage 5B contains exactly Implementer, Unity Test Author, read-only Validator, and one bounded repair cycle. Planner, Unity execution, general GER, readiness/dispatch, mixed providers, and autonomous delivery remain unsupported. The Codex ArchitectureReview repository read/search implementation uses Codex's ordinary read-only shell/file inspection inside the externally read-only `codex-review` Docker environment; that is not approved command execution. Claude uses native Read/Glob/Grep through the separate read-only `claude-review` service.
 
 ArchitectureReview generated runs and provider-latest views are separated under `outputs/claude/` and `outputs/codex/`; those provider-specific latest views retain convenience copies. Global `outputs/latest/` contains only one atomic `LATEST.json` pointer identifying the most recently completed provider-scoped run across providers. Manifests record the explicit provider namespace, resume cannot cross it, and failed/partial runs do not publish latest. Each provider retains eight independent reviewer roles. New independent reviewers ignore prior review opinions even when summarized in architecture/current-state documentation, while still using implemented architecture, accepted decisions, and current documented facts as evidence to judge independently. This preserves review provenance and supports a later Claude-versus-Codex comparison without implementing that comparison pipeline.
 
@@ -64,7 +64,7 @@ The accepted Stage 4 turn-budget mapping is:
 - these mappings are bounded-execution controls, not cross-provider-equivalent units of model work;
 - any non-null `token_limit` remains unsupported and fails closed.
 
-No production `ExecutionCrew` role orchestration, Unity execution by an agent, GER integration, task selection, dependency readiness, autonomous dispatch, automatic Git commit/merge behavior, or live provider fallback has been enabled.
+No Unity execution by an agent, GER integration, global task selection, dependency readiness, autonomous dispatch, automatic Git commit/merge behavior, mixed-provider crew, or live provider fallback has been enabled.
 
 Architecture Correction Phase 3 remains intentionally fail-closed for execution:
 

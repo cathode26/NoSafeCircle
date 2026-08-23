@@ -112,3 +112,6 @@ InitTestScene*.unity*
 .venv/
 __pycache__/
 .pytest_cache/
+
+# Stage 5B generated execution artifacts
+/Pipeline/ExecutionCrew/outputs/

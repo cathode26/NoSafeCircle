@@ -37,6 +37,30 @@ services:
       - claude-config:/home/agent/.claude
     command: ["bash"]
 
+  # Stage 5B writes crew-run artifacts at /execution-output. Implementer and
+  # Test Author edits occur in one clone under /tmp; /workspace stays read-only.
+  claude-exec:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      NSC_EXECUTION_OUTPUT_ROOT: /execution-output
+      CLAUDE_CONFIG_DIR: /home/agent/.claude
+      DISABLE_AUTOUPDATER: "1"
+      GIT_CONFIG_COUNT: "2"
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: "true"
+      GIT_CONFIG_KEY_1: core.filemode
+      GIT_CONFIG_VALUE_1: "false"
+    volumes:
+      - .:/workspace:ro
+      - ./Pipeline/ExecutionCrew/outputs:/execution-output:rw
+      - claude-config:/home/agent/.claude
+    command: ["bash"]
+
   codex:
     build:
       context: .
@@ -78,6 +102,28 @@ services:
     volumes:
       - .:/workspace:ro
       - ./Pipeline/ArchitectureReview/outputs:/workspace/Pipeline/ArchitectureReview/outputs:rw
+      - codex-config:/home/agent/.codex
+    command: ["bash"]
+
+  # Same physical boundary as claude-exec, with Codex authentication/config.
+  codex-exec:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      NSC_EXECUTION_OUTPUT_ROOT: /execution-output
+      CODEX_HOME: /home/agent/.codex
+      GIT_CONFIG_COUNT: "2"
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: "true"
+      GIT_CONFIG_KEY_1: core.filemode
+      GIT_CONFIG_VALUE_1: "false"
+    volumes:
+      - .:/workspace:ro
+      - ./Pipeline/ExecutionCrew/outputs:/execution-output:rw
       - codex-config:/home/agent/.codex
     command: ["bash"]
 
