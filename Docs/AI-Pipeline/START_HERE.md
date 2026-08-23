@@ -10,7 +10,11 @@ The pipeline is built across multiple work sessions and AI contexts. Do not rely
 
 ## Current Status Snapshot
 
-Stage 4A provider-adapter mapping and enforcement is complete, and ADR-035 was accepted on 2026-08-23. Current work is the prerequisite AgentRuntime contract revision that makes `turn_limit` optional with fail-closed semantics and adds `ProviderOutputInvalid` normalization to `schema_error`. No live provider adapter code has started; adapter implementation remains blocked until that prerequisite is implemented and reviewed.
+Stage 4A provider-adapter mapping and enforcement is complete, and ADR-035 was accepted and amended on 2026-08-23 after an adopt-versus-build transport spike. `agent-mux` and `agent-shell` were evaluated but are not being adopted; the project will implement narrow Claude Code and OpenAI/Codex providers directly under `Pipeline/AgentRuntime`.
+
+`AgentRequest` remains schema 1.0 with its required integer `turn_limit`. Claude maps that budget to native `--max-turns` plus the independent external `timeout_seconds` ceiling. Codex has no observed native turn-limit flag, so the approved temporary mapping is 30 wall-clock seconds per requested turn, capped by `timeout_seconds`. These mappings bound execution but are not cross-provider-equivalent units of work.
+
+The only remaining AgentRuntime prerequisite before live adapter implementation is provider-neutral `ProviderOutputInvalid` normalization to `schema_error`. No live provider adapter code has started. Repository writing and approved command execution remain unsupported.
 
 As of 2026-08-21:
 

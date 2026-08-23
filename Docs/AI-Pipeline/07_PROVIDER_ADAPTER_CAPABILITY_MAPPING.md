@@ -2,7 +2,7 @@
 
 ## Purpose and evidence basis
 
-This document records behavior observed through opt-in live CLI probes that were isolated from production writes. It does not infer capabilities from generic provider knowledge. Unobserved behavior remains unsupported or unresolved until fixtures and evidence establish it.
+This document records behavior observed through opt-in live CLI probes that were isolated from production writes, plus the later bounded adopt-versus-build transport spike. It does not infer capabilities from generic provider knowledge. Unobserved behavior remains unsupported or unresolved until fixtures and evidence establish it.
 
 ## Tested versions and commands
 
@@ -34,7 +34,7 @@ The successful discovery probe used a mounted Bash script and quoted shell expan
 {"provider":"claude","message":"stage4-probe"}
 ```
 
-The configured `sonnet` alias resolved to primary model `claude-sonnet-5`; `modelUsage` also reported auxiliary `claude-haiku-4-5-20251001` activity. This probe establishes discovery evidence only: production configuration must not use that alias. The CLI accepted `--max-turns` despite that option not being displayed in the observed help, but `--max-turns 1` produced `num_turns=2`, so its hard-limit semantics remain unproven.
+The configured `sonnet` alias resolved to primary model `claude-sonnet-5`; `modelUsage` also reported auxiliary `claude-haiku-4-5-20251001` activity. This probe establishes discovery evidence only: production configuration must not use that alias. The CLI accepted `--max-turns` despite that option not being displayed in the observed help. The same invocation passed `--max-turns 1` while the result reported `num_turns=2`, so Claude's reported turn accounting must not be interpreted as a cross-provider-comparable unit.
 
 ### OpenAI/Codex
 
@@ -147,15 +147,40 @@ For supported Claude read/search combinations, `context_paths` remain task-conte
 
 ## Budget mapping
 
-- `AgentRequest` currently requires a non-null integer `turn_limit`. Adapter implementation cannot honestly begin against that contract because unsupported hard budgets must fail closed and neither provider has proven enforcement for the required field.
-- A later, separately reviewed AgentRuntime code change is a prerequisite: bump the request schema and make `turn_limit` optional. Null means no hard provider-internal turn limit was requested; non-null means the adapter must prove hard enforcement or reject the request.
-- Initial Stage 4 adapters accept only `turn_limit=null` and `token_limit=null`.
-- Enforce `timeout_seconds` externally with the adapter subprocess timeout.
-- Neither observed CLI natively enforces `token_limit`; any non-null `token_limit` must fail closed.
-- Claude accepts `--max-turns` despite it not appearing in the observed help, but the observed `--max-turns 1` invocation reported `num_turns=2`. Its hard-limit semantics remain unproven.
-- Codex exposes no observed turn-limit option.
-- `ExecutionCrew` invocation/attempt limits and GER repair limits are separate later orchestration policy, not substitutes for a provider-internal hard turn limit.
+`AgentRequest` remains schema 1.0 and retains its required positive integer `turn_limit`. Stage 4 does not require a request-schema bump.
+
+The field is treated as a provider-neutral bounded-execution budget knob. Provider adapters may enforce that budget using different reviewed mechanisms, but the same numeric value must not be presented as an equal amount of model work across providers.
+
+### Claude Code
+
+- Pass `turn_limit=N` as native `--max-turns N`.
+- Independently enforce `timeout_seconds` as the hard external subprocess ceiling.
+- Therefore Claude is bounded by both the native turn flag and the external wall-clock deadline.
+- The discovery run passed `--max-turns 1` and reported `num_turns=2`. That observed accounting mismatch does not disable the native flag, but it means provider-reported turn counts are not accepted as a provider-neutral metric.
+
+### OpenAI/Codex
+
+- Codex exposes no observed native turn-limit option.
+- Use the approved temporary policy constant `OPENAI_SECONDS_PER_TURN = 30`.
+- Compute `translated_turn_timeout_seconds = turn_limit * OPENAI_SECONDS_PER_TURN`.
+- Compute `effective_timeout_seconds = min(timeout_seconds, translated_turn_timeout_seconds)`.
+- The effective timeout is the hard external subprocess deadline for that Codex invocation.
+- This is conservative wall-clock emulation of the request's bounded-execution budget. It is not a claim that 30 seconds is literally one Codex model turn.
+
+Examples:
+
+```text
+turn_limit=1,  timeout_seconds=300 -> Codex effective timeout 30s
+turn_limit=4,  timeout_seconds=300 -> Codex effective timeout 120s
+turn_limit=20, timeout_seconds=300 -> Codex effective timeout 300s
+```
+
+Shared budget rules:
+
+- Neither observed CLI natively enforces the provider-neutral `token_limit`; any non-null `token_limit` must fail closed.
+- `ExecutionCrew` invocation/attempt limits and GER repair limits are separate later orchestration policy. They bound repeated invocations/repairs and do not redefine the per-invocation `turn_limit` mapping.
 - Do not use Claude's `--max-budget-usd`; `AgentRequest` currently defines no provider-neutral dollar budget.
+- Do not compare providers using `turn_limit` as if it measured equal reasoning steps, model calls, quality, cost, or latency.
 
 ## Isolation and ambient configuration
 
@@ -190,10 +215,56 @@ Stage 4 implementation must add `ProviderOutputInvalid`, or an equivalently name
 
 Provider-specific failure envelopes have not yet been observed. Fixtures covering them are required before production use; ambiguous failures must not be guessed into a more specific classification.
 
+## Provider-transport adopt-versus-build spike
+
+Before implementing the live adapters, two public projects were evaluated to determine whether Stage 4 could reuse a finished shared transport layer.
+
+### `agent-mux`
+
+Result: not adopted.
+
+Observed positives:
+
+- one dispatch contract across Claude Code and Codex;
+- process supervision, timeout handling, event parsing, token/activity normalization, and persistent dispatch artifacts;
+- existing CLI/OAuth authentication can be reused.
+
+Observed mismatches:
+
+- the tested source commit `4a27d544f8beeee172d9a509d917342a27ca9d7a` failed its documented Linux source build because `internal/supervisor/reaper_linux.go` referenced unavailable `syscall.Prctl`;
+- a disposable local patch from `syscall` to `golang.org/x/sys/unix` was required before the probe binary would build;
+- its Claude invocation contract does not match the exact safe-mode, no-session-persistence, explicit tool-control, and `--json-schema` path established by our discovery probe;
+- its Codex invocation contract does not match our required `--ephemeral`, ignored-user-config/rules, strict-config, output-schema/final-output-file, and empty-workspace boundary;
+- adapting or forking those behaviors would make us maintain a larger external transport abstraction while still owning the policy-critical differences.
+
+The patched disposable binary successfully executed `--version`, and the No Safe Circle repository remained clean. The spike did not add `agent-mux` to the project.
+
+### `agent-shell`
+
+Result: not adopted.
+
+Observed positives:
+
+- Python implementation;
+- reusable process-group cleanup, concurrent stdout/stderr draining, streaming parsing, model discovery, and provider adapter patterns.
+
+Observed mismatches:
+
+- unsupported Claude/Codex allowed/denied tool restrictions can produce warnings and continue rather than fail closed;
+- its Codex adapter cannot enforce the project capability contract and intentionally ignores some requested tool restrictions;
+- its default approval/sandbox and prompt-delivery mechanics do not match the approved Stage 4 containment contract;
+- adopting it would require wrapping or replacing its policy semantics, reducing the benefit of the dependency.
+
+The project may borrow implementation patterns from both libraries, but neither is a production dependency or authority. The narrow Claude Code and OpenAI/Codex providers will be implemented directly under `Pipeline/AgentRuntime/providers/`.
+
 ## Initial Stage 4 implementation boundary
 
-- The first Claude adapter may support structured-output-only and the explicitly mapped read/search combinations after fixtures prove them. The first Codex adapter supports structured-output-only with an empty capability set in a newly created empty temporary directory.
-- Adapter work is blocked until a separately reviewed AgentRuntime schema revision makes `turn_limit` optional; initial adapters accept only null `turn_limit` and null `token_limit`.
+- Keep `AgentRequest` schema 1.0 and the existing required integer `turn_limit`.
+- First implement provider-neutral `ProviderOutputInvalid` and map it to `schema_error`; this is the only remaining AgentRuntime prerequisite before live provider adapters.
+- The first Claude adapter may support structured-output-only and the explicitly mapped read/search combinations after fixtures prove them.
+- The first Codex adapter supports structured-output-only with an empty capability set in a newly created empty temporary directory.
+- Apply the reviewed provider-specific `turn_limit` enforcement mapping described above.
+- A non-null `token_limit` fails closed.
 - No production repository writes are permitted.
 - Approved command execution is unsupported.
 - Automatic provider fallback is unsupported.
@@ -203,10 +274,12 @@ Provider-specific failure envelopes have not yet been observed. Fixtures coverin
 
 ## Open issues
 
+- fixtures proving the Claude `--max-turns` invocation mapping and the Codex 30-seconds-per-unit timeout translation;
 - approved external containment for Codex repository read/search;
 - path-level write enforcement;
 - command allowlisting;
 - fixtures for provider-specific failure envelopes;
-- explicit model selection for every capability class.
+- explicit model selection for every capability class;
+- later evidence on whether the temporary `OPENAI_SECONDS_PER_TURN = 30` policy should be tuned, replaced, or removed.
 
-The accepted immediate prerequisite is implementation and review of the request-schema bump and optional `turn_limit` contract described above; it is not an unresolved design decision.
+The accepted immediate prerequisite is implementation and review of provider-neutral `ProviderOutputInvalid` normalization. A request-schema bump is no longer part of the Stage 4 prerequisite.

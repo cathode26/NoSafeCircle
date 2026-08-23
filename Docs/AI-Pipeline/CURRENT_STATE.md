@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-23, during Stage 4A provider-adapter mapping and enforcement work on `provider-adapters`.
+Last updated: 2026-08-23, after Stage 4A provider-transport evaluation and the turn-budget policy amendment on `provider-adapters`.
 
 ## Current Phase
 
@@ -18,7 +18,7 @@ Phase 3 was fast-forward merged into `main` at:
 43fdf0a163e281204906abd43a241db211587a0f
 ```
 
-**Provider-Neutral Execution Crew Plan — Stage 4A: MAPPING AND ENFORCEMENT DECISION COMPLETE.**
+**Provider-Neutral Execution Crew Plan — Stage 4A: MAPPING, ENFORCEMENT, AND TRANSPORT-EVALUATION DECISIONS COMPLETE.**
 
 The current development branch is:
 
@@ -41,13 +41,20 @@ The Stage 3 foundation now implements:
 
 The Stage 3 implementation is integrated; Stage 4A changes are documentation and decision work only.
 
-Live CLI discovery is complete. Non-production-write structured-output success probes completed for Claude Code and OpenAI/Codex. The corrected Stage 4A mapping and enforcement decision is complete, and ADR-035 was accepted on 2026-08-23.
+Live CLI discovery is complete. Non-production-write structured-output success probes completed for Claude Code and OpenAI/Codex. The provider-transport adopt-versus-build spike is also complete: `agent-mux` and `agent-shell` were evaluated and are not being adopted as production dependencies. ADR-035 was amended on 2026-08-23 to keep `AgentRequest` schema 1.0 and its required integer `turn_limit`, with explicit provider-specific enforcement mappings.
 
-The active bounded slice is the prerequisite AgentRuntime request-schema revision. It will make `turn_limit` optional: null means no hard provider-internal turn limit was requested, while non-null requires proven enforcement or rejection. It will also add provider-neutral `ProviderOutputInvalid` and normalize it to `schema_error`.
+The active bounded slice is now only the provider-neutral `ProviderOutputInvalid` prerequisite. It must be added to the AgentRuntime provider boundary and normalized to `schema_error` before live adapters are implemented. No request-schema bump is planned for Stage 4.
 
-No live provider adapter code has started. Adapter implementation remains blocked until this prerequisite code change is implemented and reviewed. Repository writing and approved command execution are not approved and remain unsupported.
+No live provider adapter code has started. Repository writing and approved command execution are not approved and remain unsupported.
 
 **Provider-Neutral Execution Crew Plan — Stage 4: Implement Claude Code and OpenAI/Codex adapters against the same AgentRuntime fixtures.**
+
+The accepted Stage 4 turn-budget mapping is:
+
+- Claude: `turn_limit=N` -> native `--max-turns N`, also bounded by external `timeout_seconds`;
+- OpenAI/Codex: no observed native turn limit, so use temporary `OPENAI_SECONDS_PER_TURN = 30` and `effective_timeout_seconds = min(timeout_seconds, turn_limit * 30)`;
+- these mappings are bounded-execution controls, not cross-provider-equivalent units of model work;
+- any non-null `token_limit` remains unsupported and fails closed.
 
 No production `ExecutionCrew` role orchestration, Unity execution by an agent, GER integration, task selection, dependency readiness, autonomous dispatch, automatic Git commit/merge behavior, or live provider fallback has been enabled.
 
@@ -617,11 +624,18 @@ The preserved architecture review is primary evidence for the accepted correctio
 
 ## Immediate Next Goal
 
-### Implement the prerequisite AgentRuntime contract revision
+### Add `ProviderOutputInvalid`, then implement the live provider adapters
 
-Stage 3 is integrated. Stage 4A live CLI discovery, corrected capability mapping, and the enforcement decision are complete. ADR-035 is accepted.
+Stage 3 is integrated. Stage 4A live CLI discovery, corrected capability mapping, transport-library evaluation, and the amended enforcement decision are complete. ADR-035 is accepted and amended; ADR-036 records the decision to own the two narrow transport adapters.
 
-The active bounded slice is a separately reviewed AgentRuntime contract revision that bumps the request schema and makes `turn_limit` optional. Null means no hard provider-internal turn limit was requested; non-null requires proven enforcement or rejection. The same prerequisite adds `ProviderOutputInvalid` and normalizes it to `schema_error`. No live provider adapter code has started, and adapter implementation remains blocked until this prerequisite code change is implemented and reviewed.
+`AgentRequest` remains schema 1.0 with its required positive integer `turn_limit`. There is no Stage 4 request-schema migration. The only remaining AgentRuntime prerequisite is to add provider-neutral `ProviderOutputInvalid` and normalize it to `schema_error`, with deterministic fake-provider/regression coverage.
+
+After that prerequisite is reviewed, implement the live adapters against the same provider-neutral contract and shared fixtures:
+
+- Claude Code: native `--max-turns N` plus external `timeout_seconds`;
+- OpenAI/Codex: `effective_timeout_seconds = min(timeout_seconds, turn_limit * 30)` using the temporary 30-seconds-per-turn-budget-unit policy;
+- non-null `token_limit`: fail closed;
+- no automatic model/provider fallback.
 
 Stage 4 must remain bounded:
 
@@ -717,9 +731,9 @@ Read, in order:
 Then:
 
 1. confirm the intended `provider-adapters` branch and inspect the working tree without discarding existing changes;
-2. confirm ADR-035 remains recorded as accepted;
-3. in a separate reviewed code change, bump the AgentRequest schema, make `turn_limit` optional with the approved fail-closed semantics, and add `ProviderOutputInvalid` normalized to `schema_error`;
-4. only after that prerequisite is implemented and reviewed, implement both adapters against the same provider-neutral AgentRuntime contract and shared fixtures;
+2. confirm ADR-035 remains recorded as accepted/amended and ADR-036 records the transport ownership decision;
+3. in a separate reviewed code change, add `ProviderOutputInvalid` and normalize it to `schema_error`, with deterministic regression coverage; do not bump the AgentRequest schema;
+4. after that prerequisite is implemented and reviewed, implement both adapters against the same provider-neutral AgentRuntime contract and shared fixtures using the approved turn-budget mappings;
 5. use only opt-in, non-production-write live smoke tests during Stage 4;
 6. do not implement production `ExecutionCrew` roles until both adapters pass the shared fixture suite;
 7. keep `taskcontrol ready` unavailable and `taskcontrol authorize` denied.

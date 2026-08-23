@@ -259,10 +259,26 @@ This is a lightweight decision log. Add new entries when a decision materially c
 
 ## ADR-035 — Provider-adapter enforcement
 
-**Accepted:** 2026-08-23.
+**Accepted:** 2026-08-23. **Amended:** 2026-08-23 after provider-transport evaluation.
 
-**Decision:** Accept ADR-035's fail-closed initial provider boundaries. Adapters never weaken `AgentRequest`; unsupported capabilities and budgets are rejected. Initial Codex support is limited to empty capabilities and empty `context_paths` in a new empty temporary workspace. Initial repository writing and approved command execution remain unsupported. The accepted prerequisite is a separately reviewed request-schema revision making `turn_limit` optional, with null meaning no requested hard provider-internal limit and non-null requiring proven enforcement or rejection.
+**Decision:** Accept ADR-035's fail-closed initial provider boundaries while keeping `AgentRequest` schema 1.0 and its required positive integer `turn_limit`. Unsupported capabilities and budgets are rejected unless ADR-035 explicitly defines the provider-specific enforcement translation. Initial Codex support is limited to empty capabilities and empty `context_paths` in a new empty temporary workspace. Initial repository writing and approved command execution remain unsupported.
 
-**Output and error policy:** `provider.log` is exact stdout, successful stderr is empty, and malformed provider output raises provider-neutral `ProviderOutputInvalid` normalized to `schema_error`. There is no automatic fallback.
+**Turn-budget policy:** Claude maps `turn_limit=N` to native `--max-turns N` plus the independent external `timeout_seconds` ceiling. Codex has no observed native turn-limit flag, so it temporarily maps each requested turn-budget unit to 30 wall-clock seconds and uses `min(timeout_seconds, turn_limit * 30)` as its hard external deadline. These mappings bound execution and are not cross-provider-equivalent units of model work.
+
+**Output and error policy:** `provider.log` is exact stdout, successful stderr is empty, malformed provider output raises provider-neutral `ProviderOutputInvalid` normalized to `schema_error`, and `ProviderOutputInvalid` is now the only remaining AgentRuntime prerequisite before live adapter implementation. A non-null `token_limit` remains unsupported and fails closed. There is no automatic fallback.
 
 **Authority:** Deterministic Git, Unity, TaskGraph, evidence, readiness, dispatch, and human authority are unchanged.
+
+---
+
+## ADR-036 — Own the narrow Claude Code and OpenAI/Codex transport adapters
+
+**Decision:** Do not adopt `agent-mux` or `agent-shell` as a production transport dependency for Stage 4. Implement the two narrow provider adapters directly under `Pipeline/AgentRuntime/providers/` while reusing general implementation ideas that do not weaken project policy.
+
+**Reason:** A bounded adopt-versus-build spike found that neither library matches the already-approved fail-closed contract closely enough to remove meaningful implementation work. The tested `agent-mux` source commit required a Linux build patch and its built-in Claude/Codex argument contracts differ from the project's required structured-output and isolation flags. `agent-shell` contains useful Python process/streaming patterns but intentionally warns and continues for some unsupported tool restrictions rather than failing closed.
+
+**Allowed reuse:** General patterns such as process-group cleanup, concurrent stdout/stderr draining, external timeout supervision, provider-event parsing, and model/usage extraction may be adapted after review.
+
+**Not allowed:** A third-party transport may not become an authority layer, silently weaken capabilities, change the selected model, broaden filesystem/tool access, or substitute its own completion claims for deterministic Git/Unity/TaskGraph evidence.
+
+**Consequence:** The project owns CLI compatibility and parsing for two provider adapters, but avoids a larger dependency or fork whose policy surface would still require custom hardening.
