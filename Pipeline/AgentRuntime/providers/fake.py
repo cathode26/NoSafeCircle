@@ -10,6 +10,7 @@ from .base import (
     ProviderBudgetExhausted,
     ProviderFailure,
     ProviderInvocationResponse,
+    ProviderOutputInvalid,
     ProviderPermissionDenied,
     ProviderTimeout,
 )
@@ -37,6 +38,11 @@ class FakeProvider:
         }
         if self.scenario in errors:
             raise errors[self.scenario](self.scenario, raw_log=self.raw_log)
+        if self.scenario == "output_invalid":
+            raise ProviderOutputInvalid(
+                "provider output did not yield a structured-output candidate",
+                raw_log=self.raw_log,
+            )
         if self.scenario == "value_error":
             raise ValueError("fake provider value error")
         if self.scenario == "keyboard_interrupt":

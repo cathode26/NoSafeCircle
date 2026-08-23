@@ -17,6 +17,7 @@ from .providers.base import (
     ProviderFailure,
     ProviderInvocationError,
     ProviderInvocationResponse,
+    ProviderOutputInvalid,
     ProviderPermissionDenied,
     ProviderTimeout,
 )
@@ -174,6 +175,10 @@ class AgentRunner:
         except ProviderBudgetExhausted as exc:
             return self._provider_exception_result(
                 request, run_dir, selection, "budget_exhausted", exc, started
+            )
+        except ProviderOutputInvalid as exc:
+            return self._provider_exception_result(
+                request, run_dir, selection, "schema_error", exc, started
             )
         except (ProviderFailure, ProviderInvocationError) as exc:
             return self._provider_exception_result(

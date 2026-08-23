@@ -22,6 +22,10 @@ class ProviderInvocationError(RuntimeError):
         self.raw_log = raw_log
 
 
+class ProviderOutputInvalid(ProviderInvocationError):
+    pass
+
+
 class ProviderFailure(ProviderInvocationError):
     pass
 

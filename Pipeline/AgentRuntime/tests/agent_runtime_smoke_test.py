@@ -33,8 +33,10 @@ from Pipeline.AgentRuntime.contracts import (
     WriteBoundaries,
 )
 from Pipeline.AgentRuntime.providers.base import (
-    ProviderInvocationResponse,
     ProviderFailure,
+    ProviderInvocationError,
+    ProviderInvocationResponse,
+    ProviderOutputInvalid,
     ProviderTimeout,
 )
 from Pipeline.AgentRuntime.providers.fake import FakeProvider
@@ -533,9 +535,11 @@ def test_success_artifacts_and_claims() -> AgentResult:
 
 
 def test_failure_normalization() -> None:
+    assert ProviderOutputInvalid.__bases__ == (ProviderInvocationError,)
     config = configuration()
     scenarios = {
         "provider_error": "provider_error",
+        "output_invalid": "schema_error",
         "timeout": "timeout",
         "permission_denied": "permission_denied",
         "budget_exhausted": "budget_exhausted",
@@ -552,6 +556,29 @@ def test_failure_normalization() -> None:
             assert outcome.failure_classification == expected
             assert outcome.failure_message
             assert outcome.provider == "fake" and outcome.model == "fake-standard"
+
+        invalid_request = replace(request(), run_id="output-invalid-artifacts")
+        raw_log = "fake output invalid raw log"
+        outcome = AgentRunner(
+            root,
+            config,
+            {"fake": FakeProvider(scenario="output_invalid", raw_log=raw_log)},
+        ).run(invalid_request)
+        invalid_run_dir = root / invalid_request.run_id
+        assert outcome.status == "failed"
+        assert outcome.failure_classification == "schema_error"
+        assert outcome.structured_output is None
+        assert outcome.provider == "fake" and outcome.model == "fake-standard"
+        assert outcome.failure_message == (
+            "provider output did not yield a structured-output candidate"
+        )
+        assert (invalid_run_dir / "provider.log").read_bytes() == raw_log.encode("utf-8")
+        assert (invalid_run_dir / "request.json").is_file()
+        assert (invalid_run_dir / "provider.log").is_file()
+        assert (invalid_run_dir / "result.json").is_file()
+        serialized = json.loads((invalid_run_dir / "result.json").read_text("utf-8"))
+        assert serialized["failure_classification"] == "schema_error"
+        assert AgentResult.from_dict(serialized) == outcome
 
         whitespace = replace(request(), run_id="whitespace-failure")
         outcome = AgentRunner(
@@ -583,6 +610,9 @@ def test_failure_normalization() -> None:
         exited = replace(request(), run_id="system-exit")
         runner = AgentRunner(root, config, {"fake": RaisingProvider(SystemExit(2))})
         rejects(lambda: runner.run(exited), SystemExit)
+        generated = replace(request(), run_id="generator-exit")
+        runner = AgentRunner(root, config, {"fake": RaisingProvider(GeneratorExit())})
+        rejects(lambda: runner.run(generated), GeneratorExit)
 
 
 def test_configuration_and_metadata_failures() -> None:
@@ -652,6 +682,31 @@ def test_static_provider_neutrality() -> None:
     for relative in ("contracts.py", "providers/base.py"):
         text = (ROOT / "Pipeline/AgentRuntime" / relative).read_text("utf-8").lower()
         assert not any(term in text for term in forbidden)
+    provider_modules = {
+        path.name for path in (ROOT / "Pipeline/AgentRuntime/providers").glob("*.py")
+    }
+    assert provider_modules == {"__init__.py", "base.py", "fake.py"}
+
+
+def test_request_schema_and_authority_boundaries() -> None:
+    req = request()
+    serialized = req.to_dict()
+    assert serialized["schema_version"] == "1.0"
+    assert serialized["budgets"]["turn_limit"] == 5
+    missing_turn_limit = serialized
+    del missing_turn_limit["budgets"]["turn_limit"]
+    rejects(lambda: AgentRequest.from_dict(missing_turn_limit))
+
+    forbidden = {
+        "complete", "conformant", "ready", "authorized", "approved",
+        "integrated", "tests_passed",
+    }
+    for contract in (request().to_dict(), AgentResult(
+        SCHEMA_VERSION, "authority-fields", "fake", "fake-standard", "implementer",
+        "failed", "schema_error", "diagnostic", None, (), 0, None,
+        "provider.log", False, (),
+    ).to_dict()):
+        assert set(contract).isdisjoint(forbidden)
 
 
 def test_result_boundaries(result: AgentResult) -> None:
@@ -690,6 +745,7 @@ def main() -> None:
     test_exact_type_boundaries()
     test_direct_publication_no_overwrite()
     test_model_capability_selections()
+    test_request_schema_and_authority_boundaries()
     result = test_success_artifacts_and_claims()
     test_failure_normalization()
     test_configuration_and_metadata_failures()
