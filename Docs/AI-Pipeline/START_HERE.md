@@ -10,11 +10,33 @@ The pipeline is built across multiple work sessions and AI contexts. Do not rely
 
 ## Current Status Snapshot
 
-Stage 4A provider-adapter mapping and enforcement is complete, and ADR-035 was accepted and amended on 2026-08-23 after an adopt-versus-build transport spike. `agent-mux` and `agent-shell` were evaluated but are not being adopted; the project will implement narrow Claude Code and OpenAI/Codex providers directly under `Pipeline/AgentRuntime`.
+Stage 4B is complete on `provider-adapters`. The initial fail-closed `ClaudeCodeProvider` and shared bounded `StandardProcessRunner` were committed at:
 
-`AgentRequest` remains schema 1.0 with its required integer `turn_limit`. Claude maps that budget to native `--max-turns` plus the independent external `timeout_seconds` ceiling. Codex has no observed native turn-limit flag, so the approved temporary mapping is 30 wall-clock seconds per requested turn, capped by `timeout_seconds`. These mappings bound execution but are not cross-provider-equivalent units of work.
+```text
+ae046fd828f168dac6c87c49878fe1812f6c1fd7
+```
 
-The only remaining AgentRuntime prerequisite before live adapter implementation is provider-neutral `ProviderOutputInvalid` normalization to `schema_error`. No live provider adapter code has started. Repository writing and approved command execution remain unsupported.
+The provider currently supports structured-output-only invocations with:
+
+```text
+allowed_capabilities = ()
+context_paths = ()
+token_limit = null
+```
+
+Every invocation runs in a fresh empty temporary workspace. Repository read/search/write and approved command execution remain unsupported. Claude is invoked directly without a shell, with safe mode, no session persistence, an explicit concrete model, native `--max-turns`, an independent external timeout, strict result-envelope parsing, exact provider-log preservation, and whole-process-group cleanup.
+
+The deterministic AgentRuntime, process-runner, and Claude-provider suites all pass. No live `ClaudeCodeProvider` invocation has yet been performed through `AgentRunner`; validation to date consists of the earlier isolated CLI discovery probe plus deterministic injected-process and real bounded child-process fixtures.
+
+The next implementation slice is Stage 4C: the initial OpenAI/Codex provider against the same provider-neutral contract and shared process transport. Initial Codex support remains empty-capability/empty-context only in a fresh temporary workspace, using the approved temporary timeout translation:
+
+```text
+effective_timeout_seconds = min(timeout_seconds, turn_limit * 30)
+```
+
+This is a bounded-execution policy, not a cross-provider-equivalent turn measurement.
+
+Full Reconciliation is not yet supported through AgentRuntime because the accepted Claude provider does not have repository read/search capability. Reconciliation migration still requires a separately reviewed containment or frozen-evidence-package design.
 
 As of 2026-08-21:
 
@@ -37,10 +59,12 @@ The next infrastructure work should also advance a real No Safe Circle task rath
 ## Required Reading Order
 
 1. Read `Docs/AI-Pipeline/CURRENT_STATE.md`.
-2. Read `Docs/AI-Pipeline/00_MASTER_CONTEXT.md` for the target architecture.
-3. Read the milestone/context file named by `CURRENT_STATE.md`.
-4. Read `Docs/AI-Pipeline/DECISIONS.md` when the work touches architecture, Git workflow, task semantics, autonomy, RAG, GER, evaluation, refinement, validation, progressive decomposition, or artifact authority.
-5. Inspect the actual repository state before changing anything.
+2. Read `Docs/AI-Pipeline/08_STAGE_4B_CLAUDE_CODE_PROVIDER.md` for the latest provider implementation state.
+3. Read `Docs/AI-Pipeline/ADR-037_CLAUDE_CODE_PROVIDER_BOUNDARY.md` for the accepted Claude capability and process-lifecycle boundary.
+4. Read `Docs/AI-Pipeline/00_MASTER_CONTEXT.md` for the target architecture.
+5. Read the milestone/context file named by `CURRENT_STATE.md`.
+6. Read `Docs/AI-Pipeline/DECISIONS.md` when the work touches architecture, Git workflow, task semantics, autonomy, RAG, GER, evaluation, refinement, validation, progressive decomposition, or artifact authority.
+7. Inspect the actual repository state before changing anything.
 
 Any work touching Unity tests, validation harnesses, scenes, prefabs, builders/generators, or evidence-producing Unity runs must also read `Docs/Engineering/UNITY_TESTING_POLICY.md`.
 
@@ -62,6 +86,7 @@ Supervisor, task claiming, Git branches, worktrees, GitHub Issues/Projects/PRs |
 Assignment 3 crew, Assignment 6 GER, bounded repair loops, deterministic tests, Unity/runtime validation, evaluator specializations | `04_EXECUTION_GER_VALIDATION_CONTEXT.md`
 Provider-neutral AgentRuntime, Claude/OpenAI adapters, and production Execution Crew architecture | `06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`
 Provider-adapter implementation, capability mapping, and fail-closed enforcement | `07_PROVIDER_ADAPTER_CAPABILITY_MAPPING.md` and `ADR-035_PROVIDER_ADAPTER_ENFORCEMENT.md`
+Completed Stage 4B Claude Code provider and accepted containment/lifecycle boundary | `08_STAGE_4B_CLAUDE_CODE_PROVIDER.md` and `ADR-037_CLAUDE_CODE_PROVIDER_BOUNDARY.md`
 Continuous autonomous ticket processing, budgets, blockers, parallel workers, planning refresh | `05_CONTINUOUS_AUTONOMY_CONTEXT.md`
 
 ## Milestone 1 Commands
