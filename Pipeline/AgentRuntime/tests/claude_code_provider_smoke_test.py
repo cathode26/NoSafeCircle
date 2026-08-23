@@ -53,6 +53,7 @@ SCHEMA = {
     "additionalProperties": False,
 }
 DISALLOWED = "Bash,Edit,Write,NotebookEdit,WebSearch,WebFetch"
+WRITE_DISALLOWED = "Bash,NotebookEdit,WebSearch,WebFetch"
 AUTHORITY_FIELDS = {
     "complete",
     "conformant",
@@ -70,8 +71,9 @@ def request(
     context_paths: tuple[str, ...] = (),
     budgets: Budgets | None = None,
     prompt: str = "Return the bounded result.",
+    boundaries: WriteBoundaries | None = None,
 ) -> AgentInvocationRequest:
-    boundaries = (
+    effective_boundaries = boundaries or (
         WriteBoundaries(("Pipeline/AgentRuntime",), ())
         if "repository_write" in capabilities
         else WriteBoundaries((), ())
@@ -83,7 +85,7 @@ def request(
         prompt,
         context_paths,
         capabilities,
-        boundaries,
+        effective_boundaries,
         SCHEMA,
         "standard",
         Budgets(7, 12.5) if budgets is None else budgets,
@@ -170,6 +172,15 @@ def option(argv: tuple[str, ...], name: str) -> str:
     return argv[index + 1]
 
 
+def list_option(argv: tuple[str, ...], name: str) -> tuple[str, ...]:
+    index = argv.index(name) + 1
+    values = []
+    while index < len(argv) and not argv[index].startswith("--"):
+        values.append(argv[index])
+        index += 1
+    return tuple(values)
+
+
 def tree_hashes(path: Path) -> dict[str, str]:
     return {
         candidate.relative_to(path).as_posix(): hashlib.sha256(
@@ -243,11 +254,15 @@ def test_empty_capability_exact_invocation() -> None:
 
 def test_repository_capability_invocations() -> None:
     cases = (
-        (("repository_read",), "Read"),
-        (("repository_search",), "Glob,Grep"),
-        (("repository_read", "repository_search"), "Read,Glob,Grep"),
+        (("repository_read",), "Read", ("Read",)),
+        (("repository_search",), "Glob,Grep", ("Glob", "Grep")),
+        (
+            ("repository_read", "repository_search"),
+            "Read,Glob,Grep",
+            ("Read", "Glob", "Grep"),
+        ),
     )
-    for capabilities, expected_tools in cases:
+    for capabilities, expected_tools, expected_allowed in cases:
         fake = FakeProcessRunner()
         candidate = request(capabilities=capabilities)
         ClaudeCodeProvider(process_runner=fake).invoke(candidate, MODEL)
@@ -256,6 +271,8 @@ def test_repository_capability_invocations() -> None:
         assert call["cwd"] == ROOT
         assert option(call["argv"], "--tools") == expected_tools
         assert option(call["argv"], "--disallowedTools") == DISALLOWED
+        assert list_option(call["argv"], "--allowedTools") == expected_allowed
+        assert set(expected_allowed).isdisjoint(DISALLOWED.split(","))
         assert "Bash" not in expected_tools
         assert "Edit" not in expected_tools
         assert "Write" not in expected_tools
@@ -344,6 +361,82 @@ def test_forbidden_capabilities_context_and_token_limits() -> None:
         assert candidate.prompt == original_prompt
         assert candidate.context_paths == original_paths
 
+
+def test_isolated_writable_repository_policy() -> None:
+    write_capabilities = ("repository_read", "repository_search", "repository_write")
+    exact_boundaries = WriteBoundaries(
+        ("Assets/NoSafeCircle/Feature", "Docs/implementation.md"),
+        ("Assets/NoSafeCircle/Feature/Denied.asset", "Docs/private"),
+    )
+    candidate = request(capabilities=write_capabilities, boundaries=exact_boundaries)
+
+    rejects(
+        lambda: ClaudeCodeProvider(process_runner=FakeProcessRunner()).invoke(candidate, MODEL),
+        ProviderRequestRejected,
+    )
+    for forbidden_root in (ROOT, ROOT / "Pipeline", ROOT.parent):
+        rejects(
+            lambda forbidden_root=forbidden_root: ClaudeCodeProvider(
+                process_runner=FakeProcessRunner(), repository_root=forbidden_root,
+                externally_isolated_writable_repository=True,
+            ).invoke(candidate, MODEL),
+            ProviderRequestRejected,
+        )
+    rejects(
+        lambda: ClaudeCodeProvider(
+            process_runner=FakeProcessRunner(), repository_root=ROOT.parent / "missing-write-root",
+            externally_isolated_writable_repository=True,
+        ).invoke(candidate, MODEL),
+        ProviderRequestRejected,
+    )
+
+    with tempfile.TemporaryDirectory(prefix="claude-write-policy-") as text:
+        temporary_parent = Path(text)
+        repository = Path(text) / "repo"
+        repository.mkdir()
+        fake = FakeProcessRunner()
+        provider = ClaudeCodeProvider(
+            process_runner=fake,
+            repository_root=repository,
+            externally_isolated_writable_repository=True,
+        )
+        provider.invoke(candidate, MODEL)
+        call = fake.calls[0]
+        assert call["cwd"] == repository.resolve()
+        assert option(call["argv"], "--tools") == "Read,Glob,Grep,Edit,Write"
+        assert option(call["argv"], "--disallowedTools") == WRITE_DISALLOWED
+        allowed_tools = list_option(call["argv"], "--allowedTools")
+        assert allowed_tools == ("Read", "Glob", "Grep", "Edit", "Write")
+        assert set(allowed_tools).isdisjoint(WRITE_DISALLOWED.split(","))
+        assert "Bash" in option(call["argv"], "--disallowedTools")
+        prompt = call["stdin"].decode("utf-8")
+        assert "disposable isolated writable repository" in prompt
+        assert (
+            "Allowed write paths:\n- Assets/NoSafeCircle/Feature\n"
+            "- Docs/implementation.md\nDenied write paths:\n"
+            "- Assets/NoSafeCircle/Feature/Denied.asset\n- Docs/private"
+        ) in prompt
+        assert "request.is_path_writable(path)" in prompt
+        assert "Do not run commands, tests, or builds." in prompt
+        assert "not native path-level Claude enforcement" in prompt
+        assert "deterministic Git diff validation" in prompt
+
+        rejects(
+            lambda: provider.invoke(request(capabilities=("repository_read",)), MODEL),
+            ProviderRequestRejected,
+        )
+        rejects(
+            lambda: provider.invoke(
+                request(capabilities=write_capabilities, budgets=Budgets(1, 10, 5)), MODEL
+            ),
+            ProviderRequestRejected,
+        )
+        rejects(
+            lambda: provider.invoke(
+                request(capabilities=write_capabilities + ("approved_command_execution",)), MODEL
+            ),
+            ProviderRequestRejected,
+        )
 
 def test_local_metadata_requirements() -> None:
     with tempfile.TemporaryDirectory() as outer:
@@ -784,6 +877,7 @@ def main() -> None:
     test_empty_capability_exact_invocation()
     test_repository_capability_invocations()
     test_forbidden_capabilities_context_and_token_limits()
+    test_isolated_writable_repository_policy()
     test_local_metadata_requirements()
     test_success_raw_log_and_usage_normalization()
     test_envelope_and_process_failures()

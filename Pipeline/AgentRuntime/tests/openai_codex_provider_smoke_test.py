@@ -25,8 +25,9 @@ SCHEMA = {"type": "object", "properties": {"message": {"type": "string"}},
 
 
 def request(*, capabilities: tuple[str, ...] = (), context_paths: tuple[str, ...] = (),
-            budgets: Budgets = Budgets(2, 100), run_id: str = "codex-provider-test") -> AgentInvocationRequest:
-    boundaries = WriteBoundaries(("Pipeline/AgentRuntime",), ()) if "repository_write" in capabilities else WriteBoundaries((), ())
+            budgets: Budgets = Budgets(2, 100), run_id: str = "codex-provider-test",
+            boundaries: WriteBoundaries | None = None) -> AgentInvocationRequest:
+    boundaries = boundaries or (WriteBoundaries(("Pipeline/AgentRuntime",), ()) if "repository_write" in capabilities else WriteBoundaries((), ()))
     return AgentInvocationRequest("1.0", run_id, "reviewer", "Return JSON.", context_paths,
         capabilities, boundaries, SCHEMA, "standard", budgets, "codex")
 
@@ -116,6 +117,63 @@ def main() -> int:
         rejects(lambda: provider.invoke(request(capabilities=("repository_write",)), "gpt"), ProviderRequestRejected)
         rejects(lambda: provider.invoke(request(capabilities=("approved_command_execution",)), "gpt"), ProviderRequestRejected)
         rejects(lambda: provider.invoke(request(budgets=Budgets(1, 10, 5)), "gpt"), ProviderRequestRejected)
+
+        write_caps = ("repository_read", "repository_search", "repository_write")
+        write_boundaries = WriteBoundaries(("allowed/file.txt", "allowed/subdir"),
+                                           ("allowed/subdir/denied.txt", "private"))
+        write_request = request(capabilities=write_caps, boundaries=write_boundaries)
+        rejects(lambda: provider.invoke(write_request, "gpt"), ProviderRequestRejected)
+        for forbidden_root in (ROOT, ROOT / "Pipeline", ROOT.parent):
+            forbidden = OpenAICodexProvider(process_runner=FakeRunner(),
+                temporary_directory_parent=outside, repository_root=forbidden_root,
+                externally_isolated_writable_repository=True)
+            rejects(lambda forbidden=forbidden: forbidden.invoke(write_request, "gpt"),
+                    ProviderRequestRejected)
+        missing = OpenAICodexProvider(process_runner=FakeRunner(),
+            temporary_directory_parent=outside, repository_root=temp / "missing",
+            externally_isolated_writable_repository=True)
+        rejects(lambda: missing.invoke(write_request, "gpt"), ProviderRequestRejected)
+
+        for source_temporary_parent in (ROOT, ROOT / "Pipeline"):
+            source_parent_runner = FakeRunner()
+            source_parent_provider = OpenAICodexProvider(
+                process_runner=source_parent_runner,
+                temporary_directory_parent=source_temporary_parent,
+                repository_root=repository,
+                externally_isolated_writable_repository=True)
+            rejects(
+                lambda source_parent_provider=source_parent_provider:
+                    source_parent_provider.invoke(write_request, "gpt"),
+                ProviderTransportError)
+            assert source_parent_runner.calls == []
+
+        write_runner = FakeRunner()
+        writable = OpenAICodexProvider(process_runner=write_runner,
+            temporary_directory_parent=outside, repository_root=repository,
+            externally_isolated_writable_repository=True)
+        writable.invoke(write_request, "gpt-write")
+        write_call = write_runner.calls[0]
+        assert write_call["cwd"] == repository.resolve()
+        write_prompt = write_call["stdin"].decode("utf-8")
+        assert "disposable isolated writable repository" in write_prompt
+        assert ("Allowed write paths:\n- allowed/file.txt\n- allowed/subdir\n"
+                "Denied write paths:\n- allowed/subdir/denied.txt\n- private") in write_prompt
+        assert "request.is_path_writable(path)" in write_prompt
+        assert ("You may use the minimum provider-local file-editing mechanism necessary "
+                "to inspect and edit the permitted files.") in write_prompt
+        assert ("Do not run project commands, tests, builds, project scripts, package "
+                "managers, Unity, or destructive/state-changing Git operations.") in write_prompt
+        assert "This does not grant AgentRuntime approved_command_execution." in write_prompt
+        assert "not native path-level enforcement" in write_prompt
+        rejects(lambda: writable.invoke(request(capabilities=("repository_read",)), "gpt"),
+                ProviderRequestRejected)
+        rejects(lambda: OpenAICodexProvider(
+            externally_enforced_read_only_repository=True,
+            externally_isolated_writable_repository=True), ValueError)
+        rejects(lambda: writable.invoke(request(capabilities=write_caps,
+            budgets=Budgets(1, 10, 5)), "gpt"), ProviderRequestRejected)
+        rejects(lambda: writable.invoke(request(capabilities=write_caps +
+            ("approved_command_execution",)), "gpt"), ProviderRequestRejected)
 
         cases = [
             (FakeRunner(final=None), ProviderOutputInvalid),

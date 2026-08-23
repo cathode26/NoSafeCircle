@@ -10,7 +10,7 @@ The pipeline is built across multiple work sessions and AI contexts. Do not rely
 
 ## Current Status Snapshot
 
-Stage 4B.2 practical repository read/search, Stage 4B.3 AgentRuntime/TaskExecution separation, Stage 4C OpenAI/Codex ArchitectureReview migration, and Stage 4D Claude ArchitectureReview migration are implemented on `provider-adapters`. Both provider-specific ArchitectureReview entry points now use generic AgentRuntime. The initial fail-closed `ClaudeCodeProvider` and shared bounded `StandardProcessRunner` were committed at:
+Stage 4B.2 practical repository read/search, Stage 4B.3 AgentRuntime/TaskExecution separation, Stage 4C/4D provider-specific ArchitectureReview migrations, and Stage 5A isolated repository write mechanics are implemented on `provider-adapters`. Both ArchitectureReview entry points remain read-only. AgentRuntime has long modeled `repository_write`; Stage 5A translates it in both providers only for exact read + search + write requests constructed with `externally_isolated_writable_repository=True` and an existing repository root filesystem-disjoint from the real source checkout: neither equal to it, below it, nor an ancestor containing it. The initial fail-closed `ClaudeCodeProvider` and shared bounded `StandardProcessRunner` were committed at:
 
 ```text
 ae046fd828f168dac6c87c49878fe1812f6c1fd7
@@ -25,7 +25,7 @@ both -> Claude Read, Glob, and Grep
 token_limit = null
 ```
 
-Empty-capability invocations still run in a fresh empty temporary workspace with no tools. Repository-capable Claude invocations run in the actual repository root (`/workspace` in Docker) and may accept validated repository-relative `context_paths` as prompt guidance. Repository writing, AgentRuntime `approved_command_execution`, and web access remain unsupported. Codex ArchitectureReview read/search uses ordinary read-only shell/file inspection inside the externally read-only `codex-review` Docker environment; that is not approved command execution. See ADR-038 for the trusted single-user boundary and accepted limited read-containment risk.
+Empty-capability invocations still run in a fresh empty temporary workspace with no tools. Read/search Claude invocations run in the actual repository root (`/workspace` in Docker) and may accept validated repository-relative `context_paths` as prompt guidance. Isolated write invocations run only in the caller-supplied disposable root; their exact allowed/denied paths are semantic instructions, not native path enforcement. Actual changed-path validation remains a future deterministic Git responsibility, and provider `claimed_changed_paths` is non-authoritative. AgentRuntime `approved_command_execution`, Unity execution, ExecutionCrew, task readiness/dispatch, automatic commits/merges, and autonomous delivery remain unsupported. Codex ArchitectureReview read/search uses ordinary read-only inspection inside the externally read-only `codex-review` Docker environment; that is not approved command execution.
 
 The deterministic AgentRuntime, process-runner, and provider suites cover both integrations. Claude ArchitectureReview now runs through `architecture_review_claude.py -> AgentInvocationRequest -> AgentRunner -> ClaudeCodeProvider`; Codex uses the equivalent `architecture_review_codex.py` path. The shared module no longer directly launches Claude.
 

@@ -2,6 +2,8 @@
 
 This is a lightweight decision log. Add new entries when a decision materially changes how the pipeline operates.
 
+Stage 5A implementation note (2026-08-23): the already-modeled `repository_write` capability is now translated by both existing provider adapters only when constructed with `externally_isolated_writable_repository=True` and given an existing directory filesystem-disjoint from the real source checkout: neither equal to it, below it, nor an ancestor containing it. The only supported write set is read + search + write. Exact `WriteBoundaries` remain semantic provider instructions; deterministic actual-diff enforcement belongs to a future higher layer. This implements the existing architecture and creates no new ADR. `approved_command_execution`, Unity execution, ExecutionCrew, readiness/dispatch, and commit/merge authority remain unavailable; ArchitectureReview stays read-only.
+
 ---
 
 ## ADR-001 — Repository state beats conversation memory

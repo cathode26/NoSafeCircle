@@ -26,10 +26,18 @@ from .base import (
 )
 
 
-_DISALLOWED_TOOLS = "Bash,Edit,Write,NotebookEdit,WebSearch,WebFetch"
-_REPOSITORY_CAPABILITIES = frozenset({"repository_read", "repository_search"})
-_FORBIDDEN_CAPABILITIES = frozenset(
-    {"repository_write", "approved_command_execution"}
+_READ_ONLY_DISALLOWED_TOOLS = "Bash,Edit,Write,NotebookEdit,WebSearch,WebFetch"
+_WRITE_DISALLOWED_TOOLS = "Bash,NotebookEdit,WebSearch,WebFetch"
+_READ_CAPABILITY_COMBINATIONS = frozenset(
+    {
+        frozenset(),
+        frozenset({"repository_read"}),
+        frozenset({"repository_search"}),
+        frozenset({"repository_read", "repository_search"}),
+    }
+)
+_WRITE_CAPABILITIES = frozenset(
+    {"repository_read", "repository_search", "repository_write"}
 )
 _MODEL_ALIASES = frozenset({"default", "haiku", "opus", "sonnet"})
 _SOURCE_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
@@ -43,9 +51,13 @@ class ClaudeCodeProvider:
         executable: str = "claude",
         process_runner: ProcessRunner | None = None,
         temporary_directory_parent: Path | None = None,
+        repository_root: Path | None = None,
+        externally_isolated_writable_repository: bool = False,
     ) -> None:
         if type(executable) is not str or not executable:
             raise ValueError("executable must be a non-empty string")
+        if type(externally_isolated_writable_repository) is not bool:
+            raise ValueError("isolated writable repository profile must be boolean")
         self.executable = executable
         self.process_runner = (
             StandardProcessRunner() if process_runner is None else process_runner
@@ -54,6 +66,12 @@ class ClaudeCodeProvider:
             None
             if temporary_directory_parent is None
             else Path(temporary_directory_parent)
+        )
+        self.repository_root = (
+            _SOURCE_REPOSITORY_ROOT if repository_root is None else Path(repository_root)
+        )
+        self.externally_isolated_writable_repository = (
+            externally_isolated_writable_repository
         )
 
     @property
@@ -71,10 +89,11 @@ class ClaudeCodeProvider:
         prompt = self._prompt(request)
 
         if request.allowed_capabilities:
+            repository_root = self._repository_root(request)
             result = self._run(
                 argv,
                 prompt,
-                _SOURCE_REPOSITORY_ROOT,
+                repository_root,
                 request.budgets.timeout_seconds,
             )
             return self._response_from_result(result)
@@ -100,15 +119,26 @@ class ClaudeCodeProvider:
 
         return self._response_from_result(result)
 
-    @staticmethod
-    def _validate_request_policy(request: AgentInvocationRequest) -> None:
+    def _validate_request_policy(self, request: AgentInvocationRequest) -> None:
         capabilities = frozenset(request.allowed_capabilities)
-        if capabilities & _FORBIDDEN_CAPABILITIES:
+        if "approved_command_execution" in capabilities:
             raise ProviderRequestRejected(
-                "Claude Code does not support repository writing or command execution"
+                "Claude Code does not support approved command execution"
             )
-        if not capabilities <= _REPOSITORY_CAPABILITIES:
+        if capabilities == _WRITE_CAPABILITIES:
+            if not self.externally_isolated_writable_repository:
+                raise ProviderRequestRejected(
+                    "Claude Code repository writing requires an explicit externally "
+                    "isolated writable repository profile"
+                )
+            self._validated_writable_repository_root()
+        elif capabilities not in _READ_CAPABILITY_COMBINATIONS:
             raise ProviderRequestRejected("Claude Code capability set is unsupported")
+        elif self.externally_isolated_writable_repository:
+            raise ProviderRequestRejected(
+                "Claude Code isolated writable profile requires the exact read, "
+                "search, and write capability combination"
+            )
         if request.context_paths and not capabilities:
             raise ProviderRequestRejected(
                 "Claude Code requires a repository capability for context_paths"
@@ -153,7 +183,14 @@ class ClaudeCodeProvider:
             tools.append("Read")
         if "repository_search" in request.allowed_capabilities:
             tools.extend(("Glob", "Grep"))
-        return (
+        if "repository_write" in request.allowed_capabilities:
+            tools.extend(("Edit", "Write"))
+        disallowed = (
+            _WRITE_DISALLOWED_TOOLS
+            if "repository_write" in request.allowed_capabilities
+            else _READ_ONLY_DISALLOWED_TOOLS
+        )
+        argv = (
             self.executable,
             "-p",
             "--safe-mode",
@@ -172,12 +209,12 @@ class ClaudeCodeProvider:
             "--no-session-persistence",
             "--tools",
             ",".join(tools),
-            "--disallowedTools",
-            _DISALLOWED_TOOLS,
         )
+        if tools:
+            argv += ("--allowedTools", *tools)
+        return argv + ("--disallowedTools", disallowed)
 
-    @staticmethod
-    def _prompt(request: AgentInvocationRequest) -> bytes:
+    def _prompt(self, request: AgentInvocationRequest) -> bytes:
         effective_prompt = request.prompt
         if request.allowed_capabilities:
             path_guidance = ""
@@ -190,21 +227,72 @@ class ClaudeCodeProvider:
                     "repository files may be inspected when needed to understand "
                     "dependencies."
                 )
+            repository_root = self._repository_root(request)
             effective_prompt = (
                 f"{request.prompt}\n\n"
                 "Repository context:\n"
-                f"Repository root: {_SOURCE_REPOSITORY_ROOT.as_posix()}\n"
+                f"Repository root: {repository_root.as_posix()}\n"
                 "Use repository tools only for the No Safe Circle project.\n"
                 "Do not intentionally inspect /home, provider credentials, "
                 "environment secrets, or unrelated filesystem locations."
                 f"{path_guidance}"
             )
+            if "repository_write" in request.allowed_capabilities:
+                allowed = "\n".join(
+                    f"- {path}" for path in request.write_boundaries.allowed_paths
+                )
+                denied = "\n".join(
+                    f"- {path}" for path in request.write_boundaries.denied_paths
+                ) or "- (none)"
+                effective_prompt += (
+                    "\n\nThis is a disposable isolated writable repository.\n"
+                    "Allowed write paths:\n"
+                    f"{allowed}\n"
+                    "Denied write paths:\n"
+                    f"{denied}\n"
+                    "Denied paths override allowed paths. A path is writable only "
+                    "when request.is_path_writable(path) would return true. Edit only "
+                    "within these exact semantic boundaries and do not intentionally "
+                    "modify any other path. Do not run commands, tests, or builds. "
+                    "These path restrictions are semantic instructions, not native "
+                    "path-level Claude enforcement. Higher-level deterministic Git "
+                    "diff validation will decide whether this invocation is acceptable."
+                )
         try:
             return effective_prompt.encode("utf-8")
         except UnicodeError as exc:
             raise ProviderTransportError(
                 "Claude Code prompt could not be encoded as UTF-8"
             ) from exc
+
+    def _repository_root(self, request: AgentInvocationRequest) -> Path:
+        if "repository_write" in request.allowed_capabilities:
+            return self._validated_writable_repository_root()
+        return _SOURCE_REPOSITORY_ROOT
+
+    def _validated_writable_repository_root(self) -> Path:
+        try:
+            root = self.repository_root.resolve(strict=True)
+            source_root = _SOURCE_REPOSITORY_ROOT.resolve(strict=True)
+            if not root.is_dir():
+                raise ProviderRequestRejected(
+                    "writable repository root must be an existing directory"
+                )
+            if (
+                root == source_root
+                or root.is_relative_to(source_root)
+                or source_root.is_relative_to(root)
+            ):
+                raise ProviderRequestRejected(
+                    "writable repository root must be outside the source repository"
+                )
+        except ProviderRequestRejected:
+            raise
+        except (OSError, RuntimeError) as exc:
+            raise ProviderRequestRejected(
+                "writable repository root could not be resolved"
+            ) from exc
+        return root
 
     def _temporary_parent(self) -> str:
         parent = (

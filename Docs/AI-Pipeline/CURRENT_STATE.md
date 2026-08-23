@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-23, for Stage 4D Claude ArchitectureReview migration to generic AgentRuntime on `provider-adapters`.
+Last updated: 2026-08-23, for Stage 5A isolated repository write support on `provider-adapters`.
 
 ## Current Phase
 
@@ -25,6 +25,8 @@ The current development branch is:
 ```text
 provider-adapters
 ```
+
+Stage 5A enables the existing AgentRuntime `repository_write` semantic capability in both provider adapters only for the exact read/search/write combination and only with `externally_isolated_writable_repository=True`. The supplied root must be an existing directory filesystem-disjoint from the real source checkout: neither equal to it, below it, nor an ancestor containing it. Write boundaries are prompt-level semantic policy; actual Git diff enforcement remains future higher-level TaskExecution/ExecutionCrew work. `approved_command_execution`, Unity execution, readiness/dispatch, automatic commits/merges, and ExecutionCrew remain unimplemented. ArchitectureReview remains read-only.
 
 The Stage 3 foundation now implements:
 

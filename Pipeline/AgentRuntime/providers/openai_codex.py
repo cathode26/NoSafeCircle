@@ -17,8 +17,13 @@ from .base import (
 )
 
 OPENAI_SECONDS_PER_TURN = 30
-_REPOSITORY_CAPABILITIES = frozenset({"repository_read", "repository_search"})
-_FORBIDDEN_CAPABILITIES = frozenset({"repository_write", "approved_command_execution"})
+_READ_CAPABILITY_COMBINATIONS = frozenset({
+    frozenset(), frozenset({"repository_read"}), frozenset({"repository_search"}),
+    frozenset({"repository_read", "repository_search"}),
+})
+_WRITE_CAPABILITIES = frozenset(
+    {"repository_read", "repository_search", "repository_write"}
+)
 _VALID_REASONING_EFFORTS = frozenset(
     {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
 )
@@ -32,6 +37,7 @@ class OpenAICodexProvider:
         *,
         reasoning_effort: str = "high",
         externally_enforced_read_only_repository: bool = False,
+        externally_isolated_writable_repository: bool = False,
         executable: str = "codex",
         process_runner: ProcessRunner | None = None,
         temporary_directory_parent: Path | None = None,
@@ -43,9 +49,14 @@ class OpenAICodexProvider:
             raise ValueError("unsupported Codex reasoning effort")
         if type(externally_enforced_read_only_repository) is not bool:
             raise ValueError("read-only repository profile must be boolean")
+        if type(externally_isolated_writable_repository) is not bool:
+            raise ValueError("isolated writable repository profile must be boolean")
+        if externally_enforced_read_only_repository and externally_isolated_writable_repository:
+            raise ValueError("read-only and isolated writable profiles are mutually exclusive")
         self.executable = executable
         self.reasoning_effort = reasoning_effort
         self.externally_enforced_read_only_repository = externally_enforced_read_only_repository
+        self.externally_isolated_writable_repository = externally_isolated_writable_repository
         self.process_runner = StandardProcessRunner() if process_runner is None else process_runner
         self.temporary_directory_parent = temporary_directory_parent
         self.repository_root = (
@@ -88,17 +99,29 @@ class OpenAICodexProvider:
 
     def _validate_request_policy(self, request: AgentInvocationRequest) -> None:
         capabilities = frozenset(request.allowed_capabilities)
-        if capabilities & _FORBIDDEN_CAPABILITIES:
+        if "approved_command_execution" in capabilities:
             raise ProviderRequestRejected(
-                "Codex does not support repository writing or approved command execution"
+                "Codex does not support approved command execution"
             )
-        if not capabilities <= _REPOSITORY_CAPABILITIES:
+        if capabilities == _WRITE_CAPABILITIES:
+            if not self.externally_isolated_writable_repository:
+                raise ProviderRequestRejected(
+                    "Codex repository writing requires an explicit externally isolated "
+                    "writable repository profile"
+                )
+            self._validated_writable_repository_root()
+        elif capabilities not in _READ_CAPABILITY_COMBINATIONS:
             raise ProviderRequestRejected("Codex capability set is unsupported")
         if request.context_paths and not capabilities:
             raise ProviderRequestRejected("Codex requires repository capability for context_paths")
-        if capabilities and not self.externally_enforced_read_only_repository:
+        if capabilities and capabilities != _WRITE_CAPABILITIES and not self.externally_enforced_read_only_repository:
             raise ProviderRequestRejected(
                 "Codex repository access requires an explicit externally read-only profile"
+            )
+        if capabilities != _WRITE_CAPABILITIES and self.externally_isolated_writable_repository:
+            raise ProviderRequestRejected(
+                "Codex isolated writable profile requires the exact read, search, "
+                "and write capability combination"
             )
         if request.budgets.token_limit is not None:
             raise ProviderRequestRejected("Codex currently requires token_limit to be null")
@@ -129,21 +152,72 @@ class OpenAICodexProvider:
             prompt += (
                 "\n\nRepository context:\n"
                 f"Repository root: {self.repository_root.as_posix()}\n"
-                "The surrounding environment mounts this repository read-only. "
-                "Inspect it with ordinary read-only file and search commands. "
+                + (
+                    "This is a disposable isolated writable repository. "
+                    if "repository_write" in request.allowed_capabilities
+                    else "The surrounding environment mounts this repository read-only. "
+                )
+                + "Inspect it with ordinary file and search mechanisms. "
                 "Context paths are guidance, not an access allowlist."
                 f"{hints}"
             )
+            if "repository_write" in request.allowed_capabilities:
+                allowed = "\n".join(f"- {path}" for path in request.write_boundaries.allowed_paths)
+                denied = "\n".join(f"- {path}" for path in request.write_boundaries.denied_paths) or "- (none)"
+                prompt += (
+                    "\n\nAllowed write paths:\n" + allowed
+                    + "\nDenied write paths:\n" + denied
+                    + "\nDenied paths override allowed paths. A path is writable only "
+                    "when request.is_path_writable(path) would return true. Limit work "
+                    "to repository inspection and file edits within these exact semantic "
+                    "boundaries; do not intentionally modify other paths. You may use the "
+                    "minimum provider-local file-editing mechanism necessary to inspect and "
+                    "edit the permitted files. Do not run project commands, tests, builds, "
+                    "project scripts, package managers, Unity, or destructive/state-changing "
+                    "Git operations. This does not grant AgentRuntime "
+                    "approved_command_execution. These restrictions are semantic "
+                    "instructions, not native path-level enforcement. Higher-level "
+                    "deterministic Git diff validation decides acceptability."
+                )
         try:
             return prompt.encode("utf-8")
         except UnicodeError as exc:
             raise ProviderTransportError("Codex prompt could not be encoded as UTF-8") from exc
 
+    def _validated_writable_repository_root(self) -> Path:
+        try:
+            root = self.repository_root.resolve(strict=True)
+            source_root = _SOURCE_REPOSITORY_ROOT.resolve(strict=True)
+            if not root.is_dir():
+                raise ProviderRequestRejected(
+                    "writable repository root must be an existing directory"
+                )
+            if (root == source_root or root.is_relative_to(source_root)
+                    or source_root.is_relative_to(root)):
+                raise ProviderRequestRejected(
+                    "writable repository root must be outside the source repository"
+                )
+        except ProviderRequestRejected:
+            raise
+        except (OSError, RuntimeError) as exc:
+            raise ProviderRequestRejected(
+                "writable repository root could not be resolved"
+            ) from exc
+        return root
+
     def _temporary_parent(self) -> str:
         parent = Path(tempfile.gettempdir()) if self.temporary_directory_parent is None else Path(self.temporary_directory_parent)
         try:
             resolved = parent.resolve(strict=True)
-            if not resolved.is_dir() or resolved == self.repository_root or resolved.is_relative_to(self.repository_root):
+            repository_root = self.repository_root.resolve(strict=True)
+            source_root = _SOURCE_REPOSITORY_ROOT.resolve(strict=True)
+            if (
+                not resolved.is_dir()
+                or resolved == repository_root
+                or resolved.is_relative_to(repository_root)
+                or resolved == source_root
+                or resolved.is_relative_to(source_root)
+            ):
                 raise ProviderTransportError("temporary directory parent must be outside the repository")
         except ProviderTransportError:
             raise
