@@ -6,16 +6,16 @@
   },
   "source": {
     "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-    "sha256": "ee2eebd911e92feffc00f7c443873dde31f54e4188244832b2ea018bacba958c"
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
   },
   "document": {
-    "document_id": "no-safe-circle-gdd-cfff28f7bc90",
+    "document_id": "no-safe-circle-gdd-dcb33776afaa",
     "title": "No Safe Circle",
     "document_type": "Capstone Game Design Document",
     "status": "Final Draft",
     "author": "Vincent Liguori",
     "original_date": "2026-07-21",
-    "revised_date": "2026-08-21",
+    "revised_date": "2026-08-23",
     "source_docx": "Docs/GDD/No_Safe_Circle_GDD_Final.docx",
     "canonical_markdown": "Docs/GDD/No_Safe_Circle_GDD.md",
     "language": "en",
@@ -722,9 +722,9 @@
         "end_line": 237
       },
       "chunk_part": null,
-      "text": "- **Minimal-context dispatch is a required pipeline constraint:** agents receive only the approved feature brief, its acceptance criteria, the relevant GDD rules, and the files plus scene/prefab information required for the active task. Unrelated project files or broad project context are not included unless the task genuinely requires them.\n- Independent agents work in isolated branches or workspaces so their changes can be reviewed before integration.\n- **Current prototype scene-builder lock:** scene-authoring work that changes objects generated or maintained through `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs` must take exclusive-write locks on both that builder and `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity`. This specifically applies to doorway-crossing work that creates/configures the forward-side crossing trigger and, under the current scene-built UI approach, to final-victory work that creates/configures the **You Escaped** overlay. If a later approved architecture moves the overlay or another scene object into a separately owned runtime prefab/asset, the task may lock that actual asset instead; the task graph must reflect the implementation that exists when it is dispatched.\n- Each task produces changed files, an implementation summary, known risks, and a Play Mode test checklist.\n- Source control commits serve as the handoff between implementation, validation, and integration.\n- Agents may report a risk or recommend a scope cut, but they cannot redesign the game or add features without developer approval.\n- The human developer remains responsible for architecture, merging changes, inspecting Unity scenes and prefabs, playtesting, balance, and final integration.",
-      "char_count": 1745,
-      "sha256": "86d3e55cdd5ad95c31ab0a31d72aa3b859a27fa2037dad36330d7ea0a5e31082"
+      "text": "- **Minimal-context dispatch is a required pipeline constraint:** agents receive only the approved feature brief, its acceptance criteria, the relevant GDD rules, and the files plus scene/prefab information required for the active task. Unrelated project files or broad project context are not included unless the task genuinely requires them.\n- Independent agents work in isolated branches or workspaces so their changes can be reviewed before integration.\n- **Current prototype scene-builder lock:** scene-authoring work that changes objects generated or maintained through `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs` must take exclusive-write locks on both that builder and `Assets/Scenes/DoorPrototype.unity`. This specifically applies to doorway-crossing work that creates/configures the forward-side crossing trigger and, under the current scene-built UI approach, to final-victory work that creates/configures the **You Escaped** overlay. If a later approved architecture moves the overlay or another scene object into a separately owned runtime prefab/asset, the task may lock that actual asset instead; the task graph must reflect the implementation that exists when it is dispatched.\n- Each task produces changed files, an implementation summary, known risks, and a Play Mode test checklist.\n- Source control commits serve as the handoff between implementation, validation, and integration.\n- Agents may report a risk or recommend a scope cut, but they cannot redesign the game or add features without developer approval.\n- The human developer remains responsible for architecture, merging changes, inspecting Unity scenes and prefabs, playtesting, balance, and final integration.",
+      "char_count": 1718,
+      "sha256": "333fc25f9b935943b675ba015927e821a361289eb4ff7e79c5308dcffc803551"
     },
     {
       "chunk_id": "nsc-gdd-030",
@@ -810,12 +810,12 @@
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
         "start_line": 271,
-        "end_line": 276
+        "end_line": 275
       },
       "chunk_part": null,
-      "text": "As of the August 20, 2026 repository state, the project contains three committed `.unity` scene files. Reconciliation and planning must describe them accurately rather than treating every scene file as an equivalent gameplay scene:\n\n- `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity` is the current canonical gameplay prototype scene and is the scene maintained by `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs`.\n- `Assets/Scenes/DoorPrototype.unity` is a small non-canonical stub containing the default-style Main Camera and Directional Light; its camera is perspective, not the orthographic isometric gameplay camera. It must not be cited as an alternative implemented gameplay prototype.\n- `Assets/Scenes/SampleScene.unity` is also a non-canonical stub/sample scene and must not be described as the only or primary gameplay scene.\n- The presence of these stubs is repository evidence, not a design requirement. Their deletion, retention, or repurposing is a **human decision**; agents and reconciliation steps must not delete or reinterpret them merely to make scene inventory evidence cleaner.",
-      "char_count": 1136,
-      "sha256": "206e0bc560163592565635fd16554c529539af20c1ccddbc6e21625bb66b6961"
+      "text": "The current repository contains two committed `.unity` scenes. This inventory is current repository evidence, not permanent design canon:\n\n- `Assets/Scenes/DoorPrototype.unity` is the current canonical gameplay prototype scene maintained by `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs`. It contains the populated gameplay prototype, including the current `PlayerMana` and `PlayerManaUI` wiring.\n- `Assets/Scenes/SampleScene.unity` is a non-canonical sample/stub scene.\n- The former `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity` path no longer exists in the current repository. Historical provenance may still correctly cite that former path when recording earlier repository states.",
+      "char_count": 726,
+      "sha256": "606e718771194854eb8cc059d2eefae64a3914d42ff1774613200e75809f25c1"
     },
     {
       "chunk_id": "nsc-gdd-034",
@@ -832,8 +832,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 280,
-        "end_line": 287
+        "start_line": 279,
+        "end_line": 286
       },
       "chunk_part": null,
       "text": "- The project targets a **hybrid isometric architecture**. Unity **2D Tilemap Editor** (`com.unity.2d.tilemap`) is the approved authoring package for Isometric Tilemaps used for floors, walls, and repeatable architecture. **SpriteRenderer prefabs** are used for doors, props, obstacles, the wizard, enemies, and other independently sorted or interactive objects.\n- A generated or hand-authored visual tile does **not** automatically define gameplay behavior. The simulation layer separately defines collision, door interactions, walkability, trigger zones, and navigation.\n- The visible isometric layer and the gameplay/navigation layer should remain decoupled wherever practical so environment art can be regenerated or replaced without rewriting room logic.\n- A shared **gameplay navigation/locomotion layer** owns the walkable movement representation and the navigation-facing configuration used by runtime movers. It also owns the navigation-side implementation of the shared door-passability interface: semantic door state is supplied by Door and Interaction, while this layer translates sealed/open/locked/broken state into enemy walkability. Enemy pursuit/search, melee/ranged behavior, status effects, and forced displacement consume this layer instead of each selecting or configuring navigation technology or doorway passability independently.\n- The approved enemy-navigation implementation is **Unity AI Navigation** (`com.unity.ai.navigation`) using NavMesh-based runtime movement. A minimal working navigation/locomotion layer and the approved package configuration must exist before locomotion-dependent enemy implementation is dispatched, but room-specific visual authoring does not need to be complete first.\n- The reusable visual world foundation (Tilemap/SpriteRenderer conventions and visual/gameplay separation) is distinct from authoring the five named room layouts and encounters. Five-room visual/content authoring consumes this foundation once it exists; encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation. These are real prerequisite relationships even when the downstream content features remain deferred for future decomposition.\n- The camera is fixed in an isometric presentation; the player does not rotate the world view freely.\n- Mouse-directed click/hold movement is routed through Unity Input System/Input Actions and projected onto the gameplay plane by the Player Movement-owned shared cursor-targeting foundation. Movement, cursor-aimed spells, and Door/Interaction consume the same world-space pointer target, preserving smooth movement similar to early isometric action/RPG controls without independent screen-to-world projection in each gameplay system.",
@@ -855,8 +855,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 291,
-        "end_line": 294
+        "start_line": 290,
+        "end_line": 293
       },
       "chunk_part": {
         "index": 1,
@@ -881,8 +881,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 295,
-        "end_line": 299
+        "start_line": 294,
+        "end_line": 298
       },
       "chunk_part": {
         "index": 2,
@@ -907,8 +907,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 300,
-        "end_line": 304
+        "start_line": 299,
+        "end_line": 303
       },
       "chunk_part": {
         "index": 3,
@@ -933,8 +933,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 308,
-        "end_line": 321
+        "start_line": 307,
+        "end_line": 320
       },
       "chunk_part": null,
       "text": "The project will use a maximum planning budget of 1.5 million combined input and output tokens across approximately thirty to forty development tasks. This is a spending ceiling rather than a required amount.\n\nMost focused tasks will be limited to approximately 15,000–30,000 tokens. Larger context will be reserved for integration, debugging, and reviewing systems that interact with several Unity components.\n\n| Budget category | Tokens |\n|---|---|\n| Feature planning and task preparation | 150,000 |\n| Wizard combat and spells | 300,000 |\n| Doors and enemy pursuit | 400,000 |\n| Dungeon encounters and integration | 250,000 |\n| Review, debugging, and validation | 400,000 |\n| Total ceiling | 1,500,000 |\n\n**Failed-task retry policy is a required pipeline constraint:** If a task fails, its scope and context will be reduced before it is attempted again. The entire project will not be repeatedly submitted to an agent for a single bug.",
@@ -956,13 +956,13 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 325,
-        "end_line": 328
+        "start_line": 324,
+        "end_line": 327
       },
       "chunk_part": null,
-      "text": "- **Unity 2D Tilemap Editor** (`com.unity.2d.tilemap`) is approved and required for the intended Isometric Tilemap authoring workflow. If it is absent from `Packages/manifest.json`, adding/configuring it is concrete project-configuration work, not deferred design.\n- **Unity AI Navigation** (`com.unity.ai.navigation`) is the approved enemy-navigation implementation. If it is absent from `Packages/manifest.json`, adding/configuring it is a prerequisite for the gameplay navigation/locomotion layer and locomotion-dependent enemy work.\n- The required delivery target is a **Windows Standalone build**. The current canonical gameplay scene is `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity`; that scene (or a later human-approved replacement canonical gameplay scene) must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete. A committed `EditorBuildSettings.asset` with no registered canonical gameplay scene is confirmed incomplete build configuration and must remain represented as open configuration work. The top-level `Assets/Scenes/DoorPrototype.unity` and `Assets/Scenes/SampleScene.unity` stubs do not satisfy this requirement merely because they are `.unity` files.\n- Package-manifest and ProjectSettings changes authorized by these approved requirements may be implemented by an agent, but the developer must inspect the resulting package state, scene registration, and Windows build configuration before merge.",
-      "char_count": 1490,
-      "sha256": "26b0c84b189693fb4f92a911f486c7771e2d11735342633e652f81eb758c1afa"
+      "text": "- **Unity 2D Tilemap Editor** (`com.unity.2d.tilemap`) is approved and required for the intended Isometric Tilemap authoring workflow. If it is absent from `Packages/manifest.json`, adding/configuring it is concrete project-configuration work, not deferred design.\n- **Unity AI Navigation** (`com.unity.ai.navigation`) is the approved enemy-navigation implementation. If it is absent from `Packages/manifest.json`, adding/configuring it is a prerequisite for the gameplay navigation/locomotion layer and locomotion-dependent enemy work.\n- The required delivery target is a **Windows Standalone build**. The current canonical gameplay scene is `Assets/Scenes/DoorPrototype.unity`; that scene, or a later human-approved replacement canonical gameplay scene, must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete. A committed `EditorBuildSettings.asset` with no registered canonical gameplay scene is confirmed incomplete build configuration and must remain represented as open configuration work. `Assets/Scenes/SampleScene.unity` remains non-canonical and does not satisfy this requirement merely because it exists.\n- Package-manifest and ProjectSettings changes authorized by these approved requirements may be implemented by an agent, but the developer must inspect the resulting package state, scene registration, and Windows build configuration before merge.",
+      "char_count": 1417,
+      "sha256": "911a156d6811e770d214c8384d9791630f7ccd00807073c42a7d4ffc199164fe"
     },
     {
       "chunk_id": "nsc-gdd-040",
@@ -979,8 +979,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 332,
-        "end_line": 339
+        "start_line": 331,
+        "end_line": 338
       },
       "chunk_part": null,
       "text": "- Generative AI tools are used only during development. Approved development-time asset tools may be used to generate isometric tiles, props, and directional sprite art, but they are not runtime dependencies.\n- API credentials will remain outside the Unity project and source control.\n- Minimal-context dispatch is mandatory: agents receive only the approved feature brief, its acceptance criteria, relevant GDD rules, and files plus scene/prefab information required for the active task. Unrelated repository context is withheld unless the active task requires it.\n- Agents cannot add mechanics, redesign the game, or expand the scope without developer approval.\n- Generated C# must compile before the task moves to validation.\n- Unity scenes, prefab references, animations, and Inspector assignments require human inspection.\n- Agent-generated work is not merged until its Play Mode checklist has been tested.\n- Parallel work is limited to features that do not modify the same files or depend on unfinished systems.",
@@ -1002,8 +1002,8 @@
       "canonical": true,
       "source": {
         "file": "Docs/GDD/No_Safe_Circle_GDD.md",
-        "start_line": 343,
-        "end_line": 349
+        "start_line": 342,
+        "end_line": 348
       },
       "chunk_part": null,
       "text": "| Window | Planned work |\n|---|---|\n| Weeks 1–2 | Wizard movement, health, mana regeneration, three spells, melee enemy, death, and restart |\n| Weeks 3–4 | Door interactions, door-breaking pressure, room-to-room pursuit, ranged enemy, and 2.5D isometric dungeon floor construction |\n| Weeks 5–6 | Final escape, visual and audio feedback, balancing, performance testing, bug fixes, build, and presentation |\n\nStretch features will be removed first if the schedule slips. Advanced door visuals and one encounter variation may also be reduced. The three spells, two enemy types, door loop, mana regeneration, pursuit, and final escape remain the required game. If required work in Weeks 5–6 (final escape, balancing, or performance passes) overruns, the fallback is to reduce final-room encounter density toward the low end of the stated three-to-eight-enemy range and simplify presentation polish; required systems are not cut.",

@@ -4,7 +4,7 @@ document_type: "Capstone Game Design Document"
 status: "Final Draft"
 author: "Vincent Liguori"
 original_date: "2026-07-21"
-revised_date: "2026-08-21"
+revised_date: "2026-08-23"
 source_docx: "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
 ---
 
@@ -230,7 +230,7 @@ The following ownership boundaries are required development-process constraints 
 
 - **Minimal-context dispatch is a required pipeline constraint:** agents receive only the approved feature brief, its acceptance criteria, the relevant GDD rules, and the files plus scene/prefab information required for the active task. Unrelated project files or broad project context are not included unless the task genuinely requires them.
 - Independent agents work in isolated branches or workspaces so their changes can be reviewed before integration.
-- **Current prototype scene-builder lock:** scene-authoring work that changes objects generated or maintained through `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs` must take exclusive-write locks on both that builder and `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity`. This specifically applies to doorway-crossing work that creates/configures the forward-side crossing trigger and, under the current scene-built UI approach, to final-victory work that creates/configures the **You Escaped** overlay. If a later approved architecture moves the overlay or another scene object into a separately owned runtime prefab/asset, the task may lock that actual asset instead; the task graph must reflect the implementation that exists when it is dispatched.
+- **Current prototype scene-builder lock:** scene-authoring work that changes objects generated or maintained through `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs` must take exclusive-write locks on both that builder and `Assets/Scenes/DoorPrototype.unity`. This specifically applies to doorway-crossing work that creates/configures the forward-side crossing trigger and, under the current scene-built UI approach, to final-victory work that creates/configures the **You Escaped** overlay. If a later approved architecture moves the overlay or another scene object into a separately owned runtime prefab/asset, the task may lock that actual asset instead; the task graph must reflect the implementation that exists when it is dispatched.
 - Each task produces changed files, an implementation summary, known risks, and a Play Mode test checklist.
 - Source control commits serve as the handoff between implementation, validation, and integration.
 - Agents may report a risk or recommend a scope cut, but they cannot redesign the game or add features without developer approval.
@@ -268,12 +268,11 @@ Source control will serve as the handoff between implementation, validation, and
 
 ### Current Prototype Scene Evidence
 
-As of the August 20, 2026 repository state, the project contains three committed `.unity` scene files. Reconciliation and planning must describe them accurately rather than treating every scene file as an equivalent gameplay scene:
+The current repository contains two committed `.unity` scenes. This inventory is current repository evidence, not permanent design canon:
 
-- `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity` is the current canonical gameplay prototype scene and is the scene maintained by `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs`.
-- `Assets/Scenes/DoorPrototype.unity` is a small non-canonical stub containing the default-style Main Camera and Directional Light; its camera is perspective, not the orthographic isometric gameplay camera. It must not be cited as an alternative implemented gameplay prototype.
-- `Assets/Scenes/SampleScene.unity` is also a non-canonical stub/sample scene and must not be described as the only or primary gameplay scene.
-- The presence of these stubs is repository evidence, not a design requirement. Their deletion, retention, or repurposing is a **human decision**; agents and reconciliation steps must not delete or reinterpret them merely to make scene inventory evidence cleaner.
+- `Assets/Scenes/DoorPrototype.unity` is the current canonical gameplay prototype scene maintained by `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs`. It contains the populated gameplay prototype, including the current `PlayerMana` and `PlayerManaUI` wiring.
+- `Assets/Scenes/SampleScene.unity` is a non-canonical sample/stub scene.
+- The former `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity` path no longer exists in the current repository. Historical provenance may still correctly cite that former path when recording earlier repository states.
 
 ### 2.5D Isometric Visual and World Representation
 
@@ -324,7 +323,7 @@ Most focused tasks will be limited to approximately 15,000–30,000 tokens. Larg
 
 - **Unity 2D Tilemap Editor** (`com.unity.2d.tilemap`) is approved and required for the intended Isometric Tilemap authoring workflow. If it is absent from `Packages/manifest.json`, adding/configuring it is concrete project-configuration work, not deferred design.
 - **Unity AI Navigation** (`com.unity.ai.navigation`) is the approved enemy-navigation implementation. If it is absent from `Packages/manifest.json`, adding/configuring it is a prerequisite for the gameplay navigation/locomotion layer and locomotion-dependent enemy work.
-- The required delivery target is a **Windows Standalone build**. The current canonical gameplay scene is `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity`; that scene (or a later human-approved replacement canonical gameplay scene) must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete. A committed `EditorBuildSettings.asset` with no registered canonical gameplay scene is confirmed incomplete build configuration and must remain represented as open configuration work. The top-level `Assets/Scenes/DoorPrototype.unity` and `Assets/Scenes/SampleScene.unity` stubs do not satisfy this requirement merely because they are `.unity` files.
+- The required delivery target is a **Windows Standalone build**. The current canonical gameplay scene is `Assets/Scenes/DoorPrototype.unity`; that scene, or a later human-approved replacement canonical gameplay scene, must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete. A committed `EditorBuildSettings.asset` with no registered canonical gameplay scene is confirmed incomplete build configuration and must remain represented as open configuration work. `Assets/Scenes/SampleScene.unity` remains non-canonical and does not satisfy this requirement merely because it exists.
 - Package-manifest and ProjectSettings changes authorized by these approved requirements may be implemented by an agent, but the developer must inspect the resulting package state, scene registration, and Windows build configuration before merge.
 
 ### API and Tool Constraints
