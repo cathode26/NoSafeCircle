@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "provider_configurations": {
+    "fake-default": {
+      "provider": "fake",
+      "models": {
+        "low_cost": "fake-low",
+        "standard": "fake-standard",
+        "high_reasoning": "fake-high"
+      }
+    }
+  }
+}
