@@ -461,6 +461,7 @@ class DeliveryResult:
     created_paths: tuple[str, ...]
     unity_reports: tuple[tuple[str, UnityReport], ...]
     stage_command: tuple[str, ...]
+    validate_command: tuple[str, ...]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -478,6 +479,7 @@ class DeliveryResult:
                 for artifact_id, report in self.unity_reports
             ],
             "stage_command": list(self.stage_command),
+            "validate_command": list(self.validate_command),
             "committed": False,
             "conformant": False,
             "note": "TaskGraph determines conformance only after this evidence is committed.",
@@ -706,6 +708,9 @@ def _create_delivery_package(spec_path: Path, root: Path) -> DeliveryResult:
             raise PublicationFailure(published, exc) from exc
 
     stage_command = ("git", "add", "-f", "--", *published)
+    validate_command = (
+        "python", "Pipeline/TaskGraph/validate_draft_evidence.py", "--record", record_path_repo,
+    )
     return DeliveryResult(
         task_id=spec.task_id,
         validated_commit=validated_commit,
@@ -717,6 +722,7 @@ def _create_delivery_package(spec_path: Path, root: Path) -> DeliveryResult:
         created_paths=tuple(published),
         unity_reports=tuple(unity_reports),
         stage_command=stage_command,
+        validate_command=validate_command,
     )
 
 
@@ -753,6 +759,9 @@ def print_human_report(result: DeliveryResult) -> None:
     print()
     print("STAGE:")
     print(_quote_command(result.stage_command))
+    print()
+    print("VALIDATE DRAFT:")
+    print(_quote_command(result.validate_command))
     print()
     print("CHECK:")
     print("git diff --cached --check")

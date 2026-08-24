@@ -241,7 +241,9 @@ git add -f -- 'Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeT
 It never prints or runs `git add -A`, `git add .`, or `git add -f <directory>`; the printed
 command always enumerates the exact generated files by name, so an ignored artifact cannot
 be silently dropped again. The tool itself never executes that command — the human runs it,
-inspects `git diff --cached --check`/`--stat`, commits, and only then queries TaskGraph:
+then runs `validate_draft_evidence.py` (below) against the exact staged index before
+committing, inspects `git diff --cached --check`/`--stat`, commits, and only then queries
+TaskGraph:
 
 ```text
 python Pipeline/TaskGraph/taskcontrol.py state NSC-005 --json
@@ -254,6 +256,90 @@ suite, which proves (against synthetic repositories, never the real repository) 
 package this tool produces is actually consumable by `current_conformance.py` once
 committed, and that a gitignored `.log` artifact is still enumerated in the printed stage
 command.
+
+## `validate_draft_evidence.py` — validating the actual staged would-be commit
+
+Postmortem improvement #4. `record_delivery.py` (above) guarantees that the *bytes it
+generates* are correct and prints the exact `git add -f` command needed to stage them. It
+does **not** guarantee that the human actually ran that command correctly, ran it for every
+file, or didn't also unintentionally sweep unrelated work into the same commit with a
+follow-up `git add -A`. NSC-005 was exactly this gap: the packaging step (predecessor manual
+process) was fine, the `.log` file existed on disk, but it was never actually staged because
+`*.log` is gitignored, and nothing checked the *actual index* before commit. TaskGraph's
+evidence-derived evaluator correctly rejected the resulting commit as `invalid_evidence` /
+`artifact_blob_mismatch` — that was the correct safety behavior — but the failure was only
+discovered after committing.
+
+`Pipeline/TaskGraph/validate_draft_evidence.py` closes that specific gap. It answers exactly
+one question, deterministically, with no agents, no LLM, no Unity, and no mutation of any
+kind: **if the human commits the currently staged Git index on top of committed HEAD right
+now, does the draft evidence record actually contain the record and evidence objects it
+claims to contain?**
+
+`validate_draft_evidence.py` currently validates one new delivery record per evidence
+closeout commit; baseline/revalidation draft validation is not supported.
+
+```powershell
+python Pipeline/TaskGraph/validate_draft_evidence.py --record Pipeline/TaskGraph/evidence/NSC-005/records/DEL-NSC-005-12fad9358f63.json
+python Pipeline/TaskGraph/validate_draft_evidence.py --record Pipeline/TaskGraph/evidence/NSC-005/records/DEL-NSC-005-12fad9358f63.json --json
+python3 Pipeline/TaskGraph/validate_draft_evidence_smoke_test.py
+```
+
+The **Git index is authoritative**. It never substitutes working-tree bytes for staged
+bytes:
+
+- The draft record itself must be staged, must be a genuinely new path relative to HEAD
+  (never a staged modification, replacement, or deletion of an already-committed record or
+  artifact), and is parsed from the **index** (`git show :<path>`), never from the working
+  tree.
+- It is validated with the existing, unmodified `conformance_records.validate_record_shape()`
+  — the schema is reused, not duplicated or weakened — and then cross-checked against the
+  repository: the validated commit/tree resolve and the validated commit is HEAD or an
+  ancestor of it; the recorded task contract and canon exist and hash-match at the validated
+  commit *and* are still the current ones at HEAD (otherwise this is stale evidence or would
+  require replan, not a delivery commit); every conformance surface's blob matches at both
+  the validated commit and HEAD; the completion-gate ID set exactly matches the current task
+  contract; human approval is internally consistent; and, for delivery records, `base_commit`
+  and `candidate_commit` resolve and stand in the correct ancestor relationship to the
+  validated commit.
+- For every gate-evidence artifact reference, it resolves what would actually be committed:
+  a staged (index) blob if one exists, otherwise the already-committed HEAD blob, otherwise
+  the reference fails outright. A file that merely exists in the working tree is never
+  treated as evidence.
+- Any staged change outside the one task's `Pipeline/TaskGraph/evidence/<TASK-ID>/` is
+  reported and fails validation, so an accidental `git add -A`/`git add .` cannot sweep
+  unrelated work into an evidence closeout commit.
+- Any other newly staged file under that task's `records/` directory besides the one
+  supplied via `--record` also fails validation: TaskGraph's `load_committed_records()`
+  loads and validates every file in that directory after commit, so an extra staged
+  record — malformed or otherwise valid — would be committed and derived from without
+  ever having been checked by this validator.
+
+On the NSC-005 regression specifically — a record staged, its XML and human-validation
+staged, but its `.log` gitignored and never staged — the validator fails with the exact
+missing path, states plainly that the file exists in the working tree but is neither staged
+nor already committed, notes that it is ignored by `.gitignore`, and prints the one safe fix:
+
+```text
+git add -f -- 'Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-12fad9358f63.log'
+```
+
+It never suggests `git add -A`, `git add .`, or `git add -f <directory>`, and if a referenced
+path is genuinely missing (absent from the index, HEAD, *and* the working tree) it says so
+plainly instead of inventing a staging command. Running that exact fix and rerunning the
+validator passes.
+
+`record_delivery.py` prints the exact `validate_draft_evidence.py --record <path>` command
+as the step immediately after `STAGE` and before `CHECK`/`COMMIT` in its own human and JSON
+output, so the normal workflow always includes it.
+
+The packager (`record_delivery.py`) validates the bytes it generates before they are staged;
+this validator validates the actual staged would-be commit before it is committed. They
+solve different problems, and neither claims the task conformant: this tool never stages,
+commits, pushes, or merges anything, and its own regression suite proves it (`git status`
+and `HEAD` are asserted unchanged across both passing and failing runs). Committed
+TaskGraph evaluation (`current_conformance.py` / `taskcontrol.py state`) remains the sole
+authority for `conformant`, exactly as before, and only after the human actually commits.
 
 Phase 3A enables evidence-derived current-state inspection through `taskcontrol state`. Baseline evidence is immutable history, never mutable current/completion/readiness authority.
 

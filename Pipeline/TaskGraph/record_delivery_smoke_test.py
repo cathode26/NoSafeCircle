@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import tempfile
+from contextlib import redirect_stdout
 from pathlib import Path
 
 from conformance_records import CANON_PATH, GitRepository
@@ -14,6 +16,7 @@ from record_delivery import (
     create_delivery_package,
     hash_object_as_committed,
     hash_object_raw,
+    print_human_report,
 )
 
 TASK_ID = "NSC-900"
@@ -224,6 +227,11 @@ def scenario_happy_path(root: Path) -> None:
     # Stage command uses git add -f and enumerates exactly the generated files.
     assert result.stage_command[:3] == ("git", "add", "-f")
     assert set(result.stage_command[4:]) == set(result.created_paths)
+
+    # Validate-draft command targets the exact generated record path.
+    assert result.validate_command == (
+        "python", "Pipeline/TaskGraph/validate_draft_evidence.py", "--record", result.record_path,
+    )
 
 
 # 9: failed Unity XML rejected.
@@ -584,6 +592,33 @@ def scenario_directory_surface_rejected(root: Path) -> None:
     expect_error(lambda: create_delivery_package(spec_path, root), "not a blob")
 
 
+# 32: the printed human report inserts an exact VALIDATE DRAFT step, targeting the
+# generated record path, between STAGE and CHECK/COMMIT.
+def scenario_prints_validate_draft_between_stage_and_commit(root: Path) -> None:
+    validated = init_repo(root)
+    external = root.parent / "external-sources"
+    sources = write_external_sources(external)
+    spec = base_spec(validated)
+    wire_sources(spec, sources)
+    spec_path = write_spec(root, spec)
+
+    result = create_delivery_package(spec_path, root)
+
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        print_human_report(result)
+    report = buffer.getvalue()
+
+    stage_index = report.index("STAGE:")
+    validate_index = report.index("VALIDATE DRAFT:")
+    check_index = report.index("CHECK:")
+    commit_index = report.index("COMMIT:")
+    assert stage_index < validate_index < check_index < commit_index, report
+
+    expected_validate_line = f"python Pipeline/TaskGraph/validate_draft_evidence.py --record {result.record_path}"
+    assert expected_validate_line in report, report
+
+
 def main() -> int:
     fresh(scenario_happy_path)
     fresh(scenario_failed_unity_xml)
@@ -608,6 +643,7 @@ def main() -> int:
     fresh(scenario_end_to_end_conformant)
     fresh(scenario_filtered_hash_matches_committed_blob)
     fresh(scenario_directory_surface_rejected)
+    fresh(scenario_prints_validate_draft_between_stage_and_commit)
     print("record_delivery_smoke_test: PASS")
     return 0
 
