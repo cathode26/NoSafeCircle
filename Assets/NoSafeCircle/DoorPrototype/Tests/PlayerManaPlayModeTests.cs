@@ -347,6 +347,66 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
+        // VAL-002/VAL-003 (regression coverage for prior human-review rejection): a fully-
+        // drained fill Image renders no visible fill area, so tinting the fill Image alone
+        // is invisible exactly when CurrentMana == 0 — the point where low-mana failure most
+        // needs to be readable. PlayerManaUI resolves a parent background/frame Image (when
+        // the fill Image has one) and flashes that instead, independent of fillAmount.
+        [UnityTest]
+        public IEnumerator PlayerManaUI_FlashesParentBackgroundImage_OnCastDenied_WhenCurrentManaIsZero()
+        {
+            var backgroundObject = new GameObject("TestManaBackground");
+            try
+            {
+                var backgroundImage = backgroundObject.AddComponent<Image>();
+                var backgroundColor = new Color(0.2f, 0.2f, 0.2f, 1f);
+                backgroundImage.color = backgroundColor;
+
+                var fillObject = new GameObject("TestManaFill");
+                fillObject.transform.SetParent(backgroundObject.transform);
+                var fillImage = fillObject.AddComponent<Image>();
+
+                var ui = backgroundObject.AddComponent<PlayerManaUI>();
+                SetPrivateField(ui, "mana", mana);
+                SetPrivateField(ui, "fillImage", fillImage);
+                SetPrivateField(ui, "deniedFlashDuration", 0.05f);
+                ui.enabled = false;
+                ui.enabled = true;
+
+                yield return null;
+
+                mana.Spend(mana.MaxMana);
+
+                yield return null;
+
+                Assert.AreEqual(0f, mana.CurrentMana, 0.001f);
+                Assert.AreEqual(0f, fillImage.fillAmount, 0.001f,
+                    "Expected the fill Image to render no visible area when CurrentMana is zero.");
+
+                var deniedColor = (Color)GetPrivateField(ui, "deniedColor");
+
+                mana.Spend(10f);
+
+                yield return null;
+
+                Assert.AreEqual(deniedColor, backgroundImage.color,
+                    "Failure caused by zero mana must remain readable through the parent background/frame " +
+                    "Image flashing a denied color, since the fully-drained fill Image has no visible area " +
+                    "to tint.");
+
+                yield return new WaitForSeconds(0.1f);
+                yield return null;
+
+                Assert.AreEqual(backgroundColor, backgroundImage.color,
+                    "Expected the denied flash to revert the background/frame Image to its actual " +
+                    "scene-authored color after the flash duration.");
+            }
+            finally
+            {
+                Object.Destroy(backgroundObject);
+            }
+        }
+
         // AC-003 (regression-only ownership-boundary invariant): PlayerMana continues to
         // own only current mana and post-cast regen-delay state and must not absorb
         // spell-local cooldown/charge/cast/placement/active-field state. This locks the

@@ -12,11 +12,14 @@ namespace NoSafeCircle.DoorPrototype
         [SerializeField] private float deniedFlashDuration = 0.25f;
 
         private float deniedFlashTimeRemaining;
+        private Image flashTargetImage;
 
         private void OnEnable()
         {
             if (mana != null) mana.CastDenied += HandleCastDenied;
-            if (fillImage != null) normalColor = fillImage.color;
+
+            flashTargetImage = ResolveFlashTargetImage();
+            if (flashTargetImage != null) normalColor = flashTargetImage.color;
         }
 
         private void OnDisable()
@@ -30,11 +33,30 @@ namespace NoSafeCircle.DoorPrototype
 
             fillImage.fillAmount = mana.MaxMana > 0f ? mana.CurrentMana / mana.MaxMana : 0f;
 
-            if (deniedFlashTimeRemaining > 0f)
+            if (deniedFlashTimeRemaining > 0f && flashTargetImage != null)
             {
                 deniedFlashTimeRemaining -= Time.deltaTime;
-                fillImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;
+                flashTargetImage.color = deniedFlashTimeRemaining > 0f ? deniedColor : normalColor;
             }
+        }
+
+        /// A fully-drained fill Image has no rendered fill area, so tinting it is
+        /// invisible exactly when denied-cast feedback matters most. Flash the fill's
+        /// parent frame/background Image instead when one exists, since that frame
+        /// renders regardless of fillAmount; fall back to the fill Image itself
+        /// otherwise so the feedback still shows without requiring scene rewiring.
+        private Image ResolveFlashTargetImage()
+        {
+            if (fillImage == null) return null;
+
+            var parentTransform = fillImage.transform.parent;
+            if (parentTransform != null)
+            {
+                var backgroundImage = parentTransform.GetComponent<Image>();
+                if (backgroundImage != null) return backgroundImage;
+            }
+
+            return fillImage;
         }
 
         /// Presents readable low-mana feedback on the existing mana indicator
