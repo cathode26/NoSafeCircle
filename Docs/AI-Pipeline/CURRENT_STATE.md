@@ -59,7 +59,7 @@ The Stage 3 foundation now implements:
 - a deterministic, side-effect-free `FakeProvider`;
 - an adversarial regression suite covering provider trust boundaries, path safety, schema failures, immutable artifacts, malformed provider values, and historical-directory protection.
 
-The Stage 3 implementation is integrated; Stage 4A changes are documentation and decision work only.
+The Stage 3 implementation is integrated; Stage 4A was documentation and decision work only.
 
 Live CLI discovery is complete. Non-production-write structured-output success probes completed for Claude Code and OpenAI/Codex. The provider-transport adopt-versus-build spike is also complete: `agent-mux` and `agent-shell` were evaluated and are not being adopted as production dependencies. ADR-035 was amended on 2026-08-23 to keep `AgentRequest` schema 1.0 and its required integer `turn_limit`, with explicit provider-specific enforcement mappings.
 
@@ -73,7 +73,7 @@ AgentRuntime `approved_command_execution`, web access, non-null token limits, an
 
 ArchitectureReview generated runs and provider-latest views are separated under `outputs/claude/` and `outputs/codex/`; those provider-specific latest views retain convenience copies. Global `outputs/latest/` contains only one atomic `LATEST.json` pointer identifying the most recently completed provider-scoped run across providers. Manifests record the explicit provider namespace, resume cannot cross it, and failed/partial runs do not publish latest. Each provider retains eight independent reviewer roles. New independent reviewers ignore prior review opinions even when summarized in architecture/current-state documentation, while still using implemented architecture, accepted decisions, and current documented facts as evidence to judge independently. This preserves review provenance and supports a later Claude-versus-Codex comparison without implementing that comparison pipeline.
 
-**Provider-Neutral Execution Crew Plan — Stage 4: Implement Claude Code and OpenAI/Codex adapters against the same AgentRuntime fixtures.**
+**Provider-Neutral Execution Crew Stage 4 — COMPLETE**
 
 The accepted Stage 4 turn-budget mapping is:
 
@@ -477,7 +477,7 @@ The clean runner was also proven through a real Unity run with these exact facts
 
 The runner proves Unity and Git execution facts. The separately committed NSC-023 baseline record binds those facts into Phase 3 conformance evidence. Neither the runner nor a conformant result enables readiness or authorization; `taskcontrol ready` remains unavailable and `taskcontrol authorize` remains denied.
 
-Stage 1 itself did **not** implement `AgentRuntime`, provider adapters, `ExecutionCrew`, or a dedicated test-author agent. The provider-neutral `AgentRuntime` foundation was implemented later in Stage 3; live provider adapters and production `ExecutionCrew` roles remain later stages governed by the plan and ADR-034.
+Stage 1 itself did **not** implement `AgentRuntime`, provider adapters, `ExecutionCrew`, or a dedicated test-author agent. The provider-neutral `AgentRuntime` foundation was implemented later in Stage 3; live provider adapters and production `ExecutionCrew` roles were implemented in subsequent stages governed by the plan and ADR-034.
 
 ## Provider-Neutral Execution Crew Stage 3 — COMPLETE
 
@@ -540,15 +540,14 @@ The deterministic fake provider exercises success, provider failure, timeout, pe
 
 The Stage 3 AgentRuntime smoke suite passes after adversarial hardening and covers the request/result contracts, configuration, provider registry, write boundaries, strict JSON/schema behavior, immutable publication, normalized failures, fake-provider scenarios, provider trust-boundary attacks, and protection of the historical Assignment 3 and Assignment 6 directories.
 
-Stage 3 does **not** implement:
+Stage 3 itself did **not** implement live Claude Code/OpenAI-Codex providers or Implementer/Test Author/Validator orchestration; those capabilities were added in subsequent stages.
 
-- a live Claude Code provider;
-- a live OpenAI/Codex provider;
+The following capabilities remain outside the current runtime/dispatch boundary:
+
 - automatic provider fallback;
-- Implementer/Test Author/Validator orchestration;
 - Unity execution initiated by an agent;
 - GER integration;
-- task selection;
+- automatic task selection;
 - dependency readiness;
 - dispatch authorization;
 - automatic Git branch/worktree/commit/merge behavior.
