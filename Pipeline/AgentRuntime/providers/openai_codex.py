@@ -296,7 +296,7 @@ def _parse_jsonl(raw_log: str) -> list[dict[str, Any]]:
     try:
         for line in raw_log.splitlines():
             if not line.strip():
-                raise ValueError("blank JSONL record")
+                continue
             event = _strict_json(line)
             if type(event) is not dict or type(event.get("type")) is not str:
                 raise ValueError("event must be an object with a string type")
