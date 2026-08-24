@@ -132,7 +132,7 @@ DECOMPOSITION_RESULT_SCHEMA = {
         "unsupported_assumptions": {"type": "array", "items": {"type": "string"}},
         "unresolved_questions": {"type": "array", "items": {"type": "string"}},
         "artifact_proposal": {
-            "type": "object",
+            "type": ["object", "null"],
             "properties": {
                 "title": {"type": "string"},
                 "purpose": {"type": "string"},
@@ -161,7 +161,7 @@ DECOMPOSITION_RESULT_SCHEMA = {
     "required": [
         "schema_version", "parent_task", "decision", "gap_type", "reason",
         "children", "parent_requirement_coverage", "unsupported_assumptions",
-        "unresolved_questions",
+        "unresolved_questions", "artifact_proposal",
     ],
     "additionalProperties": False,
 }

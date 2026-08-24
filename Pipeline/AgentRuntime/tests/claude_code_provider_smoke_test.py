@@ -52,6 +52,19 @@ SCHEMA = {
     "required": ["message"],
     "additionalProperties": False,
 }
+NULLABLE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "artifact_proposal": {
+            "type": ["object", "null"],
+            "properties": {"title": {"type": "string"}},
+            "required": ["title"],
+            "additionalProperties": False,
+        }
+    },
+    "required": ["artifact_proposal"],
+    "additionalProperties": False,
+}
 DISALLOWED = "Bash,Edit,Write,NotebookEdit,WebSearch,WebFetch"
 WRITE_DISALLOWED = "Bash,NotebookEdit,WebSearch,WebFetch"
 AUTHORITY_FIELDS = {
@@ -72,6 +85,7 @@ def request(
     budgets: Budgets | None = None,
     prompt: str = "Return the bounded result.",
     boundaries: WriteBoundaries | None = None,
+    output_schema: dict[str, Any] = SCHEMA,
 ) -> AgentInvocationRequest:
     effective_boundaries = boundaries or (
         WriteBoundaries(("Pipeline/AgentRuntime",), ())
@@ -86,7 +100,7 @@ def request(
         context_paths,
         capabilities,
         effective_boundaries,
-        SCHEMA,
+        output_schema,
         "standard",
         Budgets(7, 12.5) if budgets is None else budgets,
         "claude-default",
@@ -260,6 +274,23 @@ def test_empty_capability_exact_invocation() -> None:
         assert call["cwd_exists"] is True
         assert call["cwd_entries"] == ()
         assert not call["cwd"].exists()
+
+
+def test_nullable_schema_serialization() -> None:
+    envelope = successful_envelope(structured_output={"artifact_proposal": None})
+    with tempfile.TemporaryDirectory() as outer:
+        fake = FakeProcessRunner(stdout=encoded(envelope))
+        provider = ClaudeCodeProvider(
+            process_runner=fake,
+            temporary_directory_parent=Path(outer),
+        )
+        response = provider.invoke(request(output_schema=NULLABLE_SCHEMA), MODEL)
+    serialized_schema = json.loads(option(fake.calls[0]["argv"], "--json-schema"))
+    assert response.structured_output == {"artifact_proposal": None}
+    assert serialized_schema == NULLABLE_SCHEMA
+    assert serialized_schema["properties"]["artifact_proposal"]["type"] == [
+        "object", "null"
+    ]
 
 
 def test_repository_capability_invocations() -> None:
@@ -887,6 +918,7 @@ def main() -> None:
         check=True,
     ).stdout
     test_empty_capability_exact_invocation()
+    test_nullable_schema_serialization()
     test_repository_capability_invocations()
     test_forbidden_capabilities_context_and_token_limits()
     test_isolated_writable_repository_policy()

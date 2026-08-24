@@ -1,0 +1,60 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-039",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "World-Space SpriteRenderer Prefab and Sorting Foundation",
+  "reconciliation_key": "world-sprite-prefab-sorting",
+  "kind": "implementation",
+  "type": "world-foundation",
+  "execution_scope": "single_agent",
+  "execution_reason": "After the Tilemap baseline exists, one agent can establish the SpriteRenderer prefab convention, apply it to representative prototype objects, and validate their sorting behavior.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "World-space prefab representation and its shared isometric sorting convention are a cohesive responsibility separate from Tilemap architecture and simulation-layer continuity.",
+  "parent": "NSC-026",
+  "depends_on": [
+    "NSC-038"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "Establish reusable world-space SpriteRenderer prefab and sorting conventions for the wizard, enemies, doors, props, obstacles, and other independently sorted or interactive objects, keeping those objects outside the architectural Tilemap."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "GDD - Unity Validation Agent role (Section 4)",
+      "requirement": "Unity validation exercises representative world-space SpriteRenderers at different isometric positions and confirms their ordering relative to Tilemap geometry and to one another follows the established isometric sorting convention."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "The wizard, enemies, taller props, interactive doors, obstacles, decorative set pieces, and other independently sorted objects use world-space SpriteRenderers and prefabs rather than being painted into a Tilemap."
+    },
+    {
+      "reference": "GDD - Required feedback and character presentation",
+      "requirement": "The wizard and enemies follow the same isometric sorting conventions as other world-space SpriteRenderers; placeholder character sprites are acceptable."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This proposed scope defines the reusable representation and sorting convention; it does not author enemy behavior, room-specific props, or final visual assets.",
+  "repository_state_at_bootstrap": "not_applicable",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "graph_delta_plan_id": "GDP-9ed2e9f5d29e19e8e03f6907b7ecdd4e4deac9b8cb465283df856a88a3cc0db8",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 1,
+    "parent_contract_sha256": "8dd459df6c99ef48df5ee4893db957150139abc7eedded1e8098799e9b115177",
+    "parent_task_id": "NSC-026"
+  }
+}

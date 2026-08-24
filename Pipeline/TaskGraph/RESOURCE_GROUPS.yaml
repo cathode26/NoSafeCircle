@@ -5,6 +5,13 @@
   "verification_run_id": "20260821T195959Z-43dba5de",
   "resource_groups": [
     {
+      "reconciliation_keys": [
+        "enemy-pursuit-search-foundation",
+        "enemy-status-effect-displacement",
+        "locked-door-enemy-attack",
+        "melee-enemy",
+        "ranged-enemy"
+      ],
       "resource_key": "logical:enemy-locomotion-behavior-surface",
       "work_ids": [
         "NSC-014",
@@ -12,53 +19,64 @@
         "NSC-017",
         "NSC-015",
         "NSC-016"
-      ],
-      "reconciliation_keys": [
-        "enemy-pursuit-search-foundation",
-        "enemy-status-effect-displacement",
-        "locked-door-enemy-attack",
-        "melee-enemy",
-        "ranged-enemy"
       ]
     },
     {
+      "reconciliation_keys": [
+        "floor-run-restart-bootstrap",
+        "floor-run-restart-persistent-closure"
+      ],
       "resource_key": "logical:floor-run-restart-orchestrator",
       "work_ids": [
         "NSC-032",
         "NSC-033"
-      ],
-      "reconciliation_keys": [
-        "floor-run-restart-bootstrap",
-        "floor-run-restart-persistent-closure"
       ]
     },
     {
+      "reconciliation_keys": [
+        "door-close-lock-break-lifecycle",
+        "gameplay-navigation-locomotion"
+      ],
       "resource_key": "logical:gameplay-walkability-surface",
       "work_ids": [
         "NSC-021",
         "NSC-025"
-      ],
-      "reconciliation_keys": [
-        "door-close-lock-break-lifecycle",
-        "gameplay-navigation-locomotion"
       ]
     },
     {
+      "reconciliation_keys": [
+        "fireball",
+        "force-wave",
+        "frost-field",
+        "player-movement"
+      ],
       "resource_key": "repo-file:Assets/InputSystem_Actions.inputactions",
       "work_ids": [
         "NSC-007",
         "NSC-009",
         "NSC-008",
         "NSC-003"
-      ],
-      "reconciliation_keys": [
-        "fireball",
-        "force-wave",
-        "frost-field",
-        "player-movement"
       ]
     },
     {
+      "reconciliation_keys": [
+        "door-close-lock-break-lifecycle",
+        "door-open-interaction",
+        "doorway-crossing-state",
+        "final-escape-victory",
+        "fireball",
+        "floor-run-restart-bootstrap",
+        "floor-run-restart-persistent-closure",
+        "force-wave",
+        "frost-field",
+        "gameplay-navigation-locomotion",
+        "player-health",
+        "player-movement",
+        "world-visual-foundation",
+        "isometric-tilemap-visual-layer",
+        "world-sprite-prefab-sorting",
+        "visual-simulation-continuity"
+      ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
         "NSC-021",
@@ -73,11 +91,28 @@
         "NSC-025",
         "NSC-004",
         "NSC-003",
-        "NSC-026"
-      ],
+        "NSC-026",
+        "NSC-038",
+        "NSC-039",
+        "NSC-040"
+      ]
+    },
+    {
       "reconciliation_keys": [
         "door-close-lock-break-lifecycle",
         "door-open-interaction",
+        "doorway-crossing-state"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+      "work_ids": [
+        "NSC-021",
+        "NSC-019",
+        "NSC-020"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "door-close-lock-break-lifecycle",
         "doorway-crossing-state",
         "final-escape-victory",
         "fireball",
@@ -85,26 +120,8 @@
         "floor-run-restart-persistent-closure",
         "force-wave",
         "frost-field",
-        "gameplay-navigation-locomotion",
-        "player-health",
-        "player-movement",
-        "world-visual-foundation"
-      ]
-    },
-    {
-      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
-      "work_ids": [
-        "NSC-021",
-        "NSC-019",
-        "NSC-020"
+        "gameplay-navigation-locomotion"
       ],
-      "reconciliation_keys": [
-        "door-close-lock-break-lifecycle",
-        "door-open-interaction",
-        "doorway-crossing-state"
-      ]
-    },
-    {
       "resource_key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
       "work_ids": [
         "NSC-021",
@@ -115,33 +132,28 @@
         "NSC-033",
         "NSC-009",
         "NSC-008",
-        "NSC-025",
-        "NSC-026"
-      ],
-      "reconciliation_keys": [
-        "door-close-lock-break-lifecycle",
-        "doorway-crossing-state",
-        "final-escape-victory",
-        "fireball",
-        "floor-run-restart-bootstrap",
-        "floor-run-restart-persistent-closure",
-        "force-wave",
-        "frost-field",
-        "gameplay-navigation-locomotion",
-        "world-visual-foundation"
+        "NSC-025"
       ]
     },
     {
+      "reconciliation_keys": [
+        "player-health",
+        "player-movement",
+        "world-visual-foundation",
+        "isometric-tilemap-visual-layer",
+        "world-sprite-prefab-sorting",
+        "visual-simulation-continuity",
+        "door-open-interaction"
+      ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
         "NSC-004",
         "NSC-003",
+        "NSC-026",
+        "NSC-038",
+        "NSC-039",
+        "NSC-040",
         "NSC-019"
-      ],
-      "reconciliation_keys": [
-        "player-health",
-        "player-movement",
-        "door-open-interaction"
       ]
     }
   ]
