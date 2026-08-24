@@ -41,6 +41,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 InputActionType.Button,
                 "<Mouse>/leftButton");
 
+            // Batch-mode Unity may already expose another Mouse device. Restrict this
+            // test action map to the synthetic mouse so <Mouse>/... bindings cannot
+            // resolve to a native/default mouse whose state the test does not control.
+            playerMap.devices = new InputDevice[] { mouseDevice };
+
             playerObject = new GameObject("TestPlayer");
             playerObject.SetActive(false);
 
