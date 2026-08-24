@@ -117,8 +117,6 @@
         "NSC-009",
         "NSC-008",
         "NSC-025",
-        "NSC-004",
-        "NSC-003",
         "NSC-026"
       ],
       "reconciliation_keys": [
@@ -132,9 +130,18 @@
         "force-wave",
         "frost-field",
         "gameplay-navigation-locomotion",
-        "player-health",
-        "player-movement",
         "world-visual-foundation"
+      ]
+    },
+    {
+      "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
+      "work_ids": [
+        "NSC-004",
+        "NSC-003"
+      ],
+      "reconciliation_keys": [
+        "player-health",
+        "player-movement"
       ]
     }
   ]
