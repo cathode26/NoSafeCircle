@@ -18,6 +18,9 @@ The documentation is intentionally split so a fresh AI context only needs the ma
 - `04_EXECUTION_GER_VALIDATION_CONTEXT.md` — Agent Crew, GER, validation and repair.
 - `05_CONTINUOUS_AUTONOMY_CONTEXT.md` — continuous operation, blockers, budgets and later parallelism.
 - `06_NEW_WINDOW_HANDOFF_TEMPLATE.md` — optional starter prompt for a fresh AI window.
+- `REAL_TASK_DELIVERY_RUNBOOK.md` — authoritative end-to-end procedure for delivering one real task.
+- `STANDALONE_CLONE_QUICKSTART.md` — copy/paste workflow for an isolated clone, feature branch, validation, and fixed Compose project name.
+- `REAL_TASK_DELIVERY_WINDOWS_CLONE_NOTE.md` — detailed Windows rationale, failure modes, and Docker authentication-volume rules for standalone clones.
 
 ## Maintenance Rule
 
