@@ -47,6 +47,38 @@ Run the synthetic Phase 3A Git-object regression suite:
 python3 Pipeline/TaskGraph/conformance_evaluator_smoke_test.py
 ```
 
+## Packaging delivery evidence
+
+Producing valid delivery evidence used to be excessive manual clerical work (create
+directories, copy the Unity XML/log, hand-write a human-validation file, compute every
+hash and Git object identity, remember `git add -f` for gitignored artifacts like `*.log`,
+then repair a delivery whose `.log` silently never got staged). `record_delivery.py` is
+deterministic clerical automation for exactly that step — not another agent, and it grants
+no completion authority:
+
+```powershell
+python3 Pipeline/TaskGraph/record_delivery.py $env:TEMP\NSC-005-delivery-spec.json
+python3 Pipeline/TaskGraph/record_delivery.py $env:TEMP\NSC-005-delivery-spec.json --json
+python3 Pipeline/TaskGraph/record_delivery_smoke_test.py
+```
+
+The delivery-spec JSON is input to the tool, not repository evidence. This tool requires
+a completely clean working tree before packaging, so keep the spec file outside the Git
+working tree entirely (for example `$env:TEMP\NSC-005-delivery-spec.json` on Windows) or in
+a location already covered by `.gitignore`. Do not place an untracked spec file inside the
+repository working tree — it will fail the clean-tree precondition, which is not weakened
+to accommodate it.
+
+It validates every precondition against the committed repository, copies and validates the
+declared artifacts (rejecting a failing or malformed Unity test-results XML rather than
+trusting a claim), computes every hash and Git blob identity itself, generates the delivery
+record, and validates it with the existing `conformance_records.validate_record_shape()`.
+It never stages, commits, pushes, merges, or edits a `Tasks/*.yaml` contract, and it never
+claims the task conformant — it prints the exact `git add -f -- <files>` staging command
+(enumerating precisely the files it generated, so a gitignored artifact such as `*.log`
+cannot be silently dropped again) for a human to run, inspect, and commit. See
+`CONFORMANCE_RECORDS.md` for the full delivery-spec format and generated-path layout.
+
 ## Phase 2 files
 
 - `task_contract_schema.py` — shared schema constants and deterministic entry normalization.
