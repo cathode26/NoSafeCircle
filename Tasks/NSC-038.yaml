@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-038",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Isometric Tilemap Architectural Visual Layer",
   "reconciliation_key": "isometric-tilemap-visual-layer",
@@ -48,7 +48,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This scope establishes reusable architectural authoring only; it excludes the five named room layouts and encounter content. Gameplay geometry remains authoritative and independently defined; Tilemap visuals may align to that geometry but must never define collider, walkability, trigger, door-state, or pursuit transforms. Persistent reusable architectural Tile assets are owned by this task through logical:isometric-architectural-tile-assets; exact placeholder asset filenames and appearance remain implementation details.",
+  "notes": "This scope establishes reusable architectural authoring only; it excludes the five named room layouts and encounter content. Gameplay geometry remains authoritative and independently defined; Tilemap visuals may align to that geometry but must never define collider, walkability, trigger, door-state, or pursuit transforms. Persistent reusable architectural Tile assets are owned by this task through logical:isometric-architectural-tile-assets; exact placeholder asset filenames and appearance remain implementation details. Human-approved testability seam: the production scene builder may expose a narrow non-saving test entry point that constructs the current in-memory scene while using a caller-supplied temporary AssetDatabase folder for persistent architectural Tile assets. The seam must not open or save Assets/Scenes/DoorPrototype.unity, must preserve the normal production Build() behavior and canonical generated-asset location, and must not transfer gameplay ownership into the Tilemap. Tests using the seam must create and remove their temporary assets and leave the repository clean.",
   "repository_state_at_bootstrap": "not_applicable",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
