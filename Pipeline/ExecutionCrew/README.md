@@ -49,28 +49,63 @@ outputs/<run-id>/
   "status": "REVIEW_READY | BLOCKED | REJECTED | NEEDS_HUMAN",
   "reason": "...",
   "artifact_path": "...",
-  "next_action": "..."
+  "next_action": "...",
+  "commands": {
+    "find": "Get-Item -LiteralPath '...'",
+    "check": "git apply --check '...'",
+    "apply": "git apply '...'",
+    "verify": "git status --short; git diff --check"
+  }
 }
 ```
 
 `status` mirrors `crew_status`. `reason` clearly states the candidate passed semantic crew review and awaits human review when `review_ready`; otherwise it is the first entry of `rejection_reasons` when that entry is a deterministic orchestration-generated reason, or a fixed structural summary (for example "The Implementer reported a blocker.") when that entry would otherwise embed raw agent-authored blocker text, which during a human-review retry could quote the human feedback itself; the full, authoritative reason always remains available in `rejection_reasons` and the role artifacts. `reason` is `null`, never fabricated, when no rejection/blocking reason was recorded. `artifact_path` points at `candidate.patch` when `review_ready`, otherwise at `workspace_diagnostic.patch` when one exists, otherwise `null`; when a HOST output root is supplied (see below) it prefers the full host-drive-qualified path. `next_action` never implies automatic apply/commit/merge behavior.
 
-ExecutionCrew also prints a concise human-readable summary to stderr when it finishes, while stdout remains the single machine-readable result JSON only:
+`commands` is a stable, additive structure so tooling can consume the exact same copy/paste-ready PowerShell instructions as the stderr footer below, quoted with `pathlib`-free single-quote escaping (embedded `'` becomes `''`) so the result is safe to paste directly into PowerShell even when the path contains spaces. When `status` is `REVIEW_READY`, all four commands operate on the exact `candidate.patch` path (host path when available, otherwise the container path). For any diagnostic artifact (`workspace_diagnostic.patch`), only `find` is populated; `check` and `apply` are always `null`, because a diagnostic patch is never an approved candidate. When there is no artifact at all, every command is `null`.
 
-```text
-RESULT: BLOCKED
-WHY: <reason>
-ARTIFACT: <path>
-NEXT: <next action>
-```
-
-The `WHY` line is omitted when `reason` is `null`. For a review-ready candidate:
+ExecutionCrew also prints a concise human-readable summary to stderr when it finishes, while stdout remains the single machine-readable result JSON only. For a review-ready candidate, the footer ends with copy/paste-ready commands built from the exact artifact path — never a placeholder like `<RUN-ID>`:
 
 ```text
 RESULT: REVIEW_READY
-ARTIFACT: <path>
+ARTIFACT: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch
+
+FIND PATCH:
+Get-Item -LiteralPath 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch'
+
+CHECK PATCH:
+git apply --check 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch'
+
+APPLY PATCH:
+git apply 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch'
+
+VERIFY:
+git status --short
+git diff --check
+
 NEXT: Review candidate.patch; apply manually only if approved.
 ```
+
+A human can copy each command directly from that footer (or from `human_result.commands`) without reconstructing the path by hand. None of these commands run automatically; ExecutionCrew never applies, commits, merges, or pushes anything itself.
+
+For a blocked or rejected run with a diagnostic artifact, the footer identifies `workspace_diagnostic.patch` for inspection but deliberately never prints a `git apply` or `git apply --check` command for it, because diagnostic output from a non-`review_ready` run is not an approved candidate:
+
+```text
+RESULT: BLOCKED
+WHY: The Implementer reported a blocker.
+ARTIFACT: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\workspace_diagnostic.patch
+
+FIND DIAGNOSTIC PATCH:
+Get-Item -LiteralPath 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\workspace_diagnostic.patch'
+
+DO NOT APPLY:
+This is diagnostic work from a non-review-ready run, not an approved candidate.
+
+NEXT: Inspect the diagnostic patch and blocking reason; no candidate was approved.
+```
+
+**`workspace_diagnostic.patch` must not be applied.** It is retained tracked-file movement from a run that did not reach `review_ready`, never an approved candidate; the footer and `human_result.commands` intentionally omit any apply/check command for it.
+
+When there is no artifact at all (no candidate and no diagnostic patch), the footer keeps the existing `RESULT`/`WHY`/`ARTIFACT`/`NEXT` lines with `ARTIFACT: none` and prints no `FIND`/`CHECK`/`APPLY` block.
 
 This summary never includes prompts, raw provider output, credentials, hidden reasoning, or feedback text.
 
@@ -79,10 +114,10 @@ This summary never includes prompts, raw provider output, credentials, hidden re
 Inside Docker, `candidate_patch_path` and `workspace_diagnostic_patch_path` are container paths (for example `/execution-output/<run-id>/candidate.patch`), which is poor UX when the human is on a Windows host. Passing `--host-output-root <WINDOWS_ABSOLUTE_PATH>` (or the `NSC_EXECUTION_HOST_OUTPUT_ROOT` environment variable as a fallback; the CLI flag takes precedence when both are set) adds `candidate_patch_host_path` and `workspace_diagnostic_patch_host_path` with the equivalent full drive-qualified host path, for example:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs
+C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch
 ```
 
-This is a purely lexical, HOST-facing display path (`pathlib.PureWindowsPath`); it is never resolved as a filesystem path inside the Linux container. An empty, relative, traversal-containing, or malformed drive-relative value is rejected before the run starts. `human_result.artifact_path` prefers the host path when one is available. Omitting `--host-output-root` preserves full backward compatibility: the host-path fields are `null` and `human_result.artifact_path` falls back to the existing container path.
+This is a purely lexical, HOST-facing display path (`pathlib.PureWindowsPath`); it is never resolved as a filesystem path inside the Linux container. An empty, relative, traversal-containing, or malformed drive-relative value is rejected before the run starts. `human_result.artifact_path` prefers the host path when one is available, and the stderr footer and `human_result.commands` are built from that exact same path. Omitting `--host-output-root` preserves full backward compatibility: the host-path fields are `null`, `human_result.artifact_path` falls back to the existing container path, and the footer/`commands` use that container path instead of inventing a Windows path.
 
 There is no Planner, Unity execution, general GER, global selection/readiness/dispatch, automatic patch application, commit/merge, evidence publication, conformance record, provider fallback, mixed providers, or parallel task workers.
 

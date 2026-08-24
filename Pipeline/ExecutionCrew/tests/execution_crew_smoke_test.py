@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import Usage
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse
-from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, changed_paths, clone_exact, construct_real_provider, main as crew_main, print_human_summary, run_crew, runtime_configuration, safe_human_reason, validate_host_output_root
+from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, changed_paths, clone_exact, construct_real_provider, main as crew_main, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, validate_host_output_root
 
 TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
 def cmd(root,*args): return subprocess.run(("git","-C",str(root),*args),check=True,stdout=subprocess.PIPE,text=True).stdout.strip()
@@ -76,10 +76,11 @@ class FakeProvider:
             elif s.scenario=="staged": write(self.repo/IMPL,"staged\n"); cmd(self.repo,"add",IMPL)
             elif s.scenario=="head": cmd(self.repo,"config","user.name","Bad"); cmd(self.repo,"config","user.email","bad@example.invalid"); cmd(self.repo,"commit","--allow-empty","-qm","bad head")
             elif s.scenario=="source_mutation": write(self.repo/IMPL,"public class PlayerMana { public int Mana; }\n"); write(s.source/OTHER,"mutated\n")
+            elif s.scenario=="blocker_no_artifact": pass
             else:
                 if attempt==2: assert "fix mana" in request.prompt
                 if not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/IMPL,"public class PlayerMana { public int Mana;"+(" public int HumanReviewFixed;" if s.feedback else "")+(" public int Repaired;" if attempt==2 else "")+" }\n")
-            if s.scenario=="blocker": blockers=["cannot implement"]
+            if s.scenario in ("blocker","blocker_no_artifact"): blockers=["cannot implement"]
             elif s.scenario=="blocker_leak": blockers=[f"implementer blocked, quoting reviewer verbatim: {s.feedback}"]
             else: blockers=[]
             output={"summary":"implementation","claimed_changed_paths":["claim-impl.cs"],"blockers":blockers,"notes":[]}
@@ -267,7 +268,8 @@ def main():
     assert any("cannot implement" in reason for reason in blocked_retry["rejection_reasons"])
 
     # Fix 2: stable additive human-facing result, derived from existing information, never fabricated.
-    assert mixed["human_result"]=={"status":"REVIEW_READY","reason":"The candidate passed semantic crew review and awaits human review.","artifact_path":mixed["candidate_patch_path"],"next_action":"Review candidate.patch; apply manually only if approved."}
+    mixed_expected_commands=patch_commands(mixed["candidate_patch_path"],applyable=True)
+    assert mixed["human_result"]=={"status":"REVIEW_READY","reason":"The candidate passed semantic crew review and awaits human review.","artifact_path":mixed["candidate_patch_path"],"next_action":"Review candidate.patch; apply manually only if approved.","commands":mixed_expected_commands}
     assert mixed["candidate_patch_path"] is not None and mixed["human_result"]["artifact_path"]==str(mixed_dir/"candidate.patch")
     assert blocked_retry["human_result"]["status"]=="BLOCKED"
     # The authoritative rejection_reasons entry is preserved verbatim; the human-facing reason is a
@@ -276,21 +278,37 @@ def main():
     assert blocked_retry["human_result"]["reason"]=="The Implementer reported a blocker."
     assert blocked_retry["human_result"]["artifact_path"]==blocked_retry["workspace_diagnostic_patch_path"]==str(blocked_retry_dir/"workspace_diagnostic.patch")
     assert blocked_retry["human_result"]["next_action"]=="Inspect the diagnostic patch and blocking reason; no candidate was approved."
+    blocked_retry_expected_commands=patch_commands(blocked_retry["workspace_diagnostic_patch_path"],applyable=False)
+    assert blocked_retry["human_result"]["commands"]==blocked_retry_expected_commands
+    assert blocked_retry_expected_commands["check"] is None and blocked_retry_expected_commands["apply"] is None
 
     # Fix 2/19: neither the progress telemetry nor the concise human summary leaks raw feedback text.
     mixed_summary_stderr=io.StringIO()
     with redirect_stderr(mixed_summary_stderr): print_human_summary(mixed)
-    assert mixed_feedback_text.strip() not in mixed_summary_stderr.getvalue()
-    assert "RESULT: REVIEW_READY" in mixed_summary_stderr.getvalue() and "WHY:" not in mixed_summary_stderr.getvalue()
-    assert f"ARTIFACT: {mixed['human_result']['artifact_path']}" in mixed_summary_stderr.getvalue()
-    assert "NEXT: Review candidate.patch; apply manually only if approved." in mixed_summary_stderr.getvalue()
+    mixed_summary_text=mixed_summary_stderr.getvalue()
+    assert mixed_feedback_text.strip() not in mixed_summary_text
+    assert "RESULT: REVIEW_READY" in mixed_summary_text and "WHY:" not in mixed_summary_text
+    assert f"ARTIFACT: {mixed['human_result']['artifact_path']}" in mixed_summary_text
+    assert "NEXT: Review candidate.patch; apply manually only if approved." in mixed_summary_text
+    # REVIEW_READY footer: copy/paste-ready find/check/apply/verify commands for the exact candidate path.
+    assert "FIND PATCH:" in mixed_summary_text and mixed_expected_commands["find"] in mixed_summary_text
+    assert "CHECK PATCH:" in mixed_summary_text and mixed_expected_commands["check"] in mixed_summary_text
+    assert "APPLY PATCH:" in mixed_summary_text and mixed_expected_commands["apply"] in mixed_summary_text
+    assert "VERIFY:" in mixed_summary_text and "git status --short" in mixed_summary_text and "git diff --check" in mixed_summary_text
+    assert "Get-Item -LiteralPath" in mixed_summary_text
 
     blocked_summary_stderr=io.StringIO()
     with redirect_stderr(blocked_summary_stderr): print_human_summary(blocked_retry)
-    assert mixed_feedback_text.strip() not in blocked_summary_stderr.getvalue()
-    assert "RESULT: BLOCKED" in blocked_summary_stderr.getvalue()
-    assert f"WHY: {blocked_retry['human_result']['reason']}" in blocked_summary_stderr.getvalue()
-    assert f"ARTIFACT: {blocked_retry['human_result']['artifact_path']}" in blocked_summary_stderr.getvalue()
+    blocked_summary_text=blocked_summary_stderr.getvalue()
+    assert mixed_feedback_text.strip() not in blocked_summary_text
+    assert "RESULT: BLOCKED" in blocked_summary_text
+    assert f"WHY: {blocked_retry['human_result']['reason']}" in blocked_summary_text
+    assert f"ARTIFACT: {blocked_retry['human_result']['artifact_path']}" in blocked_summary_text
+    # Diagnostic footer: find-only, and absolutely never an apply/check command for workspace_diagnostic.patch.
+    assert "FIND DIAGNOSTIC PATCH:" in blocked_summary_text and blocked_retry_expected_commands["find"] in blocked_summary_text
+    assert "DO NOT APPLY:" in blocked_summary_text
+    assert "This is diagnostic work from a non-review-ready run, not an approved candidate." in blocked_summary_text
+    assert "git apply" not in blocked_summary_text
 
     # Fix (human-review retries): a blocker that literally quotes the human-review feedback back must
     # not leak that feedback into human_result.reason or the stderr summary, even though the detailed
@@ -363,6 +381,90 @@ def main():
         except CrewBlocked as exc: assert "--host-output-root" in str(exc),bad_root
         else: raise AssertionError(f"invalid host-output-root accepted: {bad_root!r}")
         assert not (outputs/f"smoke-pass-{bad_index}").exists()
+
+    # End-of-run PowerShell footer: REVIEW_READY with --host-output-root prints copy/paste-ready
+    # find/check/apply/verify commands using the exact host candidate path (spec items 1-7).
+    host_pass_stderr=io.StringIO()
+    with redirect_stderr(host_pass_stderr): print_human_summary(host_pass)
+    host_pass_footer=host_pass_stderr.getvalue()
+    host_quoted=powershell_single_quote(expected_host_candidate)
+    assert "RESULT: REVIEW_READY" in host_pass_footer and f"ARTIFACT: {expected_host_candidate}" in host_pass_footer
+    assert "<RUN-ID>" not in host_pass_footer and host_pass["run_id"] in host_pass_footer
+    assert f"FIND PATCH:\nGet-Item -LiteralPath {host_quoted}" in host_pass_footer
+    assert f"CHECK PATCH:\ngit apply --check {host_quoted}" in host_pass_footer
+    assert f"APPLY PATCH:\ngit apply {host_quoted}" in host_pass_footer
+    assert "VERIFY:\ngit status --short\ngit diff --check" in host_pass_footer
+    assert host_pass["human_result"]["commands"]=={"find":f"Get-Item -LiteralPath {host_quoted}","check":f"git apply --check {host_quoted}","apply":f"git apply {host_quoted}","verify":"git status --short; git diff --check"}
+
+    # Blocked run with a diagnostic artifact prints FIND DIAGNOSTIC PATCH and never an apply/check
+    # command for workspace_diagnostic.patch (spec items 11-14).
+    host_blocked_stderr=io.StringIO()
+    with redirect_stderr(host_blocked_stderr): print_human_summary(host_blocked)
+    host_blocked_footer=host_blocked_stderr.getvalue()
+    host_diag_quoted=powershell_single_quote(expected_host_diagnostic)
+    assert "RESULT: BLOCKED" in host_blocked_footer and f"ARTIFACT: {expected_host_diagnostic}" in host_blocked_footer
+    assert f"FIND DIAGNOSTIC PATCH:\nGet-Item -LiteralPath {host_diag_quoted}" in host_blocked_footer
+    assert "DO NOT APPLY:" in host_blocked_footer
+    assert "git apply" not in host_blocked_footer and "git apply --check" not in host_blocked_footer
+    assert host_blocked["human_result"]["commands"]=={"find":f"Get-Item -LiteralPath {host_diag_quoted}","check":None,"apply":None,"verify":None}
+
+    # Without --host-output-root, commands fall back to candidate_patch_path rather than inventing a
+    # Windows path (spec item 10).
+    no_host_quoted=powershell_single_quote(no_host["candidate_patch_path"])
+    assert no_host["human_result"]["commands"]["find"]==f"Get-Item -LiteralPath {no_host_quoted}"
+    assert no_host["human_result"]["commands"]["apply"]==f"git apply {no_host_quoted}"
+    assert "C:\\" not in no_host["human_result"]["commands"]["find"]
+    no_host_stderr=io.StringIO()
+    with redirect_stderr(no_host_stderr): print_human_summary(no_host)
+    assert no_host["candidate_patch_path"] in no_host_stderr.getvalue()
+
+    # A host path containing spaces is quoted correctly, and single quotes are escaped by doubling
+    # them so the result is safe to paste directly into PowerShell (spec items 8-9).
+    SPACE_ROOT=r"C:\Some Folder\outputs"
+    space_pass,_,space_pass_dir=execute(source,outputs,"pass",96,provider="claude",host_output_root=SPACE_ROOT)
+    assert space_pass["crew_status"]=="review_ready"
+    space_path=f"{SPACE_ROOT}\\{space_pass['run_id']}\\candidate.patch"
+    assert space_pass["candidate_patch_host_path"]==space_path
+    space_quoted=powershell_single_quote(space_path)
+    assert space_quoted==f"'{space_path}'"
+    assert space_pass["human_result"]["commands"]["find"]==f"Get-Item -LiteralPath {space_quoted}"
+    space_stderr=io.StringIO()
+    with redirect_stderr(space_stderr): print_human_summary(space_pass)
+    assert f"Get-Item -LiteralPath {space_quoted}" in space_stderr.getvalue()
+
+    QUOTE_ROOT=r"C:\Some Folder\Vincent's Project"
+    quote_pass,_,quote_pass_dir=execute(source,outputs,"pass",97,provider="claude",host_output_root=QUOTE_ROOT)
+    assert quote_pass["crew_status"]=="review_ready"
+    quote_path=f"{QUOTE_ROOT}\\{quote_pass['run_id']}\\candidate.patch"
+    assert quote_pass["candidate_patch_host_path"]==quote_path
+    expected_escaped=quote_path.replace("'","''")
+    assert powershell_single_quote(quote_path)==f"'{expected_escaped}'"
+    assert "Vincent''s Project" in powershell_single_quote(quote_path)
+    assert quote_pass["human_result"]["commands"]["apply"]==f"git apply '{expected_escaped}'"
+    quote_stderr=io.StringIO()
+    with redirect_stderr(quote_stderr): print_human_summary(quote_pass)
+    assert f"git apply '{expected_escaped}'" in quote_stderr.getvalue()
+
+    # A run with no artifact at all produces no apply/check/find command anywhere (spec item 15).
+    no_artifact,no_artifact_state,no_artifact_dir=execute(source,outputs,"blocker_no_artifact",98)
+    assert no_artifact["crew_status"]=="blocked"
+    assert no_artifact["candidate_patch_path"] is None and no_artifact["workspace_diagnostic_patch_path"] is None
+    assert not (no_artifact_dir/"candidate.patch").exists() and not (no_artifact_dir/"workspace_diagnostic.patch").exists()
+    assert no_artifact["human_result"]["artifact_path"] is None
+    assert no_artifact["human_result"]["commands"]=={"find":None,"check":None,"apply":None,"verify":None}
+    no_artifact_stderr=io.StringIO()
+    with redirect_stderr(no_artifact_stderr): print_human_summary(no_artifact)
+    no_artifact_footer=no_artifact_stderr.getvalue()
+    assert "RESULT: BLOCKED" in no_artifact_footer and "ARTIFACT: none" in no_artifact_footer
+    assert "FIND" not in no_artifact_footer and "git apply" not in no_artifact_footer and "Get-Item" not in no_artifact_footer
+
+    # stdout stays exactly one machine-readable JSON object; the footer lives only on stderr (spec 16-17).
+    footer_cli_stdout=io.StringIO(); footer_cli_stderr=io.StringIO()
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=host_pass), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(footer_cli_stdout), redirect_stderr(footer_cli_stderr):
+        assert crew_main()==0
+    assert json.loads(footer_cli_stdout.getvalue())==host_pass
+    assert "FIND PATCH:" not in footer_cli_stdout.getvalue()
+    assert "FIND PATCH:" in footer_cli_stderr.getvalue()
 
     # Retry repair attempt two retains human evidence and the separate Validator findings.
     repaired_retry,repaired_state,_=retry_execute(source,outputs,"repair",72,prior["run_id"],feedback_path,feedback_text)
@@ -448,6 +550,27 @@ def main():
     assert "RESULT: BLOCKED" in bl_stderr.getvalue() and "WHY: implementer blocker: cannot implement" in bl_stderr.getvalue()
     assert "ARTIFACT: /execution-output/y/workspace_diagnostic.patch" in bl_stderr.getvalue()
     assert "NEXT: Inspect the diagnostic patch and blocking reason; no candidate was approved." in bl_stderr.getvalue()
+
+    # Preflight/orchestration failures raised before any crew_result exists (dirty checkout, invalid
+    # retry artifacts, clone/preflight failure, invalid --host-output-root, source identity failure, ...)
+    # must still end with the human-facing footer: no candidate/diagnostic artifact ever exists here.
+    for exc in (
+        CrewBlocked("source working tree must be completely clean, including untracked files"),
+        ValueError("boom"),
+        OSError("disk exploded"),
+        subprocess.CalledProcessError(1, ["git", "clone"]),
+    ):
+        exc_stdout=io.StringIO(); exc_stderr=io.StringIO()
+        with patch("Pipeline.ExecutionCrew.run_crew.run_crew",side_effect=exc), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(exc_stdout), redirect_stderr(exc_stderr):
+            assert crew_main()==2
+        assert exc_stdout.getvalue()==""
+        exc_stderr_text=exc_stderr.getvalue()
+        assert f"ExecutionCrew blocked: {exc}" in exc_stderr_text
+        assert "RESULT: BLOCKED" in exc_stderr_text
+        assert f"WHY: {exc}" in exc_stderr_text
+        assert "ARTIFACT: none" in exc_stderr_text
+        assert "NEXT: Resolve the blocking condition and rerun ExecutionCrew." in exc_stderr_text
+        assert "FIND" not in exc_stderr_text and "CHECK PATCH" not in exc_stderr_text and "APPLY PATCH" not in exc_stderr_text and "git apply" not in exc_stderr_text
 
     def copied_prior(new_id, mutate):
         destination=outputs/new_id; shutil.copytree(prior_dir,destination)

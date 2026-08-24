@@ -393,6 +393,26 @@ def validator_semantic_reasons(output: Mapping[str, Any], expected_ids: tuple[st
         reasons.append("validator needs_changes requires a failed criterion or blocking issue")
     return reasons
 
+def powershell_single_quote(path: str) -> str:
+    """Quote a literal path for safe copy/paste into PowerShell, doubling embedded single quotes."""
+    return "'" + path.replace("'", "''") + "'"
+
+def patch_commands(path: str | None, *, applyable: bool) -> dict[str, str | None]:
+    """Copy/paste-ready PowerShell commands for one artifact path, or all-null when there is none.
+    Never emits git apply/--check commands for a non-applyable (diagnostic) artifact."""
+    if not path:
+        return {"find": None, "check": None, "apply": None, "verify": None}
+    quoted = powershell_single_quote(path)
+    find_command = f"Get-Item -LiteralPath {quoted}"
+    if not applyable:
+        return {"find": find_command, "check": None, "apply": None, "verify": None}
+    return {
+        "find": find_command,
+        "check": f"git apply --check {quoted}",
+        "apply": f"git apply {quoted}",
+        "verify": "git status --short; git diff --check",
+    }
+
 def safe_human_reason(reasons: list[str]) -> str | None:
     """First rejection reason, unless it embeds raw agent-authored blocker text (which may quote
     human-review feedback), in which case a fixed structural summary is used instead. None if no
@@ -623,23 +643,51 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         else:
             human_artifact = None
             human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
-    human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action}
+    human_commands = patch_commands(human_artifact, applyable=(crew_status=="review_ready"))
+    human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action,"commands":human_commands}
     result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":"Review candidate.patch; apply manually only if approved." if crew_status=="review_ready" else "Inspect diagnostics and role artifacts; no review-ready patch was emitted.","human_result":human_result,"duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result
 
 def print_human_summary(result: Mapping[str, Any]) -> None:
-    """Concise human-facing summary on stderr; stdout stays reserved for machine-readable result JSON."""
+    """Concise human-facing summary on stderr; stdout stays reserved for machine-readable result JSON.
+    REVIEW_READY gets copy/paste-ready find/check/apply/verify commands for the exact candidate patch
+    path; a blocked/rejected diagnostic artifact only ever gets a find command, never apply/check."""
     human = result.get("human_result")
     if not isinstance(human, Mapping):
         return
-    lines = [f"RESULT: {human.get('status')}"]
-    if human.get("status") != "REVIEW_READY" and human.get("reason") is not None:
+    status = human.get("status")
+    lines = [f"RESULT: {status}"]
+    if status != "REVIEW_READY" and human.get("reason") is not None:
         lines.append(f"WHY: {human.get('reason')}")
     lines.append(f"ARTIFACT: {human.get('artifact_path') or 'none'}")
+    commands = human.get("commands")
+    find_command = commands.get("find") if isinstance(commands, Mapping) else None
+    if status == "REVIEW_READY" and find_command:
+        lines += ["", "FIND PATCH:", find_command]
+        lines += ["", "CHECK PATCH:", commands.get("check")]
+        lines += ["", "APPLY PATCH:", commands.get("apply")]
+        verify_command = commands.get("verify")
+        lines += ["", "VERIFY:", *(verify_command.split("; ") if verify_command else [])]
+        lines.append("")
+    elif status != "REVIEW_READY" and find_command:
+        lines += ["", "FIND DIAGNOSTIC PATCH:", find_command]
+        lines += ["", "DO NOT APPLY:", "This is diagnostic work from a non-review-ready run, not an approved candidate."]
+        lines.append("")
     lines.append(f"NEXT: {human.get('next_action')}")
     print("\n".join(lines), file=sys.stderr, flush=True)
+
+def blocked_human_result(reason: str) -> dict[str, Any]:
+    """Footer payload for an orchestration failure caught before any crew_result.json exists.
+    There is never a candidate or diagnostic artifact on this path."""
+    return {
+        "status": "BLOCKED",
+        "reason": reason,
+        "artifact_path": None,
+        "next_action": "Resolve the blocking condition and rerun ExecutionCrew.",
+        "commands": patch_commands(None, applyable=False),
+    }
 
 def main():
     default_output_root=Path(os.environ["NSC_EXECUTION_OUTPUT_ROOT"]) if os.getenv("NSC_EXECUTION_OUTPUT_ROOT") else ROOT/"Pipeline/ExecutionCrew/outputs"
@@ -670,7 +718,11 @@ def main():
         if args.review_feedback_file is not None:
             parser.error("--review-feedback-file requires --retry-run")
     try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root)
-    except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc: print(f"ExecutionCrew blocked: {exc}",file=sys.stderr); return 2
+    except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc:
+        reason=str(exc)
+        print(f"ExecutionCrew blocked: {reason}",file=sys.stderr)
+        print_human_summary({"human_result":blocked_human_result(reason)})
+        return 2
     print(json.dumps(result,indent=2,sort_keys=True))
     print_human_summary(result)
     return 0 if result["crew_status"]=="review_ready" else 1
