@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse, hashlib, json, math, os, re, stat, subprocess, sys, tempfile, threading, time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Mapping
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +32,17 @@ POLICY_PATH = "Docs/Engineering/UNITY_TESTING_POLICY.md"
 MAX_REVIEW_FEEDBACK_BYTES = 64 * 1024
 
 class CrewBlocked(RuntimeError): pass
+
+def validate_host_output_root(value: str) -> PureWindowsPath:
+    """Lexically validate a HOST-facing Windows path; never resolved against this (Linux) filesystem."""
+    if not isinstance(value, str) or not value.strip():
+        raise CrewBlocked("--host-output-root must be a non-empty absolute Windows path")
+    candidate = PureWindowsPath(value)
+    if not candidate.drive or not candidate.is_absolute():
+        raise CrewBlocked("--host-output-root must be an absolute drive-qualified Windows path")
+    if ".." in candidate.parts or "." in candidate.parts:
+        raise CrewBlocked("--host-output-root must not contain traversal components")
+    return candidate
 
 @dataclass(frozen=True)
 class RetryContext:
@@ -382,6 +393,19 @@ def validator_semantic_reasons(output: Mapping[str, Any], expected_ids: tuple[st
         reasons.append("validator needs_changes requires a failed criterion or blocking issue")
     return reasons
 
+def safe_human_reason(reasons: list[str]) -> str | None:
+    """First rejection reason, unless it embeds raw agent-authored blocker text (which may quote
+    human-review feedback), in which case a fixed structural summary is used instead. None if no
+    reason was recorded; never fabricate an explanation."""
+    if not reasons:
+        return None
+    first = reasons[0]
+    if first.startswith("implementer blocker: "):
+        return "The Implementer reported a blocker."
+    if first.startswith("test author blocker: "):
+        return "The Test Author reported a blocker."
+    return first
+
 def source_revalidation(source: Path, identity: SourceIdentity):
     reasons=[]
     try:
@@ -417,9 +441,10 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
 
 def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provider_name: str|None=None,
              implementation_paths: tuple[str,...]=(), test_paths: tuple[str,...]=(), run_id: str|None=None,
-             retry_run_id: str|None=None, review_feedback_file: Path|None=None,
+             retry_run_id: str|None=None, review_feedback_file: Path|None=None, host_output_root: str|None=None,
              provider_factory: ProviderFactory|None=None, _require_physical_read_only_source: bool=True):
     started=time.monotonic()
+    host_root_path = validate_host_output_root(host_output_root) if host_output_root is not None else None
     retry_mode = retry_run_id is not None
     if retry_mode and any((task_id is not None, provider_name is not None, implementation_paths, test_paths)):
         raise CrewBlocked("retry mode inherits task, provider, and write paths; do not supply them explicitly")
@@ -583,10 +608,38 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         "feedback_artifact":"human_review_feedback.txt",
         "feedback_sha256":retry_context.feedback_sha256,
     }
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"workspace_diagnostic_patch_path":diagnostic_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":"Review candidate.patch; apply manually only if approved." if crew_status=="review_ready" else "Inspect diagnostics and role artifacts; no review-ready patch was emitted.","duration_seconds":time.monotonic()-started}
+    host_candidate_path = str(host_root_path/run_id/"candidate.patch") if host_root_path is not None and candidate_path else None
+    host_diagnostic_path = str(host_root_path/run_id/"workspace_diagnostic.patch") if host_root_path is not None and diagnostic_path else None
+    human_status = {"review_ready":"REVIEW_READY","blocked":"BLOCKED","rejected":"REJECTED","needs_human":"NEEDS_HUMAN"}[crew_status]
+    if crew_status=="review_ready":
+        human_reason = "The candidate passed semantic crew review and awaits human review."
+        human_artifact = host_candidate_path or candidate_path
+        human_next_action = "Review candidate.patch; apply manually only if approved."
+    else:
+        human_reason = safe_human_reason(reasons)
+        if diagnostic_path:
+            human_artifact = host_diagnostic_path or diagnostic_path
+            human_next_action = "Inspect the diagnostic patch and blocking reason; no candidate was approved."
+        else:
+            human_artifact = None
+            human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
+    human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action}
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":"Review candidate.patch; apply manually only if approved." if crew_status=="review_ready" else "Inspect diagnostics and role artifacts; no review-ready patch was emitted.","human_result":human_result,"duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result
+
+def print_human_summary(result: Mapping[str, Any]) -> None:
+    """Concise human-facing summary on stderr; stdout stays reserved for machine-readable result JSON."""
+    human = result.get("human_result")
+    if not isinstance(human, Mapping):
+        return
+    lines = [f"RESULT: {human.get('status')}"]
+    if human.get("status") != "REVIEW_READY" and human.get("reason") is not None:
+        lines.append(f"WHY: {human.get('reason')}")
+    lines.append(f"ARTIFACT: {human.get('artifact_path') or 'none'}")
+    lines.append(f"NEXT: {human.get('next_action')}")
+    print("\n".join(lines), file=sys.stderr, flush=True)
 
 def main():
     default_output_root=Path(os.environ["NSC_EXECUTION_OUTPUT_ROOT"]) if os.getenv("NSC_EXECUTION_OUTPUT_ROOT") else ROOT/"Pipeline/ExecutionCrew/outputs"
@@ -599,7 +652,9 @@ def main():
     parser.add_argument("--review-feedback-file",type=Path)
     parser.add_argument("--source",type=Path,default=ROOT)
     parser.add_argument("--output-root",type=Path,default=default_output_root)
+    parser.add_argument("--host-output-root",help="Human-facing HOST (e.g. Windows) absolute path mirroring --output-root, for display only")
     args=parser.parse_args()
+    host_output_root=args.host_output_root if args.host_output_root is not None else os.getenv("NSC_EXECUTION_HOST_OUTPUT_ROOT")
     if args.retry_run:
         if any((args.task_id, args.provider, args.implementation_path, args.test_path)):
             parser.error("--retry-run inherits task, provider, and write paths; do not supply them")
@@ -614,7 +669,9 @@ def main():
             parser.error("normal mode requires " + ", ".join(missing))
         if args.review_feedback_file is not None:
             parser.error("--review-feedback-file requires --retry-run")
-    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file)
+    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root)
     except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc: print(f"ExecutionCrew blocked: {exc}",file=sys.stderr); return 2
-    print(json.dumps(result,indent=2,sort_keys=True)); return 0 if result["crew_status"]=="review_ready" else 1
+    print(json.dumps(result,indent=2,sort_keys=True))
+    print_human_summary(result)
+    return 0 if result["crew_status"]=="review_ready" else 1
 if __name__=="__main__": raise SystemExit(main())

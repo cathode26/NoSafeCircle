@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import Usage
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse
-from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, changed_paths, clone_exact, construct_real_provider, main as crew_main, run_crew, runtime_configuration
+from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, changed_paths, clone_exact, construct_real_provider, main as crew_main, print_human_summary, run_crew, runtime_configuration, safe_human_reason, validate_host_output_root
 
 TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
 def cmd(root,*args): return subprocess.run(("git","-C",str(root),*args),check=True,stdout=subprocess.PIPE,text=True).stdout.strip()
@@ -37,11 +37,15 @@ class FakeProvider:
             assert "HUMAN REVIEW REJECTION FROM PRIOR REVIEW-READY CANDIDATE" in request.prompt
             assert s.feedback in request.prompt
             if self.role=="implementer":
-                assert "presence is NOT evidence that the task is complete" in request.prompt and "report a blocker" in request.prompt
+                assert "presence is NOT evidence that the task is complete" in request.prompt
+                assert "not Implementer blockers" in request.prompt and "Do not modify test files" in request.prompt
+                assert "Report a blocker only when the production correction itself cannot be completed" in request.prompt
             elif self.role=="test_author":
                 assert "Add regression coverage" in request.prompt and "approved test paths" in request.prompt
+                assert "explicitly your responsibility" in request.prompt
             else:
                 assert "A Validator pass must not ignore an unresolved human-review rejection" in request.prompt
+                assert "both the production correction and appropriate regression" in request.prompt
         if s.scenario=="slow" and self.role=="implementer": time.sleep(.06)
         if self.role=="validator":
             assert not self.writable and self.repo.resolve()==s.source.resolve(); assert "repository_write" not in request.allowed_capabilities; assert not request.write_boundaries.allowed_paths
@@ -75,13 +79,17 @@ class FakeProvider:
             else:
                 if attempt==2: assert "fix mana" in request.prompt
                 if not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/IMPL,"public class PlayerMana { public int Mana;"+(" public int HumanReviewFixed;" if s.feedback else "")+(" public int Repaired;" if attempt==2 else "")+" }\n")
-            output={"summary":"implementation","claimed_changed_paths":["claim-impl.cs"],"blockers":(["cannot implement"] if s.scenario=="blocker" else []),"notes":[]}
+            if s.scenario=="blocker": blockers=["cannot implement"]
+            elif s.scenario=="blocker_leak": blockers=[f"implementer blocked, quoting reviewer verbatim: {s.feedback}"]
+            else: blockers=[]
+            output={"summary":"implementation","claimed_changed_paths":["claim-impl.cs"],"blockers":blockers,"notes":[]}
         else:
             assert self.writable and request.model_capability_class=="low_cost"; assert request.is_path_writable(TEST) and not request.is_path_writable(IMPL); assert "public int Mana" in request.prompt and "Never claim tests passed" in request.prompt
             if attempt==2: assert "fix mana" in request.prompt and ("Repaired" in request.prompt or s.scenario=="no_op_repair")
             if s.scenario=="test_impl": write(self.repo/IMPL,"public class PlayerMana { public int Rewritten; }\n")
             elif not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {}"+(" public void HumanReviewRegression() {}" if s.feedback else "")+(" public void RepairTest() {}" if attempt==2 else "")+" }\n")
-            output={"summary":"tests","claimed_changed_paths":["claim-test.cs"],"test_cases_added_or_updated":["ManaTest"],"blockers":[],"known_limitations":["not run"],"proposed_unity_test_scope":"Play Mode"}
+            test_blockers=[f"test author blocked, quoting reviewer verbatim: {s.feedback}"] if s.scenario=="test_blocker_leak" else []
+            output={"summary":"tests","claimed_changed_paths":["claim-test.cs"],"test_cases_added_or_updated":["ManaTest"],"blockers":test_blockers,"known_limitations":["not run"],"proposed_unity_test_scope":"Play Mode"}
         return ProviderInvocationResponse(output,"fake log\n",("runtime-claim.cs",),Usage(1,1,2),True,())
 
 def factory(state):
@@ -92,14 +100,14 @@ def factory(state):
         return key,config,{"fake":FakeProvider(state,repo,writable,role)}
     return create
 
-def execute(source,outputs,scenario,index,*,provider="fake",implementation_paths=(IMPL,),test_paths=(TEST,)):
+def execute(source,outputs,scenario,index,*,provider="fake",implementation_paths=(IMPL,),test_paths=(TEST,),host_output_root=None):
     run_id=f"smoke-{scenario}-{index}"; state=State(scenario,source)
-    result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name=provider,implementation_paths=implementation_paths,test_paths=test_paths,run_id=run_id,provider_factory=factory(state),_require_physical_read_only_source=False)
+    result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name=provider,implementation_paths=implementation_paths,test_paths=test_paths,run_id=run_id,provider_factory=factory(state),_require_physical_read_only_source=False,host_output_root=host_output_root)
     return result,state,outputs/run_id
 
-def retry_execute(source,outputs,scenario,index,prior_run_id,feedback_path,feedback_text):
+def retry_execute(source,outputs,scenario,index,prior_run_id,feedback_path,feedback_text,*,host_output_root=None):
     run_id=f"retry-{scenario}-{index}"; state=State(scenario,source,feedback_text)
-    result=run_crew(source=source,output_root=outputs,run_id=run_id,retry_run_id=prior_run_id,review_feedback_file=feedback_path,provider_factory=factory(state),_require_physical_read_only_source=False)
+    result=run_crew(source=source,output_root=outputs,run_id=run_id,retry_run_id=prior_run_id,review_feedback_file=feedback_path,provider_factory=factory(state),_require_physical_read_only_source=False,host_output_root=host_output_root)
     return result,state,outputs/run_id
 
 def main():
@@ -238,6 +246,124 @@ def main():
     assert any(json.loads(line)["event"]=="human_review_retry_loaded" for line in (retry_dir/"progress.jsonl").read_text().splitlines())
     assert cmd(source,"rev-parse","HEAD")==current_head and cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
 
+    # Fix 1: a feedback item mixing a production defect with a regression-test requirement must not make
+    # the Implementer block merely because test paths are outside its authority; Test Author must still run.
+    mixed_feedback_text=("Production defect: PlayerManaUI never shows feedback when a cast is denied.\n"
+                          "Regression requirement: add a regression test asserting denied casts show feedback.\n")
+    mixed_feedback_path=feedback_dir/"mixed.txt"; mixed_feedback_path.write_text(mixed_feedback_text,encoding="utf-8")
+    mixed,mixed_state,mixed_dir=retry_execute(source,outputs,"pass",75,prior["run_id"],mixed_feedback_path,mixed_feedback_text)
+    assert mixed["crew_status"]=="review_ready"
+    assert [role for role,_,_ in mixed_state.calls]==["implementer","test_author","validator"]
+    mixed_impl_record=json.loads((mixed_dir/"role_results/implementer_1.json").read_text())
+    assert mixed_impl_record["structured_output"]["blockers"]==[]
+    mixed_impl_request=next(request for role,request,_ in mixed_state.calls if role=="implementer")
+    assert "not Implementer blockers" in mixed_impl_request.prompt and "Do not modify test files" in mixed_impl_request.prompt
+    assert mixed_feedback_text in mixed_impl_request.prompt
+
+    # A genuine production-scope blocker must still stop the crew before the Test Author runs.
+    blocked_retry,blocked_retry_state,blocked_retry_dir=retry_execute(source,outputs,"blocker",76,prior["run_id"],mixed_feedback_path,mixed_feedback_text)
+    assert blocked_retry["crew_status"]=="blocked"
+    assert [role for role,_,_ in blocked_retry_state.calls]==["implementer"]
+    assert any("cannot implement" in reason for reason in blocked_retry["rejection_reasons"])
+
+    # Fix 2: stable additive human-facing result, derived from existing information, never fabricated.
+    assert mixed["human_result"]=={"status":"REVIEW_READY","reason":"The candidate passed semantic crew review and awaits human review.","artifact_path":mixed["candidate_patch_path"],"next_action":"Review candidate.patch; apply manually only if approved."}
+    assert mixed["candidate_patch_path"] is not None and mixed["human_result"]["artifact_path"]==str(mixed_dir/"candidate.patch")
+    assert blocked_retry["human_result"]["status"]=="BLOCKED"
+    # The authoritative rejection_reasons entry is preserved verbatim; the human-facing reason is a
+    # fixed structural summary rather than the raw (potentially agent-authored) blocker text.
+    assert blocked_retry["rejection_reasons"][0]=="implementer blocker: cannot implement"
+    assert blocked_retry["human_result"]["reason"]=="The Implementer reported a blocker."
+    assert blocked_retry["human_result"]["artifact_path"]==blocked_retry["workspace_diagnostic_patch_path"]==str(blocked_retry_dir/"workspace_diagnostic.patch")
+    assert blocked_retry["human_result"]["next_action"]=="Inspect the diagnostic patch and blocking reason; no candidate was approved."
+
+    # Fix 2/19: neither the progress telemetry nor the concise human summary leaks raw feedback text.
+    mixed_summary_stderr=io.StringIO()
+    with redirect_stderr(mixed_summary_stderr): print_human_summary(mixed)
+    assert mixed_feedback_text.strip() not in mixed_summary_stderr.getvalue()
+    assert "RESULT: REVIEW_READY" in mixed_summary_stderr.getvalue() and "WHY:" not in mixed_summary_stderr.getvalue()
+    assert f"ARTIFACT: {mixed['human_result']['artifact_path']}" in mixed_summary_stderr.getvalue()
+    assert "NEXT: Review candidate.patch; apply manually only if approved." in mixed_summary_stderr.getvalue()
+
+    blocked_summary_stderr=io.StringIO()
+    with redirect_stderr(blocked_summary_stderr): print_human_summary(blocked_retry)
+    assert mixed_feedback_text.strip() not in blocked_summary_stderr.getvalue()
+    assert "RESULT: BLOCKED" in blocked_summary_stderr.getvalue()
+    assert f"WHY: {blocked_retry['human_result']['reason']}" in blocked_summary_stderr.getvalue()
+    assert f"ARTIFACT: {blocked_retry['human_result']['artifact_path']}" in blocked_summary_stderr.getvalue()
+
+    # Fix (human-review retries): a blocker that literally quotes the human-review feedback back must
+    # not leak that feedback into human_result.reason or the stderr summary, even though the detailed
+    # rejection_reasons entry (the authoritative record) preserves it verbatim.
+    assert safe_human_reason([])is None
+    assert safe_human_reason(["implementer blocker: leak this text"])=="The Implementer reported a blocker."
+    assert safe_human_reason(["test author blocker: leak this text"])=="The Test Author reported a blocker."
+    assert safe_human_reason(["validator blocked_by_design"])=="validator blocked_by_design"
+    impl_leak_retry,impl_leak_state,impl_leak_dir=retry_execute(source,outputs,"blocker_leak",77,prior["run_id"],feedback_path,feedback_text)
+    assert impl_leak_retry["crew_status"]=="blocked"
+    assert [role for role,_,_ in impl_leak_state.calls]==["implementer"]
+    assert any(feedback_text.strip() in reason for reason in impl_leak_retry["rejection_reasons"])
+    assert impl_leak_retry["human_result"]["reason"]=="The Implementer reported a blocker."
+    impl_leak_summary_stderr=io.StringIO()
+    with redirect_stderr(impl_leak_summary_stderr): print_human_summary(impl_leak_retry)
+    assert feedback_text.strip() not in impl_leak_summary_stderr.getvalue()
+    assert "WHY: The Implementer reported a blocker." in impl_leak_summary_stderr.getvalue()
+
+    test_leak_retry,test_leak_state,test_leak_dir=retry_execute(source,outputs,"test_blocker_leak",78,prior["run_id"],feedback_path,feedback_text)
+    assert test_leak_retry["crew_status"]=="blocked"
+    assert [role for role,_,_ in test_leak_state.calls]==["implementer","test_author"]
+    assert any(feedback_text.strip() in reason for reason in test_leak_retry["rejection_reasons"])
+    assert test_leak_retry["human_result"]["reason"]=="The Test Author reported a blocker."
+    test_leak_summary_stderr=io.StringIO()
+    with redirect_stderr(test_leak_summary_stderr): print_human_summary(test_leak_retry)
+    assert feedback_text.strip() not in test_leak_summary_stderr.getvalue()
+    assert "WHY: The Test Author reported a blocker." in test_leak_summary_stderr.getvalue()
+
+    # Fix (human-review retries): no fabricated reason. When no rejection/blocking reason was recorded,
+    # human_result.reason is null and the stderr summary omits the WHY line entirely.
+    no_reason_fake={"crew_status":"blocked","human_result":{"status":"BLOCKED","reason":None,"artifact_path":"/execution-output/z/workspace_diagnostic.patch","next_action":"Inspect the blocking reason; no diagnostic patch was produced."}}
+    no_reason_stderr=io.StringIO()
+    with redirect_stderr(no_reason_stderr): print_human_summary(no_reason_fake)
+    assert "RESULT: BLOCKED" in no_reason_stderr.getvalue() and "WHY:" not in no_reason_stderr.getvalue()
+    assert "ARTIFACT: /execution-output/z/workspace_diagnostic.patch" in no_reason_stderr.getvalue()
+    assert "NEXT: Inspect the blocking reason; no diagnostic patch was produced." in no_reason_stderr.getvalue()
+
+    # Fix 3: an explicit HOST output root produces exact drive-qualified host paths without disturbing
+    # the existing container-path fields, and the human-facing artifact prefers the host path.
+    write(source/IMPL,"public class PlayerMana { public int Mana; public int PreHostMarker; }\n")
+    write(source/TEST,"public class PlayerManaTests { public void PreHostMarkerTest() {} }\n")
+    cmd(source,"add",IMPL,TEST); cmd(source,"commit","-qm","pre host-root fixture state")
+    HOST_ROOT=r"C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs"
+    assert validate_host_output_root(HOST_ROOT) is not None
+    host_pass,host_pass_state,host_pass_dir=execute(source,outputs,"pass",90,provider="claude",host_output_root=HOST_ROOT)
+    assert host_pass["crew_status"]=="review_ready"
+    expected_host_candidate=f"{HOST_ROOT}\\{host_pass['run_id']}\\candidate.patch"
+    assert host_pass["candidate_patch_host_path"]==expected_host_candidate
+    assert host_pass["workspace_diagnostic_patch_host_path"] is None
+    assert host_pass["candidate_patch_path"]==str(host_pass_dir/"candidate.patch")
+    assert host_pass["human_result"]["artifact_path"]==expected_host_candidate
+
+    host_blocked,host_blocked_state,host_blocked_dir=execute(source,outputs,"blocker",91,provider="claude",host_output_root=HOST_ROOT)
+    assert host_blocked["crew_status"]=="blocked"
+    expected_host_diagnostic=f"{HOST_ROOT}\\{host_blocked['run_id']}\\workspace_diagnostic.patch"
+    assert host_blocked["workspace_diagnostic_patch_host_path"]==expected_host_diagnostic
+    assert host_blocked["candidate_patch_host_path"] is None
+    assert host_blocked["workspace_diagnostic_patch_path"]==str(host_blocked_dir/"workspace_diagnostic.patch")
+    assert host_blocked["human_result"]["artifact_path"]==expected_host_diagnostic
+
+    # Missing --host-output-root preserves full backward compatibility.
+    no_host,_,no_host_dir=execute(source,outputs,"pass",92,provider="claude")
+    assert no_host["candidate_patch_host_path"] is None and no_host["workspace_diagnostic_patch_host_path"] is None
+    assert no_host["candidate_patch_path"]==str(no_host_dir/"candidate.patch")
+    assert no_host["human_result"]["artifact_path"]==no_host["candidate_patch_path"]
+
+    # Malformed/relative Windows host roots fail closed when explicitly supplied; no run is created.
+    for bad_index,bad_root in enumerate(("", "   ", "relative\\path", "C:\\Foo\\..\\Bar", "C:foo"),95):
+        try: execute(source,outputs,"pass",bad_index,provider="claude",host_output_root=bad_root)
+        except CrewBlocked as exc: assert "--host-output-root" in str(exc),bad_root
+        else: raise AssertionError(f"invalid host-output-root accepted: {bad_root!r}")
+        assert not (outputs/f"smoke-pass-{bad_index}").exists()
+
     # Retry repair attempt two retains human evidence and the separate Validator findings.
     repaired_retry,repaired_state,_=retry_execute(source,outputs,"repair",72,prior["run_id"],feedback_path,feedback_text)
     assert repaired_retry["crew_status"]=="review_ready" and repaired_retry["attempts_used"]==2
@@ -268,6 +394,60 @@ def main():
     assert retry_kwargs["task_id"] is None and retry_kwargs["provider_name"] is None
     assert retry_kwargs["implementation_paths"]==() and retry_kwargs["test_paths"]==()
     assert retry_kwargs["retry_run_id"]==prior["run_id"] and retry_kwargs["review_feedback_file"]==feedback_path
+    assert retry_kwargs["host_output_root"] is None
+
+    # --host-output-root takes precedence over the environment fallback; env is used when the CLI flag is absent.
+    saved_host_env=os.environ.pop("NSC_EXECUTION_HOST_OUTPUT_ROOT",None)
+    try:
+        cli_host_stdout=io.StringIO(); cli_host_stderr=io.StringIO()
+        with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as cli_host_run, \
+             patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST,"--host-output-root","C:\\CliRoot"]), \
+             patch.dict(os.environ,{"NSC_EXECUTION_HOST_OUTPUT_ROOT":"C:\\EnvRoot"},clear=False), \
+             redirect_stdout(cli_host_stdout), redirect_stderr(cli_host_stderr):
+            assert crew_main()==0
+        assert cli_host_run.call_args.kwargs["host_output_root"]=="C:\\CliRoot"
+
+        env_host_stdout=io.StringIO(); env_host_stderr=io.StringIO()
+        with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as env_host_run, \
+             patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), \
+             patch.dict(os.environ,{"NSC_EXECUTION_HOST_OUTPUT_ROOT":"C:\\EnvRoot"},clear=False), \
+             redirect_stdout(env_host_stdout), redirect_stderr(env_host_stderr):
+            assert crew_main()==0
+        assert env_host_run.call_args.kwargs["host_output_root"]=="C:\\EnvRoot"
+
+        os.environ.pop("NSC_EXECUTION_HOST_OUTPUT_ROOT",None)
+        default_host_stdout=io.StringIO(); default_host_stderr=io.StringIO()
+        with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as default_host_run, \
+             patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), \
+             redirect_stdout(default_host_stdout), redirect_stderr(default_host_stderr):
+            assert crew_main()==0
+        assert default_host_run.call_args.kwargs["host_output_root"] is None
+    finally:
+        if saved_host_env is not None: os.environ["NSC_EXECUTION_HOST_OUTPUT_ROOT"]=saved_host_env
+
+    # Fix 2: stdout stays exactly one parseable machine-readable JSON object; the concise human summary
+    # goes only to stderr, and its shape differs for review_ready versus a blocked/rejected result.
+    review_ready_fake={"crew_status":"review_ready","human_result":{"status":"REVIEW_READY","reason":"The candidate passed semantic crew review and awaits human review.","artifact_path":"/execution-output/x/candidate.patch","next_action":"Review candidate.patch; apply manually only if approved."}}
+    rr_stdout=io.StringIO(); rr_stderr=io.StringIO()
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=review_ready_fake), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(rr_stdout), redirect_stderr(rr_stderr):
+        assert crew_main()==0
+    assert json.loads(rr_stdout.getvalue())==review_ready_fake
+    assert "RESULT:" not in rr_stdout.getvalue()
+    try: json.loads(rr_stderr.getvalue())
+    except json.JSONDecodeError: pass
+    else: raise AssertionError("stderr summary must not itself be parseable result JSON")
+    assert "RESULT: REVIEW_READY" in rr_stderr.getvalue() and "WHY:" not in rr_stderr.getvalue()
+    assert "ARTIFACT: /execution-output/x/candidate.patch" in rr_stderr.getvalue()
+    assert "NEXT: Review candidate.patch; apply manually only if approved." in rr_stderr.getvalue()
+
+    blocked_fake={"crew_status":"blocked","human_result":{"status":"BLOCKED","reason":"implementer blocker: cannot implement","artifact_path":"/execution-output/y/workspace_diagnostic.patch","next_action":"Inspect the diagnostic patch and blocking reason; no candidate was approved."}}
+    bl_stdout=io.StringIO(); bl_stderr=io.StringIO()
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=blocked_fake), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(bl_stdout), redirect_stderr(bl_stderr):
+        assert crew_main()==1
+    assert json.loads(bl_stdout.getvalue())==blocked_fake
+    assert "RESULT: BLOCKED" in bl_stderr.getvalue() and "WHY: implementer blocker: cannot implement" in bl_stderr.getvalue()
+    assert "ARTIFACT: /execution-output/y/workspace_diagnostic.patch" in bl_stderr.getvalue()
+    assert "NEXT: Inspect the diagnostic patch and blocking reason; no candidate was approved." in bl_stderr.getvalue()
 
     def copied_prior(new_id, mutate):
         destination=outputs/new_id; shutil.copytree(prior_dir,destination)

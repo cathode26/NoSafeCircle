@@ -22,6 +22,8 @@ A human rejection of a `review_ready` candidate starts a new run; it never resum
 
 The required UTF-8 feedback file must be a non-empty regular file of at most 64 KiB underneath the configured output root. Its exact bytes are copied to the new run as `human_review_feedback.txt`, hashed with SHA-256, and supplied to Implementer, Test Author, and Validator. Telemetry records only the prior run ID and hash, not feedback text. Feedback is review evidence: it cannot override the task contract or GDD and cannot widen write authority. If a correction needs another path, the crew blocks; the human must start a new explicitly scoped normal run.
 
+During a human-review retry, the Implementer and Test Author keep their normal disjoint scopes. Human feedback commonly mixes a production correction with a regression-test requirement; regression tests, test coverage, and other Test Author-owned work mentioned in that feedback are explicitly **not** Implementer blockers. The Implementer must not modify test files; if the production correction can be completed within its approved implementation `WriteBoundaries`, it must make that correction and continue, optionally noting required regression coverage for the Test Author. The Implementer should report a blocker only when the production correction itself cannot be completed within its approved implementation paths or is blocked by task/canon/design. The Test Author continues to receive the exact human feedback and explicitly owns any regression/test requirement in it, adding coverage where possible within its approved test paths and reporting a blocker only if the required test correction actually cannot be made there. The Validator continues to receive the same feedback and evaluates the candidate as a whole — both the production correction and appropriate regression coverage — and must not pass while the human rejection remains unresolved. Human feedback still never expands the TaskContract, GDD, or either role's write authority, and the existing single Validator-driven repair cycle is unchanged.
+
 In `claude-exec` and `codex-exec`, the source is mounted only as `/workspace:ro`; host `Pipeline/ExecutionCrew/outputs` is mounted separately at `/execution-output:rw` and selected by `NSC_EXECUTION_OUTPUT_ROOT`. There is no writable nested mount beneath `/workspace`. Local deterministic development falls back to `Pipeline/ExecutionCrew/outputs` when that environment variable is absent.
 
 ExecutionCrew prints flushed, human-readable progress to stderr while reserving stdout for the final machine-readable result JSON. Blocking role invocations emit a heartbeat every 15 seconds by default; deterministic tests may set the positive finite `NSC_EXECUTION_HEARTBEAT_SECONDS` override. Each run also writes and immediately flushes `progress.jsonl`. This file is supplemental operational telemetry only and has no authority over changed paths, validation, delivery, or readiness; it never contains prompts, raw provider output, credentials, or model reasoning.
@@ -38,6 +40,50 @@ outputs/<run-id>/
   agent_runtime/<invocation-id>/{request.json,provider.log,result.json}
 ```
 
+## Human-facing result
+
+`crew_result.json` remains the authoritative machine-readable record; every existing field, including `candidate_patch_path` and `workspace_diagnostic_patch_path` (both container paths, valid for machine/container use), is unchanged. It additionally carries a stable, additive `human_result` object so a human never has to inspect `role_results`, output directories, or `rejection_reasons` by hand to answer "what happened, why, what file do I open, what do I do next":
+
+```json
+"human_result": {
+  "status": "REVIEW_READY | BLOCKED | REJECTED | NEEDS_HUMAN",
+  "reason": "...",
+  "artifact_path": "...",
+  "next_action": "..."
+}
+```
+
+`status` mirrors `crew_status`. `reason` clearly states the candidate passed semantic crew review and awaits human review when `review_ready`; otherwise it is the first entry of `rejection_reasons` when that entry is a deterministic orchestration-generated reason, or a fixed structural summary (for example "The Implementer reported a blocker.") when that entry would otherwise embed raw agent-authored blocker text, which during a human-review retry could quote the human feedback itself; the full, authoritative reason always remains available in `rejection_reasons` and the role artifacts. `reason` is `null`, never fabricated, when no rejection/blocking reason was recorded. `artifact_path` points at `candidate.patch` when `review_ready`, otherwise at `workspace_diagnostic.patch` when one exists, otherwise `null`; when a HOST output root is supplied (see below) it prefers the full host-drive-qualified path. `next_action` never implies automatic apply/commit/merge behavior.
+
+ExecutionCrew also prints a concise human-readable summary to stderr when it finishes, while stdout remains the single machine-readable result JSON only:
+
+```text
+RESULT: BLOCKED
+WHY: <reason>
+ARTIFACT: <path>
+NEXT: <next action>
+```
+
+The `WHY` line is omitted when `reason` is `null`. For a review-ready candidate:
+
+```text
+RESULT: REVIEW_READY
+ARTIFACT: <path>
+NEXT: Review candidate.patch; apply manually only if approved.
+```
+
+This summary never includes prompts, raw provider output, credentials, hidden reasoning, or feedback text.
+
+## Host artifact paths
+
+Inside Docker, `candidate_patch_path` and `workspace_diagnostic_patch_path` are container paths (for example `/execution-output/<run-id>/candidate.patch`), which is poor UX when the human is on a Windows host. Passing `--host-output-root <WINDOWS_ABSOLUTE_PATH>` (or the `NSC_EXECUTION_HOST_OUTPUT_ROOT` environment variable as a fallback; the CLI flag takes precedence when both are set) adds `candidate_patch_host_path` and `workspace_diagnostic_patch_host_path` with the equivalent full drive-qualified host path, for example:
+
+```text
+C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs
+```
+
+This is a purely lexical, HOST-facing display path (`pathlib.PureWindowsPath`); it is never resolved as a filesystem path inside the Linux container. An empty, relative, traversal-containing, or malformed drive-relative value is rejected before the run starts. `human_result.artifact_path` prefers the host path when one is available. Omitting `--host-output-root` preserves full backward compatibility: the host-path fields are `null` and `human_result.artifact_path` falls back to the existing container path.
+
 There is no Planner, Unity execution, general GER, global selection/readiness/dispatch, automatic patch application, commit/merge, evidence publication, conformance record, provider fallback, mixed providers, or parallel task workers.
 
 ## Human-review workflow
@@ -48,10 +94,10 @@ Start the first run with an explicit task, provider, and role paths:
 docker compose run --rm -T claude-exec python3 Pipeline/ExecutionCrew/run_crew.py --task-id NSC-005 --provider claude --implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs --implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs --test-path Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
 ```
 
-When it reaches `review_ready`, the human reviews `candidate.patch`. Approval continues through manual integration, required validation, and evidence workflow; ExecutionCrew does not apply or commit anything. On rejection, write the concrete review finding to a feedback file beneath the configured ExecutionCrew output root, then start a retry:
+When it reaches `review_ready`, the human reviews `candidate.patch`. Approval continues through manual integration, required validation, and evidence workflow; ExecutionCrew does not apply or commit anything. On rejection, write the concrete review finding to a feedback file beneath the configured ExecutionCrew output root, then start a retry. Supply `--host-output-root` with the host (for example Windows) path that the mounted output root corresponds to, so `crew_result.json` and the final terminal summary show a full, drive-qualified path the human can open directly:
 
 ```bash
-docker compose run --rm -T claude-exec python3 Pipeline/ExecutionCrew/run_crew.py --retry-run nsc-005-20260823t222010z --review-feedback-file /execution-output/feedback/nsc-005-mana-feedback.txt
+docker compose run --rm -T claude-exec python3 Pipeline/ExecutionCrew/run_crew.py --retry-run nsc-005-20260823t222010z --review-feedback-file /execution-output/feedback/nsc-005-mana-feedback.txt --host-output-root "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs"
 ```
 
 The retry inherits `NSC-005`, `claude`, and both prior role scopes, but works from the current clean committed source `HEAD`—which may contain the manually integrated rejected candidate. If the repair cannot be made within inherited authority, do not widen the retry; start a suitably scoped explicit run after human review.

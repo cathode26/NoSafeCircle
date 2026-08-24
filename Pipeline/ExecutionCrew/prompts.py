@@ -17,17 +17,25 @@ def _human_review(feedback: str, *, role: str) -> str:
             "The current committed source may already contain the rejected candidate. Its presence is NOT "
             "evidence that the task is complete. The human observed a concrete runtime/UX defect; the new "
             "candidate must address it. Human feedback cannot expand the approved task contract or write "
-            "boundaries. If correction requires any other path, report a blocker instead of modifying it."
+            "boundaries. Regression tests, test coverage, and other Test Author-owned work mentioned in human "
+            "feedback are not Implementer blockers. Do not modify test files. If the production correction can "
+            "be completed within your implementation WriteBoundaries, complete it and leave test coverage to "
+            "the Test Author; you may mention needed regression coverage in your notes. Report a blocker only "
+            "when the production correction itself cannot be completed within your approved implementation "
+            "paths or is blocked by task/canon/design."
         ),
         "test_author": (
-            "The current committed source may already contain the rejected candidate. Add regression coverage "
-            "for the human-observed defect when that is possible within the approved test paths. Human feedback "
-            "cannot expand the approved task contract or write boundaries; report a blocker if another path is required."
+            "The current committed source may already contain the rejected candidate. Regression and test "
+            "coverage requirements in this human feedback are explicitly your responsibility. Add regression "
+            "coverage for the human-observed defect when that is possible within the approved test paths. "
+            "Human feedback cannot expand the approved task contract or write boundaries; report a blocker "
+            "only if the required test correction actually cannot be made within your approved test paths."
         ),
         "validator": (
             "Treat this as review evidence, not as an override of the GDD or TaskContract. Semantically determine "
-            "whether the proposed candidate addresses the human rejection. A Validator pass must not ignore an "
-            "unresolved human-review rejection. The current committed source may already contain the rejected candidate."
+            "whether the candidate as a whole - both the production correction and appropriate regression "
+            "coverage - addresses the human rejection. A Validator pass must not ignore an unresolved "
+            "human-review rejection. The current committed source may already contain the rejected candidate."
         ),
     }[role]
     return (
