@@ -1,0 +1,18 @@
+Task: NSC-003
+Validated commit: bb7d9d8fc3bb8ca489d42b3ab48db96de0345a4c
+Validated tree: e8cd1a6b68bdbca81ee2dd782e06b16a50ff2350
+Human validation result: PASS
+
+The regenerated canonical DoorPrototype scene was tested manually in Play Mode.
+
+The wizard responds correctly to mouse-directed movement: clicking sets a destination, holding the left mouse button continuously steers toward the live cursor position, releasing continues movement toward the last destination, and arrival does not visibly jitter or oscillate.
+
+The human reviewer confirmed the mouse-directed movement behavior and general movement feel work properly.
+
+The authoritative command-line clean runner also passed at this exact validated state:
+- Unity 6000.1.8f1
+- PlayerMovementPlayModeTests: 9 total, 9 passed, 0 failed, 0 skipped
+- Unity exit code: 0
+- Git tree before run: e8cd1a6b68bdbca81ee2dd782e06b16a50ff2350
+- Git tree after run: e8cd1a6b68bdbca81ee2dd782e06b16a50ff2350
+- Runner result: VALIDATION PASSED; assertions passed and repository remained clean.
