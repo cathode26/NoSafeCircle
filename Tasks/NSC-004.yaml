@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-004",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Player Health Ownership, Restore, Death Transition, and Feedback",
   "reconciliation_key": "player-health",
@@ -15,7 +15,7 @@
   "depends_on": [],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
   ],
   "acceptance_criteria": [
     {
