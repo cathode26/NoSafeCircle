@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-028",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Encounter Admission Active-Enemy-Cap Enforcement",
   "reconciliation_key": "encounter-admission-cap-enforcement",
@@ -18,67 +18,83 @@
   "exclusive_resources": [],
   "acceptance_criteria": [
     {
-      "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
+      "reference": "Section 2 ? Active Enemy Registry and Encounter Admission",
       "requirement": "Before activating a requested encounter's enemies, query the registry's current active count and remaining capacity under the fifteen-enemy hard limit.",
       "criterion_id": "AC-001"
     },
     {
-      "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
+      "reference": "Section 2 ? Active Enemy Registry and Encounter Admission",
       "requirement": "When activating the requested enemies would exceed fifteen active enemies, delay or reduce the new encounter's enemy activation first; never remove or deregister an existing persistent pursuer to make room.",
       "criterion_id": "AC-002"
     },
     {
-      "reference": "Section 4 — Dungeon Encounter Agent",
-      "requirement": "Consume the Active Enemy Registry's owner-exposed active count/capacity interface rather than maintaining a separate duplicate count.",
+      "reference": "Section 4 ? Dungeon Encounter Agent",
+      "requirement": "Consume the Active Enemy Registry's owner-exposed active count/capacity interface rather than maintaining a separate duplicate floor-wide active-enemy count.",
       "criterion_id": "AC-003"
     },
     {
-      "reference": "GDD §2 Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled reset entry point that returns encounter activation/admission state to its floor-initial values, consumed by the Floor Run/Restart Orchestrator rather than having internals mutated externally.",
+      "reference": "Section 2 ? Floor-run restart ownership",
+      "requirement": "Expose an owner-controlled reset entry point that returns encounter activation/admission bookkeeping to its floor-initial values, including delayed or reduced pending activation and admitted-batch tracking.",
       "criterion_id": "AC-004"
     },
     {
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled reset entry point that returns encounter activation/admission bookkeeping — including any delayed or reduced pending activation and admitted-batch state — to the floor's initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating admission internals directly.",
+      "reference": "Section 2 ? Floor-run restart ownership",
+      "requirement": "The encounter-admission reset entry point resets only encounter-admission-owned state. It does not directly deactivate or reset persistent enemy objects and does not mutate Active Enemy Registry membership; those owners participate separately in coordinated floor restart.",
       "criterion_id": "AC-005"
     }
   ],
   "completion_gates": [
     {
-      "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Lower Vault is the primary validation case: verify that when a rear breach (surviving pursuers breaking through an earlier locked door) coincides with Lower Vault's own encounter admission request, the persistent pursuers keep priority over admitting the new encounter's enemies.",
+      "reference": "Section 2 ? Active Enemy Registry and Encounter Admission",
+      "requirement": "Verify that when the registry already contains persistent enemies representing carry-forward pursuers, a requested encounter batch is admitted only up to remaining capacity, existing registry members remain registered, and excess requested enemies remain delayed or pending.",
       "gate_id": "VAL-001"
     },
     {
-      "reference": "Section 3 — Player Experience Success Criteria",
-      "requirement": "Verify the floor-wide active-enemy count never exceeds fifteen across combined persistent-pursuer and newly-admitted-encounter enemies.",
+      "reference": "Section 3 ? Player Experience Success Criteria",
+      "requirement": "Verify that pre-existing registry membership plus newly admitted encounter enemies never exceeds fifteen under encounter-admission controller operations, including repeated processing of delayed or pending activation.",
       "gate_id": "VAL-002"
     },
     {
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart returns encounter activation/admission bookkeeping, including any delayed or reduced pending activation and admitted-batch state, to the floor's initial state through the owner-controlled reset entry point.",
+      "reference": "Section 2 ? Floor-run restart ownership",
+      "requirement": "Verify the owner-controlled encounter-admission reset clears pending, reduced, and admitted-batch bookkeeping to floor-initial state without directly changing persistent enemy object state or Active Enemy Registry membership.",
       "gate_id": "VAL-003"
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "reference": "Section 2 ? Floor-run restart ownership",
+      "requirement": "Once Floor Run/Restart Persistent-Systems Closure exists, verify the orchestrator invokes the encounter-admission owner's reset entry point together with the separate enemy-state and Active Enemy Registry reset entry points, leaving the complete restarted floor state consistent.",
+      "obligation_id": "INT-001"
+    },
+    {
+      "reference": "Section 2 ? Active Enemy Registry and Encounter Admission; Section 3 ? Lower Vault",
+      "requirement": "Once Lower Vault encounter content and rear-breach pursuit behavior exist, verify that surviving persistent pursuers already active in the registry retain priority when the Lower Vault encounter requests admission, with excess new encounter enemies delayed or reduced rather than existing pursuers removed.",
+      "obligation_id": "INT-002"
+    },
+    {
+      "reference": "Section 2 ? Active Enemy Registry and Encounter Admission",
+      "requirement": "Once all runtime encounter activation callers exist, verify they consume the shared encounter-admission policy so the actual floor-wide active-enemy population never exceeds fifteen and existing persistent pursuers are never removed merely to admit a new encounter.",
+      "obligation_id": "INT-003"
+    }
+  ],
   "gdd_evidence": [
     {
-      "reference": "Section 2 — Active Enemy Registry and Encounter Admission",
+      "reference": "Section 2 \u2014 Active Enemy Registry and Encounter Admission",
       "requirement": "The registry tracks active persistent enemies under a hard fifteen-enemy cap; the Dungeon Encounter system consumes the registry before activating new encounter enemies, and if activation would exceed fifteen, new encounter enemies are delayed or reduced first while existing persistent pursuers are never removed to make room. This bookkeeping/admission foundation is explicitly reusable and does not require the exact five-room encounter layouts, placements, or trigger authoring to be known first."
     },
     {
-      "reference": "Section 2 — Door and Pursuit Rules",
+      "reference": "Section 2 \u2014 Door and Pursuit Rules",
       "requirement": "Surviving enemies carry forward and combine with later encounters as the same persistent enemy objects, not new spawns, and the game never permits more than fifteen active enemies at once."
     },
     {
-      "reference": "Section 4 — Dungeon Encounter Agent / Ownership Invariants",
+      "reference": "Section 4 \u2014 Dungeon Encounter Agent / Ownership Invariants",
       "requirement": "Dungeon Encounter Agent owns encounter-admission policy and consumes the shared Active Enemy Registry when admitting new enemies; it does not replace or remove existing persistent pursuers to satisfy the cap."
     }
   ],
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Must not be folded into or blocked by dungeon-encounter-content-authoring's needs_future_decomposition status; this is the 'known runtime behavior' half of the split required by the reconciliation guidance.",
+  "notes": "Revision 2 corrects validation ownership discovered by the first real ExecutionCrew run. NSC-028 locally owns registry-backed admission policy and its own resettable bookkeeping. Floor-restart orchestration, authored Lower Vault rear-breach validation, and complete floor-wide caller integration remain required downstream integration obligations rather than blocking this component on systems that depend on it.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
