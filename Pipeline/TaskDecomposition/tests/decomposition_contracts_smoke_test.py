@@ -106,6 +106,7 @@ def base(parent: dict, decision: str, gap: str) -> dict:
         "parent_requirement_coverage": [],
         "unsupported_assumptions": [],
         "unresolved_questions": [],
+        "artifact_proposal": None,
     }
 
 
@@ -199,7 +200,12 @@ def blocked_result(parent: dict, decision: str) -> dict:
             "title": "Smallest missing design",
             "purpose": "Authorize only the decision needed to resume decomposition.",
             "source_parent_obligations": [
-                {"parent_entry_type": "acceptance_criteria", "parent_entry_id": "AC-001"}
+                {"parent_entry_type": kind, "parent_entry_id": entry_id}
+                for kind, entry_id in (
+                    ("acceptance_criteria", "AC-001"),
+                    ("completion_gates", "VAL-001"),
+                    ("downstream_integration_obligations", "INT-001"),
+                )
             ],
             "authorized_decisions_needed": ["Choose the approved boundary."],
             "out_of_scope": ["New mechanics and unrelated content."],
@@ -218,8 +224,23 @@ def expect_failure(payload: dict, parent: dict, fragment: str, existing=()) -> N
         raise AssertionError(f"Expected failure containing {fragment!r}")
 
 
+def assert_all_object_properties_required(schema: dict, path: str = "$") -> None:
+    declared_type = schema["type"]
+    types = {declared_type} if type(declared_type) is str else set(declared_type)
+    if "object" in types:
+        properties = schema.get("properties", {})
+        assert set(schema.get("required", [])) == set(properties), (
+            f"{path} does not require every declared property"
+        )
+        for name, child_schema in properties.items():
+            assert_all_object_properties_required(child_schema, f"{path}.{name}")
+    if "array" in types:
+        assert_all_object_properties_required(schema["items"], f"{path}[]")
+
+
 def main() -> int:
     validate_schema(DECOMPOSITION_RESULT_SCHEMA)
+    assert_all_object_properties_required(DECOMPOSITION_RESULT_SCHEMA)
     parent = parent_task()
 
     concrete = validate_decomposition_result(retained_result(parent), parent_task=parent)
@@ -255,8 +276,27 @@ def main() -> int:
     human = validate_decomposition_result(blocked_result(parent, "needs_human"), parent_task=parent)
     assert artifact.artifact_proposal
     assert human.unresolved_questions
+    assert concrete.artifact_proposal is None
+    assert decomposed.artifact_proposal is None
+    assert human.artifact_proposal is None
     for valid in (concrete, decomposed, artifact, human):
         validate_instance(valid.to_dict(), DECOMPOSITION_RESULT_SCHEMA)
+        assert "artifact_proposal" in valid.to_dict()
+    assert concrete.to_dict()["artifact_proposal"] is None
+    assert artifact.to_dict()["artifact_proposal"] == blocked_result(
+        parent, "needs_artifact"
+    )["artifact_proposal"]
+    validate_instance(None, DECOMPOSITION_RESULT_SCHEMA["properties"]["artifact_proposal"])
+    validate_instance(
+        artifact.to_dict()["artifact_proposal"],
+        DECOMPOSITION_RESULT_SCHEMA["properties"]["artifact_proposal"],
+    )
+
+    omitted_artifact = retained_result(parent)
+    del omitted_artifact["artifact_proposal"]
+    compatible = DecompositionResult.from_dict(omitted_artifact)
+    assert compatible.artifact_proposal is None
+    assert compatible.to_dict()["artifact_proposal"] is None
 
     bad = retained_result(parent)
     bad["parent_task"]["contract_sha256"] = "x" * 64
@@ -268,6 +308,32 @@ def main() -> int:
     bad["children"][1]["local_key"] = "runtime-core"
     expect_failure(bad, parent, "duplicate local_key")
     expect_failure(decomposed_result(parent), parent, "collides", existing={"runtime-core"})
+
+    valid_resources = decomposed_result(parent)
+    valid_resources["children"][0]["exclusive_resources"] = [
+        "repo-file:ProjectSettings/ProjectVersion.txt",
+        "unity-scene:Assets/Scenes/Gameplay.unity",
+        "unity-prefab:Assets/Prefabs/Player.prefab",
+        "logical:gameplay-shared-surface",
+    ]
+    validate_decomposition_result(valid_resources, parent_task=parent)
+    for malformed_resource in (
+        "unknown:value",
+        "repo-file:",
+        "repo-file:/Assets/Absolute.cs",
+        "repo-file:Assets/../Escape.cs",
+        "repo-file:Assets//DuplicateSeparator.cs",
+        "repo-file:Assets\\Backslash.cs",
+        " repo-file:Assets/Whitespace.cs ",
+        "unity-scene:ProjectSettings/Scene.unity",
+        "unity-prefab:Assets",
+        "logical:",
+        "logical:Uppercase",
+        "logical:contains_underscore",
+    ):
+        bad = decomposed_result(parent)
+        bad["children"][0]["exclusive_resources"] = [malformed_resource]
+        expect_failure(bad, parent, "exclusive_resources")
     bad = retained_result(parent)
     bad["gap_type"] = "execution"
     expect_failure(bad, parent, "incompatible")
@@ -275,11 +341,16 @@ def main() -> int:
     bad["children"] = [child("illegal-child")]
     expect_failure(bad, parent, "may not contain child")
     bad = blocked_result(parent, "needs_artifact")
-    del bad["artifact_proposal"]
+    bad["artifact_proposal"] = None
     expect_failure(bad, parent, "requires one")
-    bad = decomposed_result(parent)
-    bad["artifact_proposal"] = blocked_result(parent, "needs_artifact")["artifact_proposal"]
-    expect_failure(bad, parent, "may not contain an artifact")
+    artifact_object = blocked_result(parent, "needs_artifact")["artifact_proposal"]
+    for bad in (
+        retained_result(parent),
+        decomposed_result(parent),
+        blocked_result(parent, "needs_human"),
+    ):
+        bad["artifact_proposal"] = deepcopy(artifact_object)
+        expect_failure(bad, parent, "may not contain an artifact")
     for field, id_field, malformed in (
         ("acceptance_criteria", "criterion_id", "A-001"),
         ("completion_gates", "gate_id", "V-001"),
@@ -351,7 +422,17 @@ def main() -> int:
 
     mixed_artifact = blocked_result(parent, "needs_artifact")
     mixed_artifact["parent_requirement_coverage"][1]["disposition"] = "retained_by_parent"
+    mixed_artifact["artifact_proposal"]["source_parent_obligations"] = [
+        ref
+        for ref in mixed_artifact["artifact_proposal"]["source_parent_obligations"]
+        if ref["parent_entry_id"] != "VAL-001"
+    ]
     validate_decomposition_result(mixed_artifact, parent_task=parent)
+
+    bad = blocked_result(parent, "needs_artifact")
+    bad["artifact_proposal"]["source_parent_obligations"].pop()
+    expect_failure(bad, parent, "exactly match blocked_by_artifact")
+
     bad = blocked_result(parent, "needs_artifact")
     bad["parent_requirement_coverage"][0]["disposition"] = "retained_by_parent"
     expect_failure(bad, parent, "must have blocked_by_artifact coverage")

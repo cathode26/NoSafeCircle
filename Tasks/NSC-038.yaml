@@ -1,0 +1,60 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-038",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Isometric Tilemap Architectural Visual Layer",
+  "reconciliation_key": "isometric-tilemap-visual-layer",
+  "kind": "implementation",
+  "type": "world-foundation",
+  "execution_scope": "single_agent",
+  "execution_reason": "One agent can introduce the isometric Tilemap foundation and its representative visual-to-gameplay alignment check as a focused change.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Tilemap grid, renderer, and architectural-tile authoring form one bounded visual-layer responsibility distinct from SpriteRenderer prefab conversion and integrated continuity validation.",
+  "parent": "NSC-026",
+  "depends_on": [
+    "NSC-024"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "Establish an isometric Tilemap visual layer for floors, walls, and repeatable architectural tiles without transferring collision, walkability, trigger, door-state, or pursuit ownership into the Tilemap."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "GDD - Unity Validation Agent role (Section 4)",
+      "requirement": "Unity validation checks representative Tilemap floor and wall cells against their separately defined gameplay geometry and detects any coordinate, scale, or offset desynchronization."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "The primary environment visual layer uses Unity Isometric Tilemaps for floors, walls, and repeatable architectural tiles."
+    },
+    {
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "The gameplay layer remains separate from the visible isometric art layer."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This proposed scope establishes reusable architectural authoring only; it excludes the five named room layouts and encounter content.",
+  "repository_state_at_bootstrap": "not_applicable",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "graph_delta_plan_id": "GDP-9ed2e9f5d29e19e8e03f6907b7ecdd4e4deac9b8cb465283df856a88a3cc0db8",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 1,
+    "parent_contract_sha256": "8dd459df6c99ef48df5ee4893db957150139abc7eedded1e8098799e9b115177",
+    "parent_task_id": "NSC-026"
+  }
+}

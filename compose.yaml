@@ -61,6 +61,30 @@ services:
       - claude-config:/home/agent/.claude
     command: ["bash"]
 
+  # Stage D1B.1 inspects the committed source through a physically read-only
+  # mount and writes review-only proposal artifacts outside /workspace.
+  claude-decompose:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      NSC_DECOMPOSITION_OUTPUT_ROOT: /decomposition-output
+      CLAUDE_CONFIG_DIR: /home/agent/.claude
+      DISABLE_AUTOUPDATER: "1"
+      GIT_CONFIG_COUNT: "2"
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: "true"
+      GIT_CONFIG_KEY_1: core.filemode
+      GIT_CONFIG_VALUE_1: "false"
+    volumes:
+      - .:/workspace:ro
+      - ${NSC_DECOMPOSITION_HOST_OUTPUT_ROOT:-../NoSafeCircle-DecompositionOutputs}:/decomposition-output:rw
+      - claude-config:/home/agent/.claude
+    command: ["bash"]
+
   codex:
     build:
       context: .
@@ -124,6 +148,28 @@ services:
     volumes:
       - .:/workspace:ro
       - ./Pipeline/ExecutionCrew/outputs:/execution-output:rw
+      - codex-config:/home/agent/.codex
+    command: ["bash"]
+
+  # Same Stage D1B.1 boundary as claude-decompose, with Codex auth/config.
+  codex-decompose:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      NSC_DECOMPOSITION_OUTPUT_ROOT: /decomposition-output
+      CODEX_HOME: /home/agent/.codex
+      GIT_CONFIG_COUNT: "2"
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: "true"
+      GIT_CONFIG_KEY_1: core.filemode
+      GIT_CONFIG_VALUE_1: "false"
+    volumes:
+      - .:/workspace:ro
+      - ${NSC_DECOMPOSITION_HOST_OUTPUT_ROOT:-../NoSafeCircle-DecompositionOutputs}:/decomposition-output:rw
       - codex-config:/home/agent/.codex
     command: ["bash"]
 

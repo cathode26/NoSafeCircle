@@ -43,7 +43,11 @@ from Pipeline.AgentRuntime.providers.base import (
 )
 from Pipeline.AgentRuntime.providers.fake import FakeProvider
 from Pipeline.AgentRuntime.json_values import JsonValueError, MAX_JSON_NESTING_DEPTH, freeze_json, thaw_json
-from Pipeline.AgentRuntime.schema_validation import SchemaValidationError, validate_instance
+from Pipeline.AgentRuntime.schema_validation import (
+    SchemaValidationError,
+    validate_instance,
+    validate_schema,
+)
 
 
 SCHEMA = {
@@ -328,6 +332,47 @@ def test_numeric_schema_bounds() -> None:
     cyclic_schema: dict[str, Any] = {"type": "array"}
     cyclic_schema["items"] = cyclic_schema
     rejects(lambda: request(output_schema=cyclic_schema), ContractValidationError)
+
+
+def test_narrow_nullable_schema_types() -> None:
+    nullable_object = {
+        "type": ["object", "null"],
+        "properties": {"message": {"type": "string"}},
+        "required": ["message"],
+        "additionalProperties": False,
+    }
+    nullable_string = {
+        "type": ["null", "string"],
+        "enum": [None, "ok"],
+    }
+    nullable_string_without_null_enum = {
+        "type": ["null", "string"],
+        "enum": ["ok"],
+    }
+    validate_schema(nullable_object)
+    validate_schema(nullable_string)
+    validate_schema(nullable_string_without_null_enum)
+    validate_instance(None, nullable_object)
+    validate_instance({"message": "ok"}, nullable_object)
+    validate_instance(None, nullable_string)
+    validate_instance("ok", nullable_string)
+    rejects(lambda: validate_instance({}, nullable_object), SchemaValidationError)
+    rejects(lambda: validate_instance("other", nullable_string), SchemaValidationError)
+    rejects(
+        lambda: validate_instance(None, nullable_string_without_null_enum),
+        SchemaValidationError,
+    )
+
+    invalid_unions = (
+        {"type": ["string", "integer"]},
+        {"type": ["null", "string", "integer"]},
+        {"type": ["string", "string"]},
+        {"type": ["null", "unknown"]},
+        {"type": ["null"]},
+        {"type": ["null", 1]},
+    )
+    for schema in invalid_unions:
+        rejects(lambda schema=schema: validate_schema(schema), SchemaValidationError)
 
 
 def test_exact_nested_and_text_boundaries() -> None:
@@ -792,6 +837,7 @@ def main() -> None:
     test_contracts_and_immutability()
     test_json_and_schema_containers()
     test_numeric_schema_bounds()
+    test_narrow_nullable_schema_types()
     test_exact_nested_and_text_boundaries()
     test_configuration()
     test_exact_type_boundaries()

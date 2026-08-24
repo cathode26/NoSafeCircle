@@ -22,14 +22,28 @@ from Pipeline.AgentRuntime.providers.openai_codex import OpenAICodexProvider
 
 SCHEMA = {"type": "object", "properties": {"message": {"type": "string"}},
           "required": ["message"], "additionalProperties": False}
+NULLABLE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "artifact_proposal": {
+            "type": ["object", "null"],
+            "properties": {"title": {"type": "string"}},
+            "required": ["title"],
+            "additionalProperties": False,
+        }
+    },
+    "required": ["artifact_proposal"],
+    "additionalProperties": False,
+}
 
 
 def request(*, capabilities: tuple[str, ...] = (), context_paths: tuple[str, ...] = (),
             budgets: Budgets = Budgets(2, 100), run_id: str = "codex-provider-test",
-            boundaries: WriteBoundaries | None = None) -> AgentInvocationRequest:
+            boundaries: WriteBoundaries | None = None,
+            output_schema: dict[str, Any] = SCHEMA) -> AgentInvocationRequest:
     boundaries = boundaries or (WriteBoundaries(("Pipeline/AgentRuntime",), ()) if "repository_write" in capabilities else WriteBoundaries((), ()))
     return AgentInvocationRequest("1.0", run_id, "reviewer", "Return JSON.", context_paths,
-        capabilities, boundaries, SCHEMA, "standard", budgets, "codex")
+        capabilities, boundaries, output_schema, "standard", budgets, "codex")
 
 
 class FakeRunner:
@@ -97,6 +111,22 @@ def main() -> int:
             "input_tokens": 3, "output_tokens": 9, "total_tokens": 12,
             "estimated_cost_usd": None,
         }
+
+        nullable_runner = FakeRunner(final='{"artifact_proposal":null}')
+        nullable_provider = OpenAICodexProvider(
+            process_runner=nullable_runner,
+            temporary_directory_parent=outside,
+            repository_root=repository,
+        )
+        nullable_response = nullable_provider.invoke(
+            request(run_id="codex-nullable-schema", output_schema=NULLABLE_SCHEMA),
+            "gpt-concrete-1",
+        )
+        assert nullable_response.structured_output == {"artifact_proposal": None}
+        assert nullable_runner.calls[0]["schema"] == NULLABLE_SCHEMA
+        assert nullable_runner.calls[0]["schema"]["properties"]["artifact_proposal"]["type"] == [
+            "object", "null"
+        ]
 
         for capabilities in (("repository_read",), ("repository_search",),
                              ("repository_read", "repository_search")):

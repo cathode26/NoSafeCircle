@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-24, for Stage D1A decomposition contracts and deterministic incremental graph-delta planning on `stage-d1-task-decomposition`.
+Last updated: 2026-08-24, after the Stage D1B.1 nullable structured-output compatibility correction tests on `stage-d1b-live-decomposition`.
 
 ## Current Phase
 
@@ -23,18 +23,30 @@ Phase 3 was fast-forward merged into `main` at:
 The active development branch is:
 
 ```text
-stage-d1-task-decomposition
+stage-d1b-live-decomposition
 ```
 
 Stage 5A proved isolated repository writes through both provider adapters. Stage 5B implemented the Minimum Production ExecutionCrew for one human-selected eligible task, with fresh Implementer, Unity Test Author, and read-only Validator invocations, deterministic incremental per-role Git enforcement, and at most one repair cycle. Those provider and ExecutionCrew changes have been merged into `main`.
 
-**Stage D1A — Decomposition Contracts Plus Deterministic Incremental Graph-Delta Planning — is the active bounded slice.**
+**Stage D1A — Decomposition Contracts Plus Deterministic Incremental Graph-Delta Planning — is complete and merged into `main` at `08ebfd497360b46f801a63e9b3d4d6a365b40bb1`.**
 
 D1A implements strict immutable decomposition-result contracts; fresh structural parsing at each validation boundary; semantic decision/gap policy; exact parent AC/VAL/INT coverage through explicit child-local IDs; independently verifiable and parent-traced children; partial retained/blocked coverage for artifact and human blockers; temporary child keys; planner-side revalidation against the actual parent and current reconciliation keys; deterministic permanent ID allocation above the maximum existing NSC number; existing/local dependency resolution and cycle rejection; copied ID-map and resource-group updates; an in-memory proposed graph overlay; whole-overlay validation with the production TaskGraph validator; and immutable canonical review output with deterministic hashes and plan identity. It is model-free and makes no file writes.
 
-The D1A contract and graph-delta smoke suites pass, as do the existing TaskGraph validation, taskcontrol, contract-quality-audit, and conformance-evaluator regression suites required for this slice.
+During D1B.1 integration on `stage-d1b-live-decomposition`, the D1A semantic boundary was narrowly strengthened with exact artifact-source matching and canonical proposed-child resource-key syntax. Those strengthenings are part of the current D1B.1 branch and are not claimed as content of the original `08ebfd497360b46f801a63e9b3d4d6a365b40bb1` D1A merge.
 
-D1A does not complete the Progressive Decomposer milestone. Live model-backed decomposition, decomposition verification/refinement, graph-delta review/application or publication, Artifact Authority, artifact generation or GER, general GER infrastructure, readiness, and dispatch remain unimplemented.
+The D1A contract and graph-delta smoke suites pass, as do the existing TaskGraph validation, taskcontrol, contract-quality-audit, and conformance-evaluator regression suites required for that slice.
+
+**Stage D1B.1 — Model-Backed Task Decomposition Invocation and Review Artifacts — is the active bounded slice.**
+
+D1B.1 now performs one human-selected, provider-selected, read-only `TaskExecution -> AgentRuntime -> Claude Code or OpenAI/Codex` decomposition invocation after deterministic committed-source, graph, task-eligibility, physical-read-only, and output-disjointness preflight. It builds a deterministic hash-bound context containing the full committed GDD, selected task and distinct byte/semantic identities, complete numeric task catalog, graph neighborhood, relevant resource groups, historical bootstrap observations, empty approved-artifact set, validated context paths, and explicit authority notes. AgentRuntime schema success is followed by D1A semantic validation and, only for `decomposed`, whole-overlay graph-delta planning. Accepted review artifacts are atomically published outside the source checkout; the direct CLI defaults to sibling `NoSafeCircle-DecompositionOutputs`, and Compose mounts that sibling host directory at `/decomposition-output` while keeping `/workspace` read-only. Provider raw artifacts remain available on rejection. Source HEAD/tree/branch/status are revalidated after invocation and before acceptance, and incompatible provider execution/change/test claims fail closed.
+
+Deterministic temporary-repository and FakeProvider tests cover all four valid decisions, schema and semantic rejection, wrong semantic identity, normalized provider failure, read-only claim rejection, graph-planner failure, dirty and mutated sources, output-root overlap, run collision, factory/config mismatch, atomic no-overwrite publication, exact prompt identity, source preservation, and absence of live provider calls. The full D1B.1 deterministic gate passes, including decomposition contracts, context construction, live orchestration, graph-delta planning, TaskExecution, AgentRuntime, both provider-adapter smoke suites, TaskGraph validation/taskcontrol/quality/conformance regressions, Python compilation, Compose validation, and Git diff checks.
+
+The first live D1B.1 Codex proving attempt reached provider transport, but OpenAI rejected the strict structured-output schema before model execution because `artifact_proposal` appeared in `properties` without appearing in `required`. No review-ready decomposition or graph delta was emitted, and the live Codex proving run was not successful. The provider-neutral correction now requires `artifact_proposal` while allowing exactly the nullable `object`/`null` type, emits null for non-artifact decisions, and retains the artifact object for `needs_artifact`. Focused decomposition-contract, AgentRuntime nullable-schema, and exact Claude/Codex schema-serialization regressions pass.
+
+No live D1B.1 Claude proving run has occurred.
+
+D1B.1 does not complete D1B or the Progressive Decomposer milestone. D1B.2 independent verification and bounded refinement, a general GER loop, Artifact Authority, artifact generation, D1C graph application, dependency readiness, dispatch, automatic commits, and merges remain unimplemented.
 
 The Stage 3 foundation now implements:
 
@@ -49,7 +61,7 @@ The Stage 3 foundation now implements:
 - a deterministic, side-effect-free `FakeProvider`;
 - an adversarial regression suite covering provider trust boundaries, path safety, schema failures, immutable artifacts, malformed provider values, and historical-directory protection.
 
-The Stage 3 implementation is integrated; Stage 4A changes are documentation and decision work only.
+The Stage 3 implementation is integrated; Stage 4A was documentation and decision work only.
 
 Live CLI discovery is complete. Non-production-write structured-output success probes completed for Claude Code and OpenAI/Codex. The provider-transport adopt-versus-build spike is also complete: `agent-mux` and `agent-shell` were evaluated and are not being adopted as production dependencies. ADR-035 was amended on 2026-08-23 to keep `AgentRequest` schema 1.0 and its required integer `turn_limit`, with explicit provider-specific enforcement mappings.
 
@@ -63,7 +75,7 @@ AgentRuntime `approved_command_execution`, web access, non-null token limits, an
 
 ArchitectureReview generated runs and provider-latest views are separated under `outputs/claude/` and `outputs/codex/`; those provider-specific latest views retain convenience copies. Global `outputs/latest/` contains only one atomic `LATEST.json` pointer identifying the most recently completed provider-scoped run across providers. Manifests record the explicit provider namespace, resume cannot cross it, and failed/partial runs do not publish latest. Each provider retains eight independent reviewer roles. New independent reviewers ignore prior review opinions even when summarized in architecture/current-state documentation, while still using implemented architecture, accepted decisions, and current documented facts as evidence to judge independently. This preserves review provenance and supports a later Claude-versus-Codex comparison without implementing that comparison pipeline.
 
-**Provider-Neutral Execution Crew Plan — Stage 4: Implement Claude Code and OpenAI/Codex adapters against the same AgentRuntime fixtures.**
+**Provider-Neutral Execution Crew Stage 4 — COMPLETE**
 
 The accepted Stage 4 turn-budget mapping is:
 
@@ -467,7 +479,7 @@ The clean runner was also proven through a real Unity run with these exact facts
 
 The runner proves Unity and Git execution facts. The separately committed NSC-023 baseline record binds those facts into Phase 3 conformance evidence. Neither the runner nor a conformant result enables readiness or authorization; `taskcontrol ready` remains unavailable and `taskcontrol authorize` remains denied.
 
-Stage 1 itself did **not** implement `AgentRuntime`, provider adapters, `ExecutionCrew`, or a dedicated test-author agent. The provider-neutral `AgentRuntime` foundation was implemented later in Stage 3; live provider adapters and production `ExecutionCrew` roles remain later stages governed by the plan and ADR-034.
+Stage 1 itself did **not** implement `AgentRuntime`, provider adapters, `ExecutionCrew`, or a dedicated test-author agent. The provider-neutral `AgentRuntime` foundation was implemented later in Stage 3; live provider adapters and production `ExecutionCrew` roles were implemented in subsequent stages governed by the plan and ADR-034.
 
 ## Provider-Neutral Execution Crew Stage 3 — COMPLETE
 
@@ -530,15 +542,14 @@ The deterministic fake provider exercises success, provider failure, timeout, pe
 
 The Stage 3 AgentRuntime smoke suite passes after adversarial hardening and covers the request/result contracts, configuration, provider registry, write boundaries, strict JSON/schema behavior, immutable publication, normalized failures, fake-provider scenarios, provider trust-boundary attacks, and protection of the historical Assignment 3 and Assignment 6 directories.
 
-Stage 3 does **not** implement:
+Stage 3 itself did **not** implement live Claude Code/OpenAI-Codex providers or Implementer/Test Author/Validator orchestration; those capabilities were added in subsequent stages.
 
-- a live Claude Code provider;
-- a live OpenAI/Codex provider;
+The following capabilities remain outside the current runtime/dispatch boundary:
+
 - automatic provider fallback;
-- Implementer/Test Author/Validator orchestration;
 - Unity execution initiated by an agent;
 - GER integration;
-- task selection;
+- automatic task selection;
 - dependency readiness;
 - dispatch authorization;
 - automatic Git branch/worktree/commit/merge behavior.
@@ -640,11 +651,11 @@ The preserved architecture review is primary evidence for the accepted correctio
 
 ## Active Development Slice
 
-### Stage D1A deterministic decomposition foundation
+### Stage D1B.1 live read-only decomposition proposals
 
-The active work establishes proposal contracts and incremental planning before any live model-backed decomposer exists. `Pipeline/TaskDecomposition` owns structured result snapshots and semantic coverage policy. `Pipeline/TaskGraph/graph_delta.py` owns deterministic ID allocation and complete in-memory overlay validation.
+The active work connects the completed D1A contracts and planner to one high-reasoning `task_decomposer` invocation through TaskExecution and AgentRuntime. The context and prompt preserve full GDD authority, task-contract authority, committed-repository evidence, exact task identities, and the proposal-only boundary. Production provider access is physically read-only and output is filesystem-disjoint.
 
-This slice intentionally stops at immutable review data. It does not invoke AgentRuntime or ExecutionCrew, apply the proposed overlay, alter persistent graph files, or authorize execution. The next decomposition stages must preserve this separation: D1B may add live invocation plus verification/refinement; D1C may add a separately reviewed application boundary. Neither is implemented now.
+This slice still stops at immutable human-review data. It does not apply the proposed overlay, alter persistent graph files, generate or authorize artifacts, retry or refine a rejected proposal, verify a decomposition independently, calculate readiness, or authorize execution. D1B.2 verification/refinement and D1C reviewed graph application remain future separately bounded work.
 
 Architecture Correction Phase 3 authority remains active:
 
@@ -726,7 +737,7 @@ Then:
 1. confirm the intended branch for the next approved slice and inspect the working tree without discarding changes;
 2. preserve temporary child keys and deterministic planner-owned NSC allocation;
 3. keep proposal validation separate from graph application and execution authority;
-4. do not connect live decomposition until its invocation and verification/refinement scope is explicitly approved;
-5. keep Artifact Authority, GER, readiness, and dispatch fail-closed until their own approved stages.
+4. keep the implemented D1B.1 live invocation separate from the still-unimplemented D1B.2 verifier/refiner;
+5. keep D1C graph application, Artifact Authority, GER, readiness, and dispatch fail-closed until their own approved stages.
 
 A new window should be able to resume from repository state without the prior chat transcript.
