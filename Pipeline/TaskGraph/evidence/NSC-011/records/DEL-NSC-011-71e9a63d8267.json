@@ -1,0 +1,91 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "1dab6d4d68b6d577ed129e5270f62b7d6cbcc344",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/ActiveEnemyRegistry.cs",
+      "role": "active_enemy_registry_owner"
+    },
+    {
+      "blob_sha": "bc074555ad6a22f6f39d6cd045c4c1c0bdd147a5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/ActiveEnemyRegistryPlayModeTests.cs",
+      "role": "completion_gate_tests"
+    }
+  ],
+  "delivery": {
+    "base_commit": "9ddfa70b952b1b6d0d5118a42bbbe2131adb6ac1",
+    "candidate_commit": "71e9a63d8267660a128d72dcf389c502f820a523",
+    "integrated_commit": "71e9a63d8267660a128d72dcf389c502f820a523",
+    "integrated_tree": "9e090308c248d7fd382349a9fcddb6227ab0edd0"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "c84610a1b8029ef42ecbfc5f31f934d006822034",
+          "path": "Pipeline/TaskGraph/evidence/NSC-011/artifacts/ActiveEnemyRegistryPlayModeTests-71e9a63d8267.xml"
+        },
+        {
+          "blob_sha": "2a2cb332764bbce1b394d368f3e143e6a673213e",
+          "path": "Pipeline/TaskGraph/evidence/NSC-011/artifacts/ActiveEnemyRegistryPlayModeTests-71e9a63d8267.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative PlayMode validation passed 14/14 tests, including exactly fifteen registered enemies and restoration of remaining capacity after explicit unregister operations.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c84610a1b8029ef42ecbfc5f31f934d006822034",
+          "path": "Pipeline/TaskGraph/evidence/NSC-011/artifacts/ActiveEnemyRegistryPlayModeTests-71e9a63d8267.xml"
+        },
+        {
+          "blob_sha": "2a2cb332764bbce1b394d368f3e143e6a673213e",
+          "path": "Pipeline/TaskGraph/evidence/NSC-011/artifacts/ActiveEnemyRegistryPlayModeTests-71e9a63d8267.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Authoritative PlayMode validation passed registry-membership checks covering duplicate registration, repeated/unknown/null unregister behavior, and persistence of a registered enemy absent explicit unregister or reset.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c84610a1b8029ef42ecbfc5f31f934d006822034",
+          "path": "Pipeline/TaskGraph/evidence/NSC-011/artifacts/ActiveEnemyRegistryPlayModeTests-71e9a63d8267.xml"
+        },
+        {
+          "blob_sha": "2a2cb332764bbce1b394d368f3e143e6a673213e",
+          "path": "Pipeline/TaskGraph/evidence/NSC-011/artifacts/ActiveEnemyRegistryPlayModeTests-71e9a63d8267.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Authoritative PlayMode validation passed reset checks, including return to zero active enemies and fifteen remaining capacity plus re-registration of the same pre-reset persistent GameObject instances through the normal registration path.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "Human reviewed and approved the NSC-011 revision-2 ExecutionCrew candidate before delivery closeout.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-011-71e9a63d8267",
+  "record_type": "delivery",
+  "recorded_at": "2026-08-24T10:20:29Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-011.yaml",
+    "revision": 2,
+    "sha256": "d9c3ca119908f80f0c4dc9a15de958854ad71dd524a4239f37d4848af31e9908"
+  },
+  "task_id": "NSC-011",
+  "validated_state": {
+    "commit": "71e9a63d8267660a128d72dcf389c502f820a523",
+    "tree": "9e090308c248d7fd382349a9fcddb6227ab0edd0"
+  }
+}
