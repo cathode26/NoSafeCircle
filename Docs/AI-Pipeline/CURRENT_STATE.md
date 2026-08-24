@@ -1,8 +1,10 @@
 # CURRENT STATE — No Safe Circle AI Pipeline
 
 > Update this file whenever a milestone, important implementation slice, or authoritative task/evidence state changes.
+>
+> For real gameplay work, update this file when a task becomes authoritatively delivered/conformant/merged, or when that completion materially changes the next human-selected work frontier.
 
-Last updated: 2026-08-24, after NSC-024 package configuration, delivery evidence, conformance proof, and merge into `main`.
+Last updated: 2026-08-24, after the ExecutionCrew contract-locality hardening slice was implemented and regression-proven.
 
 ## Current Snapshot
 
@@ -11,13 +13,13 @@ The repository is now past the original architecture-correction bootstrap and in
 1. **game delivery**, using bounded task contracts, ExecutionCrew where appropriate, Unity/human validation, committed evidence, and TaskGraph-derived conformance;
 2. **pipeline development**, where the next architectural slice is D1B.2 independent decomposition verification/refinement.
 
-Current integrated `main` immediately before this documentation update:
+Remote `main` observed immediately before this documentation update:
 
 ```text
-ad88d76e1ac4eb736285a9888a5e33e2b0915d29
+870c5d97dacbeca5c39729aff092cb7dba489ce6
 ```
 
-That merge contains the completed NSC-024 work and its committed delivery evidence.
+That remote state includes the merged NSC-028 encounter-admission-cap work. The contract-locality hardening described below is committed with the ExecutionCrew implementation slice that contains this documentation update.
 
 Current validated TaskGraph shape after the NSC-026 decomposition:
 
@@ -335,6 +337,8 @@ It should challenge at least:
 
 At most one bounded refinement cycle is the current intended direction. D1B.2 must remain separate from graph application.
 
+The ExecutionCrew Contract Locality Auditor is intentionally downstream of D1B.2. D1B.2 asks whether a proposed decomposition is semantically sound before graph application; the locality auditor asks whether an already-approved concrete task is actually locally implementable/provable immediately before writers run. Both checks are required because they protect different authority boundaries.
+
 ### Stage D1C — NOT IMPLEMENTED
 
 A reusable reviewed graph-application authority is not implemented.
@@ -426,27 +430,39 @@ The provider-neutral AgentRuntime foundation is integrated and includes:
 
 Provider output remains a claim until independently checked by Git, Unity, schema, TaskGraph, or human validation as appropriate.
 
-### Minimum Production ExecutionCrew — integrated
+### Minimum Production ExecutionCrew — integrated and contract-locality hardened
 
-The current bounded ExecutionCrew supports one human-selected eligible implementation task and one human-selected provider:
+The current bounded ExecutionCrew supports one human-selected eligible implementation task and one human-selected provider.
+
+The production order is now:
 
 ```text
-Implementer
+deterministic clean-source + authoritative persistent-TaskGraph preflight
     ↓
-deterministic incremental Git scope check
+read-only Contract Locality Auditor (high_reasoning)
     ↓
-Unity Test Author
-    ↓
-deterministic incremental Git scope check
-    ↓
-read-only Validator
-    ↓
-optional one repair cycle
-    ↓
-human review
+    ├── nonlocal/ambiguous contract → CONTRACT_REVIEW_REQUIRED
+    │                              → no Implementer/Test Author/Validator invocation
+    │                              → human reviews/repairs the task contract
+    │
+    └── locally executable/provable contract
+            ↓
+        Implementer
+            ↓
+        deterministic incremental Git scope check
+            ↓
+        Unity Test Author
+            ↓
+        deterministic incremental Git scope check
+            ↓
+        read-only Validator
+            ↓
+        optional one repair cycle
+            ↓
+        human review
 ```
 
-A selected task must be:
+A selected task must still be:
 
 ```text
 contract_disposition: active
@@ -455,7 +471,49 @@ execution_scope: single_agent
 decomposition_state: concrete
 ```
 
-Eligibility is not readiness or authorization.
+Those fields are necessary eligibility conditions, but they are no longer treated as sufficient proof that the contract is a truthful one-agent handoff.
+
+Before any writer runs, the **Contract Locality Auditor** classifies every acceptance criterion and completion gate exactly once as:
+
+- `local_to_task`;
+- `requires_declared_dependency`;
+- `downstream_integration`;
+- `missing_design`;
+- `ambiguous`.
+
+The audit is semantic and read-only. It is grounded in the exact task contract, canonical GDD, source HEAD/tree, and the authoritative validated persistent TaskGraph. It never edits `Tasks/*.yaml`, adds dependencies, moves gates, grants readiness, or authorizes execution.
+
+A nonlocal or ambiguous AC/VAL returns:
+
+```text
+CONTRACT_REVIEW_REQUIRED
+```
+
+before the Implementer is invoked. The resulting audit artifact is review guidance only; a human must repair or clarify the task contract through the normal TaskGraph workflow and rerun ExecutionCrew.
+
+The independent Validator now gives every AC/VAL result a structured `reason_code`. In particular:
+
+```text
+not_proven + runtime_not_executed
+    → locally valid gate whose authoritative Unity/runtime evidence has not run yet
+    → semantic REVIEW_READY may still be allowed
+
+not_proven + missing_integration_dependency
+    → current task cannot prove the gate under its declared dependencies
+    → blocked_by_design
+    → CONTRACT_REVIEW_REQUIRED
+
+not_proven + design_ambiguity
+    → approved design/contract is insufficiently clear
+    → blocked_by_design
+    → CONTRACT_REVIEW_REQUIRED
+```
+
+`missing_required_artifact` and `insufficient_evidence` also cannot be hidden beneath an overall Validator pass. Deterministic semantic checks reject inconsistent status/reason-code combinations even if a model claims success.
+
+This execution-time locality check does **not** replace progressive decomposition. D1B.2 remains the planned upstream independent verifier/refiner for decomposition proposals and should prevent many bad child contracts from entering the persistent graph. The Contract Locality Auditor is the final pre-write safety net for an already-approved concrete task.
+
+Eligibility remains distinct from readiness or authorization.
 
 ExecutionCrew:
 
@@ -465,6 +523,7 @@ ExecutionCrew:
 - never grants conformance or completion;
 - uses explicit implementation/test write paths;
 - keeps implementation and test scopes disjoint;
+- reruns the locality audit on human-review retries, including retries of historical pre-auditor runs;
 - emits human-readable review instructions and immutable run artifacts.
 
 ### Standalone clone / Compose rule

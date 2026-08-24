@@ -314,3 +314,21 @@ Stage 5A implementation note (2026-08-23): the already-modeled `repository_write
 **Decision:** Claude ArchitectureReview uses `architecture_review_claude.py -> AgentInvocationRequest -> AgentRunner -> ClaudeCodeProvider`. It retains the shared eight reviewer roles, synthesis, adversarial critique, resumable provider-owned `outputs/claude/` layout, and fail-closed Claude capability policy. The shared module does not directly launch a provider. Repository writes, approved command execution, TaskExecution, fallback, comparison, and dual-provider orchestration are excluded.
 
 **Reason:** Claude and Codex should exercise the same generic invocation and audit boundary while preserving experimentally independent provider runs and the already-accepted provider policies.
+
+---
+
+## ADR-042 — Concrete task locality is audited before writer execution
+
+**Accepted:** 2026-08-24.
+
+**Decision:** `contract_disposition: active`, `kind: implementation`, `execution_scope: single_agent`, and `decomposition_state: concrete` are necessary ExecutionCrew eligibility conditions but are not sufficient proof that every acceptance criterion and completion gate is locally implementable/provable. Before the Implementer runs, ExecutionCrew performs one mandatory provider-selected, `high_reasoning`, read-only **Contract Locality Auditor** invocation against the exact task contract, canonical GDD, source identity, and authoritative validated persistent TaskGraph.
+
+The auditor classifies every AC/VAL exactly once as `local_to_task`, `requires_declared_dependency`, `downstream_integration`, `missing_design`, or `ambiguous`. A nonlocal/ambiguous result returns `CONTRACT_REVIEW_REQUIRED` before writer roles run. The auditor may recommend human action, but it never edits `Tasks/*.yaml`, adds dependencies, moves gates, mutates the graph, grants readiness, or authorizes execution.
+
+The independent Validator is a second safety boundary. Every AC/VAL result carries a structured reason code. `runtime_not_executed` may coexist with an overall semantic pass because authoritative Unity/runtime evidence is intentionally produced later. `missing_integration_dependency` and `design_ambiguity` require `blocked_by_design` and route to `CONTRACT_REVIEW_REQUIRED`; they may not be hidden beneath a generic `not_proven` or overall pass.
+
+**Reason:** NSC-011 and NSC-012 exposed the same systemic failure mode: a contract could claim to be a bounded single-agent component while its completion gates required pursuit, search, room-transition, restart-orchestrator, or other future-system behavior. Discovering that only after Implementer/Test Author/Validator execution wastes model work and encourages meaningless tests that imitate absent systems rather than proving real integration.
+
+**Relationship to progressive decomposition:** D1B.2 remains the planned upstream verifier/refiner for decomposition proposals. D1B.2 asks whether proposed child contracts are semantically sound before graph application; the Contract Locality Auditor asks whether an already-approved concrete task is actually locally executable/provable immediately before writers run. Neither replaces the other.
+
+**Authority:** Task selection remains human-directed. TaskGraph, committed evidence, deterministic Git/Unity validation, and human approval retain their existing authority. This decision does not enable dependency readiness, autonomous dispatch, automatic contract repair, automatic patch application, commits, merges, or conformance claims.
