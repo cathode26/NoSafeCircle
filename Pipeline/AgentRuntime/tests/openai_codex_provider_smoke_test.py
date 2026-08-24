@@ -112,6 +112,34 @@ def main() -> int:
             "estimated_cost_usd": None,
         }
 
+        separated_transcripts = (
+            (
+                b'{"type":"turn.started"}\n\n'
+                b'{"type":"turn.completed","usage":{"input_tokens":3,'
+                b'"output_tokens":4,"reasoning_output_tokens":5,"total_tokens":12}}\n'
+            ),
+            (
+                b'{"type":"turn.started"}\n \t \n'
+                b'{"type":"turn.completed","usage":{"input_tokens":3,'
+                b'"output_tokens":4,"reasoning_output_tokens":5,"total_tokens":12}}\n'
+            ),
+        )
+        for index, transcript in enumerate(separated_transcripts):
+            separated_runner = FakeRunner(stdout=transcript)
+            separated_provider = OpenAICodexProvider(
+                process_runner=separated_runner,
+                temporary_directory_parent=outside,
+                repository_root=repository,
+            )
+            separated_response = separated_provider.invoke(
+                request(run_id=f"codex-separated-{index}"), "gpt-concrete-1"
+            )
+            assert separated_response.raw_log == transcript.decode("utf-8")
+            assert separated_response.usage and separated_response.usage.to_dict() == {
+                "input_tokens": 3, "output_tokens": 9, "total_tokens": 12,
+                "estimated_cost_usd": None,
+            }
+
         nullable_runner = FakeRunner(final='{"artifact_proposal":null}')
         nullable_provider = OpenAICodexProvider(
             process_runner=nullable_runner,
@@ -209,6 +237,8 @@ def main() -> int:
             (FakeRunner(final=None), ProviderOutputInvalid),
             (FakeRunner(final="{"), ProviderOutputInvalid),
             (FakeRunner(stdout=b"not-json\n"), ProviderOutputInvalid),
+            (FakeRunner(stdout=b"\n \t\n\r\n"), ProviderOutputInvalid),
+            (FakeRunner(stdout=b'{"usage":{}}\n'), ProviderOutputInvalid),
             (FakeRunner(stdout=b'{"type":"turn.started"}\n'), ProviderOutputInvalid),
             (FakeRunner(stdout=b'{"type":"turn.completed","usage":{"input_tokens":true}}\n'), ProviderTransportError),
             (FakeRunner(returncode=2), ProviderFailure),
