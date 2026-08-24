@@ -41,6 +41,17 @@ Authority and inspection rules:
 - Parent hierarchy and dependencies are different concepts.
 - Existing task dependencies must use exact NSC IDs from the supplied task catalog.
 - Local child dependencies must use proposal-local keys.
+- Every `local_key` must match `^[a-z0-9]+(?:-[a-z0-9]+)*$`: use lowercase
+  kebab-case with only lowercase ASCII letters, digits, and single hyphens. Underscores,
+  spaces, uppercase letters, leading/trailing hyphens, and repeated hyphens are forbidden.
+- `local_dependencies` and parent-coverage targets must reuse the proposed `local_key`
+  exactly.
+- A `local_key` becomes a proposed durable `reconciliation_key`; use a stable descriptive
+  domain name rather than an NSC task number or temporary numbering.
+- Valid examples for NSC-021: `door-lock-break-lifecycle`,
+  `door-passability-publication`, `door-breach-feedback`. Invalid examples:
+  `nsc021_lifecycle_core`, `NSC021-Lifecycle-Core`, `door_lifecycle`,
+  `door--lifecycle`.
 - Use exact existing canonical exclusive-resource keys where applicable.
 - Child local keys must not collide with any supplied reconciliation_key.
 - Every child must be implementation/single_agent/concrete, with at least one acceptance

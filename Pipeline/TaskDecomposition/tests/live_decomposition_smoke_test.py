@@ -222,6 +222,19 @@ def main() -> int:
         assert "Historical coursework, prior agent outputs, generated reviews" in prompt
         assert "cannot override this Decomposer" in prompt
         normalized_prompt = " ".join(prompt.lower().split())
+        assert "^[a-z0-9]+(?:-[a-z0-9]+)*$" in prompt
+        assert (
+            "underscores, spaces, uppercase letters, leading/trailing hyphens, and "
+            "repeated hyphens are forbidden"
+            in normalized_prompt
+        )
+        assert (
+            "a `local_key` becomes a proposed durable `reconciliation_key`; use a stable "
+            "descriptive domain name"
+            in normalized_prompt
+        )
+        assert "`door-lock-break-lifecycle`" in prompt
+        assert "`nsc021_lifecycle_core`" in prompt
         assert "generated decomposition output is review-only evidence" in normalized_prompt
         assert "not current design authority" in prompt
         assert normalized_prompt.count("set `artifact_proposal` to null") == 3
