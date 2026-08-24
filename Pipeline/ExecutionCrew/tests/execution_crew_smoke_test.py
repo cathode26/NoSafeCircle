@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic three-role ExecutionCrew smoke; no Unity or live provider calls."""
 from __future__ import annotations
-import io, json, os, subprocess, sys, tempfile, time
+import hashlib, io, json, os, shutil, subprocess, sys, tempfile, time
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
@@ -25,7 +25,7 @@ def fixture(parent):
     cmd(root,"add","."); cmd(root,"commit","-qm","baseline"); return root
 
 class State:
-    def __init__(self,scenario,source): self.scenario=scenario; self.source=source; self.calls=[]; self.clone=None
+    def __init__(self,scenario,source,feedback=None): self.scenario=scenario; self.source=source; self.feedback=feedback; self.calls=[]; self.clone=None
 
 class FakeProvider:
     provider_identifier="fake"
@@ -33,6 +33,15 @@ class FakeProvider:
     def invoke(self,request,model):
         s=self.state; attempt=sum(1 for r,_,_ in s.calls if r==self.role)+1; s.calls.append((self.role,request,model))
         assert request.role==self.role
+        if s.feedback:
+            assert "HUMAN REVIEW REJECTION FROM PRIOR REVIEW-READY CANDIDATE" in request.prompt
+            assert s.feedback in request.prompt
+            if self.role=="implementer":
+                assert "presence is NOT evidence that the task is complete" in request.prompt and "report a blocker" in request.prompt
+            elif self.role=="test_author":
+                assert "Add regression coverage" in request.prompt and "approved test paths" in request.prompt
+            else:
+                assert "A Validator pass must not ignore an unresolved human-review rejection" in request.prompt
         if s.scenario=="slow" and self.role=="implementer": time.sleep(.06)
         if self.role=="validator":
             assert not self.writable and self.repo.resolve()==s.source.resolve(); assert "repository_write" not in request.allowed_capabilities; assert not request.write_boundaries.allowed_paths
@@ -65,25 +74,33 @@ class FakeProvider:
             elif s.scenario=="source_mutation": write(self.repo/IMPL,"public class PlayerMana { public int Mana; }\n"); write(s.source/OTHER,"mutated\n")
             else:
                 if attempt==2: assert "fix mana" in request.prompt
-                if not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/IMPL,"public class PlayerMana { public int Mana;"+(" public int Repaired;" if attempt==2 else "")+" }\n")
+                if not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/IMPL,"public class PlayerMana { public int Mana;"+(" public int HumanReviewFixed;" if s.feedback else "")+(" public int Repaired;" if attempt==2 else "")+" }\n")
             output={"summary":"implementation","claimed_changed_paths":["claim-impl.cs"],"blockers":(["cannot implement"] if s.scenario=="blocker" else []),"notes":[]}
         else:
             assert self.writable and request.model_capability_class=="low_cost"; assert request.is_path_writable(TEST) and not request.is_path_writable(IMPL); assert "public int Mana" in request.prompt and "Never claim tests passed" in request.prompt
             if attempt==2: assert "fix mana" in request.prompt and ("Repaired" in request.prompt or s.scenario=="no_op_repair")
             if s.scenario=="test_impl": write(self.repo/IMPL,"public class PlayerMana { public int Rewritten; }\n")
-            elif not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {}"+(" public void RepairTest() {}" if attempt==2 else "")+" }\n")
+            elif not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {}"+(" public void HumanReviewRegression() {}" if s.feedback else "")+(" public void RepairTest() {}" if attempt==2 else "")+" }\n")
             output={"summary":"tests","claimed_changed_paths":["claim-test.cs"],"test_cases_added_or_updated":["ManaTest"],"blockers":[],"known_limitations":["not run"],"proposed_unity_test_scope":"Play Mode"}
         return ProviderInvocationResponse(output,"fake log\n",("runtime-claim.cs",),Usage(1,1,2),True,())
 
 def factory(state):
     def create(provider,repo,writable,role):
-        assert provider=="fake"
-        config=RuntimeConfiguration({"fake-crew":{"provider":"fake","models":{"low_cost":"fake-low","standard":"fake-standard","high_reasoning":"fake-high"}}})
-        return "fake-crew",config,{"fake":FakeProvider(state,repo,writable,role)}
+        assert provider in ("fake","claude","codex")
+        key=f"{provider}-crew"
+        config=RuntimeConfiguration({key:{"provider":"fake","models":{"low_cost":"fake-low","standard":"fake-standard","high_reasoning":"fake-high"}}})
+        return key,config,{"fake":FakeProvider(state,repo,writable,role)}
     return create
 
-def execute(source,outputs,scenario,index):
-    state=State(scenario,source); result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name="fake",implementation_paths=(IMPL,),test_paths=(TEST,),run_id=f"smoke-{scenario}-{index}",provider_factory=factory(state),_require_physical_read_only_source=False); return result,state,outputs/f"smoke-{scenario}-{index}"
+def execute(source,outputs,scenario,index,*,provider="fake",implementation_paths=(IMPL,),test_paths=(TEST,)):
+    run_id=f"smoke-{scenario}-{index}"; state=State(scenario,source)
+    result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name=provider,implementation_paths=implementation_paths,test_paths=test_paths,run_id=run_id,provider_factory=factory(state),_require_physical_read_only_source=False)
+    return result,state,outputs/run_id
+
+def retry_execute(source,outputs,scenario,index,prior_run_id,feedback_path,feedback_text):
+    run_id=f"retry-{scenario}-{index}"; state=State(scenario,source,feedback_text)
+    result=run_crew(source=source,output_root=outputs,run_id=run_id,retry_run_id=prior_run_id,review_feedback_file=feedback_path,provider_factory=factory(state),_require_physical_read_only_source=False)
+    return result,state,outputs/run_id
 
 def main():
   with tempfile.TemporaryDirectory(prefix="crew-smoke-") as td:
@@ -154,10 +171,16 @@ def main():
     names=[event["event"] for event in events]; assert names[0]=="run_started" and names[-1]=="run_completed"
     assert names.index("run_started") < names.index("role_started") < names.index("role_completed")
     telemetry=(d/"progress.jsonl").read_text()+progress_stderr.getvalue(); assert SECRET not in telemetry and "EXACT COMMITTED TASK CONTRACT" not in telemetry
+    assert passed["requested_implementation_paths"]==[IMPL] and passed["requested_test_paths"]==[TEST]
+    assert passed["review_origin"] is None
     fake_result={"crew_status":"review_ready","machine":"parseable"}; cli_stdout=io.StringIO(); cli_stderr=io.StringIO()
-    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(cli_stdout), redirect_stderr(cli_stderr):
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as normal_cli_run, patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(cli_stdout), redirect_stderr(cli_stderr):
         assert crew_main()==0
     assert json.loads(cli_stdout.getvalue())==fake_result and cli_stderr.getvalue()==""
+    normal_kwargs=normal_cli_run.call_args.kwargs
+    assert normal_kwargs["task_id"]==TASK and normal_kwargs["provider_name"]=="claude"
+    assert normal_kwargs["implementation_paths"]==(IMPL,) and normal_kwargs["test_paths"]==(TEST,)
+    assert normal_kwargs["retry_run_id"] is None and normal_kwargs["review_feedback_file"] is None
     assert json.loads((d/"role_results/validator_1.json").read_text())["structured_output"]["criteria_results"][1]["status"]=="not_proven"
     assert len({x[1].run_id for x in state.calls})==3; assert not state.clone.exists(); assert passed["implementation_actual_changed_paths"]==[IMPL] and passed["test_actual_changed_paths"]==[TEST]
     assert len(list((d/"task_execution").glob("*/task_request.json")))==3 and len(list((d/"agent_runtime").glob("*/result.json")))==3
@@ -186,5 +209,120 @@ def main():
     assert any("clone baseline index" in reason for reason in rejected["rejection_reasons"])
     mutated,state,d=execute(source,outputs,"source_mutation",30); assert mutated["crew_status"]=="rejected" and any("source working tree changed" in x for x in mutated["rejection_reasons"]); write(source/OTHER,"public class Other { }\n")
     assert (cmd(source,"rev-parse","HEAD"),cmd(source,"status","--porcelain=v1","--untracked-files=all"),(source/IMPL).read_bytes())==baseline
+
+    # A future-format prior run records requested authority separately from actual changes.
+    prior,prior_state,prior_dir=execute(source,outputs,"pass",70,provider="claude")
+    assert prior["crew_status"]=="review_ready" and prior["review_origin"] is None
+    assert prior["requested_implementation_paths"]==[IMPL] and prior["requested_test_paths"]==[TEST]
+    prior_source_head=prior["source_head"]
+    write(source/IMPL,"public class PlayerMana { public int Mana; }\n")
+    write(source/TEST,"public class PlayerManaTests { public void ManaTest() {} }\n")
+    cmd(source,"add",IMPL,TEST); cmd(source,"commit","-qm","human applied rejected candidate")
+    current_head=cmd(source,"rev-parse","HEAD"); assert current_head!=prior_source_head
+    assert subprocess.run(("git","-C",str(source),"merge-base","--is-ancestor",prior_source_head,current_head),check=False).returncode==0
+    feedback_bytes="HUMAN_FEEDBACK_SECRET: zero mana pixels are invisible.\n".encode()
+    feedback_text=feedback_bytes.decode(); feedback_dir=outputs/"feedback"; feedback_dir.mkdir()
+    feedback_path=feedback_dir/"mana.txt"; feedback_path.write_bytes(feedback_bytes)
+
+    retry_stderr=io.StringIO()
+    with redirect_stderr(retry_stderr): retried,retry_state,retry_dir=retry_execute(source,outputs,"pass",71,prior["run_id"],feedback_path,feedback_text)
+    assert retried["crew_status"]=="review_ready" and retried["task_id"]==TASK and retried["provider"]=="claude"
+    assert retried["requested_implementation_paths"]==[IMPL] and retried["requested_test_paths"]==[TEST]
+    assert retried["source_head"]==current_head and retried["source_head"]!=prior_source_head
+    assert (retry_dir/"human_review_feedback.txt").read_bytes()==feedback_bytes
+    feedback_sha=hashlib.sha256(feedback_bytes).hexdigest()
+    assert retried["review_origin"]=={"prior_run_id":prior["run_id"],"result":"human_rejected","feedback_artifact":"human_review_feedback.txt","feedback_sha256":feedback_sha}
+    assert [role for role,_,_ in retry_state.calls]==["implementer","test_author","validator"]
+    retry_telemetry=(retry_dir/"progress.jsonl").read_text()+retry_stderr.getvalue()
+    assert feedback_text.strip() not in retry_telemetry and feedback_sha in retry_telemetry and prior["run_id"] in retry_telemetry
+    assert any(json.loads(line)["event"]=="human_review_retry_loaded" for line in (retry_dir/"progress.jsonl").read_text().splitlines())
+    assert cmd(source,"rev-parse","HEAD")==current_head and cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
+
+    # Retry repair attempt two retains human evidence and the separate Validator findings.
+    repaired_retry,repaired_state,_=retry_execute(source,outputs,"repair",72,prior["run_id"],feedback_path,feedback_text)
+    assert repaired_retry["crew_status"]=="review_ready" and repaired_retry["attempts_used"]==2
+    for role,request,_ in repaired_state.calls:
+        if role in ("implementer","test_author") and request.run_id.split("-")[-2]=="2":
+            assert feedback_text in request.prompt and "VALIDATOR BLOCKING FINDINGS FROM THE PRIOR PASS" in request.prompt and "fix mana" in request.prompt
+
+    # Legacy recovery must preserve exact granted authority, including an unchanged allowed path.
+    write(source/IMPL,"public class PlayerMana { public int Mana; public int RejectedAgain; }\n")
+    write(source/TEST,"public class PlayerManaTests { public void RejectedAgain() {} }\n")
+    cmd(source,"add",IMPL,TEST); cmd(source,"commit","-qm","second rejected candidate fixture")
+    legacy,_,legacy_dir=execute(source,outputs,"pass",73,provider="claude",implementation_paths=(IMPL,OTHER))
+    assert legacy["implementation_actual_changed_paths"]==[IMPL] and legacy["requested_implementation_paths"]==[IMPL,OTHER]
+    legacy_result_path=legacy_dir/"crew_result.json"; legacy_json=json.loads(legacy_result_path.read_text())
+    del legacy_json["requested_implementation_paths"]; del legacy_json["requested_test_paths"]
+    legacy_result_path.write_text(json.dumps(legacy_json,indent=2,sort_keys=True)+"\n")
+    legacy_retry,legacy_state,_=retry_execute(source,outputs,"pass",74,legacy["run_id"],feedback_path,feedback_text)
+    assert legacy_retry["requested_implementation_paths"]==[IMPL,OTHER]
+    assert legacy_retry["requested_test_paths"]==[TEST]
+    assert legacy_retry["implementation_actual_changed_paths"]==[IMPL]
+    assert legacy_state.calls[0][1].write_boundaries.allowed_paths==(IMPL,OTHER)
+
+    # Retry CLI has no duplicated task/provider/scope arguments.
+    retry_cli_stdout=io.StringIO(); retry_cli_stderr=io.StringIO()
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as retry_cli_run, patch.object(sys,"argv",["run_crew.py","--retry-run",prior["run_id"],"--review-feedback-file",str(feedback_path),"--output-root",str(outputs)]), redirect_stdout(retry_cli_stdout), redirect_stderr(retry_cli_stderr):
+        assert crew_main()==0
+    retry_kwargs=retry_cli_run.call_args.kwargs
+    assert retry_kwargs["task_id"] is None and retry_kwargs["provider_name"] is None
+    assert retry_kwargs["implementation_paths"]==() and retry_kwargs["test_paths"]==()
+    assert retry_kwargs["retry_run_id"]==prior["run_id"] and retry_kwargs["review_feedback_file"]==feedback_path
+
+    def copied_prior(new_id, mutate):
+        destination=outputs/new_id; shutil.copytree(prior_dir,destination)
+        value=json.loads((destination/"crew_result.json").read_text()); value["run_id"]=new_id; mutate(value)
+        (destination/"crew_result.json").write_text(json.dumps(value,indent=2,sort_keys=True)+"\n")
+        return destination
+
+    def expect_retry_blocked(prior_id, feedback, run_id, expected):
+        blocked_state=State("pass",source,feedback_text)
+        try: run_crew(source=source,output_root=outputs,run_id=run_id,retry_run_id=prior_id,review_feedback_file=feedback,provider_factory=factory(blocked_state),_require_physical_read_only_source=False)
+        except CrewBlocked as exc: assert expected in str(exc),str(exc)
+        else: raise AssertionError(f"retry unexpectedly accepted: {run_id}")
+        assert not blocked_state.calls
+
+    copied_prior("prior-not-ready",lambda value:value.__setitem__("crew_status","needs_human"))
+    expect_retry_blocked("prior-not-ready",feedback_path,"fail-status","review_ready")
+    copied_prior("prior-bad-validator",lambda value:value.__setitem__("validator_status","needs_changes"))
+    expect_retry_blocked("prior-bad-validator",feedback_path,"fail-validator","validator_status pass")
+    copied_prior("prior-bad-scope",lambda value:value.__setitem__("requested_implementation_paths",[IMPL,OTHER]))
+    expect_retry_blocked("prior-bad-scope",feedback_path,"fail-scope","does not match authoritative")
+    copied_prior("prior-bad-tree",lambda value:value.__setitem__("source_tree","0"*40))
+    expect_retry_blocked("prior-bad-tree",feedback_path,"fail-tree","cannot be proven")
+    copied_prior("prior-bad-provider",lambda value:value.__setitem__("provider","mixed"))
+    expect_retry_blocked("prior-bad-provider",feedback_path,"fail-provider","invalid provider")
+    invalid_json=outputs/"prior-invalid-json"; invalid_json.mkdir(); (invalid_json/"crew_result.json").write_text("[]\n")
+    expect_retry_blocked("prior-invalid-json",feedback_path,"fail-json","JSON object")
+    missing_result=outputs/"prior-missing-result"; missing_result.mkdir()
+    expect_retry_blocked("prior-missing-result",feedback_path,"fail-result-missing","crew_result.json")
+    expect_retry_blocked("prior-missing",feedback_path,"fail-missing","prior run")
+    for index,bad_id in enumerate(("../escape","nested/run","/absolute",".."),80):
+        expect_retry_blocked(bad_id,feedback_path,f"fail-id-{index}","single conservative run ID")
+
+    orphan_head=cmd(source,"commit-tree",cmd(source,"rev-parse","HEAD^{tree}"),"-m","unrelated prior")
+    copied_prior("prior-unrelated",lambda value:(value.__setitem__("source_head",orphan_head),value.__setitem__("source_tree",cmd(source,"rev-parse",f"{orphan_head}^{{tree}}"))))
+    expect_retry_blocked("prior-unrelated",feedback_path,"fail-ancestor","must be an ancestor")
+
+    outside_feedback=root/"outside-feedback.txt"; outside_feedback.write_text("outside\n")
+    expect_retry_blocked(prior["run_id"],outside_feedback,"fail-feedback-outside","strictly underneath")
+    expect_retry_blocked(prior["run_id"],feedback_dir/"missing.txt","fail-feedback-missing","does not exist")
+    empty_feedback=feedback_dir/"empty.txt"; empty_feedback.write_bytes(b"")
+    expect_retry_blocked(prior["run_id"],empty_feedback,"fail-feedback-empty","non-empty")
+    invalid_feedback=feedback_dir/"invalid.txt"; invalid_feedback.write_bytes(b"\xff")
+    expect_retry_blocked(prior["run_id"],invalid_feedback,"fail-feedback-utf8","valid UTF-8")
+    oversized_feedback=feedback_dir/"oversized.txt"; oversized_feedback.write_bytes(b"x"*(64*1024+1))
+    expect_retry_blocked(prior["run_id"],oversized_feedback,"fail-feedback-size","at most 65536")
+    feedback_directory=feedback_dir/"directory"; feedback_directory.mkdir()
+    expect_retry_blocked(prior["run_id"],feedback_directory,"fail-feedback-regular","regular file")
+    try:
+        escaped_feedback=feedback_dir/"escaped.txt"; escaped_feedback.symlink_to(outside_feedback)
+        expect_retry_blocked(prior["run_id"],escaped_feedback,"fail-feedback-symlink","strictly underneath")
+        outside_prior=root/"outside-prior"; shutil.copytree(prior_dir,outside_prior)
+        (outputs/"escaped-prior").symlink_to(outside_prior,target_is_directory=True)
+        expect_retry_blocked("escaped-prior",feedback_path,"fail-prior-symlink","strictly underneath")
+    except (OSError, NotImplementedError):
+        pass
+    assert cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
   print("execution crew smoke: PASS (fake providers only; Unity not invoked)"); return 0
 if __name__=="__main__": raise SystemExit(main())

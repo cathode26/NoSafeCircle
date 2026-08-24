@@ -18,6 +18,10 @@ Windows bind-mounted source repositories can appear under different ownership in
 
 Validation permits at most two passes. `pass` emits review-only `candidate.patch`; `blocked_by_design` stops; first-pass `needs_changes` runs one repair cycle with exact findings; a non-pass second validation ends `needs_human` or rejected with no candidate patch. Role blockers stop safely. Other tracked changes may be retained only as `workspace_diagnostic.patch`.
 
+A human rejection of a `review_ready` candidate starts a new run; it never resumes or mutates the prior run. `--retry-run` recovers the task ID, provider, and exact requested Implementer/Test Author WriteBoundaries from the prior immutable artifacts. New-format results carry `requested_implementation_paths` and `requested_test_paths`; legacy results recover the same authority from their persisted TaskExecution requests, never from actual changed paths. The normal clean-source preflight captures current committed `HEAD` and tree as the new baseline. The prior source commit must still be an ancestor, but the retry never checks it out or resets to it.
+
+The required UTF-8 feedback file must be a non-empty regular file of at most 64 KiB underneath the configured output root. Its exact bytes are copied to the new run as `human_review_feedback.txt`, hashed with SHA-256, and supplied to Implementer, Test Author, and Validator. Telemetry records only the prior run ID and hash, not feedback text. Feedback is review evidence: it cannot override the task contract or GDD and cannot widen write authority. If a correction needs another path, the crew blocks; the human must start a new explicitly scoped normal run.
+
 In `claude-exec` and `codex-exec`, the source is mounted only as `/workspace:ro`; host `Pipeline/ExecutionCrew/outputs` is mounted separately at `/execution-output:rw` and selected by `NSC_EXECUTION_OUTPUT_ROOT`. There is no writable nested mount beneath `/workspace`. Local deterministic development falls back to `Pipeline/ExecutionCrew/outputs` when that environment variable is absent.
 
 ExecutionCrew prints flushed, human-readable progress to stderr while reserving stdout for the final machine-readable result JSON. Blocking role invocations emit a heartbeat every 15 seconds by default; deterministic tests may set the positive finite `NSC_EXECUTION_HEARTBEAT_SECONDS` override. Each run also writes and immediately flushes `progress.jsonl`. This file is supplemental operational telemetry only and has no authority over changed paths, validation, delivery, or readiness; it never contains prompts, raw provider output, credentials, or model reasoning.
@@ -26,6 +30,7 @@ ExecutionCrew prints flushed, human-readable progress to stderr while reserving 
 outputs/<run-id>/
   crew_result.json
   progress.jsonl                      # supplemental operational telemetry
+  human_review_feedback.txt           # retry only; exact accepted feedback bytes
   candidate.patch                    # review_ready only
   workspace_diagnostic.patch         # diagnostic only, when applicable
   role_results/<role>_<attempt>.json
@@ -35,18 +40,20 @@ outputs/<run-id>/
 
 There is no Planner, Unity execution, general GER, global selection/readiness/dispatch, automatic patch application, commit/merge, evidence publication, conformance record, provider fallback, mixed providers, or parallel task workers.
 
-## NSC-005 proving commands (documented only)
+## Human-review workflow
 
-Claude:
+Start the first run with an explicit task, provider, and role paths:
 
 ```bash
 docker compose run --rm -T claude-exec python3 Pipeline/ExecutionCrew/run_crew.py --task-id NSC-005 --provider claude --implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs --implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs --test-path Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
 ```
 
-Codex:
+When it reaches `review_ready`, the human reviews `candidate.patch`. Approval continues through manual integration, required validation, and evidence workflow; ExecutionCrew does not apply or commit anything. On rejection, write the concrete review finding to a feedback file beneath the configured ExecutionCrew output root, then start a retry:
 
 ```bash
-docker compose run --rm -T codex-exec python3 Pipeline/ExecutionCrew/run_crew.py --task-id NSC-005 --provider codex --implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs --implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs --test-path Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs
+docker compose run --rm -T claude-exec python3 Pipeline/ExecutionCrew/run_crew.py --retry-run nsc-005-20260823t222010z --review-feedback-file /execution-output/feedback/nsc-005-mana-feedback.txt
 ```
 
-Defaults are `claude-sonnet-5` and `gpt-5.6-sol`; environment overrides remain available. Do not run either proving command until this implementation is reviewed and committed.
+The retry inherits `NSC-005`, `claude`, and both prior role scopes, but works from the current clean committed source `HEAD`—which may contain the manually integrated rejected candidate. If the repair cannot be made within inherited authority, do not widen the retry; start a suitably scoped explicit run after human review.
+
+The equivalent initial command may select `--provider codex` and run in `codex-exec`. Defaults are `claude-sonnet-5` and `gpt-5.6-sol`; environment overrides remain available.
