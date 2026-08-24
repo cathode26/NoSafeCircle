@@ -1,0 +1,17 @@
+Task: NSC-005
+Validated commit: 7e69632bc5679b594a7893d6034b141e9500134a
+Validated tree: f1b2bde5bf985b57d83db54c37fb1086abce064d
+Human validation result: PASS
+
+The current DoorPrototype was tested manually in Unity Play Mode.
+
+The mana indicator now presents visible denied-cast feedback when mana is exhausted. In particular, attempting another mana spend at zero mana visibly flashes the mana-bar background red instead of attempting to color a zero-width fill. The regression was reproduced before the repair and manually confirmed fixed afterward.
+
+Authoritative command-line validation at this exact state:
+- Unity 6000.1.8f1
+- PlayerManaPlayModeTests PlayMode: 17 total, 17 passed, 0 failed, 0 skipped
+- Unity exit code: 0
+- Git tree before/after run: f1b2bde5bf985b57d83db54c37fb1086abce064d
+- Clean runner ended with VALIDATION PASSED.
+
+The PlayMode suite covers spend behavior, post-cast regeneration delay, reset ownership, denied-cast signaling, successful-spend non-denial, authored-color restoration, late builder-style UI wiring without a disable/re-enable workaround, and visible denied feedback when the mana fill is at zero.
