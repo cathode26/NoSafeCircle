@@ -1,14 +1,14 @@
 {
   "schema_version": "2.0",
   "id": "NSC-019",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Cursor-Targeted Door Opening (Click-to-Approach, Arm's-Reach Auto-Timer, Interruption)",
   "reconciliation_key": "door-open-interaction",
   "kind": "implementation",
   "type": "gameplay_system",
   "execution_scope": "single_agent",
-  "execution_reason": "The work is bounded to a known, small set of files (DoorInteractable.cs, PlayerInteractionController.cs, the scene/builder wiring) implementing one cohesive interaction flow; it is not yet dispatch-ready until player-movement's shared pointer projection exists, but its own scope is not so broad that it needs further execution splitting.",
+  "execution_reason": "The work is bounded to DoorInteractable.cs, PlayerInteractionController.cs, a narrow owner-controlled destination-request extension in PlayerMovement.cs, and scene/builder wiring implementing one cohesive interaction flow. NSC-003 now provides the shared pointer projection and movement ownership this task consumes, so no further execution splitting is required.",
   "decomposition_state": "concrete",
   "decomposition_reason": "The GDD fully specifies click-to-approach selection, arrival-triggered auto-timing, cursor-drift tolerance, and interruption conditions; no missing design remains for this responsibility.",
   "parent": "NSC-018",
@@ -18,8 +18,9 @@
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
   ],
   "acceptance_criteria": [
     {
@@ -107,7 +108,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Whether this task must itself add/modify bindings in Assets/InputSystem_Actions.inputactions (e.g., a distinct door-select binding) or purely consumes a Point/Click binding added by Player Movement's projection work is not yet resolved by current evidence; see unresolved_questions.",
+  "notes": "NSC-003 now provides the Player/PointerPosition and Player/MoveToCursor actions plus the shared world-space pointer target. NSC-019 consumes that existing input path through Player Movement and does not add a distinct door-select binding unless implementation evidence proves one is required.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
