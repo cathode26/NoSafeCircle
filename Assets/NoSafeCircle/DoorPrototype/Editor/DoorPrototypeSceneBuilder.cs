@@ -98,7 +98,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             // will fire rather than silently producing an unframed camera at the world origin.
             BuildCamera(movement.transform);
 
-            BuildUI(door, debugControl, mana, debugManaControl);
+            BuildUI(door, debugControl, health, mana, debugManaControl);
         }
 
         private static void EnsureFolder(string path)
@@ -258,7 +258,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
         }
 
         private static void BuildUI(DoorInteractable door, DebugDamageControl debugControl,
-            PlayerMana mana, DebugManaSpendControl debugManaControl)
+            PlayerHealth health, PlayerMana mana, DebugManaSpendControl debugManaControl)
         {
             var canvasObject = new GameObject("Canvas");
             var canvas = canvasObject.AddComponent<Canvas>();
@@ -342,9 +342,48 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
             UnityEventTools.AddPersistentListener(damageButton.onClick, debugControl.TriggerDebugDamage);
 
+            BuildHealthUI(canvasObject, health);
             BuildManaUI(canvasObject, mana, debugManaControl);
 
             BuildControlsHud(canvasObject.transform);
+        }
+
+        /// Mirrors the door's ProgressFill pattern: a background bar with a Filled child
+        /// Image whose fillAmount tracks CurrentHealth/MaxHealth. Positioned above the door
+        /// progress bar so it never overlaps the door or mana indicators.
+        private static void BuildHealthUI(GameObject canvasObject, PlayerHealth health)
+        {
+            var healthBarObject = new GameObject("HealthFill");
+            healthBarObject.transform.SetParent(canvasObject.transform, false);
+            var healthBarRect = healthBarObject.AddComponent<RectTransform>();
+            // Keep health in its own center-screen vertical lane above the interaction
+            // prompt. This leaves clear separation from the prompt, progress bar, and mana bar.
+            healthBarRect.anchorMin = new Vector2(0.5f, 0.25f);
+            healthBarRect.anchorMax = new Vector2(0.5f, 0.25f);
+            healthBarRect.sizeDelta = new Vector2(300f, 20f);
+            var healthBarBackgroundImage = healthBarObject.AddComponent<Image>();
+            healthBarBackgroundImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
+            healthBarBackgroundImage.type = Image.Type.Sliced;
+            healthBarBackgroundImage.color = new Color(0.15f, 0.15f, 0.15f, 0.85f);
+
+            var healthFillObject = new GameObject("Fill");
+            healthFillObject.transform.SetParent(healthBarObject.transform, false);
+            var healthFillRect = healthFillObject.AddComponent<RectTransform>();
+            healthFillRect.anchorMin = Vector2.zero;
+            healthFillRect.anchorMax = Vector2.one;
+            healthFillRect.offsetMin = Vector2.zero;
+            healthFillRect.offsetMax = Vector2.zero;
+            var healthFill = healthFillObject.AddComponent<Image>();
+            healthFill.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            healthFill.type = Image.Type.Filled;
+            healthFill.fillMethod = Image.FillMethod.Horizontal;
+            healthFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            healthFill.fillAmount = 1f;
+            healthFill.color = Color.red;
+
+            var healthUiBinding = canvasObject.AddComponent<PlayerHealthUI>();
+            SetPrivateField(healthUiBinding, "health", health);
+            SetPrivateField(healthUiBinding, "fillImage", healthFill);
         }
 
         /// Mirrors the door's ProgressFill pattern: a background bar with a Filled child

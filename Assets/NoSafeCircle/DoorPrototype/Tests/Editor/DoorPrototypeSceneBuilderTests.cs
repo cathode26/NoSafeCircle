@@ -58,7 +58,94 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "Re-running the scene builder must not duplicate the ProgressFill UI element.");
         }
 
+        // AC-003: continuous player-facing health indicator must actually be wired into the
+        // canonical scene builder output, mirroring the door's ProgressFill visibility fix.
         [Test]
+        public void Build_HealthFillImage_HasSpriteAssignedSoFillAmountIsVisible()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var fillImage = GameObject.Find("Canvas/HealthFill/Fill")?.GetComponent<Image>();
+
+            Assert.IsNotNull(fillImage, "Expected a 'Fill' Image under Canvas/HealthFill after building the scene.");
+            Assert.IsNotNull(fillImage.sprite,
+                "Health fill Image has no sprite. A Filled Image with no sprite renders as a static full rect and ignores fillAmount.");
+            Assert.AreEqual(Image.Type.Filled, fillImage.type);
+            Assert.AreEqual(Image.FillMethod.Horizontal, fillImage.fillMethod);
+        }
+
+        // AC-003: the health indicator must be bound to the same PlayerHealth instance carried
+        // by the generated Player, not a stray/unwired component, so it reflects real state.
+        [Test]
+        public void Build_PlayerHealthUI_WiredToPlayerHealthAndFillImage()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var healthUi = GameObject.Find("Canvas")?.GetComponent<PlayerHealthUI>();
+            Assert.IsNotNull(healthUi, "Expected a PlayerHealthUI component on the generated Canvas.");
+
+            var playerHealth = GameObject.Find("Player")?.GetComponent<PlayerHealth>();
+            Assert.IsNotNull(playerHealth, "Expected a PlayerHealth component on the generated Player.");
+
+            var fillImage = GameObject.Find("Canvas/HealthFill/Fill")?.GetComponent<Image>();
+            Assert.IsNotNull(fillImage, "Expected a 'Fill' Image under Canvas/HealthFill after building the scene.");
+
+            var serializedUi = new SerializedObject(healthUi);
+            Assert.AreEqual(playerHealth, serializedUi.FindProperty("health").objectReferenceValue,
+                "PlayerHealthUI must be wired to the same PlayerHealth instance carried by the generated Player.");
+            Assert.AreEqual(fillImage, serializedUi.FindProperty("fillImage").objectReferenceValue,
+                "PlayerHealthUI must be wired to the generated HealthFill/Fill Image.");
+        }
+
+        [Test]
+        public void Build_RunTwice_DoesNotDuplicateHealthFillHierarchy()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var canvas = GameObject.Find("Canvas");
+            var healthFillCount = 0;
+            foreach (Transform child in canvas.transform)
+            {
+                if (child.name == "HealthFill") healthFillCount++;
+            }
+
+            Assert.AreEqual(1, healthFillCount,
+                "Re-running the scene builder must not duplicate the HealthFill UI element.");
+
+            var healthUiComponents = canvas.GetComponents<PlayerHealthUI>();
+            Assert.AreEqual(1, healthUiComponents.Length,
+                "Re-running the scene builder must not duplicate the PlayerHealthUI binding.");
+        }
+        // AC-003: the health indicator must stay visible/readable at all times. Give it a
+        // dedicated center-screen vertical lane above the interaction prompt rather than
+        // merely requiring a numerically different anchor from the other bars.
+        [Test]
+        public void Build_HealthFill_UsesDedicatedVerticalLaneAboveInteractionPrompt()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var healthRect = GameObject.Find("Canvas/HealthFill")?.GetComponent<RectTransform>();
+            var promptRect = GameObject.Find("Canvas/InteractPrompt")?.GetComponent<RectTransform>();
+            var progressRect = GameObject.Find("Canvas/ProgressFill")?.GetComponent<RectTransform>();
+            var manaRect = GameObject.Find("Canvas/ManaFill")?.GetComponent<RectTransform>();
+
+            Assert.IsNotNull(healthRect, "Expected a 'HealthFill' RectTransform directly under Canvas.");
+            Assert.IsNotNull(promptRect, "Expected an 'InteractPrompt' RectTransform directly under Canvas.");
+            Assert.IsNotNull(progressRect, "Expected a 'ProgressFill' RectTransform directly under Canvas.");
+            Assert.IsNotNull(manaRect, "Expected a 'ManaFill' RectTransform directly under Canvas.");
+
+            Assert.GreaterOrEqual(
+                healthRect.anchorMin.y - promptRect.anchorMax.y,
+                0.049f,
+                "Health indicator must have a dedicated normalized vertical lane above the interaction prompt.");
+
+            Assert.Greater(healthRect.anchorMin.y, progressRect.anchorMin.y,
+                "Health indicator must remain above the door progress bar.");
+            Assert.Greater(healthRect.anchorMin.y, manaRect.anchorMin.y,
+                "Health indicator must remain above the mana indicator.");
+        }
+[Test]
         public void Build_ControlsHud_ExistsSeparateFromPromptAndProgressIndicator()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
