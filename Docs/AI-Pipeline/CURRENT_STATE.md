@@ -1,167 +1,353 @@
 # CURRENT STATE — No Safe Circle AI Pipeline
 
-> Update this file whenever a milestone or important implementation slice changes.
+> Update this file whenever a milestone, important implementation slice, or authoritative task/evidence state changes.
 
-Last updated: 2026-08-24, after the Stage D1B.1 nullable structured-output compatibility correction tests on `stage-d1b-live-decomposition`.
+Last updated: 2026-08-24, after NSC-024 package configuration, delivery evidence, conformance proof, and merge into `main`.
 
-## Current Phase
+## Current Snapshot
 
-**Architecture Correction Phase 3 — COMPLETE AND MERGED.**
+The repository is now past the original architecture-correction bootstrap and into two parallel human-directed lanes:
 
-Phase 3A — Evidence-Derived Current Conformance Evaluator — is complete.
+1. **game delivery**, using bounded task contracts, ExecutionCrew where appropriate, Unity/human validation, committed evidence, and TaskGraph-derived conformance;
+2. **pipeline development**, where the next architectural slice is D1B.2 independent decomposition verification/refinement.
 
-Phase 3B — First Real Production Baseline — is complete.
-
-Phase 3 was fast-forward merged into `main` at:
-
-```text
-43fdf0a163e281204906abd43a241db211587a0f
-```
-
-**Provider-Neutral Execution Crew provider work and Minimum Production ExecutionCrew are complete and merged into `main`.**
-
-The active development branch is:
+Current integrated `main` immediately before this documentation update:
 
 ```text
-stage-d1b-live-decomposition
+ad88d76e1ac4eb736285a9888a5e33e2b0915d29
 ```
 
-Stage 5A proved isolated repository writes through both provider adapters. Stage 5B implemented the Minimum Production ExecutionCrew for one human-selected eligible task, with fresh Implementer, Unity Test Author, and read-only Validator invocations, deterministic incremental per-role Git enforcement, and at most one repair cycle. Those provider and ExecutionCrew changes have been merged into `main`.
+That merge contains the completed NSC-024 work and its committed delivery evidence.
 
-**Stage D1A — Decomposition Contracts Plus Deterministic Incremental Graph-Delta Planning — is complete and merged into `main` at `08ebfd497360b46f801a63e9b3d4d6a365b40bb1`.**
+Current validated TaskGraph shape after the NSC-026 decomposition:
 
-D1A implements strict immutable decomposition-result contracts; fresh structural parsing at each validation boundary; semantic decision/gap policy; exact parent AC/VAL/INT coverage through explicit child-local IDs; independently verifiable and parent-traced children; partial retained/blocked coverage for artifact and human blockers; temporary child keys; planner-side revalidation against the actual parent and current reconciliation keys; deterministic permanent ID allocation above the maximum existing NSC number; existing/local dependency resolution and cycle rejection; copied ID-map and resource-group updates; an in-memory proposed graph overlay; whole-overlay validation with the production TaskGraph validator; and immutable canonical review output with deterministic hashes and plan identity. It is model-free and makes no file writes.
+```text
+Task contract schema:  2.0
+Active contracts:      40
+Superseded contracts:  0
+Cancelled contracts:   0
+Parent edges:           39
+Dependency edges:       63
+Resource groups:        8
+Project requirements:   17
+Parent hierarchy:       connected + acyclic
+Dependency graph:       acyclic
+```
 
-During D1B.1 integration on `stage-d1b-live-decomposition`, the D1A semantic boundary was narrowly strengthened with exact artifact-source matching and canonical proposed-child resource-key syntax. Those strengthenings are part of the current D1B.1 branch and are not claimed as content of the original `08ebfd497360b46f801a63e9b3d4d6a365b40bb1` D1A merge.
-
-The D1A contract and graph-delta smoke suites pass, as do the existing TaskGraph validation, taskcontrol, contract-quality-audit, and conformance-evaluator regression suites required for that slice.
-
-**Stage D1B.1 — Model-Backed Task Decomposition Invocation and Review Artifacts — is the active bounded slice.**
-
-D1B.1 now performs one human-selected, provider-selected, read-only `TaskExecution -> AgentRuntime -> Claude Code or OpenAI/Codex` decomposition invocation after deterministic committed-source, graph, task-eligibility, physical-read-only, and output-disjointness preflight. It builds a deterministic hash-bound context containing the full committed GDD, selected task and distinct byte/semantic identities, complete numeric task catalog, graph neighborhood, relevant resource groups, historical bootstrap observations, empty approved-artifact set, validated context paths, and explicit authority notes. AgentRuntime schema success is followed by D1A semantic validation and, only for `decomposed`, whole-overlay graph-delta planning. Accepted review artifacts are atomically published outside the source checkout; the direct CLI defaults to sibling `NoSafeCircle-DecompositionOutputs`, and Compose mounts that sibling host directory at `/decomposition-output` while keeping `/workspace` read-only. Provider raw artifacts remain available on rejection. Source HEAD/tree/branch/status are revalidated after invocation and before acceptance, and incompatible provider execution/change/test claims fail closed.
-
-Deterministic temporary-repository and FakeProvider tests cover all four valid decisions, schema and semantic rejection, wrong semantic identity, normalized provider failure, read-only claim rejection, graph-planner failure, dirty and mutated sources, output-root overlap, run collision, factory/config mismatch, atomic no-overwrite publication, exact prompt identity, source preservation, and absence of live provider calls. The full D1B.1 deterministic gate passes, including decomposition contracts, context construction, live orchestration, graph-delta planning, TaskExecution, AgentRuntime, both provider-adapter smoke suites, TaskGraph validation/taskcontrol/quality/conformance regressions, Python compilation, Compose validation, and Git diff checks.
-
-The first live D1B.1 Codex proving attempt reached provider transport, but OpenAI rejected the strict structured-output schema before model execution because `artifact_proposal` appeared in `properties` without appearing in `required`. No review-ready decomposition or graph delta was emitted, and the live Codex proving run was not successful. The provider-neutral correction now requires `artifact_proposal` while allowing exactly the nullable `object`/`null` type, emits null for non-artifact decisions, and retains the artifact object for `needs_artifact`. Focused decomposition-contract, AgentRuntime nullable-schema, and exact Claude/Codex schema-serialization regressions pass.
-
-No live D1B.1 Claude proving run has occurred.
-
-D1B.1 does not complete D1B or the Progressive Decomposer milestone. D1B.2 independent verification and bounded refinement, a general GER loop, Artifact Authority, artifact generation, D1C graph application, dependency readiness, dispatch, automatic commits, and merges remain unimplemented.
-
-The Stage 3 foundation now implements:
-
-- provider-neutral immutable `AgentInvocationRequest` and `AgentResult` contracts;
-- semantic capability and write-boundary contracts;
-- `low_cost`, `standard`, and `high_reasoning` model capability classes;
-- strict provider configuration loading and validation;
-- bounded request budgets and normalized failure classifications;
-- strict JSON value and supported-schema validation;
-- atomic, no-overwrite immutable run artifacts;
-- provider-neutral base interfaces;
-- a deterministic, side-effect-free `FakeProvider`;
-- an adversarial regression suite covering provider trust boundaries, path safety, schema failures, immutable artifacts, malformed provider values, and historical-directory protection.
-
-The Stage 3 implementation is integrated; Stage 4A was documentation and decision work only.
-
-Live CLI discovery is complete. Non-production-write structured-output success probes completed for Claude Code and OpenAI/Codex. The provider-transport adopt-versus-build spike is also complete: `agent-mux` and `agent-shell` were evaluated and are not being adopted as production dependencies. ADR-035 was amended on 2026-08-23 to keep `AgentRequest` schema 1.0 and its required integer `turn_limit`, with explicit provider-specific enforcement mappings.
-
-**Stage 4B.2 — Practical Repository Read/Search** extends the existing Claude adapter for this trusted single-user local environment. `repository_read` maps to Claude `Read`; `repository_search` maps to Claude `Glob` and `Grep`; their combination exposes all three. Repository-capable calls use the actual source repository root (`/workspace` in Docker), while empty-capability calls retain their fresh empty temporary workspace and no-tool behavior. Validated `context_paths` are accepted only with repository capability and become prompt guidance rather than a hardened sandbox boundary.
-
-**Stage 4C — OpenAI/Codex Provider and ArchitectureReview Migration** adds `OpenAICodexProvider` behind generic AgentRuntime. The active OpenAI ArchitectureReview path now constructs task-neutral `AgentInvocationRequest` values and calls `AgentRunner`; provider subprocess, JSONL/final-output parsing, usage normalization, timeout translation, and failure normalization live in AgentRuntime. Invocation audit artifacts are nested under each ArchitectureReview run. TaskExecution is not involved.
-
-**Stage 4D — Claude ArchitectureReview Migration** adds the equivalent active `architecture_review_claude.py -> AgentInvocationRequest -> AgentRunner -> ClaudeCodeProvider` path. Claude reviewers retain shared Read/Glob/Grep prompt language, the same eight independent roles, synthesis, adversarial critique, resumability, and provider-owned `outputs/claude/` artifacts. The shared module no longer directly launches Claude. Provider comparison and a dual-provider launcher remain future work.
-
-AgentRuntime `approved_command_execution`, web access, non-null token limits, and provider fallback remain unsupported. Repository writing is proven for both providers only in an externally isolated writable repository. Stage 5B contains exactly Implementer, Unity Test Author, read-only Validator, and one bounded repair cycle. Planner, Unity execution, general GER, readiness/dispatch, mixed providers, and autonomous delivery remain unsupported. The Codex ArchitectureReview repository read/search implementation uses Codex's ordinary read-only shell/file inspection inside the externally read-only `codex-review` Docker environment; that is not approved command execution. Claude uses native Read/Glob/Grep through the separate read-only `claude-review` service.
-
-ArchitectureReview generated runs and provider-latest views are separated under `outputs/claude/` and `outputs/codex/`; those provider-specific latest views retain convenience copies. Global `outputs/latest/` contains only one atomic `LATEST.json` pointer identifying the most recently completed provider-scoped run across providers. Manifests record the explicit provider namespace, resume cannot cross it, and failed/partial runs do not publish latest. Each provider retains eight independent reviewer roles. New independent reviewers ignore prior review opinions even when summarized in architecture/current-state documentation, while still using implemented architecture, accepted decisions, and current documented facts as evidence to judge independently. This preserves review provenance and supports a later Claude-versus-Codex comparison without implementing that comparison pipeline.
-
-**Provider-Neutral Execution Crew Stage 4 — COMPLETE**
-
-The accepted Stage 4 turn-budget mapping is:
-
-- Claude: `turn_limit=N` -> native `--max-turns N`, also bounded by external `timeout_seconds`;
-- OpenAI/Codex: no observed native turn limit, so use temporary `OPENAI_SECONDS_PER_TURN = 30` and `effective_timeout_seconds = min(timeout_seconds, turn_limit * 30)`;
-- these mappings are bounded-execution controls, not cross-provider-equivalent units of model work;
-- any non-null `token_limit` remains unsupported and fails closed.
-
-No Unity execution by an agent, GER integration, global task selection, dependency readiness, autonomous dispatch, automatic Git commit/merge behavior, mixed-provider crew, or live provider fallback has been enabled.
-
-Architecture Correction Phase 3 remains intentionally fail-closed for execution:
+Autonomous dispatch remains intentionally disabled.
 
 ```text
 TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED
-```
-
-and:
-
-```text
 EXECUTION AUTHORIZATION: DENIED
 ```
 
-Evidence-derived conformance has been proven for `NSC-023`, but a conformant task does not establish dependency readiness or execution authority.
+A `conformant` task is evidence-derived current-state information. It does not grant dependency readiness, execution authorization, merge authority, or autonomous dispatch authority.
 
-## Architecture Review Result
+## Immediate Game-Development State
 
-The post-Milestone-1 architecture review evaluated one frozen repository commit through eight independent specialist reviews, a synthesis, and an adversarial critique of that synthesis.
+### NSC-024 — Tilemap and AI Navigation Package Configuration — COMPLETED, EVIDENCED, AND MERGED
 
-Result:
+NSC-024 is the prerequisite package-configuration task for the world-visual work.
 
-- eight of eight independent reviewers: `partially_unsound`;
-- synthesis: `partially_unsound`;
-- adversarial critique: `synthesis_needs_revision`.
+Current task contract:
 
-Accepted correction direction:
+```text
+Tasks/NSC-024.yaml
+contract_revision: 2
+contract_disposition: active
+execution_scope: single_agent
+decomposition_state: concrete
+```
 
-- preserve bounded workers, deterministic validation, GER repair, runtime evidence, human authority, and persistent task contracts;
-- stop treating mutable task metadata as completion truth;
-- distinguish historical delivery evidence from current conformance;
-- use reconciliation for bootstrap, broad audits, and reviewed change-impact proposals rather than routine global truth regeneration;
-- avoid implementing the entire original Milestone 2 bundle before proving smaller real delivery loops;
-- keep one worker and human merge/design authority until the one-ticket process is trustworthy;
-- do not treat reviewer consensus or task-graph ordering as automatic product priority.
+Its live exclusive-resource boundary was corrected before implementation to include both package files:
 
-Accepted immutable review evidence is preserved under:
+```text
+repo-file:Packages/manifest.json
+repo-file:Packages/packages-lock.json
+```
 
-`Pipeline/ArchitectureReview/evidence/20260821T222222Z-40fdf9ce/`
+The resolved package state committed by NSC-024 is:
 
-That directory contains the frozen manifest, model assignments, all eight independent reviews, synthesis, and adversarial critique.
+```text
+com.unity.2d.tilemap   1.0.0
+com.unity.ai.navigation 2.0.14
+```
 
-Generated `Pipeline/ArchitectureReview/outputs/` remains transient and ignored by default.
+Implementation/package commit:
 
-## Architecture Correction Phase 1 — COMPLETE
+```text
+fa488e3cda1dd03c72f9fd0c1da21700412d0c04
+```
 
-Phase 1 prevented the legacy task model from authorizing autonomous work before the task-contract migration and evidence model existed.
+Validated implementation tree:
 
-Key invariant retained:
+```text
+4bef4f19a36d3cf453252165c80f917d3433b7f5
+```
 
-> Mutable task metadata cannot authorize execution.
+Committed delivery record:
 
-Implemented safeguards include:
+```text
+Pipeline/TaskGraph/evidence/NSC-024/records/DEL-NSC-024-fa488e3cda1d.json
+```
 
-- `Pipeline/TaskGraph/execution_authority.py`;
-- `Pipeline/TaskGraph/phase1_execution_authority_smoke_test.py`;
-- fail-closed authorization behavior in `taskcontrol`.
+Record ID:
 
-Phase 2 removed operational completion status from the contracts themselves. Phase 3A now provides current-state inspection, but execution authority intentionally remains disabled.
+```text
+DEL-NSC-024-fa488e3cda1d
+```
 
-## Architecture Correction Phase 2 — COMPLETE
+Human validation artifact:
 
-All 37 persistent task records were migrated from schema 1.0 to **task-contract schema 2.0**.
+```text
+Pipeline/TaskGraph/evidence/NSC-024/artifacts/HumanValidation-fa488e3cda1d.txt
+```
 
-Current graph state:
+Evidence commit:
 
-- 37 active contracts;
-- 0 superseded contracts;
-- 0 cancelled contracts;
-- 36 parent edges;
-- 59 dependency edges;
-- 7 exclusive-resource groups;
-- 17 non-code project requirements;
-- 75 completion gates;
-- 2 downstream integration obligations;
-- one root: `NSC-001` / `no-safe-circle`.
+```text
+8da2cbc686394bc8899858259346925251293006
+```
 
-Schema 2.0 defines:
+The delivery record binds the exact committed package surfaces:
+
+```text
+Packages/manifest.json      blob c5a459601696a8fbb98d8e20125bf6821f21b66c
+Packages/packages-lock.json blob 7629b5aa28096ec2e0b542f2834969a8769a51f0
+```
+
+and records `VAL-001` as passed through explicit developer inspection after Unity Package Manager resolution.
+
+TaskGraph selected `DEL-NSC-024-fa488e3cda1d` and reported:
+
+```text
+state: conformant
+```
+
+The NSC-024 branch was synchronized with the then-current `main` and merged into `main` at:
+
+```text
+ad88d76e1ac4eb736285a9888a5e33e2b0915d29
+```
+
+The current `main` package blobs still match the delivery record. This documentation file is not an NSC-024 conformance surface and does not change the task contract or GDD canon.
+
+### World-visual work is now unblocked
+
+The immediate world-foundation dependency chain is:
+
+```text
+NSC-024 — Tilemap and AI Navigation Package Configuration
+    ↓
+NSC-038 — Isometric Tilemap Architectural Visual Layer
+    ↓
+NSC-039 — World-Space SpriteRenderer Prefab and Sorting Foundation
+    ↓
+NSC-040 — Visual/Simulation Separation and Continuous-Scene Integration
+```
+
+NSC-024 is now implemented and evidenced, so **NSC-038 is the human-selected next world task**.
+
+### NSC-038 — next targeted world task
+
+`NSC-038` is an active, concrete, `single_agent` implementation contract.
+
+It owns the first reusable isometric Tilemap architectural layer for floors, walls, and repeatable architectural tiles while preserving gameplay ownership outside the visual Tilemap.
+
+Its accepted production resources are:
+
+```text
+Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+Assets/Scenes/DoorPrototype.unity
+```
+
+Its completion gate requires representative Unity validation of Tilemap floor/wall cells against separately defined gameplay geometry so coordinate, scale, or offset desynchronization is detected.
+
+The likely bounded ExecutionCrew write split is:
+
+```text
+Implementer:
+Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
+
+Unity Test Author:
+Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs
+```
+
+Do not give an LLM direct authority to hand-edit serialized Unity scene YAML merely because the task names the canonical scene as a resource. Prefer builder/test changes first; after human review of the candidate patch, use Unity to regenerate/inspect the canonical scene and preserve the resulting intended serialized asset changes.
+
+### Five-room content remains separate
+
+`NSC-029 — Five-Room Floor Content Authoring` is still a distinct downstream content-authoring feature.
+
+The NSC-026 decomposition deliberately did **not** invent exact dimensions, prop placement, chokepoint geometry, cover positions, or final room layouts for:
+
+- Ruined Entry;
+- Bone Archive;
+- Chapel of Ash;
+- Lower Vault;
+- Final Room.
+
+The reusable world foundation should be built before those room layouts are authored. Missing room geometry must not be fabricated merely to make the foundation task executable.
+
+## Progressive Decomposition State
+
+### Stage D1A — COMPLETE AND MERGED
+
+Stage D1A — Decomposition Contracts Plus Deterministic Incremental Graph-Delta Planning — is complete and merged into `main` at:
+
+```text
+08ebfd497360b46f801a63e9b3d4d6a365b40bb1
+```
+
+D1A is model-free. It implements:
+
+- strict decomposition-result contracts;
+- four decisions: `already_concrete`, `decomposed`, `needs_artifact`, `needs_human`;
+- semantic gap types: `none`, `execution`, `design`, `uncertain`;
+- exact parent AC/VAL/INT coverage;
+- proposal-local child keys;
+- deterministic permanent NSC-ID allocation above the highest current numeric ID;
+- existing/local dependency resolution;
+- dependency-cycle rejection;
+- copied ID-map/resource-group updates;
+- in-memory graph overlay planning;
+- whole-overlay validation through the production TaskGraph validator;
+- immutable review-only graph-delta output.
+
+D1A never applies the graph delta and never grants readiness, execution, delivery, completion, or conformance authority.
+
+During D1B.1 integration, the D1A semantic boundary was narrowly strengthened with exact artifact-source matching and canonical proposed-child resource-key syntax. The live decomposer prompt was also clarified so proposed `local_key` values use durable lowercase kebab-case reconciliation keys and invalid snake_case model output continues to fail closed rather than being silently normalized.
+
+### Stage D1B.1 — COMPLETE, LIVE-PROVEN, AND MERGED
+
+Stage D1B.1 — Model-Backed Task Decomposition Invocation and Review Artifacts — is no longer the active unfinished slice.
+
+It is implemented and merged into `main`.
+
+D1B.1 performs one human-selected, provider-selected, read-only decomposition invocation through:
+
+```text
+TaskExecution
+    ↓
+AgentRuntime
+    ↓
+Claude Code or OpenAI/Codex
+    ↓
+D1A semantic validation
+    ↓
+graph-delta planning only when decision == decomposed
+```
+
+The production source checkout remains physically read-only to the decomposer. Accepted outputs are written outside the repository to the sibling decomposition-output directory and remain review-only.
+
+The deterministic context binds:
+
+- full committed GDD;
+- selected task;
+- exact TaskExecution byte identity;
+- distinct D1A semantic task identity;
+- complete task catalog;
+- graph neighborhood;
+- relevant resource groups;
+- historical bootstrap observations labelled as historical;
+- approved-artifact context;
+- repository context paths;
+- explicit authority boundaries.
+
+D1B.1 deterministic regression coverage includes all four decisions, malformed output, semantic rejection, source mutation/dirty-source rejection, graph-planner failure, provider failures, output-root overlap, run collisions, exact prompt identity, source preservation, and no-overwrite publication.
+
+#### Live proving history
+
+The first real Codex run exposed a strict structured-output compatibility problem: `artifact_proposal` was optional in the schema shape that OpenAI required to be fully `required`. The provider-neutral fix made the field required but nullable and added narrow nullable-schema support in AgentRuntime.
+
+A later real run reached semantic validation but returned snake_case child keys. D1A correctly rejected it. The prompt was then clarified with the durable lowercase-kebab-case key rule. The validator was not weakened and automatic normalization was not added.
+
+A live NSC-021 decomposition subsequently reached `review_ready`, proving the pipeline could generate a semantically valid reviewed decomposition proposal. That earlier proposal was not blindly applied when its source graph became stale relative to a rapidly advancing `main`.
+
+The current targeted world proof was the live NSC-026 run:
+
+```text
+nsc-026-decomp-20260824t092227z-3ac18b3531a3
+```
+
+It returned:
+
+```text
+run_status: review_ready
+decision: decomposed
+graph validation: valid
+children: 3
+```
+
+The proposed child responsibilities were reviewed and accepted as:
+
+```text
+NSC-038 — Isometric Tilemap Architectural Visual Layer
+NSC-039 — World-Space SpriteRenderer Prefab and Sorting Foundation
+NSC-040 — Visual/Simulation Separation and Continuous-Scene Integration
+```
+
+### NSC-026 reviewed decomposition applied to the persistent graph
+
+The reviewed NSC-026 proposal was manually applied as a targeted human-reviewed graph change and committed at:
+
+```text
+0459ec4baa48e257e39665534de2ca2f0623223b
+```
+
+`NSC-026` is now revision 2 with:
+
+```text
+execution_scope: not_applicable
+decomposition_state: decomposed
+```
+
+Its execution responsibilities are delegated to NSC-038, NSC-039, and NSC-040.
+
+The application also corrected NSC-026 and its new children to use the canonical scene resource:
+
+```text
+unity-scene:Assets/Scenes/DoorPrototype.unity
+```
+
+The persistent graph now contains 40 active contracts.
+
+Important authority distinction:
+
+> This was a human-reviewed targeted application of a D1B.1 proposal. It does **not** mean Stage D1C reviewed graph-application tooling has been implemented.
+
+### Stage D1B.2 — NEXT PIPELINE ARCHITECTURE SLICE
+
+D1B.2 remains unimplemented.
+
+Its intended bounded role is an **independent verifier/refiner** for D1B.1 proposals, not a general GER loop.
+
+It should challenge at least:
+
+- whether each child is truly bounded and realistically single-agent;
+- dependency correctness;
+- completion-gate sufficiency;
+- resource-claim correctness/existence;
+- current repository evidence versus stale bootstrap observations;
+- unsupported design assumptions;
+- semantic adequacy of parent obligation coverage;
+- whether downstream integration checks have incorrectly been promoted to child completion gates.
+
+At most one bounded refinement cycle is the current intended direction. D1B.2 must remain separate from graph application.
+
+### Stage D1C — NOT IMPLEMENTED
+
+A reusable reviewed graph-application authority is not implemented.
+
+Future D1C must not trust an old stored graph delta blindly. It should reconstruct/revalidate the current source graph, current parent identity, current reconciliation-key set, proposed IDs, dependencies, and resource metadata immediately before publication.
+
+This is the next place where stronger artifact-integrity/tamper protections become materially important because D1C crosses from review data into persistent authority.
+
+## Task Contracts and Current Conformance
+
+### Task-contract authority
+
+Task-contract schema 2.0 remains the live contract model:
 
 ```text
 Tasks/*.yaml = approved definition of work
@@ -173,549 +359,326 @@ not:
 Tasks/*.yaml = definition + running state + validation state + completion truth
 ```
 
-Each contract contains:
+Task contracts contain work identity, scope, dependencies, acceptance criteria, completion gates, downstream obligations, resources, contract revision/disposition, and provenance.
 
-- `schema_version: "2.0"`;
-- `contract_revision`;
-- `contract_disposition` (`active`, `superseded`, or `cancelled`);
-- stable acceptance-criterion IDs;
-- stable completion-gate IDs;
-- separate downstream integration obligations;
-- per-contract provenance.
+They intentionally do not contain mutable `status: complete` truth.
 
-Top-level mutable `status` is gone. Historical bootstrap status is retained only as provenance.
+### Evidence-derived conformance authority
 
-Reviewed migration identity:
-
-`task-contract-schema-v2-20260822-r2`
-
-Important reviewed corrections:
-
-- NSC-003 duplicate suspend criteria merged;
-- NSC-003 future pointer-consumer validation moved to a downstream obligation;
-- NSC-019 duplicate suspend criteria merged;
-- NSC-019 duplicate reset criteria merged;
-- NSC-023 fixed-camera checks remain completion gates;
-- NSC-023 future visual-foundation compatibility remains a downstream obligation.
-
-Production-specific migration overrides are bound to the exact task ID, reconciliation key, and approved bootstrap reconciliation/verification provenance. Synthetic tasks that merely reuse an NSC numeric ID do not receive production-specific corrections.
-
-The migration-report verifier was also made portable across Git-for-Windows line endings: migrated target verification normalizes UTF-8 BOM/CRLF/lone-CR differences while source hashes and pre-publication concurrent-change checks remain byte-exact.
-
-The reviewed migration and quality audit currently pass against all 37 contracts.
-
-## Milestone 1 Bootstrap State Retained
-
-The initial human-approved, independently verified bootstrap remains valid historical provenance.
-
-Source reconciliation:
-
-`20260821T193541Z-998ee7b5`
-
-Successful verification:
-
-`20260821T195959Z-43dba5de`
-
-The bootstrap originally produced:
-
-- 37 persistent records;
-- 12 feature records;
-- 25 implementation records;
-- 36 historical `open` observations;
-- 1 historical `complete` observation;
-- 59 dependency edges;
-- 36 parent edges;
-- 7 exclusive-resource groups;
-- 17 non-code project requirements.
-
-The only task historically observed as `complete` at bootstrap was:
-
-`NSC-023 — Fixed Isometric Camera`
-
-That historical observation was **not** Phase 3 conformance evidence. Before the baseline record was committed, the evaluator correctly ignored the uncommitted evidence and reported NSC-023 as `not_delivered`. Once the evidence was committed, the derived state changed to `conformant`.
-
-## Production GDD RAG — CURRENT AND VALIDATED
-
-`Pipeline/GDDRAG` is the current production retrieval layer for the canonical GDD.
-
-Canonical source:
-
-`Docs/GDD/No_Safe_Circle_GDD.md`
-
-Current production index:
-
-`Pipeline/GDDRAG/knowledge_base/No_Safe_Circle_GDD_RAG.json`
-
-Current production state:
-
-- 41 deterministic chunks;
-- source SHA-256 matches the canonical GDD;
-- `gddctl status` reports `CURRENT`;
-- `gddctl validate` passes;
-- direct `GDDRetriever` consumers enforce the same freshness/integrity boundary.
-
-The production integrity boundary verifies canonical path/line ranges, chunk text, character counts, SHA-256 values, canonical/domain flags, and equivalence to a deterministic rebuild.
-
-The historical Assignment 4 RAG under `DynamicContentPipeline/` remains course output built from the older July GDD and is not trusted as current production canon.
-
-### RAG authority boundary
-
-The production RAG solves freshness, provenance, integrity, and deterministic rebuild concerns. It does **not** prove that a top-k result set contains every cross-cutting requirement governing a task.
-
-Therefore:
+Immutable records live under:
 
 ```text
-Canonical GDD = game-design authority
-Production GDDRAG = validated search, discovery, and navigation aid
-Top-k retrieval alone != complete task canon
+Pipeline/TaskGraph/evidence/<TASK-ID>/records/
 ```
 
-Because the GDD is still relatively small and highly cross-linked, bounded implementation workers should receive the whole current GDD until context-pack coverage is independently proven.
-
-## Architecture Correction Phase 3A — IMPLEMENTED AND TESTED
-
-### Purpose
-
-Phase 3A answers:
-
-> What does committed repository evidence currently prove about this exact task contract?
-
-It does not answer:
-
-> May an autonomous worker execute this task?
-
-Those are intentionally separate authority questions.
-
-### New Phase 3A files
-
-- `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`;
-- `Pipeline/TaskGraph/CONFORMANCE_RECORDS.md`;
-- `Pipeline/TaskGraph/conformance_records.py`;
-- `Pipeline/TaskGraph/current_conformance.py`;
-- `Pipeline/TaskGraph/conformance_evaluator_smoke_test.py`.
-
-Updated Phase 3A integration files include:
-
-- `Pipeline/TaskGraph/taskcontrol.py`;
-- `Pipeline/TaskGraph/execution_authority.py`;
-- `Pipeline/TaskGraph/taskcontrol_smoke_test.py`;
-- `Pipeline/TaskGraph/phase1_execution_authority_smoke_test.py`;
-- `Pipeline/TaskGraph/README.md`.
-
-### Evidence record model
-
-Phase 3A defines immutable records under:
-
-```text
-Pipeline/TaskGraph/evidence/<TASK-ID>/records/<RECORD-ID>.json
-```
-
-with committed artifacts conventionally stored under:
+with committed artifacts under:
 
 ```text
 Pipeline/TaskGraph/evidence/<TASK-ID>/artifacts/
 ```
 
-Supported record types:
+Supported record types remain:
 
 - `delivery`;
 - `baseline`;
 - `revalidation`.
 
-Records bind evidence to:
+`Pipeline/TaskGraph/current_conformance.py` evaluates committed records against current committed HEAD.
 
-- exact task ID;
-- task-contract revision and semantic canonical JSON hash;
-- canonical GDD path and normalized text hash;
-- validated Git commit and tree;
-- completion-gate results;
-- conformance-surface Git blob SHAs;
-- committed evidence-artifact blob SHAs;
-- required human approval;
-- delivery or revalidation lineage.
+A record can support conformance only when current task/canon/surface/gate/artifact/approval identities remain valid.
 
-Delivery records require their validated commit/tree to equal the recorded integrated commit/tree.
+Mutable authority fields such as `status`, `complete`, `current`, `ready`, and `authorized` are forbidden in conformance records.
 
-Revalidation records require an existing same-task basis record and valid ancestry with no revalidation cycle.
+### Proven production records
 
-Records cannot recreate mutable authority fields such as `status`, `complete`, `current`, `ready`, or `authorized`.
-
-### Repository authority boundary
-
-The evaluator reads contracts, GDD text, evidence records, and evidence artifacts from **committed Git objects at HEAD**, not from uncommitted working-copy contents.
-
-A dirty working tree is reported as a warning, but it does not alter the derived state of committed HEAD.
-
-This was demonstrated directly: while Phase 3A source files were still uncommitted, `taskcontrol state` reported committed HEAD and warned that the working tree was dirty.
-
-### Deterministic current-state checks
-
-A record can support conformance only when the evaluator can verify the required Git and evidence relationships, including:
-
-- validated commit exists and is ancestral to current HEAD;
-- recorded tree matches the actual tree of the validated commit;
-- task-contract revision/hash is correct at the validated commit and current HEAD;
-- canonical GDD hash is correct at the validated commit and current HEAD;
-- every current completion gate has exactly one passing gate result;
-- evidence artifacts are committed and match recorded Git blob SHAs;
-- conformance surfaces match both the validated commit and current HEAD;
-- required human approval exists;
-- revalidation basis records are valid and acyclic;
-- duplicate, malformed, contradictory, or incomparable evidence is not silently accepted.
-
-### Derived states
-
-Phase 3A implements deterministic states including:
-
-- `aggregate`;
-- `not_delivered`;
-- `conformant`;
-- `needs_revalidation`;
-- `needs_replan`;
-- `needs_human`;
-- `invalid_evidence`;
-- `ambiguous_evidence`;
-- `superseded`;
-- `cancelled`.
-
-When multiple otherwise-current records exist, Git ancestry is used to select a strict descendant. Incomparable maximal records produce `ambiguous_evidence`; timestamps do not decide authority.
-
-### First real production conformance proof
-
-Human-readable:
-
-```powershell
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py state NSC-023
-```
-
-Structured output:
-
-```powershell
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py state NSC-023 --json
-```
-
-Current real-project result:
+The original Phase 3 production proof remains:
 
 ```text
-NSC-001 -> aggregate
-NSC-023 -> conformant
-```
-
-NSC-023 selects:
-
-```text
+NSC-023 — Fixed Isometric Camera
 BASE-NSC-023-86af98f41ab5
 ```
 
-The production proof is bound to:
+NSC-024 now provides a second clear example of the delivery-evidence path:
 
-- validated implementation commit: `86af98f41ab53016ef55eca9516cc339a1e4f5d1`;
-- validated implementation tree: `3e89c4a4879d1bf4179ae48f95b85dee1abc0d4d`;
-- evidence commit: `8933e67c7767abf45634f7bade79c734f334eea5`;
-- authoritative centralized scene: `Assets/Scenes/DoorPrototype.unity`;
-- scene meta GUID: `92dbd0a3e6c18e245896a66c5120379d`;
-- in-memory builder suite: 12 passed, 0 failed;
-- direct committed-scene camera suite: 2 passed, 0 failed;
-- Unity version for both runs: `6000.1.8f1`;
-- repository state after both runs: clean;
-- required human Play Mode approval: explicitly approved by Vincent Liguori.
+```text
+NSC-024 — Tilemap and AI Navigation Package Configuration
+DEL-NSC-024-fa488e3cda1d
+```
 
-Uncommitted evidence was correctly ignored before commit. Committing the evidence changed the derived state from `not_delivered` to `conformant`.
+Other committed evidence directories exist for additional delivered gameplay work. Always use `taskcontrol state <TASK-ID> --json` against current HEAD rather than inferring current conformance merely from the presence of an evidence directory.
 
-### Phase 3A regression status
+## Provider-Neutral AgentRuntime and ExecutionCrew
 
-The conformance evaluator smoke test passes and proves, in a temporary Git repository, at least:
+### AgentRuntime — integrated
 
-1. no records -> `not_delivered`;
-2. valid committed delivery -> `conformant`;
-3. unrelated descendant commit with unchanged conformance surfaces -> still `conformant`;
-4. tracked implementation-surface change -> `needs_revalidation`;
-5. GDD change -> `needs_revalidation`;
-6. task-contract revision/hash change -> `needs_replan`;
-7. missing required human approval -> `needs_human`;
-8. malformed/missing gate, wrong tree/blob, or altered evidence artifact -> `invalid_evidence`;
-9. validated commit not ancestral to HEAD -> stale/revalidation-required state;
-10. valid revalidation after a tracked change -> `conformant`;
-11. incomparable current evidence -> `ambiguous_evidence`;
-12. uncommitted evidence is ignored because authority is committed HEAD.
+The provider-neutral AgentRuntime foundation is integrated and includes:
 
-Existing TaskGraph transform, graph validation, persistence, taskcontrol, migration, quality-audit, and Phase 1 authorization regressions also pass.
+- immutable `AgentInvocationRequest` / `AgentResult` contracts;
+- semantic capabilities and write boundaries;
+- `low_cost`, `standard`, and `high_reasoning` capability classes;
+- strict provider configuration;
+- bounded request budgets;
+- normalized provider failures;
+- strict JSON/schema trust boundaries;
+- immutable no-overwrite runtime artifacts;
+- Claude Code and OpenAI/Codex adapters;
+- deterministic FakeProvider regression coverage.
 
-The Python `py_compile` command is not used through `codex-review` because Python attempts to write `__pycache__` into the intentionally read-only repository mount. The actual smoke tests import and execute the new modules successfully.
+Provider output remains a claim until independently checked by Git, Unity, schema, TaskGraph, or human validation as appropriate.
 
-## Provider-Neutral Execution Crew Preparatory Stage 1 — COMPLETE
+### Minimum Production ExecutionCrew — integrated
 
-Stage 1 of `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md` established the canonical provider-neutral Unity testing policy and deterministic clean runner before the Phase 3B proof.
+The current bounded ExecutionCrew supports one human-selected eligible implementation task and one human-selected provider:
 
-Implemented:
+```text
+Implementer
+    ↓
+deterministic incremental Git scope check
+    ↓
+Unity Test Author
+    ↓
+deterministic incremental Git scope check
+    ↓
+read-only Validator
+    ↓
+optional one repair cycle
+    ↓
+human review
+```
 
-- `Docs/Engineering/UNITY_TESTING_POLICY.md`;
-- the provider-neutral testing-policy instruction bridge in `AGENTS.md`;
-- the testing-policy import in `CLAUDE.md`;
-- `Pipeline/Testing/run_unity_tests_clean.ps1`;
-- `Pipeline/Testing/testing_policy_smoke_test.py`;
-- `Pipeline/Testing/README.md`.
+A selected task must be:
 
-Deterministic checks passed:
+```text
+contract_disposition: active
+kind: implementation
+execution_scope: single_agent
+decomposition_state: concrete
+```
 
-- `testing_policy_smoke_test.py`;
-- Windows PowerShell syntax parsing of `run_unity_tests_clean.ps1`.
+Eligibility is not readiness or authorization.
 
-The clean runner was also proven through a real Unity run with these exact facts:
+ExecutionCrew:
 
-- branch: `phase-3-evidence-derived-conformance`;
-- commit: `1d3ed42db6fd595283bd1b57a008a4f4c5438796`;
-- tree: `9ce6f9fae545bc187f6b3869c4c36b17ac5f8a45`;
-- Unity: `6000.1.8f1`;
-- platform: `PlayMode`;
-- filter: `NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests`;
-- total: 5;
-- passed: 5;
-- failed: 0;
-- skipped: 0;
-- result: `Passed`;
-- Unity exit code: 0;
-- repository clean before and after the run.
+- never applies `candidate.patch` automatically;
+- never commits, pushes, or merges automatically;
+- never treats Validator pass as Unity execution evidence;
+- never grants conformance or completion;
+- uses explicit implementation/test write paths;
+- keeps implementation and test scopes disjoint;
+- emits human-readable review instructions and immutable run artifacts.
 
-The runner proves Unity and Git execution facts. The separately committed NSC-023 baseline record binds those facts into Phase 3 conformance evidence. Neither the runner nor a conformant result enables readiness or authorization; `taskcontrol ready` remains unavailable and `taskcontrol authorize` remains denied.
+### Standalone clone / Compose rule
 
-Stage 1 itself did **not** implement `AgentRuntime`, provider adapters, `ExecutionCrew`, or a dedicated test-author agent. The provider-neutral `AgentRuntime` foundation was implemented later in Stage 3; live provider adapters and production `ExecutionCrew` roles were implemented in subsequent stages governed by the plan and ADR-034.
+Real task execution should use a standalone clone from GitHub.
 
-## Provider-Neutral Execution Crew Stage 3 — COMPLETE
+On this machine, task clones should pin the shared Compose project namespace so they reuse configured provider volumes rather than creating clone-specific authentication/config volumes.
 
-Stage 3 of `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md` extracted the reusable orchestration concepts demonstrated by Assignment 3 into a new production foundation under:
+Follow the current repository runbook and clone note rather than reconstructing the command from old chat transcripts:
 
-`Pipeline/AgentRuntime/`
+```text
+Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md
+Docs/AI-Pipeline/REAL_TASK_DELIVERY_WINDOWS_CLONE_NOTE.md
+```
 
-Historical coursework remains preserved:
+## Unity Validation Boundary
 
-- `AgentCrew/` remains Assignment 3 evidence and was not rewritten to use the new runtime;
-- `Assignment6GER/` remains Assignment 6 evidence and was not rewritten to use the new runtime.
+Canonical testing policy:
 
-Implemented Stage 3 foundation files include:
+```text
+Docs/Engineering/UNITY_TESTING_POLICY.md
+```
 
-- `Pipeline/AgentRuntime/README.md`;
-- `Pipeline/AgentRuntime/contracts.py`;
-- `Pipeline/AgentRuntime/json_values.py`;
-- `Pipeline/AgentRuntime/schema_validation.py`;
-- `Pipeline/AgentRuntime/config.py`;
-- `Pipeline/AgentRuntime/agent_runner.py`;
-- `Pipeline/AgentRuntime/providers/base.py`;
-- `Pipeline/AgentRuntime/providers/fake.py`;
-- `Pipeline/AgentRuntime/tests/agent_runtime_smoke_test.py`;
-- `Pipeline/AgentRuntime/config/example.json`.
+Core rules remain:
 
-### Stage 3 contract boundary
+- a passing source-level/agent review is not Unity execution evidence;
+- authoritative Unity evidence must bind to an exact clean committed HEAD/tree;
+- normal tests must not mutate canonical tracked assets;
+- builder tests use in-memory or otherwise non-saving seams;
+- committed-scene/prefab conformance checks deliberately open exact committed assets and close without saving;
+- human Play Mode/visual review remains required where source assertions cannot prove quality;
+- Unity-generated incidental project-setting rewrites should be inspected and restored when unrelated.
 
-Stage 3 originally named its task-bound request `AgentRequest`. Stage 4B.3 replaces that production contract with generic `AgentInvocationRequest`; `TaskExecutionRequest` now owns NSC task identity above the runtime. `AgentResult` remains provider-neutral and schema 1.0.
+For scene-builder work such as NSC-038, prefer an in-memory builder test path before regenerating the canonical scene through Unity for human inspection.
 
-The runtime distinguishes provider/agent **claims** from deterministic facts. In particular:
+## Production GDD and RAG
 
-- claimed changed paths do not replace Git diff/scope checks;
-- claimed test commands do not prove tests ran;
-- provider success does not prove Unity success;
-- provider output does not establish integrated delivery;
-- provider output does not establish current conformance;
-- provider output does not establish readiness or dispatch authorization.
+Game-design authority remains:
 
-### Stage 3 runtime safety
+```text
+Docs/GDD/No_Safe_Circle_GDD.md
+```
 
-The foundation now fail-closes on malformed or unsafe runtime data, including:
+Production retrieval layer:
 
-- invalid task/contract identity;
-- unsafe repository-relative paths and Windows path aliases;
-- unsupported or missing capabilities;
-- invalid/excessive budgets;
-- malformed or cyclic JSON;
-- unsupported schema keywords;
-- mutable/polymorphic provider values crossing the trust boundary;
-- malformed raw logs or diagnostics;
-- schema-invalid structured output;
-- duplicate run identities;
-- attempts to overwrite finalized run artifacts.
+```text
+Pipeline/GDDRAG
+Pipeline/GDDRAG/knowledge_base/No_Safe_Circle_GDD_RAG.json
+```
 
-Provider failures are normalized into provider-neutral result classifications. Post-invocation schema failures preserve otherwise-valid non-authoritative audit claims and usage while rejecting the structured output itself.
+Current authority boundary:
 
-The deterministic fake provider exercises success, provider failure, timeout, permission denial, budget exhaustion, schema failure, malformed metadata, and trust-boundary cases without network, shell, Git, Unity, or repository side effects.
+```text
+Canonical GDD = game-design authority
+Production GDDRAG = validated search/discovery/navigation aid
+Top-k retrieval alone != complete task canon
+```
 
-### Stage 3 regression status
+Historical Assignment 4 material under `DynamicContentPipeline/` is course output and is not production canon.
 
-The Stage 3 AgentRuntime smoke suite passes after adversarial hardening and covers the request/result contracts, configuration, provider registry, write boundaries, strict JSON/schema behavior, immutable publication, normalized failures, fake-provider scenarios, provider trust-boundary attacks, and protection of the historical Assignment 3 and Assignment 6 directories.
+## Architecture Review and Correction History
 
-Stage 3 itself did **not** implement live Claude Code/OpenAI-Codex providers or Implementer/Test Author/Validator orchestration; those capabilities were added in subsequent stages.
+The preserved post-Milestone-1 architecture review remains under:
 
-The following capabilities remain outside the current runtime/dispatch boundary:
+```text
+Pipeline/ArchitectureReview/evidence/20260821T222222Z-40fdf9ce/
+```
 
-- automatic provider fallback;
-- Unity execution initiated by an agent;
-- GER integration;
-- automatic task selection;
-- dependency readiness;
-- dispatch authorization;
-- automatic Git branch/worktree/commit/merge behavior.
+The accepted architecture direction remains:
+
+- preserve bounded workers and deterministic validation;
+- preserve human design/merge authority;
+- use immutable evidence and derived current conformance rather than mutable task completion status;
+- separate historical delivery evidence from current conformance;
+- prove small real delivery loops before adding broad autonomy;
+- avoid treating task-graph order or reviewer consensus as automatic product priority.
+
+Historical correction milestones:
+
+```text
+Architecture Correction Phase 1  — fail-closed legacy execution authority
+Architecture Correction Phase 2  — task-contract schema 2.0 migration
+Architecture Correction Phase 3A — evidence-derived current conformance
+Architecture Correction Phase 3B — first real production baseline
+Provider-neutral AgentRuntime       — integrated
+Minimum Production ExecutionCrew   — integrated
+Stage D1A                          — deterministic decomposition contracts/planning
+Stage D1B.1                        — live read-only model-backed decomposition proposals
+```
+
+Historical Assignment 3/4/5/6 course directories remain preserved as coursework evidence and should not be silently rewritten into production architecture.
 
 ## Current Dispatch Policy
 
-Evidence-derived state inspection exists, but **dependency readiness and autonomous dispatch are not enabled**.
+Dependency readiness and autonomous dispatch remain deliberately unavailable.
 
-Current readiness command:
+Readiness inspection:
 
 ```powershell
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py ready
+python Pipeline/TaskGraph/taskcontrol.py ready
 ```
 
-Expected output begins:
+Expected policy result begins with:
 
 ```text
 TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED
 ```
 
-and explicitly states:
-
-- evidence-derived current-state inspection exists through `taskcontrol state`;
-- evidence-derived current conformance has been proven on at least one real task;
-- a conformant result does not establish dependency readiness;
-- dependency-readiness policy has not been implemented or approved;
-- dispatch authorization policy has not been implemented or approved;
-- state inspection and a conformant result never authorize autonomous execution;
-- zero tasks are authorized for autonomous dispatch.
-
-Authorization command:
+Authorization:
 
 ```powershell
-docker compose run --rm codex-review python3 Pipeline/TaskGraph/taskcontrol.py authorize NSC-023
+python Pipeline/TaskGraph/taskcontrol.py authorize NSC-038
 ```
 
-Expected result:
+Expected result is a policy denial with:
 
 ```text
-EXECUTION AUTHORIZATION: DENIED
 reason_code: evidence_derived_dispatch_policy_not_enabled
 ```
 
-A nonzero exit from `authorize` is an intentional policy denial, not a Docker failure.
+Human selection is therefore still required before starting NSC-038 even though NSC-024 is conformant and the graph dependency is now satisfied in practical terms.
 
 ## Source-of-Truth Boundaries
 
 ### Game-design canon
 
-The current human-approved GDD and explicit approved design decisions define intended behavior.
-
-### Production GDD retrieval
-
-`Pipeline/GDDRAG` provides current, hash-bound, integrity-validated retrieval over the canonical GDD. It is not a substitute for complete canon when retrieval coverage has not been proven.
+The committed human-approved GDD defines intended game behavior.
 
 ### Task contracts
 
-`Tasks/*.yaml` defines approved work identity, scope, dependencies, acceptance criteria, completion gates, downstream obligations, exclusive resources, contract revision/disposition, and provenance.
-
-Task contracts do not contain current execution or completion truth.
+`Tasks/*.yaml` defines approved work. It does not define mutable completion truth.
 
 ### Integrated implementation
 
-The integrated Git tree is the authority for what code and assets are present.
+The committed Git tree defines what code/assets/configuration currently exist.
 
 Presence alone is not completion proof.
 
 ### Delivery/revalidation records
 
-Phase 3 records are immutable evidence claims tied to exact task, canon, Git, gate, artifact, and approval identities.
-
-A record does not contain mutable current-completion authority.
+Committed immutable evidence records bind exact task, canon, Git, gate, artifact, and approval identities.
 
 ### Current conformance
 
-`Pipeline/TaskGraph/current_conformance.py` deterministically evaluates committed evidence against current committed HEAD.
+TaskGraph deterministically derives current conformance from committed evidence and current committed HEAD.
 
-State inspection is now implemented.
+### AgentRuntime / ExecutionCrew output
 
-Production proof now exists for NSC-023 through committed baseline `BASE-NSC-023-86af98f41ab5`. No real production revalidation record exists yet.
+Agent output is execution/review data, not design canon, deterministic Unity evidence, conformance, readiness, or authorization.
 
-### AgentRuntime requests/results
+### Progressive decomposition output
 
-`Pipeline/AgentRuntime` is the provider-neutral execution boundary for future model invocations.
-
-Its immutable request, result, configuration, and provider-log artifacts are execution records and audit data. They are **not** game-design authority, deterministic validation evidence, current conformance, readiness, dispatch authorization, or human approval.
-
-Provider-reported changed paths, executed commands, tests, usage, and structured output remain claims until independently checked by the appropriate deterministic Git, Unity, schema, TaskGraph, or human process.
+D1B.1 output is review-only. It is not persistent graph authority until a separate human-reviewed application step changes the graph.
 
 ### Reconciliation
 
-Reconciliation outputs remain immutable point-in-time observations. They may propose graph changes but do not directly mutate living task contracts or current conformance state.
+Bootstrap reconciliation remains historical point-in-time provenance. Historical repository observations may be stale and must not override current repository evidence.
 
-Routine GDD iteration should eventually use reviewed, scoped impact analysis rather than global reconciliation after every edit.
+### Architecture review
 
-### Architecture review evidence
+Architecture-review recommendations are evidence for human decisions; they do not automatically become project authority.
 
-The preserved architecture review is primary evidence for the accepted correction direction, but reviewer recommendations do not automatically become project decisions.
+## Deferred / Not Yet Implemented
 
-## Active Development Slice
+Do not treat any of the following as available merely because neighboring infrastructure exists:
 
-### Stage D1B.1 live read-only decomposition proposals
-
-The active work connects the completed D1A contracts and planner to one high-reasoning `task_decomposer` invocation through TaskExecution and AgentRuntime. The context and prompt preserve full GDD authority, task-contract authority, committed-repository evidence, exact task identities, and the proposal-only boundary. Production provider access is physically read-only and output is filesystem-disjoint.
-
-This slice still stops at immutable human-review data. It does not apply the proposed overlay, alter persistent graph files, generate or authorize artifacts, retry or refine a rejected proposal, verify a decomposition independently, calculate readiness, or authorize execution. D1B.2 verification/refinement and D1C reviewed graph application remain future separately bounded work.
-
-Architecture Correction Phase 3 authority remains active:
-
-- `NSC-023` derives as `conformant`;
-- readiness remains unavailable;
-- authorization remains denied;
-- no worker, provider, runtime, or future adapter result establishes completion, readiness, or dispatch authority.
-
-No real production revalidation record exists yet. Do not fabricate a gameplay, contract, GDD, scene, implementation, or test change merely to produce one. The first legitimate relevant change will exercise the production revalidation path.
-
-## Real Gameplay Task Selection After the Evidence Proof
-
-The first gameplay implementation task is **not automatically selected** by this document, the graph, or reviewer consensus.
-
-`NSC-037` was discussed during architecture review as a possible delivery-lane experiment. It is not the committed gameplay priority.
-
-`NSC-003` remains a possible high-leverage gameplay anchor, but it should not be handed to a worker unchanged merely because its task contract currently says `single_agent`.
-
-Before implementing NSC-003, human review should resolve:
-
-- which Input Action owns click-to-move/select;
-- arbitration among UI click, movement, Fireball, Frost Field, Force Wave, and door selection;
-- click versus held-pointer steering;
-- destination replacement and cancellation;
-- approach/arrival semantics;
-- movement pathing expectations;
-- movement-restriction ownership/release semantics.
-
-Human review should also decide whether NSC-003 should be superseded by smaller contracts, for example:
-
-- runtime input and shared pointer-projection foundation;
-- mouse-directed movement, restriction, reset, and suspension.
-
-## Deferred Until Evidence Justifies It
-
-Do not enable or build these merely because Phase 3 exists:
-
+- D1B.2 independent decomposition verifier/refiner;
+- reusable D1C reviewed graph-application tooling;
+- Artifact Authority / design-artifact generation;
+- a general GER loop for decomposition;
 - dependency-derived `taskcontrol ready`;
 - autonomous execution authorization;
-- autonomous task claiming or continuous dispatch;
-- parallel workers or broad worktree orchestration;
-- automatic merge/merge queues;
-- broad GitHub Issues/Projects synchronization;
-- automatic backlog replenishment;
-- full-game speculative decomposition;
-- Progressive Decomposer as a bundled platform;
-- Artifact Authority without a real blocking design need;
-- top-k-only task context presented as complete canon;
-- automatic GDD impact analysis without a reviewed causal model;
-- a general supervisor before repeated delivery bottlenecks justify one.
+- continuous/autonomous task claiming;
+- parallel gameplay workers;
+- automatic Git commit/merge/merge queues;
+- mixed-provider ExecutionCrew orchestration;
+- Unity execution initiated autonomously by an agent;
+- provider fallback;
+- broad automatic GDD impact analysis;
+- full-game speculative decomposition.
 
-These remain later candidates driven by observed production needs rather than roadmap momentum.
+Implement these only when a concrete production boundary justifies them.
 
-## Obsolete Branch/Plan Warning
+## Next Work
 
-Do not resume `milestone-2a-nsc-003-context` unchanged.
+### Human-selected game lane
 
-That branch predates the accepted architecture corrections, task-contract schema 2.0, reviewed migration corrections, production GDD RAG integrity boundary, and Phase 3 conformance model.
+Start from current `main` and create/use an isolated NSC-038 task clone.
 
-Useful ideas should be recreated from the corrected current repository state rather than continuing the obsolete plan as written.
+Before running ExecutionCrew:
+
+1. run `taskcontrol.py validate`;
+2. inspect `taskcontrol.py show NSC-038` and `state NSC-038 --json`;
+3. inspect current repository reality and the GDD;
+4. confirm exact implementation/test write paths;
+5. keep serialized scene publication under Unity/human review rather than giving the worker broad scene-YAML write authority.
+
+Target world sequence:
+
+```text
+NSC-038 Tilemap architectural visual layer
+    ↓
+NSC-039 SpriteRenderer prefab/sorting foundation
+    ↓
+NSC-040 visual/simulation continuity
+    ↓
+later five-room authored content (NSC-029)
+```
+
+### Pipeline lane
+
+The next approved architecture discussion should be D1B.2 independent verification/refinement, keeping D1C and Artifact Authority separate.
+
+Do not build D1B.2 merely to delay the game lane. The game can continue through existing human-selected bounded tasks while pipeline architecture evolves separately.
 
 ## Next Window Instructions
 
@@ -723,21 +686,33 @@ Read, in order:
 
 1. `Docs/AI-Pipeline/START_HERE.md`;
 2. this file;
-3. `Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md`;
-4. `Pipeline/TaskDecomposition/README.md`;
-5. `Pipeline/TaskDecomposition/schemas.py`;
-6. `Pipeline/TaskDecomposition/contracts.py`;
-7. `Pipeline/TaskDecomposition/policy.py`;
-8. `Pipeline/TaskGraph/graph_delta.py`;
-9. `Pipeline/TaskGraph/work_graph_validate.py`;
-10. inspect the actual repository and branch state.
+3. `Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md` for real implementation work;
+4. `Pipeline/TaskDecomposition/README.md` for decomposition work;
+5. the selected `Tasks/NSC-###.yaml`;
+6. `Docs/GDD/No_Safe_Circle_GDD.md`;
+7. `Docs/Engineering/UNITY_TESTING_POLICY.md` when Unity/tests/scenes are involved;
+8. inspect actual Git/TaskGraph state before acting.
 
-Then:
+For the immediate world lane, inspect:
 
-1. confirm the intended branch for the next approved slice and inspect the working tree without discarding changes;
-2. preserve temporary child keys and deterministic planner-owned NSC allocation;
-3. keep proposal validation separate from graph application and execution authority;
-4. keep the implemented D1B.1 live invocation separate from the still-unimplemented D1B.2 verifier/refiner;
-5. keep D1C graph application, Artifact Authority, GER, readiness, and dispatch fail-closed until their own approved stages.
+```text
+Tasks/NSC-024.yaml
+Tasks/NSC-026.yaml
+Tasks/NSC-038.yaml
+Tasks/NSC-039.yaml
+Tasks/NSC-040.yaml
+Pipeline/TaskGraph/evidence/NSC-024/
+Packages/manifest.json
+Packages/packages-lock.json
+```
 
-A new window should be able to resume from repository state without the prior chat transcript.
+Then confirm repository state rather than trusting this document blindly.
+
+The expected immediate continuation is:
+
+```text
+NSC-024 package prerequisite — completed/evidenced/merged
+NSC-038 Tilemap foundation      — next human-selected implementation task
+```
+
+A new window should be able to resume from the repository without the prior chat transcript.
