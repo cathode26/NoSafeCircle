@@ -209,6 +209,7 @@ def validate_decomposition_result(
                     )
 
     if result.artifact_proposal is not None:
+        artifact_sources: set[tuple[str, str]] = set()
         for ref in result.artifact_proposal.source_parent_obligations:
             parent_key = (ref.parent_entry_type, ref.parent_entry_id)
             if parent_key not in parent_entries:
@@ -220,4 +221,17 @@ def validate_decomposition_result(
                     "Artifact proposal source obligation "
                     f"{ref.parent_entry_type}/{ref.parent_entry_id} must have blocked_by_artifact coverage."
                 )
+            artifact_sources.add(parent_key)
+        blocked_by_artifact = {
+            parent_key
+            for parent_key, record in coverage_by_parent.items()
+            if record.disposition == "blocked_by_artifact"
+        }
+        if artifact_sources != blocked_by_artifact:
+            missing = sorted(blocked_by_artifact - artifact_sources)
+            extra = sorted(artifact_sources - blocked_by_artifact)
+            raise DecompositionPolicyError(
+                "Artifact proposal source obligations must exactly match blocked_by_artifact "
+                f"coverage (missing={missing}, extra={extra})."
+            )
     return result

@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-24, for Stage D1A decomposition contracts and deterministic incremental graph-delta planning on `stage-d1-task-decomposition`.
+Last updated: 2026-08-24, after the full Stage D1B.1 deterministic test gate on `stage-d1b-live-decomposition`.
 
 ## Current Phase
 
@@ -23,18 +23,28 @@ Phase 3 was fast-forward merged into `main` at:
 The active development branch is:
 
 ```text
-stage-d1-task-decomposition
+stage-d1b-live-decomposition
 ```
 
 Stage 5A proved isolated repository writes through both provider adapters. Stage 5B implemented the Minimum Production ExecutionCrew for one human-selected eligible task, with fresh Implementer, Unity Test Author, and read-only Validator invocations, deterministic incremental per-role Git enforcement, and at most one repair cycle. Those provider and ExecutionCrew changes have been merged into `main`.
 
-**Stage D1A — Decomposition Contracts Plus Deterministic Incremental Graph-Delta Planning — is the active bounded slice.**
+**Stage D1A — Decomposition Contracts Plus Deterministic Incremental Graph-Delta Planning — is complete and merged into `main` at `08ebfd497360b46f801a63e9b3d4d6a365b40bb1`.**
 
 D1A implements strict immutable decomposition-result contracts; fresh structural parsing at each validation boundary; semantic decision/gap policy; exact parent AC/VAL/INT coverage through explicit child-local IDs; independently verifiable and parent-traced children; partial retained/blocked coverage for artifact and human blockers; temporary child keys; planner-side revalidation against the actual parent and current reconciliation keys; deterministic permanent ID allocation above the maximum existing NSC number; existing/local dependency resolution and cycle rejection; copied ID-map and resource-group updates; an in-memory proposed graph overlay; whole-overlay validation with the production TaskGraph validator; and immutable canonical review output with deterministic hashes and plan identity. It is model-free and makes no file writes.
 
-The D1A contract and graph-delta smoke suites pass, as do the existing TaskGraph validation, taskcontrol, contract-quality-audit, and conformance-evaluator regression suites required for this slice.
+During D1B.1 integration on `stage-d1b-live-decomposition`, the D1A semantic boundary was narrowly strengthened with exact artifact-source matching and canonical proposed-child resource-key syntax. Those strengthenings are part of the current D1B.1 branch and are not claimed as content of the original `08ebfd497360b46f801a63e9b3d4d6a365b40bb1` D1A merge.
 
-D1A does not complete the Progressive Decomposer milestone. Live model-backed decomposition, decomposition verification/refinement, graph-delta review/application or publication, Artifact Authority, artifact generation or GER, general GER infrastructure, readiness, and dispatch remain unimplemented.
+The D1A contract and graph-delta smoke suites pass, as do the existing TaskGraph validation, taskcontrol, contract-quality-audit, and conformance-evaluator regression suites required for that slice.
+
+**Stage D1B.1 — Model-Backed Task Decomposition Invocation and Review Artifacts — is the active bounded slice.**
+
+D1B.1 now performs one human-selected, provider-selected, read-only `TaskExecution -> AgentRuntime -> Claude Code or OpenAI/Codex` decomposition invocation after deterministic committed-source, graph, task-eligibility, physical-read-only, and output-disjointness preflight. It builds a deterministic hash-bound context containing the full committed GDD, selected task and distinct byte/semantic identities, complete numeric task catalog, graph neighborhood, relevant resource groups, historical bootstrap observations, empty approved-artifact set, validated context paths, and explicit authority notes. AgentRuntime schema success is followed by D1A semantic validation and, only for `decomposed`, whole-overlay graph-delta planning. Accepted review artifacts are atomically published outside the source checkout; the direct CLI defaults to sibling `NoSafeCircle-DecompositionOutputs`, and Compose mounts that sibling host directory at `/decomposition-output` while keeping `/workspace` read-only. Provider raw artifacts remain available on rejection. Source HEAD/tree/branch/status are revalidated after invocation and before acceptance, and incompatible provider execution/change/test claims fail closed.
+
+Deterministic temporary-repository and FakeProvider tests cover all four valid decisions, schema and semantic rejection, wrong semantic identity, normalized provider failure, read-only claim rejection, graph-planner failure, dirty and mutated sources, output-root overlap, run collision, factory/config mismatch, atomic no-overwrite publication, exact prompt identity, source preservation, and absence of live provider calls. The full D1B.1 deterministic gate passes, including decomposition contracts, context construction, live orchestration, graph-delta planning, TaskExecution, AgentRuntime, both provider-adapter smoke suites, TaskGraph validation/taskcontrol/quality/conformance regressions, Python compilation, Compose validation, and Git diff checks.
+
+No live D1B.1 Claude or Codex proving run has occurred yet.
+
+D1B.1 does not complete D1B or the Progressive Decomposer milestone. D1B.2 independent verification and bounded refinement, a general GER loop, Artifact Authority, artifact generation, D1C graph application, dependency readiness, dispatch, automatic commits, and merges remain unimplemented.
 
 The Stage 3 foundation now implements:
 
@@ -640,11 +650,11 @@ The preserved architecture review is primary evidence for the accepted correctio
 
 ## Active Development Slice
 
-### Stage D1A deterministic decomposition foundation
+### Stage D1B.1 live read-only decomposition proposals
 
-The active work establishes proposal contracts and incremental planning before any live model-backed decomposer exists. `Pipeline/TaskDecomposition` owns structured result snapshots and semantic coverage policy. `Pipeline/TaskGraph/graph_delta.py` owns deterministic ID allocation and complete in-memory overlay validation.
+The active work connects the completed D1A contracts and planner to one high-reasoning `task_decomposer` invocation through TaskExecution and AgentRuntime. The context and prompt preserve full GDD authority, task-contract authority, committed-repository evidence, exact task identities, and the proposal-only boundary. Production provider access is physically read-only and output is filesystem-disjoint.
 
-This slice intentionally stops at immutable review data. It does not invoke AgentRuntime or ExecutionCrew, apply the proposed overlay, alter persistent graph files, or authorize execution. The next decomposition stages must preserve this separation: D1B may add live invocation plus verification/refinement; D1C may add a separately reviewed application boundary. Neither is implemented now.
+This slice still stops at immutable human-review data. It does not apply the proposed overlay, alter persistent graph files, generate or authorize artifacts, retry or refine a rejected proposal, verify a decomposition independently, calculate readiness, or authorize execution. D1B.2 verification/refinement and D1C reviewed graph application remain future separately bounded work.
 
 Architecture Correction Phase 3 authority remains active:
 
@@ -726,7 +736,7 @@ Then:
 1. confirm the intended branch for the next approved slice and inspect the working tree without discarding changes;
 2. preserve temporary child keys and deterministic planner-owned NSC allocation;
 3. keep proposal validation separate from graph application and execution authority;
-4. do not connect live decomposition until its invocation and verification/refinement scope is explicitly approved;
-5. keep Artifact Authority, GER, readiness, and dispatch fail-closed until their own approved stages.
+4. keep the implemented D1B.1 live invocation separate from the still-unimplemented D1B.2 verifier/refiner;
+5. keep D1C graph application, Artifact Authority, GER, readiness, and dispatch fail-closed until their own approved stages.
 
 A new window should be able to resume from repository state without the prior chat transcript.

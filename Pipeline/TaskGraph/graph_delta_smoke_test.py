@@ -4,6 +4,7 @@ import builtins
 import json
 import sys
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -238,6 +239,19 @@ def main() -> int:
     expect_failure(
         lambda: plan_graph_delta(source, selector, duck_typed_result),
         "exact DecompositionResult",
+    )
+
+    malformed_child = replace(
+        result.children[0], exclusive_resources=("unknown:unsafe-resource",)
+    )
+    malformed_resource_result = replace(
+        result, children=(malformed_child, *result.children[1:])
+    )
+    expect_failure(
+        lambda: plan_graph_delta(
+            source, malformed_resource_result.parent_task, malformed_resource_result
+        ),
+        "exclusive_resources",
     )
 
     parent = next(task for task in source.tasks if task["id"] == "NSC-042")

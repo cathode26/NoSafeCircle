@@ -8,6 +8,11 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from AgentRuntime.contracts import (
+    ContractValidationError,
+    validate_repository_path,
+)
+
 TASK_ID_RE = re.compile(r"^NSC-\d{3,}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 LOCAL_KEY_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -88,6 +93,46 @@ def _string_tuple(value: Any, label: str, *, allow_empty_items: bool = False) ->
     if len(items) != len(set(items)):
         raise DecompositionContractError(f"{label} contains duplicate values.")
     return items
+
+
+def _resource_key(value: Any, label: str) -> str:
+    if type(value) is not str or not value or value != value.strip():
+        raise DecompositionContractError(
+            f"{label} must be a non-empty canonical resource key without surrounding whitespace."
+        )
+    resource = value
+    if resource.startswith("logical:"):
+        logical_key = resource.removeprefix("logical:")
+        if not LOCAL_KEY_RE.fullmatch(logical_key):
+            raise DecompositionContractError(
+                f"{label} logical key must be a conservative lowercase ASCII slug."
+            )
+        return resource
+
+    path_prefixes = ("repo-file:", "unity-scene:", "unity-prefab:")
+    prefix = next((candidate for candidate in path_prefixes if resource.startswith(candidate)), None)
+    if prefix is None:
+        raise DecompositionContractError(f"{label} has an unsupported resource-key prefix.")
+    repository_path = resource.removeprefix(prefix)
+    try:
+        validate_repository_path(repository_path, field=f"{label} repository path")
+    except ContractValidationError as exc:
+        raise DecompositionContractError(str(exc)) from exc
+    if prefix in {"unity-scene:", "unity-prefab:"} and not repository_path.startswith("Assets/"):
+        raise DecompositionContractError(
+            f"{label} {prefix[:-1]} path must be repository-relative beneath Assets/."
+        )
+    return resource
+
+
+def _resource_tuple(value: Any, label: str) -> tuple[str, ...]:
+    resources = tuple(
+        _resource_key(item, f"{label}[{index}]")
+        for index, item in enumerate(_list(value, label))
+    )
+    if len(resources) != len(set(resources)):
+        raise DecompositionContractError(f"{label} contains duplicate values.")
+    return resources
 
 
 @dataclass(frozen=True)
@@ -211,7 +256,7 @@ class ChildProposal:
         for dependency in local_dependencies:
             if not LOCAL_KEY_RE.fullmatch(dependency):
                 raise DecompositionContractError(f"{label}.local_dependencies contains invalid local key {dependency!r}.")
-        resources = _string_tuple(value["exclusive_resources"], f"{label}.exclusive_resources")
+        resources = _resource_tuple(value["exclusive_resources"], f"{label}.exclusive_resources")
         evidence = tuple(
             EvidenceEntry.from_dict(item, f"{label}.gdd_evidence[{index}]")
             for index, item in enumerate(_list(value["gdd_evidence"], f"{label}.gdd_evidence"))

@@ -199,7 +199,12 @@ def blocked_result(parent: dict, decision: str) -> dict:
             "title": "Smallest missing design",
             "purpose": "Authorize only the decision needed to resume decomposition.",
             "source_parent_obligations": [
-                {"parent_entry_type": "acceptance_criteria", "parent_entry_id": "AC-001"}
+                {"parent_entry_type": kind, "parent_entry_id": entry_id}
+                for kind, entry_id in (
+                    ("acceptance_criteria", "AC-001"),
+                    ("completion_gates", "VAL-001"),
+                    ("downstream_integration_obligations", "INT-001"),
+                )
             ],
             "authorized_decisions_needed": ["Choose the approved boundary."],
             "out_of_scope": ["New mechanics and unrelated content."],
@@ -268,6 +273,32 @@ def main() -> int:
     bad["children"][1]["local_key"] = "runtime-core"
     expect_failure(bad, parent, "duplicate local_key")
     expect_failure(decomposed_result(parent), parent, "collides", existing={"runtime-core"})
+
+    valid_resources = decomposed_result(parent)
+    valid_resources["children"][0]["exclusive_resources"] = [
+        "repo-file:ProjectSettings/ProjectVersion.txt",
+        "unity-scene:Assets/Scenes/Gameplay.unity",
+        "unity-prefab:Assets/Prefabs/Player.prefab",
+        "logical:gameplay-shared-surface",
+    ]
+    validate_decomposition_result(valid_resources, parent_task=parent)
+    for malformed_resource in (
+        "unknown:value",
+        "repo-file:",
+        "repo-file:/Assets/Absolute.cs",
+        "repo-file:Assets/../Escape.cs",
+        "repo-file:Assets//DuplicateSeparator.cs",
+        "repo-file:Assets\\Backslash.cs",
+        " repo-file:Assets/Whitespace.cs ",
+        "unity-scene:ProjectSettings/Scene.unity",
+        "unity-prefab:Assets",
+        "logical:",
+        "logical:Uppercase",
+        "logical:contains_underscore",
+    ):
+        bad = decomposed_result(parent)
+        bad["children"][0]["exclusive_resources"] = [malformed_resource]
+        expect_failure(bad, parent, "exclusive_resources")
     bad = retained_result(parent)
     bad["gap_type"] = "execution"
     expect_failure(bad, parent, "incompatible")
@@ -351,7 +382,17 @@ def main() -> int:
 
     mixed_artifact = blocked_result(parent, "needs_artifact")
     mixed_artifact["parent_requirement_coverage"][1]["disposition"] = "retained_by_parent"
+    mixed_artifact["artifact_proposal"]["source_parent_obligations"] = [
+        ref
+        for ref in mixed_artifact["artifact_proposal"]["source_parent_obligations"]
+        if ref["parent_entry_id"] != "VAL-001"
+    ]
     validate_decomposition_result(mixed_artifact, parent_task=parent)
+
+    bad = blocked_result(parent, "needs_artifact")
+    bad["artifact_proposal"]["source_parent_obligations"].pop()
+    expect_failure(bad, parent, "exactly match blocked_by_artifact")
+
     bad = blocked_result(parent, "needs_artifact")
     bad["parent_requirement_coverage"][0]["disposition"] = "retained_by_parent"
     expect_failure(bad, parent, "must have blocked_by_artifact coverage")
