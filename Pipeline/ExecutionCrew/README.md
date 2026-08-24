@@ -3,6 +3,7 @@
 A human selects one eligible committed `NSC-###` task, one provider, explicit production implementation paths, and explicit Unity test paths. The crew runs fresh task-associated invocations through `TaskExecutionRunner -> AgentRunner -> provider`:
 
 ```text
+Contract Locality Auditor -> deterministic locality-audit consistency check
 Implementer -> deterministic incremental Git scope check
 Unity Test Author -> deterministic incremental Git scope check
 Validator -> optional one repair cycle -> human review
@@ -10,7 +11,31 @@ Validator -> optional one repair cycle -> human review
 
 The selected task must be `active`, `implementation`, `single_agent`, and `concrete`. This is eligibility, not dependency readiness or authorization. All roles use one human-selected provider (`claude` or `codex`); mixed-provider orchestration is not implemented.
 
-The Implementer has `repository_read`, `repository_search`, and `repository_write`, model class `standard`, and may modify only `--implementation-path` values. The fresh Unity Test Author has the same capabilities, model class `low_cost`, and may modify only `--test-path` values. Requested role paths must be distinct existing tracked files, with implementation and test sets disjoint under conservative case-insensitive path comparison. Its prompt includes the committed Unity testing policy and exact implementation diff. The fresh Validator is `high_reasoning` with only `repository_read` and `repository_search`; it reads the physically read-only committed source checkout as baseline context and semantically evaluates the candidate state represented by that baseline plus the exact candidate patch and actual changed paths. The baseline is intentionally unchanged, so absence of candidate edits there is not a defect and the Validator must not require them to be committed or applied before review. It must report exactly once on every task AC/VAL ID; `not_proven` records runtime or Unity evidence that was not executed and may coexist with a semantic pass. A pass is semantic review only, never a Unity, delivery, readiness, integration, or conformance claim. The source remains unchanged until a human approves and manually applies `candidate.patch`.
+## Contract Locality Auditor (mandatory, before the Implementer)
+
+Every normal run and human-review retry runs one mandatory, read-only, `high_reasoning` Contract Locality Auditor immediately after source/task/graph preflight and before the Implementer. It has only `repository_read` and `repository_search`, empty `WriteBoundaries`, and reads the physically read-only committed source directly (no disposable clone exists yet at this point). It never edits the task contract, GDD, graph, source, or tests, and it never commits, stages, or otherwise touches Git. Its context includes the exact selected task contract, the full canonical GDD, source `HEAD`/tree, direct dependency contracts, direct dependent contracts, a deterministic id-sorted catalog of every committed task, and the task's execution/decomposition metadata.
+
+It classifies every current acceptance-criterion (`AC-###`) and completion-gate (`VAL-###`) ID on the selected task exactly once:
+
+| Classification | Meaning | Required action |
+| --- | --- | --- |
+| `local_to_task` | Provable using this task's own owned behavior/state/interfaces, or a dependency already declared on this task | `keep` |
+| `requires_declared_dependency` | Needs another existing task's already-integrated behavior that is not (or not correctly) declared as a dependency | `add_dependency` |
+| `downstream_integration` | This task can be completed and proven locally, but the item actually verifies a future consumer/orchestrator using it correctly | `move_to_downstream_integration` |
+| `missing_design` | The committed GDD/task contract lacks the approved design authority needed to implement or prove the item | `clarify_design` |
+| `ambiguous` | Committed evidence is insufficient to classify the item safely | `human_review` |
+
+This audit judges locality only, never dependency-completion or dispatch readiness: it does not ask whether a declared dependency has actually been delivered, only whether the declared dependency set is the correct one. A completion gate awaiting Unity/runtime execution is still `local_to_task`; missing runtime execution is a Validator `runtime_not_executed` concern, not a locality defect.
+
+The crew deterministically re-checks the auditor's structured output before trusting it: exactly one result per current AC/VAL ID with no unknown or duplicate IDs, correct `entry_type`, exact classification/`recommended_action` pairing, every `related_task_ids` value naming a real committed task, `status=pass` only when every entry is `local_to_task` with zero `blocking_findings`, `status=contract_review_required` only when at least one entry is nonlocal, and every nonlocal entry paired with exactly one matching `blocking_findings` entry (never a `blocking_findings` entry on a `local_to_task` entry). An internally inconsistent auditor output stops the run as `rejected` before the Implementer; it is never silently treated as a pass.
+
+When the audit is nonlocal, the crew publishes `contract_locality_audit.json` (schema `1.0`), binding the run ID, task ID, provider, source `HEAD`/tree, exact task-contract identity, and the validated audit result, and stops with `crew_status=contract_review_required` before the Implementer: `attempts_used` is `0`, the Implementer/Test Author/Validator are never invoked, no `candidate.patch` or `workspace_diagnostic.patch` is produced, and the source is untouched. `crew_result.json` also carries `contract_locality_status`, `contract_locality_audit_path`, and `contract_locality_audit_host_path` for every run (including a passing audit). This never grants readiness or dispatch authority and never edits the task contract, GDD, or graph automatically; TaskGraph and human review remain authoritative for repairing the contract. See the `CONTRACT_REVIEW_REQUIRED` footer below.
+
+A Validator that later reports `blocked_by_design` with a `criteria_results` `reason_code` of `missing_integration_dependency` or `design_ambiguity` is treated as the same locality-defect class caught after writers already ran (the audit passed, but the defect only became apparent once the candidate was built). That fallback also routes the crew to `contract_review_required`, but by then a `workspace_diagnostic.patch` may already exist from retained tracked-file movement; it is diagnostic only, never an approved candidate, and never applyable.
+
+The Implementer has `repository_read`, `repository_search`, and `repository_write`, model class `standard`, and may modify only `--implementation-path` values. The fresh Unity Test Author has the same capabilities, model class `low_cost`, and may modify only `--test-path` values. Requested role paths must be distinct existing tracked files, with implementation and test sets disjoint under conservative case-insensitive path comparison. Its prompt includes the committed Unity testing policy and exact implementation diff. The fresh Validator is `high_reasoning` with only `repository_read` and `repository_search`; it reads the physically read-only committed source checkout as baseline context and semantically evaluates the candidate state represented by that baseline plus the exact candidate patch and actual changed paths. The baseline is intentionally unchanged, so absence of candidate edits there is not a defect and the Validator must not require them to be committed or applied before review. A pass is semantic review only, never a Unity, delivery, readiness, integration, or conformance claim. The source remains unchanged until a human approves and manually applies `candidate.patch`.
+
+The Validator must report exactly once on every task AC/VAL ID, and every `criteria_results` item requires a structured `reason_code` alongside its `status`, with deterministic status/`reason_code` agreement enforced by the crew: `status=pass` requires `reason_code=proved`; `status=fail` requires `reason_code=criterion_failed`; `status=not_proven` requires exactly one of `runtime_not_executed`, `missing_integration_dependency`, `missing_required_artifact`, `insufficient_evidence`, `design_ambiguity`. An overall Validator `pass` may carry a `not_proven` item only when its `reason_code` is `runtime_not_executed` (runtime/Unity evidence that genuinely was not executed yet, coexisting with an otherwise-proved semantic pass); any other `not_proven` reason_code on an overall `pass` is deterministically invalid and rejects the run. `missing_integration_dependency` and `design_ambiguity` must never coexist with `pass` and require overall `status=blocked_by_design`; the crew further routes that case to `contract_review_required` rather than a generic `blocked`, because it identifies the same kind of locality defect the mandatory audit exists to catch. `missing_required_artifact` and `insufficient_evidence` also cannot coexist with `pass`, and a `criterion_failed` result cannot coexist with `pass`.
 
 One independent clone outside `/workspace` accumulates both write roles and, if needed, one repair cycle. An immutable snapshot captured immediately after checkout is the baseline for final clone HEAD/index/untracked/path checks, including tracked additions, deletions, and byte changes; clone bytes are never compared to source working-tree bytes. Before and after each write invocation the crew records clone HEAD, exact index entries, untracked paths, and SHA-256 for every tracked working-tree file. Incremental byte changes must pass that role's `AgentInvocationRequest.is_path_writable`; claims never establish scope. Changed HEAD/index, untracked files, deletion/rename/copy effects, or out-of-bound byte changes reject the run. Source HEAD/tree/status is independently revalidated after every invocation and at finalization.
 
@@ -33,9 +58,10 @@ outputs/<run-id>/
   crew_result.json
   progress.jsonl                      # supplemental operational telemetry
   human_review_feedback.txt           # retry only; exact accepted feedback bytes
+  contract_locality_audit.json        # every run whose audit reaches a valid pass/contract_review_required result
   candidate.patch                    # review_ready only
   workspace_diagnostic.patch         # diagnostic only, when applicable
-  role_results/<role>_<attempt>.json
+  role_results/<role>_<attempt>.json  # includes contract_locality_auditor_1.json
   task_execution/<invocation-id>/task_request.json
   agent_runtime/<invocation-id>/{request.json,provider.log,result.json}
 ```
@@ -46,7 +72,7 @@ outputs/<run-id>/
 
 ```json
 "human_result": {
-  "status": "REVIEW_READY | BLOCKED | REJECTED | NEEDS_HUMAN",
+  "status": "REVIEW_READY | BLOCKED | REJECTED | NEEDS_HUMAN | CONTRACT_REVIEW_REQUIRED",
   "reason": "...",
   "artifact_path": "...",
   "next_action": "...",
@@ -59,9 +85,9 @@ outputs/<run-id>/
 }
 ```
 
-`status` mirrors `crew_status`. `reason` clearly states the candidate passed semantic crew review and awaits human review when `review_ready`; otherwise it is the first entry of `rejection_reasons` when that entry is a deterministic orchestration-generated reason, or a fixed structural summary (for example "The Implementer reported a blocker.") when that entry would otherwise embed raw agent-authored blocker text, which during a human-review retry could quote the human feedback itself; the full, authoritative reason always remains available in `rejection_reasons` and the role artifacts. `reason` is `null`, never fabricated, when no rejection/blocking reason was recorded. `artifact_path` points at `candidate.patch` when `review_ready`, otherwise at `workspace_diagnostic.patch` when one exists, otherwise `null`; when a HOST output root is supplied (see below) it prefers the full host-drive-qualified path. `next_action` never implies automatic apply/commit/merge behavior.
+`status` mirrors `crew_status`. `reason` clearly states the candidate passed semantic crew review and awaits human review when `review_ready`; otherwise it is the first entry of `rejection_reasons` when that entry is a deterministic orchestration-generated reason, or a fixed structural summary (for example "The Implementer reported a blocker.") when that entry would otherwise embed raw agent-authored blocker text, which during a human-review retry could quote the human feedback itself; the full, authoritative reason always remains available in `rejection_reasons` and the role artifacts. `reason` is `null`, never fabricated, when no rejection/blocking reason was recorded. `artifact_path` points at `candidate.patch` when `review_ready`, at `contract_locality_audit.json` when the mandatory pre-Implementer audit itself caught the defect, otherwise at `workspace_diagnostic.patch` when one exists (including the Validator fallback path described above), otherwise `null`; when a HOST output root is supplied (see below) it prefers the full host-drive-qualified path. `next_action` never implies automatic apply/commit/merge behavior.
 
-`commands` is a stable, additive structure so tooling can consume the exact same copy/paste-ready PowerShell instructions as the stderr footer below, quoted with `pathlib`-free single-quote escaping (embedded `'` becomes `''`) so the result is safe to paste directly into PowerShell even when the path contains spaces. When `status` is `REVIEW_READY`, all four commands operate on the exact `candidate.patch` path (host path when available, otherwise the container path). For any diagnostic artifact (`workspace_diagnostic.patch`), only `find` is populated; `check` and `apply` are always `null`, because a diagnostic patch is never an approved candidate. When there is no artifact at all, every command is `null`.
+`commands` is a stable, additive structure so tooling can consume the exact same copy/paste-ready PowerShell instructions as the stderr footer below, quoted with `pathlib`-free single-quote escaping (embedded `'` becomes `''`) so the result is safe to paste directly into PowerShell even when the path contains spaces. When `status` is `REVIEW_READY`, all four commands operate on the exact `candidate.patch` path (host path when available, otherwise the container path). When `status` is `CONTRACT_REVIEW_REQUIRED` and the mandatory audit itself is the artifact, `commands` instead has only `find`/`inspect` (never `check`/`apply`, since a read-only audit is never a patch). For any diagnostic artifact (`workspace_diagnostic.patch`), only `find` is populated; `check` and `apply` are always `null`, because a diagnostic patch is never an approved candidate. When there is no artifact at all, every command is `null`.
 
 ExecutionCrew also prints a concise human-readable summary to stderr when it finishes, while stdout remains the single machine-readable result JSON only. For a review-ready candidate, the footer ends with copy/paste-ready commands built from the exact artifact path — never a placeholder like `<RUN-ID>`:
 
@@ -105,7 +131,25 @@ NEXT: Inspect the diagnostic patch and blocking reason; no candidate was approve
 
 **`workspace_diagnostic.patch` must not be applied.** It is retained tracked-file movement from a run that did not reach `review_ready`, never an approved candidate; the footer and `human_result.commands` intentionally omit any apply/check command for it.
 
-When there is no artifact at all (no candidate and no diagnostic patch), the footer keeps the existing `RESULT`/`WHY`/`ARTIFACT`/`NEXT` lines with `ARTIFACT: none` and prints no `FIND`/`CHECK`/`APPLY` block.
+When the mandatory pre-Implementer Contract Locality Auditor itself stops the run, the footer identifies `contract_locality_audit.json` with find/inspect-only commands — there is no patch of any kind in this result, so the footer never prints patch or diagnostic-patch wording:
+
+```text
+RESULT: CONTRACT_REVIEW_REQUIRED
+WHY: The committed task contract contains one or more AC/VAL items that are not locally implementable/provable under its current scope or dependencies.
+ARTIFACT: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-012-example\contract_locality_audit.json
+
+FIND AUDIT:
+Get-Item -LiteralPath 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-012-example\contract_locality_audit.json'
+
+INSPECT AUDIT:
+Get-Content -LiteralPath 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-012-example\contract_locality_audit.json'
+
+NEXT: Review the audit, repair the task contract through normal human-reviewed TaskGraph workflow, validate the graph, and rerun ExecutionCrew.
+```
+
+If instead the Validator caught the same defect class after writers already ran (the mandatory audit passed, but the Validator later reported `blocked_by_design` with `reason_code=missing_integration_dependency` or `design_ambiguity`), `CONTRACT_REVIEW_REQUIRED` uses the diagnostic-patch footer shape instead (`FIND DIAGNOSTIC PATCH:` / `DO NOT APPLY:`), since a `workspace_diagnostic.patch` may exist in that case; it remains non-applyable exactly like any other diagnostic patch.
+
+When there is no artifact at all (no candidate, audit, or diagnostic patch), the footer keeps the existing `RESULT`/`WHY`/`ARTIFACT`/`NEXT` lines with `ARTIFACT: none` and prints no `FIND`/`CHECK`/`APPLY` block.
 
 This summary never includes prompts, raw provider output, credentials, hidden reasoning, or feedback text.
 
@@ -119,7 +163,7 @@ C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outpu
 
 This is a purely lexical, HOST-facing display path (`pathlib.PureWindowsPath`); it is never resolved as a filesystem path inside the Linux container. An empty, relative, traversal-containing, or malformed drive-relative value is rejected before the run starts. `human_result.artifact_path` prefers the host path when one is available, and the stderr footer and `human_result.commands` are built from that exact same path. Omitting `--host-output-root` preserves full backward compatibility: the host-path fields are `null`, `human_result.artifact_path` falls back to the existing container path, and the footer/`commands` use that container path instead of inventing a Windows path.
 
-There is no Planner, Unity execution, general GER, global selection/readiness/dispatch, automatic patch application, commit/merge, evidence publication, conformance record, provider fallback, mixed providers, or parallel task workers.
+There is no Planner, Unity execution, general GER, global selection/readiness/dispatch, automatic patch application, commit/merge, evidence publication, conformance record, provider fallback, mixed providers, or parallel task workers. The Contract Locality Auditor does not change this: it never grants readiness, dispatch authority, or dependency-completion approval, and it never edits the task contract, GDD, or graph itself — `CONTRACT_REVIEW_REQUIRED` always routes back through the normal human-reviewed TaskGraph workflow. It is also distinct from, and does not replace, the separate deterministic heuristic `Pipeline/TaskGraph/task_contract_quality_audit.py` pattern audit, which runs outside ExecutionCrew against committed contract text without a model in the loop.
 
 ## Human-review workflow
 

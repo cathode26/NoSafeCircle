@@ -32,7 +32,7 @@ For a normal gameplay task, do not front-load this entire runbook before taking 
 6. Create a standalone task clone from the GitHub remote and create a feature branch.
 7. Audit live contract/resource metadata against current repository reality.
 8. Decide the exact production/test write paths; scaffold only genuinely new role-owned files that ExecutionCrew must edit.
-9. Run ExecutionCrew and stop at human review.
+9. Run ExecutionCrew and stop at human review — or, if the mandatory pre-Implementer Contract Locality Auditor reports `CONTRACT_REVIEW_REQUIRED`, stop and repair the task contract through the normal human-reviewed TaskGraph workflow instead (see step 3 and step 6).
 10. Continue through Unity validation, committed evidence, TaskGraph conformance, and merge using the detailed stages below.
 
 A fresh model should be able to reach a real bounded implementation attempt quickly without reconstructing the whole pipeline architecture first.
@@ -225,6 +225,12 @@ git commit -m "chore(nsc-###): correct task contract metadata"
 
 Stage only the files that actually changed; do not force a no-op `RESOURCE_GROUPS.yaml` or task-contract edit.
 
+### Locality is also audited automatically inside ExecutionCrew
+
+This manual review is a first pass, not the only safeguard. `python Pipeline/TaskGraph/task_contract_quality_audit.py` is a separate, deterministic, model-free heuristic pattern check against committed contract text; run it as an additional early signal, but it does not replace either this manual audit or the automatic one below.
+
+Every ExecutionCrew run also runs its own mandatory, read-only, model-backed Contract Locality Auditor immediately before the Implementer (see `Pipeline/ExecutionCrew/README.md`). It classifies every current `AC-###`/`VAL-###` ID as `local_to_task`, `requires_declared_dependency`, `downstream_integration`, `missing_design`, or `ambiguous`, and stops the run as `CONTRACT_REVIEW_REQUIRED` before the Implementer, Test Author, or Validator ever run when any item is nonlocal. It never edits the task contract, GDD, or graph, and it never grants readiness or dispatch authority — a nonlocal result always routes back through this manual TaskGraph workflow (step 6). Treat it as a mandatory backstop for exactly the class of defect this section exists to catch (for example, a `single_agent`/`concrete` contract whose completion gates actually require another system's pursuit/search/navigation behavior), not as a substitute for reading the contract yourself first.
+
 ## 4. Scaffold new ExecutionCrew paths before running the crew
 
 ExecutionCrew requires explicit role paths and currently preflights them as existing tracked files. Implementation and test role paths must be disjoint.
@@ -265,13 +271,19 @@ Use one human-selected provider for the run. Do not interpret a semantic Validat
 
 The desired crew result is `REVIEW_READY` with `candidate.patch`.
 
-The upgraded human footer should give the exact result, artifact path, and copy/paste-ready find/check/apply/verify commands. A preflight block should instead print `RESULT: BLOCKED`, a concrete reason, `ARTIFACT: none` when appropriate, and a next action.
+Every run — including this one — starts with the mandatory, read-only Contract Locality Auditor described in step 3. When it passes, the run continues into the Implementer/Test Author/Validator exactly as before. When it reports the task contract nonlocal, the crew stops immediately as `CONTRACT_REVIEW_REQUIRED` with zero Implementer/Test Author/Validator invocations, zero attempts used, and no patch of any kind; the only artifact is `contract_locality_audit.json`. Do not treat this as a normal blocked/rejected run to retry as-is: repair the task contract first (step 3), then rerun ExecutionCrew.
+
+The Validator itself is a second locality safeguard for exactly the case the audit exists to catch but only becomes apparent once a candidate exists. Every `criteria_results` item carries a `reason_code` alongside its `status`: `pass` requires `proved`; `fail` requires `criterion_failed`; `not_proven` requires exactly one of `runtime_not_executed`, `missing_integration_dependency`, `missing_required_artifact`, `insufficient_evidence`, or `design_ambiguity`. `runtime_not_executed` — required Unity/runtime evidence genuinely was not executed yet, while the rest of the item is otherwise semantically proved — is the only `not_proven` reason that may coexist with an overall Validator `pass`, and doing so still leaves the crew result `REVIEW_READY`. `missing_integration_dependency` and `design_ambiguity` can never coexist with an overall `pass`; they require overall `status=blocked_by_design`, and the crew routes that specific case to `CONTRACT_REVIEW_REQUIRED` rather than a generic `BLOCKED`, since it is the same locality-defect class the mandatory audit exists to catch, just discovered late. `missing_required_artifact` and `insufficient_evidence` also cannot coexist with `pass`. This reason-code taxonomy is deterministically enforced by the crew, not just requested in the Validator prompt; an invalid combination rejects the run rather than silently passing.
+
+The upgraded human footer should give the exact result, artifact path, and copy/paste-ready find/check/apply/verify commands. A preflight block should instead print `RESULT: BLOCKED`, a concrete reason, `ARTIFACT: none` when appropriate, and a next action. `RESULT: CONTRACT_REVIEW_REQUIRED` instead prints find/inspect-only commands for `contract_locality_audit.json` (or, in the rarer case where the audit passed but the Validator later reported the same defect class after writers already ran, the diagnostic-patch footer shape for a non-applyable `workspace_diagnostic.patch`).
 
 `workspace_diagnostic.patch` is diagnostic output from a non-review-ready run and must not be applied as an approved candidate.
 
 ## 6. Human-review the candidate before applying
 
 ExecutionCrew never applies its candidate automatically.
+
+If the result is `CONTRACT_REVIEW_REQUIRED`, there is no candidate to review: read `contract_locality_audit.json`, repair the task contract (add the missing declared dependency, move a requirement to `downstream_integration_obligations`, resolve a missing/ambiguous design decision, etc.) through the normal human-reviewed TaskGraph workflow, run `taskcontrol.py validate`, commit the contract correction, and only then rerun ExecutionCrew.
 
 Inspect the result and patch. If approved:
 
@@ -554,6 +566,12 @@ Response: create a minimal scaffold, add its `.meta` where applicable, commit it
 ### ExecutionCrew blocks before any provider runs
 
 A preflight `RESULT: BLOCKED` with `ARTIFACT: none` is not a failed implementation attempt. Read the concrete `WHY` field, fix the environment/scope/precondition, and rerun. Do not search for or apply a candidate patch that was never created.
+
+### ExecutionCrew reports `RESULT: CONTRACT_REVIEW_REQUIRED`
+
+Symptom: the run stops immediately after the mandatory Contract Locality Auditor, before the Implementer, Test Author, or Validator ever run; `ARTIFACT` points at `contract_locality_audit.json` (or, less commonly, at a non-applyable `workspace_diagnostic.patch` when the Validator caught the same defect class later, after writers already ran).
+
+This is not a bug to patch and not a normal `BLOCKED`/`REJECTED` result to retry unchanged: one or more `AC-###`/`VAL-###` items on the selected task are not actually provable under its current scope and declared dependencies. Inspect the audit's `entry_results`/`blocking_findings`, then repair the task contract through the normal human-reviewed TaskGraph workflow described in step 3/step 6 (add the missing declared dependency, relocate the requirement into `downstream_integration_obligations`, resolve the missing/ambiguous design decision), validate the graph, and rerun ExecutionCrew. Do not widen the auditor's authority, and do not hand-edit the contract to make the audit merely stop complaining without actually fixing the underlying locality problem.
 
 ### Unity batch run fails while interactive Unity is open
 

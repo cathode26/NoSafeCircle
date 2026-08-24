@@ -1,0 +1,104 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "044263d98b644cd4abb199b8da6fdd2a886d9b31",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/EncounterAdmissionController.cs",
+      "role": "encounter_admission_owner"
+    },
+    {
+      "blob_sha": "f81eca90810cede38f3a773d0c8f32d4e0b9df68",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/EncounterAdmissionControllerPlayModeTests.cs",
+      "role": "completion_gate_tests"
+    },
+    {
+      "blob_sha": "1dab6d4d68b6d577ed129e5270f62b7d6cbcc344",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/ActiveEnemyRegistry.cs",
+      "role": "consumed_active_enemy_registry_interface"
+    }
+  ],
+  "delivery": {
+    "base_commit": "ed5c5bc7d2ba10a543886f343b9d4d12b1acfe3f",
+    "candidate_commit": "5c45bbe27c339f6cef83bf6ad9311508aa9e3a50",
+    "integrated_commit": "5c45bbe27c339f6cef83bf6ad9311508aa9e3a50",
+    "integrated_tree": "402186eba2033dfb0db538271d812d4b8f7f702c"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "822e09fc879d993df779e36d4cebcdc388943f1b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-028/artifacts/EncounterAdmissionControllerPlayModeTests-5c45bbe27c33.xml"
+        },
+        {
+          "blob_sha": "e24cb661b7b744e78999c993f7a71cba65611170",
+          "path": "Pipeline/TaskGraph/evidence/NSC-028/artifacts/EncounterAdmissionControllerPlayModeTests-5c45bbe27c33.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative PlayMode validation passed 4/4 tests. Coverage verifies persistent pursuers retain priority, new encounter admission is limited to remaining registry capacity, excess requested enemies remain pending, and multiple request batches are processed in deterministic FIFO order.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "822e09fc879d993df779e36d4cebcdc388943f1b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-028/artifacts/EncounterAdmissionControllerPlayModeTests-5c45bbe27c33.xml"
+        },
+        {
+          "blob_sha": "e24cb661b7b744e78999c993f7a71cba65611170",
+          "path": "Pipeline/TaskGraph/evidence/NSC-028/artifacts/EncounterAdmissionControllerPlayModeTests-5c45bbe27c33.log"
+        },
+        {
+          "blob_sha": "25719ab46d8ad60a8491f3c2ec80075ffc98ce0a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-028/artifacts/ActiveEnemyRegistryPlayModeTestsRegression-5c45bbe27c33.xml"
+        },
+        {
+          "blob_sha": "f3392662141b5040a827cc04371d08b7fcfea4c5",
+          "path": "Pipeline/TaskGraph/evidence/NSC-028/artifacts/ActiveEnemyRegistryPlayModeTestsRegression-5c45bbe27c33.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Authoritative NSC-028 PlayMode validation verifies repeated pending-admission processing never exceeds fifteen in either ActiveEnemyRegistry bookkeeping or actual active GameObject population. The adjacent ActiveEnemyRegistry regression suite also passed 14/14 tests on the identical committed tree.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "822e09fc879d993df779e36d4cebcdc388943f1b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-028/artifacts/EncounterAdmissionControllerPlayModeTests-5c45bbe27c33.xml"
+        },
+        {
+          "blob_sha": "e24cb661b7b744e78999c993f7a71cba65611170",
+          "path": "Pipeline/TaskGraph/evidence/NSC-028/artifacts/EncounterAdmissionControllerPlayModeTests-5c45bbe27c33.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Authoritative PlayMode validation verifies ResetAdmissionState clears pending, reduced, and admitted-batch bookkeeping while leaving persistent enemy active state and ActiveEnemyRegistry membership untouched for their separate restart owners.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Human review approved the final NSC-028 revision-2 ExecutionCrew candidate after two bounded review/refinement cycles corrected active-population validation and explicit admission-batch bookkeeping.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-028-5c45bbe27c33",
+  "record_type": "delivery",
+  "recorded_at": "2026-08-24T21:02:43Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-028.yaml",
+    "revision": 2,
+    "sha256": "4969da19321a97dec214ba9d5b506a51bff44bec604fb1e933b9f748fd6f82e0"
+  },
+  "task_id": "NSC-028",
+  "validated_state": {
+    "commit": "5c45bbe27c339f6cef83bf6ad9311508aa9e3a50",
+    "tree": "402186eba2033dfb0db538271d812d4b8f7f702c"
+  }
+}
