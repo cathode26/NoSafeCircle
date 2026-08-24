@@ -8,19 +8,21 @@ using UnityEngine.TestTools;
 
 namespace NoSafeCircle.DoorPrototype.Tests
 {
-    public class PlayerMovementPlayModeTests
+    public class PlayerMovementPlayModeTests : InputTestFixture
     {
         private GameObject playerObject;
         private GameObject cameraObject;
         private PlayerMovement movement;
         private Camera testCamera;
+        private RenderTexture testRenderTexture;
 
         private InputActionAsset testInputActions;
         private Mouse mouseDevice;
 
-        [SetUp]
-        public void SetUp()
+        public override void Setup()
         {
+            base.Setup();
+
             mouseDevice = InputSystem.AddDevice<Mouse>();
 
             cameraObject = new GameObject("TestCamera");
@@ -28,6 +30,13 @@ namespace NoSafeCircle.DoorPrototype.Tests
             testCamera = cameraObject.AddComponent<Camera>();
             testCamera.transform.SetPositionAndRotation(new Vector3(0f, 10f, -10f), Quaternion.identity);
             testCamera.transform.LookAt(Vector3.zero);
+
+            // Batch mode has no interactive Game View. Give the test camera a fixed
+            // pixel surface so WorldToScreenPoint/ScreenPointToRay use deterministic
+            // dimensions in both interactive and command-line Play Mode runs.
+            testRenderTexture = new RenderTexture(800, 600, 24);
+            testRenderTexture.Create();
+            testCamera.targetTexture = testRenderTexture;
 
             testInputActions = ScriptableObject.CreateInstance<InputActionAsset>();
             var playerMap = testInputActions.AddActionMap("Player");
@@ -41,9 +50,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 InputActionType.Button,
                 "<Mouse>/leftButton");
 
-            // Batch-mode Unity may already expose another Mouse device. Restrict this
-            // test action map to the synthetic mouse so <Mouse>/... bindings cannot
-            // resolve to a native/default mouse whose state the test does not control.
+            // InputTestFixture removes native/runtime devices; additionally pin this map
+            // to the one synthetic mouse created above.
             playerMap.devices = new InputDevice[] { mouseDevice };
 
             playerObject = new GameObject("TestPlayer");
@@ -52,26 +60,39 @@ namespace NoSafeCircle.DoorPrototype.Tests
             playerObject.AddComponent<CharacterController>();
             movement = playerObject.AddComponent<PlayerMovement>();
 
-            // Match normal scene deserialization: serialized dependencies are assigned
-            // before PlayerMovement.Awake runs.
+            // Match normal Unity scene deserialization: the serialized dependency exists
+            // before PlayerMovement.Awake/OnEnable run.
             SetPrivateField(movement, "inputActions", testInputActions);
 
-            // Activating the GameObject now runs Awake/OnEnable with the InputActionAsset
-            // already available, allowing PlayerMovement to discover and enable its actions.
             playerObject.SetActive(true);
         }
 
-        [TearDown]
-        public void TearDown()
+        public override void TearDown()
         {
             if (playerObject != null) Object.Destroy(playerObject);
             if (cameraObject != null) Object.Destroy(cameraObject);
+
             if (testInputActions != null)
             {
                 testInputActions.Disable();
                 Object.Destroy(testInputActions);
             }
-            if (mouseDevice != null) InputSystem.RemoveDevice(mouseDevice);
+
+            if (testRenderTexture != null)
+            {
+                testRenderTexture.Release();
+                Object.Destroy(testRenderTexture);
+            }
+
+            playerObject = null;
+            cameraObject = null;
+            movement = null;
+            testCamera = null;
+            testInputActions = null;
+            testRenderTexture = null;
+            mouseDevice = null;
+
+            base.TearDown();
         }
 
         // AC-002: PointerWorldTarget is the shared world-space pointer target produced by
