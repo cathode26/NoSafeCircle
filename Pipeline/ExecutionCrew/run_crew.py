@@ -475,8 +475,16 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     if not retry_mode and (not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id)):
         raise CrewBlocked("task ID must match NSC-###")
     identity=capture_source(source); source_root=Path(identity.root).resolve(strict=True)
-    if _require_physical_read_only_source and not (os.statvfs(source_root).f_flag & os.ST_RDONLY):
-        raise CrewBlocked("production source checkout must be physically mounted read-only")
+    if _require_physical_read_only_source:
+        statvfs = getattr(os, "statvfs", None)
+        st_rdonly = getattr(os, "ST_RDONLY", None)
+        if statvfs is None or st_rdonly is None:
+            raise CrewBlocked(
+                "production source checkout must be physically mounted read-only; "
+                "this platform cannot verify mount-level read-only state"
+            )
+        if not (statvfs(source_root).f_flag & st_rdonly):
+            raise CrewBlocked("production source checkout must be physically mounted read-only")
     output_root = output_root.resolve()
     retry_context = None
     if retry_mode:

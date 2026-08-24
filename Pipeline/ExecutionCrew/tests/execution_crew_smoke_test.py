@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import Usage
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse
-from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, changed_paths, clone_exact, construct_real_provider, main as crew_main, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, validate_host_output_root
+from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, changed_paths, clone_exact, construct_real_provider, full_patch, main as crew_main, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, validate_host_output_root
 
 TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
 def cmd(root,*args): return subprocess.run(("git","-C",str(root),*args),check=True,stdout=subprocess.PIPE,text=True).stdout.strip()
@@ -49,7 +49,7 @@ class FakeProvider:
         if s.scenario=="slow" and self.role=="implementer": time.sleep(.06)
         if self.role=="validator":
             assert not self.writable and self.repo.resolve()==s.source.resolve(); assert "repository_write" not in request.allowed_capabilities; assert not request.write_boundaries.allowed_paths
-            exact=subprocess.run(("git","-C",str(s.clone),"diff","--binary","--full-index","--no-ext-diff","--no-renames",cmd(s.source,"rev-parse","HEAD")),check=True,stdout=subprocess.PIPE,text=True).stdout
+            exact=full_patch(s.clone,cmd(s.source,"rev-parse","HEAD")).decode("utf-8","replace")
             assert f"EXACT FULL CANDIDATE GIT PATCH\n---\n{exact}\n---" in request.prompt and "public int Mana" in request.prompt
             for required in ("baseline repository is intentionally unchanged", "authoritative proposed delta", "Absence of candidate changes from the baseline source is not a failure reason", "Do not request that the candidate be committed or applied to the real source before semantic validation", "Runtime or Unity evidence that was not executed remains not_proven"):
                 assert required in request.prompt
@@ -251,7 +251,7 @@ def main():
     # the Implementer block merely because test paths are outside its authority; Test Author must still run.
     mixed_feedback_text=("Production defect: PlayerManaUI never shows feedback when a cast is denied.\n"
                           "Regression requirement: add a regression test asserting denied casts show feedback.\n")
-    mixed_feedback_path=feedback_dir/"mixed.txt"; mixed_feedback_path.write_text(mixed_feedback_text,encoding="utf-8")
+    mixed_feedback_path=feedback_dir/"mixed.txt"; mixed_feedback_path.write_bytes(mixed_feedback_text.encode("utf-8"))
     mixed,mixed_state,mixed_dir=retry_execute(source,outputs,"pass",75,prior["run_id"],mixed_feedback_path,mixed_feedback_text)
     assert mixed["crew_status"]=="review_ready"
     assert [role for role,_,_ in mixed_state.calls]==["implementer","test_author","validator"]
@@ -270,13 +270,14 @@ def main():
     # Fix 2: stable additive human-facing result, derived from existing information, never fabricated.
     mixed_expected_commands=patch_commands(mixed["candidate_patch_path"],applyable=True)
     assert mixed["human_result"]=={"status":"REVIEW_READY","reason":"The candidate passed semantic crew review and awaits human review.","artifact_path":mixed["candidate_patch_path"],"next_action":"Review candidate.patch; apply manually only if approved.","commands":mixed_expected_commands}
-    assert mixed["candidate_patch_path"] is not None and mixed["human_result"]["artifact_path"]==str(mixed_dir/"candidate.patch")
+    assert mixed["candidate_patch_path"] is not None and Path(mixed["candidate_patch_path"]).samefile(mixed_dir/"candidate.patch")
     assert blocked_retry["human_result"]["status"]=="BLOCKED"
     # The authoritative rejection_reasons entry is preserved verbatim; the human-facing reason is a
     # fixed structural summary rather than the raw (potentially agent-authored) blocker text.
     assert blocked_retry["rejection_reasons"][0]=="implementer blocker: cannot implement"
     assert blocked_retry["human_result"]["reason"]=="The Implementer reported a blocker."
-    assert blocked_retry["human_result"]["artifact_path"]==blocked_retry["workspace_diagnostic_patch_path"]==str(blocked_retry_dir/"workspace_diagnostic.patch")
+    assert blocked_retry["human_result"]["artifact_path"]==blocked_retry["workspace_diagnostic_patch_path"]
+    assert Path(blocked_retry["workspace_diagnostic_patch_path"]).samefile(blocked_retry_dir/"workspace_diagnostic.patch")
     assert blocked_retry["human_result"]["next_action"]=="Inspect the diagnostic patch and blocking reason; no candidate was approved."
     blocked_retry_expected_commands=patch_commands(blocked_retry["workspace_diagnostic_patch_path"],applyable=False)
     assert blocked_retry["human_result"]["commands"]==blocked_retry_expected_commands
@@ -358,7 +359,7 @@ def main():
     expected_host_candidate=f"{HOST_ROOT}\\{host_pass['run_id']}\\candidate.patch"
     assert host_pass["candidate_patch_host_path"]==expected_host_candidate
     assert host_pass["workspace_diagnostic_patch_host_path"] is None
-    assert host_pass["candidate_patch_path"]==str(host_pass_dir/"candidate.patch")
+    assert Path(host_pass["candidate_patch_path"]).samefile(host_pass_dir/"candidate.patch")
     assert host_pass["human_result"]["artifact_path"]==expected_host_candidate
 
     host_blocked,host_blocked_state,host_blocked_dir=execute(source,outputs,"blocker",91,provider="claude",host_output_root=HOST_ROOT)
@@ -366,13 +367,13 @@ def main():
     expected_host_diagnostic=f"{HOST_ROOT}\\{host_blocked['run_id']}\\workspace_diagnostic.patch"
     assert host_blocked["workspace_diagnostic_patch_host_path"]==expected_host_diagnostic
     assert host_blocked["candidate_patch_host_path"] is None
-    assert host_blocked["workspace_diagnostic_patch_path"]==str(host_blocked_dir/"workspace_diagnostic.patch")
+    assert Path(host_blocked["workspace_diagnostic_patch_path"]).samefile(host_blocked_dir/"workspace_diagnostic.patch")
     assert host_blocked["human_result"]["artifact_path"]==expected_host_diagnostic
 
     # Missing --host-output-root preserves full backward compatibility.
     no_host,_,no_host_dir=execute(source,outputs,"pass",92,provider="claude")
     assert no_host["candidate_patch_host_path"] is None and no_host["workspace_diagnostic_patch_host_path"] is None
-    assert no_host["candidate_patch_path"]==str(no_host_dir/"candidate.patch")
+    assert Path(no_host["candidate_patch_path"]).samefile(no_host_dir/"candidate.patch")
     assert no_host["human_result"]["artifact_path"]==no_host["candidate_patch_path"]
 
     # Malformed/relative Windows host roots fail closed when explicitly supplied; no run is created.
@@ -413,7 +414,7 @@ def main():
     no_host_quoted=powershell_single_quote(no_host["candidate_patch_path"])
     assert no_host["human_result"]["commands"]["find"]==f"Get-Item -LiteralPath {no_host_quoted}"
     assert no_host["human_result"]["commands"]["apply"]==f"git apply {no_host_quoted}"
-    assert "C:\\" not in no_host["human_result"]["commands"]["find"]
+    assert HOST_ROOT not in no_host["human_result"]["commands"]["find"]
     no_host_stderr=io.StringIO()
     with redirect_stderr(no_host_stderr): print_human_summary(no_host)
     assert no_host["candidate_patch_path"] in no_host_stderr.getvalue()
