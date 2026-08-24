@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-024",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Tilemap and AI Navigation Package Configuration",
   "reconciliation_key": "tilemap-navigation-package-configuration",
@@ -14,7 +14,8 @@
   "parent": "NSC-022",
   "depends_on": [],
   "exclusive_resources": [
-    "repo-file:Packages/manifest.json"
+    "repo-file:Packages/manifest.json",
+    "repo-file:Packages/packages-lock.json"
   ],
   "acceptance_criteria": [
     {
