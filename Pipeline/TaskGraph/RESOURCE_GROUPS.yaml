@@ -108,7 +108,6 @@
       "resource_key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
       "work_ids": [
         "NSC-021",
-        "NSC-019",
         "NSC-020",
         "NSC-035",
         "NSC-007",
@@ -121,7 +120,6 @@
       ],
       "reconciliation_keys": [
         "door-close-lock-break-lifecycle",
-        "door-open-interaction",
         "doorway-crossing-state",
         "final-escape-victory",
         "fireball",
@@ -137,11 +135,13 @@
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
         "NSC-004",
-        "NSC-003"
+        "NSC-003",
+        "NSC-019"
       ],
       "reconciliation_keys": [
         "player-health",
-        "player-movement"
+        "player-movement",
+        "door-open-interaction"
       ]
     }
   ]
