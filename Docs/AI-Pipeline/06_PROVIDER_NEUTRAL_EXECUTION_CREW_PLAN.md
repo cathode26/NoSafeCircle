@@ -8,6 +8,8 @@ This document plans how the useful generic architecture demonstrated by the Assi
 
 This is a planning document, not architecture approval or runtime implementation.
 
+> **Implemented-production status note — 2026-08-24:** The original plan below described the first production crew as Implementer → Unity Test Author → Validator. Real-task proving later exposed a contract-quality gap: `single_agent` + `concrete` tasks could still contain completion gates owned by undeclared/future systems. Production ExecutionCrew is therefore now hardened with a mandatory read-only `high_reasoning` **Contract Locality Auditor** before the Implementer, plus structured Validator reason codes. The authoritative current behavior lives in `Pipeline/ExecutionCrew/README.md` and `Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md`; this plan remains useful as architectural history and rationale.
+
 ## Existing reusable strengths
 
 Assignment 3 demonstrated several ideas worth retaining:
@@ -145,11 +147,37 @@ Adapters may not change task meaning, validation policy, or evidence authority. 
 
 ## Production roles
 
-The initial production crew has three roles.
+The original Stage 5 plan defined three downstream implementation/review roles. Implemented production now has a fourth, pre-write semantic safety role. The current role order is:
+
+```text
+Contract Locality Auditor (read-only, high_reasoning)
+    ↓
+Implementer
+    ↓
+Unity Test Author
+    ↓
+Validator (read-only, high_reasoning)
+```
+
+The locality role does not reintroduce a general Planner. It audits whether the already-approved task contract is truthful about what one bounded execution can implement and prove.
+
+### Contract Locality Auditor
+
+The Contract Locality Auditor receives one already-selected schema-v2 task plus the exact canonical GDD, source identity, validated persistent TaskGraph neighborhood/catalog, and read/search access. It has empty write boundaries and classifies every AC/VAL as:
+
+- `local_to_task`;
+- `requires_declared_dependency`;
+- `downstream_integration`;
+- `missing_design`;
+- `ambiguous`.
+
+If any current AC/VAL is nonlocal or ambiguous, ExecutionCrew returns `CONTRACT_REVIEW_REQUIRED` before the Implementer, Unity Test Author, or Validator runs. The auditor may identify the existing task that should become a declared dependency or recommend that a future-system check be preserved as a downstream integration obligation, but it never edits the task contract or graph itself.
+
+This role is intentionally distinct from progressive decomposition. Decomposition decides how approved work should be split before graph application; locality auditing verifies an already-approved concrete task immediately before writer execution.
 
 ### Implementer
 
-The Implementer receives one already-selected bounded schema-v2 task contract and approved context. It changes production implementation only within explicit write boundaries, reports changed paths and blockers, and does not declare delivery success. It may repair implementation from concrete validation or runtime findings within a bounded GER budget.
+The Implementer receives one already-selected bounded schema-v2 task contract and approved context only after the locality audit passes. It changes production implementation within explicit write boundaries, reports changed paths and blockers, and does not declare delivery success. It may repair implementation from concrete validation or runtime findings within the bounded crew budget.
 
 ### Unity Test Author
 
@@ -167,11 +195,13 @@ It must not silently modify production code to make testing easier. If productio
 
 The Validator is read-only and uses a stronger model, normally `high_reasoning`. It performs semantic review against the task contract, approved canon/context, implementation diff, authored tests, and deterministic findings. Its result can request changes or identify ambiguity; it cannot establish test success, conformance, readiness, or delivery.
 
+Every Validator AC/VAL result carries a structured reason code. `runtime_not_executed` means the gate is locally valid but authoritative Unity/runtime evidence still has to run, so an overall semantic pass may remain `REVIEW_READY`. `missing_integration_dependency` or `design_ambiguity` cannot coexist with overall pass; they require `blocked_by_design` and route to `CONTRACT_REVIEW_REQUIRED`. Deterministic semantic checks reject inconsistent status/reason-code combinations.
+
 ### Planning-role change
 
-The schema-v2 task contract replaces most of Assignment 3's per-run planning role. The production crew should not ask a fresh Planner to redefine already-approved scope on every run. If a selected contract is ambiguous or too broad, execution stops and returns a structured blocker for human review or later contract/decomposition work outside the crew.
+The schema-v2 task contract replaces most of Assignment 3's per-run planning role. The production crew does not ask a fresh Planner to redefine approved scope on every run. The Contract Locality Auditor is narrower: it verifies executability/provability without changing task meaning. If scope is nonlocal, ambiguous, oversized, or missing approved design, execution stops for human-reviewed contract/decomposition work outside the crew.
 
-The Assignment 3 packager has no normal production role. Phase 3 evidence tooling and the delivery workflow, not a homework packager, will eventually assemble committed delivery or revalidation records.
+The Assignment 3 packager has no normal production role. TaskGraph evidence tooling and the delivery workflow, not a homework packager, assemble committed delivery or revalidation records.
 
 ## Model selection
 

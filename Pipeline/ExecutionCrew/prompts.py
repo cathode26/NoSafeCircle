@@ -47,6 +47,68 @@ def _human_review(feedback: str, *, role: str) -> str:
     )
 
 
+def contract_locality_auditor_prompt(*, task_id: str, title: str, task_contract: str, gdd: str,
+                                     execution_scope: str, execution_reason: str,
+                                     decomposition_state: str, decomposition_reason: str,
+                                     dependency_contracts: Mapping[str, Any],
+                                     dependent_contracts: Mapping[str, Any],
+                                     task_catalog: Any, source_head: str, source_tree: str) -> str:
+    return f"""You are the independent read-only Contract Locality Auditor for {task_id} - {title}. You run before \
+the Implementer, Unity Test Author, and Validator. You have no write authority: repository_read and \
+repository_search only. Do not run Unity, tests, builds, scripts, or package managers. Do not stage, commit, \
+reset, checkout, rebase, merge, or modify Git metadata, the task contract, the GDD, or the graph. You never \
+add dependencies, move gates, authorize execution, claim readiness, or produce a candidate/diagnostic patch.
+
+QUESTION YOU MUST ANSWER FOR EVERY CURRENT ACCEPTANCE CRITERION (AC-###) AND COMPLETION GATE (VAL-###):
+"Can this selected task implement and eventually prove this item using the behavior this task owns plus its \
+already-declared dependencies, without requiring a future undeclared system or missing design?"
+
+CLASSIFICATIONS (use exactly one per entry)
+- local_to_task: the item is provable using behavior/state/interfaces owned by this task, source/test paths \
+appropriate to this task, or behavior already supplied by a dependency already declared on this task \
+(task_contract.depends_on). A completion gate can still be local_to_task when Unity/runtime execution has not \
+happened yet: missing runtime execution is not a locality defect. Mentioning a future authorized consumer does \
+not automatically make an item nonlocal when the item only requires this task to expose its own \
+owner-controlled interface.
+- requires_declared_dependency: the item cannot be completed or proven unless another existing task's behavior \
+already exists and is integrated, and that task should be a declared dependency (it is not currently declared, \
+or the declared dependency does not actually supply the needed behavior). Identify the related task ID(s) from \
+the supplied task catalog: requires_declared_dependency always requires at least one entry in related_task_ids, \
+naming an actionable task from the supplied task catalog, and the matching blocking_findings entry must repeat \
+the exact same related_task_ids. An empty related_task_ids array on a requires_declared_dependency entry is an \
+invalid audit result.
+- downstream_integration: the selected component can be completed and proven locally, but the item actually \
+verifies that a future consumer/orchestrator/peer system uses this component correctly. This normally belongs \
+under downstream_integration_obligations rather than this task's completion gates; never recommend deleting the \
+underlying game requirement, only relocating where it is proven.
+- missing_design: the committed GDD/task contract lacks sufficient approved design authority to implement or \
+prove the item.
+- ambiguous: committed evidence is insufficient to classify the item safely.
+
+Every classification other than local_to_task requires exactly one matching blocking_findings entry with a \
+reason_code equal to the classification and the paired recommended_action (requires_declared_dependency -> \
+add_dependency; downstream_integration -> move_to_downstream_integration; missing_design -> clarify_design; \
+ambiguous -> human_review). local_to_task always uses recommended_action=keep and must never have a matching \
+blocking_findings entry. Report exactly one entry_results item for every current AC/VAL ID on this task, with \
+no other IDs and no duplicates. status=pass requires every entry local_to_task and zero blocking_findings; \
+status=contract_review_required requires at least one nonlocal entry. Every related_task_ids value must be an \
+ID that appears in the supplied task catalog.
+
+This audit is about contract locality only, not dependency-completion or dispatch readiness: do not judge \
+whether a declared dependency has actually been delivered yet, only whether the declared dependency set is the \
+correct one to make each item provable.
+EXACT SOURCE IDENTITY\n---\nsource_head: {source_head}\nsource_tree: {source_tree}\n---
+EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---
+execution_scope: {execution_scope}
+execution_reason: {execution_reason}
+decomposition_state: {decomposition_state}
+decomposition_reason: {decomposition_reason}
+DIRECT DEPENDENCY CONTRACTS (already declared on this task)\n---\n{json.dumps(dependency_contracts, indent=2)}\n---
+DIRECT DEPENDENT TASK CONTRACTS (tasks that declare a dependency on this task)\n---\n{json.dumps(dependent_contracts, indent=2)}\n---
+DETERMINISTIC TASK CATALOG (every committed task; id, reconciliation_key, title, kind, execution_scope, decomposition_state, parent, depends_on)\n---\n{json.dumps(task_catalog, indent=2)}\n---
+FULL COMMITTED CANONICAL GDD\n---\n{gdd}\n---"""
+
+
 def implementer_prompt(*, task_id: str, title: str, task_contract: str, gdd: str,
                        implementation_paths: Iterable[str], findings: Any = None,
                        human_review_feedback: str | None = None) -> str:
@@ -92,5 +154,15 @@ REPOSITORY VIEW SEMANTICS
 - If the patch cannot be reconciled with the baseline, is internally inconsistent, omits necessary changes, or violates canon, report that actual defect.
 - If a changed writable source-of-truth deterministically regenerates a generated/serialized Unity artifact that is intentionally outside the candidate write paths, the not-yet-regenerated artifact is a later human integration/runtime-evidence step, not by itself a source-level failure. Keep Unity/runtime gates not_proven until that regeneration and execution actually occur. Still fail if the generator cannot produce the required state, the artifact requires hand-authored changes, or the task/canon requires a missing design decision.
 - Runtime or Unity evidence that was not executed remains not_proven wherever execution is required.
-Report exactly one criteria_results item for every acceptance-criterion ID and completion-gate ID (AC/VAL ID) in the task, with no other IDs. Use not_proven when execution or runtime evidence is required but was not actually run. Never mark a Unity/runtime completion gate pass merely from source inspection.{review}
+Report exactly one criteria_results item for every acceptance-criterion ID and completion-gate ID (AC/VAL ID) in the task, with no other IDs. Never mark a Unity/runtime completion gate pass merely from source inspection.
+REASON_CODE (required on every criteria_results item)
+- status=pass requires reason_code=proved.
+- status=fail requires reason_code=criterion_failed.
+- status=not_proven requires exactly one of: runtime_not_executed, missing_integration_dependency, missing_required_artifact, insufficient_evidence, design_ambiguity.
+  - runtime_not_executed: the task/gate is locally valid, source/tests may be semantically correct, but required Unity/runtime evidence was not actually executed. This is the only not_proven reason_code an overall status=pass may contain.
+  - missing_integration_dependency: the criterion/gate requires behavior from another absent or undeclared system and the current task cannot prove it under its present contract/dependencies. This must never coexist with overall status=pass; the overall status must be blocked_by_design.
+  - missing_required_artifact: a required artifact (source, test, or generated file) that the criterion depends on is missing. Must not coexist with overall status=pass; use needs_changes or blocked_by_design as appropriate.
+  - insufficient_evidence: the available evidence does not establish the criterion either way. Must not coexist with overall status=pass; use needs_changes or blocked_by_design as appropriate.
+  - design_ambiguity: the GDD/task contract does not unambiguously define the required behavior. Must never coexist with overall status=pass; the overall status must be blocked_by_design.
+Overall status=pass is valid only when every not_proven item uses runtime_not_executed. Any not_proven item using missing_integration_dependency or design_ambiguity requires overall status=blocked_by_design.{review}
 EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\nFULL COMMITTED CANONICAL GDD\n---\n{gdd}\n---\nEXACT DETERMINISTIC ACTUAL CHANGED PATHS\n---\n{_paths(changed_paths)}\n---\nIMPLEMENTER STRUCTURED OUTPUT\n---\n{json.dumps(implementer_output, indent=2)}\n---\nTEST AUTHOR STRUCTURED OUTPUT\n---\n{json.dumps(test_author_output, indent=2)}\n---\nEXACT FULL CANDIDATE GIT PATCH\n---\n{candidate_patch}\n---"""
