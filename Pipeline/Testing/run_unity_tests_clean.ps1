@@ -22,16 +22,92 @@ $ExitMutation = 40
 function Invoke-Git {
     param([string]$RepositoryRoot, [string[]]$Arguments)
 
-    $output = & git -C $RepositoryRoot @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "Git command failed: git -C `"$RepositoryRoot`" $($Arguments -join ' ')`n$($output -join [Environment]::NewLine)"
+    # Windows PowerShell 5.1 can promote native stderr into terminating errors when
+    # ErrorActionPreference=Stop, even when git exits 0. Invoke git through
+    # Start-Process so stdout/stderr remain ordinary files and exit code is authoritative.
+    $stdoutPath = [System.IO.Path]::GetTempFileName()
+    $stderrPath = [System.IO.Path]::GetTempFileName()
+
+    try {
+        $gitArguments = @(
+            (ConvertTo-WindowsCommandLineArgument "-C"),
+            (ConvertTo-WindowsCommandLineArgument $RepositoryRoot)
+        )
+        foreach ($argument in $Arguments) {
+            $gitArguments += ConvertTo-WindowsCommandLineArgument $argument
+        }
+
+        $process = Start-Process `
+            -FilePath "git.exe" `
+            -ArgumentList $gitArguments `
+            -Wait `
+            -PassThru `
+            -NoNewWindow `
+            -RedirectStandardOutput $stdoutPath `
+            -RedirectStandardError $stderrPath
+
+        $stdout = ""
+        if (Test-Path -LiteralPath $stdoutPath -PathType Leaf) {
+            $stdout = Get-Content -LiteralPath $stdoutPath -Raw -ErrorAction SilentlyContinue
+            if ($null -eq $stdout) { $stdout = "" }
+        }
+
+        $stderr = ""
+        if (Test-Path -LiteralPath $stderrPath -PathType Leaf) {
+            $stderr = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
+            if ($null -eq $stderr) { $stderr = "" }
+        }
+
+        if ($process.ExitCode -ne 0) {
+            $detailParts = @()
+            if (-not [string]::IsNullOrWhiteSpace($stdout)) {
+                $detailParts += $stdout.Trim()
+            }
+            if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+                $detailParts += $stderr.Trim()
+            }
+
+            throw "Git command failed: git -C `"$RepositoryRoot`" $($Arguments -join ' ')`n$($detailParts -join [Environment]::NewLine)"
+        }
+
+        # Successful stderr is intentionally ignored. Git for Windows can emit benign
+        # line-ending warnings while still returning success.
+        return $stdout.Trim()
     }
-    return ($output | Out-String).Trim()
+    finally {
+        Remove-Item -LiteralPath $stdoutPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Get-WorkingTreeStatus {
     param([string]$RepositoryRoot)
-    return Invoke-Git $RepositoryRoot @("status", "--porcelain=v1", "--untracked-files=all")
+
+    $porcelain = Invoke-Git $RepositoryRoot @("status", "--porcelain=v1", "--untracked-files=all")
+    if ([string]::IsNullOrWhiteSpace($porcelain)) {
+        return ""
+    }
+
+    # Unity can rewrite a tracked file without changing its Git-normalized content.
+    # Only report real tracked content differences or real untracked files.
+    $tracked = Invoke-Git $RepositoryRoot @("diff", "--name-status", "--no-ext-diff", "HEAD", "--")
+    $untracked = Invoke-Git $RepositoryRoot @("ls-files", "--others", "--exclude-standard")
+
+    $meaningful = @()
+
+    if (-not [string]::IsNullOrWhiteSpace($tracked)) {
+        $meaningful += $tracked
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($untracked)) {
+        foreach ($item in ($untracked -split "\r?\n")) {
+            if (-not [string]::IsNullOrWhiteSpace($item)) {
+                $meaningful += "?? $item"
+            }
+        }
+    }
+
+    return ($meaningful -join [Environment]::NewLine)
 }
 
 function Stop-WithCode {

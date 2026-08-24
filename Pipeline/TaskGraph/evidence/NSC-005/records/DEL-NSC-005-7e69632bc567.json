@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.0",
+  "record_type": "delivery",
+  "record_id": "DEL-NSC-005-7e69632bc567",
+  "task_id": "NSC-005",
+  "task_contract": {
+    "path": "Tasks/NSC-005.yaml",
+    "revision": 1,
+    "sha256": "1799a48d509b19ae56bbd845b1b584a362db46633e1c484d9b0a6a93d8f6e088"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "validated_state": {
+    "commit": "7e69632bc5679b594a7893d6034b141e9500134a",
+    "tree": "f1b2bde5bf985b57d83db54c37fb1086abce064d"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "blob_sha": "e700430a7f33e7c2d19d2c40e42b9c1e1dc54ed2",
+      "role": "player_mana_owner"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+      "blob_sha": "1e57b77ee143ad8741cd921a93781c0ccf133577",
+      "role": "readable_denied_cast_feedback"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+      "blob_sha": "5e8e2c58ade24d780d48b2e9ca1710862c4f54d7",
+      "role": "completion_gate_tests"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "806790e653cd5fe9380980017d6fdd3774649eb9",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-7e69632bc567.xml",
+          "blob_sha": "028ae364ef773a1f472aa7bd8418baef23ee1e01"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-7e69632bc567.log",
+          "blob_sha": "cdfe1dae85bb7869a3c7a69d2d295000d11d0f9b"
+        }
+      ],
+      "notes": "The authoritative PlayerMana PlayMode suite passed all 17 tests, covering existing spend/regen behavior plus reset and denied-cast behavior."
+    },
+    {
+      "gate_id": "VAL-002",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-7e69632bc567.xml",
+          "blob_sha": "028ae364ef773a1f472aa7bd8418baef23ee1e01"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-7e69632bc567.log",
+          "blob_sha": "cdfe1dae85bb7869a3c7a69d2d295000d11d0f9b"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/HumanValidation-7e69632bc567.txt",
+          "blob_sha": "4763d0f1254eb0a69113401fab4385019a4b78ee"
+        }
+      ],
+      "notes": "Low-mana failure is readable through the mana indicator; the automated suite covers denied feedback behavior and manual Play Mode review confirmed the visible zero-mana feedback."
+    },
+    {
+      "gate_id": "VAL-003",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-7e69632bc567.xml",
+          "blob_sha": "028ae364ef773a1f472aa7bd8418baef23ee1e01"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-7e69632bc567.log",
+          "blob_sha": "cdfe1dae85bb7869a3c7a69d2d295000d11d0f9b"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/HumanValidation-7e69632bc567.txt",
+          "blob_sha": "4763d0f1254eb0a69113401fab4385019a4b78ee"
+        }
+      ],
+      "notes": "The mana indicator visibly communicates low-mana failure, including at zero fill where the background now carries the denied-cast flash."
+    }
+  ],
+  "human_approval": {
+    "required": true,
+    "decision": "approved",
+    "approved_by": "Vincent Liguori",
+    "notes": "Manual Unity Play Mode review confirmed that exhausted-mana denial now produces visible red feedback on the mana indicator."
+  },
+  "recorded_at": "2026-08-24T07:41:57Z",
+  "delivery": {
+    "base_commit": "643371e75f6846a0c467f38b512a81d165f1b2fb",
+    "candidate_commit": "7e69632bc5679b594a7893d6034b141e9500134a",
+    "integrated_commit": "7e69632bc5679b594a7893d6034b141e9500134a",
+    "integrated_tree": "f1b2bde5bf985b57d83db54c37fb1086abce064d"
+  }
+}

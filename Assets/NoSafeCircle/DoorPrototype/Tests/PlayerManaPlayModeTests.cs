@@ -347,6 +347,106 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
+        // VAL-002/VAL-003 regression: the scene builder adds PlayerManaUI before assigning
+        // its serialized mana/fill references. The runtime component must recover from that
+        // late wiring itself; tests must not hide the bug with a disable/re-enable cycle.
+        [UnityTest]
+        public IEnumerator PlayerManaUI_LateWiring_SubscribesWithoutDisableReenable()
+        {
+            var barObject = new GameObject("ManaFill");
+            var fillObject = new GameObject("Fill");
+            var uiObject = new GameObject("TestManaUI");
+
+            try
+            {
+                var backgroundImage = barObject.AddComponent<Image>();
+                backgroundImage.color = new Color(0.15f, 0.15f, 0.15f, 0.85f);
+
+                fillObject.transform.SetParent(barObject.transform, false);
+                var fillImage = fillObject.AddComponent<Image>();
+                fillImage.color = Color.blue;
+
+                // AddComponent triggers OnEnable now, before mana/fillImage are assigned.
+                var ui = uiObject.AddComponent<PlayerManaUI>();
+                SetPrivateField(ui, "mana", mana);
+                SetPrivateField(ui, "fillImage", fillImage);
+
+                // No disable/re-enable workaround. Update must notice the late wiring.
+                yield return null;
+
+                mana.Spend(mana.CurrentMana + 10f);
+                yield return null;
+
+                Assert.AreEqual(
+                    (Color)GetPrivateField(ui, "deniedColor"),
+                    backgroundImage.color,
+                    "PlayerManaUI must subscribe after late builder-style wiring without requiring a disable/re-enable cycle.");
+            }
+            finally
+            {
+                Object.Destroy(uiObject);
+                Object.Destroy(fillObject);
+                Object.Destroy(barObject);
+            }
+        }
+
+        // VAL-002/VAL-003 regression: denied feedback must remain visible at zero mana.
+        // Flashing the filled Image itself is invisible when fillAmount is zero, so the
+        // visible parent bar/background must carry the denied-cast color.
+        [UnityTest]
+        public IEnumerator PlayerManaUI_DeniedFeedback_RemainsVisibleWhenManaFillIsZero()
+        {
+            var barObject = new GameObject("ManaFill");
+            var fillObject = new GameObject("Fill");
+            var uiObject = new GameObject("TestManaUI");
+
+            try
+            {
+                var backgroundImage = barObject.AddComponent<Image>();
+                var normalBackgroundColor = new Color(0.15f, 0.15f, 0.15f, 0.85f);
+                backgroundImage.color = normalBackgroundColor;
+
+                fillObject.transform.SetParent(barObject.transform, false);
+                var fillImage = fillObject.AddComponent<Image>();
+                fillImage.type = Image.Type.Filled;
+                fillImage.color = Color.blue;
+
+                var ui = uiObject.AddComponent<PlayerManaUI>();
+                SetPrivateField(ui, "mana", mana);
+                SetPrivateField(ui, "fillImage", fillImage);
+                SetPrivateField(ui, "deniedFlashDuration", 0.05f);
+
+                yield return null;
+
+                Assert.IsTrue(mana.Spend(mana.CurrentMana));
+                yield return null;
+
+                Assert.AreEqual(0f, mana.CurrentMana, 0.001f);
+                Assert.AreEqual(0f, fillImage.fillAmount, 0.001f);
+
+                Assert.IsFalse(mana.Spend(1f));
+                yield return null;
+
+                Assert.AreEqual(
+                    (Color)GetPrivateField(ui, "deniedColor"),
+                    backgroundImage.color,
+                    "Denied-cast feedback must be visible on the mana-bar background even when the fill has zero visible width.");
+
+                yield return new WaitForSeconds(0.1f);
+                yield return null;
+
+                Assert.AreEqual(
+                    normalBackgroundColor,
+                    backgroundImage.color,
+                    "The visible mana-bar background must return to its authored color after the denied flash.");
+            }
+            finally
+            {
+                Object.Destroy(uiObject);
+                Object.Destroy(fillObject);
+                Object.Destroy(barObject);
+            }
+        }
         // AC-003 (regression-only ownership-boundary invariant): PlayerMana continues to
         // own only current mana and post-cast regen-delay state and must not absorb
         // spell-local cooldown/charge/cast/placement/active-field state. This locks the

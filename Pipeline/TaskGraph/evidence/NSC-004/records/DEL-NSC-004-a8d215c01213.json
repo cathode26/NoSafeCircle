@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "record_type": "delivery",
+  "record_id": "DEL-NSC-004-a8d215c01213",
+  "task_id": "NSC-004",
+  "task_contract": {
+    "path": "Tasks/NSC-004.yaml",
+    "revision": 2,
+    "sha256": "f993da8dd3aca03c67a0e679f8345534151fdb98fcdd250b5861aad8838f1f07"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "validated_state": {
+    "commit": "a8d215c012133d1be78be9604bb42e724eb3947d",
+    "tree": "7510ed49726bdd2d55fa1a77479535210c0facf9"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+      "blob_sha": "b217d4118860bdacdb6a1c971cd42baa5cdad50d",
+      "role": "player_health_owner"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealthUI.cs",
+      "blob_sha": "3f3ee79ca1da682313dc909acfa6d5e656f54c6a",
+      "role": "continuous_health_feedback"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "blob_sha": "2cc882a6806e890f4b5817ddc80503a423938673",
+      "role": "scene_builder_wiring"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerHealthPlayModeTests.cs",
+      "blob_sha": "1068fcad2a7fe59c5e1997650fa37b0c96897c93",
+      "role": "health_completion_gate_tests"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "blob_sha": "93e848a1b6ee8e2fe7b62104fe62fd8d854ced37",
+      "role": "health_ui_builder_tests"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "806790e653cd5fe9380980017d6fdd3774649eb9",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/HealthBuilderEditMode-a8d215c01213.xml",
+          "blob_sha": "bf43eb0ab24623cb438499a55816b0a82fb9a22d"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/HealthBuilderEditMode-a8d215c01213.log",
+          "blob_sha": "97df322727d14f89f5897057e72b9dca02da0596"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/PlayerHealthPlayModeTests-a8d215c01213.xml",
+          "blob_sha": "80b56b81ec78d2734e3006c04bd9f3881203a8a1"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/PlayerHealthPlayModeTests-a8d215c01213.log",
+          "blob_sha": "81aa0098c53bcbaf061111767e7e321ce4447acb"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/HumanValidation-a8d215c01213.txt",
+          "blob_sha": "65d9bddd9d56b80f8b1ed2b91c27d5478b08ce25"
+        }
+      ],
+      "notes": "Health/damage feedback and integration are covered by the successful builder and PlayerHealth suites plus manual Play Mode review of the visible health indicator and debug damage controls."
+    },
+    {
+      "gate_id": "VAL-002",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/PlayerHealthPlayModeTests-a8d215c01213.xml",
+          "blob_sha": "80b56b81ec78d2734e3006c04bd9f3881203a8a1"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/PlayerHealthPlayModeTests-a8d215c01213.log",
+          "blob_sha": "81aa0098c53bcbaf061111767e7e321ce4447acb"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/HumanValidation-a8d215c01213.txt",
+          "blob_sha": "65d9bddd9d56b80f8b1ed2b91c27d5478b08ce25"
+        }
+      ],
+      "notes": "Player-facing health/damage feedback remained readable in manual Play Mode validation; automated PlayerHealth coverage verifies health-state changes and the continuous indicator binding."
+    }
+  ],
+  "human_approval": {
+    "required": true,
+    "decision": "approved",
+    "approved_by": "Vincent Liguori",
+    "notes": "Manual Unity Play Mode review approved the integrated health indicator and debug health behavior."
+  },
+  "recorded_at": "2026-08-24T07:14:37Z",
+  "delivery": {
+    "base_commit": "fdf649c936184adce912521169520c3620e52cd0",
+    "candidate_commit": "b18aac90190eb85be3379b393293bf4ff4a5fd2f",
+    "integrated_commit": "a8d215c012133d1be78be9604bb42e724eb3947d",
+    "integrated_tree": "7510ed49726bdd2d55fa1a77479535210c0facf9"
+  }
+}

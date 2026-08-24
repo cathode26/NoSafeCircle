@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic three-role ExecutionCrew smoke; no Unity or live provider calls."""
 from __future__ import annotations
-import io, json, os, subprocess, sys, tempfile, time
+import hashlib, io, json, os, shutil, subprocess, sys, tempfile, time
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import Usage
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse
-from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, changed_paths, clone_exact, construct_real_provider, main as crew_main, run_crew, runtime_configuration
+from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, changed_paths, clone_exact, construct_real_provider, main as crew_main, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, validate_host_output_root
 
 TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
 def cmd(root,*args): return subprocess.run(("git","-C",str(root),*args),check=True,stdout=subprocess.PIPE,text=True).stdout.strip()
@@ -25,7 +25,7 @@ def fixture(parent):
     cmd(root,"add","."); cmd(root,"commit","-qm","baseline"); return root
 
 class State:
-    def __init__(self,scenario,source): self.scenario=scenario; self.source=source; self.calls=[]; self.clone=None
+    def __init__(self,scenario,source,feedback=None): self.scenario=scenario; self.source=source; self.feedback=feedback; self.calls=[]; self.clone=None
 
 class FakeProvider:
     provider_identifier="fake"
@@ -33,6 +33,19 @@ class FakeProvider:
     def invoke(self,request,model):
         s=self.state; attempt=sum(1 for r,_,_ in s.calls if r==self.role)+1; s.calls.append((self.role,request,model))
         assert request.role==self.role
+        if s.feedback:
+            assert "HUMAN REVIEW REJECTION FROM PRIOR REVIEW-READY CANDIDATE" in request.prompt
+            assert s.feedback in request.prompt
+            if self.role=="implementer":
+                assert "presence is NOT evidence that the task is complete" in request.prompt
+                assert "not Implementer blockers" in request.prompt and "Do not modify test files" in request.prompt
+                assert "Report a blocker only when the production correction itself cannot be completed" in request.prompt
+            elif self.role=="test_author":
+                assert "Add regression coverage" in request.prompt and "approved test paths" in request.prompt
+                assert "explicitly your responsibility" in request.prompt
+            else:
+                assert "A Validator pass must not ignore an unresolved human-review rejection" in request.prompt
+                assert "both the production correction and appropriate regression" in request.prompt
         if s.scenario=="slow" and self.role=="implementer": time.sleep(.06)
         if self.role=="validator":
             assert not self.writable and self.repo.resolve()==s.source.resolve(); assert "repository_write" not in request.allowed_capabilities; assert not request.write_boundaries.allowed_paths
@@ -63,27 +76,40 @@ class FakeProvider:
             elif s.scenario=="staged": write(self.repo/IMPL,"staged\n"); cmd(self.repo,"add",IMPL)
             elif s.scenario=="head": cmd(self.repo,"config","user.name","Bad"); cmd(self.repo,"config","user.email","bad@example.invalid"); cmd(self.repo,"commit","--allow-empty","-qm","bad head")
             elif s.scenario=="source_mutation": write(self.repo/IMPL,"public class PlayerMana { public int Mana; }\n"); write(s.source/OTHER,"mutated\n")
+            elif s.scenario=="blocker_no_artifact": pass
             else:
                 if attempt==2: assert "fix mana" in request.prompt
-                if not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/IMPL,"public class PlayerMana { public int Mana;"+(" public int Repaired;" if attempt==2 else "")+" }\n")
-            output={"summary":"implementation","claimed_changed_paths":["claim-impl.cs"],"blockers":(["cannot implement"] if s.scenario=="blocker" else []),"notes":[]}
+                if not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/IMPL,"public class PlayerMana { public int Mana;"+(" public int HumanReviewFixed;" if s.feedback else "")+(" public int Repaired;" if attempt==2 else "")+" }\n")
+            if s.scenario in ("blocker","blocker_no_artifact"): blockers=["cannot implement"]
+            elif s.scenario=="blocker_leak": blockers=[f"implementer blocked, quoting reviewer verbatim: {s.feedback}"]
+            else: blockers=[]
+            output={"summary":"implementation","claimed_changed_paths":["claim-impl.cs"],"blockers":blockers,"notes":[]}
         else:
             assert self.writable and request.model_capability_class=="low_cost"; assert request.is_path_writable(TEST) and not request.is_path_writable(IMPL); assert "public int Mana" in request.prompt and "Never claim tests passed" in request.prompt
             if attempt==2: assert "fix mana" in request.prompt and ("Repaired" in request.prompt or s.scenario=="no_op_repair")
             if s.scenario=="test_impl": write(self.repo/IMPL,"public class PlayerMana { public int Rewritten; }\n")
-            elif not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {}"+(" public void RepairTest() {}" if attempt==2 else "")+" }\n")
-            output={"summary":"tests","claimed_changed_paths":["claim-test.cs"],"test_cases_added_or_updated":["ManaTest"],"blockers":[],"known_limitations":["not run"],"proposed_unity_test_scope":"Play Mode"}
+            elif not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {}"+(" public void HumanReviewRegression() {}" if s.feedback else "")+(" public void RepairTest() {}" if attempt==2 else "")+" }\n")
+            test_blockers=[f"test author blocked, quoting reviewer verbatim: {s.feedback}"] if s.scenario=="test_blocker_leak" else []
+            output={"summary":"tests","claimed_changed_paths":["claim-test.cs"],"test_cases_added_or_updated":["ManaTest"],"blockers":test_blockers,"known_limitations":["not run"],"proposed_unity_test_scope":"Play Mode"}
         return ProviderInvocationResponse(output,"fake log\n",("runtime-claim.cs",),Usage(1,1,2),True,())
 
 def factory(state):
     def create(provider,repo,writable,role):
-        assert provider=="fake"
-        config=RuntimeConfiguration({"fake-crew":{"provider":"fake","models":{"low_cost":"fake-low","standard":"fake-standard","high_reasoning":"fake-high"}}})
-        return "fake-crew",config,{"fake":FakeProvider(state,repo,writable,role)}
+        assert provider in ("fake","claude","codex")
+        key=f"{provider}-crew"
+        config=RuntimeConfiguration({key:{"provider":"fake","models":{"low_cost":"fake-low","standard":"fake-standard","high_reasoning":"fake-high"}}})
+        return key,config,{"fake":FakeProvider(state,repo,writable,role)}
     return create
 
-def execute(source,outputs,scenario,index):
-    state=State(scenario,source); result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name="fake",implementation_paths=(IMPL,),test_paths=(TEST,),run_id=f"smoke-{scenario}-{index}",provider_factory=factory(state),_require_physical_read_only_source=False); return result,state,outputs/f"smoke-{scenario}-{index}"
+def execute(source,outputs,scenario,index,*,provider="fake",implementation_paths=(IMPL,),test_paths=(TEST,),host_output_root=None):
+    run_id=f"smoke-{scenario}-{index}"; state=State(scenario,source)
+    result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name=provider,implementation_paths=implementation_paths,test_paths=test_paths,run_id=run_id,provider_factory=factory(state),_require_physical_read_only_source=False,host_output_root=host_output_root)
+    return result,state,outputs/run_id
+
+def retry_execute(source,outputs,scenario,index,prior_run_id,feedback_path,feedback_text,*,host_output_root=None):
+    run_id=f"retry-{scenario}-{index}"; state=State(scenario,source,feedback_text)
+    result=run_crew(source=source,output_root=outputs,run_id=run_id,retry_run_id=prior_run_id,review_feedback_file=feedback_path,provider_factory=factory(state),_require_physical_read_only_source=False,host_output_root=host_output_root)
+    return result,state,outputs/run_id
 
 def main():
   with tempfile.TemporaryDirectory(prefix="crew-smoke-") as td:
@@ -154,10 +180,16 @@ def main():
     names=[event["event"] for event in events]; assert names[0]=="run_started" and names[-1]=="run_completed"
     assert names.index("run_started") < names.index("role_started") < names.index("role_completed")
     telemetry=(d/"progress.jsonl").read_text()+progress_stderr.getvalue(); assert SECRET not in telemetry and "EXACT COMMITTED TASK CONTRACT" not in telemetry
+    assert passed["requested_implementation_paths"]==[IMPL] and passed["requested_test_paths"]==[TEST]
+    assert passed["review_origin"] is None
     fake_result={"crew_status":"review_ready","machine":"parseable"}; cli_stdout=io.StringIO(); cli_stderr=io.StringIO()
-    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(cli_stdout), redirect_stderr(cli_stderr):
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as normal_cli_run, patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(cli_stdout), redirect_stderr(cli_stderr):
         assert crew_main()==0
     assert json.loads(cli_stdout.getvalue())==fake_result and cli_stderr.getvalue()==""
+    normal_kwargs=normal_cli_run.call_args.kwargs
+    assert normal_kwargs["task_id"]==TASK and normal_kwargs["provider_name"]=="claude"
+    assert normal_kwargs["implementation_paths"]==(IMPL,) and normal_kwargs["test_paths"]==(TEST,)
+    assert normal_kwargs["retry_run_id"] is None and normal_kwargs["review_feedback_file"] is None
     assert json.loads((d/"role_results/validator_1.json").read_text())["structured_output"]["criteria_results"][1]["status"]=="not_proven"
     assert len({x[1].run_id for x in state.calls})==3; assert not state.clone.exists(); assert passed["implementation_actual_changed_paths"]==[IMPL] and passed["test_actual_changed_paths"]==[TEST]
     assert len(list((d/"task_execution").glob("*/task_request.json")))==3 and len(list((d/"agent_runtime").glob("*/result.json")))==3
@@ -186,5 +218,414 @@ def main():
     assert any("clone baseline index" in reason for reason in rejected["rejection_reasons"])
     mutated,state,d=execute(source,outputs,"source_mutation",30); assert mutated["crew_status"]=="rejected" and any("source working tree changed" in x for x in mutated["rejection_reasons"]); write(source/OTHER,"public class Other { }\n")
     assert (cmd(source,"rev-parse","HEAD"),cmd(source,"status","--porcelain=v1","--untracked-files=all"),(source/IMPL).read_bytes())==baseline
+
+    # A future-format prior run records requested authority separately from actual changes.
+    prior,prior_state,prior_dir=execute(source,outputs,"pass",70,provider="claude")
+    assert prior["crew_status"]=="review_ready" and prior["review_origin"] is None
+    assert prior["requested_implementation_paths"]==[IMPL] and prior["requested_test_paths"]==[TEST]
+    prior_source_head=prior["source_head"]
+    write(source/IMPL,"public class PlayerMana { public int Mana; }\n")
+    write(source/TEST,"public class PlayerManaTests { public void ManaTest() {} }\n")
+    cmd(source,"add",IMPL,TEST); cmd(source,"commit","-qm","human applied rejected candidate")
+    current_head=cmd(source,"rev-parse","HEAD"); assert current_head!=prior_source_head
+    assert subprocess.run(("git","-C",str(source),"merge-base","--is-ancestor",prior_source_head,current_head),check=False).returncode==0
+    feedback_bytes="HUMAN_FEEDBACK_SECRET: zero mana pixels are invisible.\n".encode()
+    feedback_text=feedback_bytes.decode(); feedback_dir=outputs/"feedback"; feedback_dir.mkdir()
+    feedback_path=feedback_dir/"mana.txt"; feedback_path.write_bytes(feedback_bytes)
+
+    retry_stderr=io.StringIO()
+    with redirect_stderr(retry_stderr): retried,retry_state,retry_dir=retry_execute(source,outputs,"pass",71,prior["run_id"],feedback_path,feedback_text)
+    assert retried["crew_status"]=="review_ready" and retried["task_id"]==TASK and retried["provider"]=="claude"
+    assert retried["requested_implementation_paths"]==[IMPL] and retried["requested_test_paths"]==[TEST]
+    assert retried["source_head"]==current_head and retried["source_head"]!=prior_source_head
+    assert (retry_dir/"human_review_feedback.txt").read_bytes()==feedback_bytes
+    feedback_sha=hashlib.sha256(feedback_bytes).hexdigest()
+    assert retried["review_origin"]=={"prior_run_id":prior["run_id"],"result":"human_rejected","feedback_artifact":"human_review_feedback.txt","feedback_sha256":feedback_sha}
+    assert [role for role,_,_ in retry_state.calls]==["implementer","test_author","validator"]
+    retry_telemetry=(retry_dir/"progress.jsonl").read_text()+retry_stderr.getvalue()
+    assert feedback_text.strip() not in retry_telemetry and feedback_sha in retry_telemetry and prior["run_id"] in retry_telemetry
+    assert any(json.loads(line)["event"]=="human_review_retry_loaded" for line in (retry_dir/"progress.jsonl").read_text().splitlines())
+    assert cmd(source,"rev-parse","HEAD")==current_head and cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
+
+    # Fix 1: a feedback item mixing a production defect with a regression-test requirement must not make
+    # the Implementer block merely because test paths are outside its authority; Test Author must still run.
+    mixed_feedback_text=("Production defect: PlayerManaUI never shows feedback when a cast is denied.\n"
+                          "Regression requirement: add a regression test asserting denied casts show feedback.\n")
+    mixed_feedback_path=feedback_dir/"mixed.txt"; mixed_feedback_path.write_text(mixed_feedback_text,encoding="utf-8")
+    mixed,mixed_state,mixed_dir=retry_execute(source,outputs,"pass",75,prior["run_id"],mixed_feedback_path,mixed_feedback_text)
+    assert mixed["crew_status"]=="review_ready"
+    assert [role for role,_,_ in mixed_state.calls]==["implementer","test_author","validator"]
+    mixed_impl_record=json.loads((mixed_dir/"role_results/implementer_1.json").read_text())
+    assert mixed_impl_record["structured_output"]["blockers"]==[]
+    mixed_impl_request=next(request for role,request,_ in mixed_state.calls if role=="implementer")
+    assert "not Implementer blockers" in mixed_impl_request.prompt and "Do not modify test files" in mixed_impl_request.prompt
+    assert mixed_feedback_text in mixed_impl_request.prompt
+
+    # A genuine production-scope blocker must still stop the crew before the Test Author runs.
+    blocked_retry,blocked_retry_state,blocked_retry_dir=retry_execute(source,outputs,"blocker",76,prior["run_id"],mixed_feedback_path,mixed_feedback_text)
+    assert blocked_retry["crew_status"]=="blocked"
+    assert [role for role,_,_ in blocked_retry_state.calls]==["implementer"]
+    assert any("cannot implement" in reason for reason in blocked_retry["rejection_reasons"])
+
+    # Fix 2: stable additive human-facing result, derived from existing information, never fabricated.
+    mixed_expected_commands=patch_commands(mixed["candidate_patch_path"],applyable=True)
+    assert mixed["human_result"]=={"status":"REVIEW_READY","reason":"The candidate passed semantic crew review and awaits human review.","artifact_path":mixed["candidate_patch_path"],"next_action":"Review candidate.patch; apply manually only if approved.","commands":mixed_expected_commands}
+    assert mixed["candidate_patch_path"] is not None and mixed["human_result"]["artifact_path"]==str(mixed_dir/"candidate.patch")
+    assert blocked_retry["human_result"]["status"]=="BLOCKED"
+    # The authoritative rejection_reasons entry is preserved verbatim; the human-facing reason is a
+    # fixed structural summary rather than the raw (potentially agent-authored) blocker text.
+    assert blocked_retry["rejection_reasons"][0]=="implementer blocker: cannot implement"
+    assert blocked_retry["human_result"]["reason"]=="The Implementer reported a blocker."
+    assert blocked_retry["human_result"]["artifact_path"]==blocked_retry["workspace_diagnostic_patch_path"]==str(blocked_retry_dir/"workspace_diagnostic.patch")
+    assert blocked_retry["human_result"]["next_action"]=="Inspect the diagnostic patch and blocking reason; no candidate was approved."
+    blocked_retry_expected_commands=patch_commands(blocked_retry["workspace_diagnostic_patch_path"],applyable=False)
+    assert blocked_retry["human_result"]["commands"]==blocked_retry_expected_commands
+    assert blocked_retry_expected_commands["check"] is None and blocked_retry_expected_commands["apply"] is None
+
+    # Fix 2/19: neither the progress telemetry nor the concise human summary leaks raw feedback text.
+    mixed_summary_stderr=io.StringIO()
+    with redirect_stderr(mixed_summary_stderr): print_human_summary(mixed)
+    mixed_summary_text=mixed_summary_stderr.getvalue()
+    assert mixed_feedback_text.strip() not in mixed_summary_text
+    assert "RESULT: REVIEW_READY" in mixed_summary_text and "WHY:" not in mixed_summary_text
+    assert f"ARTIFACT: {mixed['human_result']['artifact_path']}" in mixed_summary_text
+    assert "NEXT: Review candidate.patch; apply manually only if approved." in mixed_summary_text
+    # REVIEW_READY footer: copy/paste-ready find/check/apply/verify commands for the exact candidate path.
+    assert "FIND PATCH:" in mixed_summary_text and mixed_expected_commands["find"] in mixed_summary_text
+    assert "CHECK PATCH:" in mixed_summary_text and mixed_expected_commands["check"] in mixed_summary_text
+    assert "APPLY PATCH:" in mixed_summary_text and mixed_expected_commands["apply"] in mixed_summary_text
+    assert "VERIFY:" in mixed_summary_text and "git status --short" in mixed_summary_text and "git diff --check" in mixed_summary_text
+    assert "Get-Item -LiteralPath" in mixed_summary_text
+
+    blocked_summary_stderr=io.StringIO()
+    with redirect_stderr(blocked_summary_stderr): print_human_summary(blocked_retry)
+    blocked_summary_text=blocked_summary_stderr.getvalue()
+    assert mixed_feedback_text.strip() not in blocked_summary_text
+    assert "RESULT: BLOCKED" in blocked_summary_text
+    assert f"WHY: {blocked_retry['human_result']['reason']}" in blocked_summary_text
+    assert f"ARTIFACT: {blocked_retry['human_result']['artifact_path']}" in blocked_summary_text
+    # Diagnostic footer: find-only, and absolutely never an apply/check command for workspace_diagnostic.patch.
+    assert "FIND DIAGNOSTIC PATCH:" in blocked_summary_text and blocked_retry_expected_commands["find"] in blocked_summary_text
+    assert "DO NOT APPLY:" in blocked_summary_text
+    assert "This is diagnostic work from a non-review-ready run, not an approved candidate." in blocked_summary_text
+    assert "git apply" not in blocked_summary_text
+
+    # Fix (human-review retries): a blocker that literally quotes the human-review feedback back must
+    # not leak that feedback into human_result.reason or the stderr summary, even though the detailed
+    # rejection_reasons entry (the authoritative record) preserves it verbatim.
+    assert safe_human_reason([])is None
+    assert safe_human_reason(["implementer blocker: leak this text"])=="The Implementer reported a blocker."
+    assert safe_human_reason(["test author blocker: leak this text"])=="The Test Author reported a blocker."
+    assert safe_human_reason(["validator blocked_by_design"])=="validator blocked_by_design"
+    impl_leak_retry,impl_leak_state,impl_leak_dir=retry_execute(source,outputs,"blocker_leak",77,prior["run_id"],feedback_path,feedback_text)
+    assert impl_leak_retry["crew_status"]=="blocked"
+    assert [role for role,_,_ in impl_leak_state.calls]==["implementer"]
+    assert any(feedback_text.strip() in reason for reason in impl_leak_retry["rejection_reasons"])
+    assert impl_leak_retry["human_result"]["reason"]=="The Implementer reported a blocker."
+    impl_leak_summary_stderr=io.StringIO()
+    with redirect_stderr(impl_leak_summary_stderr): print_human_summary(impl_leak_retry)
+    assert feedback_text.strip() not in impl_leak_summary_stderr.getvalue()
+    assert "WHY: The Implementer reported a blocker." in impl_leak_summary_stderr.getvalue()
+
+    test_leak_retry,test_leak_state,test_leak_dir=retry_execute(source,outputs,"test_blocker_leak",78,prior["run_id"],feedback_path,feedback_text)
+    assert test_leak_retry["crew_status"]=="blocked"
+    assert [role for role,_,_ in test_leak_state.calls]==["implementer","test_author"]
+    assert any(feedback_text.strip() in reason for reason in test_leak_retry["rejection_reasons"])
+    assert test_leak_retry["human_result"]["reason"]=="The Test Author reported a blocker."
+    test_leak_summary_stderr=io.StringIO()
+    with redirect_stderr(test_leak_summary_stderr): print_human_summary(test_leak_retry)
+    assert feedback_text.strip() not in test_leak_summary_stderr.getvalue()
+    assert "WHY: The Test Author reported a blocker." in test_leak_summary_stderr.getvalue()
+
+    # Fix (human-review retries): no fabricated reason. When no rejection/blocking reason was recorded,
+    # human_result.reason is null and the stderr summary omits the WHY line entirely.
+    no_reason_fake={"crew_status":"blocked","human_result":{"status":"BLOCKED","reason":None,"artifact_path":"/execution-output/z/workspace_diagnostic.patch","next_action":"Inspect the blocking reason; no diagnostic patch was produced."}}
+    no_reason_stderr=io.StringIO()
+    with redirect_stderr(no_reason_stderr): print_human_summary(no_reason_fake)
+    assert "RESULT: BLOCKED" in no_reason_stderr.getvalue() and "WHY:" not in no_reason_stderr.getvalue()
+    assert "ARTIFACT: /execution-output/z/workspace_diagnostic.patch" in no_reason_stderr.getvalue()
+    assert "NEXT: Inspect the blocking reason; no diagnostic patch was produced." in no_reason_stderr.getvalue()
+
+    # Fix 3: an explicit HOST output root produces exact drive-qualified host paths without disturbing
+    # the existing container-path fields, and the human-facing artifact prefers the host path.
+    write(source/IMPL,"public class PlayerMana { public int Mana; public int PreHostMarker; }\n")
+    write(source/TEST,"public class PlayerManaTests { public void PreHostMarkerTest() {} }\n")
+    cmd(source,"add",IMPL,TEST); cmd(source,"commit","-qm","pre host-root fixture state")
+    HOST_ROOT=r"C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs"
+    assert validate_host_output_root(HOST_ROOT) is not None
+    host_pass,host_pass_state,host_pass_dir=execute(source,outputs,"pass",90,provider="claude",host_output_root=HOST_ROOT)
+    assert host_pass["crew_status"]=="review_ready"
+    expected_host_candidate=f"{HOST_ROOT}\\{host_pass['run_id']}\\candidate.patch"
+    assert host_pass["candidate_patch_host_path"]==expected_host_candidate
+    assert host_pass["workspace_diagnostic_patch_host_path"] is None
+    assert host_pass["candidate_patch_path"]==str(host_pass_dir/"candidate.patch")
+    assert host_pass["human_result"]["artifact_path"]==expected_host_candidate
+
+    host_blocked,host_blocked_state,host_blocked_dir=execute(source,outputs,"blocker",91,provider="claude",host_output_root=HOST_ROOT)
+    assert host_blocked["crew_status"]=="blocked"
+    expected_host_diagnostic=f"{HOST_ROOT}\\{host_blocked['run_id']}\\workspace_diagnostic.patch"
+    assert host_blocked["workspace_diagnostic_patch_host_path"]==expected_host_diagnostic
+    assert host_blocked["candidate_patch_host_path"] is None
+    assert host_blocked["workspace_diagnostic_patch_path"]==str(host_blocked_dir/"workspace_diagnostic.patch")
+    assert host_blocked["human_result"]["artifact_path"]==expected_host_diagnostic
+
+    # Missing --host-output-root preserves full backward compatibility.
+    no_host,_,no_host_dir=execute(source,outputs,"pass",92,provider="claude")
+    assert no_host["candidate_patch_host_path"] is None and no_host["workspace_diagnostic_patch_host_path"] is None
+    assert no_host["candidate_patch_path"]==str(no_host_dir/"candidate.patch")
+    assert no_host["human_result"]["artifact_path"]==no_host["candidate_patch_path"]
+
+    # Malformed/relative Windows host roots fail closed when explicitly supplied; no run is created.
+    for bad_index,bad_root in enumerate(("", "   ", "relative\\path", "C:\\Foo\\..\\Bar", "C:foo"),95):
+        try: execute(source,outputs,"pass",bad_index,provider="claude",host_output_root=bad_root)
+        except CrewBlocked as exc: assert "--host-output-root" in str(exc),bad_root
+        else: raise AssertionError(f"invalid host-output-root accepted: {bad_root!r}")
+        assert not (outputs/f"smoke-pass-{bad_index}").exists()
+
+    # End-of-run PowerShell footer: REVIEW_READY with --host-output-root prints copy/paste-ready
+    # find/check/apply/verify commands using the exact host candidate path (spec items 1-7).
+    host_pass_stderr=io.StringIO()
+    with redirect_stderr(host_pass_stderr): print_human_summary(host_pass)
+    host_pass_footer=host_pass_stderr.getvalue()
+    host_quoted=powershell_single_quote(expected_host_candidate)
+    assert "RESULT: REVIEW_READY" in host_pass_footer and f"ARTIFACT: {expected_host_candidate}" in host_pass_footer
+    assert "<RUN-ID>" not in host_pass_footer and host_pass["run_id"] in host_pass_footer
+    assert f"FIND PATCH:\nGet-Item -LiteralPath {host_quoted}" in host_pass_footer
+    assert f"CHECK PATCH:\ngit apply --check {host_quoted}" in host_pass_footer
+    assert f"APPLY PATCH:\ngit apply {host_quoted}" in host_pass_footer
+    assert "VERIFY:\ngit status --short\ngit diff --check" in host_pass_footer
+    assert host_pass["human_result"]["commands"]=={"find":f"Get-Item -LiteralPath {host_quoted}","check":f"git apply --check {host_quoted}","apply":f"git apply {host_quoted}","verify":"git status --short; git diff --check"}
+
+    # Blocked run with a diagnostic artifact prints FIND DIAGNOSTIC PATCH and never an apply/check
+    # command for workspace_diagnostic.patch (spec items 11-14).
+    host_blocked_stderr=io.StringIO()
+    with redirect_stderr(host_blocked_stderr): print_human_summary(host_blocked)
+    host_blocked_footer=host_blocked_stderr.getvalue()
+    host_diag_quoted=powershell_single_quote(expected_host_diagnostic)
+    assert "RESULT: BLOCKED" in host_blocked_footer and f"ARTIFACT: {expected_host_diagnostic}" in host_blocked_footer
+    assert f"FIND DIAGNOSTIC PATCH:\nGet-Item -LiteralPath {host_diag_quoted}" in host_blocked_footer
+    assert "DO NOT APPLY:" in host_blocked_footer
+    assert "git apply" not in host_blocked_footer and "git apply --check" not in host_blocked_footer
+    assert host_blocked["human_result"]["commands"]=={"find":f"Get-Item -LiteralPath {host_diag_quoted}","check":None,"apply":None,"verify":None}
+
+    # Without --host-output-root, commands fall back to candidate_patch_path rather than inventing a
+    # Windows path (spec item 10).
+    no_host_quoted=powershell_single_quote(no_host["candidate_patch_path"])
+    assert no_host["human_result"]["commands"]["find"]==f"Get-Item -LiteralPath {no_host_quoted}"
+    assert no_host["human_result"]["commands"]["apply"]==f"git apply {no_host_quoted}"
+    assert "C:\\" not in no_host["human_result"]["commands"]["find"]
+    no_host_stderr=io.StringIO()
+    with redirect_stderr(no_host_stderr): print_human_summary(no_host)
+    assert no_host["candidate_patch_path"] in no_host_stderr.getvalue()
+
+    # A host path containing spaces is quoted correctly, and single quotes are escaped by doubling
+    # them so the result is safe to paste directly into PowerShell (spec items 8-9).
+    SPACE_ROOT=r"C:\Some Folder\outputs"
+    space_pass,_,space_pass_dir=execute(source,outputs,"pass",96,provider="claude",host_output_root=SPACE_ROOT)
+    assert space_pass["crew_status"]=="review_ready"
+    space_path=f"{SPACE_ROOT}\\{space_pass['run_id']}\\candidate.patch"
+    assert space_pass["candidate_patch_host_path"]==space_path
+    space_quoted=powershell_single_quote(space_path)
+    assert space_quoted==f"'{space_path}'"
+    assert space_pass["human_result"]["commands"]["find"]==f"Get-Item -LiteralPath {space_quoted}"
+    space_stderr=io.StringIO()
+    with redirect_stderr(space_stderr): print_human_summary(space_pass)
+    assert f"Get-Item -LiteralPath {space_quoted}" in space_stderr.getvalue()
+
+    QUOTE_ROOT=r"C:\Some Folder\Vincent's Project"
+    quote_pass,_,quote_pass_dir=execute(source,outputs,"pass",97,provider="claude",host_output_root=QUOTE_ROOT)
+    assert quote_pass["crew_status"]=="review_ready"
+    quote_path=f"{QUOTE_ROOT}\\{quote_pass['run_id']}\\candidate.patch"
+    assert quote_pass["candidate_patch_host_path"]==quote_path
+    expected_escaped=quote_path.replace("'","''")
+    assert powershell_single_quote(quote_path)==f"'{expected_escaped}'"
+    assert "Vincent''s Project" in powershell_single_quote(quote_path)
+    assert quote_pass["human_result"]["commands"]["apply"]==f"git apply '{expected_escaped}'"
+    quote_stderr=io.StringIO()
+    with redirect_stderr(quote_stderr): print_human_summary(quote_pass)
+    assert f"git apply '{expected_escaped}'" in quote_stderr.getvalue()
+
+    # A run with no artifact at all produces no apply/check/find command anywhere (spec item 15).
+    no_artifact,no_artifact_state,no_artifact_dir=execute(source,outputs,"blocker_no_artifact",98)
+    assert no_artifact["crew_status"]=="blocked"
+    assert no_artifact["candidate_patch_path"] is None and no_artifact["workspace_diagnostic_patch_path"] is None
+    assert not (no_artifact_dir/"candidate.patch").exists() and not (no_artifact_dir/"workspace_diagnostic.patch").exists()
+    assert no_artifact["human_result"]["artifact_path"] is None
+    assert no_artifact["human_result"]["commands"]=={"find":None,"check":None,"apply":None,"verify":None}
+    no_artifact_stderr=io.StringIO()
+    with redirect_stderr(no_artifact_stderr): print_human_summary(no_artifact)
+    no_artifact_footer=no_artifact_stderr.getvalue()
+    assert "RESULT: BLOCKED" in no_artifact_footer and "ARTIFACT: none" in no_artifact_footer
+    assert "FIND" not in no_artifact_footer and "git apply" not in no_artifact_footer and "Get-Item" not in no_artifact_footer
+
+    # stdout stays exactly one machine-readable JSON object; the footer lives only on stderr (spec 16-17).
+    footer_cli_stdout=io.StringIO(); footer_cli_stderr=io.StringIO()
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=host_pass), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(footer_cli_stdout), redirect_stderr(footer_cli_stderr):
+        assert crew_main()==0
+    assert json.loads(footer_cli_stdout.getvalue())==host_pass
+    assert "FIND PATCH:" not in footer_cli_stdout.getvalue()
+    assert "FIND PATCH:" in footer_cli_stderr.getvalue()
+
+    # Retry repair attempt two retains human evidence and the separate Validator findings.
+    repaired_retry,repaired_state,_=retry_execute(source,outputs,"repair",72,prior["run_id"],feedback_path,feedback_text)
+    assert repaired_retry["crew_status"]=="review_ready" and repaired_retry["attempts_used"]==2
+    for role,request,_ in repaired_state.calls:
+        if role in ("implementer","test_author") and request.run_id.split("-")[-2]=="2":
+            assert feedback_text in request.prompt and "VALIDATOR BLOCKING FINDINGS FROM THE PRIOR PASS" in request.prompt and "fix mana" in request.prompt
+
+    # Legacy recovery must preserve exact granted authority, including an unchanged allowed path.
+    write(source/IMPL,"public class PlayerMana { public int Mana; public int RejectedAgain; }\n")
+    write(source/TEST,"public class PlayerManaTests { public void RejectedAgain() {} }\n")
+    cmd(source,"add",IMPL,TEST); cmd(source,"commit","-qm","second rejected candidate fixture")
+    legacy,_,legacy_dir=execute(source,outputs,"pass",73,provider="claude",implementation_paths=(IMPL,OTHER))
+    assert legacy["implementation_actual_changed_paths"]==[IMPL] and legacy["requested_implementation_paths"]==[IMPL,OTHER]
+    legacy_result_path=legacy_dir/"crew_result.json"; legacy_json=json.loads(legacy_result_path.read_text())
+    del legacy_json["requested_implementation_paths"]; del legacy_json["requested_test_paths"]
+    legacy_result_path.write_text(json.dumps(legacy_json,indent=2,sort_keys=True)+"\n")
+    legacy_retry,legacy_state,_=retry_execute(source,outputs,"pass",74,legacy["run_id"],feedback_path,feedback_text)
+    assert legacy_retry["requested_implementation_paths"]==[IMPL,OTHER]
+    assert legacy_retry["requested_test_paths"]==[TEST]
+    assert legacy_retry["implementation_actual_changed_paths"]==[IMPL]
+    assert legacy_state.calls[0][1].write_boundaries.allowed_paths==(IMPL,OTHER)
+
+    # Retry CLI has no duplicated task/provider/scope arguments.
+    retry_cli_stdout=io.StringIO(); retry_cli_stderr=io.StringIO()
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as retry_cli_run, patch.object(sys,"argv",["run_crew.py","--retry-run",prior["run_id"],"--review-feedback-file",str(feedback_path),"--output-root",str(outputs)]), redirect_stdout(retry_cli_stdout), redirect_stderr(retry_cli_stderr):
+        assert crew_main()==0
+    retry_kwargs=retry_cli_run.call_args.kwargs
+    assert retry_kwargs["task_id"] is None and retry_kwargs["provider_name"] is None
+    assert retry_kwargs["implementation_paths"]==() and retry_kwargs["test_paths"]==()
+    assert retry_kwargs["retry_run_id"]==prior["run_id"] and retry_kwargs["review_feedback_file"]==feedback_path
+    assert retry_kwargs["host_output_root"] is None
+
+    # --host-output-root takes precedence over the environment fallback; env is used when the CLI flag is absent.
+    saved_host_env=os.environ.pop("NSC_EXECUTION_HOST_OUTPUT_ROOT",None)
+    try:
+        cli_host_stdout=io.StringIO(); cli_host_stderr=io.StringIO()
+        with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as cli_host_run, \
+             patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST,"--host-output-root","C:\\CliRoot"]), \
+             patch.dict(os.environ,{"NSC_EXECUTION_HOST_OUTPUT_ROOT":"C:\\EnvRoot"},clear=False), \
+             redirect_stdout(cli_host_stdout), redirect_stderr(cli_host_stderr):
+            assert crew_main()==0
+        assert cli_host_run.call_args.kwargs["host_output_root"]=="C:\\CliRoot"
+
+        env_host_stdout=io.StringIO(); env_host_stderr=io.StringIO()
+        with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as env_host_run, \
+             patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), \
+             patch.dict(os.environ,{"NSC_EXECUTION_HOST_OUTPUT_ROOT":"C:\\EnvRoot"},clear=False), \
+             redirect_stdout(env_host_stdout), redirect_stderr(env_host_stderr):
+            assert crew_main()==0
+        assert env_host_run.call_args.kwargs["host_output_root"]=="C:\\EnvRoot"
+
+        os.environ.pop("NSC_EXECUTION_HOST_OUTPUT_ROOT",None)
+        default_host_stdout=io.StringIO(); default_host_stderr=io.StringIO()
+        with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as default_host_run, \
+             patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), \
+             redirect_stdout(default_host_stdout), redirect_stderr(default_host_stderr):
+            assert crew_main()==0
+        assert default_host_run.call_args.kwargs["host_output_root"] is None
+    finally:
+        if saved_host_env is not None: os.environ["NSC_EXECUTION_HOST_OUTPUT_ROOT"]=saved_host_env
+
+    # Fix 2: stdout stays exactly one parseable machine-readable JSON object; the concise human summary
+    # goes only to stderr, and its shape differs for review_ready versus a blocked/rejected result.
+    review_ready_fake={"crew_status":"review_ready","human_result":{"status":"REVIEW_READY","reason":"The candidate passed semantic crew review and awaits human review.","artifact_path":"/execution-output/x/candidate.patch","next_action":"Review candidate.patch; apply manually only if approved."}}
+    rr_stdout=io.StringIO(); rr_stderr=io.StringIO()
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=review_ready_fake), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(rr_stdout), redirect_stderr(rr_stderr):
+        assert crew_main()==0
+    assert json.loads(rr_stdout.getvalue())==review_ready_fake
+    assert "RESULT:" not in rr_stdout.getvalue()
+    try: json.loads(rr_stderr.getvalue())
+    except json.JSONDecodeError: pass
+    else: raise AssertionError("stderr summary must not itself be parseable result JSON")
+    assert "RESULT: REVIEW_READY" in rr_stderr.getvalue() and "WHY:" not in rr_stderr.getvalue()
+    assert "ARTIFACT: /execution-output/x/candidate.patch" in rr_stderr.getvalue()
+    assert "NEXT: Review candidate.patch; apply manually only if approved." in rr_stderr.getvalue()
+
+    blocked_fake={"crew_status":"blocked","human_result":{"status":"BLOCKED","reason":"implementer blocker: cannot implement","artifact_path":"/execution-output/y/workspace_diagnostic.patch","next_action":"Inspect the diagnostic patch and blocking reason; no candidate was approved."}}
+    bl_stdout=io.StringIO(); bl_stderr=io.StringIO()
+    with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=blocked_fake), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(bl_stdout), redirect_stderr(bl_stderr):
+        assert crew_main()==1
+    assert json.loads(bl_stdout.getvalue())==blocked_fake
+    assert "RESULT: BLOCKED" in bl_stderr.getvalue() and "WHY: implementer blocker: cannot implement" in bl_stderr.getvalue()
+    assert "ARTIFACT: /execution-output/y/workspace_diagnostic.patch" in bl_stderr.getvalue()
+    assert "NEXT: Inspect the diagnostic patch and blocking reason; no candidate was approved." in bl_stderr.getvalue()
+
+    # Preflight/orchestration failures raised before any crew_result exists (dirty checkout, invalid
+    # retry artifacts, clone/preflight failure, invalid --host-output-root, source identity failure, ...)
+    # must still end with the human-facing footer: no candidate/diagnostic artifact ever exists here.
+    for exc in (
+        CrewBlocked("source working tree must be completely clean, including untracked files"),
+        ValueError("boom"),
+        OSError("disk exploded"),
+        subprocess.CalledProcessError(1, ["git", "clone"]),
+    ):
+        exc_stdout=io.StringIO(); exc_stderr=io.StringIO()
+        with patch("Pipeline.ExecutionCrew.run_crew.run_crew",side_effect=exc), patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(exc_stdout), redirect_stderr(exc_stderr):
+            assert crew_main()==2
+        assert exc_stdout.getvalue()==""
+        exc_stderr_text=exc_stderr.getvalue()
+        assert f"ExecutionCrew blocked: {exc}" in exc_stderr_text
+        assert "RESULT: BLOCKED" in exc_stderr_text
+        assert f"WHY: {exc}" in exc_stderr_text
+        assert "ARTIFACT: none" in exc_stderr_text
+        assert "NEXT: Resolve the blocking condition and rerun ExecutionCrew." in exc_stderr_text
+        assert "FIND" not in exc_stderr_text and "CHECK PATCH" not in exc_stderr_text and "APPLY PATCH" not in exc_stderr_text and "git apply" not in exc_stderr_text
+
+    def copied_prior(new_id, mutate):
+        destination=outputs/new_id; shutil.copytree(prior_dir,destination)
+        value=json.loads((destination/"crew_result.json").read_text()); value["run_id"]=new_id; mutate(value)
+        (destination/"crew_result.json").write_text(json.dumps(value,indent=2,sort_keys=True)+"\n")
+        return destination
+
+    def expect_retry_blocked(prior_id, feedback, run_id, expected):
+        blocked_state=State("pass",source,feedback_text)
+        try: run_crew(source=source,output_root=outputs,run_id=run_id,retry_run_id=prior_id,review_feedback_file=feedback,provider_factory=factory(blocked_state),_require_physical_read_only_source=False)
+        except CrewBlocked as exc: assert expected in str(exc),str(exc)
+        else: raise AssertionError(f"retry unexpectedly accepted: {run_id}")
+        assert not blocked_state.calls
+
+    copied_prior("prior-not-ready",lambda value:value.__setitem__("crew_status","needs_human"))
+    expect_retry_blocked("prior-not-ready",feedback_path,"fail-status","review_ready")
+    copied_prior("prior-bad-validator",lambda value:value.__setitem__("validator_status","needs_changes"))
+    expect_retry_blocked("prior-bad-validator",feedback_path,"fail-validator","validator_status pass")
+    copied_prior("prior-bad-scope",lambda value:value.__setitem__("requested_implementation_paths",[IMPL,OTHER]))
+    expect_retry_blocked("prior-bad-scope",feedback_path,"fail-scope","does not match authoritative")
+    copied_prior("prior-bad-tree",lambda value:value.__setitem__("source_tree","0"*40))
+    expect_retry_blocked("prior-bad-tree",feedback_path,"fail-tree","cannot be proven")
+    copied_prior("prior-bad-provider",lambda value:value.__setitem__("provider","mixed"))
+    expect_retry_blocked("prior-bad-provider",feedback_path,"fail-provider","invalid provider")
+    invalid_json=outputs/"prior-invalid-json"; invalid_json.mkdir(); (invalid_json/"crew_result.json").write_text("[]\n")
+    expect_retry_blocked("prior-invalid-json",feedback_path,"fail-json","JSON object")
+    missing_result=outputs/"prior-missing-result"; missing_result.mkdir()
+    expect_retry_blocked("prior-missing-result",feedback_path,"fail-result-missing","crew_result.json")
+    expect_retry_blocked("prior-missing",feedback_path,"fail-missing","prior run")
+    for index,bad_id in enumerate(("../escape","nested/run","/absolute",".."),80):
+        expect_retry_blocked(bad_id,feedback_path,f"fail-id-{index}","single conservative run ID")
+
+    orphan_head=cmd(source,"commit-tree",cmd(source,"rev-parse","HEAD^{tree}"),"-m","unrelated prior")
+    copied_prior("prior-unrelated",lambda value:(value.__setitem__("source_head",orphan_head),value.__setitem__("source_tree",cmd(source,"rev-parse",f"{orphan_head}^{{tree}}"))))
+    expect_retry_blocked("prior-unrelated",feedback_path,"fail-ancestor","must be an ancestor")
+
+    outside_feedback=root/"outside-feedback.txt"; outside_feedback.write_text("outside\n")
+    expect_retry_blocked(prior["run_id"],outside_feedback,"fail-feedback-outside","strictly underneath")
+    expect_retry_blocked(prior["run_id"],feedback_dir/"missing.txt","fail-feedback-missing","does not exist")
+    empty_feedback=feedback_dir/"empty.txt"; empty_feedback.write_bytes(b"")
+    expect_retry_blocked(prior["run_id"],empty_feedback,"fail-feedback-empty","non-empty")
+    invalid_feedback=feedback_dir/"invalid.txt"; invalid_feedback.write_bytes(b"\xff")
+    expect_retry_blocked(prior["run_id"],invalid_feedback,"fail-feedback-utf8","valid UTF-8")
+    oversized_feedback=feedback_dir/"oversized.txt"; oversized_feedback.write_bytes(b"x"*(64*1024+1))
+    expect_retry_blocked(prior["run_id"],oversized_feedback,"fail-feedback-size","at most 65536")
+    feedback_directory=feedback_dir/"directory"; feedback_directory.mkdir()
+    expect_retry_blocked(prior["run_id"],feedback_directory,"fail-feedback-regular","regular file")
+    try:
+        escaped_feedback=feedback_dir/"escaped.txt"; escaped_feedback.symlink_to(outside_feedback)
+        expect_retry_blocked(prior["run_id"],escaped_feedback,"fail-feedback-symlink","strictly underneath")
+        outside_prior=root/"outside-prior"; shutil.copytree(prior_dir,outside_prior)
+        (outputs/"escaped-prior").symlink_to(outside_prior,target_is_directory=True)
+        expect_retry_blocked("escaped-prior",feedback_path,"fail-prior-symlink","strictly underneath")
+    except (OSError, NotImplementedError):
+        pass
+    assert cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
   print("execution crew smoke: PASS (fake providers only; Unity not invoked)"); return 0
 if __name__=="__main__": raise SystemExit(main())

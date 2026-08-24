@@ -1,0 +1,13 @@
+NSC-003 manual Play Mode revalidation — 2026-08-24
+
+Before the repair, clicking diagonally through a wall could leave the wizard attempting the
+unreachable destination indefinitely. The character appeared nearly still but continued
+making tiny horizontal progress, which prevented door opening because interaction kept
+observing movement.
+
+After the NSC-003 obstruction repair, the same behavior is materially improved and accepted
+as good enough for the current prototype: the wizard may slide briefly against collision,
+then the obstructed destination is cancelled and the character becomes genuinely stationary
+instead of creeping indefinitely.
+
+Manual disposition: approved for the current prototype and NSC-003 revalidation.

@@ -2,10 +2,10 @@
 """Run the minimum production ExecutionCrew for one human-selected task."""
 from __future__ import annotations
 
-import argparse, hashlib, json, math, os, re, subprocess, sys, tempfile, threading, time
+import argparse, hashlib, json, math, os, re, stat, subprocess, sys, tempfile, threading, time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Mapping
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,10 +25,35 @@ from Pipeline.ExecutionCrew.schemas import IMPLEMENTER_OUTPUT_SCHEMA, TEST_AUTHO
 from work_graph_validate import WorkGraphValidationError, _validate_v2_task
 
 TASK_ID_RE = re.compile(r"^NSC-[0-9]{3}$")
+RUN_ID_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$")
+GIT_OBJECT_RE = re.compile(r"^[0-9a-f]{40}$")
 GDD_PATH = "Docs/GDD/No_Safe_Circle_GDD.md"
 POLICY_PATH = "Docs/Engineering/UNITY_TESTING_POLICY.md"
+MAX_REVIEW_FEEDBACK_BYTES = 64 * 1024
 
 class CrewBlocked(RuntimeError): pass
+
+def validate_host_output_root(value: str) -> PureWindowsPath:
+    """Lexically validate a HOST-facing Windows path; never resolved against this (Linux) filesystem."""
+    if not isinstance(value, str) or not value.strip():
+        raise CrewBlocked("--host-output-root must be a non-empty absolute Windows path")
+    candidate = PureWindowsPath(value)
+    if not candidate.drive or not candidate.is_absolute():
+        raise CrewBlocked("--host-output-root must be an absolute drive-qualified Windows path")
+    if ".." in candidate.parts or "." in candidate.parts:
+        raise CrewBlocked("--host-output-root must not contain traversal components")
+    return candidate
+
+@dataclass(frozen=True)
+class RetryContext:
+    prior_run_id: str
+    task_id: str
+    provider: str
+    implementation_paths: tuple[str, ...]
+    test_paths: tuple[str, ...]
+    feedback_bytes: bytes
+    feedback_text: str
+    feedback_sha256: str
 
 class ProgressReporter:
     """Supplemental, non-authoritative operational telemetry for one crew run."""
@@ -67,6 +92,192 @@ def capture_source(source: Path) -> SourceIdentity:
         return identity
     except (OSError, subprocess.CalledProcessError) as exc:
         raise CrewBlocked("source repository identity could not be resolved") from exc
+
+def _resolve_existing_under(root: Path, candidate: Path, *, field: str) -> Path:
+    try:
+        resolved_root = root.resolve(strict=True)
+        resolved = candidate.resolve(strict=True)
+    except OSError as exc:
+        raise CrewBlocked(f"{field} does not exist or cannot be resolved") from exc
+    if resolved == resolved_root or not resolved.is_relative_to(resolved_root):
+        raise CrewBlocked(f"{field} must resolve strictly underneath the ExecutionCrew output root")
+    return resolved
+
+def _json_object(path: Path, *, field: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise CrewBlocked(f"{field} must be valid UTF-8 JSON") from exc
+    if not isinstance(value, dict):
+        raise CrewBlocked(f"{field} must contain a JSON object")
+    return value
+
+def _requested_paths(value: Any, *, field: str) -> tuple[str, ...]:
+    if not isinstance(value, list) or not value:
+        raise CrewBlocked(f"prior {field} must be a non-empty path array")
+    try:
+        return WriteBoundaries(tuple(value), ()).allowed_paths
+    except ValueError as exc:
+        raise CrewBlocked(f"prior {field} is invalid: {exc}") from exc
+
+def _legacy_requested_scope(prior_dir: Path, *, task_id: str, provider: str,
+                            contract_identity: TaskContractIdentity) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    task_execution = _resolve_existing_under(
+        prior_dir, prior_dir / "task_execution", field="prior task_execution directory"
+    )
+    if not task_execution.is_dir():
+        raise CrewBlocked("prior task_execution artifact must be a directory")
+    expected_configuration_key = {"claude":"claude-crew", "codex":"codex-crew"}[provider]
+    by_role: dict[str, list[WriteBoundaries]] = {"implementer":[], "test_author":[]}
+    validator_count = 0
+    request_paths = sorted(task_execution.glob("*/task_request.json"))
+    if not request_paths:
+        raise CrewBlocked("prior TaskExecution request artifacts are missing")
+    for request_path in request_paths:
+        resolved = _resolve_existing_under(prior_dir, request_path, field="prior task_request.json")
+        if not stat.S_ISREG(resolved.stat().st_mode):
+            raise CrewBlocked("prior task_request.json must be a regular file")
+        raw = _json_object(resolved, field="prior task_request.json")
+        try:
+            request = TaskExecutionRequest.from_dict(raw)
+        except ValueError as exc:
+            raise CrewBlocked(f"prior TaskExecution request is invalid: {exc}") from exc
+        invocation = request.invocation
+        if request.task_id != task_id:
+            raise CrewBlocked("prior TaskExecution task ID does not match crew_result.json")
+        if request.task_contract_identity != contract_identity:
+            raise CrewBlocked("prior TaskExecution contract identity does not match crew_result.json")
+        if invocation.provider_configuration_key != expected_configuration_key:
+            raise CrewBlocked("prior TaskExecution provider does not match crew_result.json")
+        if invocation.role in by_role:
+            by_role[invocation.role].append(invocation.write_boundaries)
+        elif invocation.role != "validator":
+            raise CrewBlocked(f"unexpected prior TaskExecution role: {invocation.role}")
+        elif invocation.write_boundaries.allowed_paths or invocation.write_boundaries.denied_paths:
+            raise CrewBlocked("prior Validator unexpectedly had write authority")
+        else:
+            validator_count += 1
+    if not validator_count:
+        raise CrewBlocked("prior Validator TaskExecution request artifact is missing")
+    recovered: dict[str, tuple[str, ...]] = {}
+    for role, boundaries in by_role.items():
+        if not boundaries:
+            raise CrewBlocked(f"prior {role} TaskExecution request artifact is missing")
+        variants = {item.allowed_paths for item in boundaries}
+        if len(variants) != 1:
+            raise CrewBlocked(f"prior {role} WriteBoundaries are inconsistent across attempts")
+        recovered[role] = next(iter(variants))
+        if not recovered[role]:
+            raise CrewBlocked(f"prior {role} WriteBoundaries are empty")
+    implementation_paths = recovered["implementer"]
+    test_paths = recovered["test_author"]
+    for boundaries in by_role["implementer"]:
+        if boundaries.denied_paths != test_paths:
+            raise CrewBlocked("prior Implementer denied paths do not match Test Author authority")
+    for boundaries in by_role["test_author"]:
+        if boundaries.denied_paths != implementation_paths:
+            raise CrewBlocked("prior Test Author denied paths do not match Implementer authority")
+    return implementation_paths, test_paths
+
+def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: Path,
+                       prior_run_id: str, feedback_file: Path) -> RetryContext:
+    if not isinstance(prior_run_id, str) or not RUN_ID_RE.fullmatch(prior_run_id):
+        raise CrewBlocked("--retry-run must be a single conservative run ID without separators or traversal")
+    try:
+        resolved_output_root = output_root.resolve(strict=True)
+    except OSError as exc:
+        raise CrewBlocked("ExecutionCrew output root does not exist or cannot be resolved for retry") from exc
+    prior_dir = _resolve_existing_under(
+        resolved_output_root, resolved_output_root / prior_run_id, field="prior run"
+    )
+    if not prior_dir.is_dir():
+        raise CrewBlocked("prior run must be a directory")
+    result_path = _resolve_existing_under(
+        prior_dir, prior_dir / "crew_result.json", field="prior crew_result.json"
+    )
+    if not stat.S_ISREG(result_path.stat().st_mode):
+        raise CrewBlocked("prior crew_result.json must be a regular file")
+    prior = _json_object(result_path, field="prior crew_result.json")
+    if prior.get("schema_version") != "1.0":
+        raise CrewBlocked("prior crew_result.json has an unsupported schema_version")
+    if prior.get("run_id") != prior_run_id:
+        raise CrewBlocked("prior crew_result.json run_id does not match --retry-run")
+    if prior.get("crew_status") != "review_ready":
+        raise CrewBlocked("prior ExecutionCrew run must have crew_status review_ready")
+    if prior.get("validator_status") != "pass":
+        raise CrewBlocked("prior review-ready run must have validator_status pass")
+    task_id = prior.get("task_id")
+    provider = prior.get("provider")
+    source_head = prior.get("source_head")
+    source_tree = prior.get("source_tree")
+    if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
+        raise CrewBlocked("prior crew_result.json has an invalid task_id")
+    if provider not in ("claude", "codex"):
+        raise CrewBlocked("prior crew_result.json has an invalid provider")
+    if not isinstance(source_head, str) or not GIT_OBJECT_RE.fullmatch(source_head):
+        raise CrewBlocked("prior crew_result.json has an invalid source_head")
+    if not isinstance(source_tree, str) or not GIT_OBJECT_RE.fullmatch(source_tree):
+        raise CrewBlocked("prior crew_result.json has an invalid source_tree")
+    if not isinstance(prior.get("source_branch"), str):
+        raise CrewBlocked("prior crew_result.json is missing valid source branch metadata")
+    try:
+        contract_identity = TaskContractIdentity.from_dict(prior.get("task_contract_identity"))
+    except (TypeError, ValueError) as exc:
+        raise CrewBlocked(f"prior crew_result.json has invalid task contract identity: {exc}") from exc
+    if contract_identity.path != f"Tasks/{task_id}.yaml":
+        raise CrewBlocked("prior task contract identity does not match task_id")
+    prior_tree = git(source, "rev-parse", "--verify", f"{source_head}^{{tree}}", check=False)
+    if prior_tree.returncode or prior_tree.stdout.strip() != source_tree:
+        raise CrewBlocked("prior source commit/tree metadata cannot be proven in the current repository")
+    ancestor = git(source, "merge-base", "--is-ancestor", source_head, identity.head, check=False)
+    if ancestor.returncode == 1:
+        raise CrewBlocked("prior source HEAD must be an ancestor of the current source HEAD")
+    if ancestor.returncode != 0:
+        raise CrewBlocked("prior source ancestry could not be proven")
+    implementation_paths, test_paths = _legacy_requested_scope(
+        prior_dir, task_id=task_id, provider=provider, contract_identity=contract_identity
+    )
+    has_implementation = "requested_implementation_paths" in prior
+    has_tests = "requested_test_paths" in prior
+    if has_implementation != has_tests:
+        raise CrewBlocked("prior crew_result.json has incomplete requested-scope metadata")
+    if has_implementation:
+        result_implementation = _requested_paths(
+            prior["requested_implementation_paths"], field="requested_implementation_paths"
+        )
+        result_tests = _requested_paths(prior["requested_test_paths"], field="requested_test_paths")
+        if result_implementation != implementation_paths or result_tests != test_paths:
+            raise CrewBlocked("prior requested scope does not match authoritative TaskExecution WriteBoundaries")
+    feedback_candidate = feedback_file if feedback_file.is_absolute() else resolved_output_root / feedback_file
+    feedback_path = _resolve_existing_under(
+        resolved_output_root, feedback_candidate, field="human review feedback file"
+    )
+    descriptor = None
+    try:
+        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(feedback_path, flags)
+        feedback_stat = os.fstat(descriptor)
+        if not stat.S_ISREG(feedback_stat.st_mode):
+            raise CrewBlocked("human review feedback must be a regular file")
+        with os.fdopen(descriptor, "rb") as stream:
+            descriptor = None
+            feedback_bytes = stream.read(MAX_REVIEW_FEEDBACK_BYTES + 1)
+        feedback_text = feedback_bytes.decode("utf-8")
+    except UnicodeError as exc:
+        raise CrewBlocked("human review feedback must be valid UTF-8") from exc
+    except OSError as exc:
+        raise CrewBlocked("human review feedback could not be safely read as a regular file") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    if len(feedback_bytes) > MAX_REVIEW_FEEDBACK_BYTES:
+        raise CrewBlocked(f"human review feedback must be at most {MAX_REVIEW_FEEDBACK_BYTES} bytes")
+    if not feedback_text.strip():
+        raise CrewBlocked("human review feedback must be non-empty")
+    return RetryContext(
+        prior_run_id, task_id, provider, implementation_paths, test_paths,
+        feedback_bytes, feedback_text, hashlib.sha256(feedback_bytes).hexdigest()
+    )
 
 def committed_bytes(source: Path, head: str, path: str) -> bytes:
     validate_repository_path(path, field="committed path")
@@ -182,6 +393,39 @@ def validator_semantic_reasons(output: Mapping[str, Any], expected_ids: tuple[st
         reasons.append("validator needs_changes requires a failed criterion or blocking issue")
     return reasons
 
+def powershell_single_quote(path: str) -> str:
+    """Quote a literal path for safe copy/paste into PowerShell, doubling embedded single quotes."""
+    return "'" + path.replace("'", "''") + "'"
+
+def patch_commands(path: str | None, *, applyable: bool) -> dict[str, str | None]:
+    """Copy/paste-ready PowerShell commands for one artifact path, or all-null when there is none.
+    Never emits git apply/--check commands for a non-applyable (diagnostic) artifact."""
+    if not path:
+        return {"find": None, "check": None, "apply": None, "verify": None}
+    quoted = powershell_single_quote(path)
+    find_command = f"Get-Item -LiteralPath {quoted}"
+    if not applyable:
+        return {"find": find_command, "check": None, "apply": None, "verify": None}
+    return {
+        "find": find_command,
+        "check": f"git apply --check {quoted}",
+        "apply": f"git apply {quoted}",
+        "verify": "git status --short; git diff --check",
+    }
+
+def safe_human_reason(reasons: list[str]) -> str | None:
+    """First rejection reason, unless it embeds raw agent-authored blocker text (which may quote
+    human-review feedback), in which case a fixed structural summary is used instead. None if no
+    reason was recorded; never fabricate an explanation."""
+    if not reasons:
+        return None
+    first = reasons[0]
+    if first.startswith("implementer blocker: "):
+        return "The Implementer reported a blocker."
+    if first.startswith("test author blocker: "):
+        return "The Test Author reported a blocker."
+    return first
+
 def source_revalidation(source: Path, identity: SourceIdentity):
     reasons=[]
     try:
@@ -215,23 +459,58 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
         )
     raise CrewBlocked("provider must be claude or codex")
 
-def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: str,
-             implementation_paths: tuple[str,...], test_paths: tuple[str,...], run_id: str|None=None,
+def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provider_name: str|None=None,
+             implementation_paths: tuple[str,...]=(), test_paths: tuple[str,...]=(), run_id: str|None=None,
+             retry_run_id: str|None=None, review_feedback_file: Path|None=None, host_output_root: str|None=None,
              provider_factory: ProviderFactory|None=None, _require_physical_read_only_source: bool=True):
     started=time.monotonic()
+    host_root_path = validate_host_output_root(host_output_root) if host_output_root is not None else None
+    retry_mode = retry_run_id is not None
+    if retry_mode and any((task_id is not None, provider_name is not None, implementation_paths, test_paths)):
+        raise CrewBlocked("retry mode inherits task, provider, and write paths; do not supply them explicitly")
+    if not retry_mode and review_feedback_file is not None:
+        raise CrewBlocked("--review-feedback-file is valid only with --retry-run")
+    if retry_mode and review_feedback_file is None:
+        raise CrewBlocked("--review-feedback-file is required with --retry-run")
+    if not retry_mode and (not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id)):
+        raise CrewBlocked("task ID must match NSC-###")
+    identity=capture_source(source); source_root=Path(identity.root).resolve(strict=True)
+    if _require_physical_read_only_source and not (os.statvfs(source_root).f_flag & os.ST_RDONLY):
+        raise CrewBlocked("production source checkout must be physically mounted read-only")
+    output_root = output_root.resolve()
+    retry_context = None
+    if retry_mode:
+        assert retry_run_id is not None and review_feedback_file is not None
+        retry_context = load_retry_context(
+            source=source_root, identity=identity, output_root=output_root,
+            prior_run_id=retry_run_id, feedback_file=review_feedback_file
+        )
+        task_id = retry_context.task_id
+        provider_name = retry_context.provider
+        implementation_paths = retry_context.implementation_paths
+        test_paths = retry_context.test_paths
+    assert task_id is not None
     if not TASK_ID_RE.fullmatch(task_id): raise CrewBlocked("task ID must match NSC-###")
+    if not isinstance(provider_name, str): raise CrewBlocked("provider is required")
     if not implementation_paths: raise CrewBlocked("at least one --implementation-path is required")
     if not test_paths: raise CrewBlocked("at least one --test-path is required for Stage 5B")
     impl_bounds, test_bounds = WriteBoundaries(implementation_paths, test_paths), WriteBoundaries(test_paths, implementation_paths)
     interval=heartbeat_interval()
     run_id=run_id or f"{task_id.lower()}-{time.strftime('%Y%m%dt%H%M%Sz',time.gmtime())}"
+    if not RUN_ID_RE.fullmatch(run_id): raise CrewBlocked("run ID must be one conservative path component")
     run_dir=output_root/run_id; run_dir.mkdir(parents=True,exist_ok=False)
     (run_dir/"role_results").mkdir()
+    if retry_context is not None:
+        (run_dir/"human_review_feedback.txt").write_bytes(retry_context.feedback_bytes)
     progress=ProgressReporter(run_dir/"progress.jsonl",run_id=run_id,task_id=task_id,provider=provider_name,started=started)
     progress.emit("run_started",f"ExecutionCrew started: {task_id} / {provider_name}")
-    identity=capture_source(source); source_root=Path(identity.root).resolve(strict=True)
-    if _require_physical_read_only_source and not (os.statvfs(source_root).f_flag & os.ST_RDONLY): raise CrewBlocked("production source checkout must be physically mounted read-only")
     progress.emit("source_preflight_completed",f"Source preflight passed: HEAD {identity.head[:8]}",status="passed")
+    if retry_context is not None:
+        progress.emit(
+            "human_review_retry_loaded", "Human-review retry evidence loaded",
+            status="passed", prior_run_id=retry_context.prior_run_id,
+            feedback_sha256=retry_context.feedback_sha256
+        )
     task_raw=committed_bytes(source_root,identity.head,f"Tasks/{task_id}.yaml")
     task, contract_identity=parse_task(task_raw,task_id)
     expected_requirement_ids=tuple(
@@ -241,6 +520,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
     task_text=task_raw.decode("utf-8-sig"); gdd=committed_bytes(source_root,identity.head,GDD_PATH).decode("utf-8-sig"); policy=committed_bytes(source_root,identity.head,POLICY_PATH).decode("utf-8-sig")
     role_records=[]; reasons=[]; impl_actual=set(); test_actual=set(); validator_status=None; attempts=0
     latest_impl={}; latest_test={}; candidate_path=None; diagnostic_path=None; accepted_candidate=None
+    human_review_feedback = retry_context.feedback_text if retry_context is not None else None
     def invoke(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries):
         invocation_id=f"{task_id.lower()}-{role.replace('_','-')}-{attempt}-{hashlib.sha256(run_id.encode()).hexdigest()[:12]}"
         caps=("repository_read","repository_search","repository_write") if writable else ("repository_read","repository_search")
@@ -289,7 +569,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
             repair_actual=set()
             findings=None if attempt==1 else latest_validator.get("blocking_issues",[])
             before=snapshot(clone)
-            inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=implementation_paths,findings=findings),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
+            inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=implementation_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
             after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1)); scope+=source_revalidation(source_root,identity)
             output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
             record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
@@ -299,7 +579,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
             if blockers or scope: reasons += [*(f"implementer blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
             impl_patch=paths_patch(clone,identity.head,implementation_paths).decode("utf-8","replace")
             before=snapshot(clone)
-            inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_paths,findings=findings),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
+            inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
             after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1)); scope+=source_revalidation(source_root,identity)
             output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
             record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
@@ -310,7 +590,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
             if attempt==2 and not repair_actual:
                 reasons.append("repair cycle made no deterministic changes"); crew_status="needs_human"; stop=True; break
             candidate=full_patch(clone,identity.head); final_paths=changed_paths(baseline_clone,snapshot(clone))
-            inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
+            inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
             scope=source_revalidation(source_root,identity); output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; validator_status=output.get("status")
             if res.status!="succeeded": scope.append(f"AgentResult failed: {res.failure_classification}")
             else: scope += validator_semantic_reasons(output, expected_requirement_ids)
@@ -342,16 +622,108 @@ def run_crew(*, source: Path, output_root: Path, task_id: str, provider_name: st
         if crew_status!="review_ready":
             diagnostic=full_patch(clone,identity.head)
             if diagnostic: (run_dir/"workspace_diagnostic.patch").write_bytes(diagnostic); diagnostic_path=str(run_dir/"workspace_diagnostic.patch")
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"workspace_diagnostic_patch_path":diagnostic_path,"rejection_reasons":reasons,"validator_status":validator_status,"human_next_step":"Review candidate.patch; apply manually only if approved." if crew_status=="review_ready" else "Inspect diagnostics and role artifacts; no review-ready patch was emitted.","duration_seconds":time.monotonic()-started}
+    review_origin = None if retry_context is None else {
+        "prior_run_id":retry_context.prior_run_id,
+        "result":"human_rejected",
+        "feedback_artifact":"human_review_feedback.txt",
+        "feedback_sha256":retry_context.feedback_sha256,
+    }
+    host_candidate_path = str(host_root_path/run_id/"candidate.patch") if host_root_path is not None and candidate_path else None
+    host_diagnostic_path = str(host_root_path/run_id/"workspace_diagnostic.patch") if host_root_path is not None and diagnostic_path else None
+    human_status = {"review_ready":"REVIEW_READY","blocked":"BLOCKED","rejected":"REJECTED","needs_human":"NEEDS_HUMAN"}[crew_status]
+    if crew_status=="review_ready":
+        human_reason = "The candidate passed semantic crew review and awaits human review."
+        human_artifact = host_candidate_path or candidate_path
+        human_next_action = "Review candidate.patch; apply manually only if approved."
+    else:
+        human_reason = safe_human_reason(reasons)
+        if diagnostic_path:
+            human_artifact = host_diagnostic_path or diagnostic_path
+            human_next_action = "Inspect the diagnostic patch and blocking reason; no candidate was approved."
+        else:
+            human_artifact = None
+            human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
+    human_commands = patch_commands(human_artifact, applyable=(crew_status=="review_ready"))
+    human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action,"commands":human_commands}
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":"Review candidate.patch; apply manually only if approved." if crew_status=="review_ready" else "Inspect diagnostics and role artifacts; no review-ready patch was emitted.","human_result":human_result,"duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result
 
+def print_human_summary(result: Mapping[str, Any]) -> None:
+    """Concise human-facing summary on stderr; stdout stays reserved for machine-readable result JSON.
+    REVIEW_READY gets copy/paste-ready find/check/apply/verify commands for the exact candidate patch
+    path; a blocked/rejected diagnostic artifact only ever gets a find command, never apply/check."""
+    human = result.get("human_result")
+    if not isinstance(human, Mapping):
+        return
+    status = human.get("status")
+    lines = [f"RESULT: {status}"]
+    if status != "REVIEW_READY" and human.get("reason") is not None:
+        lines.append(f"WHY: {human.get('reason')}")
+    lines.append(f"ARTIFACT: {human.get('artifact_path') or 'none'}")
+    commands = human.get("commands")
+    find_command = commands.get("find") if isinstance(commands, Mapping) else None
+    if status == "REVIEW_READY" and find_command:
+        lines += ["", "FIND PATCH:", find_command]
+        lines += ["", "CHECK PATCH:", commands.get("check")]
+        lines += ["", "APPLY PATCH:", commands.get("apply")]
+        verify_command = commands.get("verify")
+        lines += ["", "VERIFY:", *(verify_command.split("; ") if verify_command else [])]
+        lines.append("")
+    elif status != "REVIEW_READY" and find_command:
+        lines += ["", "FIND DIAGNOSTIC PATCH:", find_command]
+        lines += ["", "DO NOT APPLY:", "This is diagnostic work from a non-review-ready run, not an approved candidate."]
+        lines.append("")
+    lines.append(f"NEXT: {human.get('next_action')}")
+    print("\n".join(lines), file=sys.stderr, flush=True)
+
+def blocked_human_result(reason: str) -> dict[str, Any]:
+    """Footer payload for an orchestration failure caught before any crew_result.json exists.
+    There is never a candidate or diagnostic artifact on this path."""
+    return {
+        "status": "BLOCKED",
+        "reason": reason,
+        "artifact_path": None,
+        "next_action": "Resolve the blocking condition and rerun ExecutionCrew.",
+        "commands": patch_commands(None, applyable=False),
+    }
+
 def main():
     default_output_root=Path(os.environ["NSC_EXECUTION_OUTPUT_ROOT"]) if os.getenv("NSC_EXECUTION_OUTPUT_ROOT") else ROOT/"Pipeline/ExecutionCrew/outputs"
-    parser=argparse.ArgumentParser(description=__doc__); parser.add_argument("--task-id",required=True); parser.add_argument("--provider",required=True,choices=("claude","codex")); parser.add_argument("--implementation-path",action="append",required=True); parser.add_argument("--test-path",action="append",required=True); parser.add_argument("--source",type=Path,default=ROOT); parser.add_argument("--output-root",type=Path,default=default_output_root)
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--task-id")
+    parser.add_argument("--provider",choices=("claude","codex"))
+    parser.add_argument("--implementation-path",action="append")
+    parser.add_argument("--test-path",action="append")
+    parser.add_argument("--retry-run")
+    parser.add_argument("--review-feedback-file",type=Path)
+    parser.add_argument("--source",type=Path,default=ROOT)
+    parser.add_argument("--output-root",type=Path,default=default_output_root)
+    parser.add_argument("--host-output-root",help="Human-facing HOST (e.g. Windows) absolute path mirroring --output-root, for display only")
     args=parser.parse_args()
-    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path),test_paths=tuple(args.test_path))
-    except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc: print(f"ExecutionCrew blocked: {exc}",file=sys.stderr); return 2
-    print(json.dumps(result,indent=2,sort_keys=True)); return 0 if result["crew_status"]=="review_ready" else 1
+    host_output_root=args.host_output_root if args.host_output_root is not None else os.getenv("NSC_EXECUTION_HOST_OUTPUT_ROOT")
+    if args.retry_run:
+        if any((args.task_id, args.provider, args.implementation_path, args.test_path)):
+            parser.error("--retry-run inherits task, provider, and write paths; do not supply them")
+        if args.review_feedback_file is None:
+            parser.error("--review-feedback-file is required with --retry-run")
+    else:
+        missing = [name for name, value in (
+            ("--task-id", args.task_id), ("--provider", args.provider),
+            ("--implementation-path", args.implementation_path), ("--test-path", args.test_path)
+        ) if not value]
+        if missing:
+            parser.error("normal mode requires " + ", ".join(missing))
+        if args.review_feedback_file is not None:
+            parser.error("--review-feedback-file requires --retry-run")
+    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root)
+    except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc:
+        reason=str(exc)
+        print(f"ExecutionCrew blocked: {reason}",file=sys.stderr)
+        print_human_summary({"human_result":blocked_human_result(reason)})
+        return 2
+    print(json.dumps(result,indent=2,sort_keys=True))
+    print_human_summary(result)
+    return 0 if result["crew_status"]=="review_ready" else 1
 if __name__=="__main__": raise SystemExit(main())

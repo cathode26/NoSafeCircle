@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="17" result="Passed" total="17" passed="17" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.4202002">
+  <test-suite type="TestSuite" id="1054" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="40" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.420200" total="17" passed="17" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1041" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="36" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.409185" total="17" passed="17" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="2156" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1042" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="36" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.407857" total="17" passed="17" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1043" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="36" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.406856" total="17" passed="17" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1044" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="36" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.405741" total="17" passed="17" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1013" name="PlayerManaPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" testcasecount="17" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.403493" total="17" passed="17" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1016" name="Mana_DoesNotRegenerate_DuringPostCastDelay" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.Mana_DoesNotRegenerate_DuringPostCastDelay" methodname="Mana_DoesNotRegenerate_DuringPostCastDelay" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="367949942" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.016098" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1017" name="Mana_Regenerates_AfterPostCastDelayElapses" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.Mana_Regenerates_AfterPostCastDelayElapses" methodname="Mana_Regenerates_AfterPostCastDelayElapses" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="973131396" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.005984" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1030" name="PlayerMana_PublicApiSurface_OnlyOwnsManaAndRegenDelayState" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.PlayerMana_PublicApiSurface_OnlyOwnsManaAndRegenDelayState" methodname="PlayerMana_PublicApiSurface_OnlyOwnsManaAndRegenDelayState" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="1335110255" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.005591" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1029" name="PlayerManaUI_DeniedFeedback_RemainsVisibleWhenManaFillIsZero" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.PlayerManaUI_DeniedFeedback_RemainsVisibleWhenManaFillIsZero" methodname="PlayerManaUI_DeniedFeedback_RemainsVisibleWhenManaFillIsZero" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="648964103" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.134957" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1026" name="PlayerManaUI_DoesNotFlash_OnSuccessfulSpend" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.PlayerManaUI_DoesNotFlash_OnSuccessfulSpend" methodname="PlayerManaUI_DoesNotFlash_OnSuccessfulSpend" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="651604624" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.002201" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1025" name="PlayerManaUI_FlashesDeniedColor_OnCastDenied_ThenRevertsAfterDuration" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.PlayerManaUI_FlashesDeniedColor_OnCastDenied_ThenRevertsAfterDuration" methodname="PlayerManaUI_FlashesDeniedColor_OnCastDenied_ThenRevertsAfterDuration" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="1781019761" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.102994" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1028" name="PlayerManaUI_LateWiring_SubscribesWithoutDisableReenable" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.PlayerManaUI_LateWiring_SubscribesWithoutDisableReenable" methodname="PlayerManaUI_LateWiring_SubscribesWithoutDisableReenable" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="1634435237" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.002070" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1027" name="PlayerManaUI_RevertsToActualFillImageColor_NotHardcodedDefault" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.PlayerManaUI_RevertsToActualFillImageColor_NotHardcodedDefault" methodname="PlayerManaUI_RevertsToActualFillImageColor_NotHardcodedDefault" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="1660399351" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.102610" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1021" name="ResetMana_ClearsPostCastRegenDelayTimerState" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.ResetMana_ClearsPostCastRegenDelayTimerState" methodname="ResetMana_ClearsPostCastRegenDelayTimerState" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="935128532" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.001740" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1020" name="ResetMana_RestoresCurrentManaToFull_AfterManaFullySpent" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.ResetMana_RestoresCurrentManaToFull_AfterManaFullySpent" methodname="ResetMana_RestoresCurrentManaToFull_AfterManaFullySpent" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="167122492" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.001203" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1019" name="ResetMana_RestoresCurrentManaToFull_AfterPartialSpend" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.ResetMana_RestoresCurrentManaToFull_AfterPartialSpend" methodname="ResetMana_RestoresCurrentManaToFull_AfterPartialSpend" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="387675775" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.001417" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1023" name="Spend_DoesNotRaiseCastDenied_WhenSpendSucceeds" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.Spend_DoesNotRaiseCastDenied_WhenSpendSucceeds" methodname="Spend_DoesNotRaiseCastDenied_WhenSpendSucceeds" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="1684933671" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.001244" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1018" name="Spend_DuringRegen_ResetsPostCastDelay" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.Spend_DuringRegen_ResetsPostCastDelay" methodname="Spend_DuringRegen_ResetsPostCastDelay" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="1332595676" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.001035" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1015" name="Spend_Fails_WhenAmountExceedsCurrentMana" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.Spend_Fails_WhenAmountExceedsCurrentMana" methodname="Spend_Fails_WhenAmountExceedsCurrentMana" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="2017441907" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.001002" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1022" name="Spend_RaisesCastDenied_WhenAmountExceedsCurrentMana" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.Spend_RaisesCastDenied_WhenAmountExceedsCurrentMana" methodname="Spend_RaisesCastDenied_WhenAmountExceedsCurrentMana" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="1229919563" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.001198" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1014" name="Spend_ReducesCurrentMana_WhenSufficient" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.Spend_ReducesCurrentMana_WhenSufficient" methodname="Spend_ReducesCurrentMana_WhenSufficient" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="1391025426" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.000976" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1024" name="Spend_ZeroOrNegativeAmount_DoesNotRaiseCastDenied" fullname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests.Spend_ZeroOrNegativeAmount_DoesNotRaiseCastDenied" methodname="Spend_ZeroOrNegativeAmount_DoesNotRaiseCastDenied" classname="NoSafeCircle.DoorPrototype.Tests.PlayerManaPlayModeTests" runstate="Runnable" seed="1574312284" result="Passed" start-time="2026-08-24 07:39:34Z" end-time="2026-08-24 07:39:34Z" duration="0.001011" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
