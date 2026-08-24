@@ -4,6 +4,7 @@ using UnityEditor.Events;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -15,6 +16,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
     {
         private const string SceneFolder = "Assets/Scenes";
         private const string ScenePath = SceneFolder + "/DoorPrototype.unity";
+        private const string InputActionsAssetPath = "Assets/InputSystem_Actions.inputactions";
 
         // Classic 2:1 dimetric isometric camera angle (rotate -45 degrees around Y to face
         // a corner, then tilt 30 degrees down) matching Diablo 1 / Ultima Online-style
@@ -81,6 +83,14 @@ namespace NoSafeCircle.DoorPrototype.Editor
             BuildPlayer(out var movement, out var interactionController, out var health, out var debugControl,
                 out var mana, out var debugManaControl);
             SetPrivateField(movement, "interactionController", interactionController);
+
+            var inputActions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsAssetPath);
+            if (inputActions == null)
+            {
+                Debug.LogWarning($"DoorPrototypeSceneBuilder could not load an InputActionAsset at " +
+                    $"'{InputActionsAssetPath}'; PlayerMovement will have no input actions asset assigned.");
+            }
+            SetPrivateField(movement, "inputActions", inputActions);
 
             // BuildCamera reads followTarget.position immediately (not as a live reference)
             // to place the camera at its initial isometric framing, so BuildPlayer must run
@@ -435,7 +445,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             hudText.horizontalOverflow = HorizontalWrapMode.Wrap;
             hudText.verticalOverflow = VerticalWrapMode.Overflow;
             hudText.text =
-                "WASD - Move\n" +
+                "Click/Hold Left Mouse - Move\n" +
                 "Hold E - Open Door\n" +
                 "Moving or taking damage\ncancels the opening attempt\n" +
                 "[Debug/Test] K - Take Damage\n" +
