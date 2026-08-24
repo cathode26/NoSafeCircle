@@ -29,26 +29,31 @@ namespace NoSafeCircle.DoorPrototype.Tests
             testCamera.transform.SetPositionAndRotation(new Vector3(0f, 10f, -10f), Quaternion.identity);
             testCamera.transform.LookAt(Vector3.zero);
 
-            playerObject = new GameObject("TestPlayer");
-            movement = playerObject.AddComponent<PlayerMovement>();
-
             testInputActions = ScriptableObject.CreateInstance<InputActionAsset>();
             var playerMap = testInputActions.AddActionMap("Player");
-            var pointerAction = playerMap.AddAction("PointerPosition", InputActionType.Value, "<Mouse>/position",
+            playerMap.AddAction(
+                "PointerPosition",
+                InputActionType.Value,
+                "<Mouse>/position",
                 expectedControlLayout: "Vector2");
-            var moveAction = playerMap.AddAction("MoveToCursor", InputActionType.Button, "<Mouse>/leftButton");
+            playerMap.AddAction(
+                "MoveToCursor",
+                InputActionType.Button,
+                "<Mouse>/leftButton");
 
-            // PlayerMovement.Awake already ran (with a null inputActions field) when
-            // AddComponent was called above, so OnEnable also already ran once, calling
-            // Enable() on the then-null action fields. Reflection-assign the test-built
-            // actions into the same private fields Awake would have populated, then toggle
-            // the component so OnEnable re-runs and enables them - the same reflection +
-            // disable/re-enable idiom PlayerManaPlayModeTests uses for PlayerManaUI.
+            playerObject = new GameObject("TestPlayer");
+            playerObject.SetActive(false);
+
+            playerObject.AddComponent<CharacterController>();
+            movement = playerObject.AddComponent<PlayerMovement>();
+
+            // Match normal scene deserialization: serialized dependencies are assigned
+            // before PlayerMovement.Awake runs.
             SetPrivateField(movement, "inputActions", testInputActions);
-            SetPrivateField(movement, "pointerPositionAction", pointerAction);
-            SetPrivateField(movement, "moveToCursorAction", moveAction);
-            movement.enabled = false;
-            movement.enabled = true;
+
+            // Activating the GameObject now runs Awake/OnEnable with the InputActionAsset
+            // already available, allowing PlayerMovement to discover and enable its actions.
+            playerObject.SetActive(true);
         }
 
         [TearDown]
