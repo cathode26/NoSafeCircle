@@ -1,0 +1,387 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import sys
+from copy import deepcopy
+from pathlib import Path
+
+PIPELINE = Path(__file__).resolve().parents[2]
+if str(PIPELINE) not in sys.path:
+    sys.path.insert(0, str(PIPELINE))
+
+from AgentRuntime.schema_validation import validate_instance, validate_schema
+from TaskDecomposition.contracts import DecompositionContractError, DecompositionResult
+from TaskDecomposition.policy import (
+    DecompositionPolicyError,
+    semantic_json_sha256,
+    validate_decomposition_result,
+)
+from TaskDecomposition.schemas import DECOMPOSITION_RESULT_SCHEMA
+
+
+def parent_task() -> dict:
+    return {
+        "schema_version": "2.0",
+        "id": "NSC-042",
+        "contract_revision": 3,
+        "contract_disposition": "active",
+        "title": "Synthetic parent",
+        "reconciliation_key": "synthetic-parent",
+        "kind": "implementation",
+        "type": "synthetic",
+        "execution_scope": "needs_execution_decomposition",
+        "execution_reason": "Too broad.",
+        "decomposition_state": "concrete",
+        "decomposition_reason": "Design is approved.",
+        "parent": "NSC-001",
+        "depends_on": [],
+        "exclusive_resources": [],
+        "acceptance_criteria": [
+            {"criterion_id": "AC-001", "reference": "Canon", "requirement": "Parent acceptance."}
+        ],
+        "completion_gates": [
+            {"gate_id": "VAL-001", "reference": "Policy", "requirement": "Parent validation."}
+        ],
+        "downstream_integration_obligations": [
+            {"obligation_id": "INT-001", "reference": "Integration", "requirement": "Parent integration."}
+        ],
+        "gdd_evidence": [],
+        "basis": "direct_gdd",
+        "source_scope": "required",
+        "confidence": "high",
+        "notes": "",
+        "repository_state_at_bootstrap": "missing",
+        "repository_evidence_at_bootstrap": [],
+        "provenance": {"origin": "synthetic"},
+    }
+
+
+def identity(parent: dict) -> dict:
+    return {
+        "task_id": parent["id"],
+        "contract_revision": parent["contract_revision"],
+        "contract_sha256": semantic_json_sha256(parent),
+    }
+
+
+def child(key: str) -> dict:
+    return {
+        "local_key": key,
+        "title": f"Child {key}",
+        "kind": "implementation",
+        "type": "synthetic_child",
+        "execution_scope": "single_agent",
+        "execution_reason": "One bounded responsibility.",
+        "decomposition_state": "concrete",
+        "decomposition_reason": "Approved behavior is fully specified.",
+        "existing_task_dependencies": [],
+        "local_dependencies": [],
+        "exclusive_resources": [],
+        "acceptance_criteria": [
+            {"criterion_id": "AC-001", "reference": "Parent AC-001", "requirement": f"{key} acceptance."}
+        ],
+        "completion_gates": [
+            {"gate_id": "VAL-001", "reference": "Parent VAL-001", "requirement": f"Validate {key}."}
+        ],
+        "downstream_integration_obligations": [],
+        "gdd_evidence": [
+            {"reference": "Synthetic canon", "requirement": "Approved responsibility only."}
+        ],
+        "basis": "direct_gdd",
+        "source_scope": "required",
+        "confidence": "high",
+        "notes": "",
+    }
+
+
+def base(parent: dict, decision: str, gap: str) -> dict:
+    return {
+        "schema_version": "1.0",
+        "parent_task": identity(parent),
+        "decision": decision,
+        "gap_type": gap,
+        "reason": "Deterministic synthetic reason.",
+        "children": [],
+        "parent_requirement_coverage": [],
+        "unsupported_assumptions": [],
+        "unresolved_questions": [],
+    }
+
+
+def retained_result(parent: dict) -> dict:
+    value = base(parent, "already_concrete", "none")
+    value["parent_requirement_coverage"] = [
+        {
+            "parent_entry_type": kind,
+            "parent_entry_id": entry_id,
+            "disposition": "retained_by_parent",
+            "child_targets": [],
+            "reason": "The concrete parent retains this obligation.",
+            "integration_rationale": "",
+        }
+        for kind, entry_id in (
+            ("acceptance_criteria", "AC-001"),
+            ("completion_gates", "VAL-001"),
+            ("downstream_integration_obligations", "INT-001"),
+        )
+    ]
+    return value
+
+
+def decomposed_result(parent: dict) -> dict:
+    value = base(parent, "decomposed", "execution")
+    first = child("runtime-core")
+    second = child("runtime-integration")
+    second["local_dependencies"] = ["runtime-core"]
+    second["downstream_integration_obligations"] = [
+        {"obligation_id": "INT-001", "reference": "Parent INT-001", "requirement": "Integrate children."}
+    ]
+    value["children"] = [first, second]
+    value["parent_requirement_coverage"] = [
+        {
+            "parent_entry_type": "acceptance_criteria",
+            "parent_entry_id": "AC-001",
+            "disposition": "shared_integration",
+            "child_targets": [
+                {"local_key": "runtime-core", "child_entry_type": "acceptance_criteria", "child_entry_id": "AC-001"},
+                {"local_key": "runtime-integration", "child_entry_type": "acceptance_criteria", "child_entry_id": "AC-001"},
+            ],
+            "reason": "Both bounded behaviors implement the parent criterion.",
+            "integration_rationale": "Both exact targets jointly satisfy the parent behavior.",
+        },
+        {
+            "parent_entry_type": "completion_gates",
+            "parent_entry_id": "VAL-001",
+            "disposition": "shared_integration",
+            "child_targets": [
+                {"local_key": "runtime-core", "child_entry_type": "completion_gates", "child_entry_id": "VAL-001"},
+                {"local_key": "runtime-integration", "child_entry_type": "completion_gates", "child_entry_id": "VAL-001"},
+            ],
+            "reason": "Each child has a bounded validation gate.",
+            "integration_rationale": "Validation is split across two exact child gates.",
+        },
+        {
+            "parent_entry_type": "downstream_integration_obligations",
+            "parent_entry_id": "INT-001",
+            "disposition": "assigned_to_child",
+            "child_targets": [
+                {"local_key": "runtime-integration", "child_entry_type": "downstream_integration_obligations", "child_entry_id": "INT-001"}
+            ],
+            "reason": "The integration child owns the exact obligation.",
+            "integration_rationale": "",
+        },
+    ]
+    return value
+
+
+def blocked_result(parent: dict, decision: str) -> dict:
+    gap = "design" if decision == "needs_artifact" else "uncertain"
+    disposition = "blocked_by_artifact" if decision == "needs_artifact" else "blocked_by_human"
+    value = base(parent, decision, gap)
+    value["parent_requirement_coverage"] = [
+        {
+            "parent_entry_type": kind,
+            "parent_entry_id": entry_id,
+            "disposition": disposition,
+            "child_targets": [],
+            "reason": "Publication is blocked without authority.",
+            "integration_rationale": "",
+        }
+        for kind, entry_id in (
+            ("acceptance_criteria", "AC-001"),
+            ("completion_gates", "VAL-001"),
+            ("downstream_integration_obligations", "INT-001"),
+        )
+    ]
+    if decision == "needs_artifact":
+        value["artifact_proposal"] = {
+            "title": "Smallest missing design",
+            "purpose": "Authorize only the decision needed to resume decomposition.",
+            "source_parent_obligations": [
+                {"parent_entry_type": "acceptance_criteria", "parent_entry_id": "AC-001"}
+            ],
+            "authorized_decisions_needed": ["Choose the approved boundary."],
+            "out_of_scope": ["New mechanics and unrelated content."],
+        }
+    else:
+        value["unresolved_questions"] = ["Which approved interpretation governs the parent?"]
+    return value
+
+
+def expect_failure(payload: dict, parent: dict, fragment: str, existing=()) -> None:
+    try:
+        validate_decomposition_result(payload, parent_task=parent, existing_reconciliation_keys=existing)
+    except (DecompositionContractError, DecompositionPolicyError) as exc:
+        assert fragment.lower() in str(exc).lower(), str(exc)
+    else:
+        raise AssertionError(f"Expected failure containing {fragment!r}")
+
+
+def main() -> int:
+    validate_schema(DECOMPOSITION_RESULT_SCHEMA)
+    parent = parent_task()
+
+    concrete = validate_decomposition_result(retained_result(parent), parent_task=parent)
+    assert concrete.decision == "already_concrete"
+    decomposed = validate_decomposition_result(decomposed_result(parent), parent_task=parent)
+    assert len(decomposed.children) == 2
+    reparsed = validate_decomposition_result(decomposed, parent_task=parent)
+    assert reparsed is not decomposed
+    assert reparsed.parent_task is not decomposed.parent_task
+    assert reparsed.children[0] is not decomposed.children[0]
+    assert reparsed.canonical_json() == decomposed.canonical_json()
+
+    class DecompositionResultSubclass(DecompositionResult):
+        def to_dict(self) -> dict:
+            return decomposed_result(parent)
+
+    subclass = DecompositionResultSubclass(**decomposed.__dict__)
+    expect_failure(subclass, parent, "subclasses are not accepted")
+    directly_invalid = DecompositionResult(
+        schema_version=decomposed.schema_version,
+        parent_task=decomposed.parent_task,
+        decision="invalid-decision",
+        gap_type=decomposed.gap_type,
+        reason=decomposed.reason,
+        children=decomposed.children,
+        parent_requirement_coverage=decomposed.parent_requirement_coverage,
+        unsupported_assumptions=decomposed.unsupported_assumptions,
+        unresolved_questions=decomposed.unresolved_questions,
+        artifact_proposal=decomposed.artifact_proposal,
+    )
+    expect_failure(directly_invalid, parent, "unsupported decomposition decision")
+    artifact = validate_decomposition_result(blocked_result(parent, "needs_artifact"), parent_task=parent)
+    human = validate_decomposition_result(blocked_result(parent, "needs_human"), parent_task=parent)
+    assert artifact.artifact_proposal
+    assert human.unresolved_questions
+    for valid in (concrete, decomposed, artifact, human):
+        validate_instance(valid.to_dict(), DECOMPOSITION_RESULT_SCHEMA)
+
+    bad = retained_result(parent)
+    bad["parent_task"]["contract_sha256"] = "x" * 64
+    expect_failure(bad, parent, "lowercase SHA-256")
+    bad = retained_result(parent)
+    bad["parent_task"]["contract_revision"] = True
+    expect_failure(bad, parent, "positive integer")
+    bad = decomposed_result(parent)
+    bad["children"][1]["local_key"] = "runtime-core"
+    expect_failure(bad, parent, "duplicate local_key")
+    expect_failure(decomposed_result(parent), parent, "collides", existing={"runtime-core"})
+    bad = retained_result(parent)
+    bad["gap_type"] = "execution"
+    expect_failure(bad, parent, "incompatible")
+    bad = retained_result(parent)
+    bad["children"] = [child("illegal-child")]
+    expect_failure(bad, parent, "may not contain child")
+    bad = blocked_result(parent, "needs_artifact")
+    del bad["artifact_proposal"]
+    expect_failure(bad, parent, "requires one")
+    bad = decomposed_result(parent)
+    bad["artifact_proposal"] = blocked_result(parent, "needs_artifact")["artifact_proposal"]
+    expect_failure(bad, parent, "may not contain an artifact")
+    for field, id_field, malformed in (
+        ("acceptance_criteria", "criterion_id", "A-001"),
+        ("completion_gates", "gate_id", "V-001"),
+        ("downstream_integration_obligations", "obligation_id", "I-001"),
+    ):
+        bad = decomposed_result(parent)
+        target_child = bad["children"][1] if field == "downstream_integration_obligations" else bad["children"][0]
+        target_child[field][0][id_field] = malformed
+        expect_failure(bad, parent, "invalid format")
+    bad = decomposed_result(parent)
+    bad["children"][0]["acceptance_criteria"].append(deepcopy(bad["children"][0]["acceptance_criteria"][0]))
+    expect_failure(bad, parent, "duplicate entry IDs")
+    bad = decomposed_result(parent)
+    bad["parent_requirement_coverage"].pop()
+    expect_failure(bad, parent, "missing parent requirement coverage")
+    bad = decomposed_result(parent)
+    bad["parent_requirement_coverage"].append(deepcopy(bad["parent_requirement_coverage"][0]))
+    expect_failure(bad, parent, "duplicate parent coverage")
+    bad = decomposed_result(parent)
+    bad["parent_requirement_coverage"][0]["child_targets"][0]["local_key"] = "missing-child"
+    expect_failure(bad, parent, "unknown child")
+    bad = decomposed_result(parent)
+    bad["parent_requirement_coverage"][0]["child_targets"][0]["child_entry_id"] = "AC-999"
+    expect_failure(bad, parent, "unknown child entry")
+    bad = decomposed_result(parent)
+    bad["parent_requirement_coverage"][0]["child_targets"].pop()
+    expect_failure(bad, parent, "untraced child obligation")
+    bad = decomposed_result(parent)
+    bad["children"][0]["acceptance_criteria"] = []
+    expect_failure(bad, parent, "at least one acceptance criterion")
+    bad = decomposed_result(parent)
+    bad["children"][0]["completion_gates"] = []
+    expect_failure(bad, parent, "at least one completion gate")
+    bad = decomposed_result(parent)
+    bad["children"][0]["acceptance_criteria"] = []
+    bad["children"][0]["completion_gates"] = []
+    bad["children"][0]["downstream_integration_obligations"] = []
+    expect_failure(bad, parent, "at least one acceptance criterion")
+    bad = decomposed_result(parent)
+    for record in bad["parent_requirement_coverage"]:
+        record["child_targets"] = [
+            target for target in record["child_targets"]
+            if target["local_key"] != "runtime-core"
+        ]
+    expect_failure(bad, parent, "not targeted by any parent coverage")
+
+    bad = decomposed_result(parent)
+    bad["parent_requirement_coverage"][0]["child_targets"] = []
+    expect_failure(bad, parent, "at least one exact child target")
+    bad = decomposed_result(parent)
+    removed_target = bad["parent_requirement_coverage"][0]["child_targets"].pop()
+    bad["parent_requirement_coverage"][0]["integration_rationale"] = ""
+    bad["parent_requirement_coverage"][2]["child_targets"].append(removed_target)
+    expect_failure(bad, parent, "one child target requires")
+    one_target = decomposed_result(parent)
+    removed_target = one_target["parent_requirement_coverage"][0]["child_targets"].pop()
+    one_target["parent_requirement_coverage"][2]["child_targets"].append(removed_target)
+    validate_decomposition_result(one_target, parent_task=parent)
+    multiple_targets = decomposed_result(parent)
+    multiple_targets["parent_requirement_coverage"][0]["integration_rationale"] = ""
+    validate_decomposition_result(multiple_targets, parent_task=parent)
+    bad = decomposed_result(parent)
+    bad["parent_requirement_coverage"][0]["disposition"] = "retained_by_parent"
+    expect_failure(bad, parent, "invalid for decision")
+    for field in ("unresolved_questions", "unsupported_assumptions"):
+        bad = decomposed_result(parent)
+        bad[field] = ["Not acceptable on an accepted result."]
+        expect_failure(bad, parent, "may not contain unsupported assumptions")
+
+    mixed_artifact = blocked_result(parent, "needs_artifact")
+    mixed_artifact["parent_requirement_coverage"][1]["disposition"] = "retained_by_parent"
+    validate_decomposition_result(mixed_artifact, parent_task=parent)
+    bad = blocked_result(parent, "needs_artifact")
+    bad["parent_requirement_coverage"][0]["disposition"] = "retained_by_parent"
+    expect_failure(bad, parent, "must have blocked_by_artifact coverage")
+    bad = blocked_result(parent, "needs_artifact")
+    for record in bad["parent_requirement_coverage"]:
+        record["disposition"] = "retained_by_parent"
+    expect_failure(bad, parent, "at least one blocked_by_artifact")
+
+    mixed_human = blocked_result(parent, "needs_human")
+    mixed_human["parent_requirement_coverage"][1]["disposition"] = "retained_by_parent"
+    validate_decomposition_result(mixed_human, parent_task=parent)
+    bad = blocked_result(parent, "needs_human")
+    for record in bad["parent_requirement_coverage"]:
+        record["disposition"] = "retained_by_parent"
+    expect_failure(bad, parent, "at least one blocked_by_human")
+
+    mutable = decomposed_result(parent)
+    validated = validate_decomposition_result(mutable, parent_task=parent)
+    before = validated.canonical_json()
+    mutable["children"][0]["title"] = "MUTATED"
+    mutable["parent_requirement_coverage"][0]["child_targets"][0]["local_key"] = "mutated"
+    assert validated.canonical_json() == before
+    assert validated.canonical_json() == validate_decomposition_result(
+        json.loads(before), parent_task=parent
+    ).canonical_json()
+    assert hashlib.sha256(before.encode("utf-8")).hexdigest() == hashlib.sha256(validated.canonical_json().encode("utf-8")).hexdigest()
+
+    print("decomposition_contracts_smoke_test: PASS")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

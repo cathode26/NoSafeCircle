@@ -31,6 +31,12 @@ Phase 3A adds committed delivery, historical-adoption baseline, and revalidation
 
 A conformant result does not establish dependency readiness. Dependency-readiness policy and dispatch authorization policy have not been implemented or approved. `taskcontrol ready` remains unavailable, `taskcontrol authorize` remains denied, and state inspection and a conformant result never authorize autonomous execution. Zero tasks may be autonomously dispatched. See `CONFORMANCE_RECORDS.md` and `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md`.
 
+## Stage D1A graph-delta planning
+
+`graph_delta.py` is a pure, deterministic proposal planner for validated execution decompositions. It requires the exact decomposition contract type and creates a fresh detached validation snapshot against the actual selected parent, current reconciliation keys, and complete decomposition policy before reading child proposals. It then allocates permanent IDs above the greatest existing numeric `NSC-###` ID, resolves existing-task and proposal-local dependencies, revises the aggregate parent in memory, updates copied ID-map/resource-group data, and validates the complete proposed overlay with `validate_work_graph_plan()`.
+
+Its immutable `GraphDeltaPlan` is review data only. It never writes task or metadata files, has no apply command, and does not establish approval, readiness, execution authority, delivery, conformance, or completion. See `Pipeline/TaskDecomposition/README.md` for the decomposition-result contract boundary.
+
 Inspect committed-HEAD conformance for one schema-v2 task:
 
 ```powershell
@@ -200,4 +206,4 @@ The old reconciliation, verification, approval, and bootstrap records remain imm
 
 ## Next phase
 
-The first real production baseline has proven NSC-023 conformant. Do not fabricate a gameplay, contract, GDD, or implementation change merely to create a revalidation record. The first legitimate relevant change will exercise production revalidation. Dependency readiness and dispatch authority remain disabled until their policies are explicitly designed and approved.
+Stage D1A provides proposal contracts and in-memory graph-delta planning only. Live decomposition, verification/refinement, reviewed graph application, Artifact Authority/GER, dependency readiness, and dispatch remain later work. The first real production baseline has proven NSC-023 conformant; do not fabricate a gameplay, contract, GDD, or implementation change merely to create a revalidation record.

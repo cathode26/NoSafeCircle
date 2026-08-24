@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-23, for Stage 5B Minimum Production ExecutionCrew on `provider-adapters`.
+Last updated: 2026-08-24, for Stage D1A decomposition contracts and deterministic incremental graph-delta planning on `stage-d1-task-decomposition`.
 
 ## Current Phase
 
@@ -18,15 +18,23 @@ Phase 3 was fast-forward merged into `main` at:
 43fdf0a163e281204906abd43a241db211587a0f
 ```
 
-**Provider-Neutral Execution Crew Plan — Stage 4A: MAPPING, ENFORCEMENT, AND TRANSPORT-EVALUATION DECISIONS COMPLETE.**
+**Provider-Neutral Execution Crew provider work and Minimum Production ExecutionCrew are complete and merged into `main`.**
 
-The current development branch is:
+The active development branch is:
 
 ```text
-provider-adapters
+stage-d1-task-decomposition
 ```
 
-Stage 5A proved isolated repository writes through both provider adapters. Stage 5B is the Minimum Production ExecutionCrew: one human-selected eligible task and one provider run fresh Implementer, Unity Test Author, and read-only Validator invocations, with deterministic incremental per-role Git enforcement and at most one repair cycle. Requested role paths must be disjoint existing tracked files. Write roles share one independent disposable clone; its post-checkout snapshot, not source working-tree bytes, is the final diff baseline. The Validator inspects the physically read-only source, receives the exact accumulated patch, and must cover every task AC/VAL ID exactly once; `not_proven` is required where Unity/runtime evidence was not run. Execution containers keep `/workspace` wholly read-only and mount host crew outputs separately at `/execution-output`. Only a semantic Validator pass followed by all final clone and source checks emits review-only `candidate.patch`; other tracked diffs may produce diagnostic-only `workspace_diagnostic.patch`. Source HEAD/tree/status is independently rechecked after every provider invocation and at finalization. Claims, deterministic paths, and Unity evidence remain distinct. This stage does not apply patches, commit, merge, run Unity, enable readiness/dispatch, or make delivery/conformance claims. NSC-005 is the intended first real proving task after review and commit.
+Stage 5A proved isolated repository writes through both provider adapters. Stage 5B implemented the Minimum Production ExecutionCrew for one human-selected eligible task, with fresh Implementer, Unity Test Author, and read-only Validator invocations, deterministic incremental per-role Git enforcement, and at most one repair cycle. Those provider and ExecutionCrew changes have been merged into `main`.
+
+**Stage D1A — Decomposition Contracts Plus Deterministic Incremental Graph-Delta Planning — is the active bounded slice.**
+
+D1A implements strict immutable decomposition-result contracts; fresh structural parsing at each validation boundary; semantic decision/gap policy; exact parent AC/VAL/INT coverage through explicit child-local IDs; independently verifiable and parent-traced children; partial retained/blocked coverage for artifact and human blockers; temporary child keys; planner-side revalidation against the actual parent and current reconciliation keys; deterministic permanent ID allocation above the maximum existing NSC number; existing/local dependency resolution and cycle rejection; copied ID-map and resource-group updates; an in-memory proposed graph overlay; whole-overlay validation with the production TaskGraph validator; and immutable canonical review output with deterministic hashes and plan identity. It is model-free and makes no file writes.
+
+The D1A contract and graph-delta smoke suites pass, as do the existing TaskGraph validation, taskcontrol, contract-quality-audit, and conformance-evaluator regression suites required for this slice.
+
+D1A does not complete the Progressive Decomposer milestone. Live model-backed decomposition, decomposition verification/refinement, graph-delta review/application or publication, Artifact Authority, artifact generation or GER, general GER infrastructure, readiness, and dispatch remain unimplemented.
 
 The Stage 3 foundation now implements:
 
@@ -630,32 +638,13 @@ Routine GDD iteration should eventually use reviewed, scoped impact analysis rat
 
 The preserved architecture review is primary evidence for the accepted correction direction, but reviewer recommendations do not automatically become project decisions.
 
-## Immediate Next Goal
+## Active Development Slice
 
-### Migrate ArchitectureReview through generic AgentRuntime using Claude
+### Stage D1A deterministic decomposition foundation
 
-Stage 4B.2 repository read/search and Stage 4B.3 responsibility separation are complete. `AgentInvocationRequest` schema 1.0 is generic; `TaskExecutionRequest` schema 1.0 separately owns NSC identity; `AgentResult` remains schema 1.0. `ProviderOutputInvalid` normalization is already implemented.
+The active work establishes proposal contracts and incremental planning before any live model-backed decomposer exists. `Pipeline/TaskDecomposition` owns structured result snapshots and semantic coverage policy. `Pipeline/TaskGraph/graph_delta.py` owns deterministic ID allocation and complete in-memory overlay validation.
 
-The next useful production proof is to migrate ArchitectureReview through AgentRuntime using the existing Claude adapter. That later slice should retain ArchitectureReview workflow identity above AgentRuntime and should not invent a task identity. The OpenAI/Codex provider remains unimplemented.
-
-Current provider budget policy remains:
-
-- Claude Code: native `--max-turns N` plus external `timeout_seconds`;
-- OpenAI/Codex: `effective_timeout_seconds = min(timeout_seconds, turn_limit * 30)` using the temporary 30-seconds-per-turn-budget-unit policy;
-- non-null `token_limit`: fail closed;
-- no automatic model/provider fallback.
-
-Stage 4 must remain bounded:
-
-- no provider-specific task contracts or role schemas;
-- no automatic provider fallback that changes task meaning;
-- no production `ExecutionCrew` role orchestration yet;
-- no real gameplay task execution yet;
-- no Unity validation delegated to a model;
-- no Phase 3 evidence publication by an adapter;
-- no dependency readiness;
-- no dispatch authorization;
-- no automatic merge.
+This slice intentionally stops at immutable review data. It does not invoke AgentRuntime or ExecutionCrew, apply the proposed overlay, alter persistent graph files, or authorize execution. The next decomposition stages must preserve this separation: D1B may add live invocation plus verification/refinement; D1C may add a separately reviewed application boundary. Neither is implemented now.
 
 Architecture Correction Phase 3 authority remains active:
 
@@ -723,27 +712,21 @@ Read, in order:
 
 1. `Docs/AI-Pipeline/START_HERE.md`;
 2. this file;
-3. `Docs/AI-Pipeline/00_MASTER_CONTEXT.md`;
-4. `Docs/AI-Pipeline/DECISIONS.md`;
-5. `Docs/AI-Pipeline/06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`;
-6. `Docs/AI-Pipeline/ADR-034_PROVIDER_NEUTRAL_AGENT_RUNTIME.md`;
-7. `Docs/AI-Pipeline/07_PROVIDER_ADAPTER_CAPABILITY_MAPPING.md`;
-8. `Docs/AI-Pipeline/ADR-035_PROVIDER_ADAPTER_ENFORCEMENT.md`;
-9. `Pipeline/AgentRuntime/README.md`;
-10. `Pipeline/AgentRuntime/contracts.py`;
-11. `Pipeline/AgentRuntime/agent_runner.py`;
-12. `Pipeline/AgentRuntime/providers/base.py`;
-13. `Pipeline/AgentRuntime/tests/agent_runtime_smoke_test.py`;
-14. inspect the actual repository and branch state.
+3. `Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md`;
+4. `Pipeline/TaskDecomposition/README.md`;
+5. `Pipeline/TaskDecomposition/schemas.py`;
+6. `Pipeline/TaskDecomposition/contracts.py`;
+7. `Pipeline/TaskDecomposition/policy.py`;
+8. `Pipeline/TaskGraph/graph_delta.py`;
+9. `Pipeline/TaskGraph/work_graph_validate.py`;
+10. inspect the actual repository and branch state.
 
 Then:
 
-1. confirm the intended `provider-adapters` branch and inspect the working tree without discarding existing changes;
-2. confirm ADR-035 remains recorded as accepted/amended and ADR-036 records the transport ownership decision;
-3. read ADR-039 and inspect `Pipeline/TaskExecution` before adding any task-associated consumer;
-4. keep both active ArchitectureReview entry points on generic AgentRuntime: `architecture_review_claude.py` for Claude and `architecture_review_codex.py` for Codex; provider comparison and a dual-provider launcher remain future work;
-5. use only opt-in, non-production-write live smoke tests during Stage 4;
-6. do not implement production `ExecutionCrew` roles until both adapters pass the shared fixture suite;
-7. keep `taskcontrol ready` unavailable and `taskcontrol authorize` denied.
+1. confirm the intended branch for the next approved slice and inspect the working tree without discarding changes;
+2. preserve temporary child keys and deterministic planner-owned NSC allocation;
+3. keep proposal validation separate from graph application and execution authority;
+4. do not connect live decomposition until its invocation and verification/refinement scope is explicitly approved;
+5. keep Artifact Authority, GER, readiness, and dispatch fail-closed until their own approved stages.
 
 A new window should be able to resume from repository state without the prior chat transcript.
