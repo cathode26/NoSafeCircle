@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0",
+  "record_type": "delivery",
+  "record_id": "DEL-NSC-005-12fad9358f63",
+  "task_id": "NSC-005",
+  "task_contract": {
+    "path": "Tasks/NSC-005.yaml",
+    "revision": 1,
+    "sha256": "1799a48d509b19ae56bbd845b1b584a362db46633e1c484d9b0a6a93d8f6e088"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "validated_state": {
+    "commit": "12fad9358f637e7e066376357247752db8b51c50",
+    "tree": "78102fe8bc1bec5954c0158a23fdfac5ddadefbd"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "blob_sha": "e700430a7f33e7c2d19d2c40e42b9c1e1dc54ed2",
+      "role": "mana_owner"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+      "blob_sha": "9d5b251d099a940a2eb1aca46f1952b5bb52f35e",
+      "role": "mana_indicator_feedback"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+      "blob_sha": "be7c63422c3c87957f4bca1c8ac7b1cc44ff82e4",
+      "role": "completion_gate_tests"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/NoSafeCircle.DoorPrototype.Tests.asmdef",
+      "blob_sha": "93077b1bc842af7c790a07b2b5a8e9a468029946",
+      "role": "test_assembly"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "d3ac44eaf6b8c12e02db7bd0e5652bb8d7b19c55",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-12fad9358f63.xml",
+          "blob_sha": "31cd8fd89961e0f514dd45856cefbe520b6dcfb5"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-12fad9358f63.log",
+          "blob_sha": "59c638031ccaf994073c920971da56e525cc238b"
+        }
+      ],
+      "notes": "Unity 6000.1.8f1 PlayMode PlayerManaPlayModeTests passed 16/16 at the validated commit. The clean runner confirmed unchanged HEAD/tree and a clean repository after the successful run."
+    },
+    {
+      "gate_id": "VAL-002",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-12fad9358f63.xml",
+          "blob_sha": "31cd8fd89961e0f514dd45856cefbe520b6dcfb5"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/HumanValidation-12fad9358f63.txt",
+          "blob_sha": "51dd80e15b14ab3d4248b376ea91a30f2e99c4e5"
+        }
+      ],
+      "notes": "Automated zero-mana denied-cast regression coverage passed, and human Play Mode validation confirmed insufficient-mana failure remains visibly readable at zero mana."
+    },
+    {
+      "gate_id": "VAL-003",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/PlayerManaPlayModeTests-12fad9358f63.xml",
+          "blob_sha": "31cd8fd89961e0f514dd45856cefbe520b6dcfb5"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/HumanValidation-12fad9358f63.txt",
+          "blob_sha": "51dd80e15b14ab3d4248b376ea91a30f2e99c4e5"
+        }
+      ],
+      "notes": "The mana indicator provides readable denied-cast feedback at zero mana without implying nonzero mana, and restores its normal appearance afterward."
+    }
+  ],
+  "human_approval": {
+    "required": true,
+    "decision": "approved",
+    "approved_by": "cathode26",
+    "notes": "Human Play Mode validation confirmed the corrected zero-mana denied-cast feedback works properly and remains readable through the mana indicator."
+  },
+  "recorded_at": "2026-08-24T03:45:07Z",
+  "delivery": {
+    "base_commit": "8be58c872b8cf867c199bf40f128a609ad83bb78",
+    "candidate_commit": "12fad9358f637e7e066376357247752db8b51c50",
+    "integrated_commit": "12fad9358f637e7e066376357247752db8b51c50",
+    "integrated_tree": "78102fe8bc1bec5954c0158a23fdfac5ddadefbd"
+  }
+}

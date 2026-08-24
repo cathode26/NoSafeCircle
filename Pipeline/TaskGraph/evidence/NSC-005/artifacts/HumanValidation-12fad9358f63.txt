@@ -1,0 +1,9 @@
+﻿Task: NSC-005
+Validated commit: 12fad9358f637e7e066376357247752db8b51c50
+Human validation result: PASS
+
+The corrected insufficient-mana feedback was validated in Play Mode.
+
+With mana fully depleted to zero, another denied spend produces visible feedback on the always-visible portion of the mana indicator. The mana fill remains at zero rather than visually implying available mana, and the indicator returns to its normal appearance after the denied-feedback flash.
+
+The human reviewer confirmed the corrected behavior works properly.
