@@ -12,6 +12,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
     {
         private GameObject playerObject;
         private GameObject cameraObject;
+        private GameObject obstacleObject;
         private PlayerMovement movement;
         private Camera testCamera;
         private RenderTexture testRenderTexture;
@@ -71,6 +72,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             if (playerObject != null) Object.Destroy(playerObject);
             if (cameraObject != null) Object.Destroy(cameraObject);
+            if (obstacleObject != null) Object.Destroy(obstacleObject);
 
             if (testInputActions != null)
             {
@@ -86,6 +88,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             playerObject = null;
             cameraObject = null;
+            obstacleObject = null;
             movement = null;
             testCamera = null;
             testInputActions = null;
@@ -314,6 +317,47 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.Less(offsetFromTarget, 0.1f,
                 "Expected movement toward the held cursor target to resume once re-enabled through the " +
                 "authorized EnableGameplayInput entry point.");
+        }
+
+        // AC-001/VAL-001 regression: a destination behind collision must not remain active
+        // forever and produce imperceptible wall-creep. Once forward progress is blocked for
+        // a short bounded period, movement settles as truly stopped.
+        [UnityTest]
+        public IEnumerator ObstructedDestination_CancelsAfterSustainedBlockedProgress_AndStopsCreeping()
+        {
+            obstacleObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            obstacleObject.name = "TestWall";
+            obstacleObject.transform.position = new Vector3(1.25f, 0f, 0f);
+            obstacleObject.transform.localScale = new Vector3(0.5f, 4f, 20f);
+            Physics.SyncTransforms();
+
+            // The target is intentionally diagonal and behind a long wall. The controller
+            // can slide along the wall for a while, but can never make the final X progress.
+            var target = new Vector3(3f, 0f, 2f);
+            var screenPoint = testCamera.WorldToScreenPoint(target);
+
+            SetMouse(screenPoint, true);
+            movement.Tick(0.02f);
+            SetMouse(screenPoint, false);
+
+            Assert.IsTrue(movement.HasActiveDestination);
+
+            AdvanceMovementTime(movement, 3f);
+
+            yield return null;
+
+            Assert.IsFalse(movement.HasActiveDestination,
+                "An unreachable click destination must eventually be cancelled after sustained blocked progress.");
+            Assert.Greater(HorizontalOffset(movement.transform.position, target), 0.5f,
+                "The test target must remain genuinely unreachable behind the wall.");
+
+            var settledPosition = movement.transform.position;
+            AdvanceMovementTime(movement, 1f);
+
+            yield return null;
+
+            Assert.Less(HorizontalOffset(movement.transform.position, settledPosition), 0.001f,
+                "After cancelling an obstructed destination, the wizard must stop horizontally instead of creeping along the wall forever.");
         }
 
         // AC-001/VAL-001 regression: a non-step-aligned destination must complete without oscillation.

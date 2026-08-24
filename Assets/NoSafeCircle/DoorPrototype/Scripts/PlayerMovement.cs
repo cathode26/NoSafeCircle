@@ -10,6 +10,14 @@ namespace NoSafeCircle.DoorPrototype
         private const float ArrivalThreshold = 0.05f;
         private const float VerticalGroundingOffset = -0.1f;
 
+        // A clicked destination can be unreachable because CharacterController collision
+        // prevents the wizard from making forward progress. Do not keep an unreachable
+        // destination alive forever: after a short period of side-collision with negligible
+        // progress toward the target, settle the movement state as stopped.
+        private const float BlockedDestinationTimeout = 0.2f;
+        private const float MinimumForwardProgressFraction = 0.05f;
+        private const float MinimumForwardProgressDistance = 0.001f;
+
         [SerializeField] private float moveSpeed = 4f;
         [SerializeField] private float gameplayPlaneHeight = 0f;
         [SerializeField] private InputActionAsset inputActions;
@@ -26,6 +34,7 @@ namespace NoSafeCircle.DoorPrototype
         private bool hasDestination;
         private Vector3 destination;
         private int movementRestrictionCount;
+        private float blockedDestinationTime;
 
         /// Shared world-space pointer target (AC-002), produced by projecting the cursor
         /// onto the gameplay plane. Consumers (cursor-aimed spells, Door/Interaction) read
@@ -120,13 +129,22 @@ namespace NoSafeCircle.DoorPrototype
             if (moveToCursorAction == null || !HasPointerWorldTarget) return;
             if (!moveToCursorAction.IsPressed()) return;
 
+            var newDestination = PointerWorldTarget;
+            if (!hasDestination || HorizontalDistance(destination, newDestination) > ArrivalThreshold)
+            {
+                blockedDestinationTime = 0f;
+            }
+
             hasDestination = true;
-            destination = PointerWorldTarget;
+            destination = newDestination;
         }
 
         private void TickDestinationMovement(float deltaTime)
         {
             var horizontal = Vector3.zero;
+            var attemptedDestinationMovement = false;
+            var distanceBeforeMove = 0f;
+            var expectedHorizontalStep = 0f;
 
             if (hasDestination && !IsMovementRestricted)
             {
@@ -135,15 +153,17 @@ namespace NoSafeCircle.DoorPrototype
 
                 if (toDestination.sqrMagnitude <= ArrivalThreshold * ArrivalThreshold)
                 {
-                    hasDestination = false;
+                    ClearDestination();
                 }
                 else
                 {
-                    var maxHorizontalStep = moveSpeed * Mathf.Max(0f, deltaTime);
-                    if (toDestination.sqrMagnitude <= maxHorizontalStep * maxHorizontalStep)
+                    attemptedDestinationMovement = true;
+                    distanceBeforeMove = toDestination.magnitude;
+                    expectedHorizontalStep = moveSpeed * Mathf.Max(0f, deltaTime);
+
+                    if (toDestination.sqrMagnitude <= expectedHorizontalStep * expectedHorizontalStep)
                     {
                         horizontal = deltaTime > 0f ? toDestination / deltaTime : Vector3.zero;
-                        hasDestination = false;
                     }
                     else
                     {
@@ -152,13 +172,64 @@ namespace NoSafeCircle.DoorPrototype
                 }
             }
 
+            var positionBeforeMove = transform.position;
             var move = new Vector3(horizontal.x, VerticalGroundingOffset, horizontal.z);
-            controller.Move(move * deltaTime);
+            var collisionFlags = controller.Move(move * deltaTime);
 
-            if (horizontal.sqrMagnitude > MovementThreshold)
+            // Interaction cancellation must reflect what the CharacterController actually
+            // moved, not what movement wanted to do. A blocked wall push is not real player
+            // movement just because the requested velocity was non-zero.
+            var actualHorizontalDisplacement = transform.position - positionBeforeMove;
+            actualHorizontalDisplacement.y = 0f;
+            if (actualHorizontalDisplacement.sqrMagnitude > MovementThreshold * MovementThreshold)
             {
                 interactionController?.OnPlayerMoved();
             }
+
+            if (!attemptedDestinationMovement || !hasDestination)
+            {
+                blockedDestinationTime = 0f;
+                return;
+            }
+
+            var distanceAfterMove = HorizontalDistance(transform.position, destination);
+            if (distanceAfterMove <= ArrivalThreshold)
+            {
+                ClearDestination();
+                return;
+            }
+
+            var forwardProgress = Mathf.Max(0f, distanceBeforeMove - distanceAfterMove);
+            var minimumExpectedProgress = Mathf.Max(
+                MinimumForwardProgressDistance,
+                expectedHorizontalStep * MinimumForwardProgressFraction);
+            var blockedBySideCollision = (collisionFlags & CollisionFlags.Sides) != 0;
+
+            if (blockedBySideCollision && forwardProgress < minimumExpectedProgress)
+            {
+                blockedDestinationTime += Mathf.Max(0f, deltaTime);
+                if (blockedDestinationTime >= BlockedDestinationTimeout)
+                {
+                    ClearDestination();
+                }
+            }
+            else
+            {
+                blockedDestinationTime = 0f;
+            }
+        }
+
+        private static float HorizontalDistance(Vector3 a, Vector3 b)
+        {
+            var offset = a - b;
+            offset.y = 0f;
+            return offset.magnitude;
+        }
+
+        private void ClearDestination()
+        {
+            hasDestination = false;
+            blockedDestinationTime = 0f;
         }
 
         private void ApplyGrounding(float deltaTime)
@@ -185,7 +256,7 @@ namespace NoSafeCircle.DoorPrototype
         /// all owned movement state, including re-enabling gameplay input.
         public void ResetMovement()
         {
-            hasDestination = false;
+            ClearDestination();
             movementRestrictionCount = 0;
             IsGameplayEnabled = true;
 
@@ -201,7 +272,7 @@ namespace NoSafeCircle.DoorPrototype
         public void SuspendGameplayInput()
         {
             IsGameplayEnabled = false;
-            hasDestination = false;
+            ClearDestination();
         }
 
         public void EnableGameplayInput()

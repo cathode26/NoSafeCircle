@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0",
+  "record_type": "revalidation",
+  "record_id": "REV-NSC-003-07cfa21c3c69",
+  "task_id": "NSC-003",
+  "task_contract": {
+    "path": "Tasks/NSC-003.yaml",
+    "revision": 2,
+    "sha256": "64d53af0ec7a47d518dcaa3f6968201272122484ee95b045b87edc12060aed66"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "validated_state": {
+    "commit": "07cfa21c3c696457c03c4e099704888fbdbeefaf",
+    "tree": "27feaec6e5b4ee85e7f2874b11ff356162e55aa6"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "blob_sha": "b51fd16ee474a0b3945ca01f198cfb741534b7b2",
+      "role": "player_movement_owner"
+    },
+    {
+      "path": "Assets/InputSystem_Actions.inputactions",
+      "blob_sha": "ff22ae44a08a4e25be2eb96ab5bc49b30e500ea3",
+      "role": "movement_input_actions"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "blob_sha": "2cc882a6806e890f4b5817ddc80503a423938673",
+      "role": "scene_builder_wiring"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerMovementPlayModeTests.cs",
+      "blob_sha": "7d83fe6eb01c524d2326fd6caf3e1c186b092908",
+      "role": "completion_gate_tests"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "806790e653cd5fe9380980017d6fdd3774649eb9",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/PlayerMovementPlayModeTests-07cfa21c3c69.xml",
+          "blob_sha": "6ce43e718ae291fcdac45ced27b458d4f0d2182f"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/PlayerMovementPlayModeTests-07cfa21c3c69.log",
+          "blob_sha": "b2f51673f6199358799ee0646ac6dbdb63f73c96"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/HumanValidation-07cfa21c3c69.txt",
+          "blob_sha": "32a2fececff50c536a6ae159a7b55be1e5c5088a"
+        }
+      ],
+      "notes": "Authoritative clean-run PlayerMovementPlayModeTests passed 10/10 at the validated state. The suite includes the obstructed-destination regression, and manual Play Mode review accepted the repaired wall-collision behavior."
+    },
+    {
+      "gate_id": "VAL-002",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/PlayerMovementPlayModeTests-07cfa21c3c69.xml",
+          "blob_sha": "6ce43e718ae291fcdac45ced27b458d4f0d2182f"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/PlayerMovementPlayModeTests-07cfa21c3c69.log",
+          "blob_sha": "b2f51673f6199358799ee0646ac6dbdb63f73c96"
+        }
+      ],
+      "notes": "The same authoritative PlayerMovementPlayModeTests suite passed the suspend, command-rejection, and authorized re-enable coverage."
+    }
+  ],
+  "human_approval": {
+    "required": true,
+    "decision": "approved",
+    "approved_by": "cathode26",
+    "notes": "Manual Play Mode review accepted the obstruction repair as good enough for the current prototype and confirmed the persistent micro-movement defect is resolved."
+  },
+  "recorded_at": "2026-08-24T08:50:14.261596Z",
+  "revalidation": {
+    "basis_record_id": "DEL-NSC-003-bb7d9d8fc3bb",
+    "reason_type": "code_change",
+    "summary": "Revalidates NSC-003 after later integrated scene/builder changes made the original evidence stale and after repairing PlayerMovement so unreachable collision-blocked destinations terminate instead of producing persistent micro-movement. The regression test now covers that failure mode."
+  }
+}
