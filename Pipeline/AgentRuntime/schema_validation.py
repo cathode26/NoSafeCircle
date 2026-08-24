@@ -18,6 +18,30 @@ class SchemaValidationError(ValueError):
     pass
 
 
+def _schema_types(kind: Any, path: str) -> tuple[tuple[str, ...], str]:
+    if type(kind) is str:
+        if kind not in SUPPORTED_TYPES:
+            raise SchemaValidationError(f"{path}: a supported type is required")
+        return (kind,), kind
+    if type(kind) is tuple:
+        if (
+            len(kind) != 2
+            or any(type(item) is not str for item in kind)
+            or len(set(kind)) != len(kind)
+            or "null" not in kind
+        ):
+            raise SchemaValidationError(
+                f"{path}: type array must contain null and one unique supported non-null type"
+            )
+        non_null = next(item for item in kind if item != "null")
+        if non_null not in SUPPORTED_TYPES - {"null"}:
+            raise SchemaValidationError(
+                f"{path}: type array must contain null and one unique supported non-null type"
+            )
+        return kind, non_null
+    raise SchemaValidationError(f"{path}: a supported type is required")
+
+
 def _matches_type(value: Any, kind: str) -> bool:
     if kind == "object":
         return isinstance(value, Mapping)
@@ -68,9 +92,7 @@ def _validate_schema(schema: Any, path: str) -> None:
     unknown = set(schema) - SUPPORTED_KEYWORDS
     if unknown:
         raise SchemaValidationError(f"{path}: unsupported schema keywords: {sorted(unknown)}")
-    kind = schema.get("type")
-    if kind not in SUPPORTED_TYPES:
-        raise SchemaValidationError(f"{path}: a supported type is required")
+    kinds, kind = _schema_types(schema.get("type"), path)
     for keyword in ("minimum", "maximum"):
         if keyword in schema:
             bound = schema[keyword]
@@ -102,9 +124,10 @@ def _validate_schema(schema: Any, path: str) -> None:
                 freeze_json(item, path=f"{path}.enum[{index}]")
             except JsonValueError as exc:
                 raise SchemaValidationError(str(exc)) from exc
-            if not _matches_type(item, kind):
+            if not any(_matches_type(item, candidate) for candidate in kinds):
+                declared = kind if len(kinds) == 1 else list(kinds)
                 raise SchemaValidationError(
-                    f"{path}: enum value at index {index} is incompatible with {kind}"
+                    f"{path}: enum value at index {index} is incompatible with {declared}"
                 )
             if any(_json_equal(item, prior) for prior in prior_values):
                 raise SchemaValidationError(
@@ -157,18 +180,21 @@ def validate_instance(value: Any, schema: Mapping[str, Any], path: str = "$") ->
 
 
 def _validate_instance(value: Any, schema: Mapping[str, Any], path: str) -> None:
-    kind = schema["type"]
-    if not _matches_type(value, kind):
-        raise SchemaValidationError(f"{path}: expected {kind}")
+    kinds, kind = _schema_types(schema["type"], path)
+    if not any(_matches_type(value, candidate) for candidate in kinds):
+        expected = kinds[0] if len(kinds) == 1 else list(kinds)
+        raise SchemaValidationError(f"{path}: expected {expected}")
+    if "enum" in schema and not any(
+        _json_equal(value, item) for item in schema["enum"]
+    ):
+        raise SchemaValidationError(f"{path}: value is not in enum")
+    if value is None and len(kinds) == 2:
+        return
     if kind in {"integer", "number"}:
         if "minimum" in schema and value < schema["minimum"]:
             raise SchemaValidationError(f"{path}: value is below minimum")
         if "maximum" in schema and value > schema["maximum"]:
             raise SchemaValidationError(f"{path}: value is above maximum")
-    if "enum" in schema and not any(
-        _json_equal(value, item) for item in schema["enum"]
-    ):
-        raise SchemaValidationError(f"{path}: value is not in enum")
     if kind == "object":
         for name in schema.get("required", []):
             if name not in value:

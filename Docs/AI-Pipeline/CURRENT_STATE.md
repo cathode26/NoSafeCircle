@@ -2,7 +2,7 @@
 
 > Update this file whenever a milestone or important implementation slice changes.
 
-Last updated: 2026-08-24, after the full Stage D1B.1 deterministic test gate on `stage-d1b-live-decomposition`.
+Last updated: 2026-08-24, after the Stage D1B.1 nullable structured-output compatibility correction tests on `stage-d1b-live-decomposition`.
 
 ## Current Phase
 
@@ -42,7 +42,9 @@ D1B.1 now performs one human-selected, provider-selected, read-only `TaskExecuti
 
 Deterministic temporary-repository and FakeProvider tests cover all four valid decisions, schema and semantic rejection, wrong semantic identity, normalized provider failure, read-only claim rejection, graph-planner failure, dirty and mutated sources, output-root overlap, run collision, factory/config mismatch, atomic no-overwrite publication, exact prompt identity, source preservation, and absence of live provider calls. The full D1B.1 deterministic gate passes, including decomposition contracts, context construction, live orchestration, graph-delta planning, TaskExecution, AgentRuntime, both provider-adapter smoke suites, TaskGraph validation/taskcontrol/quality/conformance regressions, Python compilation, Compose validation, and Git diff checks.
 
-No live D1B.1 Claude or Codex proving run has occurred yet.
+The first live D1B.1 Codex proving attempt reached provider transport, but OpenAI rejected the strict structured-output schema before model execution because `artifact_proposal` appeared in `properties` without appearing in `required`. No review-ready decomposition or graph delta was emitted, and the live Codex proving run was not successful. The provider-neutral correction now requires `artifact_proposal` while allowing exactly the nullable `object`/`null` type, emits null for non-artifact decisions, and retains the artifact object for `needs_artifact`. Focused decomposition-contract, AgentRuntime nullable-schema, and exact Claude/Codex schema-serialization regressions pass.
+
+No live D1B.1 Claude proving run has occurred.
 
 D1B.1 does not complete D1B or the Progressive Decomposer milestone. D1B.2 independent verification and bounded refinement, a general GER loop, Artifact Authority, artifact generation, D1C graph application, dependency readiness, dispatch, automatic commits, and merges remain unimplemented.
 

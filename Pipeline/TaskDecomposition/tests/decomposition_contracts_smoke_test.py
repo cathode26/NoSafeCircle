@@ -106,6 +106,7 @@ def base(parent: dict, decision: str, gap: str) -> dict:
         "parent_requirement_coverage": [],
         "unsupported_assumptions": [],
         "unresolved_questions": [],
+        "artifact_proposal": None,
     }
 
 
@@ -223,8 +224,23 @@ def expect_failure(payload: dict, parent: dict, fragment: str, existing=()) -> N
         raise AssertionError(f"Expected failure containing {fragment!r}")
 
 
+def assert_all_object_properties_required(schema: dict, path: str = "$") -> None:
+    declared_type = schema["type"]
+    types = {declared_type} if type(declared_type) is str else set(declared_type)
+    if "object" in types:
+        properties = schema.get("properties", {})
+        assert set(schema.get("required", [])) == set(properties), (
+            f"{path} does not require every declared property"
+        )
+        for name, child_schema in properties.items():
+            assert_all_object_properties_required(child_schema, f"{path}.{name}")
+    if "array" in types:
+        assert_all_object_properties_required(schema["items"], f"{path}[]")
+
+
 def main() -> int:
     validate_schema(DECOMPOSITION_RESULT_SCHEMA)
+    assert_all_object_properties_required(DECOMPOSITION_RESULT_SCHEMA)
     parent = parent_task()
 
     concrete = validate_decomposition_result(retained_result(parent), parent_task=parent)
@@ -260,8 +276,27 @@ def main() -> int:
     human = validate_decomposition_result(blocked_result(parent, "needs_human"), parent_task=parent)
     assert artifact.artifact_proposal
     assert human.unresolved_questions
+    assert concrete.artifact_proposal is None
+    assert decomposed.artifact_proposal is None
+    assert human.artifact_proposal is None
     for valid in (concrete, decomposed, artifact, human):
         validate_instance(valid.to_dict(), DECOMPOSITION_RESULT_SCHEMA)
+        assert "artifact_proposal" in valid.to_dict()
+    assert concrete.to_dict()["artifact_proposal"] is None
+    assert artifact.to_dict()["artifact_proposal"] == blocked_result(
+        parent, "needs_artifact"
+    )["artifact_proposal"]
+    validate_instance(None, DECOMPOSITION_RESULT_SCHEMA["properties"]["artifact_proposal"])
+    validate_instance(
+        artifact.to_dict()["artifact_proposal"],
+        DECOMPOSITION_RESULT_SCHEMA["properties"]["artifact_proposal"],
+    )
+
+    omitted_artifact = retained_result(parent)
+    del omitted_artifact["artifact_proposal"]
+    compatible = DecompositionResult.from_dict(omitted_artifact)
+    assert compatible.artifact_proposal is None
+    assert compatible.to_dict()["artifact_proposal"] is None
 
     bad = retained_result(parent)
     bad["parent_task"]["contract_sha256"] = "x" * 64
@@ -306,11 +341,16 @@ def main() -> int:
     bad["children"] = [child("illegal-child")]
     expect_failure(bad, parent, "may not contain child")
     bad = blocked_result(parent, "needs_artifact")
-    del bad["artifact_proposal"]
+    bad["artifact_proposal"] = None
     expect_failure(bad, parent, "requires one")
-    bad = decomposed_result(parent)
-    bad["artifact_proposal"] = blocked_result(parent, "needs_artifact")["artifact_proposal"]
-    expect_failure(bad, parent, "may not contain an artifact")
+    artifact_object = blocked_result(parent, "needs_artifact")["artifact_proposal"]
+    for bad in (
+        retained_result(parent),
+        decomposed_result(parent),
+        blocked_result(parent, "needs_human"),
+    ):
+        bad["artifact_proposal"] = deepcopy(artifact_object)
+        expect_failure(bad, parent, "may not contain an artifact")
     for field, id_field, malformed in (
         ("acceptance_criteria", "criterion_id", "A-001"),
         ("completion_gates", "gate_id", "V-001"),

@@ -224,6 +224,9 @@ def main() -> int:
         normalized_prompt = " ".join(prompt.lower().split())
         assert "generated decomposition output is review-only evidence" in normalized_prompt
         assert "not current design authority" in prompt
+        assert normalized_prompt.count("set `artifact_proposal` to null") == 3
+        assert "omit `artifact_proposal`" not in normalized_prompt
+        assert "do not emit it as null" not in normalized_prompt
         encoded_gdd = json.dumps(
             context["canonical_gdd"]["full_committed_utf8_text"], ensure_ascii=False
         )[1:-1]

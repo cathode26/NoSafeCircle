@@ -499,7 +499,12 @@ class DecompositionResult:
             ParentCoverageRecord.from_dict(item, f"decomposition_result.parent_requirement_coverage[{index}]")
             for index, item in enumerate(_list(value["parent_requirement_coverage"], "decomposition_result.parent_requirement_coverage"))
         )
-        artifact = ArtifactProposal.from_dict(value["artifact_proposal"]) if "artifact_proposal" in value else None
+        raw_artifact = value.get("artifact_proposal")
+        artifact = (
+            ArtifactProposal.from_dict(raw_artifact)
+            if raw_artifact is not None
+            else None
+        )
         return cls(
             version,
             ParentTaskIdentity.from_dict(value["parent_task"]),
@@ -527,9 +532,12 @@ class DecompositionResult:
             ],
             "unsupported_assumptions": list(self.unsupported_assumptions),
             "unresolved_questions": list(self.unresolved_questions),
+            "artifact_proposal": (
+                ArtifactProposal.to_dict(self.artifact_proposal)
+                if self.artifact_proposal is not None
+                else None
+            ),
         }
-        if self.artifact_proposal is not None:
-            result["artifact_proposal"] = ArtifactProposal.to_dict(self.artifact_proposal)
         return result
 
     def canonical_json(self) -> str:

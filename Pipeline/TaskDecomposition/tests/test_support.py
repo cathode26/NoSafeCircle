@@ -215,6 +215,7 @@ def base_result(parent: dict[str, Any], decision: str, gap: str) -> dict[str, An
         "parent_requirement_coverage": [],
         "unsupported_assumptions": [],
         "unresolved_questions": [],
+        "artifact_proposal": None,
     }
 
 

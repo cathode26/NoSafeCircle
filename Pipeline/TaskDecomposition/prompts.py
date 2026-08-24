@@ -63,13 +63,13 @@ Choose exactly one D1A decision:
 1. `already_concrete`
    - `gap_type` is `none`; `children` is empty.
    - Every parent obligation is `retained_by_parent`.
-   - Omit `artifact_proposal` entirely; do not emit it as null.
+   - Set `artifact_proposal` to null.
    - `unresolved_questions` and `unsupported_assumptions` are empty.
 
 2. `decomposed`
    - `gap_type` is `execution`; propose one or more bounded implementation children.
    - Coverage uses only `assigned_to_child` and `shared_integration`.
-   - Omit `artifact_proposal` entirely; do not emit it as null.
+   - Set `artifact_proposal` to null.
    - `unresolved_questions` and `unsupported_assumptions` are empty.
 
 3. `needs_artifact`
@@ -78,14 +78,15 @@ Choose exactly one D1A decision:
    - Retained obligations may remain `retained_by_parent`; at least one obligation is
      `blocked_by_artifact`.
    - Artifact source obligations exactly match the obligations blocked by the artifact.
-   - The artifact proposal is not authorization and no artifact is generated here.
+   - `artifact_proposal` is the required object; it is not authorization and no artifact
+     is generated here.
 
 4. `needs_human`
    - `gap_type` is `uncertain`, `design`, or `execution`; `children` is empty.
    - Retained obligations may remain `retained_by_parent`; at least one obligation is
      `blocked_by_human`.
    - `unresolved_questions` is nonempty.
-   - Omit `artifact_proposal` entirely; do not emit it as null.
+   - Set `artifact_proposal` to null.
 
 Return only the structured result required by the supplied output schema. Do not wrap it in
 commentary or markdown.
