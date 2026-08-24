@@ -1,0 +1,18 @@
+Task: NSC-004
+Validated commit: a8d215c012133d1be78be9604bb42e724eb3947d
+Validated tree: 7510ed49726bdd2d55fa1a77479535210c0facf9
+Human validation result: PASS
+
+The regenerated canonical DoorPrototype scene was tested manually in Unity Play Mode.
+
+The player-facing health indicator was present and the debug health controls worked during manual review. Player movement and door behavior remained functional during the same integration review.
+
+Authoritative command-line validation at this exact state:
+- Unity 6000.1.8f1
+- DoorPrototypeSceneBuilderTests EditMode: 16 total, 16 passed, 0 failed, 0 skipped
+- PlayerHealthPlayModeTests PlayMode: 5 total, 5 passed, 0 failed, 0 skipped
+- Unity exit code: 0 for both runs
+- Git tree before/after both runs: 7510ed49726bdd2d55fa1a77479535210c0facf9
+- Both clean-runner invocations ended with VALIDATION PASSED.
+
+The PlayerHealth PlayMode suite verifies owner-controlled restore with max-health clamping, exactly-once death transition, owner-controlled reset, absence of passive regeneration, and continuous health-indicator binding.

@@ -22,41 +22,60 @@ $ExitMutation = 40
 function Invoke-Git {
     param([string]$RepositoryRoot, [string[]]$Arguments)
 
-    # Keep stdout and stderr separate. Git for Windows may emit benign line-ending
-    # warnings on stderr even when the command succeeds; under Windows PowerShell
-    # with ErrorActionPreference=Stop, merging stderr into stdout can turn those
-    # warnings into terminating errors.
+    # Windows PowerShell 5.1 can promote native stderr into terminating errors when
+    # ErrorActionPreference=Stop, even when git exits 0. Invoke git through
+    # Start-Process so stdout/stderr remain ordinary files and exit code is authoritative.
+    $stdoutPath = [System.IO.Path]::GetTempFileName()
     $stderrPath = [System.IO.Path]::GetTempFileName()
+
     try {
-        $output = & git -C $RepositoryRoot @Arguments 2> $stderrPath
-        $exitCode = $LASTEXITCODE
+        $gitArguments = @(
+            (ConvertTo-WindowsCommandLineArgument "-C"),
+            (ConvertTo-WindowsCommandLineArgument $RepositoryRoot)
+        )
+        foreach ($argument in $Arguments) {
+            $gitArguments += ConvertTo-WindowsCommandLineArgument $argument
+        }
+
+        $process = Start-Process `
+            -FilePath "git.exe" `
+            -ArgumentList $gitArguments `
+            -Wait `
+            -PassThru `
+            -NoNewWindow `
+            -RedirectStandardOutput $stdoutPath `
+            -RedirectStandardError $stderrPath
+
+        $stdout = ""
+        if (Test-Path -LiteralPath $stdoutPath -PathType Leaf) {
+            $stdout = Get-Content -LiteralPath $stdoutPath -Raw -ErrorAction SilentlyContinue
+            if ($null -eq $stdout) { $stdout = "" }
+        }
 
         $stderr = ""
         if (Test-Path -LiteralPath $stderrPath -PathType Leaf) {
             $stderr = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
-            if ($null -eq $stderr) {
-                $stderr = ""
-            }
+            if ($null -eq $stderr) { $stderr = "" }
         }
 
-        if ($exitCode -ne 0) {
+        if ($process.ExitCode -ne 0) {
             $detailParts = @()
-            $stdoutText = ($output | Out-String).Trim()
-            $stderrText = $stderr.Trim()
-
-            if (-not [string]::IsNullOrWhiteSpace($stdoutText)) {
-                $detailParts += $stdoutText
+            if (-not [string]::IsNullOrWhiteSpace($stdout)) {
+                $detailParts += $stdout.Trim()
             }
-            if (-not [string]::IsNullOrWhiteSpace($stderrText)) {
-                $detailParts += $stderrText
+            if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+                $detailParts += $stderr.Trim()
             }
 
             throw "Git command failed: git -C `"$RepositoryRoot`" $($Arguments -join ' ')`n$($detailParts -join [Environment]::NewLine)"
         }
 
-        return ($output | Out-String).Trim()
+        # Successful stderr is intentionally ignored. Git for Windows can emit benign
+        # line-ending warnings while still returning success.
+        return $stdout.Trim()
     }
     finally {
+        Remove-Item -LiteralPath $stdoutPath -Force -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
     }
 }
