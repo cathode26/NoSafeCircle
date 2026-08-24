@@ -1,0 +1,71 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-040",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Visual/Simulation Separation and Continuous-Scene Integration",
+  "reconciliation_key": "visual-simulation-continuity",
+  "kind": "implementation",
+  "type": "world-foundation",
+  "execution_scope": "single_agent",
+  "execution_reason": "One agent can integrate the two proposed visual foundations with the existing simulation representation and validate the resulting ownership and continuous-scene boundaries.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Cross-layer separation and continuous-scene support require an integration pass after both visual representations exist, but do not require authoring the five room layouts.",
+  "parent": "NSC-026",
+  "depends_on": [
+    "NSC-038",
+    "NSC-039"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "Keep visual Tilemap and SpriteRenderer objects independent from gameplay-owned walkability, collision, trigger volumes, door state, and pursuit logic so replacing visual assets does not redefine simulation behavior."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD - Runtime Implementation",
+      "requirement": "Structure the visual-world foundation so all five spaces can coexist in one continuous Unity scene or floor representation without requiring scene-loading or cross-scene state transfer."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "GDD - Unity Validation Agent role (Section 4)",
+      "requirement": "Integrated Unity validation checks representative Tilemap and SpriteRenderer visuals against separately owned collision and walkability geometry and detects visual/simulation desynchronization."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "GDD - Runtime Implementation",
+      "requirement": "Unity validation confirms the foundation extends within the canonical continuous gameplay scene and introduces no room-transition scene-loading or cross-scene state-transfer dependency."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "The visible isometric art layer is separate from the gameplay representation, which continues to own walkability, collision, triggers, door state, pursuit, and other simulation behavior."
+    },
+    {
+      "reference": "GDD - Runtime Implementation",
+      "requirement": "All five encounter spaces exist inside one continuous Unity scene or floor representation, with no scene-load or cross-scene state-transfer system required."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This proposed integration scope excludes five-room geometry, encounter placement, navigation implementation, and room-specific content authoring.",
+  "repository_state_at_bootstrap": "not_applicable",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "graph_delta_plan_id": "GDP-9ed2e9f5d29e19e8e03f6907b7ecdd4e4deac9b8cb465283df856a88a3cc0db8",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 1,
+    "parent_contract_sha256": "8dd459df6c99ef48df5ee4893db957150139abc7eedded1e8098799e9b115177",
+    "parent_task_id": "NSC-026"
+  }
+}
