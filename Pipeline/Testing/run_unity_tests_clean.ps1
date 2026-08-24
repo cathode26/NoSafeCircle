@@ -22,11 +22,43 @@ $ExitMutation = 40
 function Invoke-Git {
     param([string]$RepositoryRoot, [string[]]$Arguments)
 
-    $output = & git -C $RepositoryRoot @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "Git command failed: git -C `"$RepositoryRoot`" $($Arguments -join ' ')`n$($output -join [Environment]::NewLine)"
+    # Keep stdout and stderr separate. Git for Windows may emit benign line-ending
+    # warnings on stderr even when the command succeeds; under Windows PowerShell
+    # with ErrorActionPreference=Stop, merging stderr into stdout can turn those
+    # warnings into terminating errors.
+    $stderrPath = [System.IO.Path]::GetTempFileName()
+    try {
+        $output = & git -C $RepositoryRoot @Arguments 2> $stderrPath
+        $exitCode = $LASTEXITCODE
+
+        $stderr = ""
+        if (Test-Path -LiteralPath $stderrPath -PathType Leaf) {
+            $stderr = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
+            if ($null -eq $stderr) {
+                $stderr = ""
+            }
+        }
+
+        if ($exitCode -ne 0) {
+            $detailParts = @()
+            $stdoutText = ($output | Out-String).Trim()
+            $stderrText = $stderr.Trim()
+
+            if (-not [string]::IsNullOrWhiteSpace($stdoutText)) {
+                $detailParts += $stdoutText
+            }
+            if (-not [string]::IsNullOrWhiteSpace($stderrText)) {
+                $detailParts += $stderrText
+            }
+
+            throw "Git command failed: git -C `"$RepositoryRoot`" $($Arguments -join ' ')`n$($detailParts -join [Environment]::NewLine)"
+        }
+
+        return ($output | Out-String).Trim()
     }
-    return ($output | Out-String).Trim()
+    finally {
+        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Get-WorkingTreeStatus {
