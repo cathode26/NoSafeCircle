@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0",
+  "record_type": "delivery",
+  "record_id": "DEL-NSC-003-bb7d9d8fc3bb",
+  "task_id": "NSC-003",
+  "task_contract": {
+    "path": "Tasks/NSC-003.yaml",
+    "revision": 2,
+    "sha256": "64d53af0ec7a47d518dcaa3f6968201272122484ee95b045b87edc12060aed66"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "validated_state": {
+    "commit": "bb7d9d8fc3bb8ca489d42b3ab48db96de0345a4c",
+    "tree": "e8cd1a6b68bdbca81ee2dd782e06b16a50ff2350"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "blob_sha": "c02c77ba8584dbef10adfee97d46302d1261b545",
+      "role": "player_movement_owner"
+    },
+    {
+      "path": "Assets/InputSystem_Actions.inputactions",
+      "blob_sha": "ff22ae44a08a4e25be2eb96ab5bc49b30e500ea3",
+      "role": "movement_input_actions"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "blob_sha": "ee5b846bd0ba0e0ac57cfae029956c6260a0033a",
+      "role": "scene_builder_wiring"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerMovementPlayModeTests.cs",
+      "blob_sha": "b9361928b83e8321c91530eab1b34da15220df33",
+      "role": "completion_gate_tests"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "56fc022e7b1cc25e097e7c192cd295f383a8877b",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/PlayerMovementPlayModeTests-bb7d9d8fc3bb.xml",
+          "blob_sha": "035c624d1552b37571786c2d18391870e1b81ab9"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/PlayerMovementPlayModeTests-bb7d9d8fc3bb.log",
+          "blob_sha": "741ba4eab5d07b0acd2cd74c6717cb416148acea"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/HumanValidation-bb7d9d8fc3bb.txt",
+          "blob_sha": "126cf4e7e315b3a4239457d0ac9a259f46967da9"
+        }
+      ],
+      "notes": "Authoritative clean-run PlayMode suite passed 9/9 at the validated state; manual Play Mode validation also confirmed click destination, hold-to-steer, release continuation, and stable arrival behavior."
+    },
+    {
+      "gate_id": "VAL-002",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/PlayerMovementPlayModeTests-bb7d9d8fc3bb.xml",
+          "blob_sha": "035c624d1552b37571786c2d18391870e1b81ab9"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/PlayerMovementPlayModeTests-bb7d9d8fc3bb.log",
+          "blob_sha": "741ba4eab5d07b0acd2cd74c6717cb416148acea"
+        }
+      ],
+      "notes": "The successful PlayerMovementPlayModeTests suite covers immediate movement halt on suspend, rejection of movement while suspended, and authorized re-enable behavior."
+    }
+  ],
+  "human_approval": {
+    "required": true,
+    "decision": "approved",
+    "approved_by": "Vincent Liguori",
+    "notes": "Manual Play Mode review approved the integrated mouse-directed movement behavior at the validated state."
+  },
+  "recorded_at": "2026-08-24T05:19:22Z",
+  "delivery": {
+    "base_commit": "7d61d050dbfa49801d14e17ce09fe3f363e48a4f",
+    "candidate_commit": "44b72a572338538a732a9bc8a4b1105bee1403ef",
+    "integrated_commit": "bb7d9d8fc3bb8ca489d42b3ab48db96de0345a4c",
+    "integrated_tree": "e8cd1a6b68bdbca81ee2dd782e06b16a50ff2350"
+  }
+}

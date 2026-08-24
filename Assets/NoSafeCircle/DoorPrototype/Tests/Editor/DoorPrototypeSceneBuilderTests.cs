@@ -79,7 +79,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
             var hudText = GameObject.Find("Canvas/ControlsHud/Text")?.GetComponent<Text>();
             Assert.IsNotNull(hudText, "Expected a 'Text' element under Canvas/ControlsHud.");
-            StringAssert.Contains("WASD", hudText.text);
+            StringAssert.Contains("Click/Hold Left Mouse", hudText.text);
             StringAssert.Contains("Move", hudText.text);
             StringAssert.Contains("Hold E", hudText.text);
             StringAssert.Contains("cancels the opening attempt", hudText.text);

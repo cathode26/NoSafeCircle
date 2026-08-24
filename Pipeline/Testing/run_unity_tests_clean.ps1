@@ -22,16 +22,73 @@ $ExitMutation = 40
 function Invoke-Git {
     param([string]$RepositoryRoot, [string[]]$Arguments)
 
-    $output = & git -C $RepositoryRoot @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "Git command failed: git -C `"$RepositoryRoot`" $($Arguments -join ' ')`n$($output -join [Environment]::NewLine)"
+    # Keep stdout and stderr separate. Git for Windows may emit benign line-ending
+    # warnings on stderr even when the command succeeds; under Windows PowerShell
+    # with ErrorActionPreference=Stop, merging stderr into stdout can turn those
+    # warnings into terminating errors.
+    $stderrPath = [System.IO.Path]::GetTempFileName()
+    try {
+        $output = & git -C $RepositoryRoot @Arguments 2> $stderrPath
+        $exitCode = $LASTEXITCODE
+
+        $stderr = ""
+        if (Test-Path -LiteralPath $stderrPath -PathType Leaf) {
+            $stderr = Get-Content -LiteralPath $stderrPath -Raw -ErrorAction SilentlyContinue
+            if ($null -eq $stderr) {
+                $stderr = ""
+            }
+        }
+
+        if ($exitCode -ne 0) {
+            $detailParts = @()
+            $stdoutText = ($output | Out-String).Trim()
+            $stderrText = $stderr.Trim()
+
+            if (-not [string]::IsNullOrWhiteSpace($stdoutText)) {
+                $detailParts += $stdoutText
+            }
+            if (-not [string]::IsNullOrWhiteSpace($stderrText)) {
+                $detailParts += $stderrText
+            }
+
+            throw "Git command failed: git -C `"$RepositoryRoot`" $($Arguments -join ' ')`n$($detailParts -join [Environment]::NewLine)"
+        }
+
+        return ($output | Out-String).Trim()
     }
-    return ($output | Out-String).Trim()
+    finally {
+        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Get-WorkingTreeStatus {
     param([string]$RepositoryRoot)
-    return Invoke-Git $RepositoryRoot @("status", "--porcelain=v1", "--untracked-files=all")
+
+    $porcelain = Invoke-Git $RepositoryRoot @("status", "--porcelain=v1", "--untracked-files=all")
+    if ([string]::IsNullOrWhiteSpace($porcelain)) {
+        return ""
+    }
+
+    # Unity can rewrite a tracked file without changing its Git-normalized content.
+    # Only report real tracked content differences or real untracked files.
+    $tracked = Invoke-Git $RepositoryRoot @("diff", "--name-status", "--no-ext-diff", "HEAD", "--")
+    $untracked = Invoke-Git $RepositoryRoot @("ls-files", "--others", "--exclude-standard")
+
+    $meaningful = @()
+
+    if (-not [string]::IsNullOrWhiteSpace($tracked)) {
+        $meaningful += $tracked
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($untracked)) {
+        foreach ($item in ($untracked -split "\r?\n")) {
+            if (-not [string]::IsNullOrWhiteSpace($item)) {
+                $meaningful += "?? $item"
+            }
+        }
+    }
+
+    return ($meaningful -join [Environment]::NewLine)
 }
 
 function Stop-WithCode {
