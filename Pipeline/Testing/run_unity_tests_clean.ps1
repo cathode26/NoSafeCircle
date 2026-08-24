@@ -31,7 +31,32 @@ function Invoke-Git {
 
 function Get-WorkingTreeStatus {
     param([string]$RepositoryRoot)
-    return Invoke-Git $RepositoryRoot @("status", "--porcelain=v1", "--untracked-files=all")
+
+    $porcelain = Invoke-Git $RepositoryRoot @("status", "--porcelain=v1", "--untracked-files=all")
+    if ([string]::IsNullOrWhiteSpace($porcelain)) {
+        return ""
+    }
+
+    # Unity can rewrite a tracked file without changing its Git-normalized content.
+    # Only report real tracked content differences or real untracked files.
+    $tracked = Invoke-Git $RepositoryRoot @("diff", "--name-status", "--no-ext-diff", "HEAD", "--")
+    $untracked = Invoke-Git $RepositoryRoot @("ls-files", "--others", "--exclude-standard")
+
+    $meaningful = @()
+
+    if (-not [string]::IsNullOrWhiteSpace($tracked)) {
+        $meaningful += $tracked
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($untracked)) {
+        foreach ($item in ($untracked -split "\r?\n")) {
+            if (-not [string]::IsNullOrWhiteSpace($item)) {
+                $meaningful += "?? $item"
+            }
+        }
+    }
+
+    return ($meaningful -join [Environment]::NewLine)
 }
 
 function Stop-WithCode {
