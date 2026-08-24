@@ -1,0 +1,19 @@
+NSC-024 — Tilemap and AI Navigation Package Configuration
+
+Validated commit:
+fa488e3cda1dd03c72f9fd0c1da21700412d0c04
+
+Developer inspection result: APPROVED
+
+Inspected committed package state after Unity Package Manager resolution:
+
+- Packages/manifest.json declares com.unity.2d.tilemap version 1.0.0.
+- Packages/packages-lock.json resolves com.unity.2d.tilemap version 1.0.0 as a builtin package.
+- Packages/manifest.json declares com.unity.ai.navigation version 2.0.14.
+- Packages/packages-lock.json resolves com.unity.ai.navigation version 2.0.14 from the Unity package registry.
+- The deterministic manifest/lock presence check passed.
+- TaskGraph validation passed.
+- The unrelated code-coverage ProjectSettings rewrite was excluded from the implementation commit.
+
+Human reviewer: Vincent Liguori
+Decision: approved

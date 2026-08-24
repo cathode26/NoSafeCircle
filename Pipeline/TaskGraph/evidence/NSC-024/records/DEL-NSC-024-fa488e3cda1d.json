@@ -1,0 +1,57 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "c5a459601696a8fbb98d8e20125bf6821f21b66c",
+      "path": "Packages/manifest.json",
+      "role": "package_declarations"
+    },
+    {
+      "blob_sha": "7629b5aa28096ec2e0b542f2834969a8769a51f0",
+      "path": "Packages/packages-lock.json",
+      "role": "resolved_package_state"
+    }
+  ],
+  "delivery": {
+    "base_commit": "0459ec4baa48e257e39665534de2ca2f0623223b",
+    "candidate_commit": "fa488e3cda1dd03c72f9fd0c1da21700412d0c04",
+    "integrated_commit": "fa488e3cda1dd03c72f9fd0c1da21700412d0c04",
+    "integrated_tree": "4bef4f19a36d3cf453252165c80f917d3433b7f5"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "d16310229961de35aedaf1e1e673b210c2607dd2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-024/artifacts/HumanValidation-fa488e3cda1d.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Developer inspected the committed package manifest and resolved lock state after Unity Package Manager resolution.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "Approved after inspection of the resolved Tilemap and AI Navigation package state.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-024-fa488e3cda1d",
+  "record_type": "delivery",
+  "recorded_at": "2026-08-24T10:58:07Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-024.yaml",
+    "revision": 2,
+    "sha256": "85bf7d0bda6c937e6df74d556b0b82b7c53276a84371a074d1f7411cd9b2cb8b"
+  },
+  "task_id": "NSC-024",
+  "validated_state": {
+    "commit": "fa488e3cda1dd03c72f9fd0c1da21700412d0c04",
+    "tree": "4bef4f19a36d3cf453252165c80f917d3433b7f5"
+  }
+}
