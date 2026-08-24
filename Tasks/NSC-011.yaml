@@ -1,16 +1,16 @@
 {
   "schema_version": "2.0",
   "id": "NSC-011",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Active Enemy Registry",
   "reconciliation_key": "active-enemy-registry",
   "kind": "implementation",
   "type": "implementation",
   "execution_scope": "single_agent",
-  "execution_reason": "Self-contained bookkeeping component (count/capacity tracking with register/unregister and a reset entry point) with no other current-repository system to integrate against; a single agent can implement and validate it in isolation.",
+  "execution_reason": "Self-contained bookkeeping component (count/capacity tracking with register/unregister and a reset entry point). This task proves the registry-owned contract in isolation; correctness of future Enemy Health/Defeat, pursuit/door-wait, and Floor Run/Restart consumers is retained as downstream integration obligations rather than pretending those not-yet-implemented systems can be validated here.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "The GDD fully specifies this capability's contract: what it tracks, the hard cap, register/unregister semantics, what does NOT remove an enemy, and reset participation. No missing design blocks turning this into a bounded implementation item.",
+  "decomposition_reason": "The GDD fully specifies the registry-owned capability: what it tracks, the hard cap, registration/removal semantics, the absence of autonomous non-defeat removal, and reset/re-registration behavior. Cross-system caller correctness remains required but is deferred to explicit downstream integration obligations until those systems exist.",
   "parent": "NSC-010",
   "depends_on": [],
   "exclusive_resources": [],
@@ -21,44 +21,55 @@
       "criterion_id": "AC-001"
     },
     {
-      "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Enemy activation registers an enemy; only a defeat-driven unregister call (consumed by Enemy Health/Defeat) removes an enemy from the active count.",
+      "reference": "Section 3 — Active Enemy Registry and Encounter Admission; Section 3 — Enemy health and defeat ownership",
+      "requirement": "Registry exposes owner-controlled registration and removal interfaces: registering a persistent enemy adds it to the active set once, explicit defeat-removal through the unregister interface removes it once, and duplicate, unknown, or null calls do not corrupt the active count. Enemy Health/Defeat is the authorized downstream consumer of defeat removal.",
       "criterion_id": "AC-002"
     },
     {
       "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Target loss, entering search state, crossing between rooms, and waiting behind a locked door do not remove a surviving persistent enemy from the registry.",
+      "requirement": "Registry has no autonomous removal path for target loss, entering search state, crossing between rooms, or waiting behind a locked door; a surviving registered persistent enemy remains counted until explicit unregister or registry reset.",
       "criterion_id": "AC-003"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Registry exposes an owner-controlled reset entry point that returns bookkeeping to the floor's initial state; the Floor Run/Restart Orchestrator invokes this rather than mutating registry internals directly.",
+      "requirement": "Registry exposes an owner-controlled reset entry point that returns its bookkeeping to the floor's initial empty state without requiring the restart owner to mutate registry internals directly.",
       "criterion_id": "AC-004"
     },
     {
       "reference": "Section 2 — Win and Loss Conditions (Loss); Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "After a floor restart, the registry's reported active count and remaining capacity agree with the set of live persistent enemies restored by the enemy-owned resets: an enemy restored to an active state is represented through the normal activation-registration path rather than being independently counted or omitted by restart-side adjustment, so admission gating resumes from accurate bookkeeping.",
+      "requirement": "After registry reset, the same persistent enemy objects can re-enter bookkeeping through the normal registration path when restored to an active state, and the reported active count and remaining capacity reflect exactly the objects re-registered rather than restart-side count adjustment.",
       "criterion_id": "AC-005"
     }
   ],
   "completion_gates": [
     {
       "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Verify the registry's reported active count and remaining capacity stay accurate as enemies are registered and unregistered, including at the fifteen-enemy hard cap boundary.",
+      "requirement": "Verify active count and remaining capacity stay accurate through registration and explicit unregister operations, including exactly fifteen active enemies and restoration of capacity after unregistering one or more enemies.",
       "gate_id": "VAL-001"
     },
     {
       "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "Verify target loss, search-state transition, room crossing, and waiting behind a locked door do not remove a surviving enemy from the registry's active count.",
+      "requirement": "Verify registry membership changes only through its explicit owner-controlled operations: duplicate registration does not double-count, unknown or null unregister attempts do not alter membership, and a registered surviving enemy remains counted while no unregister or reset is performed.",
       "gate_id": "VAL-002"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart returns registry bookkeeping to the floor's initial state through its owner-controlled reset entry point, and that the post-restart active count matches the live set of persistent enemies restored to their initial AI state rather than assuming an empty registry.",
+      "requirement": "Verify the owner-controlled reset entry point returns active count to zero and remaining capacity to fifteen, then verify the same pre-reset persistent enemy objects can re-register through the normal registration path and produce count/capacity matching exactly the re-registered set.",
       "gate_id": "VAL-003"
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "reference": "Section 3 — Enemy health and defeat ownership; Section 3 — Active Enemy Registry and Encounter Admission",
+      "requirement": "Once Enemy Health/Defeat and Enemy Pursuit/door-wait behavior exist, verify enemy activation registers through the registry, defeat consumes the unregister interface, and target loss, search-state transition, room crossing, and locked-door waiting never unregister a surviving persistent enemy.",
+      "obligation_id": "INT-001"
+    },
+    {
+      "reference": "Section 2 — Win and Loss Conditions (Loss); Section 2 — Floor-run restart ownership",
+      "requirement": "Once the Floor Run/Restart Orchestrator and enemy-owned reset behavior exist, verify the orchestrator invokes the registry reset entry point, the same persistent enemy objects restored to an active state re-register through the normal activation path, and the resulting registry set/count/capacity agrees with the actual restored live enemy set.",
+      "obligation_id": "INT-002"
+    }
+  ],
   "gdd_evidence": [
     {
       "reference": "Section 3 — Active Enemy Registry and Encounter Admission",
@@ -84,7 +95,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "A repository-wide grep across Assets/ for 'Registry' found no matches; this component does not exist in any form, including as builder-capability scaffolding.",
+  "notes": "Revision 2 corrects decomposition of validation authority: registry-owned behavior remains locally completable, while validation that requires future Enemy Health/Defeat, pursuit/door-wait, or Floor Run/Restart implementations is preserved as downstream integration obligations. Historical bootstrap evidence remains unchanged.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
