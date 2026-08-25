@@ -13,9 +13,9 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import Usage
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse
-from Pipeline.ExecutionCrew.run_crew import CrewBlocked, Snapshot, audit_commands, changed_paths, clone_exact, construct_real_provider, full_patch, main as crew_main, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, validate_host_output_root
+from Pipeline.ExecutionCrew.run_crew import CrewBlocked, EntryState, Snapshot, audit_commands, changed_paths, clone_exact, construct_real_provider, full_patch, main as crew_main, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, unity_meta_bytes, validate_host_output_root
 
-TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
+TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; NEW_IMPL="Assets/Scripts/EnemyHealth.cs"; NEW_TEST="Assets/Tests/EnemyHealthPlayModeTests.cs"; OUTSIDE_NEW="Docs/NewBehavior.md"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
 RELATED_TASK="NSC-010"
 def cmd(root,*args): return subprocess.run(("git","-C",str(root),*args),check=True,stdout=subprocess.PIPE,text=True).stdout.strip()
 def write(path,text): path.parent.mkdir(parents=True,exist_ok=True); path.write_text(text,encoding="utf-8")
@@ -40,7 +40,7 @@ def write_persistent_graph(root,tasks):
 
 def fixture(parent):
     root=parent/"source"; root.mkdir(); subprocess.run(("git","init","-q",str(root)),check=True); cmd(root,"config","user.name","Crew Smoke"); cmd(root,"config","user.email","crew@example.invalid")
-    write(root/IMPL,"public class PlayerMana { }\n"); write(root/TEST,"public class PlayerManaTests { }\n"); write(root/OTHER,"public class Other { }\n"); write(root/".gitignore","*.ignored\n")
+    write(root/IMPL,"public class PlayerMana { }\n"); write(root/TEST,"public class PlayerManaTests { }\n"); write(root/OTHER,"public class Other { }\n"); write(root/".gitignore","*.ignored\n/Library/\n")
     task={"schema_version":"2.0","id":TASK,"contract_revision":3,"contract_disposition":"active","title":"Mana","reconciliation_key":"player-mana","kind":"implementation","execution_scope":"single_agent","execution_reason":"Bounded fixture component that owns its own mana state.","decomposition_state":"concrete","decomposition_reason":"Fixture requires no missing design.","parent":"NSC-001","depends_on":[],"exclusive_resources":[],"acceptance_criteria":[{"criterion_id":"AC-001","reference":"fixture","requirement":"Mana behavior is implemented."}],"completion_gates":[{"gate_id":"VAL-001","reference":"fixture","requirement":"Unity behavior is verified."}],"downstream_integration_obligations":[],"provenance":{"origin":"fixture"}}
     write_persistent_graph(root,[root_task(),task,related_task()])
     write(root/"Docs/GDD/No_Safe_Circle_GDD.md",f"# GDD\n{SECRET}\n"); write(root/"Docs/Engineering/UNITY_TESTING_POLICY.md","# Policy\nNever claim tests passed.\n")
@@ -109,12 +109,16 @@ class FakeProvider:
             output={"status":audit_status,"summary":"locality audit","entry_results":entries,"blocking_findings":blocking,"files_reviewed":[IMPL,TEST]}
         elif self.role=="validator":
             assert not self.writable and self.repo.resolve()==s.source.resolve(); assert "repository_write" not in request.allowed_capabilities; assert not request.write_boundaries.allowed_paths
-            exact=full_patch(s.clone,cmd(s.source,"rev-parse","HEAD")).decode("utf-8","replace")
-            assert f"EXACT FULL CANDIDATE GIT PATCH\n---\n{exact}\n---" in request.prompt and "public int Mana" in request.prompt
+            untracked=tuple(p for p in cmd(s.clone,"ls-files","--others","--exclude-standard").splitlines() if p)
+            exact=full_patch(s.clone,cmd(s.source,"rev-parse","HEAD"),untracked).decode("utf-8","replace")
+            assert f"EXACT FULL CANDIDATE GIT PATCH\n---\n{exact}\n---" in request.prompt
+            if not ("public int Mana" in request.prompt or "EnemyHealth" in request.prompt or "New behavior" in request.prompt):
+                assert ("EnemyHealth" in request.prompt or "New behavior" in request.prompt
+                        or (s.scenario=="retry_test_only" and "public int Mana" in (s.source/IMPL).read_text()))
             for required in ("baseline repository is intentionally unchanged", "authoritative proposed delta", "Absence of candidate changes from the baseline source is not a failure reason", "Do not request that the candidate be committed or applied to the real source before semantic validation", "Runtime or Unity evidence that was not executed remains not_proven"):
                 assert required in request.prompt
             if s.scenario=="needs_twice": status="needs_changes"
-            elif s.scenario in ("repair","no_op_repair") and attempt==1: status="needs_changes"
+            elif s.scenario in ("repair","no_op_repair","retry_revert_on_repair") and attempt==1: status="needs_changes"
             elif s.scenario in ("design","validator_missing_integration_dependency","validator_design_ambiguity"): status="blocked_by_design"
             else: status="pass"
             criteria=[{"id":"AC-001","status":"pass","reason_code":"proved","evidence":"source review"},{"id":"VAL-001","status":"not_proven","reason_code":"runtime_not_executed","evidence":"Unity was not run"}]
@@ -130,9 +134,17 @@ class FakeProvider:
             if s.scenario=="final_staged": cmd(s.clone,"add",IMPL)
             output={"status":status,"summary":"review","criteria_results":criteria,"blocking_issues":([{"path":IMPL,"issue":"fix mana","required_fix":"add repaired marker"}] if status=="needs_changes" else []),"risks":[],"files_reviewed":[IMPL,TEST]}
         elif self.role=="implementer":
-            assert self.writable and request.model_capability_class=="standard"; assert request.is_path_writable(IMPL) and not request.is_path_writable(TEST)
+            assert self.writable and request.model_capability_class=="standard"; assert (request.is_path_writable(IMPL) or request.is_path_writable(NEW_IMPL) or request.is_path_writable(OUTSIDE_NEW)) and not request.is_path_writable(TEST) and not request.is_path_writable(NEW_TEST)
             s.clone=self.repo.resolve()
-            if s.scenario=="impl_test": write(self.repo/TEST,"bad\n")
+            if s.scenario in ("new_files","cross_new","new_helper","new_staged"):
+                write(self.repo/NEW_IMPL,"public class EnemyHealth { public int Health;"+(" public int Reviewed;" if s.feedback else "")+" }\n")
+                if s.scenario=="new_helper": write(self.repo/"Assets/Scripts/EnemyHealthHelper.cs","bad\n")
+                if s.scenario=="new_staged": cmd(self.repo,"add",NEW_IMPL)
+            elif s.scenario=="mixed": write(self.repo/IMPL,"public class PlayerMana { public int Mana; }\n"); write(self.repo/NEW_IMPL,"public class EnemyHealth { public int Health; }\n")
+            elif s.scenario=="outside_new": write(self.repo/OUTSIDE_NEW,"# New behavior\n")
+            elif s.scenario=="new_agent_meta": write(self.repo/NEW_IMPL,"public class EnemyHealth {}\n"); write(self.repo/(NEW_IMPL+".meta"),"bad\n")
+            elif s.scenario=="new_directory": (self.repo/NEW_IMPL).mkdir()
+            elif s.scenario=="impl_test": write(self.repo/TEST,"bad\n")
             elif s.scenario=="untracked": write(self.repo/"bad.tmp","bad\n")
             elif s.scenario=="ignored_untracked": write(self.repo/"bad.ignored","bad\n")
             elif s.scenario=="deleted": (self.repo/IMPL).unlink()
@@ -142,6 +154,26 @@ class FakeProvider:
             elif s.scenario=="head": cmd(self.repo,"config","user.name","Bad"); cmd(self.repo,"config","user.email","bad@example.invalid"); cmd(self.repo,"commit","--allow-empty","-qm","bad head")
             elif s.scenario=="source_mutation": write(self.repo/IMPL,"public class PlayerMana { public int Mana; }\n"); write(s.source/OTHER,"mutated\n")
             elif s.scenario=="blocker_no_artifact": pass
+            elif s.scenario=="seed_preserve":
+                if s.feedback:
+                    current=(self.repo/IMPL).read_text()
+                    assert "PriorCandidateMarker" in current
+                    write(self.repo/IMPL,"public class PlayerMana { public int Mana; public int PriorCandidateMarker; public int HumanReviewFixed; }\n")
+                else:
+                    write(self.repo/IMPL,"public class PlayerMana { public int Mana; public int PriorCandidateMarker; }\n")
+            elif s.scenario in ("retry_test_only","retry_noop"):
+                pass
+            elif s.scenario=="retry_impl_only":
+                current=(self.repo/IMPL).read_text()
+                assert "PriorCandidateMarker" in current
+                write(self.repo/IMPL,"public class PlayerMana { public int Mana; public int PriorCandidateMarker; public int HumanReviewFixed; }\n")
+            elif s.scenario=="retry_revert_on_repair":
+                current=(self.repo/IMPL).read_text()
+                assert "PriorCandidateMarker" in current
+                if attempt==1:
+                    write(self.repo/IMPL,"public class PlayerMana { public int Mana; public int PriorCandidateMarker; public int HumanReviewFixed; }\n")
+                else:
+                    write(self.repo/IMPL,"public class PlayerMana { public int Mana; public int PriorCandidateMarker; }\n")
             else:
                 if attempt==2: assert "fix mana" in request.prompt
                 if not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/IMPL,"public class PlayerMana { public int Mana;"+(" public int HumanReviewFixed;" if s.feedback else "")+(" public int Repaired;" if attempt==2 else "")+" }\n")
@@ -150,9 +182,34 @@ class FakeProvider:
             else: blockers=[]
             output={"summary":"implementation","claimed_changed_paths":["claim-impl.cs"],"blockers":blockers,"notes":[]}
         else:
-            assert self.writable and request.model_capability_class=="low_cost"; assert request.is_path_writable(TEST) and not request.is_path_writable(IMPL); assert "public int Mana" in request.prompt and "Never claim tests passed" in request.prompt
-            if attempt==2: assert "fix mana" in request.prompt and ("Repaired" in request.prompt or s.scenario=="no_op_repair")
-            if s.scenario=="test_impl": write(self.repo/IMPL,"public class PlayerMana { public int Rewritten; }\n")
+            assert self.writable and request.model_capability_class=="low_cost"; assert (request.is_path_writable(TEST) or request.is_path_writable(NEW_TEST)) and not request.is_path_writable(IMPL) and not request.is_path_writable(NEW_IMPL); assert "Never claim tests passed" in request.prompt
+            if not ("public int Mana" in request.prompt or "EnemyHealth" in request.prompt or "New behavior" in request.prompt):
+                assert s.scenario=="retry_test_only" and "public int Mana" in (self.repo/IMPL).read_text()
+            if attempt==2: assert "fix mana" in request.prompt and ("Repaired" in request.prompt or s.scenario in ("no_op_repair","retry_revert_on_repair"))
+            if s.scenario in ("new_files","mixed","cross_new","new_helper"):
+                if s.scenario=="cross_new": write(self.repo/NEW_IMPL,"public class EnemyHealth { public int IllegallyRewritten; }\n")
+                write(self.repo/NEW_TEST,"public class EnemyHealthPlayModeTests {"+(" public void Reviewed() {}" if s.feedback else "")+" }\n")
+            elif s.scenario=="test_impl": write(self.repo/IMPL,"public class PlayerMana { public int Rewritten; }\n")
+            elif s.scenario=="seed_preserve":
+                if s.feedback:
+                    current=(self.repo/TEST).read_text()
+                    assert "PriorCandidateRegression" in current
+                    write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {} public void PriorCandidateRegression() {} public void HumanReviewRegression() {} }\n")
+                else:
+                    write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {} public void PriorCandidateRegression() {} }\n")
+            elif s.scenario=="retry_test_only":
+                current=(self.repo/TEST).read_text()
+                assert "PriorCandidateRegression" in current
+                write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {} public void PriorCandidateRegression() {} public void HumanReviewRegression() {} }\n")
+            elif s.scenario in ("retry_impl_only","retry_noop"):
+                pass
+            elif s.scenario=="retry_revert_on_repair":
+                current=(self.repo/TEST).read_text()
+                assert "PriorCandidateRegression" in current
+                if attempt==1:
+                    write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {} public void PriorCandidateRegression() {} public void HumanReviewRegression() {} }\n")
+                else:
+                    write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {} public void PriorCandidateRegression() {} }\n")
             elif not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {}"+(" public void HumanReviewRegression() {}" if s.feedback else "")+(" public void RepairTest() {}" if attempt==2 else "")+" }\n")
             test_blockers=[f"test author blocked, quoting reviewer verbatim: {s.feedback}"] if s.scenario=="test_blocker_leak" else []
             output={"summary":"tests","claimed_changed_paths":["claim-test.cs"],"test_cases_added_or_updated":["ManaTest"],"blockers":test_blockers,"known_limitations":["not run"],"proposed_unity_test_scope":"Play Mode"}
@@ -166,9 +223,9 @@ def factory(state):
         return key,config,{"fake":FakeProvider(state,repo,writable,role)}
     return create
 
-def execute(source,outputs,scenario,index,*,provider="fake",implementation_paths=(IMPL,),test_paths=(TEST,),host_output_root=None):
+def execute(source,outputs,scenario,index,*,provider="fake",implementation_paths=(IMPL,),test_paths=(TEST,),new_implementation_paths=(),new_test_paths=(),host_output_root=None):
     run_id=f"smoke-{scenario}-{index}"; state=State(scenario,source)
-    result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name=provider,implementation_paths=implementation_paths,test_paths=test_paths,run_id=run_id,provider_factory=factory(state),_require_physical_read_only_source=False,host_output_root=host_output_root)
+    result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name=provider,implementation_paths=implementation_paths,test_paths=test_paths,new_implementation_paths=new_implementation_paths,new_test_paths=new_test_paths,run_id=run_id,provider_factory=factory(state),_require_physical_read_only_source=False,host_output_root=host_output_root)
     return result,state,outputs/run_id
 
 def retry_execute(source,outputs,scenario,index,prior_run_id,feedback_path,feedback_text,*,host_output_root=None):
@@ -215,9 +272,10 @@ def main():
     claude_write=construct_real_provider("claude",root,True); claude_validator=construct_real_provider("claude",source,False)
     assert claude_write.externally_isolated_writable_repository and not claude_validator.externally_isolated_writable_repository
     # Source checkout representation is deliberately irrelevant to clone-baseline comparison.
-    clone_base=Snapshot("head",b"index",(),{"same":"clone-bytes","changed":"old"})
-    source_representation=Snapshot("head",b"other-index",(),{"same":"windows-bytes","changed":"old"})
-    clone_final=Snapshot("head",b"index",(),{"same":"clone-bytes","changed":"new"})
+    regular=lambda digest: EntryState("regular",digest,True)
+    clone_base=Snapshot("head",b"index",{"same":regular("clone-bytes"),"changed":regular("old")})
+    source_representation=Snapshot("head",b"other-index",{"same":regular("windows-bytes"),"changed":regular("old")})
+    clone_final=Snapshot("head",b"index",{"same":regular("clone-bytes"),"changed":regular("new")})
     assert source_representation.tracked["same"] != clone_base.tracked["same"] and changed_paths(clone_base,clone_final)==["changed"]
     try: run_crew(source=source,output_root=outputs,task_id=TASK,provider_name="fake",implementation_paths=(IMPL,),test_paths=(TEST,),run_id="readonly",provider_factory=factory(State("pass",source)))
     except CrewBlocked as exc: assert "physically mounted read-only" in str(exc)
@@ -232,6 +290,109 @@ def main():
         except CrewBlocked as exc: assert message in str(exc)
         else: raise AssertionError(message)
         assert not state.calls
+
+    # Exact all-new authority creates only the approved files, then pipeline-owned deterministic
+    # Unity sidecars. The candidate is applyable without staging and reproduces exact bytes.
+    all_new,all_new_state,all_new_dir=execute(
+        source,outputs,"new_files",46,implementation_paths=(),test_paths=(),
+        new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,),
+    )
+    assert all_new["crew_status"]=="review_ready"
+    assert [role for role,_,_ in all_new_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert all_new["requested_implementation_paths"]==[NEW_IMPL] and all_new["requested_test_paths"]==[NEW_TEST]
+    assert all_new["requested_existing_implementation_paths"]==[] and all_new["requested_new_implementation_paths"]==[NEW_IMPL]
+    assert all_new["requested_existing_test_paths"]==[] and all_new["requested_new_test_paths"]==[NEW_TEST]
+    sidecars=sorted((NEW_IMPL+".meta",NEW_TEST+".meta"))
+    assert all_new["pipeline_generated_paths"]==sidecars
+    assert all_new["implementation_actual_changed_paths"]==[NEW_IMPL]
+    assert all_new["test_actual_changed_paths"]==[NEW_TEST]
+    assert all_new["final_actual_changed_paths"]==sorted((NEW_IMPL,NEW_TEST,*sidecars))
+    candidate=(all_new_dir/"candidate.patch").read_bytes()
+    assert candidate.count(b"new file mode 100644")==4 and b"EnemyHealth" in candidate
+    assert unity_meta_bytes(NEW_IMPL)==unity_meta_bytes(NEW_IMPL.lower())
+    assert unity_meta_bytes(NEW_IMPL)!=unity_meta_bytes(NEW_TEST)
+    for _,request,_ in all_new_state.calls:
+        if request.role in ("implementer","test_author"):
+            assert all(not request.is_path_writable(path) for path in sidecars)
+    apply_clone=root/"all-new-apply"; subprocess.run(("git","clone","-q",str(source),str(apply_clone)),check=True)
+    subprocess.run(("git","-C",str(apply_clone),"apply","--check","--binary","-"),input=candidate,check=True)
+    subprocess.run(("git","-C",str(apply_clone),"apply","--binary","-"),input=candidate,check=True)
+    assert (apply_clone/NEW_IMPL).read_bytes()==b"public class EnemyHealth { public int Health; }\n"
+    assert (apply_clone/(NEW_IMPL+".meta")).read_bytes()==unity_meta_bytes(NEW_IMPL)
+    assert cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
+
+    # Existing flags reject an ignored regular worktree file, and new authority rejects parents
+    # that exist only as source-worktree empty directories. Both stop before every model role.
+    ignored_existing="Assets/Scripts/local.ignored"; write(source/ignored_existing,"ignored\n")
+    empty_parent=source/"Assets/EmptyOnly"; empty_parent.mkdir()
+    assert cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
+    for index,kwargs,message in (
+        (142,{"implementation_paths":(ignored_existing,),"test_paths":(TEST,)},"tracked regular"),
+        (147,{"implementation_paths":(IMPL,),"test_paths":(ignored_existing,)},"tracked regular"),
+        (143,{"new_implementation_paths":("Assets/EmptyOnly/New.cs",),"new_test_paths":(NEW_TEST,)},"captured Git tree"),
+    ):
+        state=State("pass",source)
+        try: run_crew(source=source,output_root=outputs,task_id=TASK,provider_name="fake",run_id=f"source-only-preflight-{index}",provider_factory=factory(state),_require_physical_read_only_source=False,**kwargs)
+        except CrewBlocked as exc: assert message in str(exc),str(exc)
+        else: raise AssertionError(message)
+        assert not state.calls
+    (source/ignored_existing).unlink(); empty_parent.rmdir()
+
+    # Source path preflight is targeted: an ignored Unity cache file is neither read nor hashed,
+    # while the production path proceeds through the locality auditor and all fake model roles.
+    ignored_cache=source/"Library/Cache/large.bin"; write(ignored_cache,"small deterministic sentinel\n")
+    original_read_bytes=Path.read_bytes
+    def reject_cache_read(path):
+        if path.resolve()==ignored_cache.resolve():
+            raise AssertionError("source preflight read ignored Unity cache content")
+        return original_read_bytes(path)
+    with patch.object(Path,"read_bytes",reject_cache_read):
+        cache_result,cache_state,_=execute(source,outputs,"pass",148)
+    assert cache_result["crew_status"]=="review_ready"
+    assert [role for role,_,_ in cache_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    ignored_cache.unlink(); ignored_cache.parent.rmdir(); ignored_cache.parent.parent.rmdir()
+
+    # New-path preflight failures happen before the locality auditor or either writer.
+    blocked_cases=(
+        (("Assets/Missing/Thing.cs",),(NEW_TEST,),"parent"),
+        ((IMPL,),(NEW_TEST,),"already tracked"),
+        (("bad.ignored",),(NEW_TEST,),"ignored"),
+        ((NEW_IMPL+".meta",),(NEW_TEST,),".meta"),
+        ((NEW_IMPL+".META",),(NEW_TEST,),".meta"),
+        ((NEW_IMPL+".MeTa",),(NEW_TEST,),".meta"),
+        ((NEW_IMPL,),(NEW_IMPL.upper(),),"disjoint"),
+    )
+    for offset,(new_impl,new_test,message) in enumerate(blocked_cases,47):
+        state=State("new_files",source)
+        try:
+            run_crew(source=source,output_root=outputs,task_id=TASK,provider_name="fake",
+                     new_implementation_paths=new_impl,new_test_paths=new_test,run_id=f"new-preflight-{offset}",
+                     provider_factory=factory(state),_require_physical_read_only_source=False)
+        except CrewBlocked as exc: assert message in str(exc),str(exc)
+        else: raise AssertionError(message)
+        assert not state.calls
+
+    for scenario,index in (("new_agent_meta",53),("new_directory",54)):
+        rejected,_,rejected_dir=execute(source,outputs,scenario,index,implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+        assert rejected["crew_status"]=="rejected" and rejected["pipeline_generated_paths"]==[]
+        assert rejected["candidate_patch_path"] is None
+
+    mixed,mixed_state,_=execute(source,outputs,"mixed",144,implementation_paths=(IMPL,),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+    assert mixed["crew_status"]=="review_ready"
+    assert mixed["requested_existing_implementation_paths"]==[IMPL] and mixed["requested_new_implementation_paths"]==[NEW_IMPL]
+    assert mixed["requested_existing_test_paths"]==[] and mixed["requested_new_test_paths"]==[NEW_TEST]
+    outside,_,_=execute(source,outputs,"outside_new",145,implementation_paths=(),test_paths=(TEST,),new_implementation_paths=(OUTSIDE_NEW,))
+    assert outside["crew_status"]=="review_ready" and outside["pipeline_generated_paths"]==[]
+    cross,_,cross_dir=execute(source,outputs,"cross_new",146,implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+    assert cross["crew_status"]=="rejected" and not (cross_dir/"candidate.patch").exists()
+    assert any("outside role WriteBoundaries" in reason for reason in cross["rejection_reasons"])
+    if (cross_dir/"workspace_diagnostic.patch").exists(): assert cross["crew_status"]!="review_ready"
+    helper,_,helper_dir=execute(source,outputs,"new_helper",147,implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+    assert helper["crew_status"]=="rejected" and not (helper_dir/"candidate.patch").exists()
+    staged_new,_,staged_new_dir=execute(source,outputs,"new_staged",152,implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+    diagnostic=(staged_new_dir/"workspace_diagnostic.patch").read_bytes()
+    assert staged_new["crew_status"]=="rejected" and not (staged_new_dir/"candidate.patch").exists()
+    assert diagnostic.count(f"diff --git a/{NEW_IMPL} b/{NEW_IMPL}".encode())==1
     for field,value in (("contract_disposition","cancelled"),("kind","artifact"),("execution_scope","needs_execution_decomposition"),("decomposition_state","needs_decomposition")):
         clone=root/f"bad-{field}"; subprocess.run(("git","clone","-q",str(source),str(clone)),check=True); cmd(clone,"config","user.name","Crew Smoke"); cmd(clone,"config","user.email","crew@example.invalid"); task=json.loads((clone/f"Tasks/{TASK}.yaml").read_text()); task[field]=value; write(clone/f"Tasks/{TASK}.yaml",json.dumps(task)); cmd(clone,"add","."); cmd(clone,"commit","-qm","bad")
         try: execute(clone,outputs,"pass",len(list(outputs.glob("*")))+20)
@@ -251,6 +412,8 @@ def main():
     assert names.index("run_started") < names.index("role_started") < names.index("role_completed")
     telemetry=(d/"progress.jsonl").read_text()+progress_stderr.getvalue(); assert SECRET not in telemetry and "EXACT COMMITTED TASK CONTRACT" not in telemetry
     assert passed["requested_implementation_paths"]==[IMPL] and passed["requested_test_paths"]==[TEST]
+    assert passed["requested_existing_implementation_paths"]==[IMPL] and passed["requested_new_implementation_paths"]==[]
+    assert passed["requested_existing_test_paths"]==[TEST] and passed["requested_new_test_paths"]==[] and passed["pipeline_generated_paths"]==[]
     assert passed["review_origin"] is None
     fake_result={"crew_status":"review_ready","machine":"parseable"}; cli_stdout=io.StringIO(); cli_stderr=io.StringIO()
     with patch("Pipeline.ExecutionCrew.run_crew.run_crew",return_value=fake_result) as normal_cli_run, patch.object(sys,"argv",["run_crew.py","--task-id",TASK,"--provider","claude","--implementation-path",IMPL,"--test-path",TEST]), redirect_stdout(cli_stdout), redirect_stderr(cli_stderr):
@@ -290,10 +453,114 @@ def main():
     mutated,state,d=execute(source,outputs,"source_mutation",30); assert mutated["crew_status"]=="rejected" and any("source working tree changed" in x for x in mutated["rejection_reasons"]); write(source/OTHER,"public class Other { }\n")
     assert (cmd(source,"rev-parse","HEAD"),cmd(source,"status","--porcelain=v1","--untracked-files=all"),(source/IMPL).read_bytes())==baseline
 
+    # Human-review retries must start from the rejected review-ready candidate, not reconstruct
+    # the task from the original source HEAD. The new feedback intentionally never mentions the
+    # prior markers; both production and regression markers must survive into candidate B.
+    seed_prior,seed_prior_state,seed_prior_dir=execute(source,outputs,"seed_preserve",68,provider="claude")
+    assert seed_prior["crew_status"]=="review_ready"
+    seed_prior_bytes=(seed_prior_dir/"candidate.patch").read_bytes()
+    seed_prior_sha=hashlib.sha256(seed_prior_bytes).hexdigest()
+    assert seed_prior["candidate_patch_sha256"]==seed_prior_sha
+    seed_feedback_dir=outputs/"seed-feedback"; seed_feedback_dir.mkdir(exist_ok=True)
+    seed_feedback_text="Human review: correct the newly reported behavior only.\n"
+    seed_feedback_path=seed_feedback_dir/"retry.txt"; seed_feedback_path.write_bytes(seed_feedback_text.encode("utf-8"))
+
+    # Future-format prior artifacts are authenticated: tampering is rejected before any role runs.
+    (seed_prior_dir/"candidate.patch").write_bytes(seed_prior_bytes+b"\n# tampered\n")
+    try:
+        retry_execute(source,outputs,"seed_preserve",67,seed_prior["run_id"],seed_feedback_path,seed_feedback_text)
+    except CrewBlocked as exc:
+        assert "SHA-256" in str(exc)
+    else:
+        raise AssertionError("tampered prior candidate.patch was accepted")
+    (seed_prior_dir/"candidate.patch").write_bytes(seed_prior_bytes)
+
+    seed_retry,seed_retry_state,seed_retry_dir=retry_execute(source,outputs,"seed_preserve",68,seed_prior["run_id"],seed_feedback_path,seed_feedback_text)
+    assert seed_retry["crew_status"]=="review_ready" and seed_retry["retry_seed_mode"]=="applied"
+    assert seed_retry["retry_seed_candidate_sha256"]==seed_prior_sha
+    seed_candidate_text=(seed_retry_dir/"candidate.patch").read_text()
+    for marker in ("PriorCandidateMarker","HumanReviewFixed","PriorCandidateRegression","HumanReviewRegression"):
+        assert marker in seed_candidate_text,marker
+    seed_events=[json.loads(line) for line in (seed_retry_dir/"progress.jsonl").read_text().splitlines()]
+    seeded_event=next(event for event in seed_events if event["event"]=="human_review_candidate_seeded")
+    assert seeded_event["seed_mode"]=="applied" and seeded_event["candidate_sha256"]==seed_prior_sha
+
+    # A seeded human-review retry may legitimately need a correction from only one writer role.
+    # The untouched role must not be rejected merely for making no incremental change; however a
+    # retry where neither writer changes anything must stop before the Validator.
+    test_only,test_only_state,_=retry_execute(source,outputs,"retry_test_only",166,seed_prior["run_id"],seed_feedback_path,seed_feedback_text)
+    assert test_only["crew_status"]=="review_ready"
+    assert test_only["implementation_actual_changed_paths"]==[] and test_only["test_actual_changed_paths"]==[TEST]
+
+    impl_only,impl_only_state,_=retry_execute(source,outputs,"retry_impl_only",165,seed_prior["run_id"],seed_feedback_path,seed_feedback_text)
+    assert impl_only["crew_status"]=="review_ready"
+    assert impl_only["implementation_actual_changed_paths"]==[IMPL] and impl_only["test_actual_changed_paths"]==[]
+
+    noop,noop_state,_=retry_execute(source,outputs,"retry_noop",164,seed_prior["run_id"],seed_feedback_path,seed_feedback_text)
+    assert noop["crew_status"]=="needs_human"
+    assert "human-review retry made no deterministic correction" in noop["rejection_reasons"]
+    assert [role for role,_,_ in noop_state.calls]==["contract_locality_auditor","implementer","test_author"]
+
+    # A repair cycle cannot erase the human-review correction and return to the original seed,
+    # even if the second Validator would otherwise report pass.
+    reverted,reverted_state,reverted_dir=retry_execute(
+        source,outputs,"retry_revert_on_repair",161,
+        seed_prior["run_id"],seed_feedback_path,seed_feedback_text
+    )
+    assert reverted["crew_status"]=="rejected"
+    assert reverted["attempts_used"]==2
+    assert "final human-review retry has no deterministic correction relative to seeded candidate" in reverted["rejection_reasons"]
+    assert not (reverted_dir/"candidate.patch").exists()
+
+    # The same single-writer rule must hold when the rejected candidate is already committed:
+    # candidate.patch then contains only the new correction relative to current source HEAD.
+    already_source=root/"already-present-single-writer"
+    subprocess.run(("git","clone","-q",str(source),str(already_source)),check=True)
+    cmd(already_source,"config","user.name","Crew Smoke"); cmd(already_source,"config","user.email","crew@example.invalid")
+    subprocess.run(("git","-C",str(already_source),"apply",str(seed_prior_dir/"candidate.patch")),check=True)
+    cmd(already_source,"add",IMPL,TEST); cmd(already_source,"commit","-qm","apply rejected candidate for compatibility fixture")
+    already_state=State("retry_test_only",already_source,seed_feedback_text)
+    already_result=run_crew(
+        source=already_source,output_root=outputs,run_id="retry-already-test-only-162",
+        retry_run_id=seed_prior["run_id"],review_feedback_file=seed_feedback_path,
+        provider_factory=factory(already_state),_require_physical_read_only_source=False
+    )
+    assert already_result["crew_status"]=="review_ready"
+    assert already_result["retry_seed_mode"]=="already_present"
+    assert already_result["implementation_actual_changed_paths"]==[]
+    assert already_result["test_actual_changed_paths"]==[TEST]
+    assert already_result["final_actual_changed_paths"]==[TEST]
+
+    # A review-ready candidate is bound to the exact task contract identity it was reviewed against.
+    contract_changed=root/"contract-changed"; subprocess.run(("git","clone","-q",str(source),str(contract_changed)),check=True)
+    cmd(contract_changed,"config","user.name","Crew Smoke"); cmd(contract_changed,"config","user.email","crew@example.invalid")
+    changed_task=json.loads((contract_changed/f"Tasks/{TASK}.yaml").read_text())
+    changed_task["contract_revision"]+=1
+    write(contract_changed/f"Tasks/{TASK}.yaml",json.dumps(changed_task)+"\n")
+    cmd(contract_changed,"add",f"Tasks/{TASK}.yaml"); cmd(contract_changed,"commit","-qm","change task contract")
+    contract_feedback_dir=outputs/"contract-feedback"; contract_feedback_dir.mkdir(exist_ok=True)
+    contract_feedback_path=contract_feedback_dir/"retry.txt"; contract_feedback_path.write_text("review correction\n")
+    contract_state=State("seed_preserve",contract_changed,"review correction\n")
+    try:
+        run_crew(source=contract_changed,output_root=outputs,run_id="retry-contract-changed-163",
+                 retry_run_id=seed_prior["run_id"],review_feedback_file=contract_feedback_path,
+                 provider_factory=factory(contract_state),_require_physical_read_only_source=False)
+    except CrewBlocked as exc:
+        assert "task contract identity differs" in str(exc),str(exc)
+    else:
+        raise AssertionError("retry accepted a changed task contract")
+    assert not contract_state.calls
+
     # A future-format prior run records requested authority separately from actual changes.
     prior,prior_state,prior_dir=execute(source,outputs,"pass",70,provider="claude")
     assert prior["crew_status"]=="review_ready" and prior["review_origin"] is None
     assert prior["requested_implementation_paths"]==[IMPL] and prior["requested_test_paths"]==[TEST]
+    # Historical review-ready runs predate candidate_patch_sha256. Removing the additive field must
+    # still allow a safely path-verified retry.
+    prior_result_path=prior_dir/"crew_result.json"
+    prior_result_json=json.loads(prior_result_path.read_text())
+    prior_result_json.pop("candidate_patch_sha256",None)
+    prior_result_path.write_text(json.dumps(prior_result_json,indent=2,sort_keys=True)+"\n")
     prior_source_head=prior["source_head"]
     write(source/IMPL,"public class PlayerMana { public int Mana; }\n")
     write(source/TEST,"public class PlayerManaTests { public void ManaTest() {} }\n")
@@ -309,6 +576,8 @@ def main():
     assert retried["crew_status"]=="review_ready" and retried["task_id"]==TASK and retried["provider"]=="claude"
     assert retried["requested_implementation_paths"]==[IMPL] and retried["requested_test_paths"]==[TEST]
     assert retried["source_head"]==current_head and retried["source_head"]!=prior_source_head
+    assert retried["retry_seed_mode"]=="already_present"
+    assert retried["retry_seed_candidate_sha256"]==hashlib.sha256((prior_dir/"candidate.patch").read_bytes()).hexdigest()
     assert (retry_dir/"human_review_feedback.txt").read_bytes()==feedback_bytes
     feedback_sha=hashlib.sha256(feedback_bytes).hexdigest()
     assert retried["review_origin"]=={"prior_run_id":prior["run_id"],"result":"human_rejected","feedback_artifact":"human_review_feedback.txt","feedback_sha256":feedback_sha}
@@ -538,9 +807,27 @@ def main():
     assert "FIND PATCH:" not in footer_cli_stdout.getvalue()
     assert "FIND PATCH:" in footer_cli_stderr.getvalue()
 
-    # Retry repair attempt two retains human evidence and the separate Validator findings.
-    repaired_retry,repaired_state,_=retry_execute(source,outputs,"repair",72,prior["run_id"],feedback_path,feedback_text)
+    # Retry lineage safety: after the source has evolved on the same candidate-owned paths, an old
+    # rejected candidate that neither applies cleanly nor remains present must fail closed before any
+    # writable role runs. This protects against silently rebuilding or partially replaying stale work.
+    stale_retry_state=State("repair",source,feedback_text)
+    try:
+        run_crew(source=source,output_root=outputs,run_id="retry-stale-diverged-72",
+                 retry_run_id=prior["run_id"],review_feedback_file=feedback_path,
+                 provider_factory=factory(stale_retry_state),_require_physical_read_only_source=False)
+    except CrewBlocked as exc:
+        assert "neither applies cleanly nor is already present" in str(exc),str(exc)
+    else:
+        raise AssertionError("stale/diverged prior candidate unexpectedly accepted")
+    assert [role for role,_,_ in stale_retry_state.calls]==["contract_locality_auditor"]
+
+    # Retry repair attempt two retains human evidence and the separate Validator findings. Use a
+    # fresh review-ready prior rooted at the current source so candidate seeding has valid lineage.
+    repair_prior,repair_prior_state,repair_prior_dir=execute(source,outputs,"pass",172,provider="claude")
+    assert repair_prior["crew_status"]=="review_ready"
+    repaired_retry,repaired_state,_=retry_execute(source,outputs,"repair",72,repair_prior["run_id"],feedback_path,feedback_text)
     assert repaired_retry["crew_status"]=="review_ready" and repaired_retry["attempts_used"]==2
+    assert repaired_retry["retry_seed_mode"]=="applied"
     for role,request,_ in repaired_state.calls:
         if role in ("implementer","test_author") and request.run_id.split("-")[-2]=="2":
             assert feedback_text in request.prompt and "VALIDATOR BLOCKING FINDINGS FROM THE PRIOR PASS" in request.prompt and "fix mana" in request.prompt
@@ -550,15 +837,17 @@ def main():
     write(source/TEST,"public class PlayerManaTests { public void RejectedAgain() {} }\n")
     cmd(source,"add",IMPL,TEST); cmd(source,"commit","-qm","second rejected candidate fixture")
     legacy,_,legacy_dir=execute(source,outputs,"pass",73,provider="claude",implementation_paths=(IMPL,OTHER))
-    assert legacy["implementation_actual_changed_paths"]==[IMPL] and legacy["requested_implementation_paths"]==[IMPL,OTHER]
+    assert legacy["implementation_actual_changed_paths"]==[IMPL] and legacy["requested_implementation_paths"]==sorted((IMPL,OTHER))
     legacy_result_path=legacy_dir/"crew_result.json"; legacy_json=json.loads(legacy_result_path.read_text())
     del legacy_json["requested_implementation_paths"]; del legacy_json["requested_test_paths"]
+    for field in ("requested_existing_implementation_paths","requested_new_implementation_paths","requested_existing_test_paths","requested_new_test_paths","pipeline_generated_paths"):
+        legacy_json.pop(field,None)
     legacy_result_path.write_text(json.dumps(legacy_json,indent=2,sort_keys=True)+"\n")
     legacy_retry,legacy_state,_=retry_execute(source,outputs,"pass",74,legacy["run_id"],feedback_path,feedback_text)
-    assert legacy_retry["requested_implementation_paths"]==[IMPL,OTHER]
+    assert legacy_retry["requested_implementation_paths"]==sorted((IMPL,OTHER))
     assert legacy_retry["requested_test_paths"]==[TEST]
     assert legacy_retry["implementation_actual_changed_paths"]==[IMPL]
-    assert legacy_state.calls[1][1].write_boundaries.allowed_paths==(IMPL,OTHER)
+    assert legacy_state.calls[1][1].write_boundaries.allowed_paths==tuple(sorted((IMPL,OTHER)))
 
     # Retry CLI has no duplicated task/provider/scope arguments.
     retry_cli_stdout=io.StringIO(); retry_cli_stderr=io.StringIO()
@@ -667,6 +956,11 @@ def main():
     expect_retry_blocked("prior-bad-tree",feedback_path,"fail-tree","cannot be proven")
     copied_prior("prior-bad-provider",lambda value:value.__setitem__("provider","mixed"))
     expect_retry_blocked("prior-bad-provider",feedback_path,"fail-provider","invalid provider")
+    copied_prior("prior-bad-candidate-paths",lambda value:value.__setitem__("final_actual_changed_paths",[IMPL,OTHER]))
+    expect_retry_blocked("prior-bad-candidate-paths",feedback_path,"fail-candidate-paths","exceed inherited ExecutionCrew WriteBoundaries")
+    missing_candidate=copied_prior("prior-missing-candidate",lambda value:None)
+    (missing_candidate/"candidate.patch").unlink()
+    expect_retry_blocked("prior-missing-candidate",feedback_path,"fail-candidate-missing","prior candidate.patch")
     invalid_json=outputs/"prior-invalid-json"; invalid_json.mkdir(); (invalid_json/"crew_result.json").write_text("[]\n")
     expect_retry_blocked("prior-invalid-json",feedback_path,"fail-json","JSON object")
     missing_result=outputs/"prior-missing-result"; missing_result.mkdir()
@@ -957,10 +1251,16 @@ def main():
     (pre_feature_dir/"contract_locality_audit.json").unlink(missing_ok=True)
     assert not (pre_feature_dir/"contract_locality_audit.json").exists()
 
+    # Emulate a historical review-ready run while allowing the current source to advance safely.
+    # Changes outside the candidate-owned paths do not invalidate candidate lineage; changes to
+    # IMPL/TEST would intentionally make the old candidate stale and must now fail closed.
+    for field in ("candidate_patch_sha256","retry_seed_candidate_sha256","retry_seed_mode"):
+        pre_feature_json.pop(field,None)
+    pre_feature_result_path.write_text(json.dumps(pre_feature_json,indent=2,sort_keys=True)+"\n")
+
     pre_feature_head=pre_feature_json["source_head"]
-    write(source/IMPL,"public class PlayerMana { public int Mana; public int PreFeatureMarker; }\n")
-    write(source/TEST,"public class PlayerManaTests { public void PreFeatureMarkerTest() {} }\n")
-    cmd(source,"add",IMPL,TEST); cmd(source,"commit","-qm","pre-feature retry fixture state")
+    write(source/OTHER,"public class Other { public int PreFeatureUnrelatedMarker; }\n")
+    cmd(source,"add",OTHER); cmd(source,"commit","-qm","pre-feature retry fixture state")
     pre_feature_current_head=cmd(source,"rev-parse","HEAD"); assert pre_feature_current_head!=pre_feature_head
     assert subprocess.run(("git","-C",str(source),"merge-base","--is-ancestor",pre_feature_head,pre_feature_current_head),check=False).returncode==0
     pre_feature_feedback_text="PRE_FEATURE_FEEDBACK_SECRET: mana regen was too slow.\n"
@@ -974,5 +1274,89 @@ def main():
     assert Path(pre_feature_retry["contract_locality_audit_path"]).samefile(pre_feature_retry_dir/"contract_locality_audit.json")
 
     assert cmd(source,"status","--porcelain=v1","--untracked-files=all")==""
+
+    # A review retry preserves prior exact new authority and safely reclassifies only those paths
+    # that the human has since applied and committed as existing tracked files.
+    retry_source=root/"new-retry-source"; subprocess.run(("git","clone","-q",str(source),str(retry_source)),check=True)
+    cmd(retry_source,"config","user.name","Crew Smoke"); cmd(retry_source,"config","user.email","crew@example.invalid")
+    retry_outputs=root/"new-retry-outputs"
+    prior_new,_,prior_new_dir=execute(retry_source,retry_outputs,"new_files",140,provider="claude",implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+    retry_feedback_dir=retry_outputs/"feedback"; retry_feedback_dir.mkdir(); retry_feedback=retry_feedback_dir/"review.txt"; retry_feedback.write_text("Adjust the newly committed behavior.\n")
+    retry_source_head=cmd(retry_source,"rev-parse","HEAD")
+    absent_retry,absent_state,absent_dir=retry_execute(retry_source,retry_outputs,"new_files",139,prior_new["run_id"],retry_feedback,"Adjust the newly committed behavior.\n")
+    assert absent_retry["crew_status"]=="review_ready"
+    assert absent_retry["retry_seed_mode"]=="applied"
+    assert absent_retry["requested_new_implementation_paths"]==[NEW_IMPL] and absent_retry["requested_new_test_paths"]==[NEW_TEST]
+    assert absent_retry["pipeline_generated_paths"]==sorted((NEW_IMPL+".meta",NEW_TEST+".meta"))
+    for _,request,_ in absent_state.calls:
+        if request.role in ("implementer","test_author"):
+            assert not request.is_path_writable(NEW_IMPL+".meta") and not request.is_path_writable(NEW_TEST+".meta")
+    absent_candidate=(absent_dir/"candidate.patch").read_bytes()
+    for path in (NEW_IMPL,NEW_TEST,NEW_IMPL+".meta",NEW_TEST+".meta"):
+        assert absent_candidate.count(f"diff --git a/{path} b/{path}".encode())==1,path
+    subprocess.run(("git","-C",str(retry_source),"apply","--check","--binary",str(absent_dir/"candidate.patch")),check=True)
+    assert cmd(retry_source,"rev-parse","HEAD")==retry_source_head and cmd(retry_source,"status","--porcelain=v1","--untracked-files=all")==""
+
+    cross_retry,cross_state,_=retry_execute(retry_source,retry_outputs,"cross_new",138,prior_new["run_id"],retry_feedback,"Adjust the newly committed behavior.\n")
+    assert cross_retry["crew_status"]=="rejected"
+    assert any("outside role WriteBoundaries" in reason for reason in cross_retry["rejection_reasons"])
+    assert [role for role,_,_ in cross_state.calls]==["contract_locality_auditor","implementer","test_author"]
+    noop_new,noop_new_state,_=retry_execute(retry_source,retry_outputs,"retry_noop",137,prior_new["run_id"],retry_feedback,"Adjust the newly committed behavior.\n")
+    assert noop_new["crew_status"]=="needs_human" and noop_new["retry_seed_mode"]=="applied"
+    assert "human-review retry made no deterministic correction" in noop_new["rejection_reasons"]
+    assert [role for role,_,_ in noop_new_state.calls]==["contract_locality_auditor","implementer","test_author"]
+
+    partial_source=root/"partial-new-retry"; subprocess.run(("git","clone","-q",str(retry_source),str(partial_source)),check=True)
+    cmd(partial_source,"config","user.name","Crew Smoke"); cmd(partial_source,"config","user.email","crew@example.invalid")
+    subprocess.run(("git","-C",str(partial_source),"apply","--binary",str(prior_new_dir/"candidate.patch")),check=True)
+    for omitted in (NEW_TEST,NEW_IMPL+".meta",NEW_TEST+".meta"): (partial_source/omitted).unlink()
+    cmd(partial_source,"add",NEW_IMPL); cmd(partial_source,"commit","-qm","partially integrate rejected candidate")
+    partial_state=State("new_files",partial_source,"Adjust the newly committed behavior.\n")
+    try: run_crew(source=partial_source,output_root=retry_outputs,run_id="partial-new-retry-136",retry_run_id=prior_new["run_id"],review_feedback_file=retry_feedback,provider_factory=factory(partial_state),_require_physical_read_only_source=False)
+    except CrewBlocked as exc: assert "neither applies cleanly nor is already present" in str(exc),str(exc)
+    else: raise AssertionError("partially integrated all-new candidate was accepted")
+    assert [role for role,_,_ in partial_state.calls]==["contract_locality_auditor"]
+
+    sidecar_source=root/"sidecar-tamper-retry"; subprocess.run(("git","clone","-q",str(retry_source),str(sidecar_source)),check=True)
+    cmd(sidecar_source,"config","user.name","Crew Smoke"); cmd(sidecar_source,"config","user.email","crew@example.invalid")
+    subprocess.run(("git","-C",str(sidecar_source),"apply","--binary",str(prior_new_dir/"candidate.patch")),check=True)
+    write(sidecar_source/(NEW_IMPL+".meta"),"tampered sidecar\n"); cmd(sidecar_source,"add",NEW_IMPL,NEW_TEST,NEW_IMPL+".meta",NEW_TEST+".meta"); cmd(sidecar_source,"commit","-qm","integrate candidate with tampered sidecar")
+    sidecar_state=State("new_files",sidecar_source,"Adjust the newly committed behavior.\n")
+    try: run_crew(source=sidecar_source,output_root=retry_outputs,run_id="sidecar-tamper-retry-135",retry_run_id=prior_new["run_id"],review_feedback_file=retry_feedback,provider_factory=factory(sidecar_state),_require_physical_read_only_source=False)
+    except CrewBlocked as exc: assert "neither applies cleanly nor is already present" in str(exc),str(exc)
+    else: raise AssertionError("tampered deterministic sidecar was accepted as already present")
+    assert [role for role,_,_ in sidecar_state.calls]==["contract_locality_auditor"]
+    subprocess.run(("git","-C",str(retry_source),"apply","--binary",str(prior_new_dir/"candidate.patch")),check=True)
+    cmd(retry_source,"add",NEW_IMPL,NEW_TEST,NEW_IMPL+".meta",NEW_TEST+".meta"); cmd(retry_source,"commit","-qm","apply prior new candidate")
+    retried,retried_state,retried_dir=retry_execute(retry_source,retry_outputs,"new_files",141,prior_new["run_id"],retry_feedback,"Adjust the newly committed behavior.\n")
+    assert retried["crew_status"]=="review_ready"
+    assert retried["retry_seed_mode"]=="already_present"
+    assert retried["requested_existing_implementation_paths"]==[NEW_IMPL] and retried["requested_new_implementation_paths"]==[]
+    assert retried["requested_existing_test_paths"]==[NEW_TEST] and retried["requested_new_test_paths"]==[]
+    assert retried["pipeline_generated_paths"]==[]
+    assert retried_state.calls[1][1].write_boundaries.allowed_paths==(NEW_IMPL,)
+    committed_retry_patch=(retried_dir/"candidate.patch").read_bytes()
+    assert b"new file mode" not in committed_retry_patch and b".meta" not in committed_retry_patch
+
+    # New-format existing/new metadata is only a claim: the prior source commit is authoritative.
+    tamper_source=root/"retry-tamper-source"; subprocess.run(("git","clone","-q",str(source),str(tamper_source)),check=True)
+    cmd(tamper_source,"config","user.name","Crew Smoke"); cmd(tamper_source,"config","user.email","crew@example.invalid")
+    tamper_outputs=root/"retry-tamper-outputs"; tamper_feedback=tamper_outputs/"feedback.txt"; tamper_outputs.mkdir(); tamper_feedback.write_text("Retry tamper proof.\n")
+    prior_existing,_,prior_existing_dir=execute(tamper_source,tamper_outputs,"pass",148,provider="claude")
+    existing_json=json.loads((prior_existing_dir/"crew_result.json").read_text())
+    existing_json["requested_existing_implementation_paths"]=[]; existing_json["requested_new_implementation_paths"]=[IMPL]
+    (prior_existing_dir/"crew_result.json").write_text(json.dumps(existing_json,indent=2,sort_keys=True)+"\n")
+    (tamper_source/IMPL).unlink(); cmd(tamper_source,"add",IMPL); cmd(tamper_source,"commit","-qm","delete prior-existing fixture")
+    try: retry_execute(tamper_source,tamper_outputs,"pass",149,prior_existing["run_id"],tamper_feedback,"Retry tamper proof.\n")
+    except CrewBlocked as exc: assert "does not match prior source HEAD" in str(exc),str(exc)
+    else: raise AssertionError("prior-existing path was relabeled prior-new")
+
+    prior_new_tamper,_,prior_new_tamper_dir=execute(tamper_source,tamper_outputs,"new_files",150,provider="claude",implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
+    new_json=json.loads((prior_new_tamper_dir/"crew_result.json").read_text())
+    new_json["requested_existing_implementation_paths"]=[NEW_IMPL]; new_json["requested_new_implementation_paths"]=[]
+    (prior_new_tamper_dir/"crew_result.json").write_text(json.dumps(new_json,indent=2,sort_keys=True)+"\n")
+    try: retry_execute(tamper_source,tamper_outputs,"new_files",151,prior_new_tamper["run_id"],tamper_feedback,"Retry tamper proof.\n")
+    except CrewBlocked as exc: assert "does not match prior source HEAD" in str(exc),str(exc)
+    else: raise AssertionError("prior-new path was relabeled prior-existing")
   print("execution crew smoke: PASS (fake providers only; Unity not invoked)"); return 0
 if __name__=="__main__": raise SystemExit(main())
