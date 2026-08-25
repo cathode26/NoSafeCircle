@@ -8,6 +8,27 @@ The pipeline is built across multiple work sessions and AI contexts. Do not rely
 
 **The repository is the source of truth.**
 
+## If the human asks you to pick and start a task
+
+A request such as **"pick a task," "start another task," or "go pick a task and start on it"** is sufficient instruction to begin the repository-driven task-selection workflow. Do not require the human to preselect an NSC ID or restate the orchestration process when the repository already contains the information needed to choose safely.
+
+Before selecting or starting fresh implementation work:
+
+1. read `Docs/AI-Pipeline/PARALLEL_CHATGPT_TASK_ORCHESTRATOR_RULES.md` and `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md`;
+2. discover fresh implementation candidates with:
+
+   ```powershell
+   python Pipeline/TaskGraph/taskcontrol.py states --state not_delivered
+   ```
+
+3. treat `needs_testing` as previously completed/evidenced work that may need another testing/revalidation pass, **not** as fresh implementation work unless the human explicitly asks to retest, repair, or revalidate it;
+4. inspect plausible candidates with `python Pipeline/TaskGraph/taskcontrol.py show <TASK-ID>` and review their dependencies, acceptance criteria, completion gates, decomposition state, and `exclusive_resources`;
+5. check GitHub Issues for the exact candidate NSC IDs, skip assigned or closed tickets, and check exclusive-resource conflicts with currently claimed work;
+6. claim the chosen Issue and post the required Claim / Planned Approach before creating the isolated checkout;
+7. create the checkout with `Pipeline/Supervisor/task_checkout.py checkout ...`, then follow the normal real-task delivery workflow through implementation, Unity/runtime validation, evidence closeout, TaskGraph conformance, and human merge authority.
+
+`not_delivered` is candidate discovery only. It does not establish dependency readiness or execution authorization. The detailed selection algorithm and authority boundaries live in `TASK_SELECTION_AND_CHECKOUT.md`; do not reconstruct them from an old chat transcript.
+
 ## Current Status Snapshot
 
 The repository has moved beyond the original provider-adapter proving phase. The persistent TaskGraph, provider-neutral AgentRuntime/TaskExecution boundary, Claude and OpenAI/Codex adapters, clean Unity validation runner, schema-v2 task contracts, committed conformance evidence, Stage D1B.1 live decomposition, and the Minimum Production ExecutionCrew are all implemented.
@@ -61,12 +82,13 @@ For real gameplay delivery, do not reconstruct the process from old chat transcr
 ## Required Reading Order
 
 1. Read `Docs/AI-Pipeline/CURRENT_STATE.md`.
-2. If you are executing or closing out a real gameplay task, read `Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md`, `Pipeline/ExecutionCrew/README.md`, and `Pipeline/TaskDelivery/README.md` before constructing commands.
-3. If the work changes provider/runtime behavior, read `Docs/AI-Pipeline/08_STAGE_4B_CLAUDE_CODE_PROVIDER.md`, `ADR-037_CLAUDE_CODE_PROVIDER_BOUNDARY.md`, and `ADR-038_PRACTICAL_REPOSITORY_READ_SEARCH.md`.
-4. Read `Docs/AI-Pipeline/00_MASTER_CONTEXT.md` when broader target architecture is relevant.
-5. Read the milestone/context file named by `CURRENT_STATE.md` for the active architecture slice.
-6. Read `Docs/AI-Pipeline/DECISIONS.md` whenever the work touches architecture, Git workflow, task semantics, autonomy, RAG, GER, evaluation/refinement, validation, progressive decomposition, locality, artifact authority, or evidence authority.
-7. Inspect the actual repository, current branch, TaskGraph, and committed source state before changing anything.
+2. If you are selecting, picking, claiming, or starting a real gameplay task, read `Docs/AI-Pipeline/PARALLEL_CHATGPT_TASK_ORCHESTRATOR_RULES.md` and `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md` before choosing work.
+3. If you are executing or closing out a real gameplay task, read `Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md`, `Pipeline/ExecutionCrew/README.md`, and `Pipeline/TaskDelivery/README.md` before constructing commands.
+4. If the work changes provider/runtime behavior, read `Docs/AI-Pipeline/08_STAGE_4B_CLAUDE_CODE_PROVIDER.md`, `ADR-037_CLAUDE_CODE_PROVIDER_BOUNDARY.md`, and `ADR-038_PRACTICAL_REPOSITORY_READ_SEARCH.md`.
+5. Read `Docs/AI-Pipeline/00_MASTER_CONTEXT.md` when broader target architecture is relevant.
+6. Read the milestone/context file named by `CURRENT_STATE.md` for the active architecture slice.
+7. Read `Docs/AI-Pipeline/DECISIONS.md` whenever the work touches architecture, Git workflow, task semantics, autonomy, RAG, GER, evaluation/refinement, validation, progressive decomposition, locality, artifact authority, or evidence authority.
+8. Inspect the actual repository, current branch, TaskGraph, and committed source state before changing anything.
 
 Any work touching Unity tests, validation harnesses, scenes, prefabs, builders/generators, or evidence-producing Unity runs must also read `Docs/Engineering/UNITY_TESTING_POLICY.md`.
 
