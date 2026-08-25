@@ -81,6 +81,18 @@ Filtering and JSON can be combined:
 python Pipeline/TaskGraph/taskcontrol.py states --state conformant --json
 ```
 
+## GitHub Issue mirror
+
+TaskGraph state may be mirrored into existing GitHub Issues for human visibility, but GitHub never becomes state authority.
+
+If the human asks to **sync TaskGraph states to GitHub Issues**, follow:
+
+```text
+Docs/AI-Pipeline/TASKGRAPH_GITHUB_ISSUE_STATE_SYNC.md
+```
+
+The sync must include existing closed Issues. In particular, when a previously completed task now reports `needs_testing`, the Issue's managed TaskGraph mirror must be updated to `needs_testing` even though the historical implementation Issue remains closed. A pure sync does not reopen/close or assign/unassign Issues.
+
 ## Authority boundary
 
 `states` is inspection only. It evaluates committed `HEAD` through the same conformance authority used by single-task `taskcontrol state`.
