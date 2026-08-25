@@ -1,0 +1,103 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-043",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Desktop WebGL Build Artifact",
+  "reconciliation_key": "desktop-webgl-build-artifact",
+  "kind": "implementation",
+  "type": "build-configuration",
+  "execution_scope": "single_agent",
+  "execution_reason": "The approved desktop WebGL publication target defines a bounded platform-delivery task: produce a WebGL build from the already-registered canonical gameplay scene and validate that build in a served desktop-browser environment. Browser/human publication checks are completion evidence for this task rather than a reason to split implementation ownership.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "ART-WEBGL-DESKTOP-001 explicitly defines the target, desktop-browser scope, canonical-scene requirement, input constraints, runtime compatibility boundary, and minimum publication validation. NSC-037 already establishes the canonical scene registration prerequisite, so no new product design is needed before implementation.",
+  "parent": "NSC-036",
+  "depends_on": [
+    "NSC-037"
+  ],
+  "exclusive_resources": [],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "ART-WEBGL-DESKTOP-001 — Approved Decisions",
+      "requirement": "Unity can produce a desktop-browser WebGL build that uses the current human-approved canonical gameplay scene registered by NSC-037; Assets/Scenes/SampleScene.unity is not substituted for the canonical gameplay scene."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "ART-WEBGL-DESKTOP-001 — Purpose / Minimum Publication Validation",
+      "requirement": "The WebGL delivery output is a complete Unity browser build bundle with an HTML entry point and the Unity-generated payload required to start the game when served over HTTP(S)."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "ART-WEBGL-DESKTOP-001 — Approved Decisions",
+      "requirement": "The existing mouse-directed gameplay and Unity Input System/Input Actions architecture remains the control path in WebGL; this task does not introduce a separate WebGL-only gameplay control scheme."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "ART-WEBGL-DESKTOP-001 — Approved Decisions",
+      "requirement": "Published WebGL runtime gameplay does not depend solely on Windows-only APIs, native Windows-only plugins, unrestricted local-filesystem assumptions, development-time AI services, API keys, or agent infrastructure. Any blocking incompatibility is resolved within approved scope or escalated for explicit human review."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "ART-WEBGL-DESKTOP-001 — Explicitly Undecided / Out of Scope",
+      "requirement": "The WebGL artifact targets desktop-browser play only; mobile, tablet, touch controls, hosting-provider selection, CDN configuration, CI/CD, responsive-page design, and other explicitly undecided publication concerns are not added by this task."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "ART-WEBGL-DESKTOP-001 — Minimum Publication Validation",
+      "requirement": "An authoritative WebGL build run succeeds from the canonical gameplay scene and preserves evidence of the produced browser bundle and build result."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "ART-WEBGL-DESKTOP-001 — Minimum Publication Validation",
+      "requirement": "The produced WebGL build is served over HTTP(S) and loads in a desktop browser without a fatal startup error; opening the output directly through file:// does not satisfy this gate."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "ART-WEBGL-DESKTOP-001 — Minimum Publication Validation",
+      "requirement": "Human-reviewed desktop-browser validation confirms core mouse/pointer input is accepted and the WebGL build can enter normal gameplay using the project's existing input architecture."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "ART-WEBGL-DESKTOP-001 — Minimum Publication Validation",
+      "requirement": "Human review confirms there is no unresolved WebGL-specific error that blocks normal gameplay and that the delivered browser runtime does not require development-time AI services or credentials."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "Design/Approved/Platform/Desktop_WebGL_Publishing_Target.md — ART-WEBGL-DESKTOP-001",
+      "requirement": "Desktop WebGL is a human-approved additional required publication target for the finished capstone. It is additive to the GDD and does not replace the required Windows Standalone delivery target."
+    },
+    {
+      "reference": "Design/Approved/Platform/Desktop_WebGL_Publishing_Target.md — Minimum Publication Validation",
+      "requirement": "The WebGL target requires a successful Unity WebGL build, served desktop-browser startup validation, working core mouse/pointer input, and runtime independence from development-time AI services or credentials."
+    }
+  ],
+  "basis": "human_approved_artifact",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This task implements ART-WEBGL-DESKTOP-001 as the WebGL sibling of NSC-037 under NSC-036 Delivery and Build. It consumes NSC-037's canonical scene registration instead of redefining or competing for EditorBuildSettings ownership. Hosting/provider/CDN/CI decisions remain outside this task unless separately approved.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Design/Approved/Platform/Desktop_WebGL_Publishing_Target.md",
+      "evidence_type": "approved_design_artifact",
+      "observation": "ART-WEBGL-DESKTOP-001 already defines the approved desktop WebGL publication target and its minimum validation, but explicitly states that it does not itself create TaskGraph work or prove delivery."
+    },
+    {
+      "path": "ProjectSettings/EditorBuildSettings.asset",
+      "evidence_type": "project_setting",
+      "observation": "NSC-037 has already registered Assets/Scenes/DoorPrototype.unity as the canonical gameplay scene, satisfying the scene-registration prerequisite that this WebGL task consumes."
+    }
+  ],
+  "provenance": {
+    "origin": "human_approved_artifact_tasking",
+    "source_artifact_id": "ART-WEBGL-DESKTOP-001",
+    "source_artifact_path": "Design/Approved/Platform/Desktop_WebGL_Publishing_Target.md",
+    "created_by_human_request": true,
+    "created_date": "2026-08-25"
+  }
+}
