@@ -212,6 +212,85 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(1, hudCount, "Re-running the scene builder must not duplicate the ControlsHud panel.");
         }
 
+        // NSC-041 AC-001/AC-002/AC-003/AC-005: the sealed door's feedback component must
+        // actually be wired into the built scene, referencing the same door, door renderer,
+        // and player-side references (PlayerMovement's shared pointer target, and
+        // PlayerInteractionController's accepted-selection state) it consumes at runtime.
+        [Test]
+        public void Build_DoorInteractionFeedback_IsWiredToDoorRendererAndPlayerReferences()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var doorRoot = GameObject.Find("DoorRoot");
+            var door = doorRoot?.GetComponent<DoorInteractable>();
+            var feedback = doorRoot?.GetComponent<DoorInteractionFeedback>();
+            var doorVisualRenderer = GameObject.Find("DoorRoot/DoorVisual")?.GetComponent<Renderer>();
+            var movement = GameObject.Find("Player")?.GetComponent<PlayerMovement>();
+            var interactionController = GameObject.Find("Player")?.GetComponent<PlayerInteractionController>();
+
+            Assert.IsNotNull(door, "Expected a DoorInteractable on the generated DoorRoot.");
+            Assert.IsNotNull(feedback, "Expected a DoorInteractionFeedback on the generated DoorRoot.");
+            Assert.IsNotNull(doorVisualRenderer, "Expected a Renderer on the generated DoorVisual.");
+            Assert.IsNotNull(movement, "Expected a PlayerMovement on the generated Player.");
+            Assert.IsNotNull(interactionController, "Expected a PlayerInteractionController on the generated Player.");
+
+            var serializedFeedback = new SerializedObject(feedback);
+            Assert.AreEqual(door, serializedFeedback.FindProperty("door").objectReferenceValue,
+                "DoorInteractionFeedback must be wired to the same DoorInteractable it decorates.");
+            Assert.AreEqual(doorVisualRenderer, serializedFeedback.FindProperty("doorRenderer").objectReferenceValue,
+                "DoorInteractionFeedback must be wired to the generated DoorVisual's Renderer.");
+            Assert.AreEqual(movement, serializedFeedback.FindProperty("playerMovement").objectReferenceValue,
+                "DoorInteractionFeedback must be wired to the generated Player's PlayerMovement so hover " +
+                "consumes the shared pointer target instead of an independent projection (AC-005).");
+            Assert.AreEqual(interactionController,
+                serializedFeedback.FindProperty("interactionController").objectReferenceValue,
+                "DoorInteractionFeedback must be wired to the generated Player's PlayerInteractionController " +
+                "so selected/opening feedback tracks the real accepted-selection state (AC-003).");
+        }
+
+        // NSC-041 regression-only invariant: rebuilding the scene must not duplicate the
+        // DoorInteractionFeedback component on DoorRoot.
+        [Test]
+        public void Build_RunTwice_DoesNotDuplicateDoorInteractionFeedback()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var doorRoot = GameObject.Find("DoorRoot");
+            var feedbackComponents = doorRoot.GetComponents<DoorInteractionFeedback>();
+
+            Assert.AreEqual(1, feedbackComponents.Length,
+                "Re-running the scene builder must not duplicate the DoorInteractionFeedback component.");
+        }
+
+        // NSC-041 AC-001: the door's configured base appearance must actually be distinguishable
+        // from the plain wall material, not left indistinguishable from an undifferentiated wall
+        // segment as observed in human runtime validation.
+        [Test]
+        public void Build_DoorInteractionFeedback_BaseColorIsDistinguishableFromWallMaterial()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var feedback = GameObject.Find("DoorRoot")?.GetComponent<DoorInteractionFeedback>();
+            var wallRenderer = GameObject.Find("Walls/WallLeft")?.GetComponent<Renderer>();
+            Assert.IsNotNull(feedback, "Expected a DoorInteractionFeedback on the generated DoorRoot.");
+            Assert.IsNotNull(wallRenderer, "Expected a Renderer on the generated WallLeft.");
+
+            var baseColorProperty = new SerializedObject(feedback).FindProperty("baseColor");
+            Assert.IsNotNull(baseColorProperty, "Expected a serialized 'baseColor' field on DoorInteractionFeedback.");
+
+            var baseColor = baseColorProperty.colorValue;
+            var wallColor = wallRenderer.sharedMaterial.color;
+
+            Assert.Greater(
+                Vector4.Distance(
+                    new Vector4(baseColor.r, baseColor.g, baseColor.b, baseColor.a),
+                    new Vector4(wallColor.r, wallColor.g, wallColor.b, wallColor.a)),
+                0.15f,
+                "AC-001: the door's configured base color must be visually distinguishable from the plain " +
+                "wall material color so the door does not read as an undifferentiated wall segment.");
+        }
+
         [Test]
         public void Build_MainCamera_IsFixedOrthographicIsometric()
         {
@@ -784,6 +863,148 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     "select the sealed door via the shared PlayerMovement pointer target, not merely near " +
                     "its ground anchor.");
                 Assert.AreSame(door, interactionController.PendingDoor);
+            }
+            finally
+            {
+                InvokePrivate(door, "OnDisable");
+                InvokePrivate(movement, "OnDisable");
+            }
+        }
+
+        private void SetMouse(Vector2 screenPosition, bool leftButtonPressed)
+        {
+            InputSystem.QueueStateEvent(mouseDevice, new MouseState
+            {
+                position = screenPosition,
+                buttons = leftButtonPressed ? (ushort)(1 << (int)MouseButton.Left) : (ushort)0
+            });
+            InputSystem.Update();
+        }
+
+        private static void InvokePrivate(object target, string methodName)
+        {
+            var method = target.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(method, $"Expected a private method named '{methodName}' on {target.GetType().Name}.");
+            method.Invoke(target, null);
+        }
+    }
+
+    // NSC-041 VAL-002 (human-review correction): the previous DoorInteractionFeedback hover
+    // coverage built its own top-down camera at (0,10,0) with a zero-offset DoorInteractable, so
+    // it never exercised the production fixed isometric camera or the production
+    // groundSelectionOffset that aligns a visible door click/hover with the ground-plane
+    // selection point. This mirrors DoorPrototypeSceneBuilderClickSelectionTests: it builds the
+    // real scene, uses the real generated Main Camera and DoorRoot/DoorVisual, and drives
+    // DoorInteractionFeedback's hover state through PlayerMovement's shared pointer target
+    // produced from simulated mouse input under that real camera.
+    public class DoorPrototypeSceneBuilderHoverFeedbackTests : InputTestFixture
+    {
+        private Mouse mouseDevice;
+        private RenderTexture testRenderTexture;
+
+        public override void Setup()
+        {
+            base.Setup();
+            mouseDevice = InputSystem.AddDevice<Mouse>();
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        }
+
+        public override void TearDown()
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            if (testRenderTexture != null)
+            {
+                testRenderTexture.Release();
+                Object.Destroy(testRenderTexture);
+                testRenderTexture = null;
+            }
+
+            mouseDevice = null;
+            base.TearDown();
+        }
+
+        // AC-002/AC-005/VAL-002: for representative points on and off the visible door - the
+        // visual's own world center (already proven clickable/selectable by
+        // DoorPrototypeSceneBuilderClickSelectionTests), the door's real production selection
+        // anchor, a point still inside its selection radius, and a point clearly outside it -
+        // hover feedback driven through the real built Main Camera must match both the expected
+        // on/off result and DoorInteractable's own production selection test against the shared
+        // PlayerMovement pointer target, proving feedback does not implement a second independent
+        // screen-to-world projection.
+        [Test]
+        public void Build_HoverFeedback_AgreesWithDoorsOwnSelectionTest_ForRepresentativeVisibleDoorPoints()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var playerObject = GameObject.Find("Player");
+            var movement = playerObject != null ? playerObject.GetComponent<PlayerMovement>() : null;
+            var interactionController =
+                playerObject != null ? playerObject.GetComponent<PlayerInteractionController>() : null;
+            var doorRoot = GameObject.Find("DoorRoot");
+            var door = doorRoot != null ? doorRoot.GetComponent<DoorInteractable>() : null;
+            var feedback = doorRoot != null ? doorRoot.GetComponent<DoorInteractionFeedback>() : null;
+            var doorVisual = GameObject.Find("DoorRoot/DoorVisual");
+            var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
+
+            Assert.IsNotNull(movement, "Expected a PlayerMovement on the generated Player.");
+            Assert.IsNotNull(interactionController,
+                "Expected a PlayerInteractionController on the generated Player.");
+            Assert.IsNotNull(door, "Expected a DoorInteractable on the generated DoorRoot.");
+            Assert.IsNotNull(feedback, "Expected a DoorInteractionFeedback on the generated DoorRoot.");
+            Assert.IsNotNull(doorVisual, "Expected a DoorVisual child under DoorRoot.");
+            Assert.IsNotNull(camera, "Expected a Camera on the generated Main Camera.");
+
+            testRenderTexture = new RenderTexture(800, 600, 24);
+            testRenderTexture.Create();
+            camera.targetTexture = testRenderTexture;
+
+            InvokePrivate(movement, "Awake");
+            InvokePrivate(movement, "OnEnable");
+            InvokePrivate(interactionController, "Awake");
+            InvokePrivate(interactionController, "OnEnable");
+            InvokePrivate(door, "OnEnable");
+
+            try
+            {
+                var candidateWorldPoints = new[]
+                {
+                    doorVisual.transform.position,
+                    door.SelectionPoint,
+                    door.SelectionPoint + new Vector3(1f, 0f, 0f),
+                    door.SelectionPoint + new Vector3(20f, 0f, 20f)
+                };
+                var candidateExpectedHover = new[] { true, true, true, false };
+                var candidateLabels = new[]
+                {
+                    "visible door visual center",
+                    "door's production selection anchor",
+                    "inside selection radius",
+                    "far outside selection radius"
+                };
+
+                for (var i = 0; i < candidateWorldPoints.Length; i++)
+                {
+                    var screenPoint = camera.WorldToScreenPoint(candidateWorldPoints[i]);
+                    SetMouse(screenPoint, false);
+
+                    movement.Tick(0.02f);
+                    feedback.Tick(0.02f);
+
+                    Assert.IsTrue(movement.HasPointerWorldTarget,
+                        "Expected PlayerMovement to have produced a shared world-space pointer target for " +
+                        $"candidate '{candidateLabels[i]}'.");
+
+                    Assert.AreEqual(candidateExpectedHover[i], feedback.IsHovered,
+                        $"AC-002/VAL-002: hover feedback did not match the expected on/off result for " +
+                        $"candidate '{candidateLabels[i]}' under the production camera.");
+
+                    var expectedFromDoorsOwnTest = door.TryGetSelectionDistance(movement.PointerWorldTarget, out _);
+                    Assert.AreEqual(expectedFromDoorsOwnTest, feedback.IsHovered,
+                        $"AC-005/VAL-002: hover feedback must exactly agree with DoorInteractable's own " +
+                        $"production selection test against the shared pointer target, for candidate " +
+                        $"'{candidateLabels[i]}'.");
+                }
             }
             finally
             {

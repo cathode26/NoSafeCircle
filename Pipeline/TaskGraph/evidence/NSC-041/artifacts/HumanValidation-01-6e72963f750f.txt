@@ -1,0 +1,26 @@
+NSC-041 Human Runtime / Visual Validation
+
+Task: NSC-041 — Door Visual Affordance, Hover, and Selection Feedback
+Validator: Vincent Liguori
+Timestamp: 2026-08-25T05:03:51.1300578-05:00
+Working-tree base HEAD: c28d6ee0a75eaa3158dee0045979971d08cc3b1b
+
+Decision: PASS
+
+Human validation was performed in Unity Play Mode after applying the approved
+ExecutionCrew candidate and regenerating Assets/Scenes/DoorPrototype.unity.
+
+Reported result:
+NSC-041 visual pass
+
+Validation scope:
+- sealed door is visually distinguishable from surrounding wall geometry;
+- actual door/click region gives visible hover feedback;
+- hover clears when leaving the door region;
+- an accepted door click gives persistent selected/approach feedback despite cursor drift;
+- feedback changes when the automatic five-second opening timer begins;
+- the existing five-second door interaction behavior remains intact;
+- completed/open state does not leave stale hover/selected feedback.
+
+This file records human runtime/visual judgment. Automated Unity validation is
+separate and must still establish VAL-002/VAL-003 execution evidence.

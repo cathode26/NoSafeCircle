@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0",
+  "record_type": "revalidation",
+  "record_id": "REV-NSC-019-ca9fc2d7262e",
+  "task_id": "NSC-019",
+  "task_contract": {
+    "path": "Tasks/NSC-019.yaml",
+    "revision": 3,
+    "sha256": "03393b4389a7898c7471987728622d6c4fc5d2c935a64476200428bff7e6b030"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "validated_state": {
+    "commit": "ca9fc2d7262e5ecf1abb7eb5b711d5f009a55b22",
+    "tree": "ed3625d8a69f78bacb13c9567dd3033a7583e556"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+      "blob_sha": "50cba58c86faed77ae7686703445fba1efea8dbd",
+      "role": "door_interaction_state_and_range"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+      "blob_sha": "0312ea676375d39a8ffbc89a844cd5f53884db8b",
+      "role": "door_approach_timer_and_interruption_owner"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "blob_sha": "6af029112fc1da334998b3f1cbd83423d313ef1c",
+      "role": "shared_pointer_and_owner_controlled_destination"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "blob_sha": "5d970e9009519ad44df8a31c0bd40a9a653dbb6a",
+      "role": "canonical_scene_door_wiring"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs",
+      "blob_sha": "63d1b9449e76822ad993e08ad03d96c39bfe6a04",
+      "role": "door_interaction_completion_gate_tests"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerMovementPlayModeTests.cs",
+      "blob_sha": "0396a32f93f8ff70a506a426334437e6e408d193",
+      "role": "movement_and_pointer_regression_tests"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "blob_sha": "18c7fabdf22e0ffab4be4d7aff17f5f98b08fb1b",
+      "role": "scene_builder_and_real_click_regression_tests"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NoSafeCircle.DoorPrototype.Tests.Editor.asmdef",
+      "blob_sha": "476d243bfc824925cc190d765f94fded89ff3293",
+      "role": "editor_input_test_framework_configuration"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "00c477ec2f94990fbbfa27b2340c130deb1bf69e",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/SharedRevalidation-EditMode-ca9fc2d7262e.xml",
+          "blob_sha": "70991f131ea61bfc57b09d15280fee386201da9f"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/SharedRevalidation-EditMode-ca9fc2d7262e.log",
+          "blob_sha": "f76771e987fc6888dce8bc336d9c2d29dac1a170"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.xml",
+          "blob_sha": "e011e45db09c4cd1705941747d88559a85d8561c"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.log",
+          "blob_sha": "031e3a88b6b3bc75a97087985f144dff787e7787"
+        }
+      ],
+      "notes": "Revalidated at merged NSC-041 state ca9fc2d7262e: complete EditMode suite 34/34 passed; complete PlayMode suite 93/93 passed. This preserves the completion-gate coverage represented by basis record REV-NSC-019-3efbf859188f."
+    },
+    {
+      "gate_id": "VAL-002",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.xml",
+          "blob_sha": "e011e45db09c4cd1705941747d88559a85d8561c"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.log",
+          "blob_sha": "031e3a88b6b3bc75a97087985f144dff787e7787"
+        }
+      ],
+      "notes": "Revalidated at merged NSC-041 state ca9fc2d7262e: complete PlayMode suite 93/93 passed. This preserves the completion-gate coverage represented by basis record REV-NSC-019-3efbf859188f."
+    }
+  ],
+  "human_approval": {
+    "required": false,
+    "decision": "not_required",
+    "approved_by": "",
+    "notes": "Current task contract uses automated behavioral gates; no separate human approval is required."
+  },
+  "recorded_at": "2026-08-25T10:53:16.480596Z",
+  "revalidation": {
+    "basis_record_id": "REV-NSC-019-3efbf859188f",
+    "reason_type": "code_change",
+    "summary": "Revalidates the task after NSC-041 legitimately changed shared DoorPrototype builder/tests/scene surfaces to add door visual affordance and feedback, then merged current main. Complete clean Unity suites and the shared manual Play Mode review confirmed the prior task behavior remains conformant."
+  }
+}
