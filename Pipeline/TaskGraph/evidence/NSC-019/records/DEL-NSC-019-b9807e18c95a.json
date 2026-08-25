@@ -1,0 +1,143 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "50cba58c86faed77ae7686703445fba1efea8dbd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+      "role": "door_interaction_state_and_range"
+    },
+    {
+      "blob_sha": "0312ea676375d39a8ffbc89a844cd5f53884db8b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+      "role": "door_approach_timer_and_interruption_owner"
+    },
+    {
+      "blob_sha": "6af029112fc1da334998b3f1cbd83423d313ef1c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "role": "shared_pointer_and_owner_controlled_destination"
+    },
+    {
+      "blob_sha": "3392bcf84a77b3f3ba5356ff0eb31194bb5cbf25",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "canonical_scene_door_wiring"
+    },
+    {
+      "blob_sha": "f5b8d6b6e6ffd7b6164f1f24997d7a5822d61097",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs",
+      "role": "door_interaction_completion_gate_tests"
+    },
+    {
+      "blob_sha": "0396a32f93f8ff70a506a426334437e6e408d193",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerMovementPlayModeTests.cs",
+      "role": "movement_and_pointer_regression_tests"
+    },
+    {
+      "blob_sha": "d6a91c0b07904cfdcc55a5ac8876c254b38b3335",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "role": "scene_builder_and_real_click_regression_tests"
+    },
+    {
+      "blob_sha": "476d243bfc824925cc190d765f94fded89ff3293",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NoSafeCircle.DoorPrototype.Tests.Editor.asmdef",
+      "role": "editor_input_test_framework_configuration"
+    },
+    {
+      "blob_sha": "6e940754e643c482909593d3526f750b08cc734f",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "delivery": {
+    "base_commit": "674ce71fd57db1b91fc51dd08f3c951c57d7fcca",
+    "candidate_commit": "d344219662a170ef249e768fbfdb7eb29966ae53",
+    "integrated_commit": "b9807e18c95a87b174247517662e393c237cae35",
+    "integrated_tree": "6050cb4cdd3cccecae4bc93570d80f5a81a25c42"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "42f7700f2d09770d3cb95c6236536274d353847a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/SceneBuilderEditMode-b9807e18c95a.xml"
+        },
+        {
+          "blob_sha": "39859b073012303baa436369ff1510ca5dccee90",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/SceneBuilderEditMode-b9807e18c95a.log"
+        },
+        {
+          "blob_sha": "7d081285829b3bb840878d4a8020730ab37e7258",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/ClickSelectionEditMode-b9807e18c95a.xml"
+        },
+        {
+          "blob_sha": "99131e31204dbd5c45f02b2484b6166ec8ff8b1d",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/ClickSelectionEditMode-b9807e18c95a.log"
+        },
+        {
+          "blob_sha": "b9ae4e14993cdd2c06a79b4473f7ef03711522ec",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/DoorInteractionPlayMode-b9807e18c95a.xml"
+        },
+        {
+          "blob_sha": "b89185d69e4daac02da285df864d24047a485185",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/DoorInteractionPlayMode-b9807e18c95a.log"
+        },
+        {
+          "blob_sha": "dc7e038481f17faa821dfabbe22dab8328cae065",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/PlayerMovementPlayMode-b9807e18c95a.xml"
+        },
+        {
+          "blob_sha": "d1e590ce080548e8fd174d80ed585f3e855f0294",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/PlayerMovementPlayMode-b9807e18c95a.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative clean Unity validation proves initial visible-door click selection through the production camera/shared pointer path, automatic approach and real arrival behavior, automatic no-hold timing, cursor-drift tolerance, successful completion, and release of pending interaction state.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "b9ae4e14993cdd2c06a79b4473f7ef03711522ec",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/DoorInteractionPlayMode-b9807e18c95a.xml"
+        },
+        {
+          "blob_sha": "b89185d69e4daac02da285df864d24047a485185",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/DoorInteractionPlayMode-b9807e18c95a.log"
+        },
+        {
+          "blob_sha": "dc7e038481f17faa821dfabbe22dab8328cae065",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/PlayerMovementPlayMode-b9807e18c95a.xml"
+        },
+        {
+          "blob_sha": "d1e590ce080548e8fd174d80ed585f3e855f0294",
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/PlayerMovementPlayMode-b9807e18c95a.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Authoritative clean PlayMode validation covers damage, replacement commands, movement-away cancellation, gameplay suspension, reset ownership, and cancellation of door-issued movement destinations.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-019 revision 3 contains behavioral Unity completion gates only. Human-facing door identification, hover feedback, accepted-selection feedback, and first-time-player readability are explicitly deferred to NSC-041.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-019-b9807e18c95a",
+  "record_type": "delivery",
+  "recorded_at": "2026-08-25T03:26:07Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-019.yaml",
+    "revision": 3,
+    "sha256": "03393b4389a7898c7471987728622d6c4fc5d2c935a64476200428bff7e6b030"
+  },
+  "task_id": "NSC-019",
+  "validated_state": {
+    "commit": "b9807e18c95a87b174247517662e393c237cae35",
+    "tree": "6050cb4cdd3cccecae4bc93570d80f5a81a25c42"
+  }
+}
