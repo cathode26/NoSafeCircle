@@ -50,7 +50,9 @@ python Pipeline/TaskGraph/taskcontrol.py states --state not_delivered --json
 
 `not_delivered` means no usable committed evidence currently proves that task at `HEAD`. It is a candidate-discovery signal, not a readiness or authorization decision.
 
-Other states such as `conformant`, `needs_replan`, `needs_human`, `needs_revalidation`, `invalid_evidence`, `ambiguous_evidence`, and `aggregate` should be treated according to their TaskGraph meaning rather than casually selected as fresh implementation work.
+Other states such as `conformant`, `needs_replan`, `needs_human`, `needs_testing`, `invalid_evidence`, `ambiguous_evidence`, and `aggregate` should be treated according to their TaskGraph meaning rather than casually selected as fresh implementation work.
+
+In particular, `needs_testing` means the task was previously completed/evidenced but later tracked changes mean current `HEAD` is no longer proven without another testing/revalidation pass. Do **not** select a `needs_testing` task as fresh implementation work unless the human explicitly asks to retest, repair, or revalidate it.
 
 Full state semantics are documented in:
 
