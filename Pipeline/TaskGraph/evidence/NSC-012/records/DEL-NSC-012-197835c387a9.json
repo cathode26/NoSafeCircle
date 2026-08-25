@@ -1,0 +1,99 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "6295f2554666e06d0eedc7f91b04b5c63477bd2e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyHealth.cs",
+      "role": "enemy_health_defeat_owner"
+    },
+    {
+      "blob_sha": "9bb617e50a15ada0292979b8bd61e8075e7929ca",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/EnemyHealthPlayModeTests.cs",
+      "role": "completion_gate_tests"
+    }
+  ],
+  "delivery": {
+    "base_commit": "c11de1b12b2216d6a6b275aab6501fc48c4509a4",
+    "candidate_commit": "197835c387a9ec523d035bf01d73e5ce84a1c635",
+    "integrated_commit": "197835c387a9ec523d035bf01d73e5ce84a1c635",
+    "integrated_tree": "676d29f0a9189844b6f207ebea1ee6d9c154302b"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "3b16a2b082202ea1fdcdd50c0443a90f8d184bd8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-012/artifacts/Unity-PlayMode-01-197835c387a9.xml"
+        },
+        {
+          "blob_sha": "f457f10234349535fcddae2049259be7245e7d9a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-012/artifacts/Unity-PlayMode-01-197835c387a9.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative EnemyHealth PlayMode validation passed 15/15 tests. The suite verifies owner-controlled TakeDamage health reduction, zero-health defeat transition, exactly-once Defeated notification, and rejection of further damage after defeat.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "3b16a2b082202ea1fdcdd50c0443a90f8d184bd8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-012/artifacts/Unity-PlayMode-01-197835c387a9.xml"
+        },
+        {
+          "blob_sha": "f457f10234349535fcddae2049259be7245e7d9a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-012/artifacts/Unity-PlayMode-01-197835c387a9.log"
+        },
+        {
+          "blob_sha": "ffa7c0e2e1716d1371067dbbcdcbf61ea788c377",
+          "path": "Pipeline/TaskGraph/evidence/NSC-012/artifacts/Unity-PlayMode-02-197835c387a9.xml"
+        },
+        {
+          "blob_sha": "850ac62768bf6f9c8203caf8df3c933e1bb6ce29",
+          "path": "Pipeline/TaskGraph/evidence/NSC-012/artifacts/Unity-PlayMode-02-197835c387a9.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Authoritative EnemyHealth PlayMode validation verifies that lethal damage removes the enemy through ActiveEnemyRegistry and repeated lethal damage does not alter registry membership again. The separate ActiveEnemyRegistry regression run passed 14/14 tests, confirming the registry's owner-controlled register/unregister bookkeeping remains correct.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "3b16a2b082202ea1fdcdd50c0443a90f8d184bd8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-012/artifacts/Unity-PlayMode-01-197835c387a9.xml"
+        },
+        {
+          "blob_sha": "f457f10234349535fcddae2049259be7245e7d9a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-012/artifacts/Unity-PlayMode-01-197835c387a9.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Authoritative EnemyHealth PlayMode validation passed reset coverage for both partially damaged and defeated enemies: ResetHealth restores CurrentHealth to MaxHealth, clears IsDefeated, and allows the same persistent enemy object to enter a later defeat transition again.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Human approved the reviewed ExecutionCrew candidate before application, ran interactive PlayMode validation, and approved these conformance surfaces and gate-to-evidence mappings after authoritative clean EnemyHealth and ActiveEnemyRegistry PlayMode validation passed.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-012-197835c387a9",
+  "record_type": "delivery",
+  "recorded_at": "2026-08-25T09:28:00Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-012.yaml",
+    "revision": 2,
+    "sha256": "a043f8851026a3c6fe24ad07d94404cc5d5805ee01189fc6f3bef55a326771a2"
+  },
+  "task_id": "NSC-012",
+  "validated_state": {
+    "commit": "197835c387a9ec523d035bf01d73e5ce84a1c635",
+    "tree": "676d29f0a9189844b6f207ebea1ee6d9c154302b"
+  }
+}
