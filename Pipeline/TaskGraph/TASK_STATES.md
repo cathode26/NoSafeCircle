@@ -26,11 +26,13 @@ A typical executable task may report states such as:
 - `not_delivered` — no usable committed evidence currently proves the task;
 - `needs_replan` — the task contract changed after prior evidence;
 - `needs_human` — required human approval is missing;
-- `needs_revalidation` — prior evidence exists but a tracked conformance surface or other current-state invariant is stale for `HEAD`;
+- `needs_testing` — the task was previously evidenced, but a tracked conformance surface or other current-state invariant changed afterward, so the completed behavior may need testing again before current conformance can be claimed;
 - `invalid_evidence` — committed evidence is structurally or semantically invalid;
 - `ambiguous_evidence` — more than one maximal current-valid record exists.
 
 Feature or non-`single_agent` contracts report `aggregate`. Cancelled and superseded contracts report their dispositions as their derived states.
+
+`needs_testing` does **not** mean the task was never completed. For normal new implementation selection, treat it as already-built work whose current behavior may need retesting. `not_delivered` is the normal state used to discover genuinely new implementation work.
 
 ## Canon granularity
 
@@ -42,7 +44,7 @@ Current task-relevant canon is carried by the schema-v2 task contract. Therefore
 
 - an unrelated GDD edit with no task-contract or tracked-surface change preserves `conformant`;
 - a relevant design change that is reconciled into a revised task contract produces `needs_replan`;
-- a tracked implementation/conformance-surface change produces `needs_revalidation`;
+- a tracked implementation/conformance-surface change produces `needs_testing`;
 - a false historical GDD hash remains `invalid_evidence`.
 
 See `Docs/AI-Pipeline/ADR-033_EVIDENCE_DERIVED_CONFORMANCE.md` for the architecture decision.
@@ -53,6 +55,12 @@ For example, list tasks currently proven conformant:
 
 ```powershell
 python Pipeline/TaskGraph/taskcontrol.py states --state conformant
+```
+
+List previously completed tasks that may need retesting after later changes:
+
+```powershell
+python Pipeline/TaskGraph/taskcontrol.py states --state needs_testing
 ```
 
 Or list tasks with no current delivery evidence:
