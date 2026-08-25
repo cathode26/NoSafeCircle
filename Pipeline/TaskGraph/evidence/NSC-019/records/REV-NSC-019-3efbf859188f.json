@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0",
+  "record_type": "revalidation",
+  "record_id": "REV-NSC-019-3efbf859188f",
+  "task_id": "NSC-019",
+  "task_contract": {
+    "path": "Tasks/NSC-019.yaml",
+    "revision": 3,
+    "sha256": "03393b4389a7898c7471987728622d6c4fc5d2c935a64476200428bff7e6b030"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "validated_state": {
+    "commit": "3efbf859188f54498702601459a85e8b65283baa",
+    "tree": "250eee662129c78a831dcc6d20673eeb089d61f5"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+      "blob_sha": "50cba58c86faed77ae7686703445fba1efea8dbd",
+      "role": "door_interaction_state_and_range"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
+      "blob_sha": "0312ea676375d39a8ffbc89a844cd5f53884db8b",
+      "role": "door_approach_timer_and_interruption_owner"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "blob_sha": "6af029112fc1da334998b3f1cbd83423d313ef1c",
+      "role": "shared_pointer_and_owner_controlled_destination"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "blob_sha": "92c7b7281a38b4f0d53749c22e0d4a5e359148d0",
+      "role": "canonical_scene_door_wiring"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs",
+      "blob_sha": "63d1b9449e76822ad993e08ad03d96c39bfe6a04",
+      "role": "door_interaction_completion_gate_tests"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerMovementPlayModeTests.cs",
+      "blob_sha": "0396a32f93f8ff70a506a426334437e6e408d193",
+      "role": "movement_and_pointer_regression_tests"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "blob_sha": "ae67e2799d237dcf6da36187bece25decb4a8866",
+      "role": "scene_builder_and_real_click_regression_tests"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NoSafeCircle.DoorPrototype.Tests.Editor.asmdef",
+      "blob_sha": "476d243bfc824925cc190d765f94fded89ff3293",
+      "role": "editor_input_test_framework_configuration"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "efdd21f570793ce390ba3f6b911822195cbadabf",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/DoorPrototypeEditMode-3efbf859188f.xml",
+          "blob_sha": "91842fb8d7f6c99b7ee52ac353d0ece1696cf5d3"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/DoorPrototypeEditMode-3efbf859188f.log",
+          "blob_sha": "ecd3951e6ad0a367f8590492b4b8195aeebfea18"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/DoorPrototypePlayMode-3efbf859188f.xml",
+          "blob_sha": "b27e0cbd25063d1577f39f627547084ab1316adb"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/DoorPrototypePlayMode-3efbf859188f.log",
+          "blob_sha": "b1f8cfdd5f9e73ac207e02dc5961a17eab547ac0"
+        }
+      ],
+      "notes": "At the merged NSC-019/NSC-038 state, the complete DoorPrototype EditMode suite passed 26/26 and the complete PlayMode suite passed 66/66. This includes production-camera door selection, automatic approach, deterministic real CharacterController arrival, bounded real trigger delivery, automatic no-hold timing, cursor-drift tolerance, completion, and pending-interaction release."
+    },
+    {
+      "gate_id": "VAL-002",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/DoorPrototypePlayMode-3efbf859188f.xml",
+          "blob_sha": "b27e0cbd25063d1577f39f627547084ab1316adb"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-019/artifacts/DoorPrototypePlayMode-3efbf859188f.log",
+          "blob_sha": "b1f8cfdd5f9e73ac207e02dc5961a17eab547ac0"
+        }
+      ],
+      "notes": "The complete 66/66 PlayMode suite at the merged state covers damage, replacement movement commands, moving away during timing, gameplay suspension, authorized reset, and cancellation of door-issued movement destinations."
+    }
+  ],
+  "human_approval": {
+    "required": false,
+    "decision": "not_required",
+    "approved_by": "",
+    "notes": "NSC-019 revision 3 contains behavioral Unity gates only. Door visual readability, hover feedback, selection feedback, and first-time-player affordance validation remain assigned to NSC-041."
+  },
+  "recorded_at": "2026-08-25T07:51:00.213762Z",
+  "revalidation": {
+    "basis_record_id": "DEL-NSC-019-b9807e18c95a",
+    "reason_type": "code_change",
+    "summary": "Revalidates NSC-019 after integrating NSC-038's Tilemap visual layer, regenerating the shared builder/scene, and correcting the real-physics arrival regression fixture so batchmode validation remains deterministic without changing production door behavior."
+  }
+}

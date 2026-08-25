@@ -1,0 +1,21 @@
+NSC-038 MERGED-STATE HUMAN VISUAL VALIDATION
+
+Task: NSC-038 — Isometric Tilemap Architectural Visual Layer
+Validated commit: 3efbf859188f54498702601459a85e8b65283baa
+Validated tree: 250eee662129c78a831dcc6d20673eeb089d61f5
+Scene: Assets/Scenes/DoorPrototype.unity
+Validator: Vincent Liguori
+Decision: PASS
+Date: 2026-08-25
+
+Validation performed:
+- Opened the merged NoSafeCircle-NSC019 Unity project and inspected the canonical DoorPrototype scene.
+- Confirmed the isometric floor and architectural border render.
+- Confirmed the Tilemap wall visuals appear in their intended positions.
+- Confirmed visible architecture remains aligned with the gameplay floor and walls.
+- Confirmed the player and doorway are not displaced or hidden by the visual Tilemap.
+- Confirmed there are no missing, blank, or obviously broken generated architectural tiles.
+- Closed Unity and confirmed the Git working tree remained clean.
+
+Scope note:
+Door visual readability, hover highlighting, and accepted-selection feedback were not judged here. Those human-facing affordance requirements are owned by NSC-041.
