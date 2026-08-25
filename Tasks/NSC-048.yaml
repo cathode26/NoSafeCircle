@@ -1,0 +1,62 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §9",
+      "requirement": "Author the Final Room shell at X [-12,+12], Z [64,86], its D4 and D5 openings, and the single approved central obstacle FR-1 at X [-2.5,+2.5], Z [73.5,78.5] with 2.0-unit blockout height."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §9",
+      "requirement": "Keep the room comparatively open with at least 4.0 units of circulation on every side of FR-1, two viable D4-to-D5 routes, a mostly open north staging region, and no second equivalent hard-cover obstacle."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§9 and 11",
+      "requirement": "Committed-artifact conformance validation verifies FR-1 is the only major hard-cover obstacle, all four circulation clearances meet the approved minimum, both sides connect D4 to D5, and the pre-D5 staging region remains mostly open."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Final Room has explicit bounds, one obstacle, circulation requirements, and exit staging constraints that form one bounded authoring unit.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-026"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "logical:gameplay-walkability-surface"
+  ],
+  "execution_reason": "One agent can author and validate the approved open-room topology without adding final-room enemies, balance, or victory logic.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §9",
+      "requirement": "Final Room is comparatively open, has exactly one major central obstacle, provides circulation on both sides, and retains an open staging region before the final door."
+    }
+  ],
+  "id": "NSC-048",
+  "kind": "implementation",
+  "notes": "D5's functional final-door designation and shared crossing integration are assigned to the continuity-and-door-sequence child.",
+  "parent": "NSC-029",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "c1ad8b9cd094f35eab937db10b393b211b628c9ded50c8688cefe8a69f34d490",
+    "parent_task_id": "NSC-029"
+  },
+  "reconciliation_key": "final-room-blockout",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Final Room Spatial Blockout",
+  "type": "content-authoring"
+}

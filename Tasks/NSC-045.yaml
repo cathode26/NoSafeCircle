@@ -1,0 +1,63 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §6",
+      "requirement": "Author the Bone Archive shell at X [-10,+10], Z [0,20], its D1 and D2 openings, Shelf A through Shelf C, and Collapsed Furniture BA-1 at the approved coordinates and blockout heights."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §6",
+      "requirement": "Preserve the approved lane topology: 3.5-unit normal shelf lanes, the intentional 2.5-unit BA-1 pinch, western and eastern bypasses of at least 3.0 units, at least two south-to-north routes, and a lane choice before offset D2."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-029 VAL-001; GDD — Approved Five-Room Spatial Layout Blockout §§6 and 12",
+      "requirement": "Using the configured enemy navigation agent, validation verifies traversal through the BA-1 2.5-unit pinch and every intended Bone Archive lane; an impassable approved lane fails this validation rather than being represented as passable."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Bone Archive has complete shell, obstacle, lane, clearance, and navigation-validation requirements that form one bounded room-authoring responsibility.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-026",
+    "NSC-025"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "logical:gameplay-walkability-surface"
+  ],
+  "execution_reason": "One agent can author the shelf-lane blockout and validate it against the existing navigation layer without owning enemy AI or encounter content.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §6",
+      "requirement": "Bone Archive has explicit shelf banks, a collapsed-furniture protrusion, alternate lanes, bypass clearances, and a deliberate 2.5-unit minimum chokepoint that must be checked against the configured navigation agent."
+    }
+  ],
+  "id": "NSC-045",
+  "kind": "implementation",
+  "notes": "This child consumes navigation configuration for validation but does not select navigation technology or alter enemy behavior.",
+  "parent": "NSC-029",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "c1ad8b9cd094f35eab937db10b393b211b628c9ded50c8688cefe8a69f34d490",
+    "parent_task_id": "NSC-029"
+  },
+  "reconciliation_key": "bone-archive-blockout",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Bone Archive Spatial Blockout and Lane Validation",
+  "type": "content-authoring"
+}

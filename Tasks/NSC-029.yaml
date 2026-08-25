@@ -1,51 +1,46 @@
 {
-  "schema_version": "2.0",
-  "id": "NSC-029",
-  "contract_revision": 2,
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Section 3 — Dungeon Floor Structure",
+      "requirement": "All five named spaces (Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, Final Room) are authored with their stated tactical layout purpose; none may be dropped or substituted merely because other rooms have more specialized validation cases."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Section 5 — Runtime Implementation",
+      "requirement": "All five spaces are authored inside one continuous Unity scene/floor representation rather than separate scenes with cross-scene state transfer."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Section 1 — Executive Summary; Section 2 — Game Mechanics",
+      "requirement": "The five named spaces are connected in a forward-only sequence by authored sealed-door instances positioned at each room's exit, consistent with 'Each room ends at a door' and 'The player moves through connected rooms toward the final door'; the Final Room's exit door is designated as the final door whose crossing the victory capability consumes through the shared doorway-crossing state."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Section 3 — Dungeon Floor Structure (Bone Archive); Section 5 — Runtime Implementation",
+      "requirement": "Bone Archive's authored lane widths are navigable at the configured enemy navigation agent radius, so the room's narrow-lane/chokepoint geometry holds in practice against the navigation layer's requirements."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Section 3 — Dungeon Floor Structure (Chapel of Ash); Section 4 — Development Agent Roles (Unity Validation Agent)",
+      "requirement": "Chapel of Ash's authored pews and columns present real occluders that block the Ranged Enemy's line-of-sight/projectile-occlusion check from at least one cover position."
+    }
+  ],
+  "confidence": "high",
   "contract_disposition": "active",
-  "title": "Five-Room Floor Content Authoring",
-  "reconciliation_key": "five-room-content-authoring",
-  "kind": "feature",
-  "type": "content-authoring",
-  "execution_scope": "needs_execution_decomposition",
-  "execution_reason": "Human-approved five-room spatial layout now exists in the canonical GDD, so the former design blocker is resolved. Five-room content authoring is broader than one bounded implementation handoff and must be split into concrete single-agent room-authoring children before execution.",
-  "decomposition_state": "concrete",
-  "decomposition_reason": "The human-approved 'Approved Five-Room Spatial Layout Blockout' in the canonical GDD now supplies the exact room bounds, routes, obstacle geometry, lane clearances, cover topology, and door locations needed for execution decomposition. No design invention is required; decomposition may split only these approved five-room authoring responsibilities into bounded implementation children.",
-  "parent": "NSC-022",
+  "contract_revision": 3,
+  "decomposition_reason": "Decomposed into reviewed child contracts: NSC-044 (ruined-entry-blockout), NSC-045 (bone-archive-blockout), NSC-046 (chapel-of-ash-blockout), NSC-047 (lower-vault-blockout), NSC-048 (final-room-blockout), NSC-049 (five-room-continuity-door-sequence). This aggregate state does not claim implementation completion.",
+  "decomposition_state": "decomposed",
   "depends_on": [
     "NSC-026"
   ],
-  "exclusive_resources": [],
-  "acceptance_criteria": [
-    {
-      "reference": "Section 3 — Dungeon Floor Structure",
-      "requirement": "All five named spaces (Ruined Entry, Bone Archive, Chapel of Ash, Lower Vault, Final Room) are authored with their stated tactical layout purpose; none may be dropped or substituted merely because other rooms have more specialized validation cases.",
-      "criterion_id": "AC-001"
-    },
-    {
-      "reference": "Section 5 — Runtime Implementation",
-      "requirement": "All five spaces are authored inside one continuous Unity scene/floor representation rather than separate scenes with cross-scene state transfer.",
-      "criterion_id": "AC-002"
-    },
-    {
-      "reference": "Section 1 — Executive Summary; Section 2 — Game Mechanics",
-      "requirement": "The five named spaces are connected in a forward-only sequence by authored sealed-door instances positioned at each room's exit, consistent with 'Each room ends at a door' and 'The player moves through connected rooms toward the final door'; the Final Room's exit door is designated as the final door whose crossing the victory capability consumes through the shared doorway-crossing state.",
-      "criterion_id": "AC-003"
-    }
-  ],
-  "completion_gates": [
-    {
-      "reference": "Section 3 — Dungeon Floor Structure (Bone Archive); Section 5 — Runtime Implementation",
-      "requirement": "Bone Archive's authored lane widths are navigable at the configured enemy navigation agent radius, so the room's narrow-lane/chokepoint geometry holds in practice against the navigation layer's requirements.",
-      "gate_id": "VAL-001"
-    },
-    {
-      "reference": "Section 3 — Dungeon Floor Structure (Chapel of Ash); Section 4 — Development Agent Roles (Unity Validation Agent)",
-      "requirement": "Chapel of Ash's authored pews and columns present real occluders that block the Ranged Enemy's line-of-sight/projectile-occlusion check from at least one cover position.",
-      "gate_id": "VAL-002"
-    }
-  ],
   "downstream_integration_obligations": [],
+  "exclusive_resources": [],
+  "execution_reason": "Execution responsibilities are delegated to child contracts: NSC-044 (ruined-entry-blockout), NSC-045 (bone-archive-blockout), NSC-046 (chapel-of-ash-blockout), NSC-047 (lower-vault-blockout), NSC-048 (final-room-blockout), NSC-049 (five-room-continuity-door-sequence).",
+  "execution_scope": "not_applicable",
   "gdd_evidence": [
     {
       "reference": "Section 3 — Dungeon Floor Structure",
@@ -60,18 +55,23 @@
       "requirement": "All five encounter spaces exist inside one continuous Unity scene or continuous floor representation; no scene-load or cross-scene state-transfer system is required."
     }
   ],
-  "basis": "direct_gdd",
-  "source_scope": "required",
-  "confidence": "high",
+  "id": "NSC-029",
+  "kind": "feature",
   "notes": "No formal dependency exists on dungeon-encounter-content-authoring or vice versa; both are deferred organizational features per the GDD-hardening example prohibiting feature-to-feature dependencies. Their consumption relationship (encounter placement consumes authored room spaces) is preserved here in notes only.",
-  "repository_state_at_bootstrap": "missing",
-  "repository_evidence_at_bootstrap": [],
+  "parent": "NSC-022",
   "provenance": {
-    "origin": "verified_reconciliation_bootstrap",
-    "source_schema_version": "1.0",
-    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de",
     "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2"
-  }
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "origin": "verified_reconciliation_bootstrap",
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "source_schema_version": "1.0",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  },
+  "reconciliation_key": "five-room-content-authoring",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "missing",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Five-Room Floor Content Authoring",
+  "type": "content-authoring"
 }

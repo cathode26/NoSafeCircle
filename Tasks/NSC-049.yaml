@@ -1,0 +1,85 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-029 AC-002; GDD — Approved Five-Room Spatial Layout Blockout §§3, 4, and 12",
+      "requirement": "Integrate the five authored room blockouts into the canonical continuous gameplay scene/floor at their approved global bounds, with shared boundaries and wall jogs and without room scene loads or cross-scene state transfer."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-029 AC-003; GDD — Approved Five-Room Spatial Layout Blockout §§4 and 10",
+      "requirement": "Author sealed-door instances D1 through D5 at the approved centers and 3.0-unit openings, connect the spaces in the approved forward sequence, and designate D5 as the final door while retaining Door and Interaction ownership of semantic state and crossing."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §12",
+      "requirement": "Committed-scene validation verifies all five room shells and D1 through D5 coexist at their approved coordinates in the canonical continuous floor, and that visible architecture corresponds to separately authored gameplay geometry without scene loading."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-029 AC-003; GDD — Approved Five-Room Spatial Layout Blockout §10",
+      "requirement": "Integrated validation verifies D1 through D4 connect the successive room pairs, D5 occupies the escape boundary and is designated final, and opening alone is not represented as a final crossing."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Cross-room continuity and the D1–D5 sequence are shared integration responsibilities that cannot be completed independently inside any single room child.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-026",
+    "NSC-019",
+    "NSC-020",
+    "NSC-021",
+    "NSC-044",
+    "NSC-045",
+    "NSC-046",
+    "NSC-047",
+    "NSC-048"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-029 AC-003; GDD — Win and Loss Conditions / Door and Pursuit Rules",
+      "requirement": "Expose D5's final-door identity and Door-owned forward-side crossing state for consumption by NSC-035, without introducing a separate crossing detector or transferring door-state ownership to victory coordination."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "logical:gameplay-walkability-surface"
+  ],
+  "execution_reason": "After the five bounded room blockouts exist, one agent can reconcile their shared boundaries, instantiate the door sequence, and validate continuous-scene integration against the existing Door-owned interfaces.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§3, 4, and 10",
+      "requirement": "The five rooms form one south-to-north continuous floor with explicit global bounds and sealed doors D1 through D5 at shared boundaries; D5 is the final door."
+    },
+    {
+      "reference": "GDD — Door and Pursuit Rules / Win and Loss Conditions",
+      "requirement": "Door and Interaction owns doorway-crossing state, and final victory consumes the final door's forward-side crossing state rather than implementing another detector."
+    }
+  ],
+  "id": "NSC-049",
+  "kind": "implementation",
+  "notes": "This child integrates authored room and door content only; it does not implement encounter placement, door lifecycle internals, or victory coordination internals.",
+  "parent": "NSC-029",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "c1ad8b9cd094f35eab937db10b393b211b628c9ded50c8688cefe8a69f34d490",
+    "parent_task_id": "NSC-029"
+  },
+  "reconciliation_key": "five-room-continuity-door-sequence",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Five-Room Continuity and Door Sequence Integration",
+  "type": "content-authoring"
+}

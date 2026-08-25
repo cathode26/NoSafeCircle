@@ -1,0 +1,62 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §5",
+      "requirement": "Author the Ruined Entry shell at X [-10,+10], Z [-18,0], its 3.0-unit D1 opening centered at (0,0), and the approved touching Rubble A and Rubble B gameplay footprints."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §5",
+      "requirement": "Preserve the approved Ruined Entry tactical topology: a broad west circling route, traversable east route, no rubble-created dead end, access to D1 from both sides, and the mostly open 5-by-5 staging area south of D1."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§5 and 11",
+      "requirement": "Committed-artifact conformance validation verifies the room bounds, rubble footprints, minimum route clearances, two-sided D1 access, and pre-door staging area in both the visible blockout and separate gameplay geometry."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Ruined Entry has explicit bounds, obstacle footprints, route clearances, and an exit opening, making it a bounded room-authoring unit.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-026"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "logical:gameplay-walkability-surface"
+  ],
+  "execution_reason": "One agent can author and validate this single room shell, its approved rubble topology, and corresponding visual/gameplay representations under the canonical scene and builder locks.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §5",
+      "requirement": "Ruined Entry is a mostly open teaching space with explicit shell bounds, an east-of-center L-shaped rubble cluster, a broad west circling route, a traversable east route, and an open staging area before D1."
+    }
+  ],
+  "id": "NSC-044",
+  "kind": "implementation",
+  "notes": "Enemy placement, encounter composition, and tuning are outside this proposed child.",
+  "parent": "NSC-029",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "c1ad8b9cd094f35eab937db10b393b211b628c9ded50c8688cefe8a69f34d490",
+    "parent_task_id": "NSC-029"
+  },
+  "reconciliation_key": "ruined-entry-blockout",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Ruined Entry Spatial Blockout",
+  "type": "content-authoring"
+}

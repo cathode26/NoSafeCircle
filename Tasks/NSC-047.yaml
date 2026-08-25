@@ -1,0 +1,62 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §8",
+      "requirement": "Author the Lower Vault shell at X [-11,+11], Z [42,64], its D3 and D4 openings, and the approved LV-C1, LV-W1, LV-E1, and LV-N1 obstacle footprints and heights."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §8",
+      "requirement": "Preserve multiple local route choices without one clean repeatable perimeter circuit, the blocked north-west loop, the direct east-side D4 approach, the central left/right choice, at least 3.0-unit intended-route clearances, and an open connection back toward D3."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §§8 and 11",
+      "requirement": "Committed-artifact conformance validation verifies the obstacle footprints and clearances, confirms LV-N1 interrupts the easiest north-west circuit, and confirms D3 remains spatially open and reachable from the room's southern area."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Lower Vault's shell, four obstacles, route constraints, and previous-door relevance are sufficiently explicit for one bounded room-authoring unit.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-026"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "logical:gameplay-walkability-surface"
+  ],
+  "execution_reason": "One agent can implement and validate the approved Lower Vault topology without authoring encounters or persistent-pursuer behavior.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD — Approved Five-Room Spatial Layout Blockout §8",
+      "requirement": "Lower Vault uses specified columns and storage piles to create incomplete loops, a meaningful central route choice, an east-side approach to D4, and an open connection back toward D3."
+    }
+  ],
+  "id": "NSC-047",
+  "kind": "implementation",
+  "notes": "The child preserves space for rear pressure but does not implement breaches, pursuit, or encounter activation.",
+  "parent": "NSC-029",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "c1ad8b9cd094f35eab937db10b393b211b628c9ded50c8688cefe8a69f34d490",
+    "parent_task_id": "NSC-029"
+  },
+  "reconciliation_key": "lower-vault-blockout",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Lower Vault Spatial Blockout",
+  "type": "content-authoring"
+}

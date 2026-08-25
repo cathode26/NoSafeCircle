@@ -35,12 +35,24 @@
     {
       "reconciliation_keys": [
         "door-close-lock-break-lifecycle",
-        "gameplay-navigation-locomotion"
+        "gameplay-navigation-locomotion",
+        "ruined-entry-blockout",
+        "bone-archive-blockout",
+        "chapel-of-ash-blockout",
+        "lower-vault-blockout",
+        "final-room-blockout",
+        "five-room-continuity-door-sequence"
       ],
       "resource_key": "logical:gameplay-walkability-surface",
       "work_ids": [
         "NSC-021",
-        "NSC-025"
+        "NSC-025",
+        "NSC-044",
+        "NSC-045",
+        "NSC-046",
+        "NSC-047",
+        "NSC-048",
+        "NSC-049"
       ]
     },
     {
@@ -86,7 +98,13 @@
         "world-sprite-prefab-sorting",
         "visual-simulation-continuity",
         "door-visual-affordance-feedback",
-        "seamless-scalable-wall-tiling"
+        "seamless-scalable-wall-tiling",
+        "ruined-entry-blockout",
+        "bone-archive-blockout",
+        "chapel-of-ash-blockout",
+        "lower-vault-blockout",
+        "final-room-blockout",
+        "five-room-continuity-door-sequence"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -107,7 +125,13 @@
         "NSC-039",
         "NSC-040",
         "NSC-041",
-        "NSC-042"
+        "NSC-042",
+        "NSC-044",
+        "NSC-045",
+        "NSC-046",
+        "NSC-047",
+        "NSC-048",
+        "NSC-049"
       ]
     },
     {
@@ -160,7 +184,13 @@
         "visual-simulation-continuity",
         "door-open-interaction",
         "door-visual-affordance-feedback",
-        "seamless-scalable-wall-tiling"
+        "seamless-scalable-wall-tiling",
+        "ruined-entry-blockout",
+        "bone-archive-blockout",
+        "chapel-of-ash-blockout",
+        "lower-vault-blockout",
+        "final-room-blockout",
+        "five-room-continuity-door-sequence"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -172,7 +202,13 @@
         "NSC-040",
         "NSC-019",
         "NSC-041",
-        "NSC-042"
+        "NSC-042",
+        "NSC-044",
+        "NSC-045",
+        "NSC-046",
+        "NSC-047",
+        "NSC-048",
+        "NSC-049"
       ]
     }
   ]
