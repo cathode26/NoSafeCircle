@@ -88,6 +88,15 @@ The explicit `-p nosafecircle` does not change the checkout mounted at `/workspa
 
 ## 5. ExecutionCrew example
 
+Choose each flag from the path state at captured `HEAD`:
+
+| Path state | Flag |
+| --- | --- |
+| existing tracked production file | `--implementation-path` |
+| absent exact production file | `--new-implementation-path` |
+| existing tracked test file | `--test-path` |
+| absent exact test file | `--new-test-path` |
+
 ```powershell
 docker compose -p nosafecircle run --rm -T claude-exec python3 Pipeline/ExecutionCrew/run_crew.py `
   --task-id NSC-### `
@@ -97,7 +106,23 @@ docker compose -p nosafecircle run --rm -T claude-exec python3 Pipeline/Executio
   --host-output-root "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC###\Pipeline\ExecutionCrew\outputs"
 ```
 
+Mixed existing/new example:
+
+```powershell
+docker compose -p nosafecircle run --rm -T codex-exec python3 Pipeline/ExecutionCrew/run_crew.py `
+  --task-id NSC-### `
+  --provider codex `
+  --implementation-path Assets/.../ExistingOwner.cs `
+  --new-implementation-path Assets/.../NewHelper.cs `
+  --new-test-path Assets/.../NewFeatureTests.cs `
+  --host-output-root "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC###\Pipeline\ExecutionCrew\outputs"
+```
+
+No empty scaffold commit is needed for an absent exact file. Do not pre-create or pass `.meta` for approved new `Assets/` files; ExecutionCrew creates the deterministic sidecar. Parent directories must already exist as committed Git trees. Exact-new authority covers only the named file, never the directory or helper files.
+
 Use the full Windows `--host-output-root` so the final human footer prints complete copy/paste-ready paths to `candidate.patch` or diagnostics.
+
+The `-p nosafecircle` project name remains mandatory for every provider-backed Compose command from a standalone clone.
 
 ## 6. Related documentation
 

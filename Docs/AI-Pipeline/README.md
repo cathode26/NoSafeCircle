@@ -22,6 +22,13 @@ The documentation is intentionally split so a fresh AI context only needs the ma
 - `STANDALONE_CLONE_QUICKSTART.md` — copy/paste workflow for an isolated clone, feature branch, validation, and fixed Compose project name.
 - `REAL_TASK_DELIVERY_WINDOWS_CLONE_NOTE.md` — detailed Windows rationale, failure modes, and Docker authentication-volume rules for standalone clones.
 
+Operational subsystem references:
+
+- `Pipeline/ExecutionCrew/README.md` — exact bounded existing/new role-path execution, deterministic locality/scope audit, human review, and retry semantics.
+- `Pipeline/TaskDelivery/README.md` — human-reviewed bridge from strict validation manifests to `record_delivery.py`-compatible delivery specs.
+
+`REAL_TASK_DELIVERY_RUNBOOK.md` remains the authoritative end-to-end procedure.
+
 ## Maintenance Rule
 
 `CURRENT_STATE.md` is the file that tells a fresh window **where we are now**.

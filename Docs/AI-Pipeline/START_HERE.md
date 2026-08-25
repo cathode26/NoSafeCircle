@@ -50,16 +50,18 @@ The Contract Locality Auditor classifies every current AC/VAL as `local_to_task`
 
 The Validator also uses structured reason codes. `runtime_not_executed` means the task is locally valid but authoritative Unity/runtime evidence still has to run, so semantic `REVIEW_READY` may still be correct. `missing_integration_dependency` or `design_ambiguity` means the task contract itself needs review and cannot be hidden behind a generic `not_proven`.
 
+ExecutionCrew supports both exact existing tracked role paths and exact human-approved absent new paths. The old scaffold-file workaround is no longer the normal task-start procedure. For successfully created new files under `Assets/`, the pipeline creates deterministic `.meta` sidecars outside model write authority. Exact-path authority never broadens to a directory, sibling/helper file, design, readiness, or dispatch authority.
+
 ExecutionCrew still does **not** run Unity, apply candidate patches, commit, push, merge, publish evidence automatically, grant conformance, derive readiness, or authorize autonomous dispatch.
 
 Progressive decomposition remains separate. Stage D1B.1 is implemented and live-proven. Stage **D1B.2 independent decomposition verification/refinement** is the next planned pipeline architecture slice. D1B.2 checks proposed decomposition before graph application; the Contract Locality Auditor is the execution-time safety net for an already-approved concrete task.
 
-For real gameplay delivery, do not reconstruct the process from old chat transcripts. Follow the committed runbook and current-state file.
+For real gameplay delivery, do not reconstruct the process from old chat transcripts. Follow the committed runbook and current-state file. Closeout follows `authoritative clean Unity run -> validation manifest -> TaskDelivery human review -> record_delivery.py -> staged-evidence validation -> committed evidence -> TaskGraph-derived conformance`.
 
 ## Required Reading Order
 
 1. Read `Docs/AI-Pipeline/CURRENT_STATE.md`.
-2. If you are executing or closing out a real gameplay task, read `Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md` and `Pipeline/ExecutionCrew/README.md` before constructing commands.
+2. If you are executing or closing out a real gameplay task, read `Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md`, `Pipeline/ExecutionCrew/README.md`, and `Pipeline/TaskDelivery/README.md` before constructing commands.
 3. If the work changes provider/runtime behavior, read `Docs/AI-Pipeline/08_STAGE_4B_CLAUDE_CODE_PROVIDER.md`, `ADR-037_CLAUDE_CODE_PROVIDER_BOUNDARY.md`, and `ADR-038_PRACTICAL_REPOSITORY_READ_SEARCH.md`.
 4. Read `Docs/AI-Pipeline/00_MASTER_CONTEXT.md` when broader target architecture is relevant.
 5. Read the milestone/context file named by `CURRENT_STATE.md` for the active architecture slice.
@@ -79,7 +81,7 @@ Do not read every milestone file unless the current work requires broader archit
 Current work | Read this file
 --- | ---
 **Current next pipeline slice:** D1B.2 independent decomposition verification/refinement | `CURRENT_STATE.md` plus `02_RAG_SCANNER_CONTEXT.md`
-Real gameplay task execution, contract locality, bounded repair, human review, Unity validation, evidence closeout | `REAL_TASK_DELIVERY_RUNBOOK.md`, `Pipeline/ExecutionCrew/README.md`, and `04_EXECUTION_GER_VALIDATION_CONTEXT.md`
+Real gameplay task execution, contract locality, bounded repair, human review, Unity validation, evidence closeout | `REAL_TASK_DELIVERY_RUNBOOK.md`, `Pipeline/ExecutionCrew/README.md`, `Pipeline/TaskDelivery/README.md`, and `04_EXECUTION_GER_VALIDATION_CONTEXT.md`
 Completed persistent graph semantics, stable IDs, task contracts, conformance | `01_MILESTONE_TASK_GRAPH.md`
 RAG canon retrieval, scanner/context packs, progressive decomposition, artifact authority | `02_RAG_SCANNER_CONTEXT.md`
 Supervisor, task claiming, Git branches/worktrees, GitHub Issues/Projects/PRs | `03_SUPERVISOR_GIT_GITHUB_CONTEXT.md`
