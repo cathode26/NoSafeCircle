@@ -33,7 +33,44 @@ When the audit is nonlocal, the crew publishes `contract_locality_audit.json` (s
 
 A Validator that later reports `blocked_by_design` with a `criteria_results` `reason_code` of `missing_integration_dependency` or `design_ambiguity` is treated as the same locality-defect class caught after writers already ran (the audit passed, but the defect only became apparent once the candidate was built). That fallback also routes the crew to `contract_review_required`, but by then a `workspace_diagnostic.patch` may already exist from retained tracked-file movement; it is diagnostic only, never an approved candidate, and never applyable.
 
-The Implementer has `repository_read`, `repository_search`, and `repository_write`, model class `standard`, and may modify only `--implementation-path` values. The fresh Unity Test Author has the same capabilities, model class `low_cost`, and may modify only `--test-path` values. Requested role paths must be distinct existing tracked files, with implementation and test sets disjoint under conservative case-insensitive path comparison. Its prompt includes the committed Unity testing policy and exact implementation diff. The fresh Validator is `high_reasoning` with only `repository_read` and `repository_search`; it reads the physically read-only committed source checkout as baseline context and semantically evaluates the candidate state represented by that baseline plus the exact candidate patch and actual changed paths. The baseline is intentionally unchanged, so absence of candidate edits there is not a defect and the Validator must not require them to be committed or applied before review. A pass is semantic review only, never a Unity, delivery, readiness, integration, or conformance claim. The source remains unchanged until a human approves and manually applies `candidate.patch`.
+The Implementer has `repository_read`, `repository_search`, and `repository_write`, model class `standard`, and may edit existing `--implementation-path` values or create exact `--new-implementation-path` values. The fresh Unity Test Author has the same capabilities, model class `low_cost`, and equivalent test-path authority. Requested role paths and pipeline sidecars are disjoint under conservative case-insensitive comparison. Its prompt includes the committed Unity testing policy and exact implementation diff. The fresh Validator is `high_reasoning` with only `repository_read` and `repository_search`; it reads the physically read-only committed source checkout as baseline context and semantically evaluates the candidate state represented by that baseline plus the exact candidate patch and actual changed paths. The baseline is intentionally unchanged, so absence of candidate edits there is not a defect and the Validator must not require them to be committed or applied before review. A pass is semantic review only, never a Unity, delivery, readiness, integration, or conformance claim. The source remains unchanged until a human approves and manually applies `candidate.patch`.
+
+## Exact approved new files
+
+Existing tracked files retain the backward-compatible repeatable flags `--implementation-path` and `--test-path`. Exact absent files use repeatable `--new-implementation-path` and `--new-test-path`. Normal mode requires at least one implementation path and one test path across each role's existing/new pair; either role may use only existing files, only new files, or a mixture.
+
+New authority is one exact repository-relative file path, never its parent directory. Preflight requires a canonical path whose suffix is not `.meta` in any casing, that is absent and untracked, nonignored, collision-free under conservative case-insensitive comparison, underneath the repository root, and whose existing ordinary parent ancestry contains no symlink. Except for the repository root, the parent must also be a Git tree in the captured source commit; an empty source-only directory grants no authority. Existing flags require both tracked identity and regular-file type. Implementation/test paths and their implicit sidecars must be disjoint. Missing directories are never created.
+
+For every successfully created approved file under `Assets/`, ExecutionCrew creates `<path>.meta` after the role's deterministic incremental scope check. Providers never receive `.meta` write authority. Sidecar bytes are UTF-8/ASCII with LF and a final newline:
+
+```text
+fileFormatVersion: 2
+guid: <sha256("NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + casefolded POSIX path)[:32]>
+```
+
+Snapshots record HEAD, exact index bytes, tracked/untracked identity, entry type, and regular-file SHA-256. This prevents a later role from changing an earlier role's untracked new file or a pipeline sidecar. Candidate and diagnostic patches contain the ordinary binary/full-index tracked diff followed in stable path order by `git diff --no-index -- /dev/null <new-file>` fragments for approved new files and sidecars. Nothing is staged. A review-ready candidate must pass `git apply --check` against the unchanged captured baseline.
+
+Result compatibility fields `requested_implementation_paths` and `requested_test_paths` remain the sorted total authority. Additive fields are `requested_existing_implementation_paths`, `requested_new_implementation_paths`, `requested_existing_test_paths`, `requested_new_test_paths`, and `pipeline_generated_paths`. Role actual-path fields contain model-authored changes and exclude sidecars; `final_actual_changed_paths` includes the complete candidate surface.
+
+Human-review retry still forbids every explicit task/provider/path flag. New-format runs verify both the total against immutable TaskExecution WriteBoundaries and each existing/new classification against the already-validated prior `source_head`: a regular blob is prior-existing, absence is prior-new, and another Git object type blocks. Only then may a prior-new path that is a regular blob at current HEAD become existing authority; one still absent remains exact new authority. A missing prior-existing path blocks. Historical runs without new-path metadata retain legacy recovery and treat recovered scope as existing.
+
+All-new example:
+
+```text
+python3 Pipeline/ExecutionCrew/run_crew.py --task-id NSC-### --provider claude \
+  --new-implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyHealth.cs \
+  --new-test-path Assets/NoSafeCircle/DoorPrototype/Tests/EnemyHealthPlayModeTests.cs
+```
+
+Mixed example:
+
+```text
+python3 Pipeline/ExecutionCrew/run_crew.py --task-id NSC-### --provider codex \
+  --implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/ActiveEnemyRegistry.cs \
+  --new-implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyHealth.cs \
+  --test-path Assets/NoSafeCircle/DoorPrototype/Tests/ActiveEnemyRegistryPlayModeTests.cs \
+  --new-test-path Assets/NoSafeCircle/DoorPrototype/Tests/EnemyHealthPlayModeTests.cs
+```
 
 The Validator must report exactly once on every task AC/VAL ID, and every `criteria_results` item requires a structured `reason_code` alongside its `status`, with deterministic status/`reason_code` agreement enforced by the crew: `status=pass` requires `reason_code=proved`; `status=fail` requires `reason_code=criterion_failed`; `status=not_proven` requires exactly one of `runtime_not_executed`, `missing_integration_dependency`, `missing_required_artifact`, `insufficient_evidence`, `design_ambiguity`. An overall Validator `pass` may carry a `not_proven` item only when its `reason_code` is `runtime_not_executed` (runtime/Unity evidence that genuinely was not executed yet, coexisting with an otherwise-proved semantic pass); any other `not_proven` reason_code on an overall `pass` is deterministically invalid and rejects the run. `missing_integration_dependency` and `design_ambiguity` must never coexist with `pass` and require overall `status=blocked_by_design`; the crew further routes that case to `contract_review_required` rather than a generic `blocked`, because it identifies the same kind of locality defect the mandatory audit exists to catch. `missing_required_artifact` and `insufficient_evidence` also cannot coexist with `pass`, and a `criterion_failed` result cannot coexist with `pass`.
 
