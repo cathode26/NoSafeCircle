@@ -9,6 +9,7 @@
     "delivery-and-build": "NSC-036",
     "door-close-lock-break-lifecycle": "NSC-021",
     "door-open-interaction": "NSC-019",
+    "door-visual-affordance-feedback": "NSC-041",
     "doors": "NSC-018",
     "doorway-crossing-state": "NSC-020",
     "dungeon-encounter-content-authoring": "NSC-030",

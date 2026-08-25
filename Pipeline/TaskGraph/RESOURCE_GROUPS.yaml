@@ -75,7 +75,8 @@
         "world-visual-foundation",
         "isometric-tilemap-visual-layer",
         "world-sprite-prefab-sorting",
-        "visual-simulation-continuity"
+        "visual-simulation-continuity",
+        "door-visual-affordance-feedback"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -94,20 +95,23 @@
         "NSC-026",
         "NSC-038",
         "NSC-039",
-        "NSC-040"
+        "NSC-040",
+        "NSC-041"
       ]
     },
     {
       "reconciliation_keys": [
         "door-close-lock-break-lifecycle",
         "door-open-interaction",
-        "doorway-crossing-state"
+        "doorway-crossing-state",
+        "door-visual-affordance-feedback"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
       "work_ids": [
         "NSC-021",
         "NSC-019",
-        "NSC-020"
+        "NSC-020",
+        "NSC-041"
       ]
     },
     {
@@ -143,7 +147,8 @@
         "isometric-tilemap-visual-layer",
         "world-sprite-prefab-sorting",
         "visual-simulation-continuity",
-        "door-open-interaction"
+        "door-open-interaction",
+        "door-visual-affordance-feedback"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -153,7 +158,8 @@
         "NSC-038",
         "NSC-039",
         "NSC-040",
-        "NSC-019"
+        "NSC-019",
+        "NSC-041"
       ]
     }
   ]

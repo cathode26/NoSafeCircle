@@ -1,0 +1,104 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-041",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Door Visual Affordance, Hover, and Selection Feedback",
+  "reconciliation_key": "door-visual-affordance-feedback",
+  "kind": "implementation",
+  "type": "gameplay_feedback",
+  "execution_scope": "single_agent",
+  "execution_reason": "The work is a cohesive feedback layer around the already-owned NSC-019 door interaction: make the door visually identifiable, align hover feedback with the real clickable region, and expose accepted-selection/approach feedback without changing door movement/timer ownership.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The human-observed problem is specific and testable: the current placeholder door reads as a white wall, provides no hover affordance, and gives insufficient confirmation that a door click was accepted.",
+  "parent": "NSC-018",
+  "depends_on": [
+    "NSC-019"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractionFeedback.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Section 3 — Player Experience Success Criteria; human runtime observation",
+      "requirement": "The sealed door is visually distinguishable from the surrounding wall at normal gameplay camera distance so the player can identify it as an interactive door rather than an undifferentiated wall segment."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Section 3 — Player Experience Success Criteria; approved UX feedback decision",
+      "requirement": "When the pointer is over the door region that can actually accept the initial interaction click, the door provides an obvious hover highlight; leaving that clickable region removes hover feedback unless a stronger selected/approach state is active."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Section 2 — Open Sealed Door; approved UX feedback decision",
+      "requirement": "After a valid door click is accepted, the door provides persistent selected/approach feedback so cursor drift does not make the player wonder whether the command was accepted; feedback transitions appropriately when automatic timing begins."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Section 2 — Setbacks; GDD input-shutdown/reset ownership",
+      "requirement": "Door hover/selection/approach feedback clears or returns to the correct floor-initial/open state when the interaction is cancelled, interrupted, completed, suspended, or reset."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Section 5 — Runtime Implementation / Player Movement ownership",
+      "requirement": "Feedback and hit/readability logic do not introduce a second independent screen-to-world projection path; the clickable/hovered door region stays aligned with the same production door-selection semantics consumed by NSC-019."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Section 3 — Player Experience Success Criteria",
+      "requirement": "Human validation confirms a first-time player can identify which object is the door, knows where to click without guessing, and understands that clicking sends the wizard to it and the automatic opening timer still needs five uninterrupted seconds."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Unity Validation Agent role; approved UX feedback decision",
+      "requirement": "Unity validation drives the production camera/pointer path onto and off representative parts of the visible door and proves hover highlighting agrees with the region that actually accepts the initial door click."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Unity Validation Agent role; Section 2 — Open Sealed Door",
+      "requirement": "Unity validation proves accepted-selection/approach feedback persists through normal cursor drift, transitions when automatic timing begins, and clears correctly on cancel, damage, completion, suspend, and reset."
+    }
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-039 — World-Space SpriteRenderer Prefab and Sorting Foundation",
+      "requirement": "When the final world-space SpriteRenderer door representation is integrated, preserve NSC-041 hover/selection semantics and clickable-region alignment while adopting the shared isometric prefab/sorting convention; visual asset replacement must not redefine simulation behavior."
+    }
+  ],
+  "gdd_evidence": [
+    {
+      "reference": "Section 3 — Player Experience Success Criteria",
+      "requirement": "A first-time player understands that clicking sends the wizard to the door and reaching it is not enough — the automatic timer still requires five uninterrupted seconds; accurate target selection is required only on the initial click."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "Human runtime validation after NSC-019 implementation found the current prototype door visually indistinguishable from a white wall and lacking hover/accepted-command feedback. NSC-041 owns that readability/affordance problem; it must not redesign NSC-019 movement, timing, cancellation, or input ownership.",
+  "repository_state_at_bootstrap": "partial",
+  "repository_evidence_at_bootstrap": [
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "evidence_type": "scene",
+      "observation": "Human runtime validation observed that the current door reads as a white wall segment, making the interactive click region difficult to identify without feedback."
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "evidence_type": "test",
+      "observation": "NSC-019 includes production-camera click-selection coverage at the visible door center, but that test does not establish hover affordance, selected-state feedback, or first-time-player readability."
+    }
+  ],
+  "provenance": {
+    "origin": "human_scope_correction",
+    "source_task_id": "NSC-019",
+    "source_task_revision_before_move": 2,
+    "reason": "Human runtime validation separated interaction correctness from missing visual affordance/readability and approved moving the latter into a dedicated follow-up task."
+  }
+}

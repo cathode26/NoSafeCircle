@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-019",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Cursor-Targeted Door Opening (Click-to-Approach, Arm's-Reach Auto-Timer, Interruption)",
   "reconciliation_key": "door-open-interaction",
@@ -66,27 +66,23 @@
   ],
   "completion_gates": [
     {
-      "reference": "Section 3 — Player Experience Success Criteria",
-      "requirement": "Validate that a first-time player understands reaching the door alone is insufficient and that the automatic five-second timer must complete uninterrupted.",
-      "gate_id": "VAL-001"
+      "gate_id": "VAL-001",
+      "reference": "Section 2 — Open Sealed Door; Section 3 — Door and Pursuit Rules",
+      "requirement": "Unity validation proves the behavioral interaction flow: an initial sealed-door click selects the door through Player Movement's shared pointer target, automatic approach begins, real arrival/range starts the five-second timer without a sustained hold, cursor drift after selection does not cancel the request, and successful completion opens the door and releases the pending interaction."
     },
     {
-      "reference": "Section 4 — Unity Validation Agent row; Example Game-Specific Agent Task",
-      "requirement": "Validate cursor-targeted door range and cursor-drift behavior: drift after selection does not cancel, while damage/moving away during timing does.",
-      "gate_id": "VAL-002"
-    },
-    {
-      "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "A first-time player understands that clicking a door sends the wizard to it, and that reaching the door is not enough — the automatic opening timer still requires five safe, uninterrupted seconds.",
-      "gate_id": "VAL-003"
-    },
-    {
-      "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "Door interaction requires accurate cursor target selection only on the initial click; the wizard's automatic approach, the timer's automatic start on arrival, and tolerance of normal cursor drift after selection are all readable to a first-time player.",
-      "gate_id": "VAL-004"
+      "gate_id": "VAL-002",
+      "reference": "Section 2 — Setbacks; GDD input-shutdown/reset ownership",
+      "requirement": "Unity validation proves interruption and ownership behavior: damage, a replacing movement command, moving away once timing has begun, gameplay suspension, and authorized reset cancel or reset the owned door attempt as specified, including any door-issued movement destination."
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-041 — Door Visual Affordance, Hover, and Selection Feedback",
+      "requirement": "NSC-041 owns the human-facing visual-readability obligation previously mixed into NSC-019 delivery: the sealed door must be visually distinguishable from the surrounding wall, the actually clickable door region must provide obvious pointer-hover feedback, an accepted door command must provide persistent selection/approach feedback, and first-time-player validation must demonstrate that the player can identify where to click and understand the click -> approach -> automatic five-second opening flow without guessing."
+    }
+  ],
   "gdd_evidence": [
     {
       "reference": "Section 2 — Player Actions and Systems, 'Open Sealed Door'",
@@ -97,10 +93,6 @@
       "requirement": "A sealed door is a cursor-targeted interactable; clicking issues a combined approach-and-interact request; after selection, cursor drift does not cancel the request or timer."
     },
     {
-      "reference": "Section 3 — Player Experience Success Criteria",
-      "requirement": "A first-time player understands that clicking sends the wizard to the door and reaching it is not enough — the automatic timer still requires five uninterrupted seconds; accurate target selection is required only on the initial click."
-    },
-    {
       "reference": "Section 5 — Runtime Implementation / Player Movement ownership",
       "requirement": "Movement, cursor-aimed spells, and Door/Interaction consume the shared world-space pointer target exposed by Player Movement rather than independently projecting screen coordinates; runtime input is routed through Unity Input System/Input Actions rather than direct hardware polling."
     }
@@ -108,7 +100,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "NSC-003 now provides the Player/PointerPosition and Player/MoveToCursor actions plus the shared world-space pointer target. NSC-019 consumes that existing input path through Player Movement and does not add a distinct door-select binding unless implementation evidence proves one is required.",
+  "notes": "NSC-003 now provides the Player/PointerPosition and Player/MoveToCursor actions plus the shared world-space pointer target. NSC-019 consumes that existing input path through Player Movement and does not add a distinct door-select binding unless implementation evidence proves one is required. Human-facing door identification, hover/selection affordance, and first-time-player readability were moved to NSC-041 after human runtime validation showed that the placeholder white-wall door made click targeting ambiguous even though NSC-019 interaction behavior was covered by automated tests.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
