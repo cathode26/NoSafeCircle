@@ -368,18 +368,23 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(controller.TryBeginDoorApproach(door.SelectionPoint));
             Assert.IsTrue(movement.HasActiveDestination);
 
-            const int maxFrames = 600;
+            // PlayerMovement advances from Time.deltaTime, so a rendered-frame limit is not a
+            // valid elapsed-time bound in fast batchmode runs: hundreds of frames can execute
+            // before enough simulated game time has passed to travel the required distance.
+            const float maxElapsedSeconds = 3f;
+            var elapsedSeconds = 0f;
             var frames = 0;
-            while (movement.HasActiveDestination && frames < maxFrames)
+            while (movement.HasActiveDestination && elapsedSeconds < maxElapsedSeconds)
             {
                 yield return null;
+                elapsedSeconds += Time.deltaTime;
                 frames++;
             }
 
-            Assert.Less(frames, maxFrames,
+            Assert.IsFalse(movement.HasActiveDestination,
                 "The wizard must actually arrive at the door's interaction position via real " +
-                "CharacterController movement within a bounded number of frames.");
-            Assert.IsFalse(movement.HasActiveDestination);
+                $"CharacterController movement within {maxElapsedSeconds:F1} seconds of simulated " +
+                $"game time (elapsed={elapsedSeconds:F3}s, renderedFrames={frames}).");
             Assert.IsTrue(controller.IsInteracting,
                 "Arriving via real physics-driven approach movement (through the actual trigger " +
                 "OnTriggerEnter path) must start the automatic opening timer.");
