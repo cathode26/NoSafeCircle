@@ -1,0 +1,24 @@
+NSC-038 Human Validation
+Task: NSC-038 - Isometric Tilemap Architectural Visual Layer
+Validated commit: 54d53e2304576d6bc236c7a188e6ae8cc21bd174
+Validated tree: 2b177cc82da8c98f60e6d143d38ed63222835922
+Reviewer: cathode26
+Recorded UTC: 2026-08-25T01:48:23Z
+
+Manual Unity validation:
+- Generated the canonical DoorPrototype scene through the production scene-builder workflow.
+- Inspected the generated isometric architectural visual layer in Unity.
+- Confirmed the floor Tilemap visually aligns with the gameplay floor.
+- Confirmed the left and right wall Tilemap visuals align with their gameplay wall geometry.
+- Confirmed no severe visual offset or z-fighting issue was apparent.
+- Confirmed the existing player, door, and fixed-isometric camera presentation remained coherent.
+
+Automated validation:
+- Unity 6000.1.8f1 EditMode suite DoorPrototypeSceneBuilderTests passed 23/23 tests.
+- Floor and wall effective-world-space alignment tests passed.
+- Persistent architectural Tile isolation tests passed.
+- Transient architectural object cleanup tests passed.
+- Canonical-scene non-mutation test seam regression passed.
+- Authoritative clean runner reported an unchanged Git tree.
+
+Decision: APPROVED

@@ -1,0 +1,100 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "079c959b41f363ffceeb3acde2e1796e95466f8a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "isometric_visual_layer_builder"
+    },
+    {
+      "blob_sha": "da65d40b3f5617e69eba4e8c0df3f55c690c4001",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "role": "completion_gate_tests"
+    },
+    {
+      "blob_sha": "5306788d3724b333ee698426934a33ddaa2bd86a",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "committed_scene_integration"
+    },
+    {
+      "blob_sha": "74ddd5746516d26b86eb5681fd9444cfeddc495b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset",
+      "role": "persistent_floor_tile_asset"
+    },
+    {
+      "blob_sha": "5fc68936face63aae721eaac733f8fb449d8c88e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset.meta",
+      "role": "persistent_floor_tile_identity"
+    },
+    {
+      "blob_sha": "96c79af1611110550e1e5ada175391a7b636936e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
+      "role": "persistent_wall_tile_asset"
+    },
+    {
+      "blob_sha": "65ead0649659abf282a97ef04771cb7f17fb194c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset.meta",
+      "role": "persistent_wall_tile_identity"
+    },
+    {
+      "blob_sha": "135661248cd62a5e9ef8d450dce4cf4fb78f88ec",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ArchitecturalBorderTile.asset",
+      "role": "persistent_architectural_border_tile_asset"
+    },
+    {
+      "blob_sha": "8e543af816b2fe18b2be8cc6b6b76f911f0ca723",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ArchitecturalBorderTile.asset.meta",
+      "role": "persistent_architectural_border_tile_identity"
+    }
+  ],
+  "delivery": {
+    "base_commit": "6fe90cf96fef3d44ddacdc89d690fdc144b2808c",
+    "candidate_commit": "cef7a61136fc96af1408e8383f606eb90a711082",
+    "integrated_commit": "54d53e2304576d6bc236c7a188e6ae8cc21bd174",
+    "integrated_tree": "2b177cc82da8c98f60e6d143d38ed63222835922"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "f91110b3ccb21d1683c124754057818a70d019a4",
+          "path": "Pipeline/TaskGraph/evidence/NSC-038/artifacts/DoorPrototypeSceneBuilderTests-54d53e230457.xml"
+        },
+        {
+          "blob_sha": "00422e2ffbf4d86e59aa2262acf9410c91cf8b44",
+          "path": "Pipeline/TaskGraph/evidence/NSC-038/artifacts/DoorPrototypeSceneBuilderTests-54d53e230457.log"
+        },
+        {
+          "blob_sha": "e81d132dc1988047fd2b0219c0a1e1d79b5f511c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-038/artifacts/HumanValidation-54d53e230457.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative Unity EditMode validation passed 23/23 tests, including effective world-space floor and per-wall visual/gameplay alignment. Human Unity inspection approved the generated architectural presentation.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Approved after production scene generation, automated Unity validation, and manual visual inspection of the isometric architectural layer.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-038-54d53e230457",
+  "record_type": "delivery",
+  "recorded_at": "2026-08-25T01:48:37Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-038.yaml",
+    "revision": 3,
+    "sha256": "38b23fd329f5c08ccc64cc633f5f644ec58f4eaaa8eb38dbe4993d8424c87c05"
+  },
+  "task_id": "NSC-038",
+  "validated_state": {
+    "commit": "54d53e2304576d6bc236c7a188e6ae8cc21bd174",
+    "tree": "2b177cc82da8c98f60e6d143d38ed63222835922"
+  }
+}

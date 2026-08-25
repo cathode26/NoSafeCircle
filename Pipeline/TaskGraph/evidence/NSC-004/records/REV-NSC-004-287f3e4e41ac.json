@@ -1,0 +1,111 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "b217d4118860bdacdb6a1c971cd42baa5cdad50d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+      "role": "player_health_owner"
+    },
+    {
+      "blob_sha": "3f3ee79ca1da682313dc909acfa6d5e656f54c6a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealthUI.cs",
+      "role": "continuous_health_feedback"
+    },
+    {
+      "blob_sha": "079c959b41f363ffceeb3acde2e1796e95466f8a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "scene_builder_wiring"
+    },
+    {
+      "blob_sha": "1068fcad2a7fe59c5e1997650fa37b0c96897c93",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerHealthPlayModeTests.cs",
+      "role": "health_completion_gate_tests"
+    },
+    {
+      "blob_sha": "da65d40b3f5617e69eba4e8c0df3f55c690c4001",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "role": "health_ui_builder_tests"
+    },
+    {
+      "blob_sha": "5306788d3724b333ee698426934a33ddaa2bd86a",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "fe06e99ad76f3602366840ccb4bcba5998cc6fb9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/DoorPrototypeEditMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "6e5d2d2800774e018e79d814d7381f3b94d610b2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/DoorPrototypeEditMode-287f3e4e41ac.log"
+        },
+        {
+          "blob_sha": "68694bb3ad665bd32cd931672d8b925bfe4368d9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/DoorPrototypePlayMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "2c119fa0a029e1eb37047b62af01ef7cd6e95212",
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/DoorPrototypePlayMode-287f3e4e41ac.log"
+        },
+        {
+          "blob_sha": "52f4115143a1b414a3c83371769cea71102646f9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/HumanValidation-287f3e4e41ac.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "At the shared-scene revalidation state, the complete Door Prototype EditMode suite passed 25/25 and PlayMode suite passed 55/55. Manual Play Mode review confirmed the health indicator still visibly responds to debug damage in the integrated scene.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "68694bb3ad665bd32cd931672d8b925bfe4368d9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/DoorPrototypePlayMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "2c119fa0a029e1eb37047b62af01ef7cd6e95212",
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/DoorPrototypePlayMode-287f3e4e41ac.log"
+        },
+        {
+          "blob_sha": "52f4115143a1b414a3c83371769cea71102646f9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-004/artifacts/HumanValidation-287f3e4e41ac.txt"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "The complete Door Prototype PlayMode suite passed 55/55 and manual review confirmed health/damage feedback remains readable after the shared scene/builder change.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Approved after automated health regressions and manual readable health/damage feedback review.",
+    "required": true
+  },
+  "record_id": "REV-NSC-004-287f3e4e41ac",
+  "record_type": "revalidation",
+  "recorded_at": "2026-08-25T02:50:12Z",
+  "revalidation": {
+    "basis_record_id": "DEL-NSC-004-a8d215c01213",
+    "reason_type": "code_change",
+    "summary": "Revalidates NSC-004 after NSC-038 legitimately changed the shared DoorPrototypeSceneBuilder, builder regression tests, and canonical scene while preserving Player Health behavior and feedback."
+  },
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-004.yaml",
+    "revision": 2,
+    "sha256": "f993da8dd3aca03c67a0e679f8345534151fdb98fcdd250b5861aad8838f1f07"
+  },
+  "task_id": "NSC-004",
+  "validated_state": {
+    "commit": "287f3e4e41acbbbe1be2663c68c5bc72e3f1b62d",
+    "tree": "08120fff11037e334c4b8ddaa6e0139218ded575"
+  }
+}
