@@ -18,6 +18,12 @@ Then read the detailed GitHub Issue coordination guide:
 
 `Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md`
 
+**If the human asks to sync, reconcile, or update GitHub Issues from current TaskGraph states**, read and follow this before modifying any Issue:
+
+`Docs/AI-Pipeline/TASKGRAPH_GITHUB_ISSUE_STATE_SYNC.md`
+
+A short request such as **"Sync TaskGraph states to the GitHub Issues"** is sufficient. The sync is one-way: current committed TaskGraph state is authoritative and GitHub only mirrors it. Existing matching Issues must be checked whether open or closed, and a current `needs_testing` state must replace an older `conformant` mirror even on an Issue whose historical implementation orchestration is already closed. Pure state sync does not reopen/close or assign/unassign Issues.
+
 A generic task-picking instruction may select one of two bounded orchestrator work types:
 
 - **fresh implementation work** against a suitable `not_delivered` concrete executable contract;
