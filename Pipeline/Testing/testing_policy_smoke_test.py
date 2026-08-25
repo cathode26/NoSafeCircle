@@ -94,6 +94,22 @@ def main() -> int:
     require(runner, r"failed\s+-ne\s+0", "Runner does not reject failed tests")
     require(runner, r"result\s+-ne\s+\"Passed\"", "Runner does not reject a non-Passed result")
 
+    manifest_start = runner.find('$manifestPath = Join-Path $artifactDirectory "validation-manifest.json"')
+    final_success = runner.find('Write-Host "VALIDATION PASSED:')
+    failed_check = runner.find('if ($failed -ne 0)')
+    passed_check = runner.find('if ($result -ne "Passed")')
+    if not (failed_check < passed_check < manifest_start < final_success):
+        raise AssertionError("Runner does not publish the manifest only after all result success checks")
+    for fact in ("preHead", "preTree", "postHead", "postTree", "TestPlatform", "TestFilter",
+                 "result", "total", "passed", "failed", "skipped", "xmlHash", "logHash"):
+        require(runner[manifest_start:final_success], rf"\${fact}\b", f"Manifest does not include deterministic fact {fact}")
+    require(runner, r"Get-FileHash.+xmlPath.+SHA256", "Runner does not hash the XML artifact")
+    require(runner, r"Get-FileHash.+logPath.+SHA256", "Runner does not hash the log artifact")
+    require(runner, r"UTF8Encoding\(\$false\)", "Runner does not explicitly write UTF-8 without BOM")
+    require(runner, r"manifestTemporaryPath.+Guid.+FileStream.+Flush\(\$true\).+File\]::Move\(\$manifestTemporaryPath, \$manifestPath\)",
+            "Runner does not atomically publish a flushed unique temporary manifest")
+    require(runner, r'Write-Host "Validation manifest: \$manifestPath"', "Runner does not print the validation manifest path")
+
     forbidden = r"(?im)^\s*(?:&\s*)?git(?:\.exe)?\b[^\r\n]*\b(?:restore|reset|clean)\b"
     if re.search(forbidden, runner):
         raise AssertionError("Runner contains automatic Git restore/reset/clean behavior")

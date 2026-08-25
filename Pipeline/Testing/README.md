@@ -26,10 +26,19 @@ Using `powershell.exe -NoProfile -ExecutionPolicy Bypass -File` prevents a local
 
 The runner waits for the exact Unity process to finish, captures that process's exit code, and then waits for a short bounded period for the XML result to become visible. It still performs the post-run HEAD, tree, and status checks when Unity fails or XML is absent. The runner fails if Unity changes HEAD or leaves any working-tree change, even when all assertions pass. It never restores or hides the changes, and it preserves the unique temporary artifact directory on every result.
 
+Only after Unity exits zero, the XML is well formed and Passed with zero failures, and every post-run Git safety check passes, the runner atomically publishes `validation-manifest.json` beside the XML and log. A successful run prints its full host path, for example:
+
+```text
+Validation manifest: C:\Users\Name\AppData\Local\Temp\NoSafeCircle-UnityTests-...\validation-manifest.json
+VALIDATION PASSED: assertions passed and the repository remained clean.
+```
+
+The strict manifest records the tested commit/tree, clean-before/after facts, Unity invocation metadata, result counts, and the relative paths, byte sizes, and SHA-256 values of its XML/log artifacts. It is machine-readable validation fact, not a claim that those tests prove any task gate and not a claim of conformance.
+
 These safeguards improve test execution but do not establish that Stage 1 is complete.
 
 ## Artifacts and later evidence
 
-XML results and the Unity log are initially written to a unique operating-system temporary directory outside the repository. This prevents the evidence mechanism itself from dirtying the checkout and preserves failed-run diagnostics for human inspection.
+XML results and the Unity log are initially written to a unique operating-system temporary directory outside the repository. They remain the underlying evidence artifacts; the manifest identifies and verifies them but does not replace them. This prevents the evidence mechanism itself from dirtying the checkout and preserves failed-run diagnostics for human inspection. Failed validation runs do not publish a completed-looking validation manifest.
 
 A later, separately reviewed Phase 3 workflow may select an XML artifact, copy it into the approved evidence location, and commit it as part of a record bound to the exact tested Git objects. This runner does not perform that copy, create a Phase 3 record, or imply that the artifact is sufficient evidence by itself.

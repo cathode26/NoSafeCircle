@@ -37,6 +37,15 @@ The Implementer has `repository_read`, `repository_search`, and `repository_writ
 
 ## Exact approved new files
 
+**Migration/operator note: Do not scaffold absent files just to make them tracked.** Select the flag from the path state:
+
+| Path state | Flag |
+| --- | --- |
+| existing tracked regular production file | `--implementation-path` |
+| absent exact production file | `--new-implementation-path` |
+| existing tracked regular test file | `--test-path` |
+| absent exact test file | `--new-test-path` |
+
 Existing tracked files retain the backward-compatible repeatable flags `--implementation-path` and `--test-path`. Exact absent files use repeatable `--new-implementation-path` and `--new-test-path`. Normal mode requires at least one implementation path and one test path across each role's existing/new pair; either role may use only existing files, only new files, or a mixture.
 
 New authority is one exact repository-relative file path, never its parent directory. Preflight requires a canonical path whose suffix is not `.meta` in any casing, that is absent and untracked, nonignored, collision-free under conservative case-insensitive comparison, underneath the repository root, and whose existing ordinary parent ancestry contains no symlink. Except for the repository root, the parent must also be a Git tree in the captured source commit; an empty source-only directory grants no authority. Existing flags require both tracked identity and regular-file type. Implementation/test paths and their implicit sidecars must be disjoint. Missing directories are never created.
@@ -49,6 +58,8 @@ guid: <sha256("NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + casefolded POSIX pat
 ```
 
 Snapshots record HEAD, exact index bytes, tracked/untracked identity, entry type, and regular-file SHA-256. This prevents a later role from changing an earlier role's untracked new file or a pipeline sidecar. Candidate and diagnostic patches contain the ordinary binary/full-index tracked diff followed in stable path order by `git diff --no-index -- /dev/null <new-file>` fragments for approved new files and sidecars. Nothing is staged. A review-ready candidate must pass `git apply --check` against the unchanged captured baseline.
+
+For an approved candidate, the human applies `candidate.patch` normally; it creates both the approved new file and its deterministic `.meta` sidecar. Do not create or regenerate the sidecar separately. The sidecar is pipeline-owned and is never a model write path.
 
 Result compatibility fields `requested_implementation_paths` and `requested_test_paths` remain the sorted total authority. Additive fields are `requested_existing_implementation_paths`, `requested_new_implementation_paths`, `requested_existing_test_paths`, `requested_new_test_paths`, and `pipeline_generated_paths`. Role actual-path fields contain model-authored changes and exclude sidecars; `final_actual_changed_paths` includes the complete candidate surface.
 
