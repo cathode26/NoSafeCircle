@@ -63,6 +63,20 @@ The strict manifest records the tested commit/tree, clean-before/after facts, Un
 
 These safeguards improve test execution but do not establish that Stage 1 is complete.
 
+## Windows operator-command lessons
+
+For human copy/paste instructions around the runner, prefer one-line invocations or argument arrays rather than multi-line PowerShell continuation backticks. This avoids formatting-dependent paste failures in Windows PowerShell 5.1.
+
+When wrapping native Git or PowerShell child processes in an operator block, check `$LASTEXITCODE` explicitly. Silent-success commands such as `git merge-base --is-ancestor` cannot be treated as booleans by examining stdout.
+
+Authoritative validation should be the last validation step after the implementation commit has been integrated onto the current mainline. Rebasing after a successful run changes the tested commit/tree and therefore requires a fresh authoritative manifest.
+
+See the broader retry/closeout guidance:
+
+```text
+Docs/AI-Pipeline/TASK_ITERATION_CLOSEOUT_PLAYBOOK.md
+```
+
 ## Artifacts and later evidence
 
 XML results and the Unity log are initially written to a unique operating-system temporary directory outside the repository. They remain the underlying evidence artifacts; the manifest identifies and verifies them but does not replace them. This prevents the evidence mechanism itself from dirtying the checkout and preserves failed-run diagnostics for human inspection. Failed validation runs do not publish a completed-looking validation manifest.

@@ -115,6 +115,39 @@ under the same safeguards. New untracked files beneath that generated root are r
 
 This is intentionally repo-local configuration, not a general claim that every Unity change beneath those paths is meaningless. Snapshot state and task-preserve authority take precedence over cleanup classification.
 
+## Retry discipline after a stopped command
+
+Do not infer workspace state from where a PowerShell script appeared to stop. During NSC-039, follow-up commands were prepared from the assumption that a failed script had not written anything, but later inspection showed the on-disk source was already in a newer state. After every stopped edit/build/cleanup command, re-read the truth from disk before the next mutation:
+
+```powershell
+git status --short --untracked-files=all
+git diff --name-status
+```
+
+Then inspect the exact source block or asset that the next command intends to modify. This is especially important after brittle exact-text replacement commands: once a source method has evolved, do not keep issuing scripts written for an older version of that method.
+
+When a tracked Unity/editor path looks dirty but is suspected to be stat-only or line-ending churn, prove the exact path has no normalized Git content change before restoring it:
+
+```powershell
+$Path = "ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json"
+git diff --quiet HEAD -- $Path
+if ($LASTEXITCODE -eq 0) {
+    git restore --source=HEAD --worktree -- $Path
+}
+```
+
+Do not broaden this into a directory restore. Exact-path cleanup is part of the safety boundary.
+
+## PowerShell copy/paste guidance
+
+Human-facing operator blocks should prefer commands that do not depend on PowerShell line-continuation backticks. NSC-039 repeatedly lost time to long pasted blocks where continuation formatting did not survive cleanly. Prefer one-line commands or argument arrays/splatting for long invocations. Also remember that native Git commands communicate success through `$LASTEXITCODE`; do not use silent stdout as a boolean for commands such as `git merge-base --is-ancestor`.
+
+The broader command/retry postmortem and closeout patterns are documented in:
+
+```text
+Docs/AI-Pipeline/TASK_ITERATION_CLOSEOUT_PLAYBOOK.md
+```
+
 ## Testing the helper
 
 The deterministic smoke test uses a temporary Git repository and does not touch the real game checkout:

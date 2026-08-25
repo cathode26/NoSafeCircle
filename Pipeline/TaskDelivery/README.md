@@ -98,6 +98,54 @@ python Pipeline/TaskGraph/record_delivery.py 'C:\...\NSC-###-delivery-spec.json'
 
 Copy that printed command instead of reconstructing quoting. Then follow `record_delivery.py`'s exact `STAGE`, `VALIDATE DRAFT`, `CHECK`, `COMMIT`, and `VERIFY AFTER COMMIT` instructions. Do not use `git add .` or `git add -A`. TaskDelivery itself performs none of those actions and does not claim conformance.
 
+## Closeout ordering learned from NSC-039
+
+Before authoritative validation, fetch and integrate current `origin/main`. A validation manifest binds the exact tested commit and tree; if the implementation is rebased after validation, the manifest is stale even when the source diff looks identical. The reliable order is:
+
+```text
+commit implementation -> fetch/integrate current main -> verify TaskGraph loads -> authoritative clean Unity validation -> TaskDelivery draft/finalize -> record_delivery -> evidence commit
+```
+
+If a new task contract was added while the implementation branch was in progress, verify the persistent TaskGraph before drafting delivery evidence. NSC-039 was temporarily blocked because a concurrently-created task file existed without matching TaskGraph ID-map/resource metadata. A useful check is:
+
+```powershell
+python Pipeline/TaskGraph/taskcontrol.py state NSC-039 --json
+```
+
+`not_delivered` is acceptable before evidence exists; graph/schema/ID-map validation failure is not.
+
+A successful authoritative runner can still leave a Windows/Unity file-stat marker that `git status` later reports, especially the code-coverage settings path. Do not rerun Unity immediately. First determine whether the exact path has a real normalized content change:
+
+```powershell
+$Path = "ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json"
+git diff --quiet HEAD -- $Path
+if ($LASTEXITCODE -eq 0) {
+    git restore --source=HEAD --worktree -- $Path
+}
+```
+
+Only exact, proven stat-only churn should be restored. Any real content difference requires diagnosis.
+
+## Immutable Unity logs and staged whitespace checking
+
+Manifest-bound XML/log files are evidence bytes. Do not edit a copied Unity log to make `git diff --cached --check` happy; changing it invalidates the hash recorded in the delivery package.
+
+NSC-039 produced a valid staged package whose raw Unity log contained Unity-generated trailing spaces. The safe handling pattern was:
+
+1. stage exactly the files printed by `record_delivery.py`;
+2. run `validate_draft_evidence.py` and require `DRAFT EVIDENCE: VALID`;
+3. if full `git diff --cached --check` fails **only** on the exact manifest-bound `.log`, preserve the log unchanged;
+4. run a scoped whitespace check on the structured/human-authored evidence, for example `git diff --cached --check -- <record> <xml> <human-validation>`;
+5. inspect the staged stat and commit only the exact task evidence paths.
+
+This exception applies only to immutable machine evidence already validated by `validate_draft_evidence.py`. It is not permission to ignore whitespace failures in source files, delivery records, XML, human-authored evidence, or unrelated staged paths.
+
+For the broader PowerShell and retry postmortem, see:
+
+```text
+Docs/AI-Pipeline/TASK_ITERATION_CLOSEOUT_PLAYBOOK.md
+```
+
 ## Multiple manifests
 
 Repeat `--validation-manifest`, for example:
