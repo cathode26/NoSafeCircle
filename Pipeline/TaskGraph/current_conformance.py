@@ -163,7 +163,6 @@ def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") ->
     invalid = _validate_basis_graph(repo, records)
     current_contract_hash = semantic_json_sha256(repo.read(head, task_path))
     current_revision = task.get("contract_revision")
-    current_canon_hash = canonical_text_sha256(repo.read(head, CANON_PATH))
     current_gate_ids = _current_gate_ids(task)
     conformant: list[CommittedRecord] = []
     replan: list[CommittedRecord] = []
@@ -233,7 +232,7 @@ def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") ->
         if (not approval["required"] and approval["decision"] != "not_required"):
             invalid.append(_finding("human_approval_contradictory", "Non-required approval must use not_required.", record))
             continue
-        if changed_surface or canon["path"] != CANON_PATH or canon["sha256"] != current_canon_hash:
+        if changed_surface or canon["path"] != CANON_PATH:
             stale.append(record)
             continue
         conformant.append(record)
@@ -248,11 +247,11 @@ def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") ->
                 (_finding("multiple_maximal_current_records", f"Multiple maximal current-valid records: {ids}."),), dirty)
         selected = maximal[0]
         return ConformanceState(task_id, title, "conformant", head, head_tree, selected.record_id,
-            (_finding("current_record_selected", "Record is valid for current contract, canon, surfaces, gates, and artifacts.", selected),), dirty)
+            (_finding("current_record_selected", "Record is valid for the current task contract, conformance surfaces, gates, artifacts, and its recorded canon provenance.", selected),), dirty)
     for state_name, candidates, code, message in (
         ("needs_replan", replan, "contract_changed", "Current contract revision or semantic hash differs from prior evidence."),
         ("needs_human", human, "human_approval_missing", "Required human approval is missing."),
-        ("needs_revalidation", stale, "evidence_stale", "Prior evidence exists but is not current for HEAD."),
+        ("needs_testing", stale, "evidence_stale", "Prior evidence exists, but current HEAD changed a tracked surface or lineage; the previously completed task may need testing again."),
     ):
         if candidates:
             maximal = _maximal(repo, candidates)

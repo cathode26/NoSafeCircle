@@ -11,6 +11,7 @@ from unittest.mock import patch
 from persistent_work_graph import PersistentWorkGraphError, load_persistent_work_graph
 from taskcontrol import (
     advisory_ready_tasks,
+    build_parser,
     command_authorize,
     command_ready,
     command_show,
@@ -90,6 +91,7 @@ def main() -> int:
         assert "NSC-003  conformant" in states_output
         assert "not_delivered" in states_output
         assert "Conformant means current committed evidence proves the task contract at HEAD." in states_output
+        assert "needs_testing means prior evidence exists but later tracked changes may require retesting." in states_output
         assert "These states do not establish dependency readiness or execution authorization." in states_output
 
         output = StringIO()
@@ -113,6 +115,10 @@ def main() -> int:
                 "title": graph.tasks_by_id["NSC-003"]["title"],
             }
         ]
+
+        parsed = build_parser().parse_args(["states", "--state", "needs_testing"])
+        assert parsed.command == "states"
+        assert parsed.state_filter == "needs_testing"
 
         movement_path = root / "Tasks" / "NSC-003.yaml"
         movement = json.loads(movement_path.read_text(encoding="utf-8"))

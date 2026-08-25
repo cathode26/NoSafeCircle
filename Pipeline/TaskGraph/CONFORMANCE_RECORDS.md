@@ -111,8 +111,10 @@ Derived state precedence is:
 4. `conformant`
 5. `needs_replan`
 6. `needs_human`
-7. `needs_revalidation`
+7. `needs_testing`
 8. `not_delivered`
+
+`needs_testing` means prior committed evidence exists, but current `HEAD` changed a tracked conformance surface or validated lineage. It is previously completed/evidenced work that may need another testing/revalidation pass; it is not fresh implementation work.
 
 ## Commands
 

@@ -117,7 +117,7 @@ def scenario_progression(root: Path) -> None:
     expect(root, "conformant")
     write(root, SURFACE, "version two\n")
     changed = commit(root, "surface change")
-    expect(root, "needs_revalidation")
+    expect(root, "needs_testing")
     changed_tree = run(root, "git", "rev-parse", "HEAD^{tree}")
     add_record(root, record(root, f"REV-{TASK_ID}-001", changed, changed_tree, record_type="revalidation", basis=delivery_id))
     expect(root, "conformant")
@@ -134,7 +134,7 @@ def scenario_baseline_progression(root: Path) -> None:
     expect(root, "conformant")
     write(root, SURFACE, "version two\n")
     changed = commit(root, "surface change after baseline")
-    expect(root, "needs_revalidation")
+    expect(root, "needs_testing")
     changed_tree = run(root, "git", "rev-parse", "HEAD^{tree}")
     add_record(root, record(root, f"REV-{TASK_ID}-001", changed, changed_tree,
                             record_type="revalidation", basis=baseline_id))
@@ -169,8 +169,10 @@ def scenario_stale_and_replan(root: Path, change: str) -> None:
     validated, tree = initialize(root)
     add_record(root, record(root, f"DEL-{TASK_ID}-001", validated, tree))
     if change == "gdd":
+        # The record keeps the historical whole-GDD hash as audit provenance, but an
+        # unrelated later canon edit does not invalidate an unchanged task contract.
         write(root, CANON_PATH, "# Changed canon\n")
-        expected = "needs_revalidation"
+        expected = "conformant"
     else:
         changed_task = task(revision=2)
         changed_task["title"] = "Changed contract"
@@ -197,6 +199,9 @@ def scenario_invalid(root: Path, corruption: str) -> None:
         value["delivery"]["integrated_tree"] = "0" * 40
     elif corruption == "wrong_blob":
         value["conformance_surfaces"][0]["blob_sha"] = "0" * 40
+    elif corruption == "wrong_canon_hash":
+        # Historical canon provenance still has to match the validated commit.
+        value["canon"]["sha256"] = "0" * 64
     add_record(root, value)
     if corruption == "altered_artifact":
         write(root, ARTIFACT, "altered\n")
@@ -221,7 +226,7 @@ def scenario_non_ancestral(root: Path) -> None:
     value = record(root, f"DEL-{TASK_ID}-001", other, other_tree)
     run(root, "git", "checkout", "main")
     add_record(root, value)
-    expect(root, "needs_revalidation")
+    expect(root, "needs_testing")
 
 
 def scenario_ambiguous(root: Path) -> None:
@@ -258,7 +263,7 @@ def main() -> int:
     fresh(scenario_stale_and_replan, "gdd")
     fresh(scenario_stale_and_replan, "contract")
     fresh(scenario_human)
-    for corruption in ("missing_gate", "wrong_tree", "wrong_blob", "altered_artifact", "modified_record"):
+    for corruption in ("missing_gate", "wrong_tree", "wrong_blob", "wrong_canon_hash", "altered_artifact", "modified_record"):
         fresh(scenario_invalid, corruption)
     fresh(scenario_non_ancestral)
     fresh(scenario_ambiguous)
