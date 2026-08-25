@@ -4,7 +4,7 @@
 >
 > For real gameplay work, update this file when a task becomes authoritatively delivered/conformant/merged, or when that completion materially changes the next human-selected work frontier.
 
-Last updated: 2026-08-24, after the ExecutionCrew contract-locality hardening slice was implemented and regression-proven.
+Last updated: 2026-08-25, after the NSC-038 implementation/evidence merge and the task-start plus validation-manifest/TaskDelivery closeout acceleration merge reached `main`.
 
 ## Current Snapshot
 
@@ -13,15 +13,15 @@ The repository is now past the original architecture-correction bootstrap and in
 1. **game delivery**, using bounded task contracts, ExecutionCrew where appropriate, Unity/human validation, committed evidence, and TaskGraph-derived conformance;
 2. **pipeline development**, where the next architectural slice is D1B.2 independent decomposition verification/refinement.
 
-Remote `main` observed immediately before this documentation update:
+Merged `main` observed for this documentation update:
 
 ```text
-870c5d97dacbeca5c39729aff092cb7dba489ce6
+0e64f17991d07c3b49491573ad486794b1576316
 ```
 
-That remote state includes the merged NSC-028 encounter-admission-cap work. The contract-locality hardening described below is committed with the ExecutionCrew implementation slice that contains this documentation update.
+That state includes the NSC-038 implementation and evidence merge, ExecutionCrew exact-approved-new-file task-start acceleration, and clean-validation-manifest plus human-reviewed TaskDelivery closeout acceleration.
 
-Current validated TaskGraph shape after the NSC-026 decomposition:
+Current validated TaskGraph shape at the observed merged `main`:
 
 ```text
 Task contract schema:  2.0
@@ -30,7 +30,7 @@ Superseded contracts:  0
 Cancelled contracts:   0
 Parent edges:           39
 Dependency edges:       63
-Resource groups:        8
+Resource groups:        9
 Project requirements:   17
 Parent hierarchy:       connected + acyclic
 Dependency graph:       acyclic
@@ -134,7 +134,7 @@ ad88d76e1ac4eb736285a9888a5e33e2b0915d29
 
 The current `main` package blobs still match the delivery record. This documentation file is not an NSC-024 conformance surface and does not change the task contract or GDD canon.
 
-### World-visual work is now unblocked
+### World-foundation sequence
 
 The immediate world-foundation dependency chain is:
 
@@ -148,34 +148,55 @@ NSC-039 — World-Space SpriteRenderer Prefab and Sorting Foundation
 NSC-040 — Visual/Simulation Separation and Continuous-Scene Integration
 ```
 
-NSC-024 is now implemented and evidenced, so **NSC-038 is the human-selected next world task**.
+NSC-024 and NSC-038 are now implemented, evidenced, and merged. The world-foundation frontier has therefore moved to NSC-039, subject to current TaskGraph inspection and explicit human selection.
 
-### NSC-038 — next targeted world task
+### NSC-038 — COMPLETED, EVIDENCED, AND MERGED
 
-`NSC-038` is an active, concrete, `single_agent` implementation contract.
+`NSC-038` remains an active revision-3, concrete, `single_agent` implementation contract depending on NSC-024. It delivered the reusable isometric Tilemap architectural layer while preserving separate gameplay ownership.
 
-It owns the first reusable isometric Tilemap architectural layer for floors, walls, and repeatable architectural tiles while preserving gameplay ownership outside the visual Tilemap.
+Committed delivery record:
 
-Its accepted production resources are:
+```text
+Pipeline/TaskGraph/evidence/NSC-038/records/DEL-NSC-038-54d53e230457.json
+```
+
+Implementation/integrated commit and validated tree:
+
+```text
+commit 54d53e2304576d6bc236c7a188e6ae8cc21bd174
+tree   2b177cc82da8c98f60e6d143d38ed63222835922
+```
+
+`VAL-001` records authoritative EditMode validation passing 23/23 plus human Unity visual inspection of the generated architectural presentation. NSC-038 was merged to `main` through:
+
+```text
+199d77fb5bbb61a29ac501ff04eab7b0210070be
+```
+
+Shared DoorPrototype evidence was subsequently revalidated after NSC-038 in:
+
+```text
+890b050118053085356c9a816965931d995485d3
+```
+
+At current HEAD, `taskcontrol state NSC-038 --json` selects `DEL-NSC-038-54d53e230457` and reports:
+
+```text
+state: conformant
+```
+
+### NSC-039 — next world-foundation human-selected candidate
+
+`NSC-039 — World-Space SpriteRenderer Prefab and Sorting Foundation` is active, concrete, `single_agent`, and depends on NSC-038. Its current exclusive-resource scope is:
 
 ```text
 Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
 Assets/Scenes/DoorPrototype.unity
 ```
 
-Its completion gate requires representative Unity validation of Tilemap floor/wall cells against separately defined gameplay geometry so coordinate, scale, or offset desynchronization is detected.
+It owns reusable world-space SpriteRenderer prefab and isometric sorting conventions for independently sorted or interactive world objects. `VAL-001` requires representative Unity validation of their ordering relative to Tilemap geometry and to one another at different isometric positions.
 
-The likely bounded ExecutionCrew write split is:
-
-```text
-Implementer:
-Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
-
-Unity Test Author:
-Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs
-```
-
-Do not give an LLM direct authority to hand-edit serialized Unity scene YAML merely because the task names the canonical scene as a resource. Prefer builder/test changes first; after human review of the candidate patch, use Unity to regenerate/inspect the canonical scene and preserve the resulting intended serialized asset changes.
+At current HEAD, `taskcontrol state NSC-039 --json` reports `not_delivered` with no committed evidence. This is current conformance state only: readiness policy remains unavailable, authorization remains denied, and NSC-039 requires human selection before any run.
 
 ### Five-room content remains separate
 
@@ -430,7 +451,7 @@ The provider-neutral AgentRuntime foundation is integrated and includes:
 
 Provider output remains a claim until independently checked by Git, Unity, schema, TaskGraph, or human validation as appropriate.
 
-### Minimum Production ExecutionCrew — integrated and contract-locality hardened
+### Minimum Production ExecutionCrew — integrated, contract-locality hardened, and exact-new-file accelerated
 
 The current bounded ExecutionCrew supports one human-selected eligible implementation task and one human-selected provider.
 
@@ -521,9 +542,12 @@ ExecutionCrew:
 - never commits, pushes, or merges automatically;
 - never treats Validator pass as Unity execution evidence;
 - never grants conformance or completion;
-- uses explicit implementation/test write paths;
+- accepts existing tracked role paths through `--implementation-path` / `--test-path` and exact approved absent paths through `--new-implementation-path` / `--new-test-path`;
+- grants exact-new authority to one named file only, never a directory, helper, or design decision; its parent must already be a committed Git tree and ExecutionCrew never creates missing directories;
+- no longer normally requires scaffold-only commits merely to make an approved absent exact file writable;
+- keeps providers outside `.meta` authority and generates deterministic pipeline-owned `.meta` sidecars for successfully created new files under `Assets/`; approved new files and sidecars are included in `candidate.patch`;
 - keeps implementation and test scopes disjoint;
-- reruns the locality audit on human-review retries, including retries of historical pre-auditor runs;
+- reruns the locality audit on human-review retries, including retries of historical pre-auditor runs, and preserves/reconciles prior existing/new classifications without allowing feedback to widen scope;
 - emits human-readable review instructions and immutable run artifacts.
 
 ### Standalone clone / Compose rule
@@ -557,7 +581,38 @@ Core rules remain:
 - human Play Mode/visual review remains required where source assertions cannot prove quality;
 - Unity-generated incidental project-setting rewrites should be inspected and restored when unrelated.
 
+A successful authoritative clean runner now atomically emits `validation-manifest.json` beside its XML and Unity log. The manifest binds the exact clean commit/tree, Unity invocation metadata, test counts, and exact XML/log hashes and sizes; it is deterministic validation fact, not proof that a task gate or conformance claim is true. Keep the manifest, XML, and log unchanged through TaskDelivery finalization and `record_delivery.py` evidence packaging.
+
 For scene-builder work such as NSC-038, prefer an in-memory builder test path before regenerating the canonical scene through Unity for human inspection.
+
+### Validation Manifest and TaskDelivery Closeout
+
+The normal human-reviewed closeout path is now:
+
+```text
+committed implementation
+    -> clean Unity validation
+    -> validation-manifest.json
+    -> TaskDelivery draft
+    -> human truth review
+    -> TaskDelivery finalize
+    -> record_delivery.py
+    -> staged-evidence validation
+    -> evidence commit
+    -> TaskGraph-derived conformance
+```
+
+The validation manifest supplies machine-readable deterministic facts. `Pipeline/TaskDelivery/generate_delivery_spec.py` is the clerical bridge from one or more manifests bound to the same exact commit/tree into a `record_delivery.py`-compatible spec; it is not conformance authority. Draft may infer the base from a review-ready `crew_result.json` or accept explicit `--base-commit`, while review/spec outputs remain external and no-overwrite. Finalize fails closed on stale, tampered, removed, duplicated, unbound, or Git/task-drifted evidence.
+
+Humans still decide selected conformance surfaces, semantic roles, evidence-to-gate mappings, gate notes, whether human validation actually occurred and is truthful, and approval. `record_delivery.py`, validation of the staged evidence, committed TaskGraph evidence, and TaskGraph-derived current conformance remain authoritative. TaskDelivery does not run Unity, stage, commit, push, merge, create evidence, derive readiness, or authorize dispatch.
+
+Operational references:
+
+```text
+Pipeline/TaskDelivery/README.md
+Pipeline/Testing/README.md
+Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md
+```
 
 ## Production GDD and RAG
 
@@ -610,6 +665,8 @@ Architecture Correction Phase 3A — evidence-derived current conformance
 Architecture Correction Phase 3B — first real production baseline
 Provider-neutral AgentRuntime       — integrated
 Minimum Production ExecutionCrew   — integrated
+ExecutionCrew exact-new-file start — merged/live
+Validation Manifest + TaskDelivery — merged/live human-reviewed closeout bridge
 Stage D1A                          — deterministic decomposition contracts/planning
 Stage D1B.1                        — live read-only model-backed decomposition proposals
 ```
@@ -635,7 +692,7 @@ TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED
 Authorization:
 
 ```powershell
-python Pipeline/TaskGraph/taskcontrol.py authorize NSC-038
+python Pipeline/TaskGraph/taskcontrol.py authorize NSC-039
 ```
 
 Expected result is a policy denial with:
@@ -644,7 +701,7 @@ Expected result is a policy denial with:
 reason_code: evidence_derived_dispatch_policy_not_enabled
 ```
 
-Human selection is therefore still required before starting NSC-038 even though NSC-024 is conformant and the graph dependency is now satisfied in practical terms.
+NSC-039 may be considered as the next world-lane candidate because NSC-038 is currently conformant, but TaskGraph reports NSC-039 itself as `not_delivered`. Human selection is still required; neither dependency conformance nor graph order makes NSC-039 automatically ready or authorized.
 
 ## Source-of-Truth Boundaries
 
@@ -711,22 +768,23 @@ Implement these only when a concrete production boundary justifies them.
 
 ### Human-selected game lane
 
-Start from current `main` and create/use an isolated NSC-038 task clone.
+Start from current `main`; if a human selects the world lane, create/use an isolated NSC-039 task clone.
 
 Before running ExecutionCrew:
 
 1. run `taskcontrol.py validate`;
-2. inspect `taskcontrol.py show NSC-038` and `state NSC-038 --json`;
+2. inspect `taskcontrol.py show NSC-039`, `state NSC-038 --json`, and `state NSC-039 --json`;
 3. inspect current repository reality and the GDD;
-4. confirm exact implementation/test write paths;
-5. keep serialized scene publication under Unity/human review rather than giving the worker broad scene-YAML write authority.
+4. read the real-task runbook plus ExecutionCrew and TaskDelivery READMEs;
+5. confirm exact existing/new implementation/test write paths;
+6. keep serialized scene publication under Unity/human review rather than giving the worker broad scene-YAML write authority.
 
 Target world sequence:
 
 ```text
-NSC-038 Tilemap architectural visual layer
+NSC-038 Tilemap architectural visual layer — conformant/merged
     ↓
-NSC-039 SpriteRenderer prefab/sorting foundation
+NSC-039 SpriteRenderer prefab/sorting foundation — next human-selected candidate
     ↓
 NSC-040 visual/simulation continuity
     ↓
@@ -746,11 +804,13 @@ Read, in order:
 1. `Docs/AI-Pipeline/START_HERE.md`;
 2. this file;
 3. `Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md` for real implementation work;
-4. `Pipeline/TaskDecomposition/README.md` for decomposition work;
-5. the selected `Tasks/NSC-###.yaml`;
-6. `Docs/GDD/No_Safe_Circle_GDD.md`;
-7. `Docs/Engineering/UNITY_TESTING_POLICY.md` when Unity/tests/scenes are involved;
-8. inspect actual Git/TaskGraph state before acting.
+4. `Pipeline/ExecutionCrew/README.md` for real task-start scope and review;
+5. `Pipeline/TaskDelivery/README.md` for real task closeout;
+6. `Pipeline/TaskDecomposition/README.md` for decomposition work;
+7. the selected `Tasks/NSC-###.yaml`;
+8. `Docs/GDD/No_Safe_Circle_GDD.md`;
+9. `Docs/Engineering/UNITY_TESTING_POLICY.md` when Unity/tests/scenes are involved;
+10. inspect actual Git/TaskGraph state before acting.
 
 For the immediate world lane, inspect:
 
@@ -760,7 +820,8 @@ Tasks/NSC-026.yaml
 Tasks/NSC-038.yaml
 Tasks/NSC-039.yaml
 Tasks/NSC-040.yaml
-Pipeline/TaskGraph/evidence/NSC-024/
+Pipeline/TaskGraph/evidence/NSC-038/
+Pipeline/TaskGraph/evidence/NSC-038/records/DEL-NSC-038-54d53e230457.json
 Packages/manifest.json
 Packages/packages-lock.json
 ```
@@ -771,7 +832,10 @@ The expected immediate continuation is:
 
 ```text
 NSC-024 package prerequisite — completed/evidenced/merged
-NSC-038 Tilemap foundation      — next human-selected implementation task
+NSC-038 Tilemap foundation      — completed/evidenced/merged; currently conformant
+NSC-039 SpriteRenderer foundation — next world-foundation human-selected candidate; currently not_delivered
 ```
+
+That candidate remains subject to fresh `taskcontrol` state, current repository/GDD reality, and explicit human selection; readiness and authorization are not implied.
 
 A new window should be able to resume from the repository without the prior chat transcript.
