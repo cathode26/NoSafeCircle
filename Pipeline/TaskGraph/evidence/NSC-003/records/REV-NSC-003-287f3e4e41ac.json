@@ -1,0 +1,102 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "b51fd16ee474a0b3945ca01f198cfb741534b7b2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
+      "role": "player_movement_owner"
+    },
+    {
+      "blob_sha": "ff22ae44a08a4e25be2eb96ab5bc49b30e500ea3",
+      "path": "Assets/InputSystem_Actions.inputactions",
+      "role": "movement_input_actions"
+    },
+    {
+      "blob_sha": "079c959b41f363ffceeb3acde2e1796e95466f8a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "scene_builder_wiring"
+    },
+    {
+      "blob_sha": "7d83fe6eb01c524d2326fd6caf3e1c186b092908",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerMovementPlayModeTests.cs",
+      "role": "completion_gate_tests"
+    },
+    {
+      "blob_sha": "5306788d3724b333ee698426934a33ddaa2bd86a",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "fe06e99ad76f3602366840ccb4bcba5998cc6fb9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/DoorPrototypeEditMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "6e5d2d2800774e018e79d814d7381f3b94d610b2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/DoorPrototypeEditMode-287f3e4e41ac.log"
+        },
+        {
+          "blob_sha": "68694bb3ad665bd32cd931672d8b925bfe4368d9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/DoorPrototypePlayMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "2c119fa0a029e1eb37047b62af01ef7cd6e95212",
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/DoorPrototypePlayMode-287f3e4e41ac.log"
+        },
+        {
+          "blob_sha": "d26d7e9ca2b5407f3ac67613fb51b4c98567312b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/HumanValidation-287f3e4e41ac.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "At the shared-scene revalidation state, the complete Door Prototype EditMode suite passed 25/25 and PlayMode suite passed 55/55. Manual Play Mode review confirmed click/hold movement and that a blocked wall destination does not leave persistent micro-movement.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "68694bb3ad665bd32cd931672d8b925bfe4368d9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/DoorPrototypePlayMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "2c119fa0a029e1eb37047b62af01ef7cd6e95212",
+          "path": "Pipeline/TaskGraph/evidence/NSC-003/artifacts/DoorPrototypePlayMode-287f3e4e41ac.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "The complete Door Prototype PlayMode suite passed 55/55 at the revalidation state, including PlayerMovement suspend/re-enable coverage.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Approved after automated movement regression coverage and manual Play Mode movement/obstruction review.",
+    "required": true
+  },
+  "record_id": "REV-NSC-003-287f3e4e41ac",
+  "record_type": "revalidation",
+  "recorded_at": "2026-08-25T02:50:12Z",
+  "revalidation": {
+    "basis_record_id": "REV-NSC-003-07cfa21c3c69",
+    "reason_type": "code_change",
+    "summary": "Revalidates NSC-003 after NSC-038 legitimately changed the shared DoorPrototypeSceneBuilder and canonical DoorPrototype scene while preserving Player Movement behavior and scene integration."
+  },
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-003.yaml",
+    "revision": 2,
+    "sha256": "64d53af0ec7a47d518dcaa3f6968201272122484ee95b045b87edc12060aed66"
+  },
+  "task_id": "NSC-003",
+  "validated_state": {
+    "commit": "287f3e4e41acbbbe1be2663c68c5bc72e3f1b62d",
+    "tree": "08120fff11037e334c4b8ddaa6e0139218ded575"
+  }
+}

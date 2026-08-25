@@ -1,0 +1,108 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "e700430a7f33e7c2d19d2c40e42b9c1e1dc54ed2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "role": "player_mana_owner"
+    },
+    {
+      "blob_sha": "1e57b77ee143ad8741cd921a93781c0ccf133577",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+      "role": "readable_denied_cast_feedback"
+    },
+    {
+      "blob_sha": "5e8e2c58ade24d780d48b2e9ca1710862c4f54d7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+      "role": "completion_gate_tests"
+    },
+    {
+      "blob_sha": "5306788d3724b333ee698426934a33ddaa2bd86a",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "68694bb3ad665bd32cd931672d8b925bfe4368d9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/DoorPrototypePlayMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "2c119fa0a029e1eb37047b62af01ef7cd6e95212",
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/DoorPrototypePlayMode-287f3e4e41ac.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "The complete Door Prototype PlayMode suite passed 55/55 at the shared scene revalidation state, preserving PlayerMana spend, reset, post-cast-delay, regeneration, and denied-spend coverage.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "68694bb3ad665bd32cd931672d8b925bfe4368d9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/DoorPrototypePlayMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "2c119fa0a029e1eb37047b62af01ef7cd6e95212",
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/DoorPrototypePlayMode-287f3e4e41ac.log"
+        },
+        {
+          "blob_sha": "6b795f25726e0ee08f7172b1334950df8389dab3",
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/HumanValidation-287f3e4e41ac.txt"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "The PlayMode suite passed 55/55 and manual review exhausted mana with the debug spend control and confirmed insufficient-mana feedback remained visible and readable.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "68694bb3ad665bd32cd931672d8b925bfe4368d9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/DoorPrototypePlayMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "2c119fa0a029e1eb37047b62af01ef7cd6e95212",
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/DoorPrototypePlayMode-287f3e4e41ac.log"
+        },
+        {
+          "blob_sha": "6b795f25726e0ee08f7172b1334950df8389dab3",
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/HumanValidation-287f3e4e41ac.txt"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Manual Play Mode review confirmed the integrated mana indicator still communicates low/empty mana and denied spend feedback after the NSC-038 scene integration.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Approved after automated PlayerMana regressions and manual low-mana/denied feedback review.",
+    "required": true
+  },
+  "record_id": "REV-NSC-005-287f3e4e41ac",
+  "record_type": "revalidation",
+  "recorded_at": "2026-08-25T02:50:12Z",
+  "revalidation": {
+    "basis_record_id": "DEL-NSC-005-7e69632bc567",
+    "reason_type": "code_change",
+    "summary": "Revalidates NSC-005 after NSC-038 legitimately changed the shared canonical DoorPrototype scene while preserving Player Mana ownership, reset behavior, and readable denied-mana feedback."
+  },
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-005.yaml",
+    "revision": 1,
+    "sha256": "1799a48d509b19ae56bbd845b1b584a362db46633e1c484d9b0a6a93d8f6e088"
+  },
+  "task_id": "NSC-005",
+  "validated_state": {
+    "commit": "287f3e4e41acbbbe1be2663c68c5bc72e3f1b62d",
+    "tree": "08120fff11037e334c4b8ddaa6e0139218ded575"
+  }
+}
