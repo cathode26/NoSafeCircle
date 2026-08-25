@@ -72,12 +72,25 @@ class RetryContext:
     provider: str
     implementation_paths: tuple[str, ...]
     test_paths: tuple[str, ...]
+    new_implementation_paths: tuple[str, ...]
+    new_test_paths: tuple[str, ...]
     candidate_bytes: bytes
     candidate_sha256: str
     candidate_paths: tuple[str, ...]
+    candidate_sidecars: tuple[str, ...]
     feedback_bytes: bytes
     feedback_text: str
     feedback_sha256: str
+
+@dataclass(frozen=True)
+class RolePathPlan:
+    existing_paths: tuple[str, ...]
+    new_paths: tuple[str, ...]
+    pipeline_generated_sidecars: tuple[str, ...]
+
+    @property
+    def requested_paths(self) -> tuple[str, ...]:
+        return tuple(sorted((*self.existing_paths, *self.new_paths)))
 
 class ProgressReporter:
     """Supplemental, non-authoritative operational telemetry for one crew run."""
@@ -295,6 +308,47 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
         result_tests = _requested_paths(prior["requested_test_paths"], field="requested_test_paths")
         if result_implementation != implementation_paths or result_tests != test_paths:
             raise CrewBlocked("prior requested scope does not match authoritative TaskExecution WriteBoundaries")
+    has_new_metadata = all(field in prior for field in (
+        "requested_existing_implementation_paths", "requested_new_implementation_paths",
+        "requested_existing_test_paths", "requested_new_test_paths",
+    ))
+    any_new_metadata = any(field in prior for field in (
+        "requested_existing_implementation_paths", "requested_new_implementation_paths",
+        "requested_existing_test_paths", "requested_new_test_paths",
+    ))
+    if any_new_metadata and not has_new_metadata:
+        raise CrewBlocked("prior crew_result.json has incomplete existing/new path metadata")
+    if has_new_metadata:
+        prior_existing_impl = tuple(_requested_paths(prior["requested_existing_implementation_paths"], field="requested_existing_implementation_paths")) if prior["requested_existing_implementation_paths"] else ()
+        prior_new_impl = tuple(_requested_paths(prior["requested_new_implementation_paths"], field="requested_new_implementation_paths")) if prior["requested_new_implementation_paths"] else ()
+        prior_existing_test = tuple(_requested_paths(prior["requested_existing_test_paths"], field="requested_existing_test_paths")) if prior["requested_existing_test_paths"] else ()
+        prior_new_test = tuple(_requested_paths(prior["requested_new_test_paths"], field="requested_new_test_paths")) if prior["requested_new_test_paths"] else ()
+        if tuple(sorted((*prior_existing_impl, *prior_new_impl))) != implementation_paths or tuple(sorted((*prior_existing_test, *prior_new_test))) != test_paths:
+            raise CrewBlocked("prior existing/new authority does not match authoritative TaskExecution WriteBoundaries")
+        authoritative_existing_impl = tuple(path for path in implementation_paths if _commit_path_kind(source, source_head, path) == "regular")
+        authoritative_new_impl = tuple(path for path in implementation_paths if _commit_path_kind(source, source_head, path) == "absent")
+        authoritative_existing_test = tuple(path for path in test_paths if _commit_path_kind(source, source_head, path) == "regular")
+        authoritative_new_test = tuple(path for path in test_paths if _commit_path_kind(source, source_head, path) == "absent")
+        classified = set((*authoritative_existing_impl, *authoritative_new_impl, *authoritative_existing_test, *authoritative_new_test))
+        unclassifiable = sorted(set((*implementation_paths, *test_paths)) - classified)
+        if unclassifiable:
+            raise CrewBlocked(f"prior role path is not a regular Git blob or absent at prior source HEAD: {unclassifiable[0]}")
+        if (prior_existing_impl != authoritative_existing_impl or prior_new_impl != authoritative_new_impl
+                or prior_existing_test != authoritative_existing_test or prior_new_test != authoritative_new_test):
+            raise CrewBlocked("prior existing/new path metadata does not match prior source HEAD")
+    else:
+        prior_existing_impl, prior_new_impl = implementation_paths, ()
+        prior_existing_test, prior_new_test = test_paths, ()
+    for path in (*prior_existing_impl, *prior_existing_test):
+        if _commit_path_kind(source, identity.head, path) != "regular":
+            raise CrewBlocked(f"prior-existing path is absent at current HEAD: {path}")
+    for path in (*prior_new_impl, *prior_new_test):
+        if _commit_path_kind(source, identity.head, path) == "other":
+            raise CrewBlocked(f"prior-new path is not a regular Git blob or absent at current HEAD: {path}")
+    new_implementation_paths = tuple(path for path in prior_new_impl if _commit_path_kind(source, identity.head, path) == "absent")
+    new_test_paths = tuple(path for path in prior_new_test if _commit_path_kind(source, identity.head, path) == "absent")
+    implementation_paths = tuple(sorted((*prior_existing_impl, *(path for path in prior_new_impl if _commit_path_kind(source, identity.head, path) == "regular"))))
+    test_paths = tuple(sorted((*prior_existing_test, *(path for path in prior_new_test if _commit_path_kind(source, identity.head, path) == "regular"))))
 
     candidate_path = _resolve_existing_under(
         prior_dir, prior_dir / "candidate.patch", field="prior candidate.patch"
@@ -312,10 +366,18 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
         if recorded_candidate_sha256 != candidate_sha256:
             raise CrewBlocked("prior candidate.patch SHA-256 does not match crew_result.json")
     candidate_paths = _requested_paths(prior.get("final_actual_changed_paths"), field="final_actual_changed_paths")
-    allowed_candidate_paths = set(implementation_paths) | set(test_paths)
+    candidate_sidecars = tuple(sorted(filter(None, (_sidecar(path) for path in (*prior_new_impl, *prior_new_test)))))
+    recorded_sidecars = prior.get("pipeline_generated_paths")
+    if recorded_sidecars is not None:
+        if not isinstance(recorded_sidecars, list) or any(not isinstance(path, str) for path in recorded_sidecars):
+            raise CrewBlocked("prior crew_result.json has invalid pipeline_generated_paths")
+        if tuple(sorted(recorded_sidecars)) != candidate_sidecars:
+            raise CrewBlocked("prior pipeline-generated paths do not match authoritative prior-new paths")
+    allowed_candidate_paths = set(implementation_paths) | set(new_implementation_paths) | set(test_paths) | set(new_test_paths) | set(candidate_sidecars)
     if not set(candidate_paths).issubset(allowed_candidate_paths):
-        raise CrewBlocked("prior candidate changed paths exceed inherited ExecutionCrew WriteBoundaries")
-
+        raise CrewBlocked("prior candidate changed paths exceed inherited ExecutionCrew WriteBoundaries and deterministic sidecar authority")
+    if set(candidate_sidecars) - set(candidate_paths):
+        raise CrewBlocked("prior candidate is missing a deterministic pipeline sidecar")
     feedback_candidate = feedback_file if feedback_file.is_absolute() else resolved_output_root / feedback_file
     feedback_path = _resolve_existing_under(
         resolved_output_root, feedback_candidate, field="human review feedback file"
@@ -350,9 +412,12 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
         provider=provider,
         implementation_paths=implementation_paths,
         test_paths=test_paths,
+        new_implementation_paths=new_implementation_paths,
+        new_test_paths=new_test_paths,
         candidate_bytes=candidate_bytes,
         candidate_sha256=candidate_sha256,
         candidate_paths=candidate_paths,
+        candidate_sidecars=candidate_sidecars,
         feedback_bytes=feedback_bytes,
         feedback_text=feedback_text,
         feedback_sha256=hashlib.sha256(feedback_bytes).hexdigest(),
@@ -406,53 +471,218 @@ def runtime_configuration(provider: str):
     return key, RuntimeConfiguration({key:{"provider":identifier,"models":{"low_cost":model,"standard":model,"high_reasoning":model}}})
 
 @dataclass(frozen=True)
+class EntryState:
+    kind: str
+    sha256: str | None
+    tracked: bool
+
+@dataclass(frozen=True)
 class Snapshot:
-    head: str; index: bytes; untracked: tuple[str, ...]; tracked: Mapping[str, str]
+    head: str; index: bytes; entries: Mapping[str, EntryState]
+
+    @property
+    def tracked(self) -> Mapping[str, str]:
+        return {path: entry.sha256 or "" for path, entry in self.entries.items() if entry.tracked and entry.kind == "regular"}
+
+    @property
+    def untracked(self) -> tuple[str, ...]:
+        return tuple(sorted(path for path, entry in self.entries.items() if not entry.tracked))
+
+def _entry_state(path: Path, *, tracked: bool) -> EntryState:
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        return EntryState("missing", None, tracked)
+    if stat.S_ISREG(mode):
+        return EntryState("regular", hashlib.sha256(path.read_bytes()).hexdigest(), tracked)
+    if stat.S_ISLNK(mode):
+        return EntryState("symlink", hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest(), tracked)
+    if stat.S_ISDIR(mode):
+        return EntryState("directory", None, tracked)
+    return EntryState("special", None, tracked)
 
 def snapshot(root: Path) -> Snapshot:
-    paths = [p.decode("utf-8", "surrogateescape") for p in git(root, "ls-files", "-z", text=False).stdout.split(b"\0") if p]
-    tracked = {p: hashlib.sha256((root / p).read_bytes()).hexdigest() for p in paths if (root / p).is_file()}
+    tracked_paths = [p.decode("utf-8", "surrogateescape") for p in git(root, "ls-files", "-z", text=False).stdout.split(b"\0") if p]
     index = git(root, "ls-files", "--stage", "-z", text=False).stdout
-    untracked = tuple(sorted(p.decode("utf-8", "surrogateescape") for p in git(root, "ls-files", "--others", "-z", text=False).stdout.split(b"\0") if p))
-    return Snapshot(git(root, "rev-parse", "HEAD").stdout.strip(), index, untracked, tracked)
+    # --directory is intentionally omitted: every ignored/unignored filesystem entry is named.
+    untracked_paths = [p.decode("utf-8", "surrogateescape") for p in git(
+        root, "ls-files", "--others", "--ignored", "--exclude-standard", "-z", text=False
+    ).stdout.split(b"\0") if p]
+    ordinary_untracked = [p.decode("utf-8", "surrogateescape") for p in git(
+        root, "ls-files", "--others", "--exclude-standard", "-z", text=False
+    ).stdout.split(b"\0") if p]
+    entries: dict[str, EntryState] = {}
+    pending = [root]
+    while pending:
+        directory = pending.pop()
+        for child in os.scandir(directory):
+            if directory == root and child.name == ".git":
+                continue
+            relative = Path(child.path).relative_to(root).as_posix()
+            entries[relative] = _entry_state(Path(child.path), tracked=False)
+            if child.is_dir(follow_symlinks=False):
+                pending.append(Path(child.path))
+    entries.update({path: _entry_state(root / path, tracked=True) for path in tracked_paths})
+    for path in set(untracked_paths) | set(ordinary_untracked):
+        entries[path] = _entry_state(root / path, tracked=False)
+    return Snapshot(git(root, "rev-parse", "HEAD").stdout.strip(), index, entries)
 
 def incremental_check(before: Snapshot, after: Snapshot, invocation: AgentInvocationRequest, *, require_change: bool):
     reasons=[]
     if after.head != before.head: reasons.append("clone HEAD changed")
     if after.index != before.index: reasons.append("Git index changed")
-    for path in sorted(set(after.untracked)-set(before.untracked)): reasons.append(f"untracked file: {path}")
-    deleted=sorted(set(before.tracked)-set(after.tracked))
-    reasons += [f"tracked file deleted/renamed: {p}" for p in deleted]
-    actual=sorted(p for p in set(before.tracked)&set(after.tracked) if before.tracked[p] != after.tracked[p])
-    actual += sorted(set(after.tracked)-set(before.tracked))
-    actual=sorted(set(actual))
+    actual=sorted(path for path in set(before.entries) | set(after.entries)
+                  if before.entries.get(path) != after.entries.get(path))
     for path in actual:
-        if not invocation.is_path_writable(path): reasons.append(f"incremental changed path outside role WriteBoundaries: {path}")
-    if require_change and not actual: reasons.append("role made no required tracked-file modification")
+        before_entry, after_entry = before.entries.get(path), after.entries.get(path)
+        if not invocation.is_path_writable(path):
+            if before_entry is None and after_entry is not None and not after_entry.tracked:
+                reasons.append(f"untracked file: {path}")
+            else:
+                reasons.append(f"incremental changed path outside role WriteBoundaries: {path}")
+        elif after_entry is None:
+            reasons.append(f"approved path deleted: {path}")
+        elif after_entry.kind != "regular":
+            reasons.append(f"approved path is not a regular file: {path} ({after_entry.kind})")
+        elif before_entry is None and after_entry.tracked:
+            reasons.append(f"new approved path unexpectedly became tracked: {path}")
+    if require_change and not actual: reasons.append("role made no required file modification")
     return actual, reasons
 
 def changed_paths(baseline: Snapshot, final: Snapshot) -> list[str]:
     """Return tracked additions, deletions, and byte changes relative to one clone baseline."""
-    return sorted(path for path in set(baseline.tracked) | set(final.tracked)
-                  if baseline.tracked.get(path) != final.tracked.get(path))
+    return sorted(path for path in set(baseline.entries) | set(final.entries)
+                  if baseline.entries.get(path) != final.entries.get(path))
 
-def preflight_role_paths(baseline: Snapshot, implementation_paths: tuple[str, ...], test_paths: tuple[str, ...]) -> None:
-    def folded(path: str) -> tuple[str, ...]:
-        return tuple(part.casefold() for part in path.split("/"))
-    implementation_keys = [folded(path) for path in implementation_paths]
-    test_keys = [folded(path) for path in test_paths]
-    if len(set(implementation_keys)) != len(implementation_keys):
-        raise CrewBlocked("duplicate implementation role path")
-    if len(set(test_keys)) != len(test_keys):
-        raise CrewBlocked("duplicate test role path")
-    overlap = set(implementation_keys) & set(test_keys)
-    if overlap:
-        raise CrewBlocked("implementation and test role paths must be disjoint")
-    tracked_keys = {folded(path) for path in baseline.tracked}
-    for role, paths in (("implementation", implementation_paths), ("test", test_paths)):
-        for path in paths:
-            if folded(path) not in tracked_keys:
-                raise CrewBlocked(f"{role} role path must be an existing tracked file: {path}")
+def _folded(path: str) -> tuple[str, ...]:
+    return tuple(part.casefold() for part in path.split("/"))
+
+def _sidecar(path: str) -> str | None:
+    return f"{path}.meta" if path.startswith("Assets/") and not path.casefold().endswith(".meta") else None
+
+def _commit_path_kind(root: Path, head: str, path: str) -> str:
+    """Classify one exact path in a captured commit without consulting the worktree/index."""
+    result = git(root, "ls-tree", "-z", head, "--", path, text=False, check=False)
+    if result.returncode:
+        raise CrewBlocked(f"Git tree path could not be inspected at captured HEAD: {path}")
+    records = [record for record in result.stdout.split(b"\0") if record]
+    exact = []
+    for record in records:
+        metadata, separator, raw_path = record.partition(b"\t")
+        if separator and raw_path.decode("utf-8", "surrogateescape") == path:
+            exact.append(metadata.split())
+    if not exact:
+        return "absent"
+    if len(exact) != 1 or len(exact[0]) != 3:
+        return "other"
+    mode, object_type, _ = exact[0]
+    return "regular" if object_type == b"blob" and mode in (b"100644", b"100755") else "other"
+
+def _commit_parent_is_tree(root: Path, head: str, parent: str) -> bool:
+    if not parent or parent == ".":
+        return True
+    result = git(root, "cat-file", "-t", f"{head}:{parent}", check=False)
+    return result.returncode == 0 and result.stdout.strip() == "tree"
+
+def unity_meta_bytes(path: str) -> bytes:
+    normalized = "/".join(part.casefold() for part in path.split("/"))
+    digest = hashlib.sha256(b"NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + normalized.encode("utf-8")).hexdigest()[:32]
+    return f"fileFormatVersion: 2\nguid: {digest}\n".encode("ascii")
+
+def preflight_role_paths(root: Path, head: str, existing_implementation: tuple[str, ...],
+                         new_implementation: tuple[str, ...], existing_tests: tuple[str, ...],
+                         new_tests: tuple[str, ...]) -> tuple[RolePathPlan, RolePathPlan]:
+    groups = (("implementation", existing_implementation, new_implementation),
+              ("test", existing_tests, new_tests))
+    all_explicit: list[tuple[str, str, str]] = []
+    for role, existing, new in groups:
+        for kind, paths in (("existing", existing), ("new", new)):
+            for path in paths:
+                try: validate_repository_path(path, field=f"{role} {kind} path")
+                except ValueError as exc: raise CrewBlocked(str(exc)) from exc
+                all_explicit.append((role, kind, path))
+    sidecars = [(role, path, _sidecar(path)) for role, _, path in all_explicit if _ == "new"]
+    sidecars = [(role, path, sidecar) for role, path, sidecar in sidecars if sidecar is not None]
+    surfaces = [(role, kind, path) for role, kind, path in all_explicit] + [
+        (role, "sidecar", sidecar) for role, _, sidecar in sidecars
+    ]
+    keys: dict[tuple[str, ...], tuple[str, str, str]] = {}
+    for item in surfaces:
+        key = _folded(item[2])
+        if key in keys:
+            prior = keys[key]
+            if prior[0] != item[0]: raise CrewBlocked("implementation and test role paths must be disjoint, including sidecars")
+            raise CrewBlocked(f"duplicate or colliding {item[0]} role path: {item[2]}")
+        keys[key] = item
+    tracked_paths = [
+        item.decode("utf-8", "surrogateescape")
+        for item in git(root, "ls-files", "-z", text=False).stdout.split(b"\0") if item
+    ]
+    tracked_path_set = frozenset(tracked_paths)
+    tracked_by_key: dict[tuple[str, ...], list[str]] = {}
+    for tracked_path in tracked_paths:
+        tracked_by_key.setdefault(_folded(tracked_path), []).append(tracked_path)
+    root_resolved = root.resolve(strict=True)
+
+    def sibling_aliases(path: str) -> tuple[str, ...]:
+        target = root / path
+        parent = target.parent
+        try:
+            return tuple(
+                child.name for child in os.scandir(parent)
+                if child.name.casefold() == target.name.casefold() and child.name != target.name
+            )
+        except (FileNotFoundError, NotADirectoryError):
+            return ()
+
+    for role, kind, path in all_explicit:
+        key = _folded(path)
+        target = root / path
+        if kind == "existing":
+            try: mode = target.lstat().st_mode
+            except FileNotFoundError: mode = 0
+            if path not in tracked_path_set or not stat.S_ISREG(mode) or _commit_path_kind(root, head, path) != "regular":
+                raise CrewBlocked(f"{role} role path must be an existing tracked regular file: {path}")
+            if len(tracked_by_key.get(key, ())) != 1 or sibling_aliases(path):
+                raise CrewBlocked(f"{role} role path has a case-insensitive alias collision: {path}")
+            continue
+        if path.casefold().endswith(".meta"): raise CrewBlocked(f"new {role} path must not end in .meta: {path}")
+        if key in tracked_by_key: raise CrewBlocked(f"new {role} path is already tracked: {path}")
+        if _commit_path_kind(root, head, path) != "absent":
+            raise CrewBlocked(f"new {role} path is not absent from captured Git tree: {path}")
+        if os.path.lexists(target) or sibling_aliases(path): raise CrewBlocked(f"new {role} path already exists or has a case-insensitive sibling: {path}")
+        parent = target.parent
+        if not parent.exists() or not parent.is_dir(): raise CrewBlocked(f"new {role} path parent must be an existing ordinary directory: {path}")
+        parent_path = Path(path).parent.as_posix()
+        if not _commit_parent_is_tree(root, head, parent_path):
+            raise CrewBlocked(f"new {role} path parent must exist as a directory in the captured Git tree: {path}")
+        cursor = root
+        for part in Path(path).parts[:-1]:
+            cursor /= part
+            if cursor.is_symlink(): raise CrewBlocked(f"new {role} path parent ancestry must not contain a symlink: {path}")
+        try: resolved_parent = parent.resolve(strict=True)
+        except OSError as exc: raise CrewBlocked(f"new {role} path parent cannot be resolved: {path}") from exc
+        if not resolved_parent.is_relative_to(root_resolved):
+            raise CrewBlocked(f"new {role} path must resolve underneath repository root: {path}")
+        ignored = git(root, "check-ignore", "--no-index", "--quiet", "--", path, check=False)
+        if ignored.returncode == 0: raise CrewBlocked(f"new {role} path is ignored by Git: {path}")
+        if ignored.returncode not in (0, 1): raise CrewBlocked(f"Git ignore status could not be determined: {path}")
+    for role, _, sidecar in sidecars:
+        assert sidecar is not None
+        if _folded(sidecar) in tracked_by_key or os.path.lexists(root / sidecar) or sibling_aliases(sidecar):
+            raise CrewBlocked(f"generated sidecar path is not absent: {sidecar}")
+        if _commit_path_kind(root, head, sidecar) != "absent":
+            raise CrewBlocked(f"generated sidecar path is not absent from captured Git tree: {sidecar}")
+        ignored = git(root, "check-ignore", "--no-index", "--quiet", "--", sidecar, check=False)
+        if ignored.returncode == 0: raise CrewBlocked(f"generated sidecar path is ignored by Git: {sidecar}")
+    for _, _, path in all_explicit:
+        for _, kind2, other in all_explicit:
+            if path != other and _folded(other)[:len(_folded(path))] == _folded(path):
+                raise CrewBlocked(f"approved path may not be nested beneath another approved file path: {other}")
+    def plan(existing: tuple[str, ...], new: tuple[str, ...]) -> RolePathPlan:
+        generated = tuple(sorted(filter(None, (_sidecar(path) for path in new))))
+        return RolePathPlan(tuple(sorted(existing)), tuple(sorted(new)), generated)
+    return plan(existing_implementation, new_implementation), plan(existing_tests, new_tests)
 
 def validator_semantic_reasons(output: Mapping[str, Any], expected_ids: tuple[str, ...]) -> list[str]:
     results = output.get("criteria_results", [])
@@ -549,15 +779,38 @@ def source_revalidation(source: Path, identity: SourceIdentity):
     except (OSError, subprocess.CalledProcessError): reasons.append("source identity could not be revalidated")
     return reasons
 
-def full_patch(clone: Path, head: str) -> bytes:
-    return git(clone,"diff","--binary","--full-index","--no-ext-diff","--no-renames",head,text=False,check=False).stdout
+def _new_file_patch(clone: Path, path: str) -> bytes:
+    result = subprocess.run(
+        ("git", "-C", str(clone), "diff", "--no-index", "--binary", "--full-index", "--no-ext-diff",
+         "--", "/dev/null", path), stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
+    )
+    if result.returncode not in (0, 1):
+        raise CrewBlocked(f"could not construct new-file patch for {path}")
+    return result.stdout
+
+def full_patch(clone: Path, head: str, new_paths: tuple[str, ...] = ()) -> bytes:
+    tracked = git(clone,"diff","--binary","--full-index","--no-ext-diff","--no-renames",head,text=False,check=False).stdout
+    ordinary_diff_paths = set(diff_paths(clone, head))
+    return tracked + b"".join(_new_file_patch(clone, path) for path in sorted(new_paths)
+                                if path not in ordinary_diff_paths and _entry_state(clone/path, tracked=False).kind == "regular")
 
 def diff_paths(clone: Path, head: str) -> list[str]:
     raw = git(clone,"diff","--name-only","--no-ext-diff","--no-renames","-z",head,text=False,check=False).stdout
     return sorted(path.decode("utf-8", "surrogateescape") for path in raw.split(b"\0") if path)
 
-def paths_patch(clone: Path, head: str, paths: tuple[str, ...]) -> bytes:
-    return git(clone,"diff","--binary","--full-index","--no-ext-diff","--no-renames",head,"--",*paths,text=False,check=False).stdout
+def paths_patch(clone: Path, head: str, paths: tuple[str, ...], new_paths: tuple[str, ...] = ()) -> bytes:
+    existing = tuple(path for path in paths if path not in new_paths)
+    tracked = (git(clone,"diff","--binary","--full-index","--no-ext-diff","--no-renames",head,"--",*existing,text=False,check=False).stdout
+               if existing else b"")
+    return tracked + b"".join(_new_file_patch(clone, path) for path in sorted(new_paths)
+                                if _entry_state(clone/path, tracked=False).kind == "regular")
+
+def verify_patch_applies(source: Path, patch: bytes) -> None:
+    result = subprocess.run(("git", "-C", str(source), "apply", "--check", "--binary", "-"),
+                            input=patch, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if result.returncode:
+        detail = result.stderr.decode("utf-8", "replace").strip()
+        raise CrewBlocked(f"candidate patch does not apply cleanly to captured baseline: {detail}")
 
 def _git_apply_bytes(root: Path, patch_bytes: bytes, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
@@ -569,7 +822,8 @@ def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -
     # Seed only the disposable clone. baseline remains the clean current-source snapshot used
     # for the final full candidate; per-role snapshots are taken after this seed.
     expected_paths = sorted(retry.candidate_paths)
-    allowed = set(retry.implementation_paths) | set(retry.test_paths)
+    allowed = (set(retry.implementation_paths) | set(retry.new_implementation_paths)
+               | set(retry.test_paths) | set(retry.new_test_paths) | set(retry.candidate_sidecars))
     if not expected_paths or not set(expected_paths).issubset(allowed):
         raise CrewBlocked("prior candidate paths are invalid for inherited retry WriteBoundaries")
 
@@ -595,52 +849,48 @@ def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -
             raise CrewBlocked("prior candidate.patch passed --check but could not be seeded into the disposable clone")
         seeded = snapshot(clone)
         actual_paths = changed_paths(baseline, seeded)
-        if seeded.head != baseline.head or seeded.index != baseline.index or seeded.untracked != baseline.untracked:
-            raise CrewBlocked("seeding prior candidate.patch changed clone HEAD/index/untracked state")
+        if seeded.head != baseline.head or seeded.index != baseline.index:
+            raise CrewBlocked("seeding prior candidate.patch changed clone HEAD/index state")
         if actual_paths != expected_paths:
             raise CrewBlocked("seeded prior candidate paths do not match prior final_actual_changed_paths")
+        for path in expected_paths:
+            entry = seeded.entries.get(path)
+            if entry is None or entry.kind != "regular":
+                raise CrewBlocked(f"seeded prior candidate path is not a regular file: {path}")
         return "applied"
 
     # Candidate-owned paths changed after the prior run. The only safe historical compatibility case
     # is that the rejected candidate itself was committed exactly. Reconstruct that exact post-image
     # in this disposable clone, compare it to current committed source, then restore the clone.
-    reset_prior = git(clone, "reset", "--hard", retry.prior_source_head, check=False)
-    if reset_prior.returncode != 0:
-        raise CrewBlocked("prior candidate source HEAD could not be checked out for already-present verification")
-    prior_clean = snapshot(clone)
-    if (prior_clean.head != retry.prior_source_head
-            or prior_clean.untracked
-            or git(clone, "status", "--porcelain=v1", "--untracked-files=all").stdout):
-        raise CrewBlocked("prior candidate source reconstruction did not produce a clean disposable clone")
+    with tempfile.TemporaryDirectory(prefix="nsc-execution-crew-prior-") as temporary:
+        prior_clone = clone_exact(clone, retry.prior_source_head, Path(temporary))
+        prior_clean = snapshot(prior_clone)
+        if (prior_clean.head != retry.prior_source_head
+                or git(prior_clone, "status", "--porcelain=v1", "--untracked-files=all").stdout):
+            raise CrewBlocked("prior candidate source reconstruction did not produce a clean disposable clone")
+        prior_check = _git_apply_bytes(prior_clone, retry.candidate_bytes, "--check")
+        if prior_check.returncode != 0:
+            raise CrewBlocked("prior candidate.patch does not apply to its recorded source HEAD")
+        prior_apply = _git_apply_bytes(prior_clone, retry.candidate_bytes)
+        if prior_apply.returncode != 0:
+            raise CrewBlocked("prior candidate.patch could not reconstruct its recorded candidate post-image")
+        candidate_postimage = snapshot(prior_clone)
+        reconstructed_paths = changed_paths(prior_clean, candidate_postimage)
+        postimage_entries = {path:candidate_postimage.entries.get(path) for path in expected_paths}
 
-    prior_check = _git_apply_bytes(clone, retry.candidate_bytes, "--check")
-    if prior_check.returncode != 0:
-        git(clone, "reset", "--hard", current_head, check=False)
-        raise CrewBlocked("prior candidate.patch does not apply to its recorded source HEAD")
-    prior_apply = _git_apply_bytes(clone, retry.candidate_bytes)
-    if prior_apply.returncode != 0:
-        git(clone, "reset", "--hard", current_head, check=False)
-        raise CrewBlocked("prior candidate.patch could not reconstruct its recorded candidate post-image")
-
-    candidate_postimage = snapshot(clone)
-    reconstructed_paths = changed_paths(prior_clean, candidate_postimage)
-
-    current_comparison = git(
-        clone, "diff", "--quiet", "--ignore-cr-at-eol", current_head, "--", *expected_paths, check=False
-    )
-    if current_comparison.returncode not in (0, 1):
-        git(clone, "reset", "--hard", current_head, check=False)
-        raise CrewBlocked("current source could not be compared to the reconstructed prior candidate")
-
-    restore = git(clone, "reset", "--hard", current_head, check=False)
-    if restore.returncode != 0:
-        raise CrewBlocked("current disposable clone HEAD could not be restored after candidate verification")
-    restored = snapshot(clone)
-    if restored != baseline:
-        raise CrewBlocked("already-present candidate verification did not restore the disposable clone exactly")
+    if snapshot(clone) != baseline:
+        raise CrewBlocked("already-present candidate verification changed the current disposable clone")
     if reconstructed_paths != expected_paths:
         raise CrewBlocked("reconstructed prior candidate paths do not match prior final_actual_changed_paths")
-    if current_comparison.returncode != 0:
+    current_entries = {path:baseline.entries.get(path) for path in expected_paths}
+    equivalent = all(
+        postimage_entries[path] is not None
+        and current_entries[path] is not None
+        and postimage_entries[path].kind == current_entries[path].kind == "regular"
+        and postimage_entries[path].sha256 == current_entries[path].sha256
+        for path in expected_paths
+    )
+    if not equivalent:
         raise CrewBlocked("prior candidate.patch neither applies cleanly nor is already present at the current source HEAD")
     return "already_present"
 
@@ -659,14 +909,16 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
     raise CrewBlocked("provider must be claude or codex")
 
 def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provider_name: str|None=None,
-             implementation_paths: tuple[str,...]=(), test_paths: tuple[str,...]=(), run_id: str|None=None,
+             implementation_paths: tuple[str,...]=(), test_paths: tuple[str,...]=(),
+             new_implementation_paths: tuple[str,...]=(), new_test_paths: tuple[str,...]=(), run_id: str|None=None,
              retry_run_id: str|None=None, review_feedback_file: Path|None=None, host_output_root: str|None=None,
              provider_factory: ProviderFactory|None=None, _require_physical_read_only_source: bool=True,
              _persistent_work_graph_loader: Callable[[Path], PersistentWorkGraph]|None=None):
     started=time.monotonic()
     host_root_path = validate_host_output_root(host_output_root) if host_output_root is not None else None
     retry_mode = retry_run_id is not None
-    if retry_mode and any((task_id is not None, provider_name is not None, implementation_paths, test_paths)):
+    if retry_mode and any((task_id is not None, provider_name is not None, implementation_paths, test_paths,
+                           new_implementation_paths, new_test_paths)):
         raise CrewBlocked("retry mode inherits task, provider, and write paths; do not supply them explicitly")
     if not retry_mode and review_feedback_file is not None:
         raise CrewBlocked("--review-feedback-file is valid only with --retry-run")
@@ -697,12 +949,13 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         provider_name = retry_context.provider
         implementation_paths = retry_context.implementation_paths
         test_paths = retry_context.test_paths
+        new_implementation_paths = retry_context.new_implementation_paths
+        new_test_paths = retry_context.new_test_paths
     assert task_id is not None
     if not TASK_ID_RE.fullmatch(task_id): raise CrewBlocked("task ID must match NSC-###")
     if not isinstance(provider_name, str): raise CrewBlocked("provider is required")
-    if not implementation_paths: raise CrewBlocked("at least one --implementation-path is required")
-    if not test_paths: raise CrewBlocked("at least one --test-path is required for Stage 5B")
-    impl_bounds, test_bounds = WriteBoundaries(implementation_paths, test_paths), WriteBoundaries(test_paths, implementation_paths)
+    if not implementation_paths and not new_implementation_paths: raise CrewBlocked("at least one implementation path is required")
+    if not test_paths and not new_test_paths: raise CrewBlocked("at least one test path is required for Stage 5B")
     interval=heartbeat_interval()
     run_id=run_id or f"{task_id.lower()}-{time.strftime('%Y%m%dt%H%M%Sz',time.gmtime())}"
     if not RUN_ID_RE.fullmatch(run_id): raise CrewBlocked("run ID must be one conservative path component")
@@ -749,8 +1002,14 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     dependency_contracts=direct_dependency_contracts(task,tasks_by_id)
     dependent_contracts=direct_dependent_contracts(task_id,tasks_by_id)
     valid_task_ids=frozenset(tasks_by_id)
-    preflight_role_paths(snapshot(source_root), implementation_paths, test_paths)
-    role_records=[]; reasons=[]; impl_actual=set(); test_actual=set(); validator_status=None; attempts=0
+    impl_plan, test_plan = preflight_role_paths(
+        source_root, identity.head, implementation_paths, new_implementation_paths,
+        test_paths, new_test_paths,
+    )
+    implementation_paths, test_paths = impl_plan.requested_paths, test_plan.requested_paths
+    impl_bounds = WriteBoundaries(implementation_paths, test_paths)
+    test_bounds = WriteBoundaries(test_paths, implementation_paths)
+    role_records=[]; reasons=[]; impl_actual=set(); test_actual=set(); pipeline_generated=set(); validator_status=None; attempts=0
     latest_impl={}; latest_test={}; candidate_path=None; diagnostic_path=None; accepted_candidate=None
     contract_locality_status=None; contract_locality_audit_path=None; contract_locality_audit_host_path=None
     crew_status=None; final_paths: list[str]=[]
@@ -825,6 +1084,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             retry_seed_snapshot = None
             if retry_context is not None:
                 retry_seed_mode = seed_retry_candidate(clone, baseline_clone, retry_context)
+                if retry_seed_mode == "applied":
+                    pipeline_generated.update(retry_context.candidate_sidecars)
                 retry_seed_snapshot = snapshot(clone)
                 progress.emit(
                     "human_review_candidate_seeded",
@@ -842,20 +1103,31 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 repair_actual=set()
                 findings=None if attempt==1 else latest_validator.get("blocking_issues",[])
                 before=snapshot(clone)
-                inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=implementation_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
+                inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=impl_plan.existing_paths,new_implementation_paths=impl_plan.new_paths,pipeline_sidecars=impl_plan.pipeline_generated_sidecars,other_role_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
                 after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
                 output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
-                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
+                generated=[]
+                if not scope and not blockers:
+                    for new_path, sidecar in zip(impl_plan.new_paths, (_sidecar(path) for path in impl_plan.new_paths)):
+                        if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
+                            (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
+                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
                 (run_dir/f"role_results/implementer_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
                 progress.emit("scope_check_completed",f"Implementer {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="implementer",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
                 if blockers or scope: reasons += [*(f"implementer blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
-                impl_patch=paths_patch(clone,identity.head,implementation_paths).decode("utf-8","replace")
+                impl_new_surface=tuple(sorted((*impl_plan.new_paths, *impl_plan.pipeline_generated_sidecars)))
+                impl_patch=paths_patch(clone,identity.head,implementation_paths,impl_new_surface).decode("utf-8","replace")
                 before=snapshot(clone)
-                inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
+                inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_plan.existing_paths,new_test_paths=test_plan.new_paths,pipeline_sidecars=test_plan.pipeline_generated_sidecars,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
                 after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
                 output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
-                record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
+                generated=[]
+                if not scope and not blockers:
+                    for new_path, sidecar in zip(test_plan.new_paths, (_sidecar(path) for path in test_plan.new_paths)):
+                        if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
+                            (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
+                record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
                 (run_dir/f"role_results/test_author_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/test_author_{attempt}.json"); test_actual.update(actual); latest_test=output
                 progress.emit("scope_check_completed",f"Test Author {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="test_author",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
@@ -866,7 +1138,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     crew_status="needs_human"; stop=True; break
                 if attempt==2 and not repair_actual:
                     reasons.append("repair cycle made no deterministic changes"); crew_status="needs_human"; stop=True; break
-                candidate=full_patch(clone,identity.head); final_paths=changed_paths(baseline_clone,snapshot(clone))
+                new_surface=tuple(sorted((*impl_plan.new_paths, *test_plan.new_paths, *pipeline_generated)))
+                candidate=full_patch(clone,identity.head,new_surface); final_paths=changed_paths(baseline_clone,snapshot(clone))
                 inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
                 scope=source_revalidation(source_root,identity); output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; validator_status=output.get("status")
                 if res.status!="succeeded": scope.append(f"AgentResult failed: {res.failure_classification}")
@@ -886,8 +1159,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             final_reasons=[]
             if final_snap.head!=baseline_clone.head or final_snap.head!=identity.head: final_reasons.append("final clone HEAD differs from clone/source baseline HEAD")
             if final_snap.index!=baseline_clone.index: final_reasons.append("final clone index differs from clone baseline index")
-            if final_snap.untracked!=baseline_clone.untracked: final_reasons.append("final clone untracked state differs from clone baseline")
-            allowed=set(implementation_paths)|set(test_paths)
+            allowed=set(implementation_paths)|set(test_paths)|pipeline_generated
             final_reasons += [f"final changed path outside crew boundaries: {p}" for p in final_paths if p not in allowed]
             if (crew_status=="review_ready" and retry_context is None
                     and not (set(final_paths)&set(implementation_paths))):
@@ -904,7 +1176,15 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     "final human-review retry has no deterministic correction relative to seeded candidate"
                 )
             if crew_status=="review_ready" and not accepted_candidate: final_reasons.append("final candidate patch is empty")
-            if crew_status=="review_ready" and diff_paths(clone,identity.head)!=final_paths: final_reasons.append("final Git diff paths differ from deterministic changed paths")
+            present_new = {
+                path for path in (*impl_plan.new_paths, *test_plan.new_paths, *pipeline_generated)
+                if final_snap.entries.get(path) is not None and final_snap.entries[path].kind == "regular"
+            }
+            expected_diff_paths=sorted(set(diff_paths(clone,identity.head)) | present_new)
+            if crew_status=="review_ready" and expected_diff_paths!=final_paths: final_reasons.append("final Git diff paths differ from deterministic changed paths")
+            if crew_status=="review_ready" and accepted_candidate is not None:
+                try: verify_patch_applies(source_root, accepted_candidate)
+                except CrewBlocked as exc: final_reasons.append(str(exc))
             final_reasons += source_revalidation(source_root,identity)
             if final_reasons:
                 reasons+=final_reasons; crew_status="rejected"
@@ -912,7 +1192,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 if accepted_candidate is None: raise CrewBlocked("review-ready result has no accepted candidate bytes")
                 (run_dir/"candidate.patch").write_bytes(accepted_candidate); candidate_path=str(run_dir/"candidate.patch")
             if crew_status!="review_ready":
-                diagnostic=full_patch(clone,identity.head)
+                diagnostic=full_patch(clone,identity.head,tuple(sorted((*impl_plan.new_paths, *test_plan.new_paths, *pipeline_generated))))
                 if diagnostic: (run_dir/"workspace_diagnostic.patch").write_bytes(diagnostic); diagnostic_path=str(run_dir/"workspace_diagnostic.patch")
     review_origin = None if retry_context is None else {
         "prior_run_id":retry_context.prior_run_id,
@@ -953,7 +1233,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
         human_commands = patch_commands(human_artifact, applyable=False)
     human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action,"commands":human_commands}
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result
@@ -1009,6 +1289,8 @@ def main():
     parser.add_argument("--provider",choices=("claude","codex"))
     parser.add_argument("--implementation-path",action="append")
     parser.add_argument("--test-path",action="append")
+    parser.add_argument("--new-implementation-path",action="append")
+    parser.add_argument("--new-test-path",action="append")
     parser.add_argument("--retry-run")
     parser.add_argument("--review-feedback-file",type=Path)
     parser.add_argument("--source",type=Path,default=ROOT)
@@ -1017,20 +1299,22 @@ def main():
     args=parser.parse_args()
     host_output_root=args.host_output_root if args.host_output_root is not None else os.getenv("NSC_EXECUTION_HOST_OUTPUT_ROOT")
     if args.retry_run:
-        if any((args.task_id, args.provider, args.implementation_path, args.test_path)):
+        if any((args.task_id, args.provider, args.implementation_path, args.test_path,
+                args.new_implementation_path, args.new_test_path)):
             parser.error("--retry-run inherits task, provider, and write paths; do not supply them")
         if args.review_feedback_file is None:
             parser.error("--review-feedback-file is required with --retry-run")
     else:
         missing = [name for name, value in (
             ("--task-id", args.task_id), ("--provider", args.provider),
-            ("--implementation-path", args.implementation_path), ("--test-path", args.test_path)
+            ("implementation path", (args.implementation_path or []) + (args.new_implementation_path or [])),
+            ("test path", (args.test_path or []) + (args.new_test_path or []))
         ) if not value]
         if missing:
             parser.error("normal mode requires " + ", ".join(missing))
         if args.review_feedback_file is not None:
             parser.error("--review-feedback-file requires --retry-run")
-    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root)
+    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root)
     except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc:
         reason=str(exc)
         print(f"ExecutionCrew blocked: {reason}",file=sys.stderr)

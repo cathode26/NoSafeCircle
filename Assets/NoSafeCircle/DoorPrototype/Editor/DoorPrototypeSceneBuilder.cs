@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.Events;
@@ -7,6 +8,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.Tilemaps;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
@@ -17,6 +19,24 @@ namespace NoSafeCircle.DoorPrototype.Editor
         private const string SceneFolder = "Assets/Scenes";
         private const string ScenePath = SceneFolder + "/DoorPrototype.unity";
         private const string InputActionsAssetPath = "Assets/InputSystem_Actions.inputactions";
+        private const string ArchitecturalTileAssetFolder =
+            "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
+
+        private const string IsometricVisualGridName = "IsometricVisualGrid";
+        private const string FloorTilemapName = "FloorTilemap";
+        private const string WallTilemapName = "WallTilemap";
+        private const string ArchitecturalTilemapName = "ArchitecturalTilemap";
+
+        private static readonly Vector3 IsometricCellSize = new Vector3(1f, 0.5f, 1f);
+        private static readonly Quaternion FloorTilemapRotation = Quaternion.Euler(-90f, 0f, 0f);
+
+        private const float FloorVisualOffset = 0.01f;
+        private const float WallVisualOffset = -0.151f;
+
+        // This list is the ownership boundary for non-persistent architectural objects made by
+        // the parameterless test seam. Persistent AssetDatabase objects are never added here.
+        private static readonly List<Object> OwnedTransientArchitecturalObjects = new List<Object>();
+        private static Scene ownedTransientArchitecturalScene;
 
         // Classic 2:1 dimetric isometric camera angle (rotate -45 degrees around Y to face
         // a corner, then tilt 30 degrees down) matching Diablo 1 / Ultima Online-style
@@ -36,6 +56,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
         {
             "Directional Light",
             "Main Camera",
+            IsometricVisualGridName,
             "Floor",
             "Walls",
             "DoorRoot",
@@ -44,16 +65,24 @@ namespace NoSafeCircle.DoorPrototype.Editor
             "EventSystem"
         };
 
+        static DoorPrototypeSceneBuilder()
+        {
+            EditorSceneManager.sceneClosing += OnSceneClosing;
+            AssemblyReloadEvents.beforeAssemblyReload += CleanupTransientArchitecturalObjects;
+            EditorApplication.quitting += CleanupTransientArchitecturalObjects;
+        }
+
         [MenuItem("No Safe Circle/Build Door Prototype Scene")]
         public static void Build()
         {
             EnsureFolder(SceneFolder);
+            EnsureFolder(ArchitecturalTileAssetFolder);
 
             var scene = File.Exists(ScenePath)
                 ? EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single)
                 : EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            RebuildSceneContents(scene);
+            RebuildSceneContents(scene, ArchitecturalTileAssetFolder);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -62,16 +91,25 @@ namespace NoSafeCircle.DoorPrototype.Editor
             Debug.Log($"Door Prototype scene built at {ScenePath}");
         }
 
-        // Test-only seam: rebuilds the current in-memory Editor scene without opening,
-        // saving, or refreshing any asset. Production Build() delegates to the same
-        // construction path before performing its normal canonical-scene save.
+        // Legacy non-persistent test seam retained for existing component tests. Architectural
+        // objects created through this overload are explicitly owned and destroyed by this builder.
         public static void BuildInMemoryForTests()
         {
-            RebuildSceneContents(SceneManager.GetActiveScene());
+            RebuildSceneContents(SceneManager.GetActiveScene(), null);
         }
 
-        private static void RebuildSceneContents(Scene scene)
+        // Narrow persistence-aware test seam. The caller owns the supplied temporary
+        // AssetDatabase folder and its cleanup. This does not open or save the canonical scene.
+        public static void BuildInMemoryForTests(string temporaryArchitecturalTileAssetFolder)
         {
+            ValidateArchitecturalTileAssetFolder(temporaryArchitecturalTileAssetFolder);
+            EnsureFolder(temporaryArchitecturalTileAssetFolder);
+            RebuildSceneContents(SceneManager.GetActiveScene(), temporaryArchitecturalTileAssetFolder);
+        }
+
+        private static void RebuildSceneContents(Scene scene, string architecturalTileAssetFolder)
+        {
+            CleanupTransientArchitecturalObjects();
             ClearExistingObjects(scene);
 
             BuildLighting();
@@ -79,6 +117,11 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
             var doorRoot = BuildDoor(out var door);
             BuildWalls(doorRoot.transform.position);
+            if (string.IsNullOrEmpty(architecturalTileAssetFolder))
+            {
+                ownedTransientArchitecturalScene = scene;
+            }
+            BuildIsometricVisualLayer(doorRoot.transform.position, architecturalTileAssetFolder);
 
             BuildPlayer(out var movement, out var interactionController, out var health, out var debugControl,
                 out var mana, out var debugManaControl);
@@ -99,6 +142,52 @@ namespace NoSafeCircle.DoorPrototype.Editor
             BuildCamera(movement.transform);
 
             BuildUI(door, debugControl, health, mana, debugManaControl);
+        }
+
+        private static void ValidateArchitecturalTileAssetFolder(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new System.ArgumentException(
+                    "A caller-owned temporary AssetDatabase folder is required.", nameof(path));
+            }
+
+            if (path == "Assets" || !path.StartsWith("Assets/", System.StringComparison.Ordinal) ||
+                path.Contains("..") || path.Contains("\\"))
+            {
+                throw new System.ArgumentException(
+                    "The temporary architectural Tile asset folder must be a normalized child path under Assets.",
+                    nameof(path));
+            }
+        }
+
+        private static void OnSceneClosing(Scene scene, bool removingScene)
+        {
+            if (OwnedTransientArchitecturalObjects.Count > 0 && scene == ownedTransientArchitecturalScene)
+            {
+                CleanupTransientArchitecturalObjects();
+            }
+        }
+
+        private static void CleanupTransientArchitecturalObjects()
+        {
+            for (var i = OwnedTransientArchitecturalObjects.Count - 1; i >= 0; i--)
+            {
+                var transientObject = OwnedTransientArchitecturalObjects[i];
+                if (transientObject != null && !AssetDatabase.Contains(transientObject))
+                {
+                    Object.DestroyImmediate(transientObject);
+                }
+            }
+
+            OwnedTransientArchitecturalObjects.Clear();
+            ownedTransientArchitecturalScene = default(Scene);
+        }
+
+        private static T OwnTransientArchitecturalObject<T>(T transientObject) where T : Object
+        {
+            OwnedTransientArchitecturalObjects.Add(transientObject);
+            return transientObject;
         }
 
         private static void EnsureFolder(string path)
@@ -181,6 +270,268 @@ namespace NoSafeCircle.DoorPrototype.Editor
             floor.name = "Floor";
             floor.transform.position = Vector3.zero;
             floor.transform.localScale = new Vector3(2f, 1f, 2f);
+        }
+
+        private static void BuildIsometricVisualLayer(Vector3 doorPosition, string architecturalTileAssetFolder)
+        {
+            var tiles = CreateArchitecturalTileSet(architecturalTileAssetFolder);
+
+            var gridObject = new GameObject(IsometricVisualGridName);
+            var grid = gridObject.AddComponent<Grid>();
+            grid.cellLayout = GridLayout.CellLayout.IsometricZAsY;
+            grid.cellSize = IsometricCellSize;
+            grid.cellSwizzle = GridLayout.CellSwizzle.XYZ;
+
+            var floorTilemap = CreateVisualOnlyTilemap(
+                gridObject.transform,
+                FloorTilemapName,
+                new Vector3(0f, FloorVisualOffset, 0f),
+                FloorTilemapRotation,
+                -100);
+            PaintFloorTiles(floorTilemap, tiles.Floor);
+
+            var wallTilemap = CreateVisualOnlyTilemap(
+                gridObject.transform,
+                WallTilemapName,
+                doorPosition + new Vector3(-2.5f, 1.25f, WallVisualOffset),
+                Quaternion.identity,
+                -50);
+            wallTilemap.SetTile(Vector3Int.zero, tiles.Wall);
+            wallTilemap.SetTile(new Vector3Int(5, -5, 0), tiles.Wall);
+
+            var architecturalTilemap = CreateVisualOnlyTilemap(
+                gridObject.transform,
+                ArchitecturalTilemapName,
+                new Vector3(0f, FloorVisualOffset * 2f, 0f),
+                FloorTilemapRotation,
+                -90);
+            PaintArchitecturalBorder(architecturalTilemap, tiles.Architectural);
+        }
+
+        private static Tilemap CreateVisualOnlyTilemap(
+            Transform parent,
+            string name,
+            Vector3 worldPosition,
+            Quaternion worldRotation,
+            int sortingOrder)
+        {
+            var tilemapObject = new GameObject(name);
+            tilemapObject.transform.SetParent(parent, false);
+            tilemapObject.transform.SetPositionAndRotation(worldPosition, worldRotation);
+
+            var tilemap = tilemapObject.AddComponent<Tilemap>();
+            tilemap.tileAnchor = Vector3.zero;
+            tilemap.orientation = Tilemap.Orientation.XY;
+
+            var renderer = tilemapObject.AddComponent<TilemapRenderer>();
+            renderer.mode = TilemapRenderer.Mode.Individual;
+            renderer.sortOrder = TilemapRenderer.SortOrder.TopRight;
+            renderer.sortingOrder = sortingOrder;
+
+            return tilemap;
+        }
+
+        private static void PaintFloorTiles(Tilemap tilemap, TileBase floorTile)
+        {
+            for (var x = -30; x <= 30; x++)
+            {
+                for (var y = -30; y <= 30; y++)
+                {
+                    var cell = new Vector3Int(x, y, 0);
+                    var center = tilemap.GetCellCenterLocal(cell);
+                    if (Mathf.Abs(center.x) <= 9.75f && Mathf.Abs(center.y) <= 9.75f)
+                    {
+                        tilemap.SetTile(cell, floorTile);
+                    }
+                }
+            }
+        }
+
+        private static void PaintArchitecturalBorder(Tilemap tilemap, TileBase architecturalTile)
+        {
+            for (var x = -30; x <= 30; x++)
+            {
+                for (var y = -30; y <= 30; y++)
+                {
+                    var cell = new Vector3Int(x, y, 0);
+                    var center = tilemap.GetCellCenterLocal(cell);
+                    var onHorizontalEdge = Mathf.Abs(center.x) <= 9.75f &&
+                                           Mathf.Abs(Mathf.Abs(center.y) - 9.75f) <= 0.26f;
+                    var onVerticalEdge = Mathf.Abs(center.y) <= 9.75f &&
+                                         Mathf.Abs(Mathf.Abs(center.x) - 9.75f) <= 0.26f;
+                    if (onHorizontalEdge || onVerticalEdge)
+                    {
+                        tilemap.SetTile(cell, architecturalTile);
+                    }
+                }
+            }
+        }
+
+        private static ArchitecturalTileSet CreateArchitecturalTileSet(string assetFolder)
+        {
+            return new ArchitecturalTileSet(
+                LoadOrCreateArchitecturalTile(
+                    assetFolder,
+                    "FloorTile.asset",
+                    "FloorTile",
+                    64,
+                    32,
+                    64f,
+                    CreateDiamondPixels(64, 32, new Color32(80, 76, 70, 255), new Color32(49, 46, 43, 255))),
+                LoadOrCreateArchitecturalTile(
+                    assetFolder,
+                    "WallTile.asset",
+                    "WallTile",
+                    192,
+                    160,
+                    64f,
+                    CreateWallPixels(192, 160)),
+                LoadOrCreateArchitecturalTile(
+                    assetFolder,
+                    "ArchitecturalBorderTile.asset",
+                    "ArchitecturalBorderTile",
+                    64,
+                    32,
+                    64f,
+                    CreateDiamondPixels(64, 32, new Color32(121, 105, 72, 255), new Color32(65, 56, 40, 255))));
+        }
+
+        private static Tile LoadOrCreateArchitecturalTile(
+            string assetFolder,
+            string assetFileName,
+            string tileName,
+            int textureWidth,
+            int textureHeight,
+            float pixelsPerUnit,
+            Color32[] pixels)
+        {
+            if (!string.IsNullOrEmpty(assetFolder))
+            {
+                var assetPath = assetFolder + "/" + assetFileName;
+                var existing = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
+                if (existing != null)
+                {
+                    existing.colliderType = Tile.ColliderType.None;
+                    EditorUtility.SetDirty(existing);
+                    AssetDatabase.SaveAssetIfDirty(existing);
+                    return existing;
+                }
+
+                var persistentTile = ScriptableObject.CreateInstance<Tile>();
+                persistentTile.name = tileName;
+                persistentTile.colliderType = Tile.ColliderType.None;
+                AssetDatabase.CreateAsset(persistentTile, assetPath);
+
+                var persistentTexture = CreateTileTexture(tileName + "Texture", textureWidth, textureHeight, pixels);
+                AssetDatabase.AddObjectToAsset(persistentTexture, persistentTile);
+
+                var persistentSprite = Sprite.Create(
+                    persistentTexture,
+                    new Rect(0f, 0f, textureWidth, textureHeight),
+                    new Vector2(0.5f, 0.5f),
+                    pixelsPerUnit);
+                persistentSprite.name = tileName + "Sprite";
+                AssetDatabase.AddObjectToAsset(persistentSprite, persistentTile);
+
+                persistentTile.sprite = persistentSprite;
+                EditorUtility.SetDirty(persistentTexture);
+                EditorUtility.SetDirty(persistentSprite);
+                EditorUtility.SetDirty(persistentTile);
+                AssetDatabase.SaveAssetIfDirty(persistentTile);
+                return persistentTile;
+            }
+
+            var inMemoryTile = OwnTransientArchitecturalObject(ScriptableObject.CreateInstance<Tile>());
+            inMemoryTile.name = tileName;
+            inMemoryTile.colliderType = Tile.ColliderType.None;
+            inMemoryTile.hideFlags = HideFlags.HideAndDontSave;
+
+            var inMemoryTexture = OwnTransientArchitecturalObject(
+                CreateTileTexture(tileName + "Texture", textureWidth, textureHeight, pixels));
+            inMemoryTexture.hideFlags = HideFlags.HideAndDontSave;
+
+            var inMemorySprite = OwnTransientArchitecturalObject(Sprite.Create(
+                inMemoryTexture,
+                new Rect(0f, 0f, textureWidth, textureHeight),
+                new Vector2(0.5f, 0.5f),
+                pixelsPerUnit));
+            inMemorySprite.name = tileName + "Sprite";
+            inMemorySprite.hideFlags = HideFlags.HideAndDontSave;
+            inMemoryTile.sprite = inMemorySprite;
+            return inMemoryTile;
+        }
+
+        private static Texture2D CreateTileTexture(string name, int width, int height, Color32[] pixels)
+        {
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
+            {
+                name = name,
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            texture.SetPixels32(pixels);
+            texture.Apply(false, false);
+            return texture;
+        }
+
+        private static Color32[] CreateDiamondPixels(int width, int height, Color32 fill, Color32 border)
+        {
+            var pixels = new Color32[width * height];
+            var transparent = new Color32(0, 0, 0, 0);
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width; x++)
+                {
+                    var normalizedX = Mathf.Abs((x + 0.5f - width * 0.5f) / (width * 0.5f));
+                    var normalizedY = Mathf.Abs((y + 0.5f - height * 0.5f) / (height * 0.5f));
+                    var diamondDistance = normalizedX + normalizedY;
+                    pixels[y * width + x] = diamondDistance > 1f
+                        ? transparent
+                        : diamondDistance > 0.89f ? border : fill;
+                }
+            }
+
+            return pixels;
+        }
+
+        private static Color32[] CreateWallPixels(int width, int height)
+        {
+            var pixels = new Color32[width * height];
+            var stone = new Color32(74, 71, 68, 255);
+            var alternateStone = new Color32(86, 82, 77, 255);
+            var mortar = new Color32(39, 37, 36, 255);
+            const int courseHeight = 32;
+            const int blockWidth = 48;
+
+            for (var y = 0; y < height; y++)
+            {
+                var course = y / courseHeight;
+                var horizontalMortar = y % courseHeight < 2;
+                for (var x = 0; x < width; x++)
+                {
+                    var staggeredX = x + (course % 2) * (blockWidth / 2);
+                    var verticalMortar = staggeredX % blockWidth < 2;
+                    pixels[y * width + x] = horizontalMortar || verticalMortar
+                        ? mortar
+                        : ((staggeredX / blockWidth + course) % 2 == 0 ? stone : alternateStone);
+                }
+            }
+
+            return pixels;
+        }
+
+        private sealed class ArchitecturalTileSet
+        {
+            public readonly Tile Floor;
+            public readonly Tile Wall;
+            public readonly Tile Architectural;
+
+            public ArchitecturalTileSet(Tile floor, Tile wall, Tile architectural)
+            {
+                Floor = floor;
+                Wall = wall;
+                Architectural = architectural;
+            }
         }
 
         private static GameObject BuildDoor(out DoorInteractable door)

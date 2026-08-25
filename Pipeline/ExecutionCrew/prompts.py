@@ -110,11 +110,21 @@ FULL COMMITTED CANONICAL GDD\n---\n{gdd}\n---"""
 
 
 def implementer_prompt(*, task_id: str, title: str, task_contract: str, gdd: str,
-                       implementation_paths: Iterable[str], findings: Any = None,
+                       implementation_paths: Iterable[str], new_implementation_paths: Iterable[str] = (),
+                       pipeline_sidecars: Iterable[str] = (), other_role_paths: Iterable[str] = (), findings: Any = None,
                        human_review_feedback: str | None = None) -> str:
     review = _human_review(human_review_feedback or "", role="implementer")
     repair = "" if findings is None else "\nVALIDATOR BLOCKING FINDINGS FROM THE PRIOR PASS\n---\n" + json.dumps(findings, indent=2) + "\n---\n"
-    return f"""You are the Implementer for {task_id} - {title}. Implement only approved production behavior. Do not invent game design, edit tests, or edit outside these implementation paths:\n{_paths(implementation_paths)}
+    return f"""You are the Implementer for {task_id} - {title}. Implement only approved production behavior. Do not invent game design or edit tests.
+EXISTING TRACKED FILES YOU MAY EDIT
+{_paths(implementation_paths)}
+APPROVED EXACT NEW FILES YOU MAY CREATE
+{_paths(new_implementation_paths)}
+PIPELINE-OWNED SIDECARS YOU MUST NOT CREATE OR EDIT
+{_paths(pipeline_sidecars)}
+OTHER ROLE PATHS YOU MUST NOT MODIFY
+{_paths(other_role_paths)}
+Create only the exact approved new file paths. Their parent directories already exist. Do not create directories, helper/sibling files, or .meta files. ExecutionCrew deterministically owns the listed sidecars. Absence of an approved new file is why exact creation authority was granted; do not treat that absence as a blocker. If required production work needs another path the human did not authorize, report a blocker.
 Do not run Unity, tests, builds, scripts, or package managers. Do not stage, commit, reset, checkout, rebase, merge, or modify Git metadata. Claims are non-authoritative.
 ROLE-OWNERSHIP / INTEGRATION BLOCKER POLICY
 - Test Author-owned work is not an Implementer blocker. Do not modify test files. If the approved production behavior can be completed within your implementation paths but existing tests are expected to become stale or fail because they encode superseded behavior, complete the production change and report the needed test update in notes for the Test Author.
@@ -125,11 +135,19 @@ EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\nFULL COMMITTED CANONIC
 
 def test_author_prompt(*, task_id: str, title: str, task_contract: str, gdd: str,
                        policy: str, implementation_patch: str, implementation_paths: Iterable[str],
-                       implementation_actual_paths: Iterable[str], test_paths: Iterable[str], findings: Any = None,
+                       implementation_actual_paths: Iterable[str], test_paths: Iterable[str],
+                       new_test_paths: Iterable[str] = (), pipeline_sidecars: Iterable[str] = (), findings: Any = None,
                        human_review_feedback: str | None = None) -> str:
     review = _human_review(human_review_feedback or "", role="test_author")
     repair = "" if findings is None else "\nVALIDATOR BLOCKING FINDINGS FROM THE PRIOR PASS\n---\n" + json.dumps(findings, indent=2) + "\n---\n"
-    return f"""You are the independent Unity Test Author for {task_id} - {title}. Translate the acceptance criteria, completion gates, and actual implementation diff into tests. Do not invent design or alter production code. You may edit only:\n{_paths(test_paths)}
+    return f"""You are the independent Unity Test Author for {task_id} - {title}. Translate the acceptance criteria, completion gates, and actual implementation diff into tests. Do not invent design or alter production code.
+EXISTING TRACKED FILES YOU MAY EDIT
+{_paths(test_paths)}
+APPROVED EXACT NEW FILES YOU MAY CREATE
+{_paths(new_test_paths)}
+PIPELINE-OWNED SIDECARS YOU MUST NOT CREATE OR EDIT
+{_paths(pipeline_sidecars)}
+Create only the exact approved new test file paths. Their parent directories already exist. Do not create directories, helper/sibling files, or .meta files. ExecutionCrew deterministically owns the listed sidecars. Absence of an approved new file is why exact creation authority was granted; do not treat that absence as a blocker. If required test work needs another path the human did not authorize, report a blocker.
 Implementation paths are read-only to you:\n{_paths(implementation_paths)}
 Deterministic actual implementation changed paths:\n{_paths(implementation_actual_paths)}
 Do not run Unity, tests, builds, scripts, or package managers. Do not stage, commit, reset, checkout, rebase, merge, or modify Git metadata. Do not claim tests passed. Report blockers rather than expanding scope.
@@ -146,7 +164,7 @@ def validator_prompt(*, task_id: str, title: str, task_contract: str, gdd: str,
 REPOSITORY VIEW SEMANTICS
 - The repository visible through Read/Glob/Grep is the committed BASELINE source at the captured source HEAD.
 - The baseline repository is intentionally unchanged and therefore WILL NOT contain the candidate changes.
-- The authoritative proposed delta under semantic review is the supplied EXACT FULL CANDIDATE GIT PATCH plus EXACT DETERMINISTIC ACTUAL CHANGED PATHS.
+- The authoritative proposed delta under semantic review is the supplied EXACT FULL CANDIDATE GIT PATCH plus EXACT DETERMINISTIC ACTUAL CHANGED PATHS. Deterministic minimal Unity .meta sidecars are pipeline-generated asset identity, not independent model-authored game behavior.
 - Absence of candidate changes from the baseline source is not a failure reason. A blocking issue must not be based only on candidate changes not being present, committed, or applied in the baseline source checkout.
 - Do not request that the candidate be committed or applied to the real source before semantic validation.
 - Use the baseline repository only to understand surrounding code and context and to judge how the candidate patch changes it.

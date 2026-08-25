@@ -1,0 +1,113 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "079c959b41f363ffceeb3acde2e1796e95466f8a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "camera_authoring"
+    },
+    {
+      "blob_sha": "b0b4e7826d97339532771ddc8a63509fd2eb6c0f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+      "role": "runtime_camera_follow"
+    },
+    {
+      "blob_sha": "5306788d3724b333ee698426934a33ddaa2bd86a",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "committed_scene"
+    },
+    {
+      "blob_sha": "4e3c78726f7091c0ef0f77460f359b076e673bc6",
+      "path": "Assets/Scenes/DoorPrototype.unity.meta",
+      "role": "scene_asset_identity"
+    },
+    {
+      "blob_sha": "998ee74f2e50e88ac841714dbe81a402aefbc9f3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/CommittedSceneCameraConformanceTests.cs",
+      "role": "completion_gate_test"
+    },
+    {
+      "blob_sha": "da65d40b3f5617e69eba4e8c0df3f55c690c4001",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "role": "builder_regression_test"
+    },
+    {
+      "blob_sha": "8050fe85f86e911e58e7a0ebb9edac46e6c4ef55",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NoSafeCircle.DoorPrototype.Tests.Editor.asmdef",
+      "role": "test_assembly"
+    },
+    {
+      "blob_sha": "93366d537cbb7326567cbbf55872a00d336c5c99",
+      "path": "ProjectSettings/ProjectVersion.txt",
+      "role": "unity_toolchain"
+    }
+  ],
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "fe06e99ad76f3602366840ccb4bcba5998cc6fb9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/DoorPrototypeEditMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "6e5d2d2800774e018e79d814d7381f3b94d610b2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/DoorPrototypeEditMode-287f3e4e41ac.log"
+        },
+        {
+          "blob_sha": "9822ab1763bfcb628bb28f1ad53485b0f141bbd2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/HumanValidation-287f3e4e41ac.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "The complete Door Prototype EditMode suite passed 25/25 at the NSC-038 integration state, including the fixed orthographic isometric camera builder assertions. Manual Play Mode review confirmed the new Tilemap world remains sensibly framed.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "fe06e99ad76f3602366840ccb4bcba5998cc6fb9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/DoorPrototypeEditMode-287f3e4e41ac.xml"
+        },
+        {
+          "blob_sha": "6e5d2d2800774e018e79d814d7381f3b94d610b2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/DoorPrototypeEditMode-287f3e4e41ac.log"
+        },
+        {
+          "blob_sha": "9822ab1763bfcb628bb28f1ad53485b0f141bbd2",
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/HumanValidation-287f3e4e41ac.txt"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "The EditMode suite passed 25/25, including camera follow/fixed-rotation coverage. Manual Play Mode review confirmed player-follow translation without free camera rotation.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Approved after automated camera regressions and manual fixed-isometric framing/follow review against the NSC-038 visual layer.",
+    "required": true
+  },
+  "record_id": "REV-NSC-023-287f3e4e41ac",
+  "record_type": "revalidation",
+  "recorded_at": "2026-08-25T02:50:12Z",
+  "revalidation": {
+    "basis_record_id": "BASE-NSC-023-86af98f41ab5",
+    "reason_type": "code_change",
+    "summary": "Revalidates NSC-023 after NSC-038 legitimately changed the shared scene builder, canonical scene, and builder tests while preserving the fixed orthographic isometric camera and follow-without-rotation behavior."
+  },
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-023.yaml",
+    "revision": 1,
+    "sha256": "49d6ef99fab8a4a405d1ef16abaf5f84810fe45f511c618437978579957df88c"
+  },
+  "task_id": "NSC-023",
+  "validated_state": {
+    "commit": "287f3e4e41acbbbe1be2663c68c5bc72e3f1b62d",
+    "tree": "08120fff11037e334c4b8ddaa6e0139218ded575"
+  }
+}

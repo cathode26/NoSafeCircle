@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using NUnit.Framework;
@@ -8,6 +9,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.TestTools;
+using UnityEngine.Tilemaps;
 using UnityEngine.UI;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor
@@ -15,10 +17,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
     public class DoorPrototypeSceneBuilderTests
     {
         private const string CanonicalScenePath = "Assets/Scenes/DoorPrototype.unity";
+        private string temporaryArchitecturalTileAssetFolder;
 
         [SetUp]
         public void SetUp()
         {
+            temporaryArchitecturalTileAssetFolder =
+                "Assets/__DoorPrototypeSceneBuilderTests_" + System.Guid.NewGuid().ToString("N");
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         }
 
@@ -26,6 +31,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         public void TearDown()
         {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            if (!string.IsNullOrEmpty(temporaryArchitecturalTileAssetFolder) &&
+                AssetDatabase.IsValidFolder(temporaryArchitecturalTileAssetFolder))
+            {
+                AssetDatabase.DeleteAsset(temporaryArchitecturalTileAssetFolder);
+            }
         }
 
         [Test]
@@ -331,15 +342,356 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.IsTrue(camera.orthographic);
         }
 
+        // NSC-038 AC-001: floors, walls, and repeatable architectural art are distinct
+        // visual-only layers on an isometric Tilemap grid.
+        [Test]
+        public void Build_IsometricVisualLayer_HasFloorWallAndRepeatableArchitectureTilemaps()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var grid = GameObject.Find("IsometricVisualGrid")?.GetComponent<Grid>();
+            Assert.IsNotNull(grid, "Expected the generated isometric visual Grid.");
+            Assert.AreEqual(GridLayout.CellLayout.IsometricZAsY, grid.cellLayout);
+            Assert.That(grid.cellSize.x / grid.cellSize.y, Is.EqualTo(2f).Within(0.0001f));
+
+            var floorTilemap = GetVisualTilemap(grid, "FloorTilemap");
+            var wallTilemap = GetVisualTilemap(grid, "WallTilemap");
+            var architecturalTilemap = GetVisualTilemap(grid, "ArchitecturalTilemap");
+
+            Assert.Greater(CountOccupiedCells(floorTilemap), 1);
+            Assert.AreEqual(2, CountOccupiedCells(wallTilemap));
+            Assert.Greater(CountOccupiedCells(architecturalTilemap), 1);
+
+            AssertVisualLayerHierarchyHasNoGameplayOwnership(grid);
+            AssertVisualOnly(floorTilemap);
+            AssertVisualOnly(wallTilemap);
+            AssertVisualOnly(architecturalTilemap);
+        }
+
+        // NSC-038 AC-001: reusable architectural Tile assets remain visual data and own their
+        // generated Sprite and Texture subassets in the caller-owned temporary folder.
+        [Test]
+        public void Build_PersistentArchitecturalTiles_AreTemporaryReusableVisualOnlyAssets()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var grid = GameObject.Find("IsometricVisualGrid")?.GetComponent<Grid>();
+            Assert.IsNotNull(grid);
+
+            var tiles = new[]
+            {
+                GetFirstTile(GetVisualTilemap(grid, "FloorTilemap")),
+                GetFirstTile(GetVisualTilemap(grid, "WallTilemap")),
+                GetFirstTile(GetVisualTilemap(grid, "ArchitecturalTilemap"))
+            };
+
+            CollectionAssert.AllItemsAreNotNull(tiles);
+            CollectionAssert.AllItemsAreUnique(tiles);
+
+            foreach (var tile in tiles)
+            {
+                Assert.AreEqual(Tile.ColliderType.None, tile.colliderType);
+                Assert.IsTrue(AssetDatabase.Contains(tile));
+                StringAssert.StartsWith(temporaryArchitecturalTileAssetFolder + "/",
+                    AssetDatabase.GetAssetPath(tile));
+                Assert.IsNotNull(tile.sprite);
+                Assert.IsNotNull(tile.sprite.texture);
+                Assert.AreEqual(AssetDatabase.GetAssetPath(tile), AssetDatabase.GetAssetPath(tile.sprite));
+                Assert.AreEqual(AssetDatabase.GetAssetPath(tile), AssetDatabase.GetAssetPath(tile.sprite.texture));
+            }
+        }
+
+        // NSC-038 VAL-001: compare the effective floor visual in world space to the separately
+        // authored gameplay Plane, covering coordinate, footprint, offset, and orientation.
+        [Test]
+        public void Build_FloorTilemapVisual_AlignsWithIndependentGameplayFloorInWorldSpace()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+            Physics.SyncTransforms();
+
+            var floorCollider = GameObject.Find("Floor")?.GetComponent<Collider>();
+            var floorTilemap = GameObject.Find("IsometricVisualGrid/FloorTilemap")?.GetComponent<Tilemap>();
+            Assert.IsNotNull(floorCollider);
+            Assert.IsNotNull(floorTilemap);
+
+            var visualBounds = CalculateEffectiveWorldVisualBounds(floorTilemap);
+            var gameplayBounds = floorCollider.bounds;
+
+            Assert.That(visualBounds.center.x, Is.EqualTo(gameplayBounds.center.x).Within(0.001f));
+            Assert.That(visualBounds.center.z, Is.EqualTo(gameplayBounds.center.z).Within(0.001f));
+            Assert.That(visualBounds.size.x, Is.EqualTo(gameplayBounds.size.x).Within(0.001f));
+            Assert.That(visualBounds.size.z, Is.EqualTo(gameplayBounds.size.z).Within(0.001f));
+            Assert.That(visualBounds.center.y - gameplayBounds.max.y, Is.EqualTo(0.01f).Within(0.0001f));
+            Assert.That(Vector3.Angle(floorTilemap.transform.TransformDirection(Vector3.forward), Vector3.up),
+                Is.LessThan(0.01f));
+        }
+
+        // NSC-038 VAL-001: validate each wall independently so symmetric drift cannot be hidden
+        // by a combined bound.
+        [Test]
+        public void Build_WallTilemapVisuals_AlignWithIndependentGameplayWallsInWorldSpace()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+            Physics.SyncTransforms();
+
+            var wallTilemap = GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
+            var leftWall = GameObject.Find("Walls/WallLeft")?.GetComponent<Collider>();
+            var rightWall = GameObject.Find("Walls/WallRight")?.GetComponent<Collider>();
+            Assert.IsNotNull(wallTilemap);
+            Assert.IsNotNull(leftWall);
+            Assert.IsNotNull(rightWall);
+
+            var visualBounds = CalculateEffectiveWorldVisualBoundsByCell(wallTilemap);
+            Assert.AreEqual(2, visualBounds.Count);
+            visualBounds.Sort((first, second) => first.center.x.CompareTo(second.center.x));
+
+            AssertWallVisualAlignsWithGameplayWall(visualBounds[0], leftWall.bounds, "left");
+            AssertWallVisualAlignsWithGameplayWall(visualBounds[1], rightWall.bounds, "right");
+            Assert.That(Vector3.Angle(wallTilemap.transform.TransformDirection(Vector3.forward), Vector3.forward),
+                Is.LessThan(0.01f));
+        }
+
+        // NSC-038 regression-only invariant: repairing generated Tiles must save only those
+        // assets, leaving unrelated dirty project assets untouched.
+        [Test]
+        public void Build_PersistentArchitecturalTiles_DoesNotSaveUnrelatedDirtyAsset()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var floorTilePath = temporaryArchitecturalTileAssetFolder + "/FloorTile.asset";
+            var floorTile = AssetDatabase.LoadAssetAtPath<Tile>(floorTilePath);
+            Assert.IsNotNull(floorTile);
+            floorTile.colliderType = Tile.ColliderType.Grid;
+            EditorUtility.SetDirty(floorTile);
+
+            var unrelatedPath = temporaryArchitecturalTileAssetFolder + "/UnrelatedTile.asset";
+            var unrelatedTile = ScriptableObject.CreateInstance<Tile>();
+            AssetDatabase.CreateAsset(unrelatedTile, unrelatedPath);
+            AssetDatabase.SaveAssetIfDirty(unrelatedTile);
+            unrelatedTile.colliderType = Tile.ColliderType.Sprite;
+            EditorUtility.SetDirty(unrelatedTile);
+
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            Assert.AreEqual(Tile.ColliderType.None, floorTile.colliderType);
+            Assert.IsFalse(EditorUtility.IsDirty(floorTile),
+                "The repaired existing architectural Tile must be saved asset-specifically.");
+            Assert.IsTrue(EditorUtility.IsDirty(unrelatedTile),
+                "The builder must not globally save an unrelated dirty asset.");
+        }
+
+        // NSC-038 regression-only invariant: rebuilding the parameterless seam destroys the
+        // exact transient Tile/Sprite/Texture instances owned by the prior build.
+        [Test]
+        public void BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnRebuild()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+            var oldTiles = GetArchitecturalTilesFromActiveGrid();
+            var oldSprites = new Sprite[oldTiles.Length];
+            var oldTextures = new Texture2D[oldTiles.Length];
+            for (var i = 0; i < oldTiles.Length; i++)
+            {
+                oldSprites[i] = oldTiles[i].sprite;
+                oldTextures[i] = oldSprites[i].texture;
+            }
+
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            for (var i = 0; i < oldTiles.Length; i++)
+            {
+                Assert.IsTrue(oldTiles[i] == null,
+                    $"Previous transient Tile {i} must be destroyed before rebuilding.");
+                Assert.IsTrue(oldSprites[i] == null,
+                    $"Previous transient Sprite {i} must be destroyed before rebuilding.");
+                Assert.IsTrue(oldTextures[i] == null,
+                    $"Previous transient Texture {i} must be destroyed before rebuilding.");
+            }
+
+            foreach (var replacementTile in GetArchitecturalTilesFromActiveGrid())
+            {
+                Assert.IsNotNull(replacementTile);
+                Assert.IsFalse(AssetDatabase.Contains(replacementTile));
+            }
+        }
+
+        // NSC-038 regression-only invariant: closing/replacing the in-memory test scene cleans
+        // the final transient build even when no subsequent builder invocation occurs.
+        [Test]
+        public void BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnSceneReplacement()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+            var tiles = GetArchitecturalTilesFromActiveGrid();
+            var sprites = new Sprite[tiles.Length];
+            var textures = new Texture2D[tiles.Length];
+            for (var i = 0; i < tiles.Length; i++)
+            {
+                sprites[i] = tiles[i].sprite;
+                textures[i] = sprites[i].texture;
+            }
+
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            for (var i = 0; i < tiles.Length; i++)
+            {
+                Assert.IsTrue(tiles[i] == null,
+                    $"Transient Tile {i} must be destroyed when its test scene closes.");
+                Assert.IsTrue(sprites[i] == null,
+                    $"Transient Sprite {i} must be destroyed when its test scene closes.");
+                Assert.IsTrue(textures[i] == null,
+                    $"Transient Texture {i} must be destroyed when its test scene closes.");
+            }
+        }
+
         [Test]
         public void BuildInMemory_CanonicalSceneBytesRemainUnchanged()
         {
             var bytesBefore = File.ReadAllBytes(CanonicalScenePath);
 
-            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
 
-            CollectionAssert.AreEqual(bytesBefore, File.ReadAllBytes(CanonicalScenePath),
-                "The in-memory builder must never rewrite the canonical DoorPrototype scene.");
+            CollectionAssert.AreEqual(bytesBefore, File.ReadAllBytes(CanonicalScenePath));
+            Assert.IsEmpty(UnityEngine.SceneManagement.SceneManager.GetActiveScene().path);
+        }
+
+        private static Tilemap GetVisualTilemap(Grid grid, string childName)
+        {
+            Assert.IsNotNull(grid);
+            var child = grid.transform.Find(childName);
+            Assert.IsNotNull(child, $"Expected visual layer '{childName}' directly under the isometric Grid.");
+
+            var tilemap = child.GetComponent<Tilemap>();
+            Assert.IsNotNull(tilemap);
+            Assert.IsNotNull(child.GetComponent<TilemapRenderer>());
+            return tilemap;
+        }
+
+        private static int CountOccupiedCells(Tilemap tilemap)
+        {
+            var count = 0;
+            foreach (var position in tilemap.cellBounds.allPositionsWithin)
+            {
+                if (tilemap.HasTile(position)) count++;
+            }
+
+            return count;
+        }
+
+        private static Tile GetFirstTile(Tilemap tilemap)
+        {
+            foreach (var position in tilemap.cellBounds.allPositionsWithin)
+            {
+                var tile = tilemap.GetTile<Tile>(position);
+                if (tile != null) return tile;
+            }
+
+            return null;
+        }
+
+        private static Tile[] GetArchitecturalTilesFromActiveGrid()
+        {
+            var grid = GameObject.Find("IsometricVisualGrid")?.GetComponent<Grid>();
+            Assert.IsNotNull(grid);
+            return new[]
+            {
+                GetFirstTile(GetVisualTilemap(grid, "FloorTilemap")),
+                GetFirstTile(GetVisualTilemap(grid, "WallTilemap")),
+                GetFirstTile(GetVisualTilemap(grid, "ArchitecturalTilemap"))
+            };
+        }
+
+        private static void AssertVisualOnly(Tilemap tilemap)
+        {
+            Assert.IsNull(tilemap.GetComponent<Collider>());
+            Assert.IsNull(tilemap.GetComponent<Collider2D>());
+            Assert.IsEmpty(tilemap.GetComponents<MonoBehaviour>());
+
+            foreach (var position in tilemap.cellBounds.allPositionsWithin)
+            {
+                var tile = tilemap.GetTile<Tile>(position);
+                if (tile != null)
+                {
+                    Assert.AreEqual(Tile.ColliderType.None, tile.colliderType);
+                }
+            }
+        }
+
+        private static void AssertVisualLayerHierarchyHasNoGameplayOwnership(Grid grid)
+        {
+            Assert.IsEmpty(grid.GetComponentsInChildren<Collider>(true));
+            Assert.IsEmpty(grid.GetComponentsInChildren<Collider2D>(true));
+            Assert.IsEmpty(grid.GetComponentsInChildren<MonoBehaviour>(true));
+        }
+
+        private static Bounds CalculateEffectiveWorldVisualBounds(Tilemap tilemap)
+        {
+            var cellBounds = CalculateEffectiveWorldVisualBoundsByCell(tilemap);
+            Assert.IsNotEmpty(cellBounds);
+
+            var result = cellBounds[0];
+            for (var i = 1; i < cellBounds.Count; i++)
+            {
+                result.Encapsulate(cellBounds[i]);
+            }
+
+            return result;
+        }
+
+        private static List<Bounds> CalculateEffectiveWorldVisualBoundsByCell(Tilemap tilemap)
+        {
+            var result = new List<Bounds>();
+
+            foreach (var position in tilemap.cellBounds.allPositionsWithin)
+            {
+                var tile = tilemap.GetTile<Tile>(position);
+                if (tile == null || tile.sprite == null) continue;
+
+                var spriteBounds = tile.sprite.bounds;
+                var tileTransform = tilemap.GetTransformMatrix(position);
+                var tileAnchorWorld = tilemap.GetCellCenterWorld(position);
+                var hasPoint = false;
+                var cellVisualBounds = new Bounds();
+
+                for (var xSign = -1; xSign <= 1; xSign += 2)
+                {
+                    for (var ySign = -1; ySign <= 1; ySign += 2)
+                    {
+                        var spritePoint = spriteBounds.center + new Vector3(
+                            spriteBounds.extents.x * xSign,
+                            spriteBounds.extents.y * ySign,
+                            0f);
+                        var tileLocalPoint = tileTransform.MultiplyPoint3x4(spritePoint);
+                        var worldPoint = tileAnchorWorld + tilemap.transform.TransformVector(tileLocalPoint);
+
+                        if (!hasPoint)
+                        {
+                            cellVisualBounds = new Bounds(worldPoint, Vector3.zero);
+                            hasPoint = true;
+                        }
+                        else
+                        {
+                            cellVisualBounds.Encapsulate(worldPoint);
+                        }
+                    }
+                }
+
+                Assert.IsTrue(hasPoint);
+                result.Add(cellVisualBounds);
+            }
+
+            return result;
+        }
+
+        private static void AssertWallVisualAlignsWithGameplayWall(
+            Bounds visualBounds,
+            Bounds gameplayBounds,
+            string wallLabel)
+        {
+            Assert.That(visualBounds.center.x, Is.EqualTo(gameplayBounds.center.x).Within(0.001f), wallLabel);
+            Assert.That(visualBounds.center.y, Is.EqualTo(gameplayBounds.center.y).Within(0.001f), wallLabel);
+            Assert.That(visualBounds.size.x, Is.EqualTo(gameplayBounds.size.x).Within(0.001f), wallLabel);
+            Assert.That(visualBounds.size.y, Is.EqualTo(gameplayBounds.size.y).Within(0.001f), wallLabel);
+            Assert.That(visualBounds.center.z - gameplayBounds.min.z,
+                Is.EqualTo(-0.001f).Within(0.0001f), wallLabel);
         }
     }
 

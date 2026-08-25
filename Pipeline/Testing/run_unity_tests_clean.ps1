@@ -185,6 +185,7 @@ try {
     if (-not (Test-Path -LiteralPath $UnityExecutable -PathType Leaf)) {
         Stop-WithCode $ExitPrecondition "PRECONDITION FAILURE: Unity executable does not exist: $UnityExecutable"
     }
+    $UnityExecutable = (Resolve-Path -LiteralPath $UnityExecutable).Path
 
     $artifactDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("NoSafeCircle-UnityTests-" + [Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $artifactDirectory | Out-Null
@@ -302,6 +303,82 @@ try {
         Stop-WithCode $ExitResult "RESULT FAILURE: Test-run result is '$result', expected 'Passed'."
     }
 
+    $manifestPath = Join-Path $artifactDirectory "validation-manifest.json"
+    $manifestTemporaryPath = Join-Path $artifactDirectory (".validation-manifest-" + [Guid]::NewGuid().ToString("N") + ".tmp")
+    try {
+        $xmlFile = Get-Item -LiteralPath $xmlPath -ErrorAction Stop
+        $logFile = Get-Item -LiteralPath $logPath -ErrorAction Stop
+        if ($xmlFile.PSIsContainer -or $logFile.PSIsContainer) {
+            throw "Unity XML and log artifacts must be regular files."
+        }
+        $xmlHash = (Get-FileHash -LiteralPath $xmlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $logHash = (Get-FileHash -LiteralPath $logPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $manifest = [ordered]@{
+            schema_version = "1.0"
+            manifest_type = "unity_test_validation"
+            status = "passed"
+            validated_state = [ordered]@{
+                commit = $preHead
+                tree = $preTree
+                post_commit = $postHead
+                post_tree = $postTree
+                repository_clean_before = $true
+                repository_clean_after = $true
+            }
+            unity = [ordered]@{
+                version = $unityVersion
+                executable = $UnityExecutable
+                exit_code = [int]$unityExitCode
+                test_platform = $TestPlatform
+                test_filter = $TestFilter
+            }
+            test_run = [ordered]@{
+                result = $result
+                total = [int]$total
+                passed = [int]$passed
+                failed = [int]$failed
+                skipped = [int]$skipped
+            }
+            artifacts = [ordered]@{
+                xml = [ordered]@{
+                    relative_path = "test-results.xml"
+                    sha256 = $xmlHash
+                    size_bytes = [long]$xmlFile.Length
+                }
+                log = [ordered]@{
+                    relative_path = "unity.log"
+                    sha256 = $logHash
+                    size_bytes = [long]$logFile.Length
+                }
+            }
+            runner = [ordered]@{
+                path = "Pipeline/Testing/run_unity_tests_clean.ps1"
+            }
+        }
+        $manifestJson = ($manifest | ConvertTo-Json -Depth 8) + [Environment]::NewLine
+        $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+        $stream = New-Object System.IO.FileStream(
+            $manifestTemporaryPath,
+            [System.IO.FileMode]::CreateNew,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::None
+        )
+        try {
+            $bytes = $utf8WithoutBom.GetBytes($manifestJson)
+            $stream.Write($bytes, 0, $bytes.Length)
+            $stream.Flush($true)
+        }
+        finally {
+            $stream.Dispose()
+        }
+        [System.IO.File]::Move($manifestTemporaryPath, $manifestPath)
+    }
+    catch {
+        Remove-Item -LiteralPath $manifestTemporaryPath -Force -ErrorAction SilentlyContinue
+        Stop-WithCode $ExitResult "RESULT FAILURE: Validation manifest could not be constructed or published: $($_.Exception.Message)"
+    }
+
+    Write-Host "Validation manifest: $manifestPath"
     Write-Host "VALIDATION PASSED: assertions passed and the repository remained clean."
     exit 0
 }

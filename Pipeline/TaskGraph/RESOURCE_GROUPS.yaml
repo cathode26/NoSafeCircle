@@ -45,6 +45,15 @@
     },
     {
       "reconciliation_keys": [
+        "isometric-tilemap-visual-layer"
+      ],
+      "resource_key": "logical:isometric-architectural-tile-assets",
+      "work_ids": [
+        "NSC-038"
+      ]
+    },
+    {
+      "reconciliation_keys": [
         "fireball",
         "force-wave",
         "frost-field",

@@ -1,0 +1,15 @@
+NSC-004 Shared-Surface Revalidation
+Validated commit: 287f3e4e41acbbbe1be2663c68c5bc72e3f1b62d
+Validated tree: 08120fff11037e334c4b8ddaa6e0139218ded575
+Reviewer: cathode26
+Recorded UTC: 2026-08-25T02:50:13Z
+
+Automated validation at this same committed state:
+- Complete Door Prototype EditMode suite: 25/25 passed where referenced.
+- Complete Door Prototype PlayMode suite: 55/55 passed where referenced.
+- Both authoritative clean runs preserved the Git tree.
+
+Manual Play Mode validation:
+- Manual Play Mode revalidation pressed the configured debug-damage control and confirmed that the health indicator visibly changes and remains readable in the NSC-038 integrated scene.
+
+Decision: APPROVED
