@@ -127,6 +127,10 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 out var mana, out var debugManaControl);
             SetPrivateField(movement, "interactionController", interactionController);
 
+            var doorFeedback = door.GetComponent<DoorInteractionFeedback>();
+            SetPrivateField(doorFeedback, "playerMovement", movement);
+            SetPrivateField(doorFeedback, "interactionController", interactionController);
+
             var inputActions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsAssetPath);
             if (inputActions == null)
             {
@@ -555,6 +559,14 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(door, "doorVisual", visual);
             SetPrivateField(door, "doorwayBlocker", visual.GetComponent<Collider>());
             SetPrivateFieldValue(door, "groundSelectionOffset", ComputeGroundSelectionOffset(visualLocalHeight));
+
+            // AC-001/AC-002/AC-003: gives the sealed door a base appearance distinguishable
+            // from the plain-primitive walls plus hover/selected/opening feedback. The
+            // player-side references (playerMovement/interactionController) are wired once
+            // BuildPlayer creates them later in RebuildSceneContents.
+            var feedback = doorRoot.AddComponent<DoorInteractionFeedback>();
+            SetPrivateField(feedback, "door", door);
+            SetPrivateField(feedback, "doorRenderer", visual.GetComponent<Renderer>());
 
             return doorRoot;
         }
