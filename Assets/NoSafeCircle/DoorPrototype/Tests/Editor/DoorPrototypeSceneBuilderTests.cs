@@ -17,6 +17,14 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
     public class DoorPrototypeSceneBuilderTests
     {
         private const string CanonicalScenePath = "Assets/Scenes/DoorPrototype.unity";
+
+        // NSC-039 AC-001 (human-review correction, item 1 follow-up): the shared world-sprite
+        // Prefab asset is saved under the caller-owned folder's own "WorldSprites" subfolder
+        // (see DoorPrototypeSceneBuilder.WorldSpritePrefabAssetFolderName), never at a fixed
+        // AssetDatabase path shared with the production Build() command. The persistence-aware
+        // test seam below therefore only ever writes under temporaryArchitecturalTileAssetFolder,
+        // whose own cleanup already covers the prefab subfolder recursively; no separate
+        // fixed-path cleanup is required or correct here.
         private string temporaryArchitecturalTileAssetFolder;
 
         [SetUp]
@@ -224,13 +232,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var doorRoot = GameObject.Find("DoorRoot");
             var door = doorRoot?.GetComponent<DoorInteractable>();
             var feedback = doorRoot?.GetComponent<DoorInteractionFeedback>();
-            var doorVisualRenderer = GameObject.Find("DoorRoot/DoorVisual")?.GetComponent<Renderer>();
+            var doorVisualRenderer = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>();
             var movement = GameObject.Find("Player")?.GetComponent<PlayerMovement>();
             var interactionController = GameObject.Find("Player")?.GetComponent<PlayerInteractionController>();
 
             Assert.IsNotNull(door, "Expected a DoorInteractable on the generated DoorRoot.");
             Assert.IsNotNull(feedback, "Expected a DoorInteractionFeedback on the generated DoorRoot.");
-            Assert.IsNotNull(doorVisualRenderer, "Expected a Renderer on the generated DoorVisual.");
+            Assert.IsNotNull(doorVisualRenderer, "Expected a SpriteRenderer on the generated DoorVisual/DoorSprite.");
             Assert.IsNotNull(movement, "Expected a PlayerMovement on the generated Player.");
             Assert.IsNotNull(interactionController, "Expected a PlayerInteractionController on the generated Player.");
 
@@ -238,7 +246,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(door, serializedFeedback.FindProperty("door").objectReferenceValue,
                 "DoorInteractionFeedback must be wired to the same DoorInteractable it decorates.");
             Assert.AreEqual(doorVisualRenderer, serializedFeedback.FindProperty("doorRenderer").objectReferenceValue,
-                "DoorInteractionFeedback must be wired to the generated DoorVisual's Renderer.");
+                "DoorInteractionFeedback must be wired to the generated DoorSprite SpriteRenderer.");
             Assert.AreEqual(movement, serializedFeedback.FindProperty("playerMovement").objectReferenceValue,
                 "DoorInteractionFeedback must be wired to the generated Player's PlayerMovement so hover " +
                 "consumes the shared pointer target instead of an independent projection (AC-005).");
@@ -369,6 +377,38 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         }
 
         [Test]
+        public void Build_PlayerStartsAtCharacterControllerGroundedHeight()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var player = GameObject.Find("Player");
+
+            Assert.IsNotNull(player);
+
+            var controller =
+                player.GetComponent<CharacterController>();
+
+            Assert.IsNotNull(controller);
+
+            Assert.That(
+                controller.skinWidth,
+                Is.EqualTo(0.08f).Within(0.0001f),
+                "The current prototype CharacterController skin width changed; review the intended grounded spawn height.");
+
+            Assert.That(
+                player.transform.position.y,
+                Is.EqualTo(controller.skinWidth).Within(0.0001f),
+                "The Player must begin at the CharacterController's settled ground-contact height instead of visibly falling onto the floor when Play Mode starts.");
+
+            Assert.That(
+                player.transform.position.x,
+                Is.EqualTo(0f).Within(0.0001f));
+
+            Assert.That(
+                player.transform.position.z,
+                Is.EqualTo(-4f).Within(0.0001f));
+        }
+        [Test]
         public void Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
@@ -424,31 +464,225 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         // NSC-038 AC-001: floors, walls, and repeatable architectural art are distinct
         // visual-only layers on an isometric Tilemap grid.
         [Test]
+        public void Build_GameplayFloor_KeepsCollisionButDisablesMeshRendererBehindTilemap()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var floor = GameObject.Find("Floor");
+
+            Assert.IsNotNull(
+                floor,
+                "The gameplay Floor object must still exist independently of the visual Tilemap.");
+
+            var collider = floor.GetComponent<MeshCollider>();
+            var renderer = floor.GetComponent<MeshRenderer>();
+
+            Assert.IsNotNull(
+                collider,
+                "The gameplay Floor must retain its MeshCollider for simulation.");
+
+            Assert.IsNotNull(
+                renderer,
+                "The primitive Floor may retain its MeshRenderer component so the gameplay object structure remains stable.");
+
+            Assert.IsFalse(
+                renderer.enabled,
+                "The gameplay Floor MeshRenderer must stay disabled because the Tilemap owns floor presentation; rendering both creates coplanar z-fighting.");
+
+            var floorTilemap =
+                GameObject.Find("IsometricVisualGrid/FloorTilemap")
+                    ?.GetComponent<Tilemap>();
+
+            Assert.IsNotNull(
+                floorTilemap,
+                "Disabling the gameplay Floor renderer is only valid while the visual floor Tilemap exists.");
+        }
+        [Test]
         public void Build_IsometricVisualLayer_HasFloorWallAndRepeatableArchitectureTilemaps()
         {
-            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
-            var grid = GameObject.Find("IsometricVisualGrid")?.GetComponent<Grid>();
-            Assert.IsNotNull(grid, "Expected the generated isometric visual Grid.");
-            Assert.AreEqual(GridLayout.CellLayout.IsometricZAsY, grid.cellLayout);
-            Assert.That(grid.cellSize.x / grid.cellSize.y, Is.EqualTo(2f).Within(0.0001f));
+            var gridObject =
+                GameObject.Find("IsometricVisualGrid");
 
-            var floorTilemap = GetVisualTilemap(grid, "FloorTilemap");
-            var wallTilemap = GetVisualTilemap(grid, "WallTilemap");
-            var architecturalTilemap = GetVisualTilemap(grid, "ArchitecturalTilemap");
+            var grid =
+                gridObject != null
+                    ? gridObject.GetComponent<Grid>()
+                    : null;
 
-            Assert.Greater(CountOccupiedCells(floorTilemap), 1);
-            Assert.AreEqual(2, CountOccupiedCells(wallTilemap));
-            Assert.Greater(CountOccupiedCells(architecturalTilemap), 1);
+            var floorTilemap =
+                GameObject.Find("IsometricVisualGrid/FloorTilemap")
+                    ?.GetComponent<Tilemap>();
 
-            AssertVisualLayerHierarchyHasNoGameplayOwnership(grid);
-            AssertVisualOnly(floorTilemap);
-            AssertVisualOnly(wallTilemap);
-            AssertVisualOnly(architecturalTilemap);
+            var wallTilemap =
+                GameObject.Find("IsometricVisualGrid/WallTilemap")
+                    ?.GetComponent<Tilemap>();
+
+            var architecturalTilemap =
+                GameObject.Find("IsometricVisualGrid/ArchitecturalTilemap")
+                    ?.GetComponent<Tilemap>();
+
+            Assert.IsNotNull(gridObject);
+            Assert.IsNotNull(grid);
+            Assert.IsNotNull(floorTilemap);
+            Assert.IsNotNull(wallTilemap);
+            Assert.IsNotNull(architecturalTilemap);
+
+            Assert.AreEqual(
+                GridLayout.CellLayout.IsometricZAsY,
+                grid.cellLayout,
+                "The architectural visual foundation must remain an Isometric Z-as-Y Grid.");
+
+            var floorRenderer =
+                floorTilemap.GetComponent<TilemapRenderer>();
+
+            var wallRenderer =
+                wallTilemap.GetComponent<TilemapRenderer>();
+
+            var architecturalRenderer =
+                architecturalTilemap.GetComponent<TilemapRenderer>();
+
+            Assert.IsNotNull(floorRenderer);
+            Assert.IsNotNull(wallRenderer);
+            Assert.IsNotNull(architecturalRenderer);
+
+            Assert.AreEqual(
+                TilemapRenderer.Mode.Individual,
+                floorRenderer.mode);
+
+            Assert.AreEqual(
+                TilemapRenderer.Mode.Individual,
+                wallRenderer.mode);
+
+            Assert.AreEqual(
+                TilemapRenderer.Mode.Individual,
+                architecturalRenderer.mode);
+
+            Assert.Less(
+                floorRenderer.sortingOrder,
+                wallRenderer.sortingOrder,
+                "Ground floor visuals must remain in a background sorting band.");
+
+            Assert.Less(
+                architecturalRenderer.sortingOrder,
+                wallRenderer.sortingOrder,
+                "Ground-flush architectural decoration must remain behind the interleavable wall/world-sprite band.");
+
+            var floorCount = 0;
+            TileBase firstFloorTile = null;
+
+            foreach (var cell in floorTilemap.cellBounds.allPositionsWithin)
+            {
+                if (!floorTilemap.HasTile(cell))
+                {
+                    continue;
+                }
+
+                floorCount++;
+
+                var tile = floorTilemap.GetTile(cell);
+
+                if (firstFloorTile == null)
+                {
+                    firstFloorTile = tile;
+                }
+                else
+                {
+                    Assert.AreSame(
+                        firstFloorTile,
+                        tile,
+                        $"Floor cell {cell} must reuse the same architectural floor Tile.");
+                }
+            }
+
+            Assert.Greater(
+                floorCount,
+                1,
+                "The floor must be repeatably painted across multiple Tilemap cells.");
+
+            var expectedWallCells = new[]
+            {
+                new Vector3Int(-1, 1, 0),
+                new Vector3Int(0, 0, 0),
+                new Vector3Int(1, -1, 0),
+
+                new Vector3Int(4, -4, 0),
+                new Vector3Int(5, -5, 0),
+                new Vector3Int(6, -6, 0)
+            };
+
+            var wallCount = 0;
+            TileBase firstWallTile = null;
+
+            foreach (var cell in wallTilemap.cellBounds.allPositionsWithin)
+            {
+                if (!wallTilemap.HasTile(cell))
+                {
+                    continue;
+                }
+
+                wallCount++;
+
+                var tile = wallTilemap.GetTile(cell);
+
+                if (firstWallTile == null)
+                {
+                    firstWallTile = tile;
+                }
+                else
+                {
+                    Assert.AreSame(
+                        firstWallTile,
+                        tile,
+                        $"Wall segment {cell} must reuse the same architectural wall Tile.");
+                }
+            }
+
+            Assert.AreEqual(
+                expectedWallCells.Length,
+                wallCount,
+                "The two three-unit gameplay walls must be represented by six one-unit visual Tile segments.");
+
+            foreach (var cell in expectedWallCells)
+            {
+                Assert.IsTrue(
+                    wallTilemap.HasTile(cell),
+                    $"Expected independently sortable wall segment at {cell}.");
+            }
+
+            var architecturalCount = 0;
+            TileBase firstArchitecturalTile = null;
+
+            foreach (var cell in architecturalTilemap.cellBounds.allPositionsWithin)
+            {
+                if (!architecturalTilemap.HasTile(cell))
+                {
+                    continue;
+                }
+
+                architecturalCount++;
+
+                var tile = architecturalTilemap.GetTile(cell);
+
+                if (firstArchitecturalTile == null)
+                {
+                    firstArchitecturalTile = tile;
+                }
+                else
+                {
+                    Assert.AreSame(
+                        firstArchitecturalTile,
+                        tile,
+                        $"Architectural border cell {cell} must reuse the same architectural Tile.");
+                }
+            }
+
+            Assert.Greater(
+                architecturalCount,
+                1,
+                "Repeatable architectural decoration must contain multiple reused Tile cells.");
         }
 
-        // NSC-038 AC-001: reusable architectural Tile assets remain visual data and own their
-        // generated Sprite and Texture subassets in the caller-owned temporary folder.
         [Test]
         public void Build_PersistentArchitecturalTiles_AreTemporaryReusableVisualOnlyAssets()
         {
@@ -510,24 +744,965 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Test]
         public void Build_WallTilemapVisuals_AlignWithIndependentGameplayWallsInWorldSpace()
         {
-            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
             Physics.SyncTransforms();
 
-            var wallTilemap = GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
-            var leftWall = GameObject.Find("Walls/WallLeft")?.GetComponent<Collider>();
-            var rightWall = GameObject.Find("Walls/WallRight")?.GetComponent<Collider>();
+            var wallTilemap =
+                GameObject.Find("IsometricVisualGrid/WallTilemap")
+                    ?.GetComponent<Tilemap>();
+
+            var leftWallCollider =
+                GameObject.Find("Walls/WallLeft")
+                    ?.GetComponent<BoxCollider>();
+
+            var rightWallCollider =
+                GameObject.Find("Walls/WallRight")
+                    ?.GetComponent<BoxCollider>();
+
             Assert.IsNotNull(wallTilemap);
-            Assert.IsNotNull(leftWall);
-            Assert.IsNotNull(rightWall);
+            Assert.IsNotNull(leftWallCollider);
+            Assert.IsNotNull(rightWallCollider);
 
-            var visualBounds = CalculateEffectiveWorldVisualBoundsByCell(wallTilemap);
-            Assert.AreEqual(2, visualBounds.Count);
-            visualBounds.Sort((first, second) => first.center.x.CompareTo(second.center.x));
+            Assert.That(
+                Vector3.Distance(
+                    wallTilemap.tileAnchor,
+                    Vector3.zero),
+                Is.LessThan(0.0001f),
+                "Wall visual cells must retain the zero Tile Anchor used by the architectural mapping.");
 
-            AssertWallVisualAlignsWithGameplayWall(visualBounds[0], leftWall.bounds, "left");
-            AssertWallVisualAlignsWithGameplayWall(visualBounds[1], rightWall.bounds, "right");
-            Assert.That(Vector3.Angle(wallTilemap.transform.TransformDirection(Vector3.forward), Vector3.forward),
-                Is.LessThan(0.01f));
+            Assert.That(
+                Quaternion.Angle(
+                    Quaternion.identity,
+                    wallTilemap.transform.rotation),
+                Is.LessThan(0.0001f),
+                "Wall visual bounds calculations require the wall Tilemap to remain unrotated.");
+
+            Assert.That(
+                Vector3.Distance(
+                    Vector3.one,
+                    wallTilemap.transform.lossyScale),
+                Is.LessThan(0.0001f),
+                "Wall visual bounds calculations require unit world scale.");
+
+            var leftCells = new[]
+            {
+                new Vector3Int(-1, 1, 0),
+                new Vector3Int(0, 0, 0),
+                new Vector3Int(1, -1, 0)
+            };
+
+            var rightCells = new[]
+            {
+                new Vector3Int(4, -4, 0),
+                new Vector3Int(5, -5, 0),
+                new Vector3Int(6, -6, 0)
+            };
+
+            var expectedCells = new[]
+            {
+                leftCells[0],
+                leftCells[1],
+                leftCells[2],
+                rightCells[0],
+                rightCells[1],
+                rightCells[2]
+            };
+
+            var occupiedCount = 0;
+
+            foreach (var cell in wallTilemap.cellBounds.allPositionsWithin)
+            {
+                if (wallTilemap.HasTile(cell))
+                {
+                    occupiedCount++;
+                }
+            }
+
+            Assert.AreEqual(
+                expectedCells.Length,
+                occupiedCount,
+                "Exactly six visual wall segments should represent the two independent three-unit gameplay walls.");
+
+            foreach (var cell in expectedCells)
+            {
+                Assert.IsTrue(
+                    wallTilemap.HasTile(cell),
+                    $"Expected wall visual segment at {cell}.");
+            }
+
+            // Independently pin the simulation geometry so the visual alignment
+            // assertion cannot become self-fulfilling by deriving gameplay
+            // expectations from the Tilemap.
+            var expectedGameplayCenters = new[]
+            {
+                new Vector3(-2.5f, 1.25f, 0f),
+                new Vector3(2.5f, 1.25f, 0f)
+            };
+
+            var expectedGameplaySize =
+                new Vector3(3f, 2.5f, 0.3f);
+
+            var cellGroups = new[]
+            {
+                leftCells,
+                rightCells
+            };
+
+            var gameplayColliders = new[]
+            {
+                leftWallCollider,
+                rightWallCollider
+            };
+
+            var wallLabels = new[]
+            {
+                "left",
+                "right"
+            };
+
+            for (var groupIndex = 0;
+                 groupIndex < cellGroups.Length;
+                 groupIndex++)
+            {
+                var cells = cellGroups[groupIndex];
+                var gameplayCollider = gameplayColliders[groupIndex];
+                var expectedCenter = expectedGameplayCenters[groupIndex];
+                var wallLabel = wallLabels[groupIndex];
+
+                Assert.That(
+                    gameplayCollider.bounds.center.x,
+                    Is.EqualTo(expectedCenter.x).Within(0.001f),
+                    $"{wallLabel} gameplay wall X center changed unexpectedly.");
+
+                Assert.That(
+                    gameplayCollider.bounds.center.y,
+                    Is.EqualTo(expectedCenter.y).Within(0.001f),
+                    $"{wallLabel} gameplay wall Y center changed unexpectedly.");
+
+                Assert.That(
+                    gameplayCollider.bounds.center.z,
+                    Is.EqualTo(expectedCenter.z).Within(0.001f),
+                    $"{wallLabel} gameplay wall Z center changed unexpectedly.");
+
+                Assert.That(
+                    gameplayCollider.bounds.size.x,
+                    Is.EqualTo(expectedGameplaySize.x).Within(0.001f),
+                    $"{wallLabel} gameplay wall width changed unexpectedly.");
+
+                Assert.That(
+                    gameplayCollider.bounds.size.y,
+                    Is.EqualTo(expectedGameplaySize.y).Within(0.001f),
+                    $"{wallLabel} gameplay wall height changed unexpectedly.");
+
+                Assert.That(
+                    gameplayCollider.bounds.size.z,
+                    Is.EqualTo(expectedGameplaySize.z).Within(0.001f),
+                    $"{wallLabel} gameplay wall depth changed unexpectedly.");
+
+                var minimumX = float.PositiveInfinity;
+                var maximumX = float.NegativeInfinity;
+                var minimumY = float.PositiveInfinity;
+                var maximumY = float.NegativeInfinity;
+
+                var visualPlaneZ = float.NaN;
+
+                foreach (var cell in cells)
+                {
+                    var sprite = wallTilemap.GetSprite(cell);
+
+                    Assert.IsNotNull(
+                        sprite,
+                        $"{wallLabel} wall segment {cell} must resolve to Sprite art.");
+
+                    Assert.That(
+                        sprite.bounds.size.x,
+                        Is.EqualTo(1f).Within(0.001f),
+                        $"{wallLabel} wall segment {cell} must be one world unit wide.");
+
+                    Assert.That(
+                        sprite.bounds.size.y,
+                        Is.EqualTo(2.5f).Within(0.001f),
+                        $"{wallLabel} wall segment {cell} must retain gameplay-wall height.");
+
+                    Assert.That(
+                        sprite.pivot.y,
+                        Is.EqualTo(0f).Within(0.01f),
+                        $"{wallLabel} wall segment {cell} must use its ground-contact pivot.");
+
+                    // With the Tilemap's zero anchor and identity transform,
+                    // GetCellCenterWorld is the render/sort pivot used by this
+                    // architectural cell. Sprite.bounds is relative to that
+                    // bottom-center pivot.
+                    var pivot =
+                        wallTilemap.GetCellCenterWorld(cell);
+
+                    minimumX =
+                        Mathf.Min(
+                            minimumX,
+                            pivot.x + sprite.bounds.min.x);
+
+                    maximumX =
+                        Mathf.Max(
+                            maximumX,
+                            pivot.x + sprite.bounds.max.x);
+
+                    minimumY =
+                        Mathf.Min(
+                            minimumY,
+                            pivot.y + sprite.bounds.min.y);
+
+                    maximumY =
+                        Mathf.Max(
+                            maximumY,
+                            pivot.y + sprite.bounds.max.y);
+
+                    if (float.IsNaN(visualPlaneZ))
+                    {
+                        visualPlaneZ = pivot.z;
+                    }
+                    else
+                    {
+                        Assert.That(
+                            pivot.z,
+                            Is.EqualTo(visualPlaneZ).Within(0.0001f),
+                            $"{wallLabel} wall segments must remain on one common visual plane.");
+                    }
+                }
+
+                var visualCenterX =
+                    (minimumX + maximumX) * 0.5f;
+
+                var visualCenterY =
+                    (minimumY + maximumY) * 0.5f;
+
+                var visualWidth =
+                    maximumX - minimumX;
+
+                var visualHeight =
+                    maximumY - minimumY;
+
+                Assert.That(
+                    visualCenterX,
+                    Is.EqualTo(gameplayCollider.bounds.center.x).Within(0.001f),
+                    $"The three {wallLabel} visual segments collectively must remain centered on their independent gameplay wall.");
+
+                Assert.That(
+                    visualCenterY,
+                    Is.EqualTo(gameplayCollider.bounds.center.y).Within(0.001f),
+                    $"The three {wallLabel} visual segments collectively must retain the gameplay wall's vertical center.");
+
+                Assert.That(
+                    visualWidth,
+                    Is.EqualTo(gameplayCollider.bounds.size.x).Within(0.001f),
+                    $"The three {wallLabel} visual segments collectively must cover the gameplay wall's full width.");
+
+                Assert.That(
+                    visualHeight,
+                    Is.EqualTo(gameplayCollider.bounds.size.y).Within(0.001f),
+                    $"The {wallLabel} wall visual must retain the gameplay wall's full height.");
+
+                Assert.That(
+                    minimumY,
+                    Is.EqualTo(gameplayCollider.bounds.min.y).Within(0.001f),
+                    $"The {wallLabel} wall visual must begin at the same ground-contact height as gameplay collision.");
+
+                Assert.That(
+                    maximumY,
+                    Is.EqualTo(gameplayCollider.bounds.max.y).Within(0.001f),
+                    $"The {wallLabel} wall visual must terminate at the same height as gameplay collision.");
+
+                // The visual is intentionally a plane immediately adjacent to
+                // one face of the 3D gameplay collider rather than a 0.3-unit
+                // deep renderer. Verify that offset without requiring a
+                // particular front/back sign.
+                Assert.That(
+                    Mathf.Abs(
+                        visualPlaneZ -
+                        gameplayCollider.bounds.center.z),
+                    Is.EqualTo(gameplayCollider.bounds.extents.z).Within(0.002f),
+                    $"The {wallLabel} wall visual plane must remain aligned to a face of its separate gameplay collider.");
+            }
+        }
+
+        [Test]
+        public void Build_DoorSprite_UsesReusableWorldSpaceSpriteRendererConvention()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var doorVisual = GameObject.Find("DoorRoot/DoorVisual");
+            Assert.IsNotNull(doorVisual, "Expected a DoorVisual child under DoorRoot.");
+
+            var doorSpriteRenderer = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(doorSpriteRenderer, "Expected a 'DoorSprite' SpriteRenderer child under DoorVisual.");
+            Assert.IsNotNull(doorSpriteRenderer.sprite, "Door world sprite must have a sprite assigned to be visible.");
+            Assert.AreEqual("Default", doorSpriteRenderer.sortingLayerName);
+            Assert.AreEqual(0, doorSpriteRenderer.sortingOrder);
+
+            Assert.IsNull(doorVisual.GetComponent<MeshRenderer>(),
+                "DoorVisual must no longer use a legacy PrimitiveType.Cube mesh visual.");
+            Assert.IsNull(doorSpriteRenderer.GetComponent<MeshRenderer>());
+        }
+
+        // NSC-039 AC-001 (human-review rejection item 1): the prior review-ready candidate
+        // applied an orientation appropriate to a 3D/billboard presentation rather than the
+        // authored 2D door sprite. The human manually corrected the door and reports its
+        // authored orientation is zero rotation (Quaternion.identity / inspector 0,0,0).
+        [Test]
+        public void Build_DoorSprite_UsesHumanApprovedIdentityLocalRotation()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var doorSpriteObject = GameObject.Find("DoorRoot/DoorVisual/DoorSprite");
+            Assert.IsNotNull(doorSpriteObject, "Expected a 'DoorSprite' child under DoorVisual.");
+
+            Assert.AreEqual(Quaternion.identity, doorSpriteObject.transform.localRotation,
+                "Human-review correction (item 1): DoorSprite must be generated with identity/local zero " +
+                "rotation (Quaternion.identity / inspector 0,0,0) matching the human-validated correction, not " +
+                "a generated tilt/billboard orientation.");
+        }
+
+        // NSC-039 AC-001 (human-review rejection item 1): the fix must not merely hard-code the
+        // door to identity while secretly still forcing one orientation onto every consumer of
+        // the shared world-sprite construction helper. This drives the actual private
+        // construction seam directly with a distinct, non-identity rotation and proves the
+        // produced instance actually carries that caller-supplied rotation, so authored
+        // orientation genuinely remains a per-instance/per-object decision rather than an
+        // invariant baked into the reusable prefab convention.
+        // Quaternion components can differ by tiny floating-point amounts while
+        // representing the same rotation. Compare the rotation itself.
+        private static void AssertQuaternionRotationApproximatelyEqual(
+            Quaternion expected,
+            Quaternion actual,
+            string message)
+        {
+            Assert.Less(
+                Quaternion.Angle(expected, actual),
+                0.01f,
+                message);
+        }
+        [Test]
+        public void CreateWorldSpriteVisual_AppliesCallerSuppliedRotationPerInstanceRatherThanForcingOneOrientation()
+        {
+            var textureSizeField = typeof(DoorPrototypeSceneBuilder).GetField(
+                "WorldSpriteTextureSize", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(textureSizeField, "Expected a private static WorldSpriteTextureSize field.");
+            var textureSize = (int)textureSizeField.GetValue(null);
+
+            var method = typeof(DoorPrototypeSceneBuilder).GetMethod(
+                "CreateWorldSpriteVisual", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(method,
+                "Expected a private static CreateWorldSpriteVisual helper accepting a per-call localRotation.");
+
+            var parent = new GameObject("NSC039_TestWorldSpriteParent");
+            try
+            {
+                var distinctRotation = Quaternion.Euler(0f, 90f, 0f);
+                var pixels = new Color32[textureSize * textureSize];
+
+                var renderer = (SpriteRenderer)method.Invoke(null, new object[]
+                {
+                    "TestWorldSprite",
+                    "NSC039_TestWorldSpriteAsset",
+                    parent.transform,
+                    Vector3.zero,
+                    distinctRotation,
+                    new Vector2(1f, 1f),
+                    pixels,
+                    null
+                });
+
+                Assert.IsNotNull(renderer);
+                AssertQuaternionRotationApproximatelyEqual(distinctRotation, renderer.transform.localRotation,
+                    "The shared world-sprite construction helper must apply the caller-supplied localRotation " +
+                    "to the produced instance rather than forcing one hard-coded orientation onto every " +
+                    "consumer.");
+
+                // Explicit isolation: destroy this test's own transient Sprite/Texture pair
+                // immediately rather than relying on the builder's lazy next-Build() cleanup, so
+                // this test leaves no owned transient objects behind if it happens to run last.
+                var producedSprite = renderer.sprite;
+                var producedTexture = producedSprite != null ? producedSprite.texture : null;
+                if (producedSprite != null) Object.DestroyImmediate(producedSprite);
+                if (producedTexture != null) Object.DestroyImmediate(producedTexture);
+            }
+            finally
+            {
+                Object.DestroyImmediate(parent);
+            }
+        }
+
+        // NSC-039 AC-001 (human-review rejection item 2): the prior review-ready candidate's
+        // wizard placeholder was a solid brown bordered square, which made visual
+        // sorting/occlusion validation unnecessarily difficult even though placeholder art is
+        // allowed. The corrected placeholder must be a readable silhouette with real transparent
+        // regions (outside a rounded head / tapered robe shape) rather than an undifferentiated
+        // rect that fills its whole texture. Compared directly against the door's own bordered
+        // rect (which is expected to stay fully opaque at its corners) so this is a genuine
+        // observed silhouette difference, not an assumption about texture sampling.
+        [Test]
+        public void Build_WizardPlaceholderSprite_IsReadableSilhouetteNotSolidBorderedSquare()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var wizardSprite = GameObject.Find("Player/Visual")?.GetComponent<SpriteRenderer>()?.sprite;
+            var doorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>()?.sprite;
+            Assert.IsNotNull(wizardSprite, "Expected a sprite on the Player's Visual child.");
+            Assert.IsNotNull(doorSprite, "Expected a sprite on DoorSprite.");
+
+            var wizardTexture = wizardSprite.texture;
+            var doorTexture = doorSprite.texture;
+            Assert.IsNotNull(wizardTexture);
+            Assert.IsNotNull(doorTexture);
+
+            var width = wizardTexture.width;
+            var height = wizardTexture.height;
+
+            var wizardCorners = new[]
+            {
+                wizardTexture.GetPixel(2, 2),
+                wizardTexture.GetPixel(width - 3, 2),
+                wizardTexture.GetPixel(2, height - 3),
+                wizardTexture.GetPixel(width - 3, height - 3)
+            };
+            foreach (var corner in wizardCorners)
+            {
+                Assert.AreEqual(0f, corner.a,
+                    "Human-review correction (item 2): the wizard placeholder must have real transparent " +
+                    "silhouette regions (e.g. outside a rounded head/tapered robe shape) rather than being an " +
+                    "undifferentiated solid/bordered square that fills its entire texture.");
+            }
+
+            var wizardBodyFill = wizardTexture.GetPixel(width / 2, height / 4);
+            Assert.Greater(wizardBodyFill.a, 0f,
+                "Expected the wizard silhouette to still have an actual opaque filled region (its robe/body), " +
+                "not be fully transparent.");
+
+            var doorCorner = doorTexture.GetPixel(2, 2);
+            Assert.Greater(doorCorner.a, 0f,
+                "Sanity check: the door's bordered-rect sprite is expected to remain fully opaque at its " +
+                "corners, confirming the wizard's transparent corners above reflect a real silhouette " +
+                "difference rather than a shared/broken texture-sampling assumption.");
+        }
+
+        // NSC-039 AC-001: the wizard's placeholder visual representation must use the same
+        // reusable world-space SpriteRenderer convention as the door, per the GDD requirement
+        // that the wizard follow the same isometric sorting conventions as other world-space
+        // SpriteRenderers, rather than the previous PrimitiveType.Capsule visual.
+        [Test]
+        public void Build_PlayerVisual_UsesReusableWorldSpaceSpriteRendererConvention()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var playerSpriteObject = GameObject.Find("Player/Visual");
+            Assert.IsNotNull(playerSpriteObject, "Expected a 'Visual' child under Player.");
+
+            var playerSpriteRenderer = playerSpriteObject.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(playerSpriteRenderer, "Expected a SpriteRenderer on the Player's Visual child.");
+            Assert.IsNotNull(playerSpriteRenderer.sprite, "Wizard placeholder world sprite must have a sprite assigned.");
+            Assert.AreEqual("Default", playerSpriteRenderer.sortingLayerName);
+            Assert.AreEqual(0, playerSpriteRenderer.sortingOrder);
+
+            Assert.IsNull(playerSpriteObject.GetComponent<Collider>(),
+                "The wizard's visual child must stay decoupled from gameplay collision; the CharacterController " +
+                "on Player owns collision.");
+            Assert.IsNull(playerSpriteObject.GetComponent<MeshRenderer>(),
+                "Player Visual must no longer use a legacy PrimitiveType.Capsule mesh visual.");
+        }
+
+        // NSC-039 AC-001 / VAL-001 (human-review correction, items 1 and 6): every
+        // independently sorted world-space SpriteRenderer must share one sorting layer/order
+        // convention. Ground-flush background Tilemap layers (the floor and the flat
+        // decorative architectural border) are intentionally forced behind that shared band
+        // with a strictly lower static sortingOrder, since nothing standing on the ground
+        // plane should ever be able to render behind it. Walls are vertical, interleavable
+        // occluding geometry, so unlike the ground-flush layers they intentionally SHARE the
+        // exact same sortingOrder as world sprites instead of being forced behind by a lower
+        // static order - a prior candidate asserted walls were always strictly behind world
+        // sprites, which made a wall unable to occlude/be occluded by a world sprite according
+        // to isometric position at all.
+        [Test]
+        public void Build_WorldSpriteVisuals_ShareInteractiveSortingBandAboveGroundFlushBackgroundLayers()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var doorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>();
+            var playerSprite = GameObject.Find("Player/Visual")?.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(doorSprite);
+            Assert.IsNotNull(playerSprite);
+
+            Assert.AreEqual(doorSprite.sortingLayerName, playerSprite.sortingLayerName,
+                "Every world-space SpriteRenderer must share one sorting layer per the reusable convention.");
+            Assert.AreEqual(doorSprite.sortingOrder, playerSprite.sortingOrder,
+                "Every world-space SpriteRenderer must share one sortingOrder so relative depth between them is " +
+                "resolved by the camera's dynamic transparency sort rather than a static per-object override.");
+
+            var grid = GameObject.Find("IsometricVisualGrid")?.GetComponent<Grid>();
+            Assert.IsNotNull(grid);
+            var floorRenderer = grid.transform.Find("FloorTilemap")?.GetComponent<TilemapRenderer>();
+            var wallRenderer = grid.transform.Find("WallTilemap")?.GetComponent<TilemapRenderer>();
+            var architecturalRenderer = grid.transform.Find("ArchitecturalTilemap")?.GetComponent<TilemapRenderer>();
+            Assert.IsNotNull(floorRenderer);
+            Assert.IsNotNull(wallRenderer);
+            Assert.IsNotNull(architecturalRenderer);
+
+            Assert.AreEqual(doorSprite.sortingLayerName, floorRenderer.sortingLayerName,
+                "Tilemap architecture must share the same sorting layer as world sprites for sortingOrder " +
+                "comparisons between them to be meaningful.");
+            Assert.AreEqual(doorSprite.sortingLayerName, wallRenderer.sortingLayerName);
+            Assert.AreEqual(doorSprite.sortingLayerName, architecturalRenderer.sortingLayerName);
+
+            Assert.Less(floorRenderer.sortingOrder, doorSprite.sortingOrder,
+                "The ground-flush floor layer must always render behind world-space sprites.");
+            Assert.Less(architecturalRenderer.sortingOrder, doorSprite.sortingOrder,
+                "The ground-flush decorative architectural border layer must always render behind world-space " +
+                "sprites.");
+
+            Assert.AreEqual(doorSprite.sortingOrder, wallRenderer.sortingOrder,
+                "Walls must share the world-sprite interactive sortingOrder band rather than being forced " +
+                "behind by a lower static sortingOrder, so the camera's positional transparency sort can " +
+                "genuinely interleave walls with world sprites according to isometric position.");
+        }
+
+        // NSC-039 AC-001 (human-review correction, item 3): the reusable "prefab convention"
+        // must be a real, reusable Prefab asset that every independently sorted world-space
+        // object is instantiated from, not merely a private scene-builder helper method. This
+        // uses the persistence-aware test seam because the shared Prefab asset only exists on
+        // disk (AssetDatabase.Contains) when instances are created through
+        // PrefabUtility.InstantiatePrefab rather than the in-memory Object.Instantiate path.
+        [Test]
+        public void Build_WorldSpriteVisuals_AreInstancesOfOneSharedReusablePrefabAsset()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var doorSpriteObject = GameObject.Find("DoorRoot/DoorVisual/DoorSprite");
+            var wizardSpriteObject = GameObject.Find("Player/Visual");
+            Assert.IsNotNull(doorSpriteObject);
+            Assert.IsNotNull(wizardSpriteObject);
+
+            var doorPrefabSource = PrefabUtility.GetCorrespondingObjectFromSource(doorSpriteObject);
+            var wizardPrefabSource = PrefabUtility.GetCorrespondingObjectFromSource(wizardSpriteObject);
+            Assert.IsNotNull(doorPrefabSource,
+                "DoorSprite must be a real Prefab instance connected to a saved Prefab asset, not a " +
+                "hand-assembled GameObject.");
+            Assert.IsNotNull(wizardPrefabSource,
+                "The wizard's Visual sprite must be a real Prefab instance connected to a saved Prefab asset.");
+
+            var doorPrefabAssetPath = AssetDatabase.GetAssetPath(doorPrefabSource);
+            var wizardPrefabAssetPath = AssetDatabase.GetAssetPath(wizardPrefabSource);
+            Assert.IsNotEmpty(doorPrefabAssetPath);
+            Assert.AreEqual(doorPrefabAssetPath, wizardPrefabAssetPath,
+                "The door and the wizard must be instantiated from the exact same reusable world-space " +
+                "SpriteRenderer Prefab asset, per the shared prefab convention.");
+            StringAssert.EndsWith(".prefab", doorPrefabAssetPath,
+                "The shared world-space SpriteRenderer convention must be backed by a real .prefab asset.");
+
+            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(doorPrefabAssetPath);
+            Assert.IsNotNull(prefabAsset);
+            var prefabRenderer = prefabAsset.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(prefabRenderer,
+                "The shared Prefab asset must itself carry the SpriteRenderer sorting convention.");
+            Assert.AreEqual("Default", prefabRenderer.sortingLayerName);
+            Assert.AreEqual(0, prefabRenderer.sortingOrder);
+        }
+
+        // NSC-039 AC-001: rebuilding must reuse, not duplicate, the shared world-space
+        // SpriteRenderer Prefab asset - mirroring the existing reuse guarantee already proven
+        // for architectural Tiles and for the per-object Sprite/Texture assets.
+        //
+        // Also covers the validator-blocking regression (item 1): the shared prefab must be
+        // saved under the caller-owned temporary folder's own "WorldSprites" subfolder, never at
+        // a fixed AssetDatabase path shared with the production Build() command, so the
+        // persistence-aware test seam can never collide with a committed canonical prefab.
+        [Test]
+        public void Build_RunTwiceWithPersistentFolder_ReusesSameSharedWorldSpritePrefabAssetWithoutDuplicating()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+            var firstDoorSpriteObject = GameObject.Find("DoorRoot/DoorVisual/DoorSprite");
+            var firstPrefabAssetPath =
+                AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromSource(firstDoorSpriteObject));
+
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+            var secondDoorSpriteObject = GameObject.Find("DoorRoot/DoorVisual/DoorSprite");
+            var secondPrefabAssetPath =
+                AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromSource(secondDoorSpriteObject));
+
+            Assert.IsNotEmpty(firstPrefabAssetPath);
+            Assert.AreEqual(firstPrefabAssetPath, secondPrefabAssetPath,
+                "Rebuilding must reuse the existing shared world-space SpriteRenderer Prefab asset rather than " +
+                "creating a duplicate.");
+
+            var worldSpritePrefabAssetFolder = temporaryArchitecturalTileAssetFolder + "/WorldSprites";
+            StringAssert.StartsWith(worldSpritePrefabAssetFolder + "/", firstPrefabAssetPath,
+                "The shared world-space SpriteRenderer Prefab asset must be saved under the caller-owned " +
+                "temporary folder's own WorldSprites subfolder, not a fixed path shared with the production " +
+                "Build() command.");
+            Assert.AreEqual(1,
+                AssetDatabase.FindAssets("t:GameObject", new[] { worldSpritePrefabAssetFolder }).Length,
+                "Only one shared world-space SpriteRenderer Prefab asset should exist after rebuilding.");
+        }
+
+        // NSC-039 AC-001 (human-review correction, item 2): tall doors/props/characters must
+        // not shift depth merely because their sprite silhouette is taller. Both a taller door
+        // sprite (2.5 world units) and a shorter wizard placeholder (2 world units) must anchor
+        // their SpriteRenderer's own world position at their object's ground-contact point
+        // (not an elevated visual center), using a bottom-anchored sprite pivot so artwork
+        // extends upward from that shared ground point.
+        [Test]
+        public void Build_WorldSpriteVisuals_UseConsistentGroundContactOriginRegardlessOfSpriteHeight()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var doorRoot = GameObject.Find("DoorRoot");
+            var doorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>();
+            var player = GameObject.Find("Player");
+            var playerSprite = GameObject.Find("Player/Visual")?.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(doorRoot);
+            Assert.IsNotNull(doorSprite);
+            Assert.IsNotNull(player);
+            Assert.IsNotNull(playerSprite);
+
+            Assert.That(doorSprite.transform.position.y, Is.EqualTo(doorRoot.transform.position.y).Within(0.001f),
+                "DoorSprite's world position must sit at the door's ground-contact point, not the elevated " +
+                "DoorVisual center.");
+            Assert.That(playerSprite.transform.position.y, Is.EqualTo(player.transform.position.y).Within(0.001f),
+                "The wizard sprite's world position must sit at the player's own ground-contact point.");
+
+            AssertSpriteIsBottomAnchored(doorSprite.sprite);
+            AssertSpriteIsBottomAnchored(playerSprite.sprite);
+        }
+
+        private static void AssertSpriteIsBottomAnchored(Sprite sprite)
+        {
+            Assert.IsNotNull(sprite);
+            Assert.That(sprite.pivot.y, Is.EqualTo(0f).Within(0.01f),
+                "World sprite pivot must be bottom-anchored so artwork extends upward from the ground-contact " +
+                "position instead of being centered on it.");
+            Assert.That(sprite.pivot.x, Is.EqualTo(sprite.rect.width / 2f).Within(0.01f),
+                "World sprite pivot must stay horizontally centered.");
+        }
+
+        // NSC-039 AC-001/VAL-001 (human-review correction, item 4): a bottom-anchored sprite
+        // pivot alone does not make the SpriteRenderer sort by that pivot. Unity's default
+        // SpriteRenderer.spriteSortPoint is Center, which would depth-sort by the sprite's
+        // visual center and defeat the ground-contact convention even though the pivot itself
+        // is correctly bottom-anchored (proven separately by AssertSpriteIsBottomAnchored).
+        [Test]
+        public void Build_WorldSpriteVisuals_SortByPivotNotCenterSoGroundContactSortingIsReal()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var doorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>();
+            var playerSprite = GameObject.Find("Player/Visual")?.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(doorSprite);
+            Assert.IsNotNull(playerSprite);
+
+            Assert.AreEqual(SpriteSortPoint.Pivot, doorSprite.spriteSortPoint,
+                "DoorSprite must sort by its bottom-anchored pivot, not the default Center sort point, or the " +
+                "ground-contact sorting convention has no actual effect on render order.");
+            Assert.AreEqual(SpriteSortPoint.Pivot, playerSprite.spriteSortPoint,
+                "The wizard's world sprite must sort by its bottom-anchored pivot, not the default Center sort " +
+                "point.");
+
+            var doorSpriteObject = GameObject.Find("DoorRoot/DoorVisual/DoorSprite");
+            var prefabSource = PrefabUtility.GetCorrespondingObjectFromSource(doorSpriteObject);
+            Assert.IsNotNull(prefabSource);
+            var prefabAssetPath = AssetDatabase.GetAssetPath(prefabSource);
+            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabAssetPath);
+            var prefabRenderer = prefabAsset.GetComponent<SpriteRenderer>();
+            Assert.AreEqual(SpriteSortPoint.Pivot, prefabRenderer.spriteSortPoint,
+                "The shared reusable world-space SpriteRenderer Prefab asset itself must carry the Pivot sort " +
+                "point convention, not just individual scene instances.");
+        }
+
+        // NSC-039 AC-001 (human-review correction, item 6): the persistent sprite asset
+        // identity must be a distinct key from the scene hierarchy object name so two different
+        // world objects (e.g. the wizard and a future enemy/prop) that both use a generically
+        // named "Visual" hierarchy child cannot silently collide on, or reuse, the same
+        // persisted sprite artwork.
+        [Test]
+        public void Build_WizardPersistentSpriteAsset_UsesWizardSpecificAssetIdentityNotGenericHierarchyName()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var wizardSpriteObject = GameObject.Find("Player/Visual");
+            Assert.IsNotNull(wizardSpriteObject, "The wizard's hierarchy child must remain named 'Visual'.");
+
+            var wizardSprite = wizardSpriteObject.GetComponent<SpriteRenderer>().sprite;
+            Assert.IsNotNull(wizardSprite);
+
+            var wizardAssetPath = AssetDatabase.GetAssetPath(wizardSprite);
+            Assert.IsNotEmpty(wizardAssetPath);
+            StringAssert.DoesNotContain("/Visual.asset", wizardAssetPath,
+                "The wizard's persistent sprite asset must not be keyed off the generic hierarchy child name " +
+                "'Visual', or a future world object that also names its child 'Visual' would silently collide " +
+                "with or reuse the wizard's sprite artwork.");
+            StringAssert.EndsWith("/WizardSprite.asset", wizardAssetPath,
+                "The wizard's persistent sprite asset must use an explicit wizard-specific asset identity while " +
+                "its hierarchy object remains Player/Visual.");
+        }
+
+        // VAL-001: the shared sortingLayer/sortingOrder convention above only fixes world
+        // sprites above Tilemap architecture; correct relative ordering between world sprites at
+        // different isometric positions additionally depends on the camera resolving same-order
+        // renderers by distance, which requires this explicit orthographic transparency sort mode.
+        [Test]
+        public void Build_MainCamera_UsesCustomAxisTransparencySortForWorldSpriteDepthOrdering()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var camera =
+                GameObject.Find("Main Camera")?.GetComponent<Camera>();
+
+            Assert.IsNotNull(camera);
+
+            Assert.AreEqual(
+                TransparencySortMode.CustomAxis,
+                camera.transparencySortMode,
+                "Isometric Z-as-Y world sprites and Individual Tilemap cells must use CustomAxis sorting.");
+
+            // Unity normalizes Camera.transparencySortAxis when it is assigned.
+            // Compare against the normalized form of the authored axis rather
+            // than expecting the raw (0, 1, -0.26) components to survive.
+            var expectedAxis =
+                new Vector3(0f, 1f, -0.26f).normalized;
+
+            Assert.That(
+                Vector3.Distance(
+                    expectedAxis,
+                    camera.transparencySortAxis),
+                Is.LessThan(0.0001f),
+                "The camera must preserve the intended normalized Isometric Z-as-Y transparency sorting direction.");
+
+            Assert.That(
+                camera.transparencySortAxis.magnitude,
+                Is.EqualTo(1f).Within(0.0001f),
+                "Unity's stored CustomAxis sorting direction should be normalized.");
+        }
+
+        [Test]
+        public void Build_RepresentativeWorldSprite_CanSortOnEitherSideOfRealWallTilemapGeometry()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
+            var wizardVisual = GameObject.Find("Player/Visual");
+            var wallTilemap =
+                GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
+            var wallRenderer =
+                wallTilemap != null ? wallTilemap.GetComponent<TilemapRenderer>() : null;
+
+            Assert.IsNotNull(camera);
+            Assert.IsNotNull(wizardVisual);
+            Assert.IsNotNull(wallTilemap);
+            Assert.IsNotNull(wallRenderer);
+
+            var wizardRenderer = wizardVisual.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(wizardRenderer);
+
+            Assert.AreEqual(TransparencySortMode.CustomAxis, camera.transparencySortMode);
+            Assert.AreEqual(TilemapRenderer.Mode.Individual, wallRenderer.mode);
+
+            Assert.AreEqual(wallRenderer.sortingLayerName, wizardRenderer.sortingLayerName);
+            Assert.AreEqual(wallRenderer.sortingOrder, wizardRenderer.sortingOrder,
+                "Walls and world sprites must remain in the same order band so the custom axis decides occlusion.");
+
+            var sortAxis = camera.transparencySortAxis;
+            var wallCenter = wallTilemap.GetCellCenterWorld(Vector3Int.zero);
+
+            // The wall sprite is wider than one unit. Walking along its X length while
+            // staying on the same side must not change the positional sort key.
+            var firstEnd = wallCenter + Vector3.left;
+            var secondEnd = wallCenter + Vector3.right;
+
+            var firstWallKey = Vector3.Dot(firstEnd, sortAxis);
+            var secondWallKey = Vector3.Dot(secondEnd, sortAxis);
+
+            Assert.That(
+                secondWallKey,
+                Is.EqualTo(firstWallKey).Within(0.0001f),
+                "Opposite ends of the same long wall must have the same CustomAxis depth; X movement along the wall must not flip front/behind ordering.");
+
+            var groundCrossWallDirection =
+                new Vector3(sortAxis.x, 0f, sortAxis.z);
+
+            Assert.Greater(
+                groundCrossWallDirection.sqrMagnitude,
+                0.0001f,
+                "The custom sorting axis must contain a ground-plane component so crossing the wall can change depth.");
+
+            groundCrossWallDirection.Normalize();
+
+            var sameSideOffset = groundCrossWallDirection * 2f;
+
+            wizardVisual.transform.position = firstEnd + sameSideOffset;
+            var firstEndSameSideKey =
+                Vector3.Dot(wizardVisual.transform.position, sortAxis);
+
+            wizardVisual.transform.position = secondEnd + sameSideOffset;
+            var secondEndSameSideKey =
+                Vector3.Dot(wizardVisual.transform.position, sortAxis);
+
+            Assert.That(
+                secondEndSameSideKey,
+                Is.EqualTo(firstEndSameSideKey).Within(0.0001f),
+                "Walking from one end of a long wall to the other while remaining on the same side must not reverse the wizard/wall sort relationship.");
+
+            var wallKey = Vector3.Dot(wallCenter, sortAxis);
+
+            var oppositeSideKey =
+                Vector3.Dot(firstEnd - sameSideOffset, sortAxis);
+
+            Assert.Less(
+                (firstEndSameSideKey - wallKey) *
+                (oppositeSideKey - wallKey),
+                0f,
+                "Moving from one side of the wall to the other must cross the wall's CustomAxis depth so the wizard can legitimately sort on either side.");
+        }
+
+        [Test]
+        public void Build_WallTilemap_UsesGroundPivotedOneCellSegmentsForStableSorting()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var wallTilemap =
+                GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
+
+            Assert.IsNotNull(wallTilemap);
+
+            var wallSprite =
+                wallTilemap.GetSprite(Vector3Int.zero);
+
+            Assert.IsNotNull(wallSprite);
+
+            Assert.That(
+                wallSprite.bounds.size.x,
+                Is.EqualTo(1f).Within(0.001f),
+                "Each wall Tile must be one world unit wide so Individual sorting has multiple depth points along a long wall.");
+
+            Assert.That(
+                wallSprite.bounds.size.y,
+                Is.EqualTo(2.5f).Within(0.001f));
+
+            Assert.That(
+                wallSprite.pivot.x,
+                Is.EqualTo(wallSprite.rect.width * 0.5f).Within(0.01f));
+
+            Assert.That(
+                wallSprite.pivot.y,
+                Is.EqualTo(0f).Within(0.01f),
+                "Wall visual sorting must originate at the wall/floor contact.");
+
+            Assert.That(
+                wallTilemap.transform.position.y,
+                Is.EqualTo(0f).Within(0.0001f));
+
+            var expectedCells = new[]
+            {
+                new Vector3Int(-1, 1, 0),
+                new Vector3Int(0, 0, 0),
+                new Vector3Int(1, -1, 0),
+
+                new Vector3Int(4, -4, 0),
+                new Vector3Int(5, -5, 0),
+                new Vector3Int(6, -6, 0)
+            };
+
+            foreach (var cell in expectedCells)
+            {
+                Assert.IsNotNull(
+                    wallTilemap.GetTile(cell),
+                    $"Expected independently sortable wall segment at {cell}.");
+            }
+        }
+        [Test]
+        public void Build_DoorwayBlocker_IsSeparateBoxColliderWiredToDoorInteractable()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var doorVisual = GameObject.Find("DoorRoot/DoorVisual");
+            var door = GameObject.Find("DoorRoot")?.GetComponent<DoorInteractable>();
+            Assert.IsNotNull(doorVisual);
+            Assert.IsNotNull(door);
+
+            var boxCollider = doorVisual.GetComponent<BoxCollider>();
+            Assert.IsNotNull(boxCollider, "Expected a BoxCollider directly on DoorVisual for gameplay collision.");
+            Assert.IsFalse(boxCollider.isTrigger, "The doorway blocker must remain a solid (non-trigger) collider.");
+
+            var serializedDoor = new SerializedObject(door);
+            Assert.AreEqual(boxCollider, serializedDoor.FindProperty("doorwayBlocker").objectReferenceValue,
+                "DoorInteractable must remain wired to DoorVisual's own BoxCollider as its doorwayBlocker, " +
+                "independent from the new SpriteRenderer visual child.");
+            Assert.AreEqual(doorVisual, serializedDoor.FindProperty("doorVisual").objectReferenceValue);
+
+            var doorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite");
+            Assert.IsNotNull(doorSprite);
+            Assert.IsNull(doorSprite.GetComponent<Collider>(),
+                "The sprite visual child must not carry gameplay collision; DoorVisual's own BoxCollider owns it.");
+        }
+
+        // NSC-039 AC-001, mirrors Build_PersistentArchitecturalTiles_AreTemporaryReusableVisualOnlyAssets:
+        // world-space sprite/texture assets follow the same caller-owned-folder persistence
+        // split as architectural tiles so their sprite references survive the saved/reopened
+        // canonical scene, and rebuilding reuses rather than duplicates them.
+        [Test]
+        public void Build_PersistentWorldSpriteAssets_AreReusableVisualOnlyAssetsInTemporaryFolder()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var doorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>().sprite;
+            var wizardSprite = GameObject.Find("Player/Visual")?.GetComponent<SpriteRenderer>().sprite;
+            Assert.IsNotNull(doorSprite);
+            Assert.IsNotNull(wizardSprite);
+
+            Assert.IsTrue(AssetDatabase.Contains(doorSprite));
+            Assert.IsTrue(AssetDatabase.Contains(wizardSprite));
+            StringAssert.StartsWith(temporaryArchitecturalTileAssetFolder + "/", AssetDatabase.GetAssetPath(doorSprite));
+            StringAssert.StartsWith(temporaryArchitecturalTileAssetFolder + "/", AssetDatabase.GetAssetPath(wizardSprite));
+            Assert.IsNotNull(doorSprite.texture);
+            Assert.IsNotNull(wizardSprite.texture);
+
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var doorSpriteAfterRebuild = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>().sprite;
+            var wizardSpriteAfterRebuild = GameObject.Find("Player/Visual")?.GetComponent<SpriteRenderer>().sprite;
+            Assert.AreEqual(doorSprite, doorSpriteAfterRebuild,
+                "Rebuilding with the same temporary folder must reuse the existing DoorSprite asset rather " +
+                "than duplicating it.");
+            Assert.AreEqual(wizardSprite, wizardSpriteAfterRebuild,
+                "Rebuilding with the same temporary folder must reuse the existing Visual sprite asset rather " +
+                "than duplicating it.");
+        }
+
+        // NSC-039 regression, mirrors BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnRebuild:
+        // the parameterless in-memory test seam must destroy the previous build's transient
+        // world sprite Sprite/Texture pair before creating the replacement, the same as
+        // architectural tiles.
+        [Test]
+        public void BuildInMemory_TransientWorldSpriteObjects_AreDestroyedOnRebuild()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+            var oldDoorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite").GetComponent<SpriteRenderer>().sprite;
+            var oldDoorTexture = oldDoorSprite.texture;
+            var oldWizardSprite = GameObject.Find("Player/Visual").GetComponent<SpriteRenderer>().sprite;
+            var oldWizardTexture = oldWizardSprite.texture;
+
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            Assert.IsTrue(oldDoorSprite == null,
+                "Previous transient DoorSprite Sprite must be destroyed before rebuilding.");
+            Assert.IsTrue(oldDoorTexture == null,
+                "Previous transient DoorSprite Texture must be destroyed before rebuilding.");
+            Assert.IsTrue(oldWizardSprite == null,
+                "Previous transient wizard Sprite must be destroyed before rebuilding.");
+            Assert.IsTrue(oldWizardTexture == null,
+                "Previous transient wizard Texture must be destroyed before rebuilding.");
+
+            var newDoorSprite = GameObject.Find("DoorRoot/DoorVisual/DoorSprite").GetComponent<SpriteRenderer>().sprite;
+            var newWizardSprite = GameObject.Find("Player/Visual").GetComponent<SpriteRenderer>().sprite;
+            Assert.IsNotNull(newDoorSprite);
+            Assert.IsFalse(AssetDatabase.Contains(newDoorSprite));
+            Assert.IsNotNull(newWizardSprite);
+            Assert.IsFalse(AssetDatabase.Contains(newWizardSprite));
         }
 
         // NSC-038 regression-only invariant: repairing generated Tiles must save only those

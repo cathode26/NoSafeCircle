@@ -33,6 +33,52 @@ namespace NoSafeCircle.DoorPrototype.Editor
         private const float FloorVisualOffset = 0.01f;
         private const float WallVisualOffset = -0.151f;
 
+        // NSC-039 AC-001/VAL-001: isometric sorting convention shared by the Tilemap visual
+        // layer and every world-space SpriteRenderer object. There are two distinct bands:
+        //
+        // 1. Background band (large fixed negative sortingOrder, forced behind everything).
+        //    Floor and the flat decorative architectural border tile lie flush on the ground
+        //    plane; nothing standing on top of them should ever be able to render behind them,
+        //    so they are intentionally excluded from positional depth sorting.
+        // 2. Interactive/occluding band (one shared sortingLayer + sortingOrder). Walls are
+        //    vertical geometry that can genuinely occlude, or be occluded by, a world sprite
+        //    depending on isometric position (e.g. the wizard walking behind vs. in front of a
+        //    wall segment), so walls share this exact band with the wizard, doors, and later
+        //    enemies/props/obstacles instead of being forced behind by sortingOrder. Relative
+        //    depth within this band is resolved purely by the camera's orthographic
+        //    transparency sort (configured in BuildCamera), which orders same-band renderers by
+        //    world position along the camera's fixed view direction.
+        //
+        // Every world sprite is additionally anchored at a consistent ground-contact (feet)
+        // origin - see EnsureWorldSpritePrefab/CreateWorldSpriteVisual below - so sprite height
+        // or center elevation never arbitrarily shifts an object's isometric depth.
+        private const string WorldSpriteSortingLayerName = "Default";
+        private const int WorldSpriteSortingOrder = 0;
+        private const int BackgroundGroundSortingOrder = -100;
+        private const int BackgroundArchitecturalBorderSortingOrder = -90;
+
+        // Unity Isometric Z-as-Y Individual Tilemap sorting axis. X intentionally
+        // contributes no depth so moving along a horizontal wall cannot flip occlusion.
+        private static readonly Vector3 IsometricTransparencySortAxis = new Vector3(0f, 1f, -0.26f);
+
+        private const int WorldSpriteTextureSize = 128;
+        private const int WorldSpriteBorderThicknessPx = 6;
+
+        // Subfolder name only, not an absolute path: the shared world-sprite Prefab asset is
+        // always saved under whichever AssetDatabase folder the caller owns (the real
+        // ArchitecturalTileAssetFolder for Build(), or a caller-owned temporary folder for
+        // tests), mirroring the existing caller-owned-folder pattern already used for
+        // architectural Tile/Sprite/Texture assets below. This guarantees the persistence-aware
+        // test seam never writes to the exact same AssetDatabase path Build() uses.
+        private const string WorldSpritePrefabAssetFolderName = "WorldSprites";
+        private const string WorldSpritePrefabAssetName = "WorldSpriteVisual.prefab";
+
+        // Placeholder colors only (GDD: placeholder character/prop sprites are acceptable).
+        private static readonly Color32 WizardSpriteFillColor = new Color32(88, 64, 145, 255);
+        private static readonly Color32 WizardSpriteBorderColor = new Color32(40, 28, 66, 255);
+        private static readonly Color32 DoorSpriteFillColor = new Color32(90, 62, 38, 255);
+        private static readonly Color32 DoorSpriteBorderColor = new Color32(46, 30, 16, 255);
+
         // This list is the ownership boundary for non-persistent architectural objects made by
         // the parameterless test seam. Persistent AssetDatabase objects are never added here.
         private static readonly List<Object> OwnedTransientArchitecturalObjects = new List<Object>();
@@ -115,7 +161,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             BuildLighting();
             BuildFloor();
 
-            var doorRoot = BuildDoor(out var door);
+            var doorRoot = BuildDoor(out var door, architecturalTileAssetFolder);
             BuildWalls(doorRoot.transform.position);
             if (string.IsNullOrEmpty(architecturalTileAssetFolder))
             {
@@ -124,7 +170,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             BuildIsometricVisualLayer(doorRoot.transform.position, architecturalTileAssetFolder);
 
             BuildPlayer(out var movement, out var interactionController, out var health, out var debugControl,
-                out var mana, out var debugManaControl);
+                out var mana, out var debugManaControl, architecturalTileAssetFolder);
             SetPrivateField(movement, "interactionController", interactionController);
 
             var doorFeedback = door.GetComponent<DoorInteractionFeedback>();
@@ -252,6 +298,16 @@ namespace NoSafeCircle.DoorPrototype.Editor
             camera.orthographic = true;
             camera.orthographicSize = IsometricOrthographicSize;
 
+            // NSC-039 AC-001: makes the established isometric sorting convention an explicit,
+            // intentional part of the fixed camera setup rather than an unstated implicit
+            // default. With an orthographic camera this already sorts transparent renderers
+            // that share a sortingLayer/sortingOrder (world-space SpriteRenderer prefabs and
+            // the Isometric Tilemap layers) by distance along the camera's fixed view
+            // direction, so world sprites at different isometric positions order correctly
+            // relative to one another without any per-object runtime sorting script.
+            camera.transparencySortMode = TransparencySortMode.CustomAxis;
+            camera.transparencySortAxis = IsometricTransparencySortAxis;
+
             cameraObject.transform.rotation = Quaternion.Euler(IsometricCameraEulerAngles);
 
             if (followTarget == null)
@@ -274,6 +330,9 @@ namespace NoSafeCircle.DoorPrototype.Editor
             floor.name = "Floor";
             floor.transform.position = Vector3.zero;
             floor.transform.localScale = new Vector3(2f, 1f, 2f);
+            // Gameplay collision remains on this Plane, but the Tilemap owns floor visuals.
+            // Leaving both renderers visible causes coplanar depth flicker / z-fighting.
+            floor.GetComponent<MeshRenderer>().enabled = false;
         }
 
         private static void BuildIsometricVisualLayer(Vector3 doorPosition, string architecturalTileAssetFolder)
@@ -291,24 +350,42 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 FloorTilemapName,
                 new Vector3(0f, FloorVisualOffset, 0f),
                 FloorTilemapRotation,
-                -100);
+                BackgroundGroundSortingOrder);
             PaintFloorTiles(floorTilemap, tiles.Floor);
 
+            // Walls are vertical, interleavable occluding geometry: they share the same
+            // sortingLayer/sortingOrder band as world-space SpriteRenderer objects (see the
+            // sorting-convention comment above) so the camera's custom-axis transparency sort
+            // - not a fixed sortingOrder - decides whether a wall renders in front of or behind
+            // the wizard, a door, or another world sprite at a given isometric position.
             var wallTilemap = CreateVisualOnlyTilemap(
                 gridObject.transform,
                 WallTilemapName,
-                doorPosition + new Vector3(-2.5f, 1.25f, WallVisualOffset),
+                doorPosition + new Vector3(-2.5f, 0f, WallVisualOffset),
                 Quaternion.identity,
-                -50);
-            wallTilemap.SetTile(Vector3Int.zero, tiles.Wall);
-            wallTilemap.SetTile(new Vector3Int(5, -5, 0), tiles.Wall);
+                WorldSpriteSortingOrder);
+        // Each gameplay wall spans three world units. Split it into three one-cell
+        // visual segments so Individual Tilemap sorting has multiple ground-contact
+        // sort positions instead of treating the whole long wall as one renderer.
+        for (var wallOffset = -1; wallOffset <= 1; wallOffset++)
+        {
+            wallTilemap.SetTile(
+                new Vector3Int(wallOffset, -wallOffset, 0),
+                tiles.Wall);
+
+            var rightWallCell = 5 + wallOffset;
+
+            wallTilemap.SetTile(
+                new Vector3Int(rightWallCell, -rightWallCell, 0),
+                tiles.Wall);
+        }
 
             var architecturalTilemap = CreateVisualOnlyTilemap(
                 gridObject.transform,
                 ArchitecturalTilemapName,
                 new Vector3(0f, FloorVisualOffset * 2f, 0f),
                 FloorTilemapRotation,
-                -90);
+                BackgroundArchitecturalBorderSortingOrder);
             PaintArchitecturalBorder(architecturalTilemap, tiles.Architectural);
         }
 
@@ -330,6 +407,11 @@ namespace NoSafeCircle.DoorPrototype.Editor
             var renderer = tilemapObject.AddComponent<TilemapRenderer>();
             renderer.mode = TilemapRenderer.Mode.Individual;
             renderer.sortOrder = TilemapRenderer.SortOrder.TopRight;
+            // Explicitly shares the same named sorting layer as world-space SpriteRenderer
+            // objects (rather than relying on both defaulting to "Default") so the
+            // background/interactive sortingOrder bands above compare correctly regardless of
+            // the project's configured sorting layers.
+            renderer.sortingLayerName = WorldSpriteSortingLayerName;
             renderer.sortingOrder = sortingOrder;
 
             return tilemap;
@@ -381,15 +463,20 @@ namespace NoSafeCircle.DoorPrototype.Editor
                     64,
                     32,
                     64f,
-                    CreateDiamondPixels(64, 32, new Color32(80, 76, 70, 255), new Color32(49, 46, 43, 255))),
+                    CreateDiamondPixels(
+                        64,
+                        32,
+                        new Color32(80, 76, 70, 255),
+                        new Color32(49, 46, 43, 255))),
                 LoadOrCreateArchitecturalTile(
                     assetFolder,
                     "WallTile.asset",
                     "WallTile",
-                    192,
+                    64,
                     160,
                     64f,
-                    CreateWallPixels(192, 160)),
+                    new Vector2(0.5f, 0f),
+                    CreateWallPixels(64, 160)),
                 LoadOrCreateArchitecturalTile(
                     assetFolder,
                     "ArchitecturalBorderTile.asset",
@@ -397,9 +484,12 @@ namespace NoSafeCircle.DoorPrototype.Editor
                     64,
                     32,
                     64f,
-                    CreateDiamondPixels(64, 32, new Color32(121, 105, 72, 255), new Color32(65, 56, 40, 255))));
+                    CreateDiamondPixels(
+                        64,
+                        32,
+                        new Color32(121, 105, 72, 255),
+                        new Color32(65, 56, 40, 255))));
         }
-
         private static Tile LoadOrCreateArchitecturalTile(
             string assetFolder,
             string assetFileName,
@@ -409,13 +499,53 @@ namespace NoSafeCircle.DoorPrototype.Editor
             float pixelsPerUnit,
             Color32[] pixels)
         {
+            return LoadOrCreateArchitecturalTile(
+                assetFolder,
+                assetFileName,
+                tileName,
+                textureWidth,
+                textureHeight,
+                pixelsPerUnit,
+                new Vector2(0.5f, 0.5f),
+                pixels);
+        }
+
+        private static Tile LoadOrCreateArchitecturalTile(
+            string assetFolder,
+            string assetFileName,
+            string tileName,
+            int textureWidth,
+            int textureHeight,
+            float pixelsPerUnit,
+            Vector2 spritePivot,
+            Color32[] pixels)
+        {
             if (!string.IsNullOrEmpty(assetFolder))
             {
                 var assetPath = assetFolder + "/" + assetFileName;
                 var existing = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
+
                 if (existing != null)
                 {
                     existing.colliderType = Tile.ColliderType.None;
+
+                    if (!ArchitecturalTileVisualMatches(
+                            existing,
+                            textureWidth,
+                            textureHeight,
+                            pixelsPerUnit,
+                            spritePivot))
+                    {
+                        ReplaceArchitecturalTileVisual(
+                            existing,
+                            tileName,
+                            textureWidth,
+                            textureHeight,
+                            pixelsPerUnit,
+                            spritePivot,
+                            pixels);
+                    }
+
                     EditorUtility.SetDirty(existing);
                     AssetDatabase.SaveAssetIfDirty(existing);
                     return existing;
@@ -424,47 +554,163 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 var persistentTile = ScriptableObject.CreateInstance<Tile>();
                 persistentTile.name = tileName;
                 persistentTile.colliderType = Tile.ColliderType.None;
-                AssetDatabase.CreateAsset(persistentTile, assetPath);
 
-                var persistentTexture = CreateTileTexture(tileName + "Texture", textureWidth, textureHeight, pixels);
-                AssetDatabase.AddObjectToAsset(persistentTexture, persistentTile);
+                AssetDatabase.CreateAsset(
+                    persistentTile,
+                    assetPath);
+
+                var persistentTexture = CreateTileTexture(
+                    tileName + "Texture",
+                    textureWidth,
+                    textureHeight,
+                    pixels);
+
+                AssetDatabase.AddObjectToAsset(
+                    persistentTexture,
+                    persistentTile);
 
                 var persistentSprite = Sprite.Create(
                     persistentTexture,
                     new Rect(0f, 0f, textureWidth, textureHeight),
-                    new Vector2(0.5f, 0.5f),
+                    spritePivot,
                     pixelsPerUnit);
+
                 persistentSprite.name = tileName + "Sprite";
-                AssetDatabase.AddObjectToAsset(persistentSprite, persistentTile);
+
+                AssetDatabase.AddObjectToAsset(
+                    persistentSprite,
+                    persistentTile);
 
                 persistentTile.sprite = persistentSprite;
+
                 EditorUtility.SetDirty(persistentTexture);
                 EditorUtility.SetDirty(persistentSprite);
                 EditorUtility.SetDirty(persistentTile);
+
                 AssetDatabase.SaveAssetIfDirty(persistentTile);
+
                 return persistentTile;
             }
 
-            var inMemoryTile = OwnTransientArchitecturalObject(ScriptableObject.CreateInstance<Tile>());
+            var inMemoryTile =
+                OwnTransientArchitecturalObject(
+                    ScriptableObject.CreateInstance<Tile>());
+
             inMemoryTile.name = tileName;
             inMemoryTile.colliderType = Tile.ColliderType.None;
             inMemoryTile.hideFlags = HideFlags.HideAndDontSave;
 
-            var inMemoryTexture = OwnTransientArchitecturalObject(
-                CreateTileTexture(tileName + "Texture", textureWidth, textureHeight, pixels));
+            var inMemoryTexture =
+                OwnTransientArchitecturalObject(
+                    CreateTileTexture(
+                        tileName + "Texture",
+                        textureWidth,
+                        textureHeight,
+                        pixels));
+
             inMemoryTexture.hideFlags = HideFlags.HideAndDontSave;
 
-            var inMemorySprite = OwnTransientArchitecturalObject(Sprite.Create(
-                inMemoryTexture,
-                new Rect(0f, 0f, textureWidth, textureHeight),
-                new Vector2(0.5f, 0.5f),
-                pixelsPerUnit));
+            var inMemorySprite =
+                OwnTransientArchitecturalObject(
+                    Sprite.Create(
+                        inMemoryTexture,
+                        new Rect(0f, 0f, textureWidth, textureHeight),
+                        spritePivot,
+                        pixelsPerUnit));
+
             inMemorySprite.name = tileName + "Sprite";
             inMemorySprite.hideFlags = HideFlags.HideAndDontSave;
+
             inMemoryTile.sprite = inMemorySprite;
+
             return inMemoryTile;
         }
 
+        private static bool ArchitecturalTileVisualMatches(
+            Tile tile,
+            int textureWidth,
+            int textureHeight,
+            float pixelsPerUnit,
+            Vector2 spritePivot)
+        {
+            var sprite = tile.sprite;
+
+            if (sprite == null || sprite.texture == null)
+            {
+                return false;
+            }
+
+            var expectedPivotPixels = new Vector2(
+                textureWidth * spritePivot.x,
+                textureHeight * spritePivot.y);
+
+            return
+                sprite.texture.width == textureWidth &&
+                sprite.texture.height == textureHeight &&
+                Mathf.Approximately(sprite.rect.width, textureWidth) &&
+                Mathf.Approximately(sprite.rect.height, textureHeight) &&
+                Mathf.Approximately(sprite.pixelsPerUnit, pixelsPerUnit) &&
+                Vector2.Distance(
+                    sprite.pivot,
+                    expectedPivotPixels) < 0.01f;
+        }
+
+        private static void ReplaceArchitecturalTileVisual(
+            Tile tile,
+            string tileName,
+            int textureWidth,
+            int textureHeight,
+            float pixelsPerUnit,
+            Vector2 spritePivot,
+            Color32[] pixels)
+        {
+            var oldSprite = tile.sprite;
+            var oldTexture =
+                oldSprite != null ? oldSprite.texture : null;
+
+            tile.sprite = null;
+            EditorUtility.SetDirty(tile);
+
+            if (oldSprite != null && AssetDatabase.Contains(oldSprite))
+            {
+                Object.DestroyImmediate(oldSprite, true);
+            }
+
+            if (oldTexture != null && AssetDatabase.Contains(oldTexture))
+            {
+                Object.DestroyImmediate(oldTexture, true);
+            }
+
+            var replacementTexture = CreateTileTexture(
+                tileName + "Texture",
+                textureWidth,
+                textureHeight,
+                pixels);
+
+            AssetDatabase.AddObjectToAsset(
+                replacementTexture,
+                tile);
+
+            var replacementSprite = Sprite.Create(
+                replacementTexture,
+                new Rect(0f, 0f, textureWidth, textureHeight),
+                spritePivot,
+                pixelsPerUnit);
+
+            replacementSprite.name = tileName + "Sprite";
+
+            AssetDatabase.AddObjectToAsset(
+                replacementSprite,
+                tile);
+
+            tile.sprite = replacementSprite;
+
+            EditorUtility.SetDirty(replacementTexture);
+            EditorUtility.SetDirty(replacementSprite);
+            EditorUtility.SetDirty(tile);
+
+            AssetDatabase.SaveAssetIfDirty(tile);
+        }
         private static Texture2D CreateTileTexture(string name, int width, int height, Color32[] pixels)
         {
             var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
@@ -538,7 +784,266 @@ namespace NoSafeCircle.DoorPrototype.Editor
             }
         }
 
-        private static GameObject BuildDoor(out DoorInteractable door)
+        // NSC-039 AC-001: the actual reusable Prefab asset every independently sorted or
+        // interactive world object (the wizard, doors, and later enemies/props/obstacles) is
+        // instantiated from, rather than each caller hand-assembling its own SpriteRenderer.
+        // The template carries only the shared, non-negotiable parts of the convention - the
+        // sorting layer/order established above - so callers can never accidentally diverge
+        // from it; they only ever customize sprite artwork and footprint size.
+        private static GameObject EnsureWorldSpritePrefab(string architecturalTileAssetFolder)
+        {
+            if (string.IsNullOrEmpty(architecturalTileAssetFolder))
+            {
+                // Parameterless in-memory test seam: an equivalent transient, owned template
+                // instead of a saved AssetDatabase Prefab, mirroring the existing Tile/Sprite
+                // transient-object split used elsewhere in this builder.
+                var transientTemplate = OwnTransientArchitecturalObject(BuildWorldSpritePrefabTemplate());
+                transientTemplate.hideFlags = HideFlags.HideAndDontSave;
+                return transientTemplate;
+            }
+
+            var worldSpritePrefabAssetFolder =
+                architecturalTileAssetFolder + "/" + WorldSpritePrefabAssetFolderName;
+            EnsureFolder(worldSpritePrefabAssetFolder);
+            var prefabAssetPath = worldSpritePrefabAssetFolder + "/" + WorldSpritePrefabAssetName;
+            var existingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabAssetPath);
+            if (existingPrefab != null)
+            {
+                // A previously saved prefab asset may predate the current shared convention
+                // (for example an older asset saved before spriteSortPoint was pinned to
+                // Pivot). Repair it in place rather than trusting that whatever is already on
+                // disk still matches the convention this method is supposed to guarantee.
+                if (RepairWorldSpritePrefabConvention(existingPrefab))
+                {
+                    EditorUtility.SetDirty(existingPrefab);
+                    AssetDatabase.SaveAssetIfDirty(existingPrefab);
+                }
+                return existingPrefab;
+            }
+
+            var template = BuildWorldSpritePrefabTemplate();
+            var savedPrefab = PrefabUtility.SaveAsPrefabAsset(template, prefabAssetPath);
+            Object.DestroyImmediate(template);
+            return savedPrefab;
+        }
+
+        private static GameObject BuildWorldSpritePrefabTemplate()
+        {
+            var template = new GameObject("WorldSpriteVisual");
+            var renderer = template.AddComponent<SpriteRenderer>();
+            ApplyWorldSpriteRendererConvention(renderer);
+            return template;
+        }
+
+        // Shared by both the freshly-created template and the existing-prefab repair path so
+        // the two can never drift apart into two different definitions of "the convention".
+        private static void ApplyWorldSpriteRendererConvention(SpriteRenderer renderer)
+        {
+            renderer.sortingLayerName = WorldSpriteSortingLayerName;
+            renderer.sortingOrder = WorldSpriteSortingOrder;
+            // Ground-contact sorting only actually takes effect if the renderer sorts by its
+            // pivot (the bottom-anchored GroundContactSpritePivot below) rather than Unity's
+            // default Center sort point; otherwise a taller sprite's center - not its feet -
+            // would determine its camera transparency sort depth.
+            renderer.spriteSortPoint = SpriteSortPoint.Pivot;
+        }
+
+        private static bool RepairWorldSpritePrefabConvention(GameObject prefabAsset)
+        {
+            var renderer = prefabAsset.GetComponent<SpriteRenderer>();
+            if (renderer == null) return false;
+
+            var changed = renderer.sortingLayerName != WorldSpriteSortingLayerName ||
+                          renderer.sortingOrder != WorldSpriteSortingOrder ||
+                          renderer.spriteSortPoint != SpriteSortPoint.Pivot;
+            if (!changed) return false;
+
+            ApplyWorldSpriteRendererConvention(renderer);
+            return true;
+        }
+
+        // Every world sprite instance is built the same way from the shared prefab above: a
+        // ground-contact (feet) local position combined with a bottom-anchored sprite pivot, so
+        // artwork extends upward from that ground point instead of being centered on it. This
+        // keeps the Transform position that the camera's custom-axis transparency sort orders
+        // by consistently anchored at each object's true isometric ground position, regardless
+        // of how tall the sprite is - a tall door or prop never appears at a different depth
+        // than a short one merely because its silhouette is taller. Gameplay collision is kept
+        // on separate, independently sized colliders (the same separation already used between
+        // the Tilemap visual layer and the gameplay Floor/Walls colliders).
+        private static readonly Vector2 GroundContactSpritePivot = new Vector2(0.5f, 0f);
+
+        private static SpriteRenderer CreateWorldSpriteVisual(
+            string name,
+            string persistentAssetKey,
+            Transform parent,
+            Vector3 groundContactLocalPosition,
+            Quaternion localRotation,
+            Vector2 worldSize,
+            Color32[] spritePixels,
+            string architecturalTileAssetFolder)
+        {
+            var prefab = EnsureWorldSpritePrefab(architecturalTileAssetFolder);
+            var spriteObject = string.IsNullOrEmpty(architecturalTileAssetFolder)
+                ? Object.Instantiate(prefab)
+                : (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            spriteObject.name = name;
+            spriteObject.transform.SetParent(parent, false);
+            spriteObject.transform.localPosition = groundContactLocalPosition;
+            // NSC-039 human runtime correction: the shared prefab convention owns reusable
+            // SpriteRenderer/sorting/pivot behavior only. It must never force one non-zero
+            // billboard/tilt rotation onto every consumer - authored orientation (e.g. the
+            // door's human-validated zero/identity rotation) stays a per-instance decision
+            // made by each call site instead.
+            spriteObject.transform.localRotation = localRotation;
+            spriteObject.transform.localScale = new Vector3(worldSize.x, worldSize.y, 1f);
+
+            var renderer = spriteObject.GetComponent<SpriteRenderer>();
+            // persistentAssetKey is the on-disk asset identity and is intentionally separate
+            // from the scene hierarchy object name above: multiple different world objects
+            // (e.g. future enemies/props) can reasonably share a generic hierarchy child name
+            // such as "Visual" without colliding on the same persisted sprite artwork.
+            renderer.sprite = LoadOrCreateWorldSprite(
+                architecturalTileAssetFolder,
+                persistentAssetKey + ".asset",
+                persistentAssetKey,
+                WorldSpriteTextureSize,
+                WorldSpriteTextureSize,
+                WorldSpriteTextureSize,
+                GroundContactSpritePivot,
+                spritePixels);
+            return renderer;
+        }
+
+        // Mirrors LoadOrCreateArchitecturalTile's persistence split: a real AssetDatabase
+        // Sprite/Texture pair when a caller-owned folder is supplied (required for the sprite
+        // reference to survive the saved/reopened canonical scene), or a HideAndDontSave
+        // transient pair owned by the parameterless in-memory test seam otherwise.
+        private static Sprite LoadOrCreateWorldSprite(
+            string assetFolder,
+            string assetFileName,
+            string spriteName,
+            int textureWidth,
+            int textureHeight,
+            float pixelsPerUnit,
+            Vector2 pivot,
+            Color32[] pixels)
+        {
+            if (!string.IsNullOrEmpty(assetFolder))
+            {
+                var assetPath = assetFolder + "/" + assetFileName;
+                var existingTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
+                if (existingTexture != null)
+                {
+                    foreach (var subAsset in AssetDatabase.LoadAllAssetsAtPath(assetPath))
+                    {
+                        if (subAsset is Sprite existingSprite) return existingSprite;
+                    }
+                }
+
+                var persistentTexture = CreateTileTexture(spriteName + "Texture", textureWidth, textureHeight, pixels);
+                AssetDatabase.CreateAsset(persistentTexture, assetPath);
+
+                var persistentSprite = Sprite.Create(
+                    persistentTexture,
+                    new Rect(0f, 0f, textureWidth, textureHeight),
+                    pivot,
+                    pixelsPerUnit);
+                persistentSprite.name = spriteName;
+                AssetDatabase.AddObjectToAsset(persistentSprite, persistentTexture);
+
+                EditorUtility.SetDirty(persistentTexture);
+                EditorUtility.SetDirty(persistentSprite);
+                AssetDatabase.SaveAssetIfDirty(persistentTexture);
+                return persistentSprite;
+            }
+
+            var inMemoryTexture = OwnTransientArchitecturalObject(
+                CreateTileTexture(spriteName + "Texture", textureWidth, textureHeight, pixels));
+            inMemoryTexture.hideFlags = HideFlags.HideAndDontSave;
+
+            var inMemorySprite = OwnTransientArchitecturalObject(Sprite.Create(
+                inMemoryTexture,
+                new Rect(0f, 0f, textureWidth, textureHeight),
+                pivot,
+                pixelsPerUnit));
+            inMemorySprite.name = spriteName;
+            inMemorySprite.hideFlags = HideFlags.HideAndDontSave;
+            return inMemorySprite;
+        }
+
+        private static Color32[] CreateBorderedRectPixels(
+            int width, int height, Color32 fill, Color32 border, int borderThicknessPx)
+        {
+            var pixels = new Color32[width * height];
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width; x++)
+                {
+                    var onBorder = x < borderThicknessPx || y < borderThicknessPx ||
+                                   x >= width - borderThicknessPx || y >= height - borderThicknessPx;
+                    pixels[y * width + x] = onBorder ? border : fill;
+                }
+            }
+
+            return pixels;
+        }
+
+        // NSC-039 human runtime correction: a readable placeholder wizard silhouette (a
+        // round head over a tapered robe) instead of an undifferentiated solid/bordered
+        // square, so isometric sorting/occlusion against Tilemap walls and the door is
+        // actually visible during validation. This remains placeholder-quality art only;
+        // no final character art is implied.
+        private static Color32[] CreateWizardSilhouettePixels(int width, int height, Color32 fill, Color32 border)
+        {
+            var pixels = new Color32[width * height];
+            var transparent = new Color32(0, 0, 0, 0);
+
+            var headCenterX = width * 0.5f;
+            var headCenterY = height * 0.78f;
+            var headRadius = width * 0.16f;
+            const float headBorderThicknessPx = 1.5f;
+
+            var robeTopY = height * 0.62f;
+            var robeBottomY = height * 0.04f;
+            var robeTopHalfWidth = width * 0.14f;
+            var robeBottomHalfWidth = width * 0.32f;
+            const float robeBorderThicknessPx = 1.5f;
+
+            for (var y = 0; y < height; y++)
+            {
+                for (var x = 0; x < width; x++)
+                {
+                    var pixelCenterX = x + 0.5f;
+                    var pixelCenterY = y + 0.5f;
+
+                    var headOffsetX = pixelCenterX - headCenterX;
+                    var headOffsetY = pixelCenterY - headCenterY;
+                    var headDistance = Mathf.Sqrt(headOffsetX * headOffsetX + headOffsetY * headOffsetY);
+                    var inHead = headDistance <= headRadius;
+                    var onHeadBorder = inHead && headDistance >= headRadius - headBorderThicknessPx;
+
+                    var inRobe = false;
+                    var onRobeBorder = false;
+                    if (pixelCenterY <= robeTopY && pixelCenterY >= robeBottomY)
+                    {
+                        var robeHeightFraction = (robeTopY - pixelCenterY) / (robeTopY - robeBottomY);
+                        var robeHalfWidth = Mathf.Lerp(robeTopHalfWidth, robeBottomHalfWidth, robeHeightFraction);
+                        var robeOffsetX = Mathf.Abs(pixelCenterX - headCenterX);
+                        inRobe = robeOffsetX <= robeHalfWidth;
+                        onRobeBorder = inRobe && robeOffsetX >= robeHalfWidth - robeBorderThicknessPx;
+                    }
+
+                    pixels[y * width + x] = inHead || inRobe
+                        ? (onHeadBorder || onRobeBorder ? border : fill)
+                        : transparent;
+                }
+            }
+
+            return pixels;
+        }
+
+        private static GameObject BuildDoor(out DoorInteractable door, string architecturalTileAssetFolder)
         {
             var doorRoot = new GameObject("DoorRoot");
             doorRoot.transform.position = Vector3.zero;
@@ -549,15 +1054,39 @@ namespace NoSafeCircle.DoorPrototype.Editor
             rangeTrigger.center = new Vector3(0f, 1.5f, 0f);
 
             const float visualLocalHeight = 1.25f;
-            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            visual.name = "DoorVisual";
+            var visual = new GameObject("DoorVisual");
             visual.transform.SetParent(doorRoot.transform, false);
             visual.transform.localPosition = new Vector3(0f, visualLocalHeight, 0f);
-            visual.transform.localScale = new Vector3(2f, 2.5f, 0.3f);
+
+            // Gameplay collision (the doorway blocker) stays a plain BoxCollider sized to the
+            // door's footprint, kept separate from the SpriteRenderer visual child below so the
+            // visual can hold its own authored orientation and non-uniform scale without
+            // shearing the collider.
+            var doorwayBlocker = visual.AddComponent<BoxCollider>();
+            doorwayBlocker.size = new Vector3(2f, 2.5f, 0.3f);
+
+            // DoorVisual itself stays elevated (visualLocalHeight) for the doorway-blocker
+            // collider and ComputeGroundSelectionOffset's click math below, but the sprite's own
+            // local position cancels that elevation back down to doorRoot's ground-contact
+            // point, per the shared ground-contact sorting convention above. The bottom-anchored
+            // prefab pivot then rebuilds the identical [0, 2.5] visual footprint from there.
+            // Human-validated correction: the authored DoorSprite orientation is identity
+            // (inspector 0,0,0), not a camera-facing billboard/tilt.
+            CreateWorldSpriteVisual(
+                "DoorSprite",
+                "DoorSprite",
+                visual.transform,
+                new Vector3(0f, -visualLocalHeight, 0f),
+                Quaternion.identity,
+                new Vector2(2f, 2.5f),
+                CreateBorderedRectPixels(
+                    WorldSpriteTextureSize, WorldSpriteTextureSize, DoorSpriteFillColor, DoorSpriteBorderColor,
+                    WorldSpriteBorderThicknessPx),
+                architecturalTileAssetFolder);
 
             door = doorRoot.AddComponent<DoorInteractable>();
             SetPrivateField(door, "doorVisual", visual);
-            SetPrivateField(door, "doorwayBlocker", visual.GetComponent<Collider>());
+            SetPrivateField(door, "doorwayBlocker", doorwayBlocker);
             SetPrivateFieldValue(door, "groundSelectionOffset", ComputeGroundSelectionOffset(visualLocalHeight));
 
             // AC-001/AC-002/AC-003: gives the sealed door a base appearance distinguishable
@@ -566,7 +1095,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             // BuildPlayer creates them later in RebuildSceneContents.
             var feedback = doorRoot.AddComponent<DoorInteractionFeedback>();
             SetPrivateField(feedback, "door", door);
-            SetPrivateField(feedback, "doorRenderer", visual.GetComponent<Renderer>());
+            SetPrivateField(feedback, "doorRenderer", visual.GetComponentInChildren<Renderer>());
 
             return doorRoot;
         }
@@ -611,21 +1140,40 @@ namespace NoSafeCircle.DoorPrototype.Editor
             out PlayerHealth health,
             out DebugDamageControl debugControl,
             out PlayerMana mana,
-            out DebugManaSpendControl debugManaControl)
+            out DebugManaSpendControl debugManaControl,
+            string architecturalTileAssetFolder)
         {
             var player = new GameObject("Player");
-            player.transform.position = new Vector3(0f, 1f, -4f);
+            player.transform.position = new Vector3(0f, 0f, -4f);
 
             var characterController = player.AddComponent<CharacterController>();
             characterController.center = new Vector3(0f, 1f, 0f);
             characterController.height = 2f;
             characterController.radius = 0.5f;
 
-            var visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            visual.name = "Visual";
-            visual.transform.SetParent(player.transform, false);
-            visual.transform.localPosition = new Vector3(0f, 1f, 0f);
-            Object.DestroyImmediate(visual.GetComponent<Collider>());
+            // CharacterController collision keeps the capsule approximately one skinWidth
+            // above the collision surface. Spawn at that already-grounded root height so
+            // Play Mode does not begin with the wizard visibly falling onto the floor.
+            player.transform.position =
+                new Vector3(0f, characterController.skinWidth, -4f);
+
+            // Placeholder wizard sprite (GDD: placeholder character sprites are acceptable),
+            // instantiated from the same reusable world-space SpriteRenderer prefab as the
+            // door. Already at the ground-contact convention's neutral local position, so the
+            // sprite's feet sit exactly at the player's own transform position. The hierarchy
+            // child keeps the existing "Visual" name other code/tests depend on, while
+            // "WizardSprite" is the persistent asset identity so a future enemy/prop that also
+            // names its child "Visual" cannot silently reuse the wizard's sprite asset.
+            CreateWorldSpriteVisual(
+                "Visual",
+                "WizardSprite",
+                player.transform,
+                Vector3.zero,
+                Quaternion.identity,
+                new Vector2(1f, 2f),
+                CreateWizardSilhouettePixels(
+                    WorldSpriteTextureSize, WorldSpriteTextureSize, WizardSpriteFillColor, WizardSpriteBorderColor),
+                architecturalTileAssetFolder);
 
             health = player.AddComponent<PlayerHealth>();
             interactionController = player.AddComponent<PlayerInteractionController>();
