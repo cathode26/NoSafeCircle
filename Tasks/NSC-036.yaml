@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-036",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Delivery and Build",
   "reconciliation_key": "delivery-and-build",
@@ -10,15 +10,20 @@
   "execution_scope": "not_applicable",
   "execution_reason": "Organizational feature grouping delivery/build obligations; not itself directly executable.",
   "decomposition_state": "coarse",
-  "decomposition_reason": "The delivery obligation is already fully specified by the GDD (Windows Standalone target, canonical scene registration prerequisite); the concrete configuration work is represented by windows-build-scene-registration without inventing new design.",
+  "decomposition_reason": "Delivery now has two approved targets: the canonical GDD-required Windows Standalone artifact and the additive human-approved desktop WebGL publication artifact. Their concrete work is represented by NSC-037 and NSC-043 rather than by direct execution of this aggregate.",
   "parent": "NSC-001",
   "depends_on": [],
   "exclusive_resources": [],
   "acceptance_criteria": [
     {
       "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
-      "requirement": "A Windows Standalone build of the completed game is the required delivery artifact for the capstone.",
+      "requirement": "A Windows Standalone build of the completed game is the required canonical GDD delivery artifact for the capstone.",
       "criterion_id": "AC-001"
+    },
+    {
+      "reference": "ART-WEBGL-DESKTOP-001 — Desktop WebGL Publishing Target",
+      "requirement": "A desktop-browser Unity WebGL build of the completed game is an additional required publication artifact; it coexists with and does not replace the Windows Standalone artifact.",
+      "criterion_id": "AC-002"
     }
   ],
   "completion_gates": [],
@@ -30,13 +35,17 @@
     },
     {
       "reference": "Section 5 - Approved Unity Packages and Windows Build Configuration",
-      "requirement": "The required delivery target is a Windows Standalone build; the canonical gameplay scene must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete."
+      "requirement": "The required canonical delivery target is a Windows Standalone build; the canonical gameplay scene must be registered in Unity Build Settings before the Windows delivery requirement can be considered complete."
+    },
+    {
+      "reference": "Design/Approved/Platform/Desktop_WebGL_Publishing_Target.md — ART-WEBGL-DESKTOP-001",
+      "requirement": "Human authority approved desktop WebGL as an additive required publication target that coexists with the GDD-required Windows Standalone artifact."
     }
   ],
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Aggregate repository_state of 'missing' reflects that its sole currently-known concrete descendant (windows-build-scene-registration) has confirmed zero registered scenes and no other build-configuration evidence was found. Per the feature-aggregate rule, evidence is kept on the child implementation item rather than duplicated here.",
+  "notes": "NSC-037 is the concrete Windows build/scene-registration child. NSC-043 is the concrete desktop WebGL publication child sourced from ART-WEBGL-DESKTOP-001. The WebGL target is additive human-approved project design and does not remove or weaken the GDD-required Windows Standalone delivery artifact. Historical bootstrap repository-state observations below are preserved as historical evidence rather than rewritten to describe current delivery status.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
