@@ -1,16 +1,16 @@
 {
   "schema_version": "2.0",
   "id": "NSC-029",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Five-Room Floor Content Authoring",
   "reconciliation_key": "five-room-content-authoring",
   "kind": "feature",
   "type": "content-authoring",
-  "execution_scope": "not_applicable",
-  "execution_reason": "Deferred content-authoring feature; not yet a bounded dispatchable unit.",
-  "decomposition_state": "needs_future_decomposition",
-  "decomposition_reason": "Exact room geometry, dimensions, prop placement, and chokepoint/cover layout for each of the five named spaces are not specified beyond their stated tactical purpose; inventing that geometry now would fabricate missing design. The named-space tactical requirements are preserved as acceptance context for a future Progressive Decomposer rather than resolved here.",
+  "execution_scope": "needs_execution_decomposition",
+  "execution_reason": "Human-approved five-room spatial layout now exists in the canonical GDD, so the former design blocker is resolved. Five-room content authoring is broader than one bounded implementation handoff and must be split into concrete single-agent room-authoring children before execution.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The human-approved 'Approved Five-Room Spatial Layout Blockout' in the canonical GDD now supplies the exact room bounds, routes, obstacle geometry, lane clearances, cover topology, and door locations needed for execution decomposition. No design invention is required; decomposition may split only these approved five-room authoring responsibilities into bounded implementation children.",
   "parent": "NSC-022",
   "depends_on": [
     "NSC-026"

@@ -4,7 +4,7 @@ document_type: "Capstone Game Design Document"
 status: "Final Draft"
 author: "Vincent Liguori"
 original_date: "2026-07-21"
-revised_date: "2026-08-23"
+revised_date: "2026-08-25"
 source_docx: "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
 ---
 
@@ -12,7 +12,7 @@ source_docx: "Docs/GDD/No_Safe_Circle_GDD_Final.docx"
 
 **Capstone Game Design Document**
 
-**Working Title | Final Draft | Originally July 21, 2026; revised August 21, 2026 | Vincent Liguori**
+**Working Title | Final Draft | Originally July 21, 2026; revised August 25, 2026 | Vincent Liguori**
 
 > A wizard must create brief moments of safety, open sealed doors under pressure, and escape a dungeon while the monsters left behind continue to pursue.
 
@@ -116,6 +116,393 @@ The player should feel powerful for a few seconds and vulnerable immediately aft
 | 3. Chapel of Ash | Pews and stone columns provide line-of-sight breaks from the newly introduced Ranged Enemy, which appears here alongside Melee Enemy support rather than alone. The central aisle offers the fastest route to the door but leaves the player exposed, while side routes provide cover at the cost of distance. |
 | 4. Lower Vault | Columns and storage piles create several incomplete loops rather than one safe circuit. The player must watch both the current encounter and the previous doorway, because surviving enemies from earlier rooms are the same persistent pursuers breaking through behind them, not newly spawned enemies. |
 | 5. Final Room | A comparatively open chamber with limited cover and one central obstacle, populated by both Melee and Ranged Enemies. The player must combine movement, Frost Field, Force Wave, and Fireball to create the final uninterrupted five-second escape window. |
+
+### Approved Five-Room Spatial Layout Blockout
+
+> **Design approval provenance:** Human-approved on August 25, 2026 after Progressive Decomposer run `nsc-029-decomp-20260825-034021` identified the missing `Five-Room Spatial Layout Specification` as the smallest design artifact needed to unblock NSC-029. This section promotes that approved blockout into canonical GDD design.
+
+## 1. Purpose and authority boundary
+
+This section defines the human-approved initial blockout-level spatial layout for the five canonical spaces in **No Safe Circle** so NSC-029 can be decomposed into bounded implementation work without asking implementation agents to invent missing level geometry.
+
+This blockout specification is now part of the GDD. If a later GDD revision changes these requirements, the later approved GDD revision is authoritative.
+
+This approved blockout specifies:
+
+- the continuous-floor spatial topology;
+- room boundaries and blockout dimensions;
+- the forward route through all five named spaces;
+- Ruined Entry rubble placement and its broad circling route;
+- Bone Archive shelf/furniture placement and lane clearances;
+- Chapel of Ash central aisle, side routes, pews, columns, and cover pockets;
+- Lower Vault columns/storage and incomplete-loop routes;
+- Final Room open layout, limited cover, and one central obstacle;
+- each room's exit-door location;
+- designation of the Final Room exit as the final door.
+
+This blockout does **not** add or authorize:
+
+- enemy placement, encounter composition, activation, admission, or balance;
+- new mechanics, rooms, doors, enemies, spells, progression, lore, or rewards;
+- changes to runtime ownership, navigation technology, door state behavior, doorway crossing, or victory behavior;
+- production-quality art, lighting, audio, VFX, or decorative polish;
+- implementation, Unity scene edits, test execution, readiness, delivery, or completion claims.
+
+## 2. Authoring conventions
+
+### Gameplay coordinates
+
+All blockout dimensions in this specification are expressed in Unity gameplay-plane world coordinates:
+
+- **X** = horizontal/east-west;
+- **Z** = forward/north-south;
+- **Y** = vertical height.
+
+The floor progresses generally toward positive Z.
+
+### Visual/simulation separation
+
+The existing isometric Tilemap remains a **visual architectural layer**. Gameplay walkability, collision, trigger volumes, door state, and other simulation behavior remain separately authored and authoritative.
+
+Room layout implementation must therefore provide matching visual and gameplay representations rather than using Tilemap cells as gameplay truth.
+
+### Existing isometric visual convention
+
+The current world foundation uses an isometric `Grid` with cell size approximately:
+
+- X = 1.0
+- Y = 0.5
+- Z = 1.0
+
+The blockout coordinates below use 0.5-unit increments where practical. Implementations may snap visual Tilemap cells to the existing isometric grid while keeping gameplay geometry aligned to the intended world-space footprint.
+
+### Global blockout dimensions
+
+Unless a room section overrides them:
+
+- perimeter wall gameplay thickness: **0.5 world units**;
+- perimeter wall blockout height: **2.5 world units**;
+- sealed-door clear opening width: **3.0 world units**;
+- ordinary primary route target width: **3.5 world units or greater**;
+- intentional Bone Archive pinch width: **2.5 world units minimum**;
+- no accidental hard-geometry gap may be narrower than **2.5 world units**.
+
+The 2.5-unit Bone Archive minimum is an initial level-design clearance. The navigation implementation must later validate the configured enemy agent radius against these authored lanes, as required by NSC-029 VAL-001. If the configured navigation footprint cannot traverse a 2.5-unit clear lane with the project's required margin, the layout must be revised rather than silently changing navigation ownership or technology.
+
+## 3. Continuous-floor topology
+
+The five rooms exist in one continuous floor, arranged generally south-to-north:
+
+```text
+START
+  |
+  v
+[ Ruined Entry ]
+       |
+      D1
+       |
+[ Bone Archive ]
+       |
+      D2
+       |
+[ Chapel of Ash ]
+       |
+      D3
+       |
+[ Lower Vault ]
+       |
+      D4
+       |
+[ Final Room ]
+       |
+   D5 FINAL
+       |
+     ESCAPE
+```
+
+There are no room scene loads and no cross-scene transitions.
+
+Each `D#` is a sealed-door location in the shared boundary between spaces. Once the player crosses a room's exit and the existing door lifecycle closes/locks it, that same doorway is the previous doorway visible from the next room.
+
+## 4. Global room and door coordinates
+
+| Space | X bounds | Z bounds | Nominal size | Exit door |
+|---|---:|---:|---:|---|
+| Ruined Entry | -10 to +10 | -18 to 0 | 20 Ã— 18 | D1 at **(0, 0)** |
+| Bone Archive | -10 to +10 | 0 to 20 | 20 Ã— 20 | D2 at **(+6, 20)** |
+| Chapel of Ash | -12 to +12 | 20 to 42 | 24 Ã— 22 | D3 at **(-6, 42)** |
+| Lower Vault | -11 to +11 | 42 to 64 | 22 Ã— 22 | D4 at **(+4, 64)** |
+| Final Room | -12 to +12 | 64 to 86 | 24 Ã— 22 | D5 FINAL at **(0, 86)** |
+
+Door coordinates are the center of the clear opening in the shared north/south room boundary.
+
+The changing room widths create short wall jogs at shared boundaries. Those jogs are part of the continuous floor and do not create corridors or separate rooms.
+
+## 5. Room 1 â€” Ruined Entry
+
+### Tactical purpose
+
+Ruined Entry remains a mostly open teaching space. It must allow the player to circle a melee threat, preserve a visible escape route, and recognize when enough separation exists to charge Fireball.
+
+### Room shell
+
+- rectangular walkable footprint: X **[-10, +10]**, Z **[-18, 0]**;
+- solid west, east, and south perimeter walls;
+- north wall contains D1 centered at **X = 0**;
+- D1 clear opening width: **3.0**.
+
+### Collapsed-rubble blockout
+
+The primary rubble mass is an east-of-center L-shaped cluster formed from two touching hard-geometry footprints:
+
+- **Rubble A:** X **[+2, +6]**, Z **[-12, -8]**;
+- **Rubble B:** X **[+4, +7]**, Z **[-8, -6]**.
+
+The cluster may later be visually broken into multiple rubble sprites/meshes, but its gameplay footprint should preserve the same blockout silhouette unless this artifact is revised.
+
+### Route requirements
+
+- west side of the rubble remains a **broad circling route** with at least **6.0 units** of usable width through its widest teaching section;
+- east side remains traversable with at least **2.5 units** of clear space between rubble and perimeter wall;
+- no rubble placement creates a dead-end pocket;
+- D1 remains reachable from both sides of the rubble cluster;
+- the final approach to D1 provides at least a **5 Ã— 5 unit** mostly open staging area south of the door.
+
+## 6. Room 2 â€” Bone Archive
+
+### Tactical purpose
+
+Bone Archive creates narrow shelf lanes and chokepoints. It should reward Frost Field lane control and clustered Fireball opportunities while making poor aisle choices capable of trapping the player.
+
+### Room shell
+
+- rectangular walkable footprint: X **[-10, +10]**, Z **[0, 20]**;
+- D1 enters from the south at **(0, 0)**;
+- D2 exits north at **(+6, 20)**;
+- D1 and D2 clear opening width: **3.0**.
+
+### Shelf banks
+
+Three tall, hard-geometry shelf banks run predominantly north-south:
+
+- **Shelf A:** X **[-6.5, -5.0]**, Z **[4, 16]**;
+- **Shelf B:** X **[-1.5, 0.0]**, Z **[3, 14]**;
+- **Shelf C:** X **[+3.5, +5.0]**, Z **[6, 17]**.
+
+Shelf blockout height should be at least **2.5 units** so they read as substantial lane-forming architecture and can support later visual replacement.
+
+### Intentional chokepoint
+
+A collapsed archive-furniture protrusion extends from Shelf B into the aisle toward Shelf C:
+
+- **Collapsed Furniture BA-1:** X **[0.0, +1.0]**, Z **[9, 11]**.
+
+This reduces the local clear width between BA-1 and Shelf C to **2.5 units**. No authored hard-geometry gap in Bone Archive may be narrower than this value.
+
+### Route requirements
+
+- the lane between Shelf A and Shelf B remains **3.5 units** clear;
+- the normal lane between Shelf B and Shelf C remains **3.5 units** clear except at BA-1;
+- the BA-1 pinch is the deliberate minimum-clearance chokepoint;
+- a western bypass remains at least **3.0 units** clear;
+- an eastern bypass remains at least **3.0 units** clear;
+- at least two different navigable routes connect the southern half of the room to the northern half;
+- the route to offset D2 at X = +6 requires at least one lane choice rather than a straight centered sprint.
+
+### Navigation-validation intent
+
+NSC-029 VAL-001 must later verify that the configured enemy navigation agent can traverse the 2.5-unit BA-1 pinch and the room's intended lanes. This artifact defines the geometry to validate; it does not select or configure the navigation technology.
+
+## 7. Room 3 â€” Chapel of Ash
+
+### Tactical purpose
+
+Chapel of Ash introduces meaningful line-of-sight breaks against ranged pressure while melee support remains relevant. The central aisle is the fastest route but exposes the player; side routes trade distance for cover.
+
+### Room shell
+
+- rectangular walkable footprint: X **[-12, +12]**, Z **[20, 42]**;
+- D2 enters from the south at **(+6, 20)**;
+- D3 exits north at **(-6, 42)**;
+- clear door opening width: **3.0**.
+
+### Central aisle
+
+The central aisle is the unobstructed strip:
+
+- X **[-2, +2]**;
+- Z **[22, 40]**.
+
+Target clear width: **4.0 units**.
+
+### Pews
+
+Four rows of pew blockouts occupy each side of the central aisle.
+
+Left-side pew footprints:
+
+- X **[-8.5, -3]**, Z **[24, 25.5]**;
+- X **[-8.5, -3]**, Z **[28, 29.5]**;
+- X **[-8.5, -3]**, Z **[32, 33.5]**;
+- X **[-8.5, -3]**, Z **[36, 37.5]**.
+
+Right-side pew footprints:
+
+- X **[+3, +8.5]**, Z **[24, 25.5]**;
+- X **[+3, +8.5]**, Z **[28, 29.5]**;
+- X **[+3, +8.5]**, Z **[32, 33.5]**;
+- X **[+3, +8.5]**, Z **[36, 37.5]**.
+
+Pew blockout height: **1.25 units**.
+
+### Columns
+
+Four stone columns reinforce the side-cover pattern:
+
+- **C1:** center **(-8.5, 27)**;
+- **C2:** center **(+8.5, 27)**;
+- **C3:** center **(-8.5, 35)**;
+- **C4:** center **(+8.5, 35)**.
+
+Each column footprint is **1.5 Ã— 1.5 units** with blockout height **2.5 units**.
+
+### Side routes and cover
+
+- the west side route between pew ends/columns and the west wall must preserve at least **2.5 units** clear;
+- the east side route must preserve at least **2.5 units** clear;
+- the spaces between pew rows create lateral openings back toward the central aisle;
+- designated cover pocket **CA-W** is centered approximately at **(-10.5, 31)**;
+- designated cover pocket **CA-E** is centered approximately at **(+10.5, 35)**.
+
+At least one of CA-W or CA-E must be geometrically occluded from a representative straight-line ranged attack crossing from the opposite half of the chapel by a real pew or column collider. The later validation may choose a representative ranged test position; this artifact does not define an encounter spawn.
+
+### Route tradeoff
+
+- central-aisle travel is shorter and more direct between D2 and D3;
+- using either side route adds lateral travel but provides repeated occluders;
+- no cover route becomes a fully safe tunnel isolated from melee approach.
+
+## 8. Room 4 â€” Lower Vault
+
+### Tactical purpose
+
+Lower Vault uses columns and storage piles to create several incomplete loops rather than one safe circuit. The layout must keep the previous doorway relevant so surviving pursuers breaking in behind the player remain a spatial threat.
+
+### Room shell
+
+- rectangular walkable footprint: X **[-11, +11]**, Z **[42, 64]**;
+- D3 enters from the south at **(-6, 42)**;
+- D4 exits north at **(+4, 64)**;
+- clear door opening width: **3.0**.
+
+### Major obstacles
+
+**Central column cluster LV-C1**
+
+- footprint: X **[-1, +1]**, Z **[48, 52]**;
+- height: **2.5**.
+
+**West storage pile LV-W1**
+
+- footprint: X **[-7.5, -4]**, Z **[53, 57]**;
+- height: **1.5**.
+
+**East storage pile LV-E1**
+
+- footprint: X **[+4, +7.5]**, Z **[47, 50]**;
+- height: **1.5**.
+
+**North-west storage bar LV-N1**
+
+- footprint: X **[-7.5, -1]**, Z **[59, 61]**;
+- height: **1.5**.
+
+### Incomplete-loop requirements
+
+- obstacles must allow local movement around multiple sides but must not combine into one clean, repeatable perimeter circuit;
+- LV-N1 intentionally breaks the easiest north-west loop;
+- the east side remains the most direct approach to D4;
+- the central cluster forces at least one meaningful left/right route choice;
+- the southern half of the room retains an open visual/movement connection back toward D3;
+- no obstacle arrangement permanently walls off D3 after the player enters the room;
+- at least **3.0 units** of clear space remains on every intended route.
+
+## 9. Room 5 â€” Final Room
+
+### Tactical purpose
+
+Final Room is comparatively open, provides limited cover, and has one central obstacle. The player must create the final uninterrupted opening window through movement and the existing spell kit rather than hiding behind extensive room geometry.
+
+### Room shell
+
+- rectangular walkable footprint: X **[-12, +12]**, Z **[64, 86]**;
+- D4 enters from the south at **(+4, 64)**;
+- D5 exits north at **(0, 86)**;
+- D5 is the **final door**;
+- clear door opening width: **3.0**.
+
+### Single central obstacle
+
+**Final Obstacle FR-1**
+
+- footprint: X **[-2.5, +2.5]**, Z **[73.5, 78.5]**;
+- blockout height: **2.0 units**.
+
+This is the room's one major hard-cover obstacle.
+
+### Openness requirements
+
+- preserve at least **4.0 units** of clear circulation around each side of FR-1;
+- do not add other hard-cover props large enough to create another equivalent obstacle;
+- the D4-to-D5 route can pass either side of FR-1;
+- the north staging region immediately before D5 remains mostly open;
+- limited incidental decoration may eventually exist, but it must not materially change the approved blockout cover topology without a reviewed GDD/design revision.
+
+## 10. Door sequence
+
+| Door | Shared boundary / role | Center | Final? |
+|---|---|---:|---|
+| D1 | Ruined Entry â†’ Bone Archive | (0, 0) | No |
+| D2 | Bone Archive â†’ Chapel of Ash | (+6, 20) | No |
+| D3 | Chapel of Ash â†’ Lower Vault | (-6, 42) | No |
+| D4 | Lower Vault â†’ Final Room | (+4, 64) | No |
+| D5 | Final Room â†’ escape boundary | (0, 86) | **Yes** |
+
+This blockout section defines door placement and final-door identity. Door lifecycle, opening time, automatic close/lock, break-through behavior, crossing state, health restore, and victory consumption remain owned by their existing gameplay systems/GDD contracts.
+
+## 11. Blockout acceptance checklist
+
+- [ ] all five named spaces have explicit gameplay-plane bounds;
+- [ ] all five spaces coexist in one continuous floor;
+- [ ] D1â€“D5 have explicit locations and D5 is identified as the final door;
+- [ ] Ruined Entry has a mostly open layout and broad circling route around rubble;
+- [ ] Bone Archive has explicit shelves, alternate lanes, and a 2.5-unit intentional pinch;
+- [ ] Chapel of Ash has a 4-unit central aisle, longer side routes, real pew/column occluders, and designated cover pockets;
+- [ ] Lower Vault has several obstacle-driven route choices without one safe repeatable circuit and keeps the previous doorway relevant;
+- [ ] Final Room is comparatively open and contains exactly one major central obstacle;
+- [ ] gameplay geometry remains independent from the visual Tilemap;
+- [ ] no enemy placement, encounter composition, runtime redesign, or production-art requirement has been added.
+
+## 12. Validation expectations after implementation
+
+1. **Bone Archive navigation validation**
+   - verify the configured enemy navigation agent can traverse the BA-1 2.5-unit pinch and intended aisles;
+   - if not, fail the room-layout validation and revise design/configuration through the proper owning work rather than faking passability.
+
+2. **Chapel of Ash occlusion validation**
+   - verify at least one designated side cover pocket is truly occluded from a representative ranged line-of-sight/projectile path by authored pew/column gameplay geometry.
+
+3. **Visual/simulation alignment**
+   - verify visible Tilemap walls/floors correspond to the separately authored collision/walkability footprint.
+
+4. **Continuous-floor validation**
+   - verify all five room shells and D1â€“D5 coexist in the canonical continuous gameplay scene/floor representation without scene loading.
+
+## 13. Revision policy
+
+These dimensions are **human-approved initial blockout targets**. They are not final balance values or final art.
+
+Playtesting may justify later room-layout revisions, but changes to room bounds, major obstacle topology, lane widths, cover topology, or door positions should create a reviewed GDD/design revision rather than being silently changed during implementation.
 
 ### Required Enemy Roster
 
