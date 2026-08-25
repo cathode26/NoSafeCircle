@@ -368,16 +368,20 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(controller.TryBeginDoorApproach(door.SelectionPoint));
             Assert.IsTrue(movement.HasActiveDestination);
 
-            // PlayerMovement advances from Time.deltaTime, so a rendered-frame limit is not a
-            // valid elapsed-time bound in fast batchmode runs: hundreds of frames can execute
-            // before enough simulated game time has passed to travel the required distance.
+            // Drive PlayerMovement's public deterministic test seam with a normal gameplay-sized
+            // delta while still using the real CharacterController.Move/trigger path. Uncapped
+            // batchmode frames can have such tiny Time.deltaTime values that CharacterController's
+            // minimum movement threshold discards every automatic Update step.
+            movement.enabled = false;
+            const float simulationStepSeconds = 1f / 60f;
             const float maxElapsedSeconds = 3f;
             var elapsedSeconds = 0f;
             var frames = 0;
             while (movement.HasActiveDestination && elapsedSeconds < maxElapsedSeconds)
             {
+                movement.Tick(simulationStepSeconds);
                 yield return null;
-                elapsedSeconds += Time.deltaTime;
+                elapsedSeconds += simulationStepSeconds;
                 frames++;
             }
 
