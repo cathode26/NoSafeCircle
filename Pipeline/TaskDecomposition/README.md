@@ -8,7 +8,7 @@ D1A is model-free and performs no writes. A graph delta is immutable review data
 
 ## D1B.1 live read-only flow
 
-D1B.1 connects one human-selected, active, decomposition-relevant task to exactly one provider-neutral invocation:
+D1B.1 connects one **human-authorized**, active, decomposition-relevant task to exactly one provider-neutral invocation:
 
 ```text
 committed-source preflight -> deterministic context -> TaskExecutionRequest
@@ -18,9 +18,53 @@ committed-source preflight -> deterministic context -> TaskExecutionRequest
 -> immutable human-review artifacts
 ```
 
+Human authorization may be specific (`Decompose NSC-021`) or generic (`Go pick a task and start on it`) when the generic selection request is being handled under `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md` and `Docs/AI-Pipeline/GENERIC_TASK_SELECTION_RETRY_AND_DECOMPOSITION.md`. Under a generic request, the orchestrator may select an eligible decomposition parent as the bounded work unit. This does not weaken the deterministic task-selection preflight or any review/application boundary.
+
 The source is bound to exact HEAD/tree/branch, must be completely clean, and is revalidated after the provider and before accepted artifact publication. Production execution additionally requires a physically read-only source mount. The output root must be filesystem-disjoint from the source. The Decomposer receives only `repository_read` and `repository_search`, empty write boundaries, the D1A output schema, the `high_reasoning` class, and bounded turn/timeout budgets. It cannot receive repository write or approved-command capabilities.
 
 Claude uses configuration `claude-decomposition`, provider `claude-code`, and `NSC_CLAUDE_MODEL` (default `claude-sonnet-5`). Codex uses `codex-decomposition`, provider `openai-codex`, and `NSC_OPENAI_CODEX_MODEL` (default `gpt-5.6-sol`). The default limits are 48 turns and 1440 seconds, configurable with positive contract-validated `NSC_TASK_DECOMPOSER_TURN_LIMIT` and `NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS`. `NSC_DECOMPOSITION_HEARTBEAT_SECONDS` defaults to 15.
+
+## Decomposition as an orchestrator work type
+
+Decomposition is now a selectable **orchestrator work type** for generic task-picking requests. It is not a new TaskGraph `kind` and does not create a fake `NSC-###` task for the act of decomposition.
+
+A fresh orchestrator should discover active decomposition-relevant parents alongside fresh implementation candidates. The production eligibility authority is `context_builder.validate_task_selection()`.
+
+That preflight rejects, among other invalid selections:
+
+- malformed/non-schema-v2 task identity;
+- inactive contracts;
+- the project root;
+- tasks already marked `decomposition_state: decomposed`;
+- already concrete `single_agent` work;
+- concrete work whose execution scope is not meaningfully decomposition-relevant.
+
+Common decomposition-relevant execution scopes are:
+
+```text
+needs_execution_decomposition
+human_integration_required
+unknown
+```
+
+subject to the full production preflight and current `decomposition_state`.
+
+A concrete task with `execution_scope: needs_execution_decomposition` is the clearest case: the design is approved/concrete, but the work bundles too many independently verifiable responsibilities for one implementation agent.
+
+Decomposition remains progressive and just-in-time. Generic selection authority must not be used to decompose the entire backlog speculatively. Prefer near-frontier decomposition that unlocks useful work.
+
+## Generic retry interaction
+
+When decomposition was selected under a generic task-picking request:
+
+- failure of one **candidate selection** does not end the overall generic selection attempt;
+- deterministic preflight rejection, an unavailable/claimed parent, or an exhausted blocked/rejected decomposition attempt may release that candidate and return the orchestrator to the next sensible implementation/decomposition candidate;
+- normal provider/runtime difficulties should respect existing bounded retry/circuit-breaker policy rather than causing immediate task-hopping;
+- a `review_ready` result is a **successful decomposition work unit**, including semantic decisions `needs_artifact` or `needs_human`, because the useful output is the reviewed diagnosis/proposal.
+
+Do not treat `review_ready` decomposition as a failure merely because it stops at a human/artifact/application boundary.
+
+If the human explicitly named the parent (`Decompose NSC-021`), do not silently substitute a different parent if it is blocked.
 
 ## Deterministic context and canon
 
@@ -58,6 +102,31 @@ JSON review artifacts use strict finite JSON, deterministic key ordering, UTF-8,
 
 Everything produced here has authority `review_only_not_applied`. D1B.1 never changes task contracts, ID maps, resource groups, project requirements, the GDD, or implementation files. It does not establish readiness, authorization, delivery, conformance, completion, priority, or dependency readiness.
 
+A generic task-picking instruction authorizes the orchestrator to **select and run** an eligible D1B.1 proposal. It does **not** authorize applying the proposal. `graph_delta.json` remains review-only. Stage D1C reusable graph application remains unimplemented.
+
+## GitHub coordination and decomposition closeout
+
+When decomposition is selected as orchestrator work, use the GitHub Issue for the existing parent `NSC-###` contract. The Claim / Planned Approach must explicitly say:
+
+```text
+work_type: decomposition
+```
+
+Do not create a synthetic TaskGraph ID for decomposition activity.
+
+If the run reaches `review_ready`, post a **Decomposition Closeout** with:
+
+- worker ID;
+- parent task ID/revision/source commit;
+- provider and run ID;
+- semantic decision;
+- paths/identities of `decomposition_result.json` and `graph_delta.json` when present;
+- concise proposed-child or blocker summary;
+- explicit `review_only_not_applied` statement;
+- required human/review/application next action.
+
+A successful decomposition closeout does not mark the parent implementation delivered or conformant. While review-ready output awaits human review/application, keep the parent clearly reserved/marked so another generic orchestrator does not rerun the same parent contract/hash.
+
 ## CLI and proving commands
 
 The production CLI requires a physically read-only source checkout:
@@ -77,4 +146,4 @@ docker compose -p nosafecircle-m2a run --rm -T claude-decompose python3 Pipeline
 docker compose -p nosafecircle-m2a run --rm -T codex-decompose python3 Pipeline/TaskDecomposition/run_decomposition.py --task-id NSC-021 --provider codex
 ```
 
-Stage D1B.2 independent verification and bounded refinement are not implemented. There is no decomposition verifier, refiner, or automatic retry. Stage D1C graph application is also not implemented. Artifact Authority, artifact generation/GER, general GER, readiness, dispatch, candidate patches, automatic commits, and merges remain outside this package.
+Stage D1B.2 independent verification and bounded refinement are not implemented. There is no decomposition verifier, refiner, or automatic provider retry inside D1B.1. Stage D1C graph application is also not implemented. Artifact Authority, artifact generation/GER, general GER, readiness, dispatch, candidate patches, automatic commits, and merges remain outside this package.
