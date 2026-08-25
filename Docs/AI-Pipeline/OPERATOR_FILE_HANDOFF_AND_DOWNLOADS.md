@@ -238,6 +238,225 @@ $DeliverySpecPath = Join-Path $Downloads 'NSC-039-delivery-spec-001.json'
 
 On a redo, increment the suffix rather than expecting overwrite.
 
+## Canonical successful task-start pattern
+
+The following NSC-039 starting block is the reference-quality task-start handoff. This is the style Vincent wants a fresh context to reproduce for later tasks after substituting and verifying the task-specific values.
+
+What makes this block good:
+
+- it is one complete copy/paste PowerShell block with `$ErrorActionPreference = "Stop"`;
+- it defines the primary checkout, standalone task checkout, feature branch, Downloads folder, transcript path, and ExecutionCrew output root up front;
+- it refuses to delete or overwrite an existing task directory and explicitly asks for inspection instead;
+- it proves the primary checkout is clean before updating `main`;
+- it fast-forwards from GitHub before creating the task clone;
+- it uses a standalone clone from GitHub instead of a Windows Git worktree/local-source clone;
+- it verifies fresh-clone `HEAD == origin/main`, creates the intended branch, and rechecks branch identity and cleanliness;
+- it validates TaskGraph and prints dependency state, selected-task state, and the task contract before execution;
+- it verifies the exact proposed ExecutionCrew files exist and are tracked before granting writer authority;
+- it runs provider-backed Compose with the fixed `-p nosafecircle` project name;
+- it gives ExecutionCrew a full Windows host output root;
+- it tees the complete terminal transcript directly to a unique timestamped file in Downloads while still showing it on screen;
+- it validates that the transcript exists and is nonempty;
+- it stops cleanly on nonzero ExecutionCrew exit and tells Vincent exactly which durable file to upload;
+- on success, it ends with one unambiguous next action: upload the Downloads transcript.
+
+When adapting this pattern, derive task ID, branch name, checkout directory, dependency/task-state checks, provider, and write paths from current repository reality. Do not cargo-cult NSC-039-specific values into another task. If a selected write path is intentionally absent, use the approved exact-new ExecutionCrew flags and their corresponding preflight rules instead of changing this example to scaffold the file.
+
+```powershell
+$ErrorActionPreference = "Stop"
+
+$Root = "C:\UnityProjects\NoSafeCircleAgentCrew"
+$MainDir = Join-Path $Root "NoSafeCircle"
+$TaskDir = Join-Path $Root "NoSafeCircle-NSC039"
+$Branch = "nsc-039-world-sprite-prefab-sorting"
+
+$Downloads = Join-Path $env:USERPROFILE "Downloads"
+$Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$TranscriptPath = Join-Path $Downloads "NSC-039-start-$Stamp.txt"
+$ExecutionOutputRoot = Join-Path $TaskDir "Pipeline\ExecutionCrew\outputs"
+
+if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
+    throw "STOP: Root directory does not exist: $Root"
+}
+
+if (-not (Test-Path -LiteralPath $MainDir -PathType Container)) {
+    throw "STOP: Main repository does not exist: $MainDir"
+}
+
+if (-not (Test-Path -LiteralPath $Downloads -PathType Container)) {
+    throw "STOP: Downloads directory does not exist: $Downloads"
+}
+
+if (Test-Path -LiteralPath $TaskDir) {
+    throw "STOP: Task directory already exists: $TaskDir`nDo not delete it. Show me this message and we will inspect it."
+}
+
+Write-Host ""
+Write-Host "=== UPDATE PRIMARY MAIN ==="
+Write-Host ""
+
+$MainDirty = git -C $MainDir status --porcelain
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: Could not inspect the primary repository."
+}
+
+if ($MainDirty) {
+    $MainDirty
+    throw "STOP: Primary NoSafeCircle checkout has uncommitted changes."
+}
+
+git -C $MainDir switch main
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: Could not switch primary checkout to main."
+}
+
+git -C $MainDir pull --ff-only origin main
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: Could not fast-forward main from GitHub."
+}
+
+$MainHead = (git -C $MainDir rev-parse HEAD).Trim()
+
+Write-Host ""
+Write-Host "Current main HEAD: $MainHead"
+git -C $MainDir log -1 --oneline
+
+Write-Host ""
+Write-Host "=== CREATE STANDALONE NSC-039 CLONE ==="
+Write-Host ""
+
+Set-Location $Root
+
+git clone https://github.com/cathode26/NoSafeCircle.git $TaskDir
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: GitHub clone failed."
+}
+
+Set-Location $TaskDir
+
+$CloneHead = (git rev-parse HEAD).Trim()
+$OriginMain = (git rev-parse origin/main).Trim()
+
+if ($CloneHead -ne $OriginMain) {
+    throw "STOP: Fresh clone HEAD does not match origin/main."
+}
+
+git switch -c $Branch
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: Could not create feature branch $Branch."
+}
+
+$ActualBranch = (git branch --show-current).Trim()
+if ($ActualBranch -ne $Branch) {
+    throw "STOP: Wrong branch. Expected '$Branch', got '$ActualBranch'."
+}
+
+$TaskDirty = git status --porcelain
+if ($TaskDirty) {
+    $TaskDirty
+    throw "STOP: Fresh NSC-039 checkout is unexpectedly dirty."
+}
+
+Write-Host ""
+Write-Host "=== VERIFY TASKGRAPH ==="
+Write-Host ""
+
+python Pipeline/TaskGraph/taskcontrol.py validate
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: TaskGraph validation failed."
+}
+
+Write-Host ""
+Write-Host "=== NSC-038 DEPENDENCY STATE ==="
+python Pipeline/TaskGraph/taskcontrol.py state NSC-038 --json
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: Could not inspect NSC-038."
+}
+
+Write-Host ""
+Write-Host "=== NSC-039 CURRENT STATE ==="
+python Pipeline/TaskGraph/taskcontrol.py state NSC-039 --json
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: Could not inspect NSC-039."
+}
+
+Write-Host ""
+Write-Host "=== NSC-039 CONTRACT ==="
+python Pipeline/TaskGraph/taskcontrol.py show NSC-039
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: Could not inspect NSC-039 contract."
+}
+
+Write-Host ""
+Write-Host "=== VERIFY EXECUTIONCREW WRITE PATHS ==="
+Write-Host ""
+
+$ImplementationPath = "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
+$TestPath = "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs"
+
+if (-not (Test-Path -LiteralPath $ImplementationPath -PathType Leaf)) {
+    throw "STOP: Implementation path is missing: $ImplementationPath"
+}
+
+if (-not (Test-Path -LiteralPath $TestPath -PathType Leaf)) {
+    throw "STOP: Test path is missing: $TestPath"
+}
+
+git ls-files --error-unmatch $ImplementationPath | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: Implementation path is not tracked: $ImplementationPath"
+}
+
+git ls-files --error-unmatch $TestPath | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "STOP: Test path is not tracked: $TestPath"
+}
+
+$TaskDirty = git status --porcelain
+if ($TaskDirty) {
+    $TaskDirty
+    throw "STOP: Repository became dirty during preflight."
+}
+
+Write-Host ""
+Write-Host "=== START EXECUTIONCREW FOR NSC-039 ==="
+Write-Host "Branch:     $Branch"
+Write-Host "HEAD:       $CloneHead"
+Write-Host "Transcript: $TranscriptPath"
+Write-Host ""
+
+docker compose -p nosafecircle run --rm -T claude-exec python3 Pipeline/ExecutionCrew/run_crew.py `
+    --task-id NSC-039 `
+    --provider claude `
+    --implementation-path $ImplementationPath `
+    --test-path $TestPath `
+    --host-output-root $ExecutionOutputRoot `
+    2>&1 | Tee-Object -LiteralPath $TranscriptPath
+
+$CrewExit = $LASTEXITCODE
+
+Write-Host ""
+Write-Host "=== EXECUTIONCREW FINISHED ==="
+Write-Host "Exit code:  $CrewExit"
+Write-Host "Transcript: $TranscriptPath"
+Write-Host "Authoritative ExecutionCrew output root: $ExecutionOutputRoot"
+Write-Host ""
+
+if (-not (Test-Path -LiteralPath $TranscriptPath -PathType Leaf)) {
+    throw "STOP: Expected transcript was not created."
+}
+
+if ((Get-Item -LiteralPath $TranscriptPath).Length -eq 0) {
+    throw "STOP: Transcript was created but is empty."
+}
+
+if ($CrewExit -ne 0) {
+    throw "ExecutionCrew returned a non-zero exit code. Upload the transcript from Downloads and we will diagnose it."
+}
+
+Write-Host "DONE: Upload the NSC-039 transcript from Downloads to ChatGPT."
+```
+
 ## Required command style for future agents
 
 When giving Vincent commands that create or consume handoff files:
@@ -254,6 +473,7 @@ When giving Vincent commands that create or consume handoff files:
 10. Stop immediately after a failed precondition.
 11. Preserve tool-owned/hash-bound files in their authoritative location.
 12. When the output is large, save it to Downloads and ask Vincent to upload the file rather than paste the output.
+13. For a normal task start, prefer the canonical guarded task-start pattern above over a sequence of piecemeal commands that requires Vincent to shuttle state manually between turns.
 
 Preferred reusable PowerShell preamble:
 
@@ -312,6 +532,7 @@ Before producing operational commands, the fresh context should:
 - inspect current Git/repository/TaskGraph state;
 - read the current repository onboarding and runbook files;
 - treat this Downloads preference as durable;
+- use the canonical guarded task-start pattern as the default style for starting a normal selected gameplay task;
 - create downloadable prompt/support files when content is long;
 - use exact Windows host paths for human-facing files;
 - save large command output to Downloads for upload;
