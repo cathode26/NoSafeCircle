@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-012",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Enemy Health/Defeat",
   "reconciliation_key": "enemy-health-damage-defeat",
@@ -36,16 +36,6 @@
       "reference": "Section 3 — Enemy health and defeat ownership",
       "requirement": "Exposes an owner-controlled reset entry point that restores health and clears the defeat transition for floor restart, invoked by the Floor Run/Restart Orchestrator rather than by direct internal mutation.",
       "criterion_id": "AC-004"
-    },
-    {
-      "reference": "Section 1 — Executive Summary; Section 3 — Active Enemy Registry and Encounter Admission",
-      "requirement": "The defeat transition ends the enemy's participation as an active threat: its pursuit/attack behavior stops and it leaves play, while it remains the same persistent object restorable through the owner-controlled reset entry point.",
-      "criterion_id": "AC-005"
-    },
-    {
-      "reference": "Section 5 — Runtime Implementation",
-      "requirement": "A persistent enemy's health and defeat state changes only through the owner-controlled damage interface and the floor-restart reset entry point; it is never reinitialized or otherwise mutated by room transition, target loss, search, or doorway crossing.",
-      "criterion_id": "AC-006"
     }
   ],
   "completion_gates": [
@@ -63,19 +53,20 @@
       "reference": "Section 2 — Floor-run restart ownership",
       "requirement": "Verify floor restart returns a previously-damaged/defeated enemy's health and defeat state to its initial value through the owner-controlled reset entry point.",
       "gate_id": "VAL-003"
-    },
+    }
+  ],
+  "downstream_integration_obligations": [
     {
-      "reference": "Section 1 — Executive Summary",
-      "requirement": "Verify a defeated enemy's pursuit/attack behavior stops and it leaves play immediately following the defeat transition, while remaining restorable via the floor-restart reset entry point.",
-      "gate_id": "VAL-004"
+      "reference": "Section 1 — Executive Summary; Section 3 — Active Enemy Registry and Encounter Admission",
+      "requirement": "The defeat transition ends the enemy's participation as an active threat: its pursuit/attack behavior stops and it leaves play, while it remains the same persistent object restorable through the owner-controlled reset entry point.",
+      "obligation_id": "INT-001"
     },
     {
       "reference": "Section 5 — Runtime Implementation",
-      "requirement": "Verify a persistent enemy's health/defeat state remains unchanged across room transitions, target loss, search, and doorway crossings, changing only through the damage interface or the reset entry point.",
-      "gate_id": "VAL-005"
+      "requirement": "A persistent enemy's health and defeat state changes only through the owner-controlled damage interface and the floor-restart reset entry point; it is never reinitialized or otherwise mutated by room transition, target loss, search, or doorway crossing.",
+      "obligation_id": "INT-002"
     }
   ],
-  "downstream_integration_obligations": [],
   "gdd_evidence": [
     {
       "reference": "Section 3 — Enemy health and defeat ownership",
@@ -101,7 +92,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "A repository-wide grep across Assets/ for 'Defeat' found no matches; this capability does not exist in any form. Fireball's consumption of this interface is out of scope for this domain and belongs to the wizard_combat domain's fireball item.",
+  "notes": "A repository-wide grep across Assets/ for 'Defeat' found no matches; this capability does not exist in any form. Fireball's consumption of this interface is out of scope for this domain and belongs to the wizard_combat domain's fireball item. Revision 2 corrects validation locality: pursuit/attack participation and room-transition, target-loss, search, and doorway-crossing behavior remain required canon but are downstream integration obligations rather than local Enemy Health/Defeat completion criteria.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {

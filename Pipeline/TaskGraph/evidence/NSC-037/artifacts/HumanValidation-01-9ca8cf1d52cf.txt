@@ -1,0 +1,42 @@
+﻿No Safe Circle - NSC-037 Human Validation
+
+task_id=NSC-037
+contract_revision=2
+validated_commit=9ca8cf1d52cf020f2d4f0593f1b34035b36e68a4
+validated_tree=683672d2021d2c083f852c11fb11d29a9c64f623
+date=2026-08-25
+
+Interactive Unity validation:
+- The developer ran NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests interactively with Windows Standalone active.
+- The developer reported all four tests passed.
+
+Authoritative automated validation:
+- Clean EditMode validation ran at the frozen implementation commit.
+- Unity exit code: 0.
+- Result: 4 total, 4 passed, 0 failed, 0 skipped.
+- Validation manifest: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-08dbe686410747a199d7cc33ffab9e06\validation-manifest.json
+
+Build/configuration inspection:
+- Assets/Scenes/DoorPrototype.unity is registered in EditorBuildSettings.
+- Assets/Scenes/SampleScene.unity is not registered.
+- com.unity.2d.tilemap is present.
+- com.unity.ai.navigation is present.
+
+Windows Standalone build:
+- Windows 64-bit standalone build completed successfully.
+- Unity build result: Success.
+- Unity build exit code: 0.
+- Build log: C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-037\20260825-043100\windows-build.log
+- Build log SHA-256: 31a7bf924a8bd77900c5af0ecde482ba7739ec84361e70ea4873fbf13e8f6e6f
+- Executable: C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-037\20260825-043100\WindowsBuild\NoSafeCircle.exe
+- Executable size: 667648 bytes
+- Executable SHA-256: c52a78dcbe24e85319377eb294e063436122a643676c47423e723c8c541ce67a
+
+Repository integrity:
+- HEAD remained 9ca8cf1d52cf020f2d4f0593f1b34035b36e68a4.
+- Git tree remained 683672d2021d2c083f852c11fb11d29a9c64f623.
+- Post-build ProjectSettings status markers were individually checked with git diff --quiet.
+- Only normalized-equal markers were restored.
+- Repository was clean before TaskDelivery draft generation.
+
+This file records validation facts only. Gate mappings and final approval remain explicit human TaskDelivery decisions.

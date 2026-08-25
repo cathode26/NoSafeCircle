@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="15" result="Passed" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.0604824">
+  <test-suite type="TestSuite" id="1104" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="85" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.060482" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1091" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle-NSC012/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="81" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.047481" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="22984" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1092" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="81" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.045424" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1093" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="81" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.043715" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1094" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="81" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.042053" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1038" name="EnemyHealthPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.037024" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1039" name="InitialState_CurrentHealthEqualsMaxHealth_AndNotDefeated" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.InitialState_CurrentHealthEqualsMaxHealth_AndNotDefeated" methodname="InitialState_CurrentHealthEqualsMaxHealth_AndNotDefeated" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="2075666097" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.013875" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1052" name="ResetHealth_AfterDefeat_RestoresFullHealth_AndClearsDefeatState" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.ResetHealth_AfterDefeat_RestoresFullHealth_AndClearsDefeatState" methodname="ResetHealth_AfterDefeat_RestoresFullHealth_AndClearsDefeatState" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="285244616" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000687" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1051" name="ResetHealth_AfterPartialDamage_RestoresFullHealth" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.ResetHealth_AfterPartialDamage_RestoresFullHealth" methodname="ResetHealth_AfterPartialDamage_RestoresFullHealth" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="1478934236" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000291" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1053" name="ResetHealth_ThenTakeDamage_CanReachDefeatTransitionAgain" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.ResetHealth_ThenTakeDamage_CanReachDefeatTransitionAgain" methodname="ResetHealth_ThenTakeDamage_CanReachDefeatTransitionAgain" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="1339787801" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000796" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1047" name="TakeDamage_AfterDefeat_DoesNotRaiseDamagedEvent" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_AfterDefeat_DoesNotRaiseDamagedEvent" methodname="TakeDamage_AfterDefeat_DoesNotRaiseDamagedEvent" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="1890746725" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000374" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1046" name="TakeDamage_AfterDefeat_DoesNotRaiseDefeatedAgain_AndHealthStaysAtZero" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_AfterDefeat_DoesNotRaiseDefeatedAgain_AndHealthStaysAtZero" methodname="TakeDamage_AfterDefeat_DoesNotRaiseDefeatedAgain_AndHealthStaysAtZero" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="343581676" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000347" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1049" name="TakeDamage_AfterDefeat_DoesNotUnregisterFromRegistryAgain" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_AfterDefeat_DoesNotUnregisterFromRegistryAgain" methodname="TakeDamage_AfterDefeat_DoesNotUnregisterFromRegistryAgain" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="450130393" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000663" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1043" name="TakeDamage_ExceedingCurrentHealth_ClampsCurrentHealthToZero" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ExceedingCurrentHealth_ClampsCurrentHealthToZero" methodname="TakeDamage_ExceedingCurrentHealth_ClampsCurrentHealthToZero" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="507194995" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000272" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1040" name="TakeDamage_PartialAmount_ReducesCurrentHealthByThatAmount" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_PartialAmount_ReducesCurrentHealthByThatAmount" methodname="TakeDamage_PartialAmount_ReducesCurrentHealthByThatAmount" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="225359875" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000519" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1041" name="TakeDamage_PositiveAmount_RaisesDamagedEventWithThatAmount" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_PositiveAmount_RaisesDamagedEventWithThatAmount" methodname="TakeDamage_PositiveAmount_RaisesDamagedEventWithThatAmount" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="370317933" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000359" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1045" name="TakeDamage_ReducingHealthToZero_RaisesDefeatedEventExactlyOnce" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ReducingHealthToZero_RaisesDefeatedEventExactlyOnce" methodname="TakeDamage_ReducingHealthToZero_RaisesDefeatedEventExactlyOnce" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="568157038" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000333" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1044" name="TakeDamage_ReducingHealthToZero_TriggersDefeatTransition" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ReducingHealthToZero_TriggersDefeatTransition" methodname="TakeDamage_ReducingHealthToZero_TriggersDefeatTransition" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="720442062" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000257" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1048" name="TakeDamage_ReducingHealthToZero_UnregistersFromActiveEnemyRegistry" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ReducingHealthToZero_UnregistersFromActiveEnemyRegistry" methodname="TakeDamage_ReducingHealthToZero_UnregistersFromActiveEnemyRegistry" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="1068001075" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000283" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1050" name="TakeDamage_ReducingHealthToZero_WithoutRegistryWired_StillDefeatsLocally" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ReducingHealthToZero_WithoutRegistryWired_StillDefeatsLocally" methodname="TakeDamage_ReducingHealthToZero_WithoutRegistryWired_StillDefeatsLocally" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="1864029557" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000868" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1042" name="TakeDamage_ZeroOrNegativeAmount_DoesNotChangeHealthOrRaiseEvent" fullname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests.TakeDamage_ZeroOrNegativeAmount_DoesNotChangeHealthOrRaiseEvent" methodname="TakeDamage_ZeroOrNegativeAmount_DoesNotChangeHealthOrRaiseEvent" classname="NoSafeCircle.DoorPrototype.Tests.EnemyHealthPlayModeTests" runstate="Runnable" seed="1947328066" result="Passed" start-time="2026-08-25 09:09:42Z" end-time="2026-08-25 09:09:42Z" duration="0.000333" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="14" result="Passed" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-25 09:10:13Z" end-time="2026-08-25 09:10:14Z" duration="0.0526632">
+  <test-suite type="TestSuite" id="1104" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="85" result="Passed" start-time="2026-08-25 09:10:13Z" end-time="2026-08-25 09:10:14Z" duration="0.052663" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1091" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle-NSC012/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="81" result="Passed" start-time="2026-08-25 09:10:13Z" end-time="2026-08-25 09:10:14Z" duration="0.042330" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="40152" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1092" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="81" result="Passed" start-time="2026-08-25 09:10:13Z" end-time="2026-08-25 09:10:14Z" duration="0.040560" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1093" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="81" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.039489" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1094" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="81" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.038483" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1001" name="ActiveEnemyRegistryPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" testcasecount="14" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.034689" total="14" passed="14" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1002" name="InitialState_ActiveCountIsZero_AndRemainingCapacityIsFifteen" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.InitialState_ActiveCountIsZero_AndRemainingCapacityIsFifteen" methodname="InitialState_ActiveCountIsZero_AndRemainingCapacityIsFifteen" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1290573067" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.013033" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1007" name="Register_SameEnemyTwice_DoesNotDoubleCount" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Register_SameEnemyTwice_DoesNotDoubleCount" methodname="Register_SameEnemyTwice_DoesNotDoubleCount" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="780195298" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000746" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1006" name="Register_SingleEnemy_AddsToActiveSetOnce" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Register_SingleEnemy_AddsToActiveSetOnce" methodname="Register_SingleEnemy_AddsToActiveSetOnce" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1333348235" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000338" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1003" name="Register_UpToFifteenEnemies_ReportsExactCountAndZeroRemainingCapacity" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Register_UpToFifteenEnemies_ReportsExactCountAndZeroRemainingCapacity" methodname="Register_UpToFifteenEnemies_ReportsExactCountAndZeroRemainingCapacity" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="421248197" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000572" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1011" name="RegisterAndUnregister_NullEnemy_DoesNotAlterActiveCount" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.RegisterAndUnregister_NullEnemy_DoesNotAlterActiveCount" methodname="RegisterAndUnregister_NullEnemy_DoesNotAlterActiveCount" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1385184253" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000365" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1012" name="RegisteredEnemy_RemainsCountedWithoutExplicitUnregisterOrReset" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.RegisteredEnemy_RemainsCountedWithoutExplicitUnregisterOrReset" methodname="RegisteredEnemy_RemainsCountedWithoutExplicitUnregisterOrReset" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="73965640" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000320" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1013" name="ResetRegistry_ReturnsActiveCountToZero_AndRemainingCapacityToFifteen" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.ResetRegistry_ReturnsActiveCountToZero_AndRemainingCapacityToFifteen" methodname="ResetRegistry_ReturnsActiveCountToZero_AndRemainingCapacityToFifteen" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1172154173" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000489" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1014" name="ResetRegistry_ThenReRegisterSameEnemies_ReflectsExactlyReRegisteredSet" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.ResetRegistry_ThenReRegisterSameEnemies_ReflectsExactlyReRegisteredSet" methodname="ResetRegistry_ThenReRegisterSameEnemies_ReflectsExactlyReRegisteredSet" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1122632322" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000482" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1015" name="ResetRegistry_ThenReRegisterSubset_DoesNotReflectPreResetCount" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.ResetRegistry_ThenReRegisterSubset_DoesNotReflectPreResetCount" methodname="ResetRegistry_ThenReRegisterSubset_DoesNotReflectPreResetCount" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="2060360894" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000411" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1005" name="Unregister_MultipleEnemies_RestoresMatchingCapacity" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Unregister_MultipleEnemies_RestoresMatchingCapacity" methodname="Unregister_MultipleEnemies_RestoresMatchingCapacity" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1638016330" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000423" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1004" name="Unregister_OneOfFifteen_RestoresOneUnitOfCapacity" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Unregister_OneOfFifteen_RestoresOneUnitOfCapacity" methodname="Unregister_OneOfFifteen_RestoresOneUnitOfCapacity" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1816348341" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000415" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1008" name="Unregister_RegisteredEnemy_RemovesFromActiveSet" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Unregister_RegisteredEnemy_RemovesFromActiveSet" methodname="Unregister_RegisteredEnemy_RemovesFromActiveSet" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="311279438" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000280" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1009" name="Unregister_SameEnemyTwice_DoesNotCorruptCount" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Unregister_SameEnemyTwice_DoesNotCorruptCount" methodname="Unregister_SameEnemyTwice_DoesNotCorruptCount" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="1812188441" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000268" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1010" name="Unregister_UnknownEnemy_DoesNotAlterActiveCount" fullname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests.Unregister_UnknownEnemy_DoesNotAlterActiveCount" methodname="Unregister_UnknownEnemy_DoesNotAlterActiveCount" classname="NoSafeCircle.DoorPrototype.Tests.ActiveEnemyRegistryPlayModeTests" runstate="Runnable" seed="458237904" result="Passed" start-time="2026-08-25 09:10:14Z" end-time="2026-08-25 09:10:14Z" duration="0.000275" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
