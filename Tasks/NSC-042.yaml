@@ -1,0 +1,82 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-042",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Seamless Scalable Wall Tiling for Long Isometric Walls",
+  "reconciliation_key": "seamless-scalable-wall-tiling",
+  "kind": "implementation",
+  "type": "world-foundation",
+  "execution_scope": "single_agent",
+  "execution_reason": "One agent can refine the wall visual authoring convention established by NSC-039 so independently sortable wall cells repeat cleanly across short and very long walls without changing simulation ownership.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Human runtime validation isolated a specific follow-up: one-cell wall segmentation fixes sorting, but the current placeholder wall artwork visibly restarts at segment boundaries and needs a reusable seamless tiling convention that scales to long walls.",
+  "parent": "NSC-026",
+  "depends_on": [
+    "NSC-039"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD - Environment Presentation and Authoring Direction; human runtime observation during NSC-039 validation",
+      "requirement": "Provide a reusable one-cell wall visual convention whose repeated tiles join without visible gaps, border seams, or pattern-phase resets that make each sorting segment read as a separate piece of wall at normal gameplay camera distance."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-039 - World-Space SpriteRenderer Prefab and Sorting Foundation",
+      "requirement": "Preserve independently sortable wall cells and the positional isometric sorting behavior established by NSC-039; do not solve visual continuity by returning to one monolithic renderer for a long wall, by forcing the player to a fixed higher Order in Layer, or by otherwise bypassing positional sorting."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "Scale straight-wall authoring by repeating a bounded reusable wall-tile asset set so a wall of approximately 100 cells does not require 100 uniquely authored Sprite or Tile assets and does not require a unique full-length wall image."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "Keep wall presentation independent from gameplay collision and simulation ownership so visual segmentation, tiling, or placeholder-art changes do not redefine the wall's gameplay collider topology or behavior."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Unity Validation Agent role; human runtime observation",
+      "requirement": "Unity validation constructs representative straight walls of at least 3, 10, and 100 visual cells and confirms they use the reusable wall visual convention continuously without gaps or asset-count growth proportional to wall length."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-039 - VAL-001",
+      "requirement": "Unity validation confirms the wizard can move along both sides of and cross a representative long wall while front/behind ordering remains correct under the NSC-039 sorting convention."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Human runtime observation",
+      "requirement": "Human validation at the normal gameplay camera confirms the repeated straight wall reads as one continuous wall rather than a row of visibly restarting wall pieces."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "gdd_evidence": [
+    {
+      "reference": "GDD - Environment Presentation and Authoring Direction",
+      "requirement": "Architectural presentation is authored in the isometric visual layer while gameplay collision and other simulation behavior remain separately owned."
+    }
+  ],
+  "basis": "direct_gdd",
+  "source_scope": "required",
+  "confidence": "high",
+  "notes": "This is an explicit follow-up to NSC-039 and must not block closing NSC-039 once its sorting foundation is conformant. Scope is straight-wall visual continuity and scalable repetition. Final wall art, decorative variation, corners, junctions, end caps, and room-specific wall dressing are out of scope unless a minimal treatment is required to prove seamless straight-wall repetition.",
+  "repository_state_at_bootstrap": "not_applicable",
+  "repository_evidence_at_bootstrap": [],
+  "provenance": {
+    "origin": "human_scope_correction",
+    "source_task_id": "NSC-039",
+    "source_task_revision_before_move": 1,
+    "reason": "Human runtime validation confirmed NSC-039's one-cell wall segmentation fixes player/wall sorting, but exposed a separate visual-quality and scalability concern: repeated placeholder wall segments do not join cleanly and future walls may span roughly 100 cells. The issue was deliberately deferred so NSC-039 can finish without expanding its scope."
+  }
+}
