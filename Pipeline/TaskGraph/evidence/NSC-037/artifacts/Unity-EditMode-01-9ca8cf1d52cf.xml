@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="4" result="Passed" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.0807786">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.080779" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1035" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle-NSC037/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.059339" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="44876" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1036" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.051680" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1037" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.048493" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1038" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.046615" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1039" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="30" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.045036" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1030" name="WindowsBuildSceneRegistrationTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.040020" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1034" name="ActiveBuildTarget_IsWindowsStandalone" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests.ActiveBuildTarget_IsWindowsStandalone" methodname="ActiveBuildTarget_IsWindowsStandalone" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests" runstate="Runnable" seed="1178388221" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.019994" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1032" name="CanonicalGameplayScene_BuildSettingsGuidMatchesSceneAssetGuid" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests.CanonicalGameplayScene_BuildSettingsGuidMatchesSceneAssetGuid" methodname="CanonicalGameplayScene_BuildSettingsGuidMatchesSceneAssetGuid" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests" runstate="Runnable" seed="1674743557" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.001700" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1031" name="CanonicalGameplayScene_IsRegisteredAndEnabledInBuildSettings" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests.CanonicalGameplayScene_IsRegisteredAndEnabledInBuildSettings" methodname="CanonicalGameplayScene_IsRegisteredAndEnabledInBuildSettings" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests" runstate="Runnable" seed="440696448" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.000622" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1033" name="NonCanonicalSampleScene_IsNotRegisteredInBuildSettings" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests.NonCanonicalSampleScene_IsNotRegisteredInBuildSettings" methodname="NonCanonicalSampleScene_IsNotRegisteredInBuildSettings" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WindowsBuildSceneRegistrationTests" runstate="Runnable" seed="2012670261" result="Passed" start-time="2026-08-25 09:25:40Z" end-time="2026-08-25 09:25:40Z" duration="0.000334" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
