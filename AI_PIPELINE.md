@@ -12,4 +12,8 @@ For the proven end-to-end workflow for one real gameplay implementation task —
 
 `Docs/AI-Pipeline/REAL_TASK_DELIVERY_WINDOWS_CLONE_NOTE.md`
 
+For the small human-directed GitHub Issue coordination layer used by multiple parallel ChatGPT task orchestrators, read:
+
+`Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md`
+
 Do not rely on a previous chat transcript as the project source of truth. Read the repository state and the routed milestone context first.
