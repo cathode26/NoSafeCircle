@@ -117,7 +117,7 @@ def scenario_progression(root: Path) -> None:
     expect(root, "conformant")
     write(root, SURFACE, "version two\n")
     changed = commit(root, "surface change")
-    expect(root, "needs_revalidation")
+    expect(root, "needs_testing")
     changed_tree = run(root, "git", "rev-parse", "HEAD^{tree}")
     add_record(root, record(root, f"REV-{TASK_ID}-001", changed, changed_tree, record_type="revalidation", basis=delivery_id))
     expect(root, "conformant")
@@ -134,7 +134,7 @@ def scenario_baseline_progression(root: Path) -> None:
     expect(root, "conformant")
     write(root, SURFACE, "version two\n")
     changed = commit(root, "surface change after baseline")
-    expect(root, "needs_revalidation")
+    expect(root, "needs_testing")
     changed_tree = run(root, "git", "rev-parse", "HEAD^{tree}")
     add_record(root, record(root, f"REV-{TASK_ID}-001", changed, changed_tree,
                             record_type="revalidation", basis=baseline_id))
@@ -226,7 +226,7 @@ def scenario_non_ancestral(root: Path) -> None:
     value = record(root, f"DEL-{TASK_ID}-001", other, other_tree)
     run(root, "git", "checkout", "main")
     add_record(root, value)
-    expect(root, "needs_revalidation")
+    expect(root, "needs_testing")
 
 
 def scenario_ambiguous(root: Path) -> None:
