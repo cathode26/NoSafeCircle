@@ -402,6 +402,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         public void Build_FloorTilemapVisual_AlignsWithIndependentGameplayFloorInWorldSpace()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+            Physics.SyncTransforms();
 
             var floorCollider = GameObject.Find("Floor")?.GetComponent<Collider>();
             var floorTilemap = GameObject.Find("IsometricVisualGrid/FloorTilemap")?.GetComponent<Tilemap>();
@@ -426,6 +427,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         public void Build_WallTilemapVisuals_AlignWithIndependentGameplayWallsInWorldSpace()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+            Physics.SyncTransforms();
 
             var wallTilemap = GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
             var leftWall = GameObject.Find("Walls/WallLeft")?.GetComponent<Collider>();
