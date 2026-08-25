@@ -193,17 +193,36 @@ namespace NoSafeCircle.DoorPrototype.Editor
             rangeTrigger.size = new Vector3(3f, 3f, 3f);
             rangeTrigger.center = new Vector3(0f, 1.5f, 0f);
 
+            const float visualLocalHeight = 1.25f;
             var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
             visual.name = "DoorVisual";
             visual.transform.SetParent(doorRoot.transform, false);
-            visual.transform.localPosition = new Vector3(0f, 1.25f, 0f);
+            visual.transform.localPosition = new Vector3(0f, visualLocalHeight, 0f);
             visual.transform.localScale = new Vector3(2f, 2.5f, 0.3f);
 
             door = doorRoot.AddComponent<DoorInteractable>();
             SetPrivateField(door, "doorVisual", visual);
             SetPrivateField(door, "doorwayBlocker", visual.GetComponent<Collider>());
+            SetPrivateFieldValue(door, "groundSelectionOffset", ComputeGroundSelectionOffset(visualLocalHeight));
 
             return doorRoot;
+        }
+
+        // The visible door's silhouette is centered above the ground (at visualLocalHeight), not
+        // on it. Under the fixed isometric camera's orthographic (parallel) projection, a screen
+        // click through that visual center lands on the ground plane offset horizontally from
+        // the door's own ground position, purely because of that height difference. This computes
+        // that offset analytically from the camera's fixed rotation and the visual's height - it
+        // does not use Camera/ScreenPointToRay, so it is not an independent screen-to-world
+        // projection; it is a one-time authored value DoorInteractable's ground-space selection
+        // test consumes at runtime instead of independently projecting screen coordinates.
+        private static Vector3 ComputeGroundSelectionOffset(float visualLocalHeight)
+        {
+            var forward = Quaternion.Euler(IsometricCameraEulerAngles) * Vector3.forward;
+            if (Mathf.Approximately(forward.y, 0f)) return Vector3.zero;
+
+            var t = -visualLocalHeight / forward.y;
+            return new Vector3(forward.x * t, 0f, forward.z * t);
         }
 
         private static void BuildWalls(Vector3 doorPosition)
@@ -277,7 +296,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
             promptRect.anchorMax = new Vector2(0.5f, 0.2f);
             promptRect.sizeDelta = new Vector2(400f, 40f);
             var promptText = promptRoot.AddComponent<Text>();
-            promptText.text = "Hold E to Open";
+            promptText.text = "Sealed Door - Click to Open";
             promptText.alignment = TextAnchor.MiddleCenter;
             promptText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             promptText.color = Color.white;
@@ -485,8 +504,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
             hudText.verticalOverflow = VerticalWrapMode.Overflow;
             hudText.text =
                 "Click/Hold Left Mouse - Move\n" +
-                "Hold E - Open Door\n" +
-                "Moving or taking damage\ncancels the opening attempt\n" +
+                "Click Sealed Door - Approach and Open\n" +
+                "Taking damage or moving away once opening starts\ncancels the opening attempt\n" +
                 "[Debug/Test] K - Take Damage\n" +
                 "[Debug/Test] L - Spend Mana";
         }
@@ -503,6 +522,21 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
             property.objectReferenceValue = value;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // SerializedProperty has no generic value-type setter, so plain-data fields (Vector3,
+        // float, etc.) are assigned directly through reflection instead.
+        private static void SetPrivateFieldValue(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName,
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (field == null)
+            {
+                Debug.LogWarning($"Field '{fieldName}' not found on {target.GetType().Name}.");
+                return;
+            }
+
+            field.SetValue(target, value);
         }
     }
 }

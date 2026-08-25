@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 
@@ -168,7 +169,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.IsNotNull(hudText, "Expected a 'Text' element under Canvas/ControlsHud.");
             StringAssert.Contains("Click/Hold Left Mouse", hudText.text);
             StringAssert.Contains("Move", hudText.text);
-            StringAssert.Contains("Hold E", hudText.text);
+            // AC-001/AC-002: door interaction is click-to-approach with an automatic timer, not
+            // a sustained key hold; the HUD text must reflect that current interaction model.
+            StringAssert.Contains("Click Sealed Door", hudText.text);
+            StringAssert.DoesNotContain("Hold E", hudText.text,
+                "HUD text must not describe the superseded sustained-hold interaction model.");
             StringAssert.Contains("cancels the opening attempt", hudText.text);
 
             var debugControl = GameObject.Find("Player")?.GetComponent<DebugDamageControl>();
@@ -335,6 +340,121 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
             CollectionAssert.AreEqual(bytesBefore, File.ReadAllBytes(CanonicalScenePath),
                 "The in-memory builder must never rewrite the canonical DoorPrototype scene.");
+        }
+    }
+
+    // Human-review regression (item 2): the previous door-selection tests aimed at
+    // WorldToScreenPoint(door.transform.position) - the ground anchor, not the visible door -
+    // which does not represent an actual player click on the sealed door under the production
+    // fixed isometric camera. This builds the real scene, clicks through the built DoorVisual's
+    // world center under the real built Main Camera, drives that click through a live
+    // PlayerMovement instance so the ground point is produced by the same shared projection
+    // consumers rely on (AC-001), and proves the door is selected through
+    // PlayerInteractionController.TryBeginDoorApproach.
+    public class DoorPrototypeSceneBuilderClickSelectionTests : InputTestFixture
+    {
+        private Mouse mouseDevice;
+        private RenderTexture testRenderTexture;
+
+        public override void Setup()
+        {
+            base.Setup();
+            mouseDevice = InputSystem.AddDevice<Mouse>();
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        }
+
+        public override void TearDown()
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            if (testRenderTexture != null)
+            {
+                testRenderTexture.Release();
+                Object.Destroy(testRenderTexture);
+                testRenderTexture = null;
+            }
+
+            mouseDevice = null;
+            base.TearDown();
+        }
+
+        [Test]
+        public void Build_ClickingVisibleDoorCenterUnderProductionCamera_SelectsDoorThroughSharedPointerTarget()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var playerObject = GameObject.Find("Player");
+            var movement = playerObject != null ? playerObject.GetComponent<PlayerMovement>() : null;
+            var interactionController =
+                playerObject != null ? playerObject.GetComponent<PlayerInteractionController>() : null;
+            var door = GameObject.Find("DoorRoot")?.GetComponent<DoorInteractable>();
+            var doorVisual = GameObject.Find("DoorRoot/DoorVisual");
+            var camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
+
+            Assert.IsNotNull(movement, "Expected a PlayerMovement on the generated Player.");
+            Assert.IsNotNull(interactionController,
+                "Expected a PlayerInteractionController on the generated Player.");
+            Assert.IsNotNull(door, "Expected a DoorInteractable on the generated DoorRoot.");
+            Assert.IsNotNull(doorVisual, "Expected a DoorVisual child under DoorRoot.");
+            Assert.IsNotNull(camera, "Expected a Camera on the generated Main Camera.");
+
+            // Batch mode has no interactive Game View; give the built camera a fixed pixel
+            // surface so WorldToScreenPoint/ScreenPointToRay are deterministic here too.
+            testRenderTexture = new RenderTexture(800, 600, 24);
+            testRenderTexture.Create();
+            camera.targetTexture = testRenderTexture;
+
+            // EditMode tests do not invoke MonoBehaviour Awake/OnEnable automatically; invoke
+            // them explicitly so the built components are wired the same way they would be at
+            // runtime before driving a real click through them. Unity's engine does not track
+            // these as "live" components in Edit Mode (they were never enabled through the
+            // normal engine path), so OnEnable's InputAction.Enable() calls must be matched with
+            // an explicit OnDisable in this test rather than relying on scene teardown to release
+            // them from the real, session-shared project InputActionAsset.
+            InvokePrivate(movement, "Awake");
+            InvokePrivate(movement, "OnEnable");
+            InvokePrivate(interactionController, "Awake");
+            InvokePrivate(interactionController, "OnEnable");
+            InvokePrivate(door, "OnEnable");
+
+            try
+            {
+                var screenPoint = camera.WorldToScreenPoint(doorVisual.transform.position);
+                SetMouse(screenPoint, true);
+
+                movement.Tick(0.02f);
+
+                Assert.IsTrue(movement.HasPointerWorldTarget,
+                    "Expected PlayerMovement to have produced a shared world-space pointer target for this " +
+                    "click.");
+                Assert.IsTrue(interactionController.HasLockedDoorInteraction,
+                    "Clicking through the visible door's visual center under the production camera must " +
+                    "select the sealed door via the shared PlayerMovement pointer target, not merely near " +
+                    "its ground anchor.");
+                Assert.AreSame(door, interactionController.PendingDoor);
+            }
+            finally
+            {
+                InvokePrivate(door, "OnDisable");
+                InvokePrivate(movement, "OnDisable");
+            }
+        }
+
+        private void SetMouse(Vector2 screenPosition, bool leftButtonPressed)
+        {
+            InputSystem.QueueStateEvent(mouseDevice, new MouseState
+            {
+                position = screenPosition,
+                buttons = leftButtonPressed ? (ushort)(1 << (int)MouseButton.Left) : (ushort)0
+            });
+            InputSystem.Update();
+        }
+
+        private static void InvokePrivate(object target, string methodName)
+        {
+            var method = target.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(method, $"Expected a private method named '{methodName}' on {target.GetType().Name}.");
+            method.Invoke(target, null);
         }
     }
 }
