@@ -313,6 +313,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
     // opening timer it just started on arrival.
     public class DoorArrivalPhysicsPlayModeTests
     {
+        // Keep this real-physics fixture away from the canonical DoorPrototype scene.
+        // The generated scene owns a real player and door at the same coordinates this
+        // fixture historically used, so overlapping colliders can block the fixture and
+        // turn this regression into a scene-state/order test.
+        private static readonly Vector3 TestWorldOrigin = new Vector3(1000f, 0f, 1000f);
+
         private GameObject doorObject;
         private GameObject playerObject;
         private DoorInteractable door;
@@ -324,7 +330,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public void SetUp()
         {
             doorObject = new GameObject("PhysicsTestDoor");
-            doorObject.transform.position = Vector3.zero;
+            doorObject.transform.position = TestWorldOrigin;
 
             // Mirrors DoorPrototypeSceneBuilder.BuildDoor's arm's-reach trigger geometry.
             var rangeTrigger = doorObject.AddComponent<BoxCollider>();
@@ -337,7 +343,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             playerObject = new GameObject("PhysicsTestPlayer");
             playerObject.SetActive(false);
-            playerObject.transform.position = new Vector3(0f, 1f, -4f);
+            playerObject.transform.position =
+                TestWorldOrigin + new Vector3(0f, 1f, -4f);
 
             var characterController = playerObject.AddComponent<CharacterController>();
             characterController.center = new Vector3(0f, 1f, 0f);
