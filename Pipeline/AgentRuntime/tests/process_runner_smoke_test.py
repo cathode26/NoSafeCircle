@@ -326,6 +326,214 @@ def test_posix_timeout_hard_kills_sigterm_ignoring_descendant() -> None:
                 force_stop(parent_pid)
 
 
+def test_observed_streaming_happens_before_completion_and_matches_capture() -> None:
+    code = (
+        "import sys,time; "
+        "sys.stdout.buffer.write(b'chunk-one\\n'); sys.stdout.buffer.flush(); "
+        "time.sleep(0.25); "
+        "sys.stdout.buffer.write(b'chunk-two\\n'); sys.stdout.buffer.flush(); "
+        "time.sleep(0.05)"
+    )
+    observed: list[tuple[float, bytes]] = []
+    with tempfile.TemporaryDirectory() as temporary:
+        cwd = Path(temporary)
+        runner = StandardProcessRunner()
+        started = time.monotonic()
+
+        def observer(chunk: bytes) -> None:
+            observed.append((time.monotonic() - started, chunk))
+
+        result = runner.run(
+            (sys.executable, "-S", "-c", code),
+            stdin=b"",
+            cwd=cwd,
+            timeout_seconds=5,
+            stdout_observer=observer,
+        )
+        assert result.argv == (sys.executable, "-S", "-c", code)
+        assert result.returncode == 0
+        assert result.stdout == b"chunk-one\nchunk-two\n"
+        assert observed
+        assert b"".join(chunk for _, chunk in observed) == result.stdout
+        # The first observed chunk must arrive well before the process's total
+        # elapsed time, proving delivery is live rather than buffered until exit.
+        first_seen_seconds = observed[0][0]
+        assert first_seen_seconds < result.elapsed_seconds - 0.1
+        assert list(cwd.iterdir()) == []
+
+
+def test_observed_stdout_delivery_is_synchronized_with_observer_acknowledgement() -> None:
+    """Deterministic proof that small stdout chunks reach the observer while
+    the child is still running, rather than only once buffered/EOF-flushed.
+
+    The child writes and flushes one small chunk, then polls for a sentinel
+    file within a bounded window; only the observer callback creates that
+    sentinel, and only upon actually receiving the chunk. The child's final
+    line records whether the sentinel appeared in time, so the assertion on
+    that line's exact content -- not on wall-clock timing -- is what fails
+    deterministically under a blocking ``read(65536)`` transport (the
+    sentinel would only appear once the reader thread unblocks, by which
+    point the child has already given up) and passes under a promptly
+    delivering transport such as ``read1``/``os.read``.
+    """
+    code = "\n".join(
+        (
+            "import os, sys, time",
+            "sentinel_path = sys.argv[1]",
+            "sys.stdout.buffer.write(b'ping\\n')",
+            "sys.stdout.buffer.flush()",
+            "deadline = time.monotonic() + 3.0",
+            "found = False",
+            "while time.monotonic() < deadline:",
+            "    if os.path.exists(sentinel_path):",
+            "        found = True",
+            "        break",
+            "    time.sleep(0.005)",
+            "sys.stdout.buffer.write(b'ack-seen\\n' if found else b'ack-missing\\n')",
+            "sys.stdout.buffer.flush()",
+        )
+    )
+    with tempfile.TemporaryDirectory() as temporary:
+        cwd = Path(temporary)
+        sentinel = cwd / "observer.ack"
+        observed: list[bytes] = []
+
+        def observer(chunk: bytes) -> None:
+            observed.append(chunk)
+            if b"ping" in chunk and not sentinel.exists():
+                sentinel.write_bytes(b"ack")
+
+        result = StandardProcessRunner().run(
+            (sys.executable, "-S", "-c", code, os.fspath(sentinel)),
+            stdin=b"",
+            cwd=cwd,
+            timeout_seconds=5,
+            stdout_observer=observer,
+        )
+        assert result.returncode == 0
+        # Only reachable if the observer's sentinel was visible to the child
+        # before its own bounded wait elapsed, i.e. observation happened
+        # while the process was still running, not after it completed.
+        assert result.stdout == b"ping\nack-seen\n"
+        assert b"".join(observed) == result.stdout
+
+
+def test_observed_stdout_exact_ordered_and_stderr_drained_for_large_output() -> None:
+    code = (
+        "import sys; "
+        "sys.stdout.buffer.write(b'A'*70000); "
+        "sys.stdout.buffer.write(b'B'*70000); "
+        "sys.stderr.buffer.write(b'stderr-exact\\n')"
+    )
+    observed: list[bytes] = []
+    with tempfile.TemporaryDirectory() as temporary:
+        cwd = Path(temporary)
+        result = StandardProcessRunner().run(
+            (sys.executable, "-S", "-c", code),
+            stdin=b"",
+            cwd=cwd,
+            timeout_seconds=5,
+            stdout_observer=observed.append,
+        )
+        assert result.returncode == 0
+        assert result.stdout == b"A" * 70000 + b"B" * 70000
+        assert b"".join(observed) == result.stdout
+        # More than one 65536-byte read must have occurred for this input size.
+        assert len(observed) >= 2
+        assert result.stderr == b"stderr-exact\n"
+        assert list(cwd.iterdir()) == []
+
+
+def test_observed_non_observed_paths_return_identical_results() -> None:
+    code = (
+        "import sys; "
+        "sys.stdout.buffer.write(b'identical stdout'); "
+        "sys.stderr.buffer.write(b'identical stderr')"
+    )
+    with tempfile.TemporaryDirectory() as temporary:
+        cwd = Path(temporary)
+        argv = (sys.executable, "-S", "-c", code)
+        unobserved = StandardProcessRunner().run(
+            argv, stdin=b"", cwd=cwd, timeout_seconds=5
+        )
+        observed_chunks: list[bytes] = []
+        observed = StandardProcessRunner().run(
+            argv,
+            stdin=b"",
+            cwd=cwd,
+            timeout_seconds=5,
+            stdout_observer=observed_chunks.append,
+        )
+        assert unobserved.stdout == observed.stdout == b"identical stdout"
+        assert unobserved.stderr == observed.stderr == b"identical stderr"
+        assert unobserved.returncode == observed.returncode == 0
+        assert b"".join(observed_chunks) == observed.stdout
+        assert list(cwd.iterdir()) == []
+
+
+def test_observed_raising_observer_never_corrupts_capture_or_propagates() -> None:
+    code = "import sys; sys.stdout.buffer.write(b'exact output regardless of observer')"
+
+    def raising_observer(_: bytes) -> None:
+        raise RuntimeError("presentation failure must never affect provider truth")
+
+    with tempfile.TemporaryDirectory() as temporary:
+        cwd = Path(temporary)
+        result = StandardProcessRunner().run(
+            (sys.executable, "-S", "-c", code),
+            stdin=b"",
+            cwd=cwd,
+            timeout_seconds=5,
+            stdout_observer=raising_observer,
+        )
+        assert result.returncode == 0
+        assert result.stdout == b"exact output regardless of observer"
+        assert list(cwd.iterdir()) == []
+
+
+def test_observed_timeout_preserves_partial_output_and_kills_group() -> None:
+    if os.name != "posix" or not sys.platform.startswith("linux"):
+        return
+    descendant_code = "import time; time.sleep(30)"
+    parent_code = (
+        "import json,os,subprocess,sys,time; "
+        "child=subprocess.Popen([sys.executable,'-S','-c',sys.argv[1]]); "
+        "sys.stdout.write(json.dumps({'parent':os.getpid(),'descendant':child.pid,"
+        "'parent_group':os.getpgrp(),'descendant_group':os.getpgid(child.pid)})+'\\n'); "
+        "sys.stdout.flush(); time.sleep(30)"
+    )
+    observed: list[bytes] = []
+    parent_pid = 0
+    descendant_pid = 0
+    with tempfile.TemporaryDirectory() as temporary:
+        cwd = Path(temporary)
+        runner = StandardProcessRunner(cleanup_timeout_seconds=0.3)
+        exception = rejects(
+            lambda: runner.run(
+                (sys.executable, "-S", "-c", parent_code, descendant_code),
+                stdin=b"",
+                cwd=cwd,
+                timeout_seconds=0.3,
+                stdout_observer=observed.append,
+            ),
+            ProcessTimeoutError,
+        )
+        result = exception.result
+        assert b"".join(observed) == result.stdout
+        metadata = json.loads(result.stdout.decode("utf-8"))
+        parent_pid = metadata["parent"]
+        descendant_pid = metadata["descendant"]
+        try:
+            assert metadata["parent_group"] == metadata["descendant_group"]
+            assert wait_until_stopped(parent_pid)
+            assert wait_until_stopped(descendant_pid)
+            assert result.elapsed_seconds < 2
+            assert list(cwd.iterdir()) == []
+        finally:
+            force_stop(descendant_pid)
+            force_stop(parent_pid)
+
+
 def test_posix_success_hard_kills_detached_same_group_descendant() -> None:
     if os.name != "posix" or not sys.platform.startswith("linux"):
         return
@@ -375,6 +583,12 @@ def main() -> None:
     test_posix_keyboard_interrupt_cleans_up_launched_child()
     test_posix_timeout_hard_kills_sigterm_ignoring_descendant()
     test_posix_success_hard_kills_detached_same_group_descendant()
+    test_observed_streaming_happens_before_completion_and_matches_capture()
+    test_observed_stdout_delivery_is_synchronized_with_observer_acknowledgement()
+    test_observed_stdout_exact_ordered_and_stderr_drained_for_large_output()
+    test_observed_non_observed_paths_return_identical_results()
+    test_observed_raising_observer_never_corrupts_capture_or_propagates()
+    test_observed_timeout_preserves_partial_output_and_kills_group()
     after = tree_hashes(RUNTIME_ROOT)
     status_after = subprocess.run(
         ["git", "status", "--porcelain=v1", "--untracked-files=all"],

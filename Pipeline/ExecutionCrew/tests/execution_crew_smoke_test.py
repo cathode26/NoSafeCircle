@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import Usage
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse
+from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider, ClaudeLiveRenderer
 from Pipeline.ExecutionCrew.run_crew import CrewBlocked, EntryState, Snapshot, audit_commands, changed_paths, clone_exact, construct_real_provider, full_patch, main as crew_main, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, unity_meta_bytes, validate_host_output_root
 
 TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; NEW_IMPL="Assets/Scripts/EnemyHealth.cs"; NEW_TEST="Assets/Tests/EnemyHealthPlayModeTests.cs"; OUTSIDE_NEW="Docs/NewBehavior.md"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
@@ -271,6 +272,15 @@ def main():
     assert not codex_validator.externally_isolated_writable_repository and codex_validator.externally_enforced_read_only_repository
     claude_write=construct_real_provider("claude",root,True); claude_validator=construct_real_provider("claude",source,False)
     assert claude_write.externally_isolated_writable_repository and not claude_validator.externally_isolated_writable_repository
+    # ExecutionCrew must always enable live, human-readable Claude visibility on
+    # stderr for real Claude-backed roles, independent of the write profile.
+    for claude_provider in (claude_write, claude_validator):
+        assert isinstance(claude_provider, ClaudeCodeProvider)
+        assert claude_provider.live_observer is not None
+        assert callable(claude_provider.live_observer)
+        assert getattr(claude_provider.live_observer, "__self__", None) is not None
+        assert isinstance(claude_provider.live_observer.__self__, ClaudeLiveRenderer)
+        assert claude_write.live_observer.__self__ is not claude_validator.live_observer.__self__
     # Source checkout representation is deliberately irrelevant to clone-baseline comparison.
     regular=lambda digest: EntryState("regular",digest,True)
     clone_base=Snapshot("head",b"index",{"same":regular("clone-bytes"),"changed":regular("old")})

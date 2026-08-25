@@ -8,32 +8,43 @@ Read this file before producing operational commands or human-facing handoff art
 
 Vincent prefers durable file handoffs over large inline prompts, patches, JSON, or terminal transcripts.
 
-When an assistant gives a command that creates an ad hoc file for the human to keep, inspect, upload, reuse, or pass to another agent/context, save that file directly in the Windows Downloads folder by default:
+When an assistant gives a command that creates an ad hoc file for the human to keep, inspect, upload, reuse, or pass to another agent/context, save that file directly in the Windows Downloads folder by default, under the canonical hierarchical run layout:
 
 ```text
-C:\Users\VincentLiguori\Downloads
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\<WorkId>\<RunId>\
 ```
+
+`<WorkId>` is the task ID for task work, for example `NSC-039`, or a short descriptive work ID for non-task pipeline work, for example `Pipeline-LiveClaudeVisibility`. `<RunId>` is a sortable timestamp, for example `20260825-014700`. Every handoff for one work item/run lands together in one folder instead of as loose flat filenames directly in Downloads.
 
 Use the portable PowerShell form:
 
 ```powershell
 $Downloads = Join-Path $env:USERPROFILE "Downloads"
+$WorkId = "NSC-039"
+$RunId = Get-Date -Format "yyyyMMdd-HHmmss"
+$RunDir = Join-Path $Downloads (Join-Path "NoSafeCircleOutput" (Join-Path $WorkId $RunId))
+New-Item -ItemType Directory -Force -Path $RunDir | Out-Null
 ```
 
-Human-facing external files should normally be built from `$Downloads`:
+Human-facing external files should normally be built from `$RunDir`, using these conventional names:
 
 ```powershell
-$PromptPath = Join-Path $Downloads "NSC-039-ExecutionCrew-Prompt.txt"
-$FeedbackPath = Join-Path $Downloads "NSC-039-review-feedback.txt"
-$PatchPath = Join-Path $Downloads "NSC-039-review.patch"
-$TranscriptPath = Join-Path $Downloads "NSC-039-execution-output.txt"
-$ReviewPath = Join-Path $Downloads "NSC-039-delivery-review-001.json"
-$DeliverySpecPath = Join-Path $Downloads "NSC-039-delivery-spec-001.json"
+$PromptPath = Join-Path $RunDir "prompt.txt"
+$FeedbackPath = Join-Path $RunDir "review-feedback.txt"
+$PatchPath = Join-Path $RunDir "review.diff"
+$TranscriptPath = Join-Path $RunDir "execution.txt"
+$RawHandoffPath = Join-Path $RunDir "claude-raw.jsonl"
+$ReviewPath = Join-Path $RunDir "delivery-review.json"
+$DeliverySpecPath = Join-Path $RunDir "delivery-spec.json"
+$ValidationPath = Join-Path $RunDir "human-validation.txt"
+$SummaryPath = Join-Path $RunDir "summary.txt"
 ```
 
-Do not default these files to the repository root, an arbitrary current directory, `$env:TEMP` when an explicit external output path is supported, a container-only path, the Documents folder, or an unspecified location that forces Vincent to find or move the file later.
+`execution.txt` is the filtered, readable console transcript (assistant text, `[Claude tool] ...` lines, progress/heartbeat lines) — never a giant raw `Read`/tool-result dump. `claude-raw.jsonl` is an optional raw provider-stream handoff copy for debugging; it is not the default artifact, and it is never authoritative — the authoritative raw stream is `provider.log` under the ExecutionCrew run's own `agent_runtime/<invocation-id>/` directory. Only create `claude-raw.jsonl` when a raw copy is actually useful for the task at hand.
 
-The final user preference is authoritative: use **Downloads** as the default external handoff folder.
+Do not default these files to the repository root, an arbitrary current directory, `$env:TEMP` when an explicit external output path is supported, a container-only path, the Documents folder, a flat `Downloads\<Descriptive-Name>.txt` filename, or an unspecified location that forces Vincent to find or move the file later.
+
+The final user preference is authoritative: use **Downloads\NoSafeCircleOutput\<WorkId>\<RunId>\** as the default external handoff folder.
 
 ## Critical task-start rule: setup and provider execution are separate phases
 
@@ -88,22 +99,23 @@ The Downloads default applies to human-facing, external, reusable handoff files,
 - generated summaries intended for another ChatGPT/Claude/Codex context;
 - temporary helper files the human must later upload, inspect, or reuse.
 
-When ChatGPT itself generates one of these files, provide it as a downloadable artifact with a descriptive filename. Subsequent PowerShell commands should target the exact Downloads path rather than asking Vincent to save or move it manually.
+When ChatGPT itself generates one of these files, provide it as a downloadable artifact and, when a Windows session is available, describe it landing at its conventional path inside the current `$RunDir` (for example `summary.txt`, `review.diff`) rather than an arbitrary flat Downloads filename. Subsequent PowerShell commands should target the exact `$RunDir` path rather than asking Vincent to save or move it manually.
 
 ## Important exceptions — do not move authoritative or tool-owned files
 
 The Downloads preference does not mean every pipeline artifact should be relocated.
 
 1. **Repository source, tests, contracts, documentation, and committed evidence** stay at their exact repository paths.
-2. **ExecutionCrew run artifacts** remain in the configured ExecutionCrew output root. Use the exact full Windows host path printed by the pipeline.
-3. **Unity clean-validation artifacts** (`validation-manifest.json`, `test-results.xml`, and `unity.log`) are hash-bound to one another. Leave them where the runner created them until TaskDelivery finalization and `record_delivery.py` finish.
-4. **TaskGraph evidence produced by `record_delivery.py`** belongs under `Pipeline/TaskGraph/evidence/...`.
-5. If a tool requires a specific output location for correctness, keep the authoritative file there. When a separate human handoff copy is safe and useful, create an explicitly labelled copy in Downloads without altering the authoritative original.
+2. **ExecutionCrew run artifacts** (`crew_result.json`, `candidate.patch`, `role_results/`, `task_execution/`, `agent_runtime/<invocation-id>/provider.log`, and so on) remain in the configured ExecutionCrew output root. Use the exact full Windows host path printed by the pipeline. Do not move or rename these merely to fit the `NoSafeCircleOutput` layout; a labelled copy in the run's `$RunDir` is fine, the authoritative original is not.
+3. **AgentRunner `provider.log`** remains in its authoritative run-artifact location under `agent_runtime/<invocation-id>/`. `claude-raw.jsonl` in `$RunDir`, when created at all, is an optional debugging copy, never a replacement.
+4. **Unity clean-validation artifacts** (`validation-manifest.json`, `test-results.xml`, and `unity.log`) are hash-bound to one another. Leave them where the runner created them until TaskDelivery finalization and `record_delivery.py` finish.
+5. **TaskGraph evidence produced by `record_delivery.py`** belongs under `Pipeline/TaskGraph/evidence/...`.
+6. If a tool requires a specific output location for correctness, keep the authoritative file there. When a separate human handoff copy is safe and useful, create an explicitly labelled copy in `$RunDir` without altering the authoritative original.
 
 The practical rule is:
 
 ```text
-human-authored or human-transferred external file -> Downloads
+human-authored or human-transferred external file -> Downloads\NoSafeCircleOutput\<WorkId>\<RunId>\
 pipeline-owned/hash-bound/repository-authoritative file -> required authoritative location
 ```
 
@@ -147,7 +159,7 @@ Container paths such as `/execution-output/...` were useful inside Docker but po
 
 ### 5. Files landed in unexpected locations and then had to be moved
 
-**Rule:** choose the final Downloads filename first. Commands should write directly there and verify it before use:
+**Rule:** choose the final `$RunDir` path and conventional filename first. Commands should write directly there and verify it before use:
 
 ```powershell
 if (-not (Test-Path -LiteralPath $PromptPath -PathType Leaf)) {
@@ -189,10 +201,10 @@ Brand-new files can be missing from a normal unstaged diff.
 git status --short --untracked-files=all
 ```
 
-When a complete staged review patch is appropriate, stage only the exact approved files and export directly to Downloads:
+When a complete staged review patch is appropriate, stage only the exact approved files and export directly to the run folder:
 
 ```powershell
-$PatchPath = Join-Path $Downloads "descriptive-complete-review.patch"
+$PatchPath = Join-Path $RunDir "review.diff"
 git diff --cached --binary --output=$PatchPath
 ```
 
@@ -219,10 +231,10 @@ Never blanket-restore unrelated files.
 
 ### 12. Long output was difficult to transfer through chat
 
-Save verbose output to Downloads while displaying it:
+Save verbose output to the run's Downloads folder while displaying it:
 
 ```powershell
-$TranscriptPath = Join-Path $Downloads "NSC-039-execution-output.txt"
+$TranscriptPath = Join-Path $RunDir "execution.txt"
 & <command> 2>&1 | Tee-Object -LiteralPath $TranscriptPath
 ```
 
@@ -237,19 +249,23 @@ python3 -u
 
 Without unbuffered Python, a command may be actively running while the screen appears silent for a long time.
 
+**`PYTHONUNBUFFERED`/`python3 -u` only control the outer `run_crew.py` Python process's own stdout/stderr buffering** (for example its progress-reporter `print` calls). Live, human-readable Claude activity is a separate mechanism: it comes from the inner provider streaming transport (`Pipeline/AgentRuntime/process_runner.py` observed subprocess mode plus `ClaudeLiveRenderer` in `Pipeline/AgentRuntime/providers/claude_code.py`), which reads the Claude Code CLI's `stream-json`/`--verbose`/`--include-partial-messages` output incrementally and writes concise activity (assistant text, `[Claude tool] <Name>` lines) to stderr, flushing on every write regardless of `PYTHONUNBUFFERED`. Keep `PYTHONUNBUFFERED=1`/`python3 -u` anyway so the outer process's own progress lines are not separately delayed, but do not assume they are what makes Claude's activity visible.
+
+Because live Claude activity now streams to stderr throughout a run, **expect substantially more stderr output than before, as a normal condition, not a failure signal.** A PowerShell block that uses `$ErrorActionPreference = "Stop"` together with `2>&1 | Tee-Object` can turn an ordinary native-command stderr write into a terminating `NativeCommandError`, even though `docker compose` and Claude's own live activity routinely and correctly write to stderr during a healthy run (Compose container lifecycle lines such as `Attaching to ...` / `Container ... Started`, and now Claude tool/text activity). Do not treat that stderr traffic itself as a fatal error. What still must be checked explicitly, every time, is the **native exit code** (`$LASTEXITCODE` immediately after the pipeline, as the canonical Phase 2 block already does with `$CrewExit = $LASTEXITCODE` followed by `if ($CrewExit -ne 0) { throw ... }`), never inferred from the mere presence of stderr text.
+
 ### 13. External output inside the repository broke clean-tree preconditions
 
-**Rule:** use Downloads for external prompt/review/spec/transcript files. Only source-controlled project files and authoritative evidence belong in the repository.
+**Rule:** use `Downloads\NoSafeCircleOutput\<WorkId>\<RunId>\` for external prompt/review/spec/transcript files. Only source-controlled project files and authoritative evidence belong in the repository.
 
 ### 14. No-overwrite tools failed when old external filenames were reused
 
 TaskDelivery intentionally refuses to overwrite review/spec outputs.
 
-**Rule:** use descriptive, unique Downloads filenames, usually including task ID plus sequence or timestamp:
+**Rule:** a fresh `$RunId` per attempt (a new timestamp) naturally gives every run its own folder, so the conventional filenames (`delivery-review.json`, `delivery-spec.json`, and so on) do not collide across runs. Never reuse an existing `$RunId` folder to force an overwrite; start a new timestamped `$RunId` instead. If multiple review/spec artifacts are genuinely needed within the same run, add a sequence suffix to the conventional name (for example `delivery-review-002.json`) rather than overwriting:
 
 ```powershell
-$ReviewPath = Join-Path $Downloads "NSC-039-delivery-review-001.json"
-$DeliverySpecPath = Join-Path $Downloads "NSC-039-delivery-spec-001.json"
+$ReviewPath = Join-Path $RunDir "delivery-review.json"
+$DeliverySpecPath = Join-Path $RunDir "delivery-spec.json"
 ```
 
 On a redo, increment the suffix instead of expecting overwrite.
@@ -443,12 +459,14 @@ $ErrorActionPreference = "Stop"
 $TaskDir = "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC039"
 $Branch = "nsc-039-world-sprite-prefab-sorting"
 $Downloads = Join-Path $env:USERPROFILE "Downloads"
+$WorkId = "NSC-039"
+$RunId = Get-Date -Format "yyyyMMdd-HHmmss"
+$RunDir = Join-Path $Downloads (Join-Path "NoSafeCircleOutput" (Join-Path $WorkId $RunId))
 $ExecutionOutputRoot = Join-Path $TaskDir "Pipeline\ExecutionCrew\outputs"
 $ImplementationPath = "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
 $TestPath = "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs"
 
-$Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$TranscriptPath = Join-Path $Downloads "NSC-039-execution-$Stamp.txt"
+$TranscriptPath = Join-Path $RunDir "execution.txt"
 
 if (-not (Test-Path -LiteralPath $TaskDir -PathType Container)) {
     throw "STOP: Task checkout does not exist: $TaskDir"
@@ -457,6 +475,8 @@ if (-not (Test-Path -LiteralPath $TaskDir -PathType Container)) {
 if (-not (Test-Path -LiteralPath $Downloads -PathType Container)) {
     throw "STOP: Downloads directory does not exist: $Downloads"
 }
+
+New-Item -ItemType Directory -Force -Path $RunDir | Out-Null
 
 Set-Location $TaskDir
 
@@ -494,20 +514,28 @@ Write-Host ""
 Write-Host "=== START EXECUTIONCREW FOR NSC-039 ==="
 Write-Host "Branch:      $Branch"
 Write-Host "HEAD:        $Head"
+Write-Host "Run folder:  $RunDir"
 Write-Host "Transcript:  $TranscriptPath"
 Write-Host "Output root: $ExecutionOutputRoot"
 Write-Host ""
 
-docker compose -p nosafecircle run --rm -T `
-    -e PYTHONUNBUFFERED=1 `
-    claude-exec python3 -u Pipeline/ExecutionCrew/run_crew.py `
-    --task-id NSC-039 `
-    --provider claude `
-    --implementation-path $ImplementationPath `
-    --test-path $TestPath `
-    --host-output-root $ExecutionOutputRoot `
-    2>&1 | Tee-Object -LiteralPath $TranscriptPath
+# Windows PowerShell 5.1 can turn ordinary native stderr from Docker Compose
+# or Claude's live renderer into NativeCommandError records. Merge stderr into
+# stdout inside cmd.exe before PowerShell receives it. This keeps the terminal
+# readable while preserving Docker's real exit code as the authoritative result.
+$DockerCommand =
+    'docker compose -p nosafecircle run --rm -T ' +
+    '-e PYTHONUNBUFFERED=1 ' +
+    'claude-exec python3 -u Pipeline/ExecutionCrew/run_crew.py ' +
+    '--task-id NSC-039 ' +
+    '--provider claude ' +
+    '--implementation-path "' + $ImplementationPath + '" ' +
+    '--test-path "' + $TestPath + '" ' +
+    '--host-output-root "' + $ExecutionOutputRoot + '" ' +
+    '2>&1'
 
+cmd.exe /d /s /c $DockerCommand |
+    Tee-Object -LiteralPath $TranscriptPath
 $CrewExit = $LASTEXITCODE
 
 Write-Host ""
@@ -526,10 +554,10 @@ if ((Get-Item -LiteralPath $TranscriptPath).Length -eq 0) {
 }
 
 if ($CrewExit -ne 0) {
-    throw "ExecutionCrew returned a non-zero exit code. Upload the transcript from Downloads and we will diagnose it."
+    throw "ExecutionCrew returned a non-zero exit code. Upload $TranscriptPath and we will diagnose it."
 }
 
-Write-Host "DONE: Upload the NSC-039 execution transcript from Downloads to ChatGPT."
+Write-Host "DONE: Upload the NSC-039 execution transcript from $RunDir to ChatGPT."
 ```
 
 The two unbuffering controls are deliberate:
@@ -539,7 +567,9 @@ The two unbuffering controls are deliberate:
 python3 -u
 ```
 
-They make provider/pipeline progress visible as it happens while `Tee-Object` writes the same stream to the Downloads transcript. A future agent should preserve this behavior unless the execution path is changed to another mechanism that is independently proven to flush live output.
+They keep the outer `run_crew.py` process's own progress output (heartbeats, phase messages) visible as it happens while `Tee-Object` writes the same stream to `execution.txt` in `$RunDir`. They are not what makes Claude's own activity live: that visibility is produced independently by the inner provider streaming transport (observed subprocess mode plus `ClaudeLiveRenderer`), which flushes each rendered line itself. Preserve both controls regardless, and do not treat the resulting increase in stderr volume as an error; check `$LASTEXITCODE` for the actual result. A future agent should preserve this behavior unless the execution path is changed to another mechanism that is independently proven to flush live output.
+
+If a raw Claude NDJSON handoff copy is intentionally needed for debugging (for example the authoritative `provider.log` under an `agent_runtime/<invocation-id>/` directory beneath `$ExecutionOutputRoot`), copy it beside the readable transcript as `claude-raw.jsonl` in the same `$RunDir`. This is optional and primarily for debugging; the default human transcript stays the filtered, readable `execution.txt`, and the raw provider data remains authoritative in `provider.log`, never moved or renamed.
 
 ## Why this two-phase pattern is the preferred task-start experience
 
@@ -564,8 +594,8 @@ This is preferable to a monolithic block that immediately launches a provider af
 
 When giving Vincent commands that create or consume handoff files:
 
-1. Define `$Downloads` once per block.
-2. Define every file path with `Join-Path` and a descriptive filename.
+1. Define `$Downloads`, `$WorkId`, `$RunId`, and `$RunDir` once per block, and create `$RunDir` before writing to it.
+2. Define every file path with `Join-Path` under `$RunDir` using the conventional name (`execution.txt`, `claude-raw.jsonl`, `review.diff`, `delivery-review.json`, `delivery-spec.json`, `human-validation.txt`, `summary.txt`), not an ad hoc flat Downloads filename.
 3. Write directly to the final path.
 4. Use `-LiteralPath` for PowerShell file operations.
 5. Use UTF-8 explicitly for text.
@@ -574,12 +604,14 @@ When giving Vincent commands that create or consume handoff files:
 8. Avoid runnable placeholders.
 9. Guard checkout, branch, HEAD, and clean-tree state before destructive or authority-changing steps.
 10. Stop immediately after a failed precondition.
-11. Preserve tool-owned/hash-bound files in their authoritative location.
-12. Save large output to Downloads and ask Vincent to upload the file instead of pasting the output.
+11. Preserve tool-owned/hash-bound files in their authoritative location; only place labelled copies in `$RunDir`.
+12. Save large output to `$RunDir` and ask Vincent to upload the file instead of pasting the output.
 13. For a normal task start, use the two-phase canonical pattern above: deterministic setup first, provider execution second.
 14. Never embed a provider invocation in the canonical setup block.
 15. Provider execution must recheck its critical state instead of relying on variables or assumptions from the setup shell.
 16. For Python-driven provider runs under Docker `-T`, use unbuffered output so progress remains visible while being teed to the transcript.
+17. Live Claude visibility comes from the inner provider streaming transport, not from `PYTHONUNBUFFERED`/`python3 -u` (which only affect the outer Python process). Expect more stderr traffic as a normal result of that live visibility and of ordinary Docker Compose lifecycle logging. On Windows PowerShell 5.1, merge Docker stderr into stdout inside `cmd.exe` before piping the result through PowerShell; this avoids ordinary native stderr becoming disruptive `NativeCommandError` records. Always determine success/failure from the checked native exit code (`$LASTEXITCODE`), never from the mere presence of stderr output.
+18. Use a fresh timestamped `$RunId` per attempt rather than reusing an existing run folder to avoid overwrite conflicts.
 
 Preferred reusable PowerShell preamble:
 
@@ -588,13 +620,16 @@ $Downloads = Join-Path $env:USERPROFILE "Downloads"
 if (-not (Test-Path -LiteralPath $Downloads -PathType Container)) {
     throw "Downloads directory does not exist: $Downloads"
 }
+$WorkId = "NSC-039"
+$RunId = Get-Date -Format "yyyyMMdd-HHmmss"
+$RunDir = Join-Path $Downloads (Join-Path "NoSafeCircleOutput" (Join-Path $WorkId $RunId))
+New-Item -ItemType Directory -Force -Path $RunDir | Out-Null
 ```
 
 Preferred prompt-file pattern:
 
 ```powershell
-$Downloads = Join-Path $env:USERPROFILE "Downloads"
-$PromptPath = Join-Path $Downloads "Descriptive-Prompt.txt"
+$PromptPath = Join-Path $RunDir "prompt.txt"
 
 if (-not (Test-Path -LiteralPath $PromptPath -PathType Leaf)) {
     throw "Prompt file does not exist: $PromptPath"
@@ -612,16 +647,14 @@ Write-Host "Prompt characters: $($Prompt.Length)"
 Preferred external JSON output pattern:
 
 ```powershell
-$Downloads = Join-Path $env:USERPROFILE "Downloads"
-$ReviewPath = Join-Path $Downloads "NSC-039-delivery-review-001.json"
-$DeliverySpecPath = Join-Path $Downloads "NSC-039-delivery-spec-001.json"
+$ReviewPath = Join-Path $RunDir "delivery-review.json"
+$DeliverySpecPath = Join-Path $RunDir "delivery-spec.json"
 ```
 
 Preferred patch-export pattern:
 
 ```powershell
-$Downloads = Join-Path $env:USERPROFILE "Downloads"
-$PatchPath = Join-Path $Downloads "NSC-039-complete-review.patch"
+$PatchPath = Join-Path $RunDir "review.diff"
 git diff --cached --binary --output=$PatchPath
 if (-not (Test-Path -LiteralPath $PatchPath -PathType Leaf)) {
     throw "Patch was not created: $PatchPath"

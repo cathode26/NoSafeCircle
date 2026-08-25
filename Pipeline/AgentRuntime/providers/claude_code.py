@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+import sys
 import tempfile
-from typing import Any, Mapping
+from typing import Any, Callable, IO, Mapping
 
 from ..contracts import AgentInvocationRequest, Usage
 from ..json_values import thaw_json
@@ -44,6 +45,100 @@ _SOURCE_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 _MISSING = object()
 
 
+class ClaudeLiveRenderer:
+    """Best-effort human-readable renderer for live Claude Code NDJSON events.
+
+    Presentation-only: every failure here is swallowed so a rendering bug can
+    never affect provider truth. The authoritative transcript is always
+    reparsed independently and strictly by ``_parse_stream`` once the
+    invocation completes; this renderer never gates or replaces that check.
+    Thinking content, thinking signatures, raw tool_result payloads, and
+    duplicate assistant text are intentionally never written here.
+    """
+
+    def __init__(self, *, stream: IO[str] | None = None, label: str = "Claude") -> None:
+        self._stream: IO[str] = sys.stderr if stream is None else stream
+        self._label = label
+        self._buffer = b""
+        self._inline_open = False
+
+    def feed(self, chunk: bytes) -> None:
+        try:
+            self._buffer += chunk
+            while b"\n" in self._buffer:
+                raw_line, self._buffer = self._buffer.split(b"\n", 1)
+                self._handle_line(raw_line)
+        except Exception:
+            pass
+
+    def _handle_line(self, raw_line: bytes) -> None:
+        text = raw_line.rstrip(b"\r").decode("utf-8", "replace").strip()
+        if not text:
+            return
+        try:
+            event = json.loads(text)
+        except json.JSONDecodeError:
+            return
+        if not isinstance(event, dict):
+            return
+        event_type = event.get("type")
+        if event_type == "stream_event":
+            self._handle_stream_event(event)
+        elif event_type == "result":
+            self._handle_result(event)
+        # assistant/user/system/rate_limit_event lines are intentionally not
+        # rendered here: assistant text already streams via text_delta, tool
+        # results/system/rate-limit metadata can be large or non-actionable,
+        # and thinking content/signatures must never reach the operator.
+
+    def _handle_stream_event(self, event: Mapping[str, Any]) -> None:
+        inner = event.get("event")
+        if not isinstance(inner, Mapping):
+            return
+        inner_type = inner.get("type")
+        if inner_type == "content_block_start":
+            block = inner.get("content_block")
+            if isinstance(block, Mapping) and block.get("type") == "tool_use":
+                name = block.get("name")
+                if isinstance(name, str) and name:
+                    self._write_line(f"[{self._label} tool] {name}")
+        elif inner_type == "content_block_delta":
+            delta = inner.get("delta")
+            if isinstance(delta, Mapping) and delta.get("type") == "text_delta":
+                text = delta.get("text")
+                if isinstance(text, str) and text:
+                    self._write_inline(text)
+        elif inner_type in ("message_stop", "content_block_stop"):
+            self._end_inline()
+
+    def _handle_result(self, event: Mapping[str, Any]) -> None:
+        self._end_inline()
+        if event.get("is_error") is True:
+            self._write_line(f"[{self._label}] finished with an error")
+        else:
+            self._write_line(f"[{self._label}] finished")
+
+    def _write_inline(self, text: str) -> None:
+        self._safe_write(text)
+        self._inline_open = True
+
+    def _end_inline(self) -> None:
+        if self._inline_open:
+            self._safe_write("\n")
+            self._inline_open = False
+
+    def _write_line(self, message: str) -> None:
+        self._end_inline()
+        self._safe_write(message + "\n")
+
+    def _safe_write(self, text: str) -> None:
+        try:
+            self._stream.write(text)
+            self._stream.flush()
+        except Exception:
+            pass
+
+
 class ClaudeCodeProvider:
     def __init__(
         self,
@@ -53,11 +148,14 @@ class ClaudeCodeProvider:
         temporary_directory_parent: Path | None = None,
         repository_root: Path | None = None,
         externally_isolated_writable_repository: bool = False,
+        live_observer: Callable[[bytes], None] | None = None,
     ) -> None:
         if type(executable) is not str or not executable:
             raise ValueError("executable must be a non-empty string")
         if type(externally_isolated_writable_repository) is not bool:
             raise ValueError("isolated writable repository profile must be boolean")
+        if live_observer is not None and not callable(live_observer):
+            raise ValueError("live_observer must be callable when provided")
         self.executable = executable
         self.process_runner = (
             StandardProcessRunner() if process_runner is None else process_runner
@@ -73,6 +171,7 @@ class ClaudeCodeProvider:
         self.externally_isolated_writable_repository = (
             externally_isolated_writable_repository
         )
+        self.live_observer = live_observer
 
     @property
     def provider_identifier(self) -> str:
@@ -203,7 +302,9 @@ class ClaudeCodeProvider:
             "--input-format",
             "text",
             "--output-format",
-            "json",
+            "stream-json",
+            "--verbose",
+            "--include-partial-messages",
             "--json-schema",
             schema,
             "--no-session-persistence",
@@ -329,12 +430,16 @@ class ClaudeCodeProvider:
         cwd: Path,
         timeout_seconds: float,
     ) -> ProcessResult:
+        run_kwargs: dict[str, Any] = {}
+        if self.live_observer is not None:
+            run_kwargs["stdout_observer"] = self.live_observer
         try:
             result = self.process_runner.run(
                 argv,
                 stdin=prompt,
                 cwd=cwd,
                 timeout_seconds=timeout_seconds,
+                **run_kwargs,
             )
         except ProcessTimeoutError as exc:
             if type(exc.result) is not ProcessResult or exc.result.argv != argv:
@@ -376,7 +481,7 @@ class ClaudeCodeProvider:
                 raw_log=raw_log,
             )
 
-        envelope = _parse_envelope(raw_log)
+        envelope = _parse_stream(raw_log)
         _require_success(envelope, raw_log)
         try:
             usage = _normalize_usage(envelope)
@@ -427,14 +532,46 @@ def _strict_json_object(raw_log: str) -> dict[str, Any]:
     return value
 
 
-def _parse_envelope(raw_log: str) -> dict[str, Any]:
-    try:
-        return _strict_json_object(raw_log)
-    except (json.JSONDecodeError, ValueError, RecursionError) as exc:
+def _parse_stream(raw_log: str) -> dict[str, Any]:
+    """Strictly parse completed Claude Code NDJSON stream output, fail closed.
+
+    Every nonblank line must be one JSON object with a string ``type``. The
+    terminal ``type=result`` line must be the last nonblank line in the
+    stream: it is rejected both if it repeats and if any further nonblank
+    event follows it. Presentation-only live rendering never substitutes for
+    this independent, authoritative parse.
+    """
+    result_envelope: dict[str, Any] | None = None
+    for raw_line in raw_log.split("\n"):
+        line = raw_line[:-1] if raw_line.endswith("\r") else raw_line
+        if not line.strip():
+            continue
+        if result_envelope is not None:
+            raise ProviderOutputInvalid(
+                "Claude Code stream contained an event after its terminal result event",
+                raw_log=raw_log,
+            )
+        try:
+            value = _strict_json_object(line)
+        except (json.JSONDecodeError, ValueError, RecursionError) as exc:
+            raise ProviderOutputInvalid(
+                "Claude Code stream contained a malformed NDJSON line",
+                raw_log=raw_log,
+            ) from exc
+        event_type = value.get("type")
+        if type(event_type) is not str or not event_type:
+            raise ProviderOutputInvalid(
+                "Claude Code stream event is missing a string type",
+                raw_log=raw_log,
+            )
+        if event_type == "result":
+            result_envelope = value
+    if result_envelope is None:
         raise ProviderOutputInvalid(
-            "Claude Code stdout was not one valid JSON object",
+            "Claude Code stream did not contain a terminal result event",
             raw_log=raw_log,
-        ) from exc
+        )
+    return result_envelope
 
 
 def _require_success(envelope: Mapping[str, Any], raw_log: str) -> None:
@@ -499,8 +636,8 @@ def _unsuccessful_detail(envelope: Mapping[str, Any]) -> str:
 
 def _nonzero_envelope_detail(raw_log: str) -> str:
     try:
-        envelope = _strict_json_object(raw_log)
-    except (json.JSONDecodeError, ValueError, RecursionError):
+        envelope = _parse_stream(raw_log)
+    except ProviderOutputInvalid:
         return ""
     return _unsuccessful_detail(envelope)
 

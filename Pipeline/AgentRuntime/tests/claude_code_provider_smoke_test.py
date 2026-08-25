@@ -6,6 +6,7 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError, replace
 import hashlib
 import inspect
+import io
 import json
 from pathlib import Path
 import subprocess
@@ -36,6 +37,7 @@ from Pipeline.AgentRuntime.process_runner import (
     StandardProcessRunner,
 )
 from Pipeline.AgentRuntime.providers import ClaudeCodeProvider
+from Pipeline.AgentRuntime.providers.claude_code import ClaudeLiveRenderer
 from Pipeline.AgentRuntime.providers.base import (
     ProviderFailure,
     ProviderOutputInvalid,
@@ -119,14 +121,19 @@ def successful_envelope(**changes: Any) -> dict[str, Any]:
     return value
 
 
-def encoded(value: Any, *, pretty: bool = False) -> bytes:
-    if pretty:
-        return (json.dumps(value, ensure_ascii=False, indent=2) + "\r\n").encode(
-            "utf-8"
-        )
+def encoded(value: Any) -> bytes:
     return json.dumps(
         value, ensure_ascii=False, separators=(",", ":")
     ).encode("utf-8")
+
+
+def ndjson_lines(*events: Any, line_ending: bytes = b"\n") -> bytes:
+    """Join one JSON object per line; the Claude adapter requires strict NDJSON."""
+
+    return b"".join(encoded(event) + line_ending for event in events)
+
+
+_UNSET = object()
 
 
 class FakeProcessRunner:
@@ -153,6 +160,7 @@ class FakeProcessRunner:
         stdin: bytes,
         cwd: Path,
         timeout_seconds: float,
+        stdout_observer: Any = _UNSET,
     ) -> ProcessResult:
         call = {
             "argv": tuple(argv),
@@ -161,10 +169,18 @@ class FakeProcessRunner:
             "timeout_seconds": timeout_seconds,
             "cwd_exists": Path(cwd).is_dir(),
             "cwd_entries": tuple(sorted(path.name for path in Path(cwd).iterdir())),
+            "stdout_observer_provided": stdout_observer is not _UNSET,
         }
         self.calls.append(call)
         if self.failure is not None:
             raise self.failure
+        if stdout_observer is not _UNSET and stdout_observer is not None:
+            # Mirrors StandardProcessRunner's real contract: observer failures
+            # are swallowed by the transport and must never become provider truth.
+            try:
+                stdout_observer(self.stdout)
+            except Exception:
+                pass
         result = ProcessResult(
             tuple(argv), self.returncode, self.stdout, self.stderr, 0.25
         )
@@ -200,6 +216,20 @@ def assert_bounded_setting_sources(argv: tuple[str, ...]) -> None:
     setting_sources = option(argv, "--setting-sources")
     assert setting_sources == "user,project"
     assert "local" not in setting_sources.split(",")
+
+
+def assert_streaming_output_flags(argv: tuple[str, ...]) -> None:
+    assert option(argv, "--output-format") == "stream-json"
+    assert "--verbose" in argv
+    assert "--include-partial-messages" in argv
+    assert argv.count("--verbose") == 1
+    assert argv.count("--include-partial-messages") == 1
+    assert argv.count("--json-schema") == 1
+    output_format_index = argv.index("--output-format")
+    json_schema_index = argv.index("--json-schema")
+    assert argv.index("--verbose") > output_format_index
+    assert argv.index("--include-partial-messages") > output_format_index
+    assert json_schema_index > argv.index("--include-partial-messages")
 
 
 def tree_hashes(path: Path) -> dict[str, str]:
@@ -251,7 +281,9 @@ def test_empty_capability_exact_invocation() -> None:
             "--input-format",
             "text",
             "--output-format",
-            "json",
+            "stream-json",
+            "--verbose",
+            "--include-partial-messages",
             "--json-schema",
             expected_schema,
             "--no-session-persistence",
@@ -264,6 +296,7 @@ def test_empty_capability_exact_invocation() -> None:
         )
         assert "--allowedTools" not in argv
         assert_bounded_setting_sources(argv)
+        assert_streaming_output_flags(argv)
         assert option(argv, "--model") == MODEL
         assert option(argv, "--max-turns") == "7"
         assert call["timeout_seconds"] == 12.5
@@ -310,6 +343,7 @@ def test_repository_capability_invocations() -> None:
         assert len(fake.calls) == 1
         call = fake.calls[0]
         assert_bounded_setting_sources(call["argv"])
+        assert_streaming_output_flags(call["argv"])
         assert call["cwd"] == ROOT
         assert option(call["argv"], "--tools") == expected_tools
         assert option(call["argv"], "--disallowedTools") == DISALLOWED
@@ -445,6 +479,7 @@ def test_isolated_writable_repository_policy() -> None:
         provider.invoke(candidate, MODEL)
         call = fake.calls[0]
         assert_bounded_setting_sources(call["argv"])
+        assert_streaming_output_flags(call["argv"])
         assert call["cwd"] == repository.resolve()
         assert option(call["argv"], "--tools") == "Read,Glob,Grep,Edit,Write"
         assert option(call["argv"], "--disallowedTools") == WRITE_DISALLOWED
@@ -529,7 +564,13 @@ def test_success_raw_log_and_usage_normalization() -> None:
         },
         total_cost_usd=0.125,
     )
-    raw = encoded(envelope, pretty=True)
+    # CRLF-terminated, multi-line NDJSON: a leading non-result event precedes
+    # the terminal result line, each line remaining one complete JSON object.
+    raw = ndjson_lines(
+        {"type": "system", "subtype": "init"},
+        envelope,
+        line_ending=b"\r\n",
+    )
     with tempfile.TemporaryDirectory() as outer:
         fake = FakeProcessRunner(stdout=raw)
         provider = ClaudeCodeProvider(
@@ -680,6 +721,36 @@ def test_envelope_and_process_failures() -> None:
     assert exception.raw_log == ""
 
 
+def test_terminal_result_must_be_the_last_stream_event() -> None:
+    """type=result is documented as terminal: nothing may follow it."""
+
+    valid = ndjson_lines(
+        {"type": "system", "subtype": "init"},
+        successful_envelope(),
+    )
+    assert invoke_with_stdout(valid).structured_output == {"message": "ok"}
+
+    trailing_event_after_result = ndjson_lines(
+        successful_envelope(),
+        {"type": "system", "subtype": "trailing"},
+    )
+    exception = rejects(
+        lambda: invoke_with_stdout(trailing_event_after_result), ProviderOutputInvalid
+    )
+    assert exception.raw_log == trailing_event_after_result.decode("utf-8")
+
+    trailing_blank_lines_after_result = ndjson_lines(successful_envelope()) + b"\n\n"
+    assert invoke_with_stdout(
+        trailing_blank_lines_after_result
+    ).structured_output == {"message": "ok"}
+
+    two_result_lines = ndjson_lines(successful_envelope(), successful_envelope())
+    exception = rejects(
+        lambda: invoke_with_stdout(two_result_lines), ProviderOutputInvalid
+    )
+    assert exception.raw_log == two_result_lines.decode("utf-8")
+
+
 def test_invalid_usage_fails_as_transport_error() -> None:
     invalid_envelopes = (
         successful_envelope(modelUsage=None),
@@ -782,12 +853,13 @@ def assert_runner_artifacts(
 
 
 def test_agent_runner_claude_integration() -> None:
-    exact_success = encoded(
+    exact_success = ndjson_lines(
+        {"type": "system", "subtype": "init"},
         successful_envelope(
             structured_output={"message": "integrated"},
             permission_denials=[],
         ),
-        pretty=True,
+        line_ending=b"\r\n",
     ).decode("utf-8")
     malformed = '{"type":"result"'
     missing = successful_envelope()
@@ -887,8 +959,8 @@ def test_agent_runner_claude_integration() -> None:
 def test_transport_contract_exports_and_repository_cleanliness() -> None:
     result = ProcessResult(("program", "argument"), 0, b"out", b"err", 1.5)
     rejects(lambda: setattr(result, "returncode", 1), FrozenInstanceError)
-    source = inspect.getsource(StandardProcessRunner.run)
-    assert "shell=False" in source
+    source = inspect.getsource(StandardProcessRunner)
+    assert "shell=True" not in source
     assert "stdout=subprocess.PIPE" in source
     assert "stderr=subprocess.PIPE" in source
     assert "input=stdin" in source
@@ -908,6 +980,205 @@ def test_transport_contract_exports_and_repository_cleanliness() -> None:
     assert not (ROOT / "Pipeline/AgentRuntime/providers/openai.py").exists()
 
 
+def test_claude_live_renderer_shows_text_and_tool_activity() -> None:
+    stream = io.StringIO()
+    renderer = ClaudeLiveRenderer(stream=stream, label="Claude")
+    events = (
+        {
+            "type": "stream_event",
+            "event": {
+                "type": "content_block_start",
+                "content_block": {"type": "tool_use", "name": "Read", "input": {}},
+            },
+        },
+        {
+            "type": "stream_event",
+            "event": {
+                "type": "content_block_delta",
+                "delta": {"type": "text_delta", "text": "Hello "},
+            },
+        },
+        {
+            "type": "stream_event",
+            "event": {
+                "type": "content_block_delta",
+                "delta": {"type": "text_delta", "text": "world"},
+            },
+        },
+        {"type": "stream_event", "event": {"type": "message_stop"}},
+        {
+            "type": "result",
+            "is_error": False,
+            "subtype": "success",
+            "terminal_reason": "completed",
+            "structured_output": {"message": "ok"},
+        },
+    )
+    renderer.feed(ndjson_lines(*events))
+    output = stream.getvalue()
+    assert "[Claude tool] Read" in output
+    assert "Hello world" in output
+    assert "[Claude] finished" in output
+    assert "[Claude] finished with an error" not in output
+
+
+def test_claude_live_renderer_handles_split_chunks_and_error_result() -> None:
+    stream = io.StringIO()
+    renderer = ClaudeLiveRenderer(stream=stream, label="Claude")
+    line = encoded(
+        {
+            "type": "result",
+            "is_error": True,
+            "subtype": "error",
+            "terminal_reason": "max_turns",
+        }
+    ) + b"\n"
+    midpoint = len(line) // 2
+    renderer.feed(line[:midpoint])
+    renderer.feed(line[midpoint:])
+    assert "[Claude] finished with an error" in stream.getvalue()
+
+
+def test_claude_live_renderer_suppresses_thinking_signatures_and_tool_payloads() -> None:
+    stream = io.StringIO()
+    renderer = ClaudeLiveRenderer(stream=stream, label="Claude")
+    secret_thinking = "secret internal reasoning that must never reach the operator"
+    secret_signature = "sig-deadbeef-should-not-be-shown"
+    huge_tool_result = "TOOL_RESULT_PAYLOAD" * 5000
+    events = (
+        {
+            "type": "stream_event",
+            "event": {
+                "type": "content_block_delta",
+                "delta": {"type": "thinking_delta", "thinking": secret_thinking},
+            },
+        },
+        {
+            "type": "stream_event",
+            "event": {
+                "type": "content_block_delta",
+                "delta": {"type": "signature_delta", "signature": secret_signature},
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "content": [{"type": "tool_result", "content": huge_tool_result}]
+            },
+        },
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": "duplicate assistant text"}]},
+        },
+        {
+            "type": "result",
+            "is_error": False,
+            "subtype": "success",
+            "terminal_reason": "completed",
+            "structured_output": {"message": "ok"},
+        },
+    )
+    renderer.feed(ndjson_lines(*events))
+    output = stream.getvalue()
+    assert secret_thinking not in output
+    assert secret_signature not in output
+    assert huge_tool_result not in output
+    assert "duplicate assistant text" not in output
+    assert "[Claude] finished" in output
+
+
+def test_claude_live_renderer_is_resilient_to_malformed_and_non_dict_lines() -> None:
+    stream = io.StringIO()
+    renderer = ClaudeLiveRenderer(stream=stream, label="Claude")
+    renderer.feed(b"not json at all\n")
+    renderer.feed(b"[1,2,3]\n")
+    renderer.feed(b'{"type": 5}\n')
+    renderer.feed(b"\n")
+    renderer.feed(
+        encoded(
+            {
+                "type": "result",
+                "is_error": False,
+                "subtype": "success",
+                "terminal_reason": "completed",
+                "structured_output": {"message": "ok"},
+            }
+        )
+        + b"\n"
+    )
+    assert "[Claude] finished" in stream.getvalue()
+
+
+class _RaisingStream:
+    def write(self, text: str) -> int:
+        raise OSError("stream is gone")
+
+    def flush(self) -> None:
+        raise OSError("stream is gone")
+
+
+def test_claude_live_renderer_write_failures_never_raise() -> None:
+    renderer = ClaudeLiveRenderer(stream=_RaisingStream(), label="Claude")
+    renderer.feed(
+        ndjson_lines(
+            {
+                "type": "stream_event",
+                "event": {
+                    "type": "content_block_delta",
+                    "delta": {"type": "text_delta", "text": "hello"},
+                },
+            },
+            {
+                "type": "result",
+                "is_error": False,
+                "subtype": "success",
+                "terminal_reason": "completed",
+                "structured_output": {"message": "ok"},
+            },
+        )
+    )
+
+
+def test_live_observer_plumbing_and_authoritative_parse_independence() -> None:
+    envelope = successful_envelope()
+    raw = ndjson_lines(envelope)
+    with tempfile.TemporaryDirectory() as outer:
+        fake = FakeProcessRunner(stdout=raw)
+        provider = ClaudeCodeProvider(
+            process_runner=fake, temporary_directory_parent=Path(outer)
+        )
+        provider.invoke(request(), MODEL)
+        assert fake.calls[0]["stdout_observer_provided"] is False
+
+    with tempfile.TemporaryDirectory() as outer:
+        stream = io.StringIO()
+        renderer = ClaudeLiveRenderer(stream=stream, label="Claude")
+        fake = FakeProcessRunner(stdout=raw)
+        provider = ClaudeCodeProvider(
+            process_runner=fake,
+            temporary_directory_parent=Path(outer),
+            live_observer=renderer.feed,
+        )
+        response = provider.invoke(request(), MODEL)
+        assert fake.calls[0]["stdout_observer_provided"] is True
+        assert response.structured_output == {"message": "ok"}
+        assert response.raw_log == raw.decode("utf-8")
+        assert "[Claude] finished" in stream.getvalue()
+
+    # A live_observer that raises on every call must never affect provider
+    # truth: the authoritative NDJSON parse is fully independent of rendering,
+    # and the transport contract swallows observer failures.
+    with tempfile.TemporaryDirectory() as outer:
+        provider = ClaudeCodeProvider(
+            process_runner=FakeProcessRunner(stdout=raw),
+            temporary_directory_parent=Path(outer),
+            live_observer=lambda chunk: (_ for _ in ()).throw(OSError("broken")),
+        )
+        response = provider.invoke(request(), MODEL)
+        assert response.structured_output == {"message": "ok"}
+        assert response.raw_log == raw.decode("utf-8")
+
+
 def main() -> None:
     before = tree_hashes(RUNTIME_ROOT)
     status_before = subprocess.run(
@@ -925,9 +1196,16 @@ def main() -> None:
     test_local_metadata_requirements()
     test_success_raw_log_and_usage_normalization()
     test_envelope_and_process_failures()
+    test_terminal_result_must_be_the_last_stream_event()
     test_invalid_usage_fails_as_transport_error()
     test_agent_runner_claude_integration()
     test_transport_contract_exports_and_repository_cleanliness()
+    test_claude_live_renderer_shows_text_and_tool_activity()
+    test_claude_live_renderer_handles_split_chunks_and_error_result()
+    test_claude_live_renderer_suppresses_thinking_signatures_and_tool_payloads()
+    test_claude_live_renderer_is_resilient_to_malformed_and_non_dict_lines()
+    test_claude_live_renderer_write_failures_never_raise()
+    test_live_observer_plumbing_and_authoritative_parse_independence()
     after = tree_hashes(RUNTIME_ROOT)
     status_after = subprocess.run(
         ["git", "status", "--porcelain=v1", "--untracked-files=all"],

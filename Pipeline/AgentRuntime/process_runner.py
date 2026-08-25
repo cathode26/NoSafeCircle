@@ -8,8 +8,9 @@ import os
 from pathlib import Path
 import signal
 import subprocess
+import threading
 import time
-from typing import Protocol, Sequence
+from typing import Callable, Protocol, Sequence
 
 
 @dataclass(frozen=True)
@@ -60,8 +61,102 @@ class ProcessRunner(Protocol):
         stdin: bytes,
         cwd: Path,
         timeout_seconds: float,
+        stdout_observer: Callable[[bytes], None] | None = None,
     ) -> ProcessResult:
         ...
+
+
+class _StreamingProcessIO:
+    """Bounded, daemon-thread pipe plumbing for one observed subprocess.
+
+    A detached same-group descendant can keep a pipe open after the launched
+    root exits, so every read/join here is bounded; unfinished daemon threads
+    are simply abandoned rather than allowed to block caller cleanup.
+    """
+
+    def __init__(
+        self,
+        process: "subprocess.Popen[bytes]",
+        stdin_data: bytes,
+        stdout_observer: Callable[[bytes], None],
+    ) -> None:
+        self._process = process
+        self._stdin_data = stdin_data
+        self._stdout_observer = stdout_observer
+        self._stdout_chunks: list[bytes] = []
+        self._stderr_chunks: list[bytes] = []
+        self._stdin_thread = threading.Thread(target=self._write_stdin, daemon=True)
+        self._stdout_thread = threading.Thread(target=self._read_stdout, daemon=True)
+        self._stderr_thread = threading.Thread(target=self._read_stderr, daemon=True)
+
+    def start(self) -> None:
+        self._stdout_thread.start()
+        self._stderr_thread.start()
+        self._stdin_thread.start()
+
+    def _write_stdin(self) -> None:
+        stream = self._process.stdin
+        try:
+            if stream is not None:
+                if self._stdin_data:
+                    stream.write(self._stdin_data)
+                stream.close()
+        except (BrokenPipeError, OSError, ValueError):
+            pass
+
+    def _read_stdout(self) -> None:
+        # BufferedReader.read(n) blocks until n bytes are buffered or EOF, which
+        # can hold small NDJSON events until the child produces much more output
+        # or exits. read1(n) instead returns as soon as at least one underlying
+        # pipe read succeeds, so observed bytes are delivered as they arrive.
+        stream = self._process.stdout
+        try:
+            if stream is None:
+                return
+            while True:
+                chunk = stream.read1(65536)
+                if not chunk:
+                    break
+                self._stdout_chunks.append(chunk)
+                try:
+                    self._stdout_observer(chunk)
+                except Exception:
+                    pass
+        except (OSError, ValueError):
+            pass
+
+    def _read_stderr(self) -> None:
+        stream = self._process.stderr
+        try:
+            if stream is None:
+                return
+            while True:
+                chunk = stream.read1(65536)
+                if not chunk:
+                    break
+                self._stderr_chunks.append(chunk)
+        except (OSError, ValueError):
+            pass
+
+    def join(self, timeout_seconds: float) -> None:
+        deadline = time.monotonic() + timeout_seconds
+        for thread in (self._stdin_thread, self._stdout_thread, self._stderr_thread):
+            remaining = deadline - time.monotonic()
+            thread.join(remaining if remaining > 0 else 0)
+
+    def close_streams(self) -> None:
+        for stream in (self._process.stdout, self._process.stderr, self._process.stdin):
+            if stream is not None:
+                try:
+                    stream.close()
+                except Exception:
+                    pass
+
+    def stdout_bytes(self) -> bytes:
+        return b"".join(self._stdout_chunks)
+
+    def stderr_bytes(self) -> bytes:
+        return b"".join(self._stderr_chunks)
 
 
 class StandardProcessRunner:
@@ -84,6 +179,7 @@ class StandardProcessRunner:
         stdin: bytes,
         cwd: Path,
         timeout_seconds: float,
+        stdout_observer: Callable[[bytes], None] | None = None,
     ) -> ProcessResult:
         arguments = tuple(argv)
         if (
@@ -104,7 +200,20 @@ class StandardProcessRunner:
             or timeout_seconds <= 0
         ):
             raise ValueError("timeout_seconds must be finite and positive")
+        if stdout_observer is not None and not callable(stdout_observer):
+            raise TypeError("stdout_observer must be callable when provided")
 
+        if stdout_observer is not None:
+            return self._run_observed(arguments, stdin, cwd, timeout_seconds, stdout_observer)
+        return self._run_captured(arguments, stdin, cwd, timeout_seconds)
+
+    def _run_captured(
+        self,
+        arguments: tuple[str, ...],
+        stdin: bytes,
+        cwd: Path,
+        timeout_seconds: float,
+    ) -> ProcessResult:
         process_options: dict[str, object] = {}
         if os.name == "nt":
             process_options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
@@ -157,6 +266,94 @@ class StandardProcessRunner:
             process.returncode,
             stdout,
             stderr,
+            time.monotonic() - started,
+        )
+
+    def _run_observed(
+        self,
+        arguments: tuple[str, ...],
+        stdin: bytes,
+        cwd: Path,
+        timeout_seconds: float,
+        stdout_observer: Callable[[bytes], None],
+    ) -> ProcessResult:
+        process_options: dict[str, object] = {}
+        if os.name == "nt":
+            process_options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            process_options["start_new_session"] = True
+
+        started = time.monotonic()
+        process = subprocess.Popen(
+            arguments,
+            cwd=os.fspath(cwd),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=False,
+            **process_options,
+        )
+        group_id = process.pid
+        io = _StreamingProcessIO(process, stdin, stdout_observer)
+        try:
+            try:
+                io.start()
+                process.wait(timeout=float(timeout_seconds))
+                timed_out = False
+            except subprocess.TimeoutExpired:
+                timed_out = True
+        except BaseException:
+            # Cleanup mirrors _cleanup_after_exception's bounded two-step signal,
+            # but drains via the already-running reader threads instead of
+            # process.communicate(), which would race on the same pipes.
+            try:
+                self._signal_group(process, group_id, force=False)
+            except BaseException:
+                pass
+            io.join(self._cleanup_timeout_seconds)
+            try:
+                self._signal_group(process, group_id, force=True)
+            except BaseException:
+                pass
+            io.close_streams()
+            io.join(self._cleanup_timeout_seconds)
+            try:
+                self._close_and_reap(process)
+            except BaseException:
+                pass
+            raise
+
+        if timed_out:
+            # Ask nicely first, then force; a root may exit and close its own
+            # pipes while a detached same-group descendant keeps them open,
+            # so cleanup always finishes with an unconditional forced signal.
+            self._signal_group(process, group_id, force=False)
+            io.join(self._cleanup_timeout_seconds)
+            self._signal_group(process, group_id, force=True)
+            io.close_streams()
+            io.join(self._cleanup_timeout_seconds)
+            self._close_and_reap(process)
+            result = ProcessResult(
+                arguments,
+                process.returncode if process.returncode is not None else -1,
+                io.stdout_bytes(),
+                io.stderr_bytes(),
+                time.monotonic() - started,
+            )
+            raise ProcessTimeoutError(result) from None
+
+        io.join(self._cleanup_timeout_seconds)
+        # A successful root can still leave a same-group descendant running;
+        # force the whole group down exactly like the non-observed path does.
+        self._signal_group(process, group_id, force=True)
+        io.close_streams()
+        io.join(self._cleanup_timeout_seconds)
+        self._close_and_reap(process)
+        return ProcessResult(
+            arguments,
+            process.returncode,
+            io.stdout_bytes(),
+            io.stderr_bytes(),
             time.monotonic() - started,
         )
 

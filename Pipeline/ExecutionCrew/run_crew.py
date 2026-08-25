@@ -15,7 +15,7 @@ for module_root in (ROOT, ROOT / "Pipeline/TaskGraph"):
 from Pipeline.AgentRuntime.agent_runner import AgentRunner
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION, AgentInvocationRequest, Budgets, WriteBoundaries, validate_repository_path
-from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider
+from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider, ClaudeLiveRenderer
 from Pipeline.AgentRuntime.providers.openai_codex import OpenAICodexProvider
 from Pipeline.AgentRuntime.json_values import thaw_json
 from Pipeline.TaskExecution.contracts import TASK_EXECUTION_REQUEST_SCHEMA_VERSION, TaskContractIdentity, TaskExecutionRequest
@@ -898,8 +898,13 @@ ProviderFactory = Callable[[str, Path, bool, str], tuple[str, RuntimeConfigurati
 
 def construct_real_provider(provider_name: str, repository_root: Path, writable: bool):
     if provider_name == "claude":
+        # ExecutionCrew always wants live, human-readable Claude activity on
+        # stderr while a real Claude-backed role is running. This is
+        # ExecutionCrew-specific: other AgentRuntime callers that construct
+        # ClaudeCodeProvider directly do not get an observer unless they ask.
         return ClaudeCodeProvider(repository_root=repository_root,
-                                  externally_isolated_writable_repository=writable)
+                                  externally_isolated_writable_repository=writable,
+                                  live_observer=ClaudeLiveRenderer().feed)
     if provider_name == "codex":
         return OpenAICodexProvider(
             repository_root=repository_root,
