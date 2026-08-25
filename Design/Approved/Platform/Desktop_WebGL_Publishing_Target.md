@@ -67,7 +67,7 @@ Treat this artifact as approved subordinate project design state when work touch
 - shaders, audio, memory, loading, or other behavior with WebGL compatibility implications;
 - release packaging, browser validation, or deployment.
 
-A future implementation task may be created near the actionable frontier to configure, build, validate, and publish the WebGL target. This artifact does not itself create TaskGraph work, grant readiness, authorize execution, or prove delivery/conformance.
+TaskGraph implementation of this approved publication target is represented by **NSC-043 — Desktop WebGL Build Artifact** under **NSC-036 — Delivery and Build**. NSC-043 depends on NSC-037 so it consumes the already-approved canonical gameplay scene registration rather than redefining it. This artifact remains the design authority for the publication target; the task contract grants implementation scope, and later committed delivery evidence is required to prove conformance.
 
 ## Authority Boundary
 
