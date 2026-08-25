@@ -1,0 +1,76 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "00fc1e3a7d90bc080dfe32e1a0e8ec6228d97e03",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WindowsBuildSceneRegistrationTests.cs",
+      "role": "windows_build_scene_registration_editor_tests"
+    },
+    {
+      "blob_sha": "6aee049b9575526e18b859bdd04e23b3da3e6b69",
+      "path": "ProjectSettings/EditorBuildSettings.asset",
+      "role": "canonical_windows_build_scene_registration"
+    }
+  ],
+  "delivery": {
+    "base_commit": "4ab4dbb9f84867d1971b26d7b708e21aba0d22e0",
+    "candidate_commit": "9ca8cf1d52cf020f2d4f0593f1b34035b36e68a4",
+    "integrated_commit": "9ca8cf1d52cf020f2d4f0593f1b34035b36e68a4",
+    "integrated_tree": "683672d2021d2c083f852c11fb11d29a9c64f623"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "411aeceea07a6a6bfb6a9cbe2dcf79eb5479f001",
+          "path": "Pipeline/TaskGraph/evidence/NSC-037/artifacts/HumanValidation-01-9ca8cf1d52cf.txt"
+        },
+        {
+          "blob_sha": "0f4144dd186146635ba38749a93959b1934457fc",
+          "path": "Pipeline/TaskGraph/evidence/NSC-037/artifacts/Unity-EditMode-01-9ca8cf1d52cf.xml"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "HumanValidation-01 documents the developer's inspection of package state, canonical scene registration, SampleScene exclusion, and Windows build configuration, including the interactive 4/4 test pass with Windows Standalone active. unity_01_results independently records the authoritative 4/4 EditMode assertions at the frozen implementation commit.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "411aeceea07a6a6bfb6a9cbe2dcf79eb5479f001",
+          "path": "Pipeline/TaskGraph/evidence/NSC-037/artifacts/HumanValidation-01-9ca8cf1d52cf.txt"
+        },
+        {
+          "blob_sha": "0f4144dd186146635ba38749a93959b1934457fc",
+          "path": "Pipeline/TaskGraph/evidence/NSC-037/artifacts/Unity-EditMode-01-9ca8cf1d52cf.xml"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "HumanValidation-01 documents a successful Windows 64-bit Standalone build from the registered Assets/Scenes/DoorPrototype.unity, including Unity exit code 0, build-log and executable SHA-256 hashes, and a nonempty produced executable. unity_01_results corroborates canonical scene registration, SampleScene exclusion, and the live Windows Standalone target at the same frozen implementation commit.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Reviewed NSC-037 contract revision 2, committed surfaces, automated validation, human inspection, and Windows build evidence. Approved the canonical build-scene registration and its Editor validation tests. The generated .meta sidecar is intentionally excluded as a non-semantic conformance surface.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-037-9ca8cf1d52cf",
+  "record_type": "delivery",
+  "recorded_at": "2026-08-25T10:09:06Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-037.yaml",
+    "revision": 2,
+    "sha256": "c876563ed7c5bec726b0fc5f2bedd27c9a62c4e475bf1bfd6743cffc2cdb6251"
+  },
+  "task_id": "NSC-037",
+  "validated_state": {
+    "commit": "9ca8cf1d52cf020f2d4f0593f1b34035b36e68a4",
+    "tree": "683672d2021d2c083f852c11fb11d29a9c64f623"
+  }
+}
