@@ -396,9 +396,25 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The wizard must actually arrive at the door's interaction position via real " +
                 $"CharacterController movement within {maxElapsedSeconds:F1} seconds of simulated " +
                 $"game time (elapsed={elapsedSeconds:F3}s, renderedFrames={frames}).");
+
+            // CharacterController.Move can settle the destination before Unity's next physics
+            // step dispatches the real OnTriggerEnter callback. Wait for a small, bounded number
+            // of physics steps rather than requiring trigger delivery in the same rendered frame.
+            const int maxTriggerPhysicsSteps = 3;
+            var triggerPhysicsSteps = 0;
+            while (!controller.IsInteracting && triggerPhysicsSteps < maxTriggerPhysicsSteps)
+            {
+                yield return new WaitForFixedUpdate();
+                triggerPhysicsSteps++;
+            }
+
             Assert.IsTrue(controller.IsInteracting,
-                "Arriving via real physics-driven approach movement (through the actual trigger " +
-                "OnTriggerEnter path) must start the automatic opening timer.");
+                "Arriving via real physics-driven approach movement must start the automatic " +
+                "opening timer through the actual trigger OnTriggerEnter path. " +
+                $"fixedStepsWaited={triggerPhysicsSteps}, " +
+                $"currentDoor={(controller.CurrentDoor != null ? controller.CurrentDoor.name : "<null>")}, " +
+                $"pendingDoor={(controller.PendingDoor != null ? controller.PendingDoor.name : "<null>")}, " +
+                $"doorReportsPlayerInRange={door.IsPlayerInRange}.");
             Assert.IsTrue(door.IsInteracting);
 
             var lastProgress = door.Progress;
