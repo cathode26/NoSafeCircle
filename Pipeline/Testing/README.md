@@ -10,6 +10,32 @@ The immediate incident was a destructive camera-related Edit Mode test run. `Doo
 
 The selected task contract and current approved GDD define required behavior. The testing policy defines how it may be proven safely. Neither this directory, the runner, nor an agent's assessment is game-design canon. The runner reports deterministic Unity and Git facts; it does not create conformance, readiness, delivery, or execution authorization.
 
+## Interactive Unity workspace hygiene
+
+Interactive human validation is different from an authoritative evidence-producing test run. Opening Unity or running a production builder can create predictable editor/settings churn and generated assets while an implementation candidate is still being reviewed.
+
+Use `unity_workspace_hygiene.py` for that **iteration-only** cleanup. The required operator task is:
+
+```text
+capture pre-Unity task state -> run human Unity iteration -> inspect -> clean proven-safe churn -> review remaining task diff
+```
+
+The helper preserves pre-existing candidate changes and declared task resources, cleans only narrow known/stat-only/whitespace-only churn, and keeps new generated assets unless retry cleanup explicitly requests their removal. Unexpected semantic changes stop instead of being hidden.
+
+Full procedure and PowerShell examples:
+
+```text
+Docs/AI-Pipeline/UNITY_WORKSPACE_HYGIENE.md
+```
+
+Smoke test:
+
+```powershell
+python Pipeline/Testing/unity_workspace_hygiene_smoke_test.py
+```
+
+**Do not invoke workspace hygiene inside or after `run_unity_tests_clean.ps1` to rescue an authoritative validation run.** Authoritative validation still fails on any mutation and preserves that mutation for diagnosis.
+
 ## Running tests on Windows
 
 From the repository root in Windows PowerShell:
