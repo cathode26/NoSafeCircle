@@ -251,7 +251,7 @@ def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") ->
     for state_name, candidates, code, message in (
         ("needs_replan", replan, "contract_changed", "Current contract revision or semantic hash differs from prior evidence."),
         ("needs_human", human, "human_approval_missing", "Required human approval is missing."),
-        ("needs_revalidation", stale, "evidence_stale", "Prior evidence exists but is not current for HEAD."),
+        ("needs_testing", stale, "evidence_stale", "Prior evidence exists, but current HEAD changed a tracked surface or lineage; the previously completed task may need testing again."),
     ):
         if candidates:
             maximal = _maximal(repo, candidates)
