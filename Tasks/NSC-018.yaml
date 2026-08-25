@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-018",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Doors and Interaction",
   "reconciliation_key": "doors",
@@ -10,7 +10,7 @@
   "execution_scope": "not_applicable",
   "execution_reason": "Feature/organizational node; not directly dispatchable.",
   "decomposition_state": "coarse",
-  "decomposition_reason": "The feature is organizational; its three concrete children (door-open-interaction, doorway-crossing-state, door-close-lock-break-lifecycle) already carry the bounded, GDD-specified responsibilities. No further coarse-level design gap needs resolving at this bootstrap stage.",
+  "decomposition_reason": "The feature is organizational; its four concrete children (door-open-interaction, doorway-crossing-state, door-close-lock-break-lifecycle, and door-visual-affordance-feedback) carry the bounded responsibilities. The visual-affordance child separates first-time-player readability and hover/selection feedback from NSC-019's interaction mechanics.",
   "parent": "NSC-001",
   "depends_on": [],
   "exclusive_resources": [],
@@ -34,7 +34,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Aggregate repository_state of partial reflects that door-open-interaction has meaningful (if incomplete) current behavior while doorway-crossing-state and door-close-lock-break-lifecycle are entirely unimplemented.",
+  "notes": "Aggregate repository_state of partial reflects that door-open-interaction has meaningful (if incomplete) current behavior while doorway-crossing-state and door-close-lock-break-lifecycle are entirely unimplemented. Door visual affordance/readability is tracked separately in NSC-041 so interaction mechanics can be validated independently of placeholder-art clarity.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [],
   "provenance": {

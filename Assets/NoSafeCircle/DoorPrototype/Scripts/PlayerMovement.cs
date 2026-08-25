@@ -35,6 +35,7 @@ namespace NoSafeCircle.DoorPrototype
         private Vector3 destination;
         private int movementRestrictionCount;
         private float blockedDestinationTime;
+        private bool wasMoveToCursorPressed;
 
         /// Shared world-space pointer target (AC-002), produced by projecting the cursor
         /// onto the gameplay plane. Consumers (cursor-aimed spells, Door/Interaction) read
@@ -45,6 +46,12 @@ namespace NoSafeCircle.DoorPrototype
         public bool IsMovementRestricted => movementRestrictionCount > 0;
         public bool IsGameplayEnabled { get; private set; } = true;
         public bool HasActiveDestination => hasDestination;
+
+        /// AC-002: fires when an active destination is genuinely arrived at (not when an
+        /// unreachable destination is cancelled after sustained blocked progress). Door and
+        /// Interaction consumes this to know when its click-to-approach request has actually
+        /// completed, instead of relying on arm's-reach trigger timing alone.
+        public event System.Action DestinationReached;
 
         private void Awake()
         {
@@ -127,16 +134,63 @@ namespace NoSafeCircle.DoorPrototype
         private void HandleMoveToCursorInput()
         {
             if (moveToCursorAction == null || !HasPointerWorldTarget) return;
-            if (!moveToCursorAction.IsPressed()) return;
 
-            var newDestination = PointerWorldTarget;
-            if (!hasDestination || HorizontalDistance(destination, newDestination) > ArrivalThreshold)
+            var isPressed = moveToCursorAction.IsPressed();
+            // Tracked against this component's own Tick cadence (one call per simulated/real
+            // frame) rather than the Input System's internal update-step counter, so a fresh
+            // press is detected exactly once regardless of how many Tick calls a caller makes
+            // between two distinct input samples.
+            var isFreshPress = isPressed && !wasMoveToCursorPressed;
+            wasMoveToCursorPressed = isPressed;
+
+            // AC-001: a fresh press is offered to Door/Interaction first, using the shared
+            // pointer target this method already computed. If it hit a sealed door, Door and
+            // Interaction has issued its own combined approach-and-interact destination request
+            // and this click must not also be treated as a plain move-to-point click.
+            if (isFreshPress &&
+                interactionController != null && interactionController.TryBeginDoorApproach(PointerWorldTarget))
+            {
+                return;
+            }
+
+            // AC-003: while a door approach/interaction is pending, held-cursor drift must not
+            // redirect the wizard away from the selected door.
+            if (interactionController != null && interactionController.HasLockedDoorInteraction) return;
+
+            if (!isPressed) return;
+
+            SetDestination(PointerWorldTarget);
+        }
+
+        private void SetDestination(Vector3 worldPosition)
+        {
+            if (!hasDestination || HorizontalDistance(destination, worldPosition) > ArrivalThreshold)
             {
                 blockedDestinationTime = 0f;
             }
 
             hasDestination = true;
-            destination = newDestination;
+            destination = worldPosition;
+        }
+
+        /// Narrow owner-controlled destination-request extension consumed by Door/Interaction to
+        /// issue the combined approach-and-interact request (AC-001/AC-002) without independently
+        /// projecting screen coordinates or polling pointer hardware.
+        public void RequestDestination(Vector3 worldPosition)
+        {
+            if (!IsGameplayEnabled) return;
+
+            SetDestination(worldPosition);
+        }
+
+        /// AC-004/AC-006: owner-controlled cancellation counterpart to RequestDestination.
+        /// Consumed by Door/Interaction when it cancels a pending or in-progress door
+        /// interaction (on suspend, on damage, or when replaced by another command) so a
+        /// stale door-approach destination does not keep driving movement after the door
+        /// request itself has already been cancelled.
+        public void CancelRequestedDestination()
+        {
+            ClearDestination();
         }
 
         private void TickDestinationMovement(float deltaTime)
@@ -154,6 +208,7 @@ namespace NoSafeCircle.DoorPrototype
                 if (toDestination.sqrMagnitude <= ArrivalThreshold * ArrivalThreshold)
                 {
                     ClearDestination();
+                    DestinationReached?.Invoke();
                 }
                 else
                 {
@@ -195,7 +250,13 @@ namespace NoSafeCircle.DoorPrototype
             var distanceAfterMove = HorizontalDistance(transform.position, destination);
             if (distanceAfterMove <= ArrivalThreshold)
             {
+                // This frame's own approach movement (handled above via OnPlayerMoved) must not
+                // be treated as the interaction-cancelling "moved away" case just because arrival
+                // and displacement land in the same frame: DestinationReached fires only after
+                // hasDestination has already been cleared, so Door/Interaction starts its timer
+                // from a state where no further approach movement is pending.
                 ClearDestination();
+                DestinationReached?.Invoke();
                 return;
             }
 

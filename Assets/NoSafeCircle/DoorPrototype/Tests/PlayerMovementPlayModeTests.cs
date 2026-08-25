@@ -414,4 +414,166 @@ namespace NoSafeCircle.DoorPrototype.Tests
             field.SetValue(target, value);
         }
     }
+
+    // AC-003: after a sealed door is selected via click-to-approach, cursor drift away from the
+    // door - including while the button is still held - must not cancel the approach or
+    // redirect the wizard's destination away from the selected door's interaction position.
+    public class PlayerMovementDoorApproachIntegrationPlayModeTests : InputTestFixture
+    {
+        private GameObject playerObject;
+        private GameObject cameraObject;
+        private GameObject doorObject;
+        private PlayerMovement movement;
+        private PlayerInteractionController interactionController;
+        private DoorInteractable door;
+        private Camera testCamera;
+        private RenderTexture testRenderTexture;
+        private InputActionAsset testInputActions;
+        private Mouse mouseDevice;
+
+        public override void Setup()
+        {
+            base.Setup();
+
+            mouseDevice = InputSystem.AddDevice<Mouse>();
+
+            cameraObject = new GameObject("TestCamera");
+            cameraObject.tag = "MainCamera";
+            testCamera = cameraObject.AddComponent<Camera>();
+            testCamera.transform.SetPositionAndRotation(new Vector3(0f, 10f, -10f), Quaternion.identity);
+            testCamera.transform.LookAt(Vector3.zero);
+
+            testRenderTexture = new RenderTexture(800, 600, 24);
+            testRenderTexture.Create();
+            testCamera.targetTexture = testRenderTexture;
+
+            testInputActions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var playerMap = testInputActions.AddActionMap("Player");
+            playerMap.AddAction(
+                "PointerPosition",
+                InputActionType.Value,
+                "<Mouse>/position",
+                expectedControlLayout: "Vector2");
+            playerMap.AddAction(
+                "MoveToCursor",
+                InputActionType.Button,
+                "<Mouse>/leftButton");
+            playerMap.devices = new InputDevice[] { mouseDevice };
+
+            doorObject = new GameObject("TestDoor");
+            doorObject.transform.position = new Vector3(2f, 0f, 2f);
+            door = doorObject.AddComponent<DoorInteractable>();
+
+            playerObject = new GameObject("TestPlayer");
+            playerObject.SetActive(false);
+
+            playerObject.AddComponent<CharacterController>();
+            playerObject.AddComponent<PlayerHealth>();
+            interactionController = playerObject.AddComponent<PlayerInteractionController>();
+            movement = playerObject.AddComponent<PlayerMovement>();
+
+            SetPrivateField(movement, "inputActions", testInputActions);
+            SetPrivateField(movement, "interactionController", interactionController);
+
+            playerObject.SetActive(true);
+        }
+
+        public override void TearDown()
+        {
+            if (playerObject != null) Object.Destroy(playerObject);
+            if (cameraObject != null) Object.Destroy(cameraObject);
+            if (doorObject != null) Object.Destroy(doorObject);
+
+            if (testInputActions != null)
+            {
+                testInputActions.Disable();
+                Object.Destroy(testInputActions);
+            }
+
+            if (testRenderTexture != null)
+            {
+                testRenderTexture.Release();
+                Object.Destroy(testRenderTexture);
+            }
+
+            playerObject = null;
+            cameraObject = null;
+            doorObject = null;
+            movement = null;
+            interactionController = null;
+            door = null;
+            testCamera = null;
+            testInputActions = null;
+            testRenderTexture = null;
+            mouseDevice = null;
+
+            base.TearDown();
+        }
+
+        [UnityTest]
+        public IEnumerator HeldCursorDriftAwayFromSelectedDoor_DoesNotOverrideApproachDestination()
+        {
+            var doorScreenPoint = testCamera.WorldToScreenPoint(door.SelectionPoint);
+            SetMouse(doorScreenPoint, true);
+            movement.Tick(0.02f);
+
+            Assert.IsTrue(interactionController.HasLockedDoorInteraction,
+                "Test setup must actually select the door before testing cursor-drift tolerance.");
+            Assert.IsTrue(movement.HasActiveDestination);
+
+            var driftedWorldPoint = new Vector3(-8f, 0f, 8f);
+            SetMouse(testCamera.WorldToScreenPoint(driftedWorldPoint), true);
+
+            AdvanceMovementTime(movement, 5f);
+
+            yield return null;
+
+            Assert.IsTrue(interactionController.HasLockedDoorInteraction,
+                "Cursor drift after selection must not cancel the pending door approach.");
+
+            var horizontalOffsetFromDoor = HorizontalOffset(movement.transform.position, door.InteractionPosition);
+            Assert.Less(horizontalOffsetFromDoor, 0.1f,
+                "The wizard must arrive at the selected door's interaction position rather than being " +
+                "redirected toward the drifted cursor position.");
+
+            var horizontalOffsetFromDrift = HorizontalOffset(movement.transform.position, driftedWorldPoint);
+            Assert.Greater(horizontalOffsetFromDrift, 1f,
+                "The wizard must not have been steered toward the drifted cursor position.");
+        }
+
+        private void SetMouse(Vector2 screenPosition, bool leftButtonPressed)
+        {
+            InputSystem.QueueStateEvent(mouseDevice, new MouseState
+            {
+                position = screenPosition,
+                buttons = leftButtonPressed ? (ushort)(1 << (int)MouseButton.Left) : (ushort)0
+            });
+            InputSystem.Update();
+        }
+
+        private static float HorizontalOffset(Vector3 position, Vector3 target)
+        {
+            var offset = new Vector3(position.x - target.x, 0f, position.z - target.z);
+            return offset.magnitude;
+        }
+
+        private static void AdvanceMovementTime(PlayerMovement target, float totalSeconds)
+        {
+            const float step = 0.05f;
+            var elapsed = 0f;
+            while (elapsed < totalSeconds)
+            {
+                var dt = Mathf.Min(step, totalSeconds - elapsed);
+                target.Tick(dt);
+                elapsed += dt;
+            }
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(field, $"Expected a private field named '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
+        }
+    }
 }

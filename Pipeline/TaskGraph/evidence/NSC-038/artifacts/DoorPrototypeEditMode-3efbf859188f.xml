@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="26" result="Passed" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-08-25 07:12:33Z" end-time="2026-08-25 07:12:38Z" duration="4.8466599">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="26" result="Passed" start-time="2026-08-25 07:12:33Z" end-time="2026-08-25 07:12:38Z" duration="4.846660" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1030" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle-NSC019/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="26" result="Passed" start-time="2026-08-25 07:12:33Z" end-time="2026-08-25 07:12:38Z" duration="4.840297" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="64264" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1031" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="26" result="Passed" start-time="2026-08-25 07:12:33Z" end-time="2026-08-25 07:12:38Z" duration="4.839502" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1032" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="26" result="Passed" start-time="2026-08-25 07:12:33Z" end-time="2026-08-25 07:12:38Z" duration="4.838929" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1033" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="26" result="Passed" start-time="2026-08-25 07:12:33Z" end-time="2026-08-25 07:12:38Z" duration="4.838341" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1034" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="26" result="Passed" start-time="2026-08-25 07:12:33Z" end-time="2026-08-25 07:12:38Z" duration="4.837741" total="26" passed="26" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1001" name="CommittedSceneCameraConformanceTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-08-25 07:12:33Z" end-time="2026-08-25 07:12:35Z" duration="1.495021" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1002" name="CommittedScene_MainCamera_IsFixedOrthographicIsometric" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests.CommittedScene_MainCamera_IsFixedOrthographicIsometric" methodname="CommittedScene_MainCamera_IsFixedOrthographicIsometric" classname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests" runstate="Runnable" seed="629055884" result="Passed" start-time="2026-08-25 07:12:33Z" end-time="2026-08-25 07:12:34Z" duration="0.788946" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1003" name="CommittedScene_MainCamera_TranslatesWithPlayerWithoutRotating" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests.CommittedScene_MainCamera_TranslatesWithPlayerWithoutRotating" methodname="CommittedScene_MainCamera_TranslatesWithPlayerWithoutRotating" classname="NoSafeCircle.DoorPrototype.Tests.Editor.CommittedSceneCameraConformanceTests" runstate="Runnable" seed="534862810" result="Passed" start-time="2026-08-25 07:12:34Z" end-time="2026-08-25 07:12:35Z" duration="0.691604" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-suite type="TestFixture" id="1028" name="DoorPrototypeSceneBuilderClickSelectionTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderClickSelectionTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderClickSelectionTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-08-25 07:12:35Z" end-time="2026-08-25 07:12:35Z" duration="0.174013" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1029" name="Build_ClickingVisibleDoorCenterUnderProductionCamera_SelectsDoorThroughSharedPointerTarget" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderClickSelectionTests.Build_ClickingVisibleDoorCenterUnderProductionCamera_SelectsDoorThroughSharedPointerTarget" methodname="Build_ClickingVisibleDoorCenterUnderProductionCamera_SelectsDoorThroughSharedPointerTarget" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderClickSelectionTests" runstate="Runnable" seed="616810154" result="Passed" start-time="2026-08-25 07:12:35Z" end-time="2026-08-25 07:12:35Z" duration="0.168678" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-suite type="TestFixture" id="1004" name="DoorPrototypeSceneBuilderTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" testcasecount="23" result="Passed" start-time="2026-08-25 07:12:35Z" end-time="2026-08-25 07:12:38Z" duration="3.166488" total="23" passed="23" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1011" name="Build_ControlsHud_ExistsSeparateFromPromptAndProgressIndicator" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_ControlsHud_ExistsSeparateFromPromptAndProgressIndicator" methodname="Build_ControlsHud_ExistsSeparateFromPromptAndProgressIndicator" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="717294581" result="Passed" start-time="2026-08-25 07:12:35Z" end-time="2026-08-25 07:12:35Z" duration="0.034263" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1012" name="Build_ControlsHud_TextMatchesActualImplementedControls" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_ControlsHud_TextMatchesActualImplementedControls" methodname="Build_ControlsHud_TextMatchesActualImplementedControls" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1822894325" result="Passed" start-time="2026-08-25 07:12:35Z" end-time="2026-08-25 07:12:35Z" duration="0.037439" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1022" name="Build_FloorTilemapVisual_AlignsWithIndependentGameplayFloorInWorldSpace" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_FloorTilemapVisual_AlignsWithIndependentGameplayFloorInWorldSpace" methodname="Build_FloorTilemapVisual_AlignsWithIndependentGameplayFloorInWorldSpace" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1856013324" result="Passed" start-time="2026-08-25 07:12:35Z" end-time="2026-08-25 07:12:36Z" duration="0.438814" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1010" name="Build_HealthFill_UsesDedicatedVerticalLaneAboveInteractionPrompt" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_HealthFill_UsesDedicatedVerticalLaneAboveInteractionPrompt" methodname="Build_HealthFill_UsesDedicatedVerticalLaneAboveInteractionPrompt" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1268030909" result="Passed" start-time="2026-08-25 07:12:36Z" end-time="2026-08-25 07:12:36Z" duration="0.031501" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1007" name="Build_HealthFillImage_HasSpriteAssignedSoFillAmountIsVisible" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_HealthFillImage_HasSpriteAssignedSoFillAmountIsVisible" methodname="Build_HealthFillImage_HasSpriteAssignedSoFillAmountIsVisible" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1622981659" result="Passed" start-time="2026-08-25 07:12:36Z" end-time="2026-08-25 07:12:36Z" duration="0.032285" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1020" name="Build_IsometricVisualLayer_HasFloorWallAndRepeatableArchitectureTilemaps" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_IsometricVisualLayer_HasFloorWallAndRepeatableArchitectureTilemaps" methodname="Build_IsometricVisualLayer_HasFloorWallAndRepeatableArchitectureTilemaps" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1171243350" result="Passed" start-time="2026-08-25 07:12:36Z" end-time="2026-08-25 07:12:36Z" duration="0.344420" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1016" name="Build_MainCamera_FramesPlayerAndStartingDoorInView" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_MainCamera_FramesPlayerAndStartingDoorInView" methodname="Build_MainCamera_FramesPlayerAndStartingDoorInView" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1419352901" result="Passed" start-time="2026-08-25 07:12:36Z" end-time="2026-08-25 07:12:36Z" duration="0.032214" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1017" name="Build_MainCamera_HasFollowComponentTargetingPlayer" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_MainCamera_HasFollowComponentTargetingPlayer" methodname="Build_MainCamera_HasFollowComponentTargetingPlayer" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1876907272" result="Passed" start-time="2026-08-25 07:12:36Z" end-time="2026-08-25 07:12:36Z" duration="0.032530" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1014" name="Build_MainCamera_IsFixedOrthographicIsometric" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_MainCamera_IsFixedOrthographicIsometric" methodname="Build_MainCamera_IsFixedOrthographicIsometric" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1049981392" result="Passed" start-time="2026-08-25 07:12:36Z" end-time="2026-08-25 07:12:36Z" duration="0.031833" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1018" name="Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed" methodname="Build_MainCamera_TranslatesWithPlayerButRotationStaysFixed" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="633061414" result="Passed" start-time="2026-08-25 07:12:36Z" end-time="2026-08-25 07:12:36Z" duration="0.031420" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1021" name="Build_PersistentArchitecturalTiles_AreTemporaryReusableVisualOnlyAssets" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_PersistentArchitecturalTiles_AreTemporaryReusableVisualOnlyAssets" methodname="Build_PersistentArchitecturalTiles_AreTemporaryReusableVisualOnlyAssets" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="953657824" result="Passed" start-time="2026-08-25 07:12:36Z" end-time="2026-08-25 07:12:36Z" duration="0.293641" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1024" name="Build_PersistentArchitecturalTiles_DoesNotSaveUnrelatedDirtyAsset" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_PersistentArchitecturalTiles_DoesNotSaveUnrelatedDirtyAsset" methodname="Build_PersistentArchitecturalTiles_DoesNotSaveUnrelatedDirtyAsset" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1715532697" result="Passed" start-time="2026-08-25 07:12:36Z" end-time="2026-08-25 07:12:37Z" duration="0.428156" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1008" name="Build_PlayerHealthUI_WiredToPlayerHealthAndFillImage" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_PlayerHealthUI_WiredToPlayerHealthAndFillImage" methodname="Build_PlayerHealthUI_WiredToPlayerHealthAndFillImage" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1706375054" result="Passed" start-time="2026-08-25 07:12:37Z" end-time="2026-08-25 07:12:37Z" duration="0.030685" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1005" name="Build_ProgressFillImage_HasSpriteAssignedSoFillAmountIsVisible" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_ProgressFillImage_HasSpriteAssignedSoFillAmountIsVisible" methodname="Build_ProgressFillImage_HasSpriteAssignedSoFillAmountIsVisible" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="936109163" result="Passed" start-time="2026-08-25 07:12:37Z" end-time="2026-08-25 07:12:37Z" duration="0.030883" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1013" name="Build_RunTwice_DoesNotDuplicateControlsHud" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_RunTwice_DoesNotDuplicateControlsHud" methodname="Build_RunTwice_DoesNotDuplicateControlsHud" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="825285222" result="Passed" start-time="2026-08-25 07:12:37Z" end-time="2026-08-25 07:12:37Z" duration="0.046034" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1009" name="Build_RunTwice_DoesNotDuplicateHealthFillHierarchy" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_RunTwice_DoesNotDuplicateHealthFillHierarchy" methodname="Build_RunTwice_DoesNotDuplicateHealthFillHierarchy" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="2112837121" result="Passed" start-time="2026-08-25 07:12:37Z" end-time="2026-08-25 07:12:37Z" duration="0.050015" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1006" name="Build_RunTwice_DoesNotDuplicateProgressFillHierarchy" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_RunTwice_DoesNotDuplicateProgressFillHierarchy" methodname="Build_RunTwice_DoesNotDuplicateProgressFillHierarchy" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1906232235" result="Passed" start-time="2026-08-25 07:12:37Z" end-time="2026-08-25 07:12:37Z" duration="0.059846" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1015" name="Build_RunTwice_MainCameraStaysSingleAndFixed" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_RunTwice_MainCameraStaysSingleAndFixed" methodname="Build_RunTwice_MainCameraStaysSingleAndFixed" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1468877530" result="Passed" start-time="2026-08-25 07:12:37Z" end-time="2026-08-25 07:12:37Z" duration="0.048607" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1023" name="Build_WallTilemapVisuals_AlignWithIndependentGameplayWallsInWorldSpace" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.Build_WallTilemapVisuals_AlignWithIndependentGameplayWallsInWorldSpace" methodname="Build_WallTilemapVisuals_AlignWithIndependentGameplayWallsInWorldSpace" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1134048176" result="Passed" start-time="2026-08-25 07:12:37Z" end-time="2026-08-25 07:12:37Z" duration="0.323173" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1019" name="BuildCamera_NullFollowTarget_LogsWarningInsteadOfSilentlyMisframing" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.BuildCamera_NullFollowTarget_LogsWarningInsteadOfSilentlyMisframing" methodname="BuildCamera_NullFollowTarget_LogsWarningInsteadOfSilentlyMisframing" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="2119037451" result="Passed" start-time="2026-08-25 07:12:37Z" end-time="2026-08-25 07:12:38Z" duration="0.036892" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[DoorPrototypeSceneBuilder.BuildCamera called with a null follow target; the camera will be placed at the world origin plus its isometric offset instead of framing the player, which will fail the fixed isometric framing requirement.
+]]></output>
+                </test-case>
+                <test-case id="1027" name="BuildInMemory_CanonicalSceneBytesRemainUnchanged" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.BuildInMemory_CanonicalSceneBytesRemainUnchanged" methodname="BuildInMemory_CanonicalSceneBytesRemainUnchanged" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1235278054" result="Passed" start-time="2026-08-25 07:12:38Z" end-time="2026-08-25 07:12:38Z" duration="0.668420" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1025" name="BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnRebuild" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnRebuild" methodname="BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnRebuild" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="126377131" result="Passed" start-time="2026-08-25 07:12:38Z" end-time="2026-08-25 07:12:38Z" duration="0.048740" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1026" name="BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnSceneReplacement" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests.BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnSceneReplacement" methodname="BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnSceneReplacement" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests" runstate="Runnable" seed="1989366245" result="Passed" start-time="2026-08-25 07:12:38Z" end-time="2026-08-25 07:12:38Z" duration="0.041224" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
