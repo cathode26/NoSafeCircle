@@ -297,7 +297,7 @@ git diff --stat
 
 Review the actual implementation diff. Do not assume `REVIEW_READY` means the feature works in Unity.
 
-If the candidate is rejected, use the documented ExecutionCrew human-review retry flow or start a newly scoped run. Human feedback does not expand task or write authority.
+If the candidate is rejected, use the documented ExecutionCrew human-review retry flow or start a newly scoped run. A retry is corrective layering, not reconstruction: after the current Contract Locality Auditor passes, ExecutionCrew verifies the prior review-ready `candidate.patch` against the current candidate-owned paths and either seeds it into the disposable clone, recognizes that the exact candidate is already present, or fails closed when those paths have diverged. The task-contract identity must still match the rejected run. Human feedback does not expand task or write authority. Do not manually apply a rejected candidate merely to make retry seeding work.
 
 ## 7. Perform interactive Unity validation before freezing the implementation
 
