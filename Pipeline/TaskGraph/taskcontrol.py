@@ -290,6 +290,7 @@ def command_states(graph, as_json: bool = False, state_filter: str | None = None
         for state in sorted(counts):
             print(f"  {state:<20} {counts[state]}")
     print("Conformant means current committed evidence proves the task contract at HEAD.")
+    print("needs_testing means prior evidence exists but later tracked changes may require retesting.")
     print("These states do not establish dependency readiness or execution authorization.")
     return 0
 
@@ -349,7 +350,7 @@ def build_parser() -> argparse.ArgumentParser:
             "not_delivered",
             "needs_replan",
             "needs_human",
-            "needs_revalidation",
+            "needs_testing",
             "invalid_evidence",
             "ambiguous_evidence",
             "aggregate",
