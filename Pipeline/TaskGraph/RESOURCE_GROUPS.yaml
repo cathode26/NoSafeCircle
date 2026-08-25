@@ -85,7 +85,8 @@
         "isometric-tilemap-visual-layer",
         "world-sprite-prefab-sorting",
         "visual-simulation-continuity",
-        "door-visual-affordance-feedback"
+        "door-visual-affordance-feedback",
+        "seamless-scalable-wall-tiling"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -105,7 +106,8 @@
         "NSC-038",
         "NSC-039",
         "NSC-040",
-        "NSC-041"
+        "NSC-041",
+        "NSC-042"
       ]
     },
     {
@@ -157,7 +159,8 @@
         "world-sprite-prefab-sorting",
         "visual-simulation-continuity",
         "door-open-interaction",
-        "door-visual-affordance-feedback"
+        "door-visual-affordance-feedback",
+        "seamless-scalable-wall-tiling"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -168,7 +171,8 @@
         "NSC-039",
         "NSC-040",
         "NSC-019",
-        "NSC-041"
+        "NSC-041",
+        "NSC-042"
       ]
     }
   ]
