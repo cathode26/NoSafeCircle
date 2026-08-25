@@ -3,11 +3,19 @@ from __future__ import annotations
 import json
 import tempfile
 from contextlib import redirect_stdout
+from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 from persistent_work_graph import PersistentWorkGraphError, load_persistent_work_graph
-from taskcontrol import advisory_ready_tasks, command_authorize, command_ready, command_show
+from taskcontrol import (
+    advisory_ready_tasks,
+    command_authorize,
+    command_ready,
+    command_show,
+    command_states,
+)
 from work_graph_persist import persist_work_graph
 from work_graph_transform import build_work_graph_plan
 from work_graph_transform_smoke_test import make_inputs
@@ -15,6 +23,20 @@ from work_graph_transform_smoke_test import make_inputs
 
 def write_json(path: Path, value: dict) -> None:
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+
+@dataclass(frozen=True)
+class FakeConformanceState:
+    task_id: str
+    title: str
+    state: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "task_id": self.task_id,
+            "title": self.title,
+            "state": self.state,
+        }
 
 
 def main() -> int:
@@ -53,6 +75,44 @@ def main() -> int:
         assert "Evidence-derived current-state inspection: available" in show_output
         assert "dispatch authorization policy is not enabled" in show_output
         assert "State inspection alone never authorizes execution" in show_output
+
+        def fake_evaluate(*, selector: str):
+            task = graph.tasks_by_id[selector]
+            state = "conformant" if selector == "NSC-003" else "not_delivered"
+            return FakeConformanceState(selector, task["title"], state)
+
+        output = StringIO()
+        with patch("taskcontrol.evaluate_current_conformance", side_effect=fake_evaluate):
+            with redirect_stdout(output):
+                assert command_states(graph) == 0
+        states_output = output.getvalue()
+        assert "ID       DERIVED_STATE" in states_output
+        assert "NSC-003  conformant" in states_output
+        assert "not_delivered" in states_output
+        assert "Conformant means current committed evidence proves the task contract at HEAD." in states_output
+        assert "These states do not establish dependency readiness or execution authorization." in states_output
+
+        output = StringIO()
+        with patch("taskcontrol.evaluate_current_conformance", side_effect=fake_evaluate):
+            with redirect_stdout(output):
+                assert command_states(graph, state_filter="conformant") == 0
+        filtered_output = output.getvalue()
+        assert "NSC-003  conformant" in filtered_output
+        assert "not_delivered" not in filtered_output
+        assert "1 task state(s) shown." in filtered_output
+
+        output = StringIO()
+        with patch("taskcontrol.evaluate_current_conformance", side_effect=fake_evaluate):
+            with redirect_stdout(output):
+                assert command_states(graph, as_json=True, state_filter="conformant") == 0
+        json_output = json.loads(output.getvalue())
+        assert json_output == [
+            {
+                "state": "conformant",
+                "task_id": "NSC-003",
+                "title": graph.tasks_by_id["NSC-003"]["title"],
+            }
+        ]
 
         movement_path = root / "Tasks" / "NSC-003.yaml"
         movement = json.loads(movement_path.read_text(encoding="utf-8"))

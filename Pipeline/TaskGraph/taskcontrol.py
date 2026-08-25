@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from typing import Any
 
 from execution_authority import (
@@ -258,6 +258,42 @@ def command_state(selector: str, as_json: bool = False) -> int:
     return 0
 
 
+def command_states(graph, as_json: bool = False, state_filter: str | None = None) -> int:
+    """Inspect evidence-derived conformance for every task contract at committed HEAD."""
+    if not _is_v2(graph):
+        raise ValueError("states requires schema-v2 task contracts.")
+
+    results = []
+    for task in _sorted_tasks(graph.plan.tasks):
+        result = evaluate_current_conformance(selector=task["id"])
+        if state_filter and result.state != state_filter:
+            continue
+        results.append(result)
+
+    if as_json:
+        print(json.dumps([result.to_dict() for result in results], indent=2, sort_keys=True))
+        return 0
+
+    print("ID       DERIVED_STATE        DISPOSITION   KIND           TITLE")
+    print("-------- -------------------- ------------- -------------- -----")
+    for result in results:
+        task = graph.tasks_by_id[result.task_id]
+        print(
+            f"{result.task_id:<8} {result.state:<20} "
+            f"{task['contract_disposition']:<13} {task['kind']:<14} {result.title}"
+        )
+
+    counts = Counter(result.state for result in results)
+    print(f"\n{len(results)} task state(s) shown.")
+    if counts:
+        print("Derived-state counts:")
+        for state in sorted(counts):
+            print(f"  {state:<20} {counts[state]}")
+    print("Conformant means current committed evidence proves the task contract at HEAD.")
+    print("These states do not establish dependency readiness or execution authorization.")
+    return 0
+
+
 def command_graph(graph) -> int:
     children: dict[str, list[str]] = defaultdict(list)
     for task in graph.plan.tasks:
@@ -303,6 +339,24 @@ def build_parser() -> argparse.ArgumentParser:
     state_parser = subparsers.add_parser("state")
     state_parser.add_argument("task")
     state_parser.add_argument("--json", action="store_true")
+    states_parser = subparsers.add_parser("states")
+    states_parser.add_argument("--json", action="store_true")
+    states_parser.add_argument(
+        "--state",
+        dest="state_filter",
+        choices=(
+            "conformant",
+            "not_delivered",
+            "needs_replan",
+            "needs_human",
+            "needs_revalidation",
+            "invalid_evidence",
+            "ambiguous_evidence",
+            "aggregate",
+            "superseded",
+            "cancelled",
+        ),
+    )
     subparsers.add_parser("graph")
     return parser
 
@@ -324,6 +378,8 @@ def main(argv: list[str] | None = None) -> int:
             return command_ready(graph)
         if args.command == "authorize":
             return command_authorize(graph, args.task)
+        if args.command == "states":
+            return command_states(graph, args.json, args.state_filter)
         if args.command == "graph":
             return command_graph(graph)
         parser.error(f"Unknown command: {args.command}")
