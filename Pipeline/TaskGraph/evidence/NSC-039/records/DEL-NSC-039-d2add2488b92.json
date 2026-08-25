@@ -1,0 +1,86 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "ada666df81645e1f33c9ab742e4e1e8cc293403a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "Implements the reusable world-space SpriteRenderer convention, CustomAxis isometric sorting, representative object integration, and positional ordering relative to Tilemap geometry."
+    },
+    {
+      "blob_sha": "de6a17b91dd631dcd31ed79ee7624a739bc62c30",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/DoorSprite.asset",
+      "role": "Representative interactive-door Sprite asset integrated under the shared world-space SpriteRenderer convention."
+    },
+    {
+      "blob_sha": "1154e316fcc13a597a43175fbc8f2040ad55c28d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
+      "role": "Representative independently sortable wall Tile used to validate positional SpriteRenderer ordering relative to Tilemap architecture."
+    },
+    {
+      "blob_sha": "94d665f61b297bf8c62d522902a7b204a523a607",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WizardSprite.asset",
+      "role": "Representative wizard world-space Sprite asset used to exercise the shared SpriteRenderer sorting convention."
+    },
+    {
+      "blob_sha": "ce31e51a9a9077e719ab34a677378e9296878ea9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WorldSprites/WorldSpriteVisual.prefab",
+      "role": "Reusable world-space SpriteRenderer prefab carrying the shared NSC-039 sorting-layer, sorting-order, and ground-contact sorting convention."
+    },
+    {
+      "blob_sha": "1cf0b03b3b134147e13864efe88d8d07bab6f1df",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "role": "Provides Unity regression coverage for reusable world-space SpriteRenderers and their positional sorting relative to Tilemap geometry and other world sprites."
+    },
+    {
+      "blob_sha": "97fb8a066cf6bc184687ca1181b19c7e43c855d7",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "Canonical runtime scene integrating representative world-space SpriteRenderers with the isometric Tilemap visual layer."
+    }
+  ],
+  "delivery": {
+    "base_commit": "3267ec40785ebf1ee1c9f9d539fa20c7da10b311",
+    "candidate_commit": "d2add2488b922fbf1660e750ad46300e82b0ec92",
+    "integrated_commit": "d2add2488b922fbf1660e750ad46300e82b0ec92",
+    "integrated_tree": "b84f5b9db6b4586c845b36d1d6fb0ae9cf49f8cd"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "fd2ce77f047cd36250bc6758b8e4dec0a9169ef8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-039/artifacts/Unity-EditMode-01-d2add2488b92.xml"
+        },
+        {
+          "blob_sha": "489a05b4eb17ba71ec1472399d6b9780954d3a47",
+          "path": "Pipeline/TaskGraph/evidence/NSC-039/artifacts/HumanValidation-01-d2add2488b92.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative clean EditMode validation passed all 45 DoorPrototypeSceneBuilderTests on the exact validated commit. The suite covers the reusable world-sprite prefab, CustomAxis isometric sorting, shared sorting band, ground-contact pivots, representative SpriteRenderer integration, and ordering relative to Tilemap wall geometry. Human runtime validation independently confirmed the previously observed player/wall front-behind sorting defect is fixed. Seamless long-wall artwork is explicitly deferred to NSC-042.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Human reviewed and approved the NSC-039 conformance surfaces, authoritative 45/45 Unity validation, runtime player/wall sorting result, and explicit deferral of seamless scalable wall visuals to NSC-042.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-039-d2add2488b92",
+  "record_type": "delivery",
+  "recorded_at": "2026-08-25T20:55:33Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-039.yaml",
+    "revision": 1,
+    "sha256": "0f33e980213b6429784ebcc0a759526f0883dd776ca5090d79356df982f20ebb"
+  },
+  "task_id": "NSC-039",
+  "validated_state": {
+    "commit": "d2add2488b922fbf1660e750ad46300e82b0ec92",
+    "tree": "b84f5b9db6b4586c845b36d1d6fb0ae9cf49f8cd"
+  }
+}

@@ -1,0 +1,16 @@
+NSC-039 Human Runtime Validation
+
+Validated implementation commit:
+d2add2488b922fbf1660e750ad46300e82b0ec92
+
+Human runtime observations:
+
+- During NSC-039 validation, the player/wall sorting defect was reproduced.
+- Before correction, the wizard could sort differently at opposite ends of the same wall even while remaining on the same side.
+- After the NSC-039 sorting corrections, runtime validation confirmed that the player/wall sorting-order defect was fixed.
+- The wizard now renders in front of or behind wall geometry according to positional relationship rather than by forcing the Player to a permanently higher Order in Layer.
+- Independently sortable wall segments remain part of the NSC-039 sorting solution.
+- The remaining visual seam/repetition quality of long wall artwork is intentionally deferred to NSC-042, Seamless Scalable Wall Tiling for Long Isometric Walls.
+
+Human validation result:
+PASS for NSC-039 positional SpriteRenderer and Tilemap sorting behavior.
