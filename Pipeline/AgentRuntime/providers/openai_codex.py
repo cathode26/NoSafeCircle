@@ -291,13 +291,45 @@ def _strict_json(text: str) -> Any:
     return json.loads(text, parse_constant=reject_constant, object_pairs_hook=reject_duplicates)
 
 
+def _provider_event_json(text: str) -> Any:
+    def reject_constant(value: str) -> None:
+        raise ValueError(f"invalid JSON constant: {value}")
+    def tolerate_web_search_duplicate_id(
+        pairs: list[tuple[str, Any]],
+    ) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        duplicate_keys: set[str] = set()
+        id_values: list[Any] = []
+        for key, value in pairs:
+            if key in result:
+                duplicate_keys.add(key)
+            if key == "id":
+                id_values.append(value)
+            result[key] = value
+        if not duplicate_keys:
+            return result
+        if (
+            duplicate_keys == {"id"}
+            and len(id_values) == 2
+            and all(type(value) is str for value in id_values)
+            and result.get("type") == "web_search"
+        ):
+            return result
+        raise ValueError("duplicate JSON key in provider event")
+    return json.loads(
+        text,
+        parse_constant=reject_constant,
+        object_pairs_hook=tolerate_web_search_duplicate_id,
+    )
+
+
 def _parse_jsonl(raw_log: str) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     try:
         for line in raw_log.splitlines():
             if not line.strip():
-                raise ValueError("blank JSONL record")
-            event = _strict_json(line)
+                continue
+            event = _provider_event_json(line)
             if type(event) is not dict or type(event.get("type")) is not str:
                 raise ValueError("event must be an object with a string type")
             events.append(event)

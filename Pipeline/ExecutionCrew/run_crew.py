@@ -20,9 +20,27 @@ from Pipeline.AgentRuntime.providers.openai_codex import OpenAICodexProvider
 from Pipeline.AgentRuntime.json_values import thaw_json
 from Pipeline.TaskExecution.contracts import TASK_EXECUTION_REQUEST_SCHEMA_VERSION, TaskContractIdentity, TaskExecutionRequest
 from Pipeline.TaskExecution.task_runner import TaskExecutionRunner
-from Pipeline.ExecutionCrew.prompts import implementer_prompt, test_author_prompt, validator_prompt
-from Pipeline.ExecutionCrew.schemas import IMPLEMENTER_OUTPUT_SCHEMA, TEST_AUTHOR_OUTPUT_SCHEMA, VALIDATOR_OUTPUT_SCHEMA, SourceIdentity
+from Pipeline.ExecutionCrew.contract_locality import (
+    CONTRACT_LOCALITY_AUDIT_SCHEMA_VERSION,
+    ContractLocalityError,
+    build_task_catalog,
+    direct_dependency_contracts,
+    direct_dependent_contracts,
+    validate_locality_audit_output,
+)
+from Pipeline.ExecutionCrew.prompts import contract_locality_auditor_prompt, implementer_prompt, test_author_prompt, validator_prompt
+from Pipeline.ExecutionCrew.schemas import (
+    CONTRACT_LOCALITY_AUDITOR_OUTPUT_SCHEMA,
+    IMPLEMENTER_OUTPUT_SCHEMA,
+    TEST_AUTHOR_OUTPUT_SCHEMA,
+    VALIDATOR_OUTPUT_SCHEMA,
+    VALIDATOR_CONTRACT_REVIEW_REASON_CODES,
+    VALIDATOR_NON_PASS_REASON_CODES,
+    VALIDATOR_STATUS_REASON_CODES,
+    SourceIdentity,
+)
 from work_graph_validate import WorkGraphValidationError, _validate_v2_task
+from persistent_work_graph import PersistentWorkGraph, PersistentWorkGraphError, load_persistent_work_graph
 
 TASK_ID_RE = re.compile(r"^NSC-[0-9]{3}$")
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$")
@@ -30,6 +48,7 @@ GIT_OBJECT_RE = re.compile(r"^[0-9a-f]{40}$")
 GDD_PATH = "Docs/GDD/No_Safe_Circle_GDD.md"
 POLICY_PATH = "Docs/Engineering/UNITY_TESTING_POLICY.md"
 MAX_REVIEW_FEEDBACK_BYTES = 64 * 1024
+MAX_RETRY_CANDIDATE_BYTES = 16 * 1024 * 1024
 
 class CrewBlocked(RuntimeError): pass
 
@@ -47,10 +66,15 @@ def validate_host_output_root(value: str) -> PureWindowsPath:
 @dataclass(frozen=True)
 class RetryContext:
     prior_run_id: str
+    prior_source_head: str
+    prior_contract_identity: TaskContractIdentity
     task_id: str
     provider: str
     implementation_paths: tuple[str, ...]
     test_paths: tuple[str, ...]
+    candidate_bytes: bytes
+    candidate_sha256: str
+    candidate_paths: tuple[str, ...]
     feedback_bytes: bytes
     feedback_text: str
     feedback_sha256: str
@@ -112,6 +136,26 @@ def _json_object(path: Path, *, field: str) -> dict[str, Any]:
         raise CrewBlocked(f"{field} must contain a JSON object")
     return value
 
+def _read_regular_bytes(path: Path, *, field: str, max_bytes: int) -> bytes:
+    descriptor = None
+    try:
+        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags)
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            raise CrewBlocked(f"{field} must be a regular file")
+        with os.fdopen(descriptor, "rb") as stream:
+            descriptor = None
+            data = stream.read(max_bytes + 1)
+    except OSError as exc:
+        raise CrewBlocked(f"{field} could not be safely read as a regular file") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    if len(data) > max_bytes:
+        raise CrewBlocked(f"{field} must be at most {max_bytes} bytes")
+    return data
+
 def _requested_paths(value: Any, *, field: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not value:
         raise CrewBlocked(f"prior {field} must be a non-empty path array")
@@ -129,7 +173,7 @@ def _legacy_requested_scope(prior_dir: Path, *, task_id: str, provider: str,
         raise CrewBlocked("prior task_execution artifact must be a directory")
     expected_configuration_key = {"claude":"claude-crew", "codex":"codex-crew"}[provider]
     by_role: dict[str, list[WriteBoundaries]] = {"implementer":[], "test_author":[]}
-    validator_count = 0
+    read_only_role_counts = {"validator": 0, "contract_locality_auditor": 0}
     request_paths = sorted(task_execution.glob("*/task_request.json"))
     if not request_paths:
         raise CrewBlocked("prior TaskExecution request artifacts are missing")
@@ -151,14 +195,17 @@ def _legacy_requested_scope(prior_dir: Path, *, task_id: str, provider: str,
             raise CrewBlocked("prior TaskExecution provider does not match crew_result.json")
         if invocation.role in by_role:
             by_role[invocation.role].append(invocation.write_boundaries)
-        elif invocation.role != "validator":
+        elif invocation.role not in read_only_role_counts:
             raise CrewBlocked(f"unexpected prior TaskExecution role: {invocation.role}")
         elif invocation.write_boundaries.allowed_paths or invocation.write_boundaries.denied_paths:
-            raise CrewBlocked("prior Validator unexpectedly had write authority")
+            raise CrewBlocked(f"prior {invocation.role} unexpectedly had write authority")
         else:
-            validator_count += 1
-    if not validator_count:
+            read_only_role_counts[invocation.role] += 1
+    if not read_only_role_counts["validator"]:
         raise CrewBlocked("prior Validator TaskExecution request artifact is missing")
+    # A prior Contract Locality Auditor is optional: this feature postdates many historical
+    # review_ready runs. When absent, do not reject the retry; when present, the write-authority
+    # check above already proved it had empty WriteBoundaries.
     recovered: dict[str, tuple[str, ...]] = {}
     for role, boundaries in by_role.items():
         if not boundaries:
@@ -248,6 +295,27 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
         result_tests = _requested_paths(prior["requested_test_paths"], field="requested_test_paths")
         if result_implementation != implementation_paths or result_tests != test_paths:
             raise CrewBlocked("prior requested scope does not match authoritative TaskExecution WriteBoundaries")
+
+    candidate_path = _resolve_existing_under(
+        prior_dir, prior_dir / "candidate.patch", field="prior candidate.patch"
+    )
+    candidate_bytes = _read_regular_bytes(
+        candidate_path, field="prior candidate.patch", max_bytes=MAX_RETRY_CANDIDATE_BYTES
+    )
+    if not candidate_bytes:
+        raise CrewBlocked("prior candidate.patch must be non-empty")
+    candidate_sha256 = hashlib.sha256(candidate_bytes).hexdigest()
+    recorded_candidate_sha256 = prior.get("candidate_patch_sha256")
+    if recorded_candidate_sha256 is not None:
+        if not isinstance(recorded_candidate_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", recorded_candidate_sha256):
+            raise CrewBlocked("prior crew_result.json has an invalid candidate_patch_sha256")
+        if recorded_candidate_sha256 != candidate_sha256:
+            raise CrewBlocked("prior candidate.patch SHA-256 does not match crew_result.json")
+    candidate_paths = _requested_paths(prior.get("final_actual_changed_paths"), field="final_actual_changed_paths")
+    allowed_candidate_paths = set(implementation_paths) | set(test_paths)
+    if not set(candidate_paths).issubset(allowed_candidate_paths):
+        raise CrewBlocked("prior candidate changed paths exceed inherited ExecutionCrew WriteBoundaries")
+
     feedback_candidate = feedback_file if feedback_file.is_absolute() else resolved_output_root / feedback_file
     feedback_path = _resolve_existing_under(
         resolved_output_root, feedback_candidate, field="human review feedback file"
@@ -275,8 +343,19 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
     if not feedback_text.strip():
         raise CrewBlocked("human review feedback must be non-empty")
     return RetryContext(
-        prior_run_id, task_id, provider, implementation_paths, test_paths,
-        feedback_bytes, feedback_text, hashlib.sha256(feedback_bytes).hexdigest()
+        prior_run_id=prior_run_id,
+        prior_source_head=source_head,
+        prior_contract_identity=contract_identity,
+        task_id=task_id,
+        provider=provider,
+        implementation_paths=implementation_paths,
+        test_paths=test_paths,
+        candidate_bytes=candidate_bytes,
+        candidate_sha256=candidate_sha256,
+        candidate_paths=candidate_paths,
+        feedback_bytes=feedback_bytes,
+        feedback_text=feedback_text,
+        feedback_sha256=hashlib.sha256(feedback_bytes).hexdigest(),
     )
 
 def committed_bytes(source: Path, head: str, path: str) -> bytes:
@@ -387,11 +466,36 @@ def validator_semantic_reasons(output: Mapping[str, Any], expected_ids: tuple[st
     status = output.get("status")
     failed = any(item.get("status") == "fail" for item in results if isinstance(item, Mapping))
     blocking = bool(output.get("blocking_issues"))
+    non_pass_reason_used = False
+    contract_review_reason_used = False
+    for item in results:
+        if not isinstance(item, Mapping): continue
+        item_status, reason_code = item.get("status"), item.get("reason_code")
+        if reason_code not in VALIDATOR_STATUS_REASON_CODES.get(item_status, frozenset()):
+            reasons.append(f"validator criteria_results item {item.get('id')!r} has status={item_status!r} incompatible with reason_code={reason_code!r}")
+        if item_status == "not_proven" and reason_code in VALIDATOR_NON_PASS_REASON_CODES:
+            non_pass_reason_used = True
+        if reason_code in VALIDATOR_CONTRACT_REVIEW_REASON_CODES:
+            contract_review_reason_used = True
     if status == "pass" and failed: reasons.append("validator pass contains a failed criterion")
     if status == "pass" and blocking: reasons.append("validator pass contains blocking issues")
+    if status == "pass" and non_pass_reason_used:
+        reasons.append("validator pass contains a not_proven item whose reason_code is not runtime_not_executed")
+    if contract_review_reason_used and status != "blocked_by_design":
+        reasons.append("validator reason_code missing_integration_dependency/design_ambiguity requires overall status=blocked_by_design")
     if status == "needs_changes" and not (failed or blocking):
         reasons.append("validator needs_changes requires a failed criterion or blocking issue")
     return reasons
+
+
+def validator_requires_contract_review(output: Mapping[str, Any]) -> bool:
+    """True when a not_proven item's reason_code identifies a locality defect the mandatory Contract
+    Locality Auditor should have caught but did not; this fallback routes the crew to
+    contract_review_required rather than a generic blocked_by_design rejection."""
+    return any(
+        isinstance(item, Mapping) and item.get("reason_code") in VALIDATOR_CONTRACT_REVIEW_REASON_CODES
+        for item in output.get("criteria_results", [])
+    )
 
 def powershell_single_quote(path: str) -> str:
     """Quote a literal path for safe copy/paste into PowerShell, doubling embedded single quotes."""
@@ -412,6 +516,16 @@ def patch_commands(path: str | None, *, applyable: bool) -> dict[str, str | None
         "apply": f"git apply {quoted}",
         "verify": "git status --short; git diff --check",
     }
+
+def audit_commands(path: str | None) -> dict[str, str | None]:
+    """Copy/paste-ready PowerShell find/inspect commands for the read-only contract_locality_audit.json
+    artifact, or all-null when there is none. Distinct shape from patch_commands: an audit artifact is
+    never applied, so it never has check/apply/verify commands."""
+    if not path:
+        return {"find": None, "inspect": None}
+    quoted = powershell_single_quote(path)
+    return {"find": f"Get-Item -LiteralPath {quoted}", "inspect": f"Get-Content -LiteralPath {quoted}"}
+
 
 def safe_human_reason(reasons: list[str]) -> str | None:
     """First rejection reason, unless it embeds raw agent-authored blocker text (which may quote
@@ -445,6 +559,91 @@ def diff_paths(clone: Path, head: str) -> list[str]:
 def paths_patch(clone: Path, head: str, paths: tuple[str, ...]) -> bytes:
     return git(clone,"diff","--binary","--full-index","--no-ext-diff","--no-renames",head,"--",*paths,text=False,check=False).stdout
 
+def _git_apply_bytes(root: Path, patch_bytes: bytes, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ("git", "-C", str(root), "apply", *args, "-"),
+        input=patch_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+    )
+
+def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -> str:
+    # Seed only the disposable clone. baseline remains the clean current-source snapshot used
+    # for the final full candidate; per-role snapshots are taken after this seed.
+    expected_paths = sorted(retry.candidate_paths)
+    allowed = set(retry.implementation_paths) | set(retry.test_paths)
+    if not expected_paths or not set(expected_paths).issubset(allowed):
+        raise CrewBlocked("prior candidate paths are invalid for inherited retry WriteBoundaries")
+
+    current_head = baseline.head
+
+    # A retry candidate is lineage-bound to the exact candidate-owned file state it was reviewed
+    # against. If those paths are unchanged since the prior source HEAD, seed the rejected candidate.
+    # If they changed, do not silently layer the old candidate even when Git could apply its hunks:
+    # only an exact already-present candidate post-image is accepted below.
+    preimage_comparison = git(
+        clone, "diff", "--quiet", "--ignore-cr-at-eol",
+        retry.prior_source_head, current_head, "--", *expected_paths, check=False
+    )
+    if preimage_comparison.returncode not in (0, 1):
+        raise CrewBlocked("current source could not be compared to the prior candidate source state")
+
+    if preimage_comparison.returncode == 0:
+        forward_check = _git_apply_bytes(clone, retry.candidate_bytes, "--check")
+        if forward_check.returncode != 0:
+            raise CrewBlocked("prior candidate.patch does not apply cleanly to its unchanged candidate-owned source state")
+        applied = _git_apply_bytes(clone, retry.candidate_bytes)
+        if applied.returncode != 0:
+            raise CrewBlocked("prior candidate.patch passed --check but could not be seeded into the disposable clone")
+        seeded = snapshot(clone)
+        actual_paths = changed_paths(baseline, seeded)
+        if seeded.head != baseline.head or seeded.index != baseline.index or seeded.untracked != baseline.untracked:
+            raise CrewBlocked("seeding prior candidate.patch changed clone HEAD/index/untracked state")
+        if actual_paths != expected_paths:
+            raise CrewBlocked("seeded prior candidate paths do not match prior final_actual_changed_paths")
+        return "applied"
+
+    # Candidate-owned paths changed after the prior run. The only safe historical compatibility case
+    # is that the rejected candidate itself was committed exactly. Reconstruct that exact post-image
+    # in this disposable clone, compare it to current committed source, then restore the clone.
+    reset_prior = git(clone, "reset", "--hard", retry.prior_source_head, check=False)
+    if reset_prior.returncode != 0:
+        raise CrewBlocked("prior candidate source HEAD could not be checked out for already-present verification")
+    prior_clean = snapshot(clone)
+    if (prior_clean.head != retry.prior_source_head
+            or prior_clean.untracked
+            or git(clone, "status", "--porcelain=v1", "--untracked-files=all").stdout):
+        raise CrewBlocked("prior candidate source reconstruction did not produce a clean disposable clone")
+
+    prior_check = _git_apply_bytes(clone, retry.candidate_bytes, "--check")
+    if prior_check.returncode != 0:
+        git(clone, "reset", "--hard", current_head, check=False)
+        raise CrewBlocked("prior candidate.patch does not apply to its recorded source HEAD")
+    prior_apply = _git_apply_bytes(clone, retry.candidate_bytes)
+    if prior_apply.returncode != 0:
+        git(clone, "reset", "--hard", current_head, check=False)
+        raise CrewBlocked("prior candidate.patch could not reconstruct its recorded candidate post-image")
+
+    candidate_postimage = snapshot(clone)
+    reconstructed_paths = changed_paths(prior_clean, candidate_postimage)
+
+    current_comparison = git(
+        clone, "diff", "--quiet", "--ignore-cr-at-eol", current_head, "--", *expected_paths, check=False
+    )
+    if current_comparison.returncode not in (0, 1):
+        git(clone, "reset", "--hard", current_head, check=False)
+        raise CrewBlocked("current source could not be compared to the reconstructed prior candidate")
+
+    restore = git(clone, "reset", "--hard", current_head, check=False)
+    if restore.returncode != 0:
+        raise CrewBlocked("current disposable clone HEAD could not be restored after candidate verification")
+    restored = snapshot(clone)
+    if restored != baseline:
+        raise CrewBlocked("already-present candidate verification did not restore the disposable clone exactly")
+    if reconstructed_paths != expected_paths:
+        raise CrewBlocked("reconstructed prior candidate paths do not match prior final_actual_changed_paths")
+    if current_comparison.returncode != 0:
+        raise CrewBlocked("prior candidate.patch neither applies cleanly nor is already present at the current source HEAD")
+    return "already_present"
+
 ProviderFactory = Callable[[str, Path, bool, str], tuple[str, RuntimeConfiguration, Mapping[str, Any]]]
 
 def construct_real_provider(provider_name: str, repository_root: Path, writable: bool):
@@ -462,7 +661,8 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
 def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provider_name: str|None=None,
              implementation_paths: tuple[str,...]=(), test_paths: tuple[str,...]=(), run_id: str|None=None,
              retry_run_id: str|None=None, review_feedback_file: Path|None=None, host_output_root: str|None=None,
-             provider_factory: ProviderFactory|None=None, _require_physical_read_only_source: bool=True):
+             provider_factory: ProviderFactory|None=None, _require_physical_read_only_source: bool=True,
+             _persistent_work_graph_loader: Callable[[Path], PersistentWorkGraph]|None=None):
     started=time.monotonic()
     host_root_path = validate_host_output_root(host_output_root) if host_output_root is not None else None
     retry_mode = retry_run_id is not None
@@ -521,14 +721,42 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         )
     task_raw=committed_bytes(source_root,identity.head,f"Tasks/{task_id}.yaml")
     task, contract_identity=parse_task(task_raw,task_id)
+    if retry_context is not None and contract_identity != retry_context.prior_contract_identity:
+        raise CrewBlocked(
+            "current task contract identity differs from the prior review-ready candidate; "
+            "start a new normal ExecutionCrew run"
+        )
     expected_requirement_ids=tuple(
         [item["criterion_id"] for item in task["acceptance_criteria"]]
         + [item["gate_id"] for item in task["completion_gates"]]
     )
     task_text=task_raw.decode("utf-8-sig"); gdd=committed_bytes(source_root,identity.head,GDD_PATH).decode("utf-8-sig"); policy=committed_bytes(source_root,identity.head,POLICY_PATH).decode("utf-8-sig")
+    graph_loader = _persistent_work_graph_loader or load_persistent_work_graph
+    try:
+        graph = graph_loader(source_root)
+    except PersistentWorkGraphError as exc:
+        raise CrewBlocked(f"persistent work graph: {exc}") from exc
+    tasks_by_id=graph.tasks_by_id
+    if tasks_by_id.get(task_id) != task:
+        raise CrewBlocked("selected task contract is inconsistent with the validated persistent work graph")
+    for dependency_id in task.get("depends_on") or ():
+        if dependency_id not in tasks_by_id:
+            raise CrewBlocked(f"selected task depends on a task missing from the persistent work graph: {dependency_id}")
+    try:
+        task_catalog=build_task_catalog(tasks_by_id)
+    except ContractLocalityError as exc:
+        raise CrewBlocked(str(exc)) from exc
+    dependency_contracts=direct_dependency_contracts(task,tasks_by_id)
+    dependent_contracts=direct_dependent_contracts(task_id,tasks_by_id)
+    valid_task_ids=frozenset(tasks_by_id)
+    preflight_role_paths(snapshot(source_root), implementation_paths, test_paths)
     role_records=[]; reasons=[]; impl_actual=set(); test_actual=set(); validator_status=None; attempts=0
     latest_impl={}; latest_test={}; candidate_path=None; diagnostic_path=None; accepted_candidate=None
+    contract_locality_status=None; contract_locality_audit_path=None; contract_locality_audit_host_path=None
+    crew_status=None; final_paths: list[str]=[]
     human_review_feedback = retry_context.feedback_text if retry_context is not None else None
+    retry_seed_mode = None
+    retry_seed_candidate_sha256 = retry_context.candidate_sha256 if retry_context is not None else None
     def invoke(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries):
         invocation_id=f"{task_id.lower()}-{role.replace('_','-')}-{attempt}-{hashlib.sha256(run_id.encode()).hexdigest()[:12]}"
         caps=("repository_read","repository_search","repository_write") if writable else ("repository_read","repository_search")
@@ -564,72 +792,128 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         assert result is not None
         progress.emit("role_completed",f"{display} {attempt} completed: {result.status} ({duration:.1f}s)",role=role,attempt=attempt,status=result.status,duration_seconds=duration)
         return inv,result
-    with tempfile.TemporaryDirectory(prefix="nsc-execution-crew-") as temporary:
-        clone=clone_exact(source_root,identity.head,Path(temporary))
-        progress.emit("clone_completed","Disposable clone ready",status="passed")
-        baseline_clone=snapshot(clone)
-        preflight_role_paths(baseline_clone, implementation_paths, test_paths)
-        stop=False
-        for attempt in (1,2):
-            attempts=attempt
-            progress.emit("attempt_started",f"Attempt {attempt}/2 started",attempt=attempt)
-            if attempt==2: progress.emit("repair_cycle_started","Repair cycle started",attempt=attempt)
-            repair_actual=set()
-            findings=None if attempt==1 else latest_validator.get("blocking_issues",[])
-            before=snapshot(clone)
-            inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=implementation_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
-            after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1)); scope+=source_revalidation(source_root,identity)
-            output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
-            record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
-            (run_dir/f"role_results/implementer_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
-            progress.emit("scope_check_completed",f"Implementer {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="implementer",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
-            if attempt==2: repair_actual.update(actual)
-            if blockers or scope: reasons += [*(f"implementer blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
-            impl_patch=paths_patch(clone,identity.head,implementation_paths).decode("utf-8","replace")
-            before=snapshot(clone)
-            inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
-            after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1)); scope+=source_revalidation(source_root,identity)
-            output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
-            record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
-            (run_dir/f"role_results/test_author_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/test_author_{attempt}.json"); test_actual.update(actual); latest_test=output
-            progress.emit("scope_check_completed",f"Test Author {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="test_author",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
-            if attempt==2: repair_actual.update(actual)
-            if blockers or scope: reasons += [*(f"test author blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
-            if attempt==2 and not repair_actual:
-                reasons.append("repair cycle made no deterministic changes"); crew_status="needs_human"; stop=True; break
-            candidate=full_patch(clone,identity.head); final_paths=changed_paths(baseline_clone,snapshot(clone))
-            inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
-            scope=source_revalidation(source_root,identity); output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; validator_status=output.get("status")
-            if res.status!="succeeded": scope.append(f"AgentResult failed: {res.failure_classification}")
-            else: scope += validator_semantic_reasons(output, expected_requirement_ids)
-            record={"role":"validator","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
-            (run_dir/f"role_results/validator_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/validator_{attempt}.json"); latest_validator=output
-            progress.emit("validator_completed",f"Validator {attempt} completed: {validator_status or res.status}",role="validator",attempt=attempt,status=validator_status or res.status)
-            if scope: reasons+=scope; crew_status="rejected"; stop=True; break
-            if validator_status=="pass": crew_status="review_ready"; accepted_candidate=candidate; stop=True; break
-            if validator_status=="blocked_by_design": reasons.append("validator blocked_by_design"); crew_status="blocked"; stop=True; break
-            if validator_status!="needs_changes": reasons.append("validator returned invalid status"); crew_status="rejected"; stop=True; break
-            if attempt==2: reasons.append("second validator pass still needs changes"); crew_status="needs_human"; stop=True; break
-        final_snap=snapshot(clone); final_paths=changed_paths(baseline_clone,final_snap)
-        final_reasons=[]
-        if final_snap.head!=baseline_clone.head or final_snap.head!=identity.head: final_reasons.append("final clone HEAD differs from clone/source baseline HEAD")
-        if final_snap.index!=baseline_clone.index: final_reasons.append("final clone index differs from clone baseline index")
-        if final_snap.untracked!=baseline_clone.untracked: final_reasons.append("final clone untracked state differs from clone baseline")
-        allowed=set(implementation_paths)|set(test_paths)
-        final_reasons += [f"final changed path outside crew boundaries: {p}" for p in final_paths if p not in allowed]
-        if crew_status=="review_ready" and not (set(final_paths)&set(implementation_paths)): final_reasons.append("final candidate has no implementation change")
-        if crew_status=="review_ready" and not (set(final_paths)&set(test_paths)): final_reasons.append("final candidate has no test change")
-        if crew_status=="review_ready" and not accepted_candidate: final_reasons.append("final candidate patch is empty")
-        if crew_status=="review_ready" and diff_paths(clone,identity.head)!=final_paths: final_reasons.append("final Git diff paths differ from deterministic changed paths")
-        final_reasons += source_revalidation(source_root,identity)
-        if final_reasons:
-            reasons+=final_reasons; crew_status="rejected"
-        if crew_status=="review_ready":
-            if accepted_candidate is None: raise CrewBlocked("review-ready result has no accepted candidate bytes")
-            (run_dir/"candidate.patch").write_bytes(accepted_candidate); candidate_path=str(run_dir/"candidate.patch")
-        if crew_status!="review_ready":
-            diagnostic=full_patch(clone,identity.head)
-            if diagnostic: (run_dir/"workspace_diagnostic.patch").write_bytes(diagnostic); diagnostic_path=str(run_dir/"workspace_diagnostic.patch")
+    locality_prompt=contract_locality_auditor_prompt(
+        task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,
+        execution_scope=str(task.get("execution_scope") or ""),execution_reason=str(task.get("execution_reason") or ""),
+        decomposition_state=str(task.get("decomposition_state") or ""),decomposition_reason=str(task.get("decomposition_reason") or ""),
+        dependency_contracts=dependency_contracts,dependent_contracts=dependent_contracts,
+        task_catalog=task_catalog,source_head=identity.head,source_tree=identity.tree,
+    )
+    audit_inv,audit_res=invoke("contract_locality_auditor",1,source_root,False,locality_prompt,CONTRACT_LOCALITY_AUDITOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
+    audit_scope=source_revalidation(source_root,identity)
+    audit_output=thaw_json(audit_res.structured_output) if audit_res.status=="succeeded" else {}
+    if audit_res.status!="succeeded": audit_scope.append(f"AgentResult failed: {audit_res.failure_classification}")
+    else: audit_scope += validate_locality_audit_output(audit_output,task=task,valid_task_ids=valid_task_ids)
+    audit_record={"role":"contract_locality_auditor","attempt":1,"agent_status":audit_res.status,"failure_classification":audit_res.failure_classification,"structured_output":audit_output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(audit_res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":audit_scope,"duration_seconds":audit_res.duration_seconds,"model":audit_res.model,"provider":audit_res.provider}
+    (run_dir/"role_results/contract_locality_auditor_1.json").write_text(json.dumps(audit_record,indent=2,sort_keys=True)+"\n")
+    role_records.append("role_results/contract_locality_auditor_1.json")
+    progress.emit("contract_locality_audit_completed",f"Contract Locality Auditor completed: {audit_output.get('status') if audit_res.status=='succeeded' else audit_res.status}",role="contract_locality_auditor",attempt=1,status=audit_output.get("status") if audit_res.status=="succeeded" else audit_res.status)
+    if audit_scope:
+        reasons += [f"contract locality auditor: {reason}" for reason in audit_scope]; crew_status="rejected"
+    else:
+        contract_locality_status=audit_output["status"]
+        audit_artifact={"schema_version":CONTRACT_LOCALITY_AUDIT_SCHEMA_VERSION,"run_id":run_id,"task_id":task_id,"provider":provider_name,"source_head":identity.head,"source_tree":identity.tree,"task_contract_identity":contract_identity.to_dict(),"result":audit_output}
+        (run_dir/"contract_locality_audit.json").write_text(json.dumps(audit_artifact,indent=2,sort_keys=True)+"\n")
+        contract_locality_audit_path=str(run_dir/"contract_locality_audit.json")
+        contract_locality_audit_host_path=str(host_root_path/run_id/"contract_locality_audit.json") if host_root_path is not None else None
+        if contract_locality_status=="contract_review_required": crew_status="contract_review_required"
+    if crew_status is None:
+        with tempfile.TemporaryDirectory(prefix="nsc-execution-crew-") as temporary:
+            clone=clone_exact(source_root,identity.head,Path(temporary))
+            progress.emit("clone_completed","Disposable clone ready",status="passed")
+            baseline_clone=snapshot(clone)
+            retry_seed_snapshot = None
+            if retry_context is not None:
+                retry_seed_mode = seed_retry_candidate(clone, baseline_clone, retry_context)
+                retry_seed_snapshot = snapshot(clone)
+                progress.emit(
+                    "human_review_candidate_seeded",
+                    f"Prior review-ready candidate seed verified: {retry_seed_mode}",
+                    status="passed",
+                    prior_run_id=retry_context.prior_run_id,
+                    candidate_sha256=retry_context.candidate_sha256,
+                    seed_mode=retry_seed_mode,
+                )
+            stop=False
+            for attempt in (1,2):
+                attempts=attempt
+                progress.emit("attempt_started",f"Attempt {attempt}/2 started",attempt=attempt)
+                if attempt==2: progress.emit("repair_cycle_started","Repair cycle started",attempt=attempt)
+                repair_actual=set()
+                findings=None if attempt==1 else latest_validator.get("blocking_issues",[])
+                before=snapshot(clone)
+                inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=implementation_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
+                after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
+                output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
+                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
+                (run_dir/f"role_results/implementer_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
+                progress.emit("scope_check_completed",f"Implementer {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="implementer",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
+                if attempt==2: repair_actual.update(actual)
+                if blockers or scope: reasons += [*(f"implementer blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
+                impl_patch=paths_patch(clone,identity.head,implementation_paths).decode("utf-8","replace")
+                before=snapshot(clone)
+                inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
+                after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
+                output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
+                record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
+                (run_dir/f"role_results/test_author_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/test_author_{attempt}.json"); test_actual.update(actual); latest_test=output
+                progress.emit("scope_check_completed",f"Test Author {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="test_author",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
+                if attempt==2: repair_actual.update(actual)
+                if blockers or scope: reasons += [*(f"test author blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
+                if (retry_context is not None and attempt==1 and retry_seed_snapshot is not None
+                        and not changed_paths(retry_seed_snapshot, snapshot(clone))):
+                    reasons.append("human-review retry made no deterministic correction")
+                    crew_status="needs_human"; stop=True; break
+                if attempt==2 and not repair_actual:
+                    reasons.append("repair cycle made no deterministic changes"); crew_status="needs_human"; stop=True; break
+                candidate=full_patch(clone,identity.head); final_paths=changed_paths(baseline_clone,snapshot(clone))
+                inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
+                scope=source_revalidation(source_root,identity); output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; validator_status=output.get("status")
+                if res.status!="succeeded": scope.append(f"AgentResult failed: {res.failure_classification}")
+                else: scope += validator_semantic_reasons(output, expected_requirement_ids)
+                record={"role":"validator","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
+                (run_dir/f"role_results/validator_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/validator_{attempt}.json"); latest_validator=output
+                progress.emit("validator_completed",f"Validator {attempt} completed: {validator_status or res.status}",role="validator",attempt=attempt,status=validator_status or res.status)
+                if scope: reasons+=scope; crew_status="rejected"; stop=True; break
+                if validator_status=="pass": crew_status="review_ready"; accepted_candidate=candidate; stop=True; break
+                if validator_status=="blocked_by_design":
+                    reasons.append("validator blocked_by_design")
+                    crew_status="contract_review_required" if validator_requires_contract_review(output) else "blocked"
+                    stop=True; break
+                if validator_status!="needs_changes": reasons.append("validator returned invalid status"); crew_status="rejected"; stop=True; break
+                if attempt==2: reasons.append("second validator pass still needs changes"); crew_status="needs_human"; stop=True; break
+            final_snap=snapshot(clone); final_paths=changed_paths(baseline_clone,final_snap)
+            final_reasons=[]
+            if final_snap.head!=baseline_clone.head or final_snap.head!=identity.head: final_reasons.append("final clone HEAD differs from clone/source baseline HEAD")
+            if final_snap.index!=baseline_clone.index: final_reasons.append("final clone index differs from clone baseline index")
+            if final_snap.untracked!=baseline_clone.untracked: final_reasons.append("final clone untracked state differs from clone baseline")
+            allowed=set(implementation_paths)|set(test_paths)
+            final_reasons += [f"final changed path outside crew boundaries: {p}" for p in final_paths if p not in allowed]
+            if (crew_status=="review_ready" and retry_context is None
+                    and not (set(final_paths)&set(implementation_paths))):
+                final_reasons.append("final candidate has no implementation change")
+            if (crew_status=="review_ready" and retry_context is None
+                    and not (set(final_paths)&set(test_paths))):
+                final_reasons.append("final candidate has no test change")
+            if crew_status=="review_ready" and retry_context is not None and not final_paths:
+                final_reasons.append("final retry candidate has no change relative to current source HEAD")
+            if (crew_status=="review_ready" and retry_context is not None
+                    and retry_seed_snapshot is not None
+                    and not changed_paths(retry_seed_snapshot, final_snap)):
+                final_reasons.append(
+                    "final human-review retry has no deterministic correction relative to seeded candidate"
+                )
+            if crew_status=="review_ready" and not accepted_candidate: final_reasons.append("final candidate patch is empty")
+            if crew_status=="review_ready" and diff_paths(clone,identity.head)!=final_paths: final_reasons.append("final Git diff paths differ from deterministic changed paths")
+            final_reasons += source_revalidation(source_root,identity)
+            if final_reasons:
+                reasons+=final_reasons; crew_status="rejected"
+            if crew_status=="review_ready":
+                if accepted_candidate is None: raise CrewBlocked("review-ready result has no accepted candidate bytes")
+                (run_dir/"candidate.patch").write_bytes(accepted_candidate); candidate_path=str(run_dir/"candidate.patch")
+            if crew_status!="review_ready":
+                diagnostic=full_patch(clone,identity.head)
+                if diagnostic: (run_dir/"workspace_diagnostic.patch").write_bytes(diagnostic); diagnostic_path=str(run_dir/"workspace_diagnostic.patch")
     review_origin = None if retry_context is None else {
         "prior_run_id":retry_context.prior_run_id,
         "result":"human_rejected",
@@ -638,11 +922,27 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     }
     host_candidate_path = str(host_root_path/run_id/"candidate.patch") if host_root_path is not None and candidate_path else None
     host_diagnostic_path = str(host_root_path/run_id/"workspace_diagnostic.patch") if host_root_path is not None and diagnostic_path else None
-    human_status = {"review_ready":"REVIEW_READY","blocked":"BLOCKED","rejected":"REJECTED","needs_human":"NEEDS_HUMAN"}[crew_status]
+    human_status = {"review_ready":"REVIEW_READY","blocked":"BLOCKED","rejected":"REJECTED","needs_human":"NEEDS_HUMAN","contract_review_required":"CONTRACT_REVIEW_REQUIRED"}[crew_status]
     if crew_status=="review_ready":
         human_reason = "The candidate passed semantic crew review and awaits human review."
         human_artifact = host_candidate_path or candidate_path
         human_next_action = "Review candidate.patch; apply manually only if approved."
+        human_commands = patch_commands(human_artifact, applyable=True)
+    elif crew_status=="contract_review_required":
+        human_reason = ("The committed task contract contains one or more AC/VAL items that are not locally "
+                         "implementable/provable under its current scope or dependencies.")
+        human_next_action = ("Review the audit, repair the task contract through normal human-reviewed TaskGraph "
+                              "workflow, validate the graph, and rerun ExecutionCrew.")
+        if contract_locality_status=="contract_review_required":
+            # Primary path: the mandatory pre-Implementer audit itself caught the defect; no clone or
+            # patch was ever produced, so the only artifact is the audit's own structured record.
+            human_artifact = contract_locality_audit_host_path or contract_locality_audit_path
+            human_commands = audit_commands(human_artifact)
+        else:
+            # Fallback path: the audit passed, but the Validator later caught the same defect class after
+            # writers already ran; any retained tracked-file movement is diagnostic only, never a candidate.
+            human_artifact = host_diagnostic_path or diagnostic_path
+            human_commands = patch_commands(human_artifact, applyable=False)
     else:
         human_reason = safe_human_reason(reasons)
         if diagnostic_path:
@@ -651,9 +951,9 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         else:
             human_artifact = None
             human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
-    human_commands = patch_commands(human_artifact, applyable=(crew_status=="review_ready"))
+        human_commands = patch_commands(human_artifact, applyable=False)
     human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action,"commands":human_commands}
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":"Review candidate.patch; apply manually only if approved." if crew_status=="review_ready" else "Inspect diagnostics and role artifacts; no review-ready patch was emitted.","human_result":human_result,"duration_seconds":time.monotonic()-started}
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result
@@ -678,6 +978,11 @@ def print_human_summary(result: Mapping[str, Any]) -> None:
         lines += ["", "APPLY PATCH:", commands.get("apply")]
         verify_command = commands.get("verify")
         lines += ["", "VERIFY:", *(verify_command.split("; ") if verify_command else [])]
+        lines.append("")
+    elif status == "CONTRACT_REVIEW_REQUIRED" and find_command and isinstance(commands, Mapping) and commands.get("inspect") is not None:
+        # No patch exists in this result: the mandatory pre-Implementer audit itself stopped the run.
+        lines += ["", "FIND AUDIT:", find_command]
+        lines += ["", "INSPECT AUDIT:", commands.get("inspect")]
         lines.append("")
     elif status != "REVIEW_READY" and find_command:
         lines += ["", "FIND DIAGNOSTIC PATCH:", find_command]

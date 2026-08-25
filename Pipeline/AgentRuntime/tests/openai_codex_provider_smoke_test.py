@@ -112,6 +112,68 @@ def main() -> int:
             "estimated_cost_usd": None,
         }
 
+        separated_transcripts = (
+            (
+                b'{"type":"turn.started"}\n\n'
+                b'{"type":"turn.completed","usage":{"input_tokens":3,'
+                b'"output_tokens":4,"reasoning_output_tokens":5,"total_tokens":12}}\n'
+            ),
+            (
+                b'{"type":"turn.started"}\n \t \n'
+                b'{"type":"turn.completed","usage":{"input_tokens":3,'
+                b'"output_tokens":4,"reasoning_output_tokens":5,"total_tokens":12}}\n'
+            ),
+        )
+        for index, transcript in enumerate(separated_transcripts):
+            separated_runner = FakeRunner(stdout=transcript)
+            separated_provider = OpenAICodexProvider(
+                process_runner=separated_runner,
+                temporary_directory_parent=outside,
+                repository_root=repository,
+            )
+            separated_response = separated_provider.invoke(
+                request(run_id=f"codex-separated-{index}"), "gpt-concrete-1"
+            )
+            assert separated_response.raw_log == transcript.decode("utf-8")
+            assert separated_response.usage and separated_response.usage.to_dict() == {
+                "input_tokens": 3, "output_tokens": 9, "total_tokens": 12,
+                "estimated_cost_usd": None,
+            }
+
+        web_search_events = (
+            (
+                b'{"type":"item.started","item":{"id":"item_15","type":"web_search",'
+                b'"id":"exec-ae600175-ebcc-482e-a274-6b959f4d4113","query":"",'
+                b'"action":{"type":"other"}}}\n'
+            ),
+            (
+                b'{"type":"item.completed","item":{"id":"item_15","type":"web_search",'
+                b'"id":"exec-ae600175-ebcc-482e-a274-6b959f4d4113",'
+                b'"query":"site:docs.unity3d.com ...","action":{"type":"search",'
+                b'"queries":["..."]}}}\n'
+            ),
+        )
+        completed_event = (
+            b'{"type":"turn.completed","usage":{"input_tokens":3,"output_tokens":4,'
+            b'"reasoning_output_tokens":5,"total_tokens":12}}\n'
+        )
+        for index, web_search_event in enumerate(web_search_events):
+            transcript = web_search_event + completed_event
+            web_search_runner = FakeRunner(stdout=transcript)
+            web_search_provider = OpenAICodexProvider(
+                process_runner=web_search_runner,
+                temporary_directory_parent=outside,
+                repository_root=repository,
+            )
+            web_search_response = web_search_provider.invoke(
+                request(run_id=f"codex-web-search-{index}"), "gpt-concrete-1"
+            )
+            assert web_search_response.raw_log == transcript.decode("utf-8")
+            assert web_search_response.usage and web_search_response.usage.to_dict() == {
+                "input_tokens": 3, "output_tokens": 9, "total_tokens": 12,
+                "estimated_cost_usd": None,
+            }
+
         nullable_runner = FakeRunner(final='{"artifact_proposal":null}')
         nullable_provider = OpenAICodexProvider(
             process_runner=nullable_runner,
@@ -208,8 +270,31 @@ def main() -> int:
         cases = [
             (FakeRunner(final=None), ProviderOutputInvalid),
             (FakeRunner(final="{"), ProviderOutputInvalid),
+            (FakeRunner(final='{"message":"first","message":"second"}'), ProviderOutputInvalid),
             (FakeRunner(stdout=b"not-json\n"), ProviderOutputInvalid),
+            (FakeRunner(stdout=b"\n \t\n\r\n"), ProviderOutputInvalid),
+            (FakeRunner(stdout=b'{"usage":{}}\n'), ProviderOutputInvalid),
             (FakeRunner(stdout=b'{"type":"turn.started"}\n'), ProviderOutputInvalid),
+            (FakeRunner(stdout=(
+                b'{"type":"item.started","item":{"id":"item_15",'
+                b'"type":"command_execution","id":"exec_15"}}\n' + completed_event
+            )), ProviderOutputInvalid),
+            (FakeRunner(stdout=(
+                b'{"type":"item.started","item":{"id":"item_15",'
+                b'"type":"web_search","id":"exec_15","id":"extra_15"}}\n'
+                + completed_event
+            )), ProviderOutputInvalid),
+            (FakeRunner(stdout=(
+                b'{"type":"item.completed","item":{"id":"item_15",'
+                b'"type":"web_search","id":"exec_15","query":"first",'
+                b'"query":"second"}}\n' + completed_event
+            )), ProviderOutputInvalid),
+            (FakeRunner(stdout=(
+                b'{"type":"item.started","item":{"id":"item_15",'
+                b'"type":"web_search","id":15}}\n' + completed_event
+            )), ProviderOutputInvalid),
+            (FakeRunner(stdout=b'{"type":"turn.completed","usage":{"input_tokens":NaN}}\n'),
+             ProviderOutputInvalid),
             (FakeRunner(stdout=b'{"type":"turn.completed","usage":{"input_tokens":true}}\n'), ProviderTransportError),
             (FakeRunner(returncode=2), ProviderFailure),
             (FakeRunner(timeout=True), ProviderTimeout),
