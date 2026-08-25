@@ -48,6 +48,7 @@ GIT_OBJECT_RE = re.compile(r"^[0-9a-f]{40}$")
 GDD_PATH = "Docs/GDD/No_Safe_Circle_GDD.md"
 POLICY_PATH = "Docs/Engineering/UNITY_TESTING_POLICY.md"
 MAX_REVIEW_FEEDBACK_BYTES = 64 * 1024
+MAX_RETRY_CANDIDATE_BYTES = 16 * 1024 * 1024
 
 class CrewBlocked(RuntimeError): pass
 
@@ -65,10 +66,15 @@ def validate_host_output_root(value: str) -> PureWindowsPath:
 @dataclass(frozen=True)
 class RetryContext:
     prior_run_id: str
+    prior_source_head: str
+    prior_contract_identity: TaskContractIdentity
     task_id: str
     provider: str
     implementation_paths: tuple[str, ...]
     test_paths: tuple[str, ...]
+    candidate_bytes: bytes
+    candidate_sha256: str
+    candidate_paths: tuple[str, ...]
     feedback_bytes: bytes
     feedback_text: str
     feedback_sha256: str
@@ -129,6 +135,26 @@ def _json_object(path: Path, *, field: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise CrewBlocked(f"{field} must contain a JSON object")
     return value
+
+def _read_regular_bytes(path: Path, *, field: str, max_bytes: int) -> bytes:
+    descriptor = None
+    try:
+        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags)
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode):
+            raise CrewBlocked(f"{field} must be a regular file")
+        with os.fdopen(descriptor, "rb") as stream:
+            descriptor = None
+            data = stream.read(max_bytes + 1)
+    except OSError as exc:
+        raise CrewBlocked(f"{field} could not be safely read as a regular file") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    if len(data) > max_bytes:
+        raise CrewBlocked(f"{field} must be at most {max_bytes} bytes")
+    return data
 
 def _requested_paths(value: Any, *, field: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not value:
@@ -269,6 +295,27 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
         result_tests = _requested_paths(prior["requested_test_paths"], field="requested_test_paths")
         if result_implementation != implementation_paths or result_tests != test_paths:
             raise CrewBlocked("prior requested scope does not match authoritative TaskExecution WriteBoundaries")
+
+    candidate_path = _resolve_existing_under(
+        prior_dir, prior_dir / "candidate.patch", field="prior candidate.patch"
+    )
+    candidate_bytes = _read_regular_bytes(
+        candidate_path, field="prior candidate.patch", max_bytes=MAX_RETRY_CANDIDATE_BYTES
+    )
+    if not candidate_bytes:
+        raise CrewBlocked("prior candidate.patch must be non-empty")
+    candidate_sha256 = hashlib.sha256(candidate_bytes).hexdigest()
+    recorded_candidate_sha256 = prior.get("candidate_patch_sha256")
+    if recorded_candidate_sha256 is not None:
+        if not isinstance(recorded_candidate_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", recorded_candidate_sha256):
+            raise CrewBlocked("prior crew_result.json has an invalid candidate_patch_sha256")
+        if recorded_candidate_sha256 != candidate_sha256:
+            raise CrewBlocked("prior candidate.patch SHA-256 does not match crew_result.json")
+    candidate_paths = _requested_paths(prior.get("final_actual_changed_paths"), field="final_actual_changed_paths")
+    allowed_candidate_paths = set(implementation_paths) | set(test_paths)
+    if not set(candidate_paths).issubset(allowed_candidate_paths):
+        raise CrewBlocked("prior candidate changed paths exceed inherited ExecutionCrew WriteBoundaries")
+
     feedback_candidate = feedback_file if feedback_file.is_absolute() else resolved_output_root / feedback_file
     feedback_path = _resolve_existing_under(
         resolved_output_root, feedback_candidate, field="human review feedback file"
@@ -296,8 +343,19 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
     if not feedback_text.strip():
         raise CrewBlocked("human review feedback must be non-empty")
     return RetryContext(
-        prior_run_id, task_id, provider, implementation_paths, test_paths,
-        feedback_bytes, feedback_text, hashlib.sha256(feedback_bytes).hexdigest()
+        prior_run_id=prior_run_id,
+        prior_source_head=source_head,
+        prior_contract_identity=contract_identity,
+        task_id=task_id,
+        provider=provider,
+        implementation_paths=implementation_paths,
+        test_paths=test_paths,
+        candidate_bytes=candidate_bytes,
+        candidate_sha256=candidate_sha256,
+        candidate_paths=candidate_paths,
+        feedback_bytes=feedback_bytes,
+        feedback_text=feedback_text,
+        feedback_sha256=hashlib.sha256(feedback_bytes).hexdigest(),
     )
 
 def committed_bytes(source: Path, head: str, path: str) -> bytes:
@@ -501,6 +559,91 @@ def diff_paths(clone: Path, head: str) -> list[str]:
 def paths_patch(clone: Path, head: str, paths: tuple[str, ...]) -> bytes:
     return git(clone,"diff","--binary","--full-index","--no-ext-diff","--no-renames",head,"--",*paths,text=False,check=False).stdout
 
+def _git_apply_bytes(root: Path, patch_bytes: bytes, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ("git", "-C", str(root), "apply", *args, "-"),
+        input=patch_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+    )
+
+def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -> str:
+    # Seed only the disposable clone. baseline remains the clean current-source snapshot used
+    # for the final full candidate; per-role snapshots are taken after this seed.
+    expected_paths = sorted(retry.candidate_paths)
+    allowed = set(retry.implementation_paths) | set(retry.test_paths)
+    if not expected_paths or not set(expected_paths).issubset(allowed):
+        raise CrewBlocked("prior candidate paths are invalid for inherited retry WriteBoundaries")
+
+    current_head = baseline.head
+
+    # A retry candidate is lineage-bound to the exact candidate-owned file state it was reviewed
+    # against. If those paths are unchanged since the prior source HEAD, seed the rejected candidate.
+    # If they changed, do not silently layer the old candidate even when Git could apply its hunks:
+    # only an exact already-present candidate post-image is accepted below.
+    preimage_comparison = git(
+        clone, "diff", "--quiet", "--ignore-cr-at-eol",
+        retry.prior_source_head, current_head, "--", *expected_paths, check=False
+    )
+    if preimage_comparison.returncode not in (0, 1):
+        raise CrewBlocked("current source could not be compared to the prior candidate source state")
+
+    if preimage_comparison.returncode == 0:
+        forward_check = _git_apply_bytes(clone, retry.candidate_bytes, "--check")
+        if forward_check.returncode != 0:
+            raise CrewBlocked("prior candidate.patch does not apply cleanly to its unchanged candidate-owned source state")
+        applied = _git_apply_bytes(clone, retry.candidate_bytes)
+        if applied.returncode != 0:
+            raise CrewBlocked("prior candidate.patch passed --check but could not be seeded into the disposable clone")
+        seeded = snapshot(clone)
+        actual_paths = changed_paths(baseline, seeded)
+        if seeded.head != baseline.head or seeded.index != baseline.index or seeded.untracked != baseline.untracked:
+            raise CrewBlocked("seeding prior candidate.patch changed clone HEAD/index/untracked state")
+        if actual_paths != expected_paths:
+            raise CrewBlocked("seeded prior candidate paths do not match prior final_actual_changed_paths")
+        return "applied"
+
+    # Candidate-owned paths changed after the prior run. The only safe historical compatibility case
+    # is that the rejected candidate itself was committed exactly. Reconstruct that exact post-image
+    # in this disposable clone, compare it to current committed source, then restore the clone.
+    reset_prior = git(clone, "reset", "--hard", retry.prior_source_head, check=False)
+    if reset_prior.returncode != 0:
+        raise CrewBlocked("prior candidate source HEAD could not be checked out for already-present verification")
+    prior_clean = snapshot(clone)
+    if (prior_clean.head != retry.prior_source_head
+            or prior_clean.untracked
+            or git(clone, "status", "--porcelain=v1", "--untracked-files=all").stdout):
+        raise CrewBlocked("prior candidate source reconstruction did not produce a clean disposable clone")
+
+    prior_check = _git_apply_bytes(clone, retry.candidate_bytes, "--check")
+    if prior_check.returncode != 0:
+        git(clone, "reset", "--hard", current_head, check=False)
+        raise CrewBlocked("prior candidate.patch does not apply to its recorded source HEAD")
+    prior_apply = _git_apply_bytes(clone, retry.candidate_bytes)
+    if prior_apply.returncode != 0:
+        git(clone, "reset", "--hard", current_head, check=False)
+        raise CrewBlocked("prior candidate.patch could not reconstruct its recorded candidate post-image")
+
+    candidate_postimage = snapshot(clone)
+    reconstructed_paths = changed_paths(prior_clean, candidate_postimage)
+
+    current_comparison = git(
+        clone, "diff", "--quiet", "--ignore-cr-at-eol", current_head, "--", *expected_paths, check=False
+    )
+    if current_comparison.returncode not in (0, 1):
+        git(clone, "reset", "--hard", current_head, check=False)
+        raise CrewBlocked("current source could not be compared to the reconstructed prior candidate")
+
+    restore = git(clone, "reset", "--hard", current_head, check=False)
+    if restore.returncode != 0:
+        raise CrewBlocked("current disposable clone HEAD could not be restored after candidate verification")
+    restored = snapshot(clone)
+    if restored != baseline:
+        raise CrewBlocked("already-present candidate verification did not restore the disposable clone exactly")
+    if reconstructed_paths != expected_paths:
+        raise CrewBlocked("reconstructed prior candidate paths do not match prior final_actual_changed_paths")
+    if current_comparison.returncode != 0:
+        raise CrewBlocked("prior candidate.patch neither applies cleanly nor is already present at the current source HEAD")
+    return "already_present"
+
 ProviderFactory = Callable[[str, Path, bool, str], tuple[str, RuntimeConfiguration, Mapping[str, Any]]]
 
 def construct_real_provider(provider_name: str, repository_root: Path, writable: bool):
@@ -578,6 +721,11 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         )
     task_raw=committed_bytes(source_root,identity.head,f"Tasks/{task_id}.yaml")
     task, contract_identity=parse_task(task_raw,task_id)
+    if retry_context is not None and contract_identity != retry_context.prior_contract_identity:
+        raise CrewBlocked(
+            "current task contract identity differs from the prior review-ready candidate; "
+            "start a new normal ExecutionCrew run"
+        )
     expected_requirement_ids=tuple(
         [item["criterion_id"] for item in task["acceptance_criteria"]]
         + [item["gate_id"] for item in task["completion_gates"]]
@@ -607,6 +755,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     contract_locality_status=None; contract_locality_audit_path=None; contract_locality_audit_host_path=None
     crew_status=None; final_paths: list[str]=[]
     human_review_feedback = retry_context.feedback_text if retry_context is not None else None
+    retry_seed_mode = None
+    retry_seed_candidate_sha256 = retry_context.candidate_sha256 if retry_context is not None else None
     def invoke(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries):
         invocation_id=f"{task_id.lower()}-{role.replace('_','-')}-{attempt}-{hashlib.sha256(run_id.encode()).hexdigest()[:12]}"
         caps=("repository_read","repository_search","repository_write") if writable else ("repository_read","repository_search")
@@ -672,6 +822,18 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             clone=clone_exact(source_root,identity.head,Path(temporary))
             progress.emit("clone_completed","Disposable clone ready",status="passed")
             baseline_clone=snapshot(clone)
+            retry_seed_snapshot = None
+            if retry_context is not None:
+                retry_seed_mode = seed_retry_candidate(clone, baseline_clone, retry_context)
+                retry_seed_snapshot = snapshot(clone)
+                progress.emit(
+                    "human_review_candidate_seeded",
+                    f"Prior review-ready candidate seed verified: {retry_seed_mode}",
+                    status="passed",
+                    prior_run_id=retry_context.prior_run_id,
+                    candidate_sha256=retry_context.candidate_sha256,
+                    seed_mode=retry_seed_mode,
+                )
             stop=False
             for attempt in (1,2):
                 attempts=attempt
@@ -681,7 +843,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 findings=None if attempt==1 else latest_validator.get("blocking_issues",[])
                 before=snapshot(clone)
                 inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=implementation_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
-                after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1)); scope+=source_revalidation(source_root,identity)
+                after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
                 output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
                 record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
                 (run_dir/f"role_results/implementer_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
@@ -691,13 +853,17 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 impl_patch=paths_patch(clone,identity.head,implementation_paths).decode("utf-8","replace")
                 before=snapshot(clone)
                 inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
-                after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1)); scope+=source_revalidation(source_root,identity)
+                after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
                 output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
                 record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
                 (run_dir/f"role_results/test_author_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/test_author_{attempt}.json"); test_actual.update(actual); latest_test=output
                 progress.emit("scope_check_completed",f"Test Author {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="test_author",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
                 if blockers or scope: reasons += [*(f"test author blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
+                if (retry_context is not None and attempt==1 and retry_seed_snapshot is not None
+                        and not changed_paths(retry_seed_snapshot, snapshot(clone))):
+                    reasons.append("human-review retry made no deterministic correction")
+                    crew_status="needs_human"; stop=True; break
                 if attempt==2 and not repair_actual:
                     reasons.append("repair cycle made no deterministic changes"); crew_status="needs_human"; stop=True; break
                 candidate=full_patch(clone,identity.head); final_paths=changed_paths(baseline_clone,snapshot(clone))
@@ -723,8 +889,20 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             if final_snap.untracked!=baseline_clone.untracked: final_reasons.append("final clone untracked state differs from clone baseline")
             allowed=set(implementation_paths)|set(test_paths)
             final_reasons += [f"final changed path outside crew boundaries: {p}" for p in final_paths if p not in allowed]
-            if crew_status=="review_ready" and not (set(final_paths)&set(implementation_paths)): final_reasons.append("final candidate has no implementation change")
-            if crew_status=="review_ready" and not (set(final_paths)&set(test_paths)): final_reasons.append("final candidate has no test change")
+            if (crew_status=="review_ready" and retry_context is None
+                    and not (set(final_paths)&set(implementation_paths))):
+                final_reasons.append("final candidate has no implementation change")
+            if (crew_status=="review_ready" and retry_context is None
+                    and not (set(final_paths)&set(test_paths))):
+                final_reasons.append("final candidate has no test change")
+            if crew_status=="review_ready" and retry_context is not None and not final_paths:
+                final_reasons.append("final retry candidate has no change relative to current source HEAD")
+            if (crew_status=="review_ready" and retry_context is not None
+                    and retry_seed_snapshot is not None
+                    and not changed_paths(retry_seed_snapshot, final_snap)):
+                final_reasons.append(
+                    "final human-review retry has no deterministic correction relative to seeded candidate"
+                )
             if crew_status=="review_ready" and not accepted_candidate: final_reasons.append("final candidate patch is empty")
             if crew_status=="review_ready" and diff_paths(clone,identity.head)!=final_paths: final_reasons.append("final Git diff paths differ from deterministic changed paths")
             final_reasons += source_revalidation(source_root,identity)
@@ -775,7 +953,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
         human_commands = patch_commands(human_artifact, applyable=False)
     human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action,"commands":human_commands}
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"implementation_actual_changed_paths":sorted(impl_actual),"test_actual_changed_paths":sorted(test_actual),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result
