@@ -1,0 +1,102 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "5d970e9009519ad44df8a31c0bd40a9a653dbb6a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "canonical_scene_feedback_wiring_and_visual_configuration"
+    },
+    {
+      "blob_sha": "448ef3d06f612e3b685843b4327d44f43a10d3d5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractionFeedback.cs",
+      "role": "door_feedback_state_shared_pointer_hover_and_visual_owner"
+    },
+    {
+      "blob_sha": "507af8ccf4a3b242f83a55c3ed137d4ea3782be1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionFeedbackPlayModeTests.cs",
+      "role": "feedback_state_transition_and_hover_completion_gate_tests"
+    },
+    {
+      "blob_sha": "18c7fabdf22e0ffab4be4d7aff17f5f98b08fb1b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "role": "production_camera_hover_alignment_and_scene_builder_gate_tests"
+    },
+    {
+      "blob_sha": "00c477ec2f94990fbbfa27b2340c130deb1bf69e",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "committed_scene_feedback_integration"
+    }
+  ],
+  "delivery": {
+    "base_commit": "c28d6ee0a75eaa3158dee0045979971d08cc3b1b",
+    "candidate_commit": "6e72963f750fa8214b70a80f881d724ee6657206",
+    "integrated_commit": "6e72963f750fa8214b70a80f881d724ee6657206",
+    "integrated_tree": "41561f815c25519af695ecaf669ce147cc7f66c4"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "8b52528446561e88743e751c9e29ccbf77bd1a60",
+          "path": "Pipeline/TaskGraph/evidence/NSC-041/artifacts/HumanValidation-01-6e72963f750f.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Human Play Mode validation confirmed the sealed door is visually distinguishable from the surrounding wall, the actual clickable door region gives clear hover feedback, an accepted click keeps persistent selected/approach feedback despite cursor drift, the feedback changes when the automatic five-second opening timer begins, completion clears stale feedback, and the existing five-second interaction behavior remains intact.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c59dca9415554b957147935f876a5980949a2b18",
+          "path": "Pipeline/TaskGraph/evidence/NSC-041/artifacts/Unity-EditMode-01-6e72963f750f.xml"
+        },
+        {
+          "blob_sha": "027112841192fef6bdd8d9d95581a4da156dc1cf",
+          "path": "Pipeline/TaskGraph/evidence/NSC-041/artifacts/Unity-EditMode-01-6e72963f750f.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Authoritative clean EditMode validation passed 30/30 at the validated commit/tree. The Editor suite includes production-camera hover-alignment coverage built through the non-saving in-memory DoorPrototype scene-builder seam, driving the shared PlayerMovement pointer target over representative visible-door and off-door positions and asserting DoorInteractionFeedback hover agrees with DoorInteractable.TryGetSelectionDistance.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "21ef64b8e4d171cb0327d4001ecaa058db2c3c9d",
+          "path": "Pipeline/TaskGraph/evidence/NSC-041/artifacts/Unity-PlayMode-02-6e72963f750f.xml"
+        },
+        {
+          "blob_sha": "fbd92b824920db1318b40e5985d2e48eae1da779",
+          "path": "Pipeline/TaskGraph/evidence/NSC-041/artifacts/Unity-PlayMode-02-6e72963f750f.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Authoritative clean PlayMode validation passed 78/78 at the validated commit/tree. The feedback behavior suite covers accepted selection/approach persistence, cursor-drift independence, transition into the automatic opening state, and clearing/reset behavior for cancellation, damage, movement away, completion, gameplay suspension, and reset.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "Human approved NSC-041 after reviewing the ExecutionCrew candidate, completing Play Mode visual/runtime validation with a reported 'NSC-041 visual pass', and obtaining authoritative clean EditMode 30/30 and PlayMode 78/78 validation at commit 6e72963f750fa8214b70a80f881d724ee6657206.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-041-6e72963f750f",
+  "record_type": "delivery",
+  "recorded_at": "2026-08-25T10:26:37Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-041.yaml",
+    "revision": 1,
+    "sha256": "2d1eb415ea6bdcdc7ba1e63a8f073a7154ba458103a13d45b7f315d5d46a3137"
+  },
+  "task_id": "NSC-041",
+  "validated_state": {
+    "commit": "6e72963f750fa8214b70a80f881d724ee6657206",
+    "tree": "41561f815c25519af695ecaf669ce147cc7f66c4"
+  }
+}
