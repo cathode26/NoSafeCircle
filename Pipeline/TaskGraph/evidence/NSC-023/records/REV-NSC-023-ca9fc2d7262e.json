@@ -1,0 +1,113 @@
+{
+  "schema_version": "1.0",
+  "record_type": "revalidation",
+  "record_id": "REV-NSC-023-ca9fc2d7262e",
+  "task_id": "NSC-023",
+  "task_contract": {
+    "path": "Tasks/NSC-023.yaml",
+    "revision": 1,
+    "sha256": "49d6ef99fab8a4a405d1ef16abaf5f84810fe45f511c618437978579957df88c"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "validated_state": {
+    "commit": "ca9fc2d7262e5ecf1abb7eb5b711d5f009a55b22",
+    "tree": "ed3625d8a69f78bacb13c9567dd3033a7583e556"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "blob_sha": "5d970e9009519ad44df8a31c0bd40a9a653dbb6a",
+      "role": "camera_authoring"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/IsometricCameraFollow.cs",
+      "blob_sha": "b0b4e7826d97339532771ddc8a63509fd2eb6c0f",
+      "role": "runtime_camera_follow"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "00c477ec2f94990fbbfa27b2340c130deb1bf69e",
+      "role": "committed_scene"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity.meta",
+      "blob_sha": "4e3c78726f7091c0ef0f77460f359b076e673bc6",
+      "role": "scene_asset_identity"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/CommittedSceneCameraConformanceTests.cs",
+      "blob_sha": "998ee74f2e50e88ac841714dbe81a402aefbc9f3",
+      "role": "completion_gate_test"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "blob_sha": "18c7fabdf22e0ffab4be4d7aff17f5f98b08fb1b",
+      "role": "builder_regression_test"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/NoSafeCircle.DoorPrototype.Tests.Editor.asmdef",
+      "blob_sha": "476d243bfc824925cc190d765f94fded89ff3293",
+      "role": "test_assembly"
+    },
+    {
+      "path": "ProjectSettings/ProjectVersion.txt",
+      "blob_sha": "93366d537cbb7326567cbbf55872a00d336c5c99",
+      "role": "unity_toolchain"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/SharedRevalidation-EditMode-ca9fc2d7262e.xml",
+          "blob_sha": "70991f131ea61bfc57b09d15280fee386201da9f"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/SharedRevalidation-EditMode-ca9fc2d7262e.log",
+          "blob_sha": "f76771e987fc6888dce8bc336d9c2d29dac1a170"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/HumanValidation-ca9fc2d7262e.txt",
+          "blob_sha": "0e54cbe204f114e5c542d9f4a5b34588930bb596"
+        }
+      ],
+      "notes": "Revalidated at merged NSC-041 state ca9fc2d7262e: complete EditMode suite 34/34 passed; manual Play Mode revalidation approved by cathode26. This preserves the completion-gate coverage represented by basis record REV-NSC-023-287f3e4e41ac."
+    },
+    {
+      "gate_id": "VAL-002",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/SharedRevalidation-EditMode-ca9fc2d7262e.xml",
+          "blob_sha": "70991f131ea61bfc57b09d15280fee386201da9f"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/SharedRevalidation-EditMode-ca9fc2d7262e.log",
+          "blob_sha": "f76771e987fc6888dce8bc336d9c2d29dac1a170"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-023/artifacts/HumanValidation-ca9fc2d7262e.txt",
+          "blob_sha": "0e54cbe204f114e5c542d9f4a5b34588930bb596"
+        }
+      ],
+      "notes": "Revalidated at merged NSC-041 state ca9fc2d7262e: complete EditMode suite 34/34 passed; manual Play Mode revalidation approved by cathode26. This preserves the completion-gate coverage represented by basis record REV-NSC-023-287f3e4e41ac."
+    }
+  ],
+  "human_approval": {
+    "required": true,
+    "decision": "approved",
+    "approved_by": "cathode26",
+    "notes": "Shared human revalidation approved after the merged NSC-041 visual/runtime check."
+  },
+  "recorded_at": "2026-08-25T10:53:16.480596Z",
+  "revalidation": {
+    "basis_record_id": "REV-NSC-023-287f3e4e41ac",
+    "reason_type": "code_change",
+    "summary": "Revalidates the task after NSC-041 legitimately changed shared DoorPrototype builder/tests/scene surfaces to add door visual affordance and feedback, then merged current main. Complete clean Unity suites and the shared manual Play Mode review confirmed the prior task behavior remains conformant."
+  }
+}

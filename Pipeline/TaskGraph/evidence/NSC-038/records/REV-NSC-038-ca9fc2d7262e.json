@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.0",
+  "record_type": "revalidation",
+  "record_id": "REV-NSC-038-ca9fc2d7262e",
+  "task_id": "NSC-038",
+  "task_contract": {
+    "path": "Tasks/NSC-038.yaml",
+    "revision": 3,
+    "sha256": "38b23fd329f5c08ccc64cc633f5f644ec58f4eaaa8eb38dbe4993d8424c87c05"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "validated_state": {
+    "commit": "ca9fc2d7262e5ecf1abb7eb5b711d5f009a55b22",
+    "tree": "ed3625d8a69f78bacb13c9567dd3033a7583e556"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "blob_sha": "5d970e9009519ad44df8a31c0bd40a9a653dbb6a",
+      "role": "isometric_visual_layer_builder"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "blob_sha": "18c7fabdf22e0ffab4be4d7aff17f5f98b08fb1b",
+      "role": "completion_gate_tests"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "00c477ec2f94990fbbfa27b2340c130deb1bf69e",
+      "role": "committed_scene_integration"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset",
+      "blob_sha": "74ddd5746516d26b86eb5681fd9444cfeddc495b",
+      "role": "persistent_floor_tile_asset"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset.meta",
+      "blob_sha": "5fc68936face63aae721eaac733f8fb449d8c88e",
+      "role": "persistent_floor_tile_identity"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
+      "blob_sha": "96c79af1611110550e1e5ada175391a7b636936e",
+      "role": "persistent_wall_tile_asset"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset.meta",
+      "blob_sha": "65ead0649659abf282a97ef04771cb7f17fb194c",
+      "role": "persistent_wall_tile_identity"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ArchitecturalBorderTile.asset",
+      "blob_sha": "135661248cd62a5e9ef8d450dce4cf4fb78f88ec",
+      "role": "persistent_architectural_border_tile_asset"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ArchitecturalBorderTile.asset.meta",
+      "blob_sha": "8e543af816b2fe18b2be8cc6b6b76f911f0ca723",
+      "role": "persistent_architectural_border_tile_identity"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-038/artifacts/SharedRevalidation-EditMode-ca9fc2d7262e.xml",
+          "blob_sha": "70991f131ea61bfc57b09d15280fee386201da9f"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-038/artifacts/SharedRevalidation-EditMode-ca9fc2d7262e.log",
+          "blob_sha": "f76771e987fc6888dce8bc336d9c2d29dac1a170"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-038/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.xml",
+          "blob_sha": "e011e45db09c4cd1705941747d88559a85d8561c"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-038/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.log",
+          "blob_sha": "031e3a88b6b3bc75a97087985f144dff787e7787"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-038/artifacts/HumanValidation-ca9fc2d7262e.txt",
+          "blob_sha": "44f0638aa120e6d06ef199de22bc663499258f70"
+        }
+      ],
+      "notes": "Revalidated at merged NSC-041 state ca9fc2d7262e: complete EditMode suite 34/34 passed; complete PlayMode suite 93/93 passed; manual Play Mode revalidation approved by cathode26. This preserves the completion-gate coverage represented by basis record REV-NSC-038-3efbf859188f."
+    }
+  ],
+  "human_approval": {
+    "required": true,
+    "decision": "approved",
+    "approved_by": "cathode26",
+    "notes": "Shared human revalidation approved after the merged NSC-041 visual/runtime check."
+  },
+  "recorded_at": "2026-08-25T10:53:16.480596Z",
+  "revalidation": {
+    "basis_record_id": "REV-NSC-038-3efbf859188f",
+    "reason_type": "code_change",
+    "summary": "Revalidates the task after NSC-041 legitimately changed shared DoorPrototype builder/tests/scene surfaces to add door visual affordance and feedback, then merged current main. Complete clean Unity suites and the shared manual Play Mode review confirmed the prior task behavior remains conformant."
+  }
+}

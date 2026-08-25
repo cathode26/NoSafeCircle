@@ -1,0 +1,1074 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori" at "2026-08-25T10:37:30.6357804Z"
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 36444, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.16.2+bdef8f5
+  Session Id:              06933e8acc4947cbb692efdec3fbc833
+  Correlation Id:          348bde8c14959357c9e21e4941e38cf7
+  External correlation Id: 2255627821004660047
+  Machine Id:              HxO4LzPDSZi5N+Qj55f7MhdwfeY=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-VincentLiguori" (connect: 0.00s, validation: 0.01s, handshake: 0.03s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori-notifications" at "2026-08-25T10:37:30.6772399Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Serial number assigned to: "37203-UnityPersXXXX"
+[Licensing::Client] Successfully updated license, isAync: True, time: 0.35
+Built from '6000.1/staging' branch; Version is '6000.1.8f1 (2a5b1522e5ab) revision 2775829'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) 64bit Professional' Language: 'en' Physical Memory: 64969 MB
+[Licensing::Client] Successfully resolved entitlement details
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1, IsPro: 0
+Date: 2026-08-25T10:37:31Z
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Unity.exe
+-batchmode
+-projectPath
+C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041
+-runTests
+-testPlatform
+EditMode
+-testFilter
+NoSafeCircle.DoorPrototype.Tests.Editor
+-testResults
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-46a2d92b957149cf88ca4107fcd0e001\test-results.xml
+-logFile
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-46a2d92b957149cf88ca4107fcd0e001\unity.log
+Successfully changed project path to: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041
+C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle-NSC041
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [60720]  Target information:
+
+Player connection [60720]  * "[IP] 172.28.64.1 [Port] 55504 [Flags] 2 [Guid] 4222217707 [EditorId] 4222217707 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [60720]  * "[IP] 192.168.10.151 [Port] 55504 [Flags] 2 [Guid] 4222217707 [EditorId] 4222217707 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor" 
+
+Player connection [60720] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [60720] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-40160" after 0.2 seconds.
+Library Redirect Path: Library/
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 56 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ai.navigation@2.0.14 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.ai.navigation@134dd6a3b97b)
+    com.unity.collab-proxy@2.13.5 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.collab-proxy@120d77864ebc)
+    com.unity.inputsystem@1.14.0 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.inputsystem@7fe8299111a7)
+    com.unity.timeline@1.8.7 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.timeline@c58b4ee65782)
+    com.unity.visualscripting@1.9.7 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.visualscripting@6279e2b7c485)
+    com.unity.ide.visualstudio@2.0.23 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.ide.visualstudio@198cdf337d13)
+    com.unity.ide.rider@3.0.36 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.ide.rider@4d374c7eb6db)
+    com.unity.editorcoroutines@1.0.0 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.editorcoroutines@7d48783e7b8c)
+    com.unity.performance.profile-analyzer@1.2.3 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.performance.profile-analyzer@a68e7bc84997)
+    com.unity.testtools.codecoverage@1.2.6 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.testtools.codecoverage@205a02cbcb39)
+    com.unity.collections@2.6.8 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.collections@84e8eb3fc12e)
+    com.unity.settings-manager@2.1.0 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.settings-manager@41738c275190)
+    com.unity.burst@1.8.29 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.burst@6bb9aca3ef38)
+    com.unity.mathematics@1.3.2 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.mathematics@8017b507cc74)
+    com.unity.nuget.mono-cecil@1.11.6 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.test-framework.performance@3.1.0 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.test-framework.performance@92d1d09a72ed)
+  Built-in packages:
+    com.unity.2d.tilemap@1.0.0 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.2d.tilemap@855769f9baae)
+    com.unity.feature.development@1.0.2 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.feature.development@767aadbc6eb7)
+    com.unity.multiplayer.center@1.0.0 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.multiplayer.center@f3fb577b3546)
+    com.unity.ugui@2.0.0 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.ugui@57cef44123c7)
+    com.unity.modules.accessibility@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.accessibility)
+    com.unity.modules.ai@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vehicles@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.hierarchycore)
+    com.unity.test-framework@1.5.1 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.test-framework@7056e7f856e9)
+    com.unity.ext.nunit@2.0.5 (location: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC041\Library\PackageCache\com.unity.ext.nunit@031a54704bff)
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+[Subsystems] No new subsystems found in resolved package list.
+Package Manager log level set to [2]
+[Package Manager] Done registering packages in 0.49 seconds
+Refreshing native plugins compatible for Editor in 4.11 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.1.8f1 (2a5b1522e5ab)
+[Subsystems] Discovering subsystems at path C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle-NSC041/Assets
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+Direct3D:
+    Version:         Direct3D 12 [level 12.1]
+    Renderer:        NVIDIA GeForce RTX 4070 Laptop GPU (ID=0x2820)
+    Vendor:          NVIDIA
+    VRAM:            7948 MB
+    App VRAM Budget: 7180 MB
+    Driver:          32.0.15.9658
+[Licensing::Client] Successfully resolved entitlement details
+Initialize mono
+Mono path[0] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Managed'
+Mono path[1] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32'
+Mono config path = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56160
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport/UnityEditor.WindowsStandalone.Extensions.dll
+Registered in 0.002096 seconds.
+- Loaded All Assemblies, in  0.287 seconds
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.258 seconds
+Domain Reload Profiling: 544ms
+	BeginReloadAssembly (99ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (1ms)
+	RebuildCommonClasses (28ms)
+	RebuildNativeTypeToScriptingClass (8ms)
+	initialDomainReloadingComplete (39ms)
+	LoadAllAssembliesAndSetupDomain (111ms)
+		LoadAssemblies (97ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (108ms)
+			TypeCache.Refresh (107ms)
+				TypeCache.ScanAssembly (96ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (258ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (231ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (42ms)
+			SetLoadedEditorAssemblies (3ms)
+			BeforeProcessingInitializeOnLoad (45ms)
+			ProcessInitializeOnLoadAttributes (97ms)
+			ProcessInitializeOnLoadMethodAttributes (43ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aEDbg.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle-NSC041
+DisplayProgressbar: Compiling Scripts
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Tools\netcorerun\netcorerun.exe "C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Tools\BuildPipeline\ScriptCompilationBuildProgram.exe" "Library/Bee/1900b0aEDbg.dag.json" "Library/Bee/1900b0aEDbg-inputdata.json" "Library\Bee\buildprogram0.traceevents"
+WorkingDir: C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle-NSC041
+ExitCode: 4 Duration: 0s213ms
+[546/691    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+Rebuilding DAG because FileSignature timestamp changed: Library/Bee/1900b0aEDbg-inputdata.json
+*** Tundra requires additional run (0.18 seconds), 1 items updated, 691 evaluated
+ExitCode: 0 Duration: 0s448ms
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aEDbg.dag" --continue-on-failure --dagfilejson="Library\Bee\1900b0aEDbg.dag.json" --profile="Library/Bee/backend2.traceevents" ScriptAssemblies
+WorkingDir: C:/UnityProjects/NoSafeCircleAgentCrew/NoSafeCircle-NSC041
+ExitCode: 0 Duration: 2s313ms
+Finished compiling graph: 694 nodes, 10885 flattened edges (9249 ToBuild, 108 ToUse), maximum node priority 734
+[399/691    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.rsp
+[400/691    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.rsp
+[401/691    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.rsp
+[542/691    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+[675/691    1s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.dll (+2 others)
+[676/691    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.dll, with 128 defines and 259 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[677/691    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.pdb
+[678/691    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.dll
+[679/691    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.dll (+2 others)
+[680/691    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.dll (+2 others)
+[681/691    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.dll, with 126 defines and 268 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[682/691    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Editor.pdb
+[683/691    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.dll (+2 others)
+[684/691    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Editor.dll
+[685/691    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Tests.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.dll, with 128 defines and 246 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[686/691    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.pdb
+[687/691    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Tests.Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.dll, with 126 defines and 255 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[688/691    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.pdb
+[689/691    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll
+[690/691    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll
+*** Tundra build success (2.28 seconds), 20 items updated, 691 evaluated
+AssetDatabase: script compilation time: 3.402097s
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  1.404 seconds
+Start importing ProjectSettings/EditorBuildSettings.asset using Guid(0000000000000000b000000000000000) (LibraryAssetImporter) -> (artifact id: 'a568f27f9bd05b8ec5f95deee2bdb0af') in 0.0211587 seconds
+Refreshing native plugins compatible for Editor in 1.67 ms, found 4 plugins.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Refreshing native plugins compatible for Editor in 1.70 ms, found 4 plugins.
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  3.603 seconds
+Domain Reload Profiling: 5005ms
+	BeginReloadAssembly (252ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (10ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (137ms)
+	RebuildCommonClasses (25ms)
+	RebuildNativeTypeToScriptingClass (8ms)
+	initialDomainReloadingComplete (24ms)
+	LoadAllAssembliesAndSetupDomain (1092ms)
+		LoadAssemblies (983ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (183ms)
+			TypeCache.Refresh (144ms)
+				TypeCache.ScanAssembly (135ms)
+			BuildScriptInfoCaches (32ms)
+			ResolveRequiredComponents (4ms)
+	FinalizeReload (3604ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (3508ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (25ms)
+			SetLoadedEditorAssemblies (4ms)
+			BeforeProcessingInitializeOnLoad (150ms)
+			ProcessInitializeOnLoadAttributes (3282ms)
+			ProcessInitializeOnLoadMethodAttributes (42ms)
+			AfterProcessingInitializeOnLoad (5ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (7ms)
+Refreshing native plugins compatible for Editor in 2.08 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=1e8a1233c4e041341be458e4ff7cd10f): Total: 9.358 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=1 (actual=1, local cache=0, cache server=0)
+		Asset DB Process Time: managed=2 ms, native=4121 ms
+		Asset DB Callback time: managed=344 ms, native=10 ms
+		Scripting: domain reloads=1, domain reload time=1404 ms, compile time=3404 ms, other=70 ms
+		Project Asset Count: scripts=917, non-scripts=1185
+		Asset File Changes: new=3, changed=4, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 1.791ms
+	ApplyChangesToAssetFolders: 0.426ms
+	Scan: 250.254ms
+	OnSourceAssetsModified: 0.806ms
+	CategorizeAssetsWithTransientArtifact: 34.842ms
+	ProcessAssetsWithTransientArtifactChanges: 44.831ms
+	CategorizeAssets: 20.605ms
+	ImportOutOfDateAssets: 3637.890ms (208.145ms without children)
+		ImportManagerImport: 25.385ms (4.001ms without children)
+			ImportInProcess: 21.365ms
+			UpdateCategorizedAssets: 0.019ms
+		CompileScripts: 3403.546ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.209ms
+		ReloadImportedAssets: 0.000ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.313ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.291ms
+	PostProcessAllAssets: 344.924ms
+	Hotreload: 8.540ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.001ms
+	UnloadStreamsBegin: 0.243ms
+	PersistCurrentRevisions: 0.111ms
+	UnloadStreamsEnd: 0.001ms
+	GenerateScriptTypeHashes: 5.987ms
+	Untracked: 5012.341ms
+
+Application.AssetDatabase Initial Refresh End
+Launched and connected shader compiler UnityShaderCompiler.exe after 0.01 seconds
+Scanning for USB devices : 2.188ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-NoSafeCircle
+Unloading 3 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 4951 unused Assets / (1.9 MB). Loaded Objects now: 5451.
+Memory consumption went from 135.5 MB to 133.6 MB.
+Total: 9.092700 ms (FindLiveObjects: 0.324300 ms CreateObjectMapping: 0.314300 ms MarkObjects: 7.151300 ms  DeleteObjects: 1.301400 ms)
+
+[Project] Loading completed in 12.952 seconds
+	Project init time: 				11.708 seconds
+		Template init time: 		0.000 seconds
+		Package Manager init time: 		0.210 seconds
+		Asset Database init time: 		0.727 seconds
+		Global illumination init time: 	0.003 seconds
+		Assemblies load time: 			0.557 seconds
+		Unity extensions init time: 	0.029 seconds
+		Asset Database refresh time: 	9.358 seconds
+	Scene opening time: 			0.752 seconds
+##utp:{"type":"ProjectInfo","version":2,"phase":"Immediate","time":1787654263576,"processId":40160,"projectLoad":12.951890899999999,"projectInit":11.7075547,"templateInit":0.0,"packageManagerInit":0.2101448,"assetDatabaseInit":0.7265278,"globalIlluminationInit":0.002744,"assembliesLoad":0.5570326,"unityExtensionsInit":0.028743,"assetDatabaseRefresh":9.3577447,"sceneOpening":0.7524814}
+##utp:{"type":"EditorInfo","version":2,"phase":"Immediate","time":1787654263576,"processId":40160,"editorVersion":"6000.1.8f1 (2a5b1522e5ab)","branch":"6000.1/staging","buildType":"Release","platform":"Windows"}
+Asset Pipeline Refresh (id=6622ca2e90a8be8489fed9884b96ba33): Total: 0.027 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Running tests for ExecutionSettings with details:
+targetPlatform = 
+playerHeartbeatTimeout = 600
+filters[0] = 
+   Filter with settings:
+   testMode = EditMode
+   targetPlatform = 
+   testNames = null
+   groupNames = NoSafeCircle.DoorPrototype.Tests.Editor
+   categoryNames = null
+   assemblyNames = null
+ignoreTests = {}
+featureFlags = null
+
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:InitializeAndExecuteRun (string[]) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:53)
+UnityEditor.TestTools.TestRunner.CommandLineTest.TestStarter:InitializeAndExecuteRun () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/TestStarter.cs:64)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs Line: 53)
+
+[UnityConnectServicesConfig] config is NOT valid, switching to default
+Created GICache directory at C:/Users/VincentLiguori/AppData/LocalLow/Unity/Caches/GiCache. Took: 0.009s, timestamps: [12.962 - 12.970]
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 2 unused Assets / (1.3 KB). Loaded Objects now: 5495.
+Memory consumption went from 117.6 MB to 117.6 MB.
+Total: 5.632200 ms (FindLiveObjects: 0.191400 ms CreateObjectMapping: 0.072900 ms MarkObjects: 5.328300 ms  DeleteObjects: 0.038600 ms)
+
+Executing IPrebuildSetup for: Unity.PerformanceTesting.Editor.TestRunBuilder.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<ExecuteMethods>d__8<UnityEngine.TestTools.IPrebuildSetup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:51)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<Execute>d__7<UnityEngine.TestTools.IPrebuildSetup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:35)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteStep () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:173)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteCallback () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:108)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs Line: 51)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5490.
+Memory consumption went from 117.5 MB to 117.5 MB.
+Total: 5.610400 ms (FindLiveObjects: 0.242700 ms CreateObjectMapping: 0.129700 ms MarkObjects: 5.227300 ms  DeleteObjects: 0.009800 ms)
+
+Opening scene 'Assets/Scenes/DoorPrototype.unity additively'
+Loaded scene 'Assets/Scenes/DoorPrototype.unity'
+	Deserialize:            19.052 ms
+	Integration:            20.676 ms
+	Integration of assets:  0.068 ms
+	Thread Wait Time:       0.012 ms
+	Total Operation Time:   39.808 ms
+Unloading 7 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 22 unused Assets / (18.4 KB). Loaded Objects now: 5493.
+Memory consumption went from 118.4 MB to 118.4 MB.
+Total: 6.484600 ms (FindLiveObjects: 0.253800 ms CreateObjectMapping: 0.110700 ms MarkObjects: 6.040600 ms  DeleteObjects: 0.078600 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5493.
+Memory consumption went from 118.4 MB to 118.4 MB.
+Total: 5.888700 ms (FindLiveObjects: 0.307900 ms CreateObjectMapping: 0.059900 ms MarkObjects: 5.512700 ms  DeleteObjects: 0.007500 ms)
+
+Opening scene 'Assets/Scenes/DoorPrototype.unity additively'
+Loaded scene 'Assets/Scenes/DoorPrototype.unity'
+	Deserialize:            6.619 ms
+	Integration:            3.765 ms
+	Integration of assets:  0.040 ms
+	Thread Wait Time:       0.032 ms
+	Total Operation Time:   10.456 ms
+Unloading 6 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 22 unused Assets / (16.2 KB). Loaded Objects now: 5493.
+Memory consumption went from 118.1 MB to 118.0 MB.
+Total: 6.237800 ms (FindLiveObjects: 0.170900 ms CreateObjectMapping: 0.090000 ms MarkObjects: 5.889900 ms  DeleteObjects: 0.085900 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5494.
+Memory consumption went from 118.4 MB to 118.4 MB.
+Total: 6.255600 ms (FindLiveObjects: 0.212400 ms CreateObjectMapping: 0.073200 ms MarkObjects: 5.957900 ms  DeleteObjects: 0.010900 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 22 unused Assets / (6.9 KB). Loaded Objects now: 5505.
+Memory consumption went from 118.8 MB to 118.8 MB.
+Total: 6.325800 ms (FindLiveObjects: 0.258700 ms CreateObjectMapping: 0.111300 ms MarkObjects: 5.889900 ms  DeleteObjects: 0.064800 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.5 MB to 118.5 MB.
+Total: 5.779400 ms (FindLiveObjects: 0.206000 ms CreateObjectMapping: 0.074800 ms MarkObjects: 5.488100 ms  DeleteObjects: 0.009800 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 22 unused Assets / (6.7 KB). Loaded Objects now: 5504.
+Memory consumption went from 119.3 MB to 119.3 MB.
+Total: 5.853200 ms (FindLiveObjects: 0.166200 ms CreateObjectMapping: 0.066600 ms MarkObjects: 5.564500 ms  DeleteObjects: 0.055100 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5503.
+Memory consumption went from 118.4 MB to 118.4 MB.
+Total: 5.676000 ms (FindLiveObjects: 0.154900 ms CreateObjectMapping: 0.055400 ms MarkObjects: 5.454900 ms  DeleteObjects: 0.009900 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 22 unused Assets / (6.9 KB). Loaded Objects now: 5503.
+Memory consumption went from 118.8 MB to 118.8 MB.
+Total: 5.519600 ms (FindLiveObjects: 0.211800 ms CreateObjectMapping: 0.076600 ms MarkObjects: 5.183300 ms  DeleteObjects: 0.047300 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5503.
+Memory consumption went from 118.8 MB to 118.8 MB.
+Total: 5.542700 ms (FindLiveObjects: 0.203200 ms CreateObjectMapping: 0.060500 ms MarkObjects: 5.267700 ms  DeleteObjects: 0.010400 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 22 unused Assets / (6.9 KB). Loaded Objects now: 5503.
+Memory consumption went from 118.9 MB to 118.9 MB.
+Total: 6.608400 ms (FindLiveObjects: 0.319400 ms CreateObjectMapping: 0.172900 ms MarkObjects: 6.055400 ms  DeleteObjects: 0.059800 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5503.
+Memory consumption went from 118.9 MB to 118.9 MB.
+Total: 4.871800 ms (FindLiveObjects: 0.193000 ms CreateObjectMapping: 0.060400 ms MarkObjects: 4.611100 ms  DeleteObjects: 0.006700 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.9 MB to 118.9 MB.
+Total: 5.611400 ms (FindLiveObjects: 0.212600 ms CreateObjectMapping: 0.075700 ms MarkObjects: 5.275200 ms  DeleteObjects: 0.047400 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.9 MB to 118.9 MB.
+Total: 5.089400 ms (FindLiveObjects: 0.220400 ms CreateObjectMapping: 0.063700 ms MarkObjects: 4.796800 ms  DeleteObjects: 0.007900 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 119.0 MB to 119.0 MB.
+Total: 5.546200 ms (FindLiveObjects: 0.166400 ms CreateObjectMapping: 0.069500 ms MarkObjects: 5.262700 ms  DeleteObjects: 0.046800 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 119.0 MB to 119.0 MB.
+Total: 5.057700 ms (FindLiveObjects: 0.169000 ms CreateObjectMapping: 0.055600 ms MarkObjects: 4.825800 ms  DeleteObjects: 0.006600 ms)
+
+Start importing Assets/__DoorPrototypeSceneBuilderTests_f1c83480d1434ca1934cf6fff40d2a55 using Guid(a15c7c22e34887349a201319de4a62a6) (DefaultImporter) -> (artifact id: '9bf97fe42281809b8511b4b9a666ce02') in 0.0175598 seconds
+Refreshing native plugins compatible for Editor in 1.52 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=eb1894a8b5ba054479ca2228e5f424b3): Total: 0.065 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_f1c83480d1434ca1934cf6fff40d2a55/FloorTile.asset using Guid(6aef76c7dbe03514a9dff9ed8ac50158) (NativeFormatImporter) -> (artifact id: '38a473174505f9220e04ec4e651239da') in 0.0036858 seconds
+Refreshing native plugins compatible for Editor in 1.59 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=1ceb94b071b1dd34e956d5d0d6a89526): Total: 0.030 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_f1c83480d1434ca1934cf6fff40d2a55/FloorTile.asset using Guid(6aef76c7dbe03514a9dff9ed8ac50158) (NativeFormatImporter) -> (artifact id: 'fefe0e58d1033b99150d92081323e4d3') in 0.0026891 seconds
+Refreshing native plugins compatible for Editor in 1.53 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=24ffcded0fc52ef41953d2f74598b596): Total: 0.018 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_f1c83480d1434ca1934cf6fff40d2a55/WallTile.asset using Guid(9cbd163b00bed024c9621382d50b2ce1) (NativeFormatImporter) -> (artifact id: 'acdc304b6f89efa8e20444f4f304bcdb') in 0.0033723 seconds
+Refreshing native plugins compatible for Editor in 1.47 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=53c40f7871c09e24481da325695abe80): Total: 0.028 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_f1c83480d1434ca1934cf6fff40d2a55/WallTile.asset using Guid(9cbd163b00bed024c9621382d50b2ce1) (NativeFormatImporter) -> (artifact id: 'eba90a681b05139d6a648048b0e4175e') in 0.0044042 seconds
+Refreshing native plugins compatible for Editor in 1.67 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=e6f97dbffc4758a4f8091f209a9dd128): Total: 0.021 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_f1c83480d1434ca1934cf6fff40d2a55/ArchitecturalBorderTile.asset using Guid(d8e8eba3e33db584fb1126a17dce1858) (NativeFormatImporter) -> (artifact id: '76f427f1c54636dd1c113556d705cf4a') in 0.0036362 seconds
+Refreshing native plugins compatible for Editor in 1.48 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=e7e814b613104a948ab4e06b995e9538): Total: 0.036 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_f1c83480d1434ca1934cf6fff40d2a55/ArchitecturalBorderTile.asset using Guid(d8e8eba3e33db584fb1126a17dce1858) (NativeFormatImporter) -> (artifact id: '4fe77a4540b51a5a56d0a158dfd5e897') in 0.0030734 seconds
+Refreshing native plugins compatible for Editor in 2.72 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=e5eb4294be0bec94eb2555bff06ce83b): Total: 0.018 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 42 unused Assets / (12.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.1 MB to 118.1 MB.
+Total: 5.914800 ms (FindLiveObjects: 0.222300 ms CreateObjectMapping: 0.079600 ms MarkObjects: 5.535100 ms  DeleteObjects: 0.077000 ms)
+
+Refreshing native plugins compatible for Editor in 1.51 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=1a47eb5c62bb7c341926d3745d583382): Total: 0.025 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 12 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 117.8 MB to 117.8 MB.
+Total: 6.037100 ms (FindLiveObjects: 0.230200 ms CreateObjectMapping: 0.205100 ms MarkObjects: 5.578600 ms  DeleteObjects: 0.022500 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (5.9 KB). Loaded Objects now: 5504.
+Memory consumption went from 117.9 MB to 117.9 MB.
+Total: 6.520600 ms (FindLiveObjects: 0.218600 ms CreateObjectMapping: 0.092300 ms MarkObjects: 6.139600 ms  DeleteObjects: 0.069000 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 117.9 MB to 117.9 MB.
+Total: 7.004600 ms (FindLiveObjects: 0.227600 ms CreateObjectMapping: 0.076900 ms MarkObjects: 6.687600 ms  DeleteObjects: 0.011400 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.0 MB to 118.0 MB.
+Total: 8.399600 ms (FindLiveObjects: 0.233900 ms CreateObjectMapping: 0.096900 ms MarkObjects: 7.962000 ms  DeleteObjects: 0.105600 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.0 MB to 118.0 MB.
+Total: 6.924900 ms (FindLiveObjects: 0.240200 ms CreateObjectMapping: 0.078200 ms MarkObjects: 6.583400 ms  DeleteObjects: 0.021600 ms)
+
+Start importing Assets/__DoorPrototypeSceneBuilderTests_68b93b7f9f7d4456aa541c7e131b25ad using Guid(49766cca16c02a64d8626d57377390a7) (DefaultImporter) -> (artifact id: 'af4999649e71f2a70ac40843066d3e11') in 0.0173571 seconds
+Refreshing native plugins compatible for Editor in 1.52 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=ddbb8a404d6a1b44495a714db70f7856): Total: 0.045 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_68b93b7f9f7d4456aa541c7e131b25ad/FloorTile.asset using Guid(2aafd4fdce4f7f249a6e2dc6b94544f0) (NativeFormatImporter) -> (artifact id: 'e3d03ddeb739c369611819d97322a9c9') in 0.001772 seconds
+Refreshing native plugins compatible for Editor in 1.37 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=8f2901d8c916147469ecf57cdb5c470e): Total: 0.027 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_68b93b7f9f7d4456aa541c7e131b25ad/FloorTile.asset using Guid(2aafd4fdce4f7f249a6e2dc6b94544f0) (NativeFormatImporter) -> (artifact id: '98811f0d195194f09dd0b62be58d71df') in 0.0034689 seconds
+Refreshing native plugins compatible for Editor in 1.37 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=6fae97aefab9a574583236808bdafa5c): Total: 0.017 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_68b93b7f9f7d4456aa541c7e131b25ad/WallTile.asset using Guid(bbcc7b581e5b67c4194ec4ec4835e7ae) (NativeFormatImporter) -> (artifact id: '54d326231dced1f1b7a2ab919efa77f9') in 0.0019504 seconds
+Refreshing native plugins compatible for Editor in 1.48 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=f56911f11bec08840ab2b55f55067db2): Total: 0.026 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_68b93b7f9f7d4456aa541c7e131b25ad/WallTile.asset using Guid(bbcc7b581e5b67c4194ec4ec4835e7ae) (NativeFormatImporter) -> (artifact id: '68e4c06e7c30fba8eacdb5fdcccd7a02') in 0.0030848 seconds
+Refreshing native plugins compatible for Editor in 1.97 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=a38749587dbce3442a6b786a99db8ede): Total: 0.020 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_68b93b7f9f7d4456aa541c7e131b25ad/ArchitecturalBorderTile.asset using Guid(4aa6399d00bb99448a2758cddf57a285) (NativeFormatImporter) -> (artifact id: 'e9aee360db5dd2ebf71f6e1c46169678') in 0.0034936 seconds
+Refreshing native plugins compatible for Editor in 1.47 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=2f52363eb408a6c44afda7b9ad5edbe6): Total: 0.032 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_68b93b7f9f7d4456aa541c7e131b25ad/ArchitecturalBorderTile.asset using Guid(4aa6399d00bb99448a2758cddf57a285) (NativeFormatImporter) -> (artifact id: 'f7f5f9321af26f78a436d95964293e7d') in 0.0033707 seconds
+Refreshing native plugins compatible for Editor in 1.68 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=acce6de8f6ebaea4b8999a3842c44c6b): Total: 0.018 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 42 unused Assets / (12.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.3 MB to 118.3 MB.
+Total: 6.278800 ms (FindLiveObjects: 0.490800 ms CreateObjectMapping: 0.079200 ms MarkObjects: 5.583200 ms  DeleteObjects: 0.125000 ms)
+
+Refreshing native plugins compatible for Editor in 1.51 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=de985e6edeb3c06479ed1aca9af77737): Total: 0.026 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 12 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 117.9 MB to 117.9 MB.
+Total: 6.666200 ms (FindLiveObjects: 0.221700 ms CreateObjectMapping: 0.074500 ms MarkObjects: 6.343000 ms  DeleteObjects: 0.026300 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.1 MB to 118.1 MB.
+Total: 6.411200 ms (FindLiveObjects: 0.261300 ms CreateObjectMapping: 0.079600 ms MarkObjects: 5.997800 ms  DeleteObjects: 0.071600 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.1 MB to 118.1 MB.
+Total: 5.828100 ms (FindLiveObjects: 0.236700 ms CreateObjectMapping: 0.079000 ms MarkObjects: 5.502600 ms  DeleteObjects: 0.009100 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.1 MB to 118.1 MB.
+Total: 6.032500 ms (FindLiveObjects: 0.236500 ms CreateObjectMapping: 0.087600 ms MarkObjects: 5.645800 ms  DeleteObjects: 0.061900 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.1 MB to 118.1 MB.
+Total: 5.816000 ms (FindLiveObjects: 0.387600 ms CreateObjectMapping: 0.071600 ms MarkObjects: 5.346200 ms  DeleteObjects: 0.009100 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.2 MB to 118.2 MB.
+Total: 7.397500 ms (FindLiveObjects: 0.208800 ms CreateObjectMapping: 0.080500 ms MarkObjects: 7.048000 ms  DeleteObjects: 0.059500 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.2 MB to 118.2 MB.
+Total: 5.247900 ms (FindLiveObjects: 0.185300 ms CreateObjectMapping: 0.060900 ms MarkObjects: 4.993300 ms  DeleteObjects: 0.007900 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.2 MB to 118.2 MB.
+Total: 6.759900 ms (FindLiveObjects: 0.202000 ms CreateObjectMapping: 0.075800 ms MarkObjects: 6.423300 ms  DeleteObjects: 0.058000 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.2 MB to 118.2 MB.
+Total: 4.859500 ms (FindLiveObjects: 0.199800 ms CreateObjectMapping: 0.061500 ms MarkObjects: 4.590800 ms  DeleteObjects: 0.006900 ms)
+
+Start importing Assets/__DoorPrototypeSceneBuilderTests_c28b945fd55544259b607ec7b0900b37 using Guid(d86dc30d8ae202d4bb279dcff0a7da88) (DefaultImporter) -> (artifact id: 'ca7135da84d3a5d4d552a858db9933c5') in 0.0181633 seconds
+Refreshing native plugins compatible for Editor in 1.41 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=f368ca3598d168b4a807f0cc6e0f7c1c): Total: 0.045 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_c28b945fd55544259b607ec7b0900b37/FloorTile.asset using Guid(e711636aaf1356649949dfaf8dd584b2) (NativeFormatImporter) -> (artifact id: 'cc406230214e12a1cb5c49c789194e0c') in 0.0019807 seconds
+Refreshing native plugins compatible for Editor in 1.46 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=d5f519e5bef9dac46a0541ab9d90d836): Total: 0.026 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_c28b945fd55544259b607ec7b0900b37/FloorTile.asset using Guid(e711636aaf1356649949dfaf8dd584b2) (NativeFormatImporter) -> (artifact id: '7f91b2d0fc6be9ef1d9f51604d27a7a2') in 0.002238 seconds
+Refreshing native plugins compatible for Editor in 1.65 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=71b2b5318b5435c49956e5da72108800): Total: 0.017 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_c28b945fd55544259b607ec7b0900b37/WallTile.asset using Guid(d62aba3631eaa114780ef46fc4567cd9) (NativeFormatImporter) -> (artifact id: '2ed177c5bf8f3cb6ce6b49ca8d85cbad') in 0.0019318 seconds
+Refreshing native plugins compatible for Editor in 1.59 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=34a9e686fab81a541be964c7d36d7eac): Total: 0.031 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_c28b945fd55544259b607ec7b0900b37/WallTile.asset using Guid(d62aba3631eaa114780ef46fc4567cd9) (NativeFormatImporter) -> (artifact id: '242c06d973de046968383d4a5b688450') in 0.0038472 seconds
+Refreshing native plugins compatible for Editor in 1.52 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=3a07d8539a03b7040996febf63e6a18d): Total: 0.020 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_c28b945fd55544259b607ec7b0900b37/ArchitecturalBorderTile.asset using Guid(bcad0abd7248c9040b802c7d949f9ef5) (NativeFormatImporter) -> (artifact id: 'df57f445ac32824a19a9a8fb2e1bdd4f') in 0.0035804 seconds
+Refreshing native plugins compatible for Editor in 1.47 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=7f6f1f8923142b24fa53651027028bd2): Total: 0.028 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_c28b945fd55544259b607ec7b0900b37/ArchitecturalBorderTile.asset using Guid(bcad0abd7248c9040b802c7d949f9ef5) (NativeFormatImporter) -> (artifact id: '86fcaf3afb12afd3a32f7c2f347ffa88') in 0.0032398 seconds
+Refreshing native plugins compatible for Editor in 1.41 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=5bfeea13aecd7c345952f6913dc49f9e): Total: 0.020 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 42 unused Assets / (12.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.5 MB to 118.5 MB.
+Total: 6.161600 ms (FindLiveObjects: 0.229900 ms CreateObjectMapping: 0.073700 ms MarkObjects: 5.770800 ms  DeleteObjects: 0.086300 ms)
+
+Refreshing native plugins compatible for Editor in 1.47 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=65d717e1a802d4541b56400077835991): Total: 0.028 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 12 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.2 MB to 118.2 MB.
+Total: 5.757500 ms (FindLiveObjects: 0.223300 ms CreateObjectMapping: 0.072200 ms MarkObjects: 5.439500 ms  DeleteObjects: 0.021700 ms)
+
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675 using Guid(7c3772ffe65f4e0418a469ec3659d5ca) (DefaultImporter) -> (artifact id: 'd3cd54052f6e133db56f94707db1ebbd') in 0.0145654 seconds
+Refreshing native plugins compatible for Editor in 1.98 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=bccd479844e579a4cb7f81406f25b9ea): Total: 0.046 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675/FloorTile.asset using Guid(a3704c6b7b40cc246985a3e4729386b9) (NativeFormatImporter) -> (artifact id: 'd644283a005c5fc8fe21e9bc91fafe18') in 0.0018488 seconds
+Refreshing native plugins compatible for Editor in 1.40 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c2fe6ff955c3f344d819b7fc5c08213b): Total: 0.021 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675/FloorTile.asset using Guid(a3704c6b7b40cc246985a3e4729386b9) (NativeFormatImporter) -> (artifact id: 'fec97d06f29688ba94aa1d23f582c3ce') in 0.002191 seconds
+Refreshing native plugins compatible for Editor in 1.46 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=cae8f7f7941e8b349a85eceb1ad78e3e): Total: 0.016 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675/WallTile.asset using Guid(1dcf2f60128c3e54c9763e8960a7581a) (NativeFormatImporter) -> (artifact id: '8c57871eb3f2387a83d61e6ec944d51b') in 0.0094198 seconds
+Refreshing native plugins compatible for Editor in 1.63 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=1ebe5a36f9b6fe4418d4e1ea6afd4005): Total: 0.035 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675/WallTile.asset using Guid(1dcf2f60128c3e54c9763e8960a7581a) (NativeFormatImporter) -> (artifact id: 'a102882168d60e594024c4af03a9b256') in 0.0044796 seconds
+Refreshing native plugins compatible for Editor in 1.52 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=753647f60c72ff441a71a652a66737ca): Total: 0.020 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675/ArchitecturalBorderTile.asset using Guid(d84deee6dca276e4eae6010af828655d) (NativeFormatImporter) -> (artifact id: '6d87fb7926576ea0d178a6c9b8d5b87b') in 0.0037801 seconds
+Refreshing native plugins compatible for Editor in 1.50 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c627b5a0974203946a0e9b4c63f1a7c9): Total: 0.032 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675/ArchitecturalBorderTile.asset using Guid(d84deee6dca276e4eae6010af828655d) (NativeFormatImporter) -> (artifact id: 'b30a7f177045f23db4416d9114df0e64') in 0.0032595 seconds
+Refreshing native plugins compatible for Editor in 1.43 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c49805677fafb3d4ab78115c77154fe4): Total: 0.019 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675/UnrelatedTile.asset using Guid(594c90d6bb7502b42832f9587dde0aaa) (NativeFormatImporter) -> (artifact id: '8e7b537ac91174ceffb8589754cab59a') in 0.004728 seconds
+Refreshing native plugins compatible for Editor in 1.50 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=7ad58d4293dd7f4428e1431e1c034b68): Total: 0.031 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675/FloorTile.asset using Guid(a3704c6b7b40cc246985a3e4729386b9) (NativeFormatImporter) -> (artifact id: 'fec97d06f29688ba94aa1d23f582c3ce') in 0.0023342 seconds
+Refreshing native plugins compatible for Editor in 1.44 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=cd7de4964706723419c7fd825608da14): Total: 0.019 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675/WallTile.asset using Guid(1dcf2f60128c3e54c9763e8960a7581a) (NativeFormatImporter) -> (artifact id: 'a102882168d60e594024c4af03a9b256') in 0.0032446 seconds
+Refreshing native plugins compatible for Editor in 1.53 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=49049c62e7e0efb419202a76df06c0a1): Total: 0.029 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_7820590209be4c3b8b00dfc9339c8675/ArchitecturalBorderTile.asset using Guid(d84deee6dca276e4eae6010af828655d) (NativeFormatImporter) -> (artifact id: 'b30a7f177045f23db4416d9114df0e64') in 0.001965 seconds
+Refreshing native plugins compatible for Editor in 1.53 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=ddffc4fdc56c2ab49bb77d44286762ae): Total: 0.016 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 1 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 42 unused Assets / (9.9 KB). Loaded Objects now: 5505.
+Memory consumption went from 118.3 MB to 118.3 MB.
+Total: 6.312800 ms (FindLiveObjects: 0.179400 ms CreateObjectMapping: 0.067700 ms MarkObjects: 5.981700 ms  DeleteObjects: 0.083200 ms)
+
+Refreshing native plugins compatible for Editor in 2.88 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=61a3f942be335fd4cb1e521659f13709): Total: 0.027 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 12 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.3 MB to 118.3 MB.
+Total: 5.667900 ms (FindLiveObjects: 0.226100 ms CreateObjectMapping: 0.079000 ms MarkObjects: 5.340800 ms  DeleteObjects: 0.021200 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.4 MB to 118.4 MB.
+Total: 6.338000 ms (FindLiveObjects: 0.212500 ms CreateObjectMapping: 0.079100 ms MarkObjects: 5.987500 ms  DeleteObjects: 0.058300 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.4 MB to 118.4 MB.
+Total: 5.114600 ms (FindLiveObjects: 0.208400 ms CreateObjectMapping: 0.067600 ms MarkObjects: 4.830500 ms  DeleteObjects: 0.007500 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.5 MB to 118.5 MB.
+Total: 6.215200 ms (FindLiveObjects: 0.204800 ms CreateObjectMapping: 0.073900 ms MarkObjects: 5.874700 ms  DeleteObjects: 0.061000 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.5 MB to 118.5 MB.
+Total: 5.129600 ms (FindLiveObjects: 0.205400 ms CreateObjectMapping: 0.066700 ms MarkObjects: 4.850200 ms  DeleteObjects: 0.006800 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.6 MB to 118.6 MB.
+Total: 6.665000 ms (FindLiveObjects: 0.170000 ms CreateObjectMapping: 0.067400 ms MarkObjects: 6.367600 ms  DeleteObjects: 0.059200 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.6 MB to 118.6 MB.
+Total: 5.626900 ms (FindLiveObjects: 0.168900 ms CreateObjectMapping: 0.058400 ms MarkObjects: 5.391100 ms  DeleteObjects: 0.007700 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.7 MB to 118.7 MB.
+Total: 6.556100 ms (FindLiveObjects: 0.212400 ms CreateObjectMapping: 0.076000 ms MarkObjects: 6.202600 ms  DeleteObjects: 0.064400 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.7 MB to 118.7 MB.
+Total: 5.299600 ms (FindLiveObjects: 0.222800 ms CreateObjectMapping: 0.072500 ms MarkObjects: 4.996100 ms  DeleteObjects: 0.007500 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.7 MB to 118.7 MB.
+Total: 6.518400 ms (FindLiveObjects: 0.549300 ms CreateObjectMapping: 0.098100 ms MarkObjects: 5.813900 ms  DeleteObjects: 0.056300 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.7 MB to 118.7 MB.
+Total: 5.116400 ms (FindLiveObjects: 0.205700 ms CreateObjectMapping: 0.064900 ms MarkObjects: 4.837800 ms  DeleteObjects: 0.007500 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.8 MB to 118.8 MB.
+Total: 5.756700 ms (FindLiveObjects: 0.194200 ms CreateObjectMapping: 0.159000 ms MarkObjects: 5.324500 ms  DeleteObjects: 0.078100 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.8 MB to 118.8 MB.
+Total: 5.217100 ms (FindLiveObjects: 0.163300 ms CreateObjectMapping: 0.052700 ms MarkObjects: 4.990700 ms  DeleteObjects: 0.009500 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 118.9 MB to 118.9 MB.
+Total: 6.270000 ms (FindLiveObjects: 0.526600 ms CreateObjectMapping: 0.082600 ms MarkObjects: 5.601500 ms  DeleteObjects: 0.058400 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.9 MB to 118.9 MB.
+Total: 5.251900 ms (FindLiveObjects: 0.182900 ms CreateObjectMapping: 0.054500 ms MarkObjects: 5.006900 ms  DeleteObjects: 0.007100 ms)
+
+Start importing Assets/__DoorPrototypeSceneBuilderTests_5761c5a0b4f54b4da74183c15351a3c7 using Guid(f9fca4c35d23b5a4ca01c4999cc221e6) (DefaultImporter) -> (artifact id: '45be763de072769905c990d5c69ab011') in 0.0136687 seconds
+Refreshing native plugins compatible for Editor in 1.61 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=98f29752828484e44bc7c62e44120013): Total: 0.040 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_5761c5a0b4f54b4da74183c15351a3c7/FloorTile.asset using Guid(59daf5cde929cfd4eb109df1a978c388) (NativeFormatImporter) -> (artifact id: '63d3892697f471f65794126671c3b331') in 0.0019312 seconds
+Refreshing native plugins compatible for Editor in 1.53 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=43ab36dfa93799d4c81d532bf6883aa1): Total: 0.025 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_5761c5a0b4f54b4da74183c15351a3c7/FloorTile.asset using Guid(59daf5cde929cfd4eb109df1a978c388) (NativeFormatImporter) -> (artifact id: 'c26e3e59260e61fd4ebe143c89ea258f') in 0.0024107 seconds
+Refreshing native plugins compatible for Editor in 1.48 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=468f44ae6cfaee34e9383336fe2b206c): Total: 0.016 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_5761c5a0b4f54b4da74183c15351a3c7/WallTile.asset using Guid(32d93a4555c6309478044ab075a90429) (NativeFormatImporter) -> (artifact id: 'f43a28828c6d5185d4408e2eedb6972d') in 0.0019521 seconds
+Refreshing native plugins compatible for Editor in 1.50 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=b5f1fabeb7290b24298f0a38a04797ed): Total: 0.026 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_5761c5a0b4f54b4da74183c15351a3c7/WallTile.asset using Guid(32d93a4555c6309478044ab075a90429) (NativeFormatImporter) -> (artifact id: '70f92663d586017a8360b6fcc1ecb766') in 0.003364 seconds
+Refreshing native plugins compatible for Editor in 1.46 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=463f03d61ee1dc94da18dd775ccefe33): Total: 0.023 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_5761c5a0b4f54b4da74183c15351a3c7/ArchitecturalBorderTile.asset using Guid(e6f581e601b0cad4e8f1a96d91eabfe7) (NativeFormatImporter) -> (artifact id: '21e121f69d2028f247f7ddbd1472fc1d') in 0.0039203 seconds
+Refreshing native plugins compatible for Editor in 2.02 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=883c3dc62865e9f4e83e66d98794c2ed): Total: 0.032 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_5761c5a0b4f54b4da74183c15351a3c7/ArchitecturalBorderTile.asset using Guid(e6f581e601b0cad4e8f1a96d91eabfe7) (NativeFormatImporter) -> (artifact id: 'fcf4a4752eca65a52530c50a8038aaa0') in 0.0033861 seconds
+Refreshing native plugins compatible for Editor in 1.63 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c9cf34ebbe3d8dc47b536b0a1521c4cb): Total: 0.018 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 42 unused Assets / (12.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 119.2 MB to 119.2 MB.
+Total: 6.623000 ms (FindLiveObjects: 0.237200 ms CreateObjectMapping: 0.080800 ms MarkObjects: 6.229600 ms  DeleteObjects: 0.074700 ms)
+
+Refreshing native plugins compatible for Editor in 1.39 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=323916dcf87ed3b46ba3d03adc909778): Total: 0.024 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 12 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 118.9 MB to 118.9 MB.
+Total: 5.930500 ms (FindLiveObjects: 0.195800 ms CreateObjectMapping: 0.094100 ms MarkObjects: 5.622200 ms  DeleteObjects: 0.017500 ms)
+
+DoorPrototypeSceneBuilder.BuildCamera called with a null follow target; the camera will be placed at the world origin plus its isometric offset instead of framing the player, which will fail the fixed isometric framing requirement.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogWarning (object)
+NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder:BuildCamera (UnityEngine.Transform) (at Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs:259)
+System.Reflection.RuntimeMethodInfo:Invoke (object,System.Reflection.BindingFlags,System.Reflection.Binder,object[],System.Globalization.CultureInfo)
+System.Reflection.MethodBase:Invoke (object,object[])
+NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests:BuildCamera_NullFollowTarget_LogsWarningInsteadOfSilentlyMisframing () (at Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs:417)
+System.Reflection.RuntimeMethodInfo:Invoke (object,System.Reflection.BindingFlags,System.Reflection.Binder,object[],System.Globalization.CultureInfo)
+System.Reflection.MethodBase:Invoke (object,object[])
+NUnit.Framework.Internal.Reflect:InvokeMethod (System.Reflection.MethodInfo,object,object[])
+NUnit.Framework.Internal.MethodWrapper:Invoke (object,object[])
+NUnit.Framework.Internal.Commands.TestMethodCommand:RunNonAsyncTestMethod (NUnit.Framework.Internal.ITestExecutionContext)
+NUnit.Framework.Internal.Commands.TestMethodCommand:RunTestMethod (NUnit.Framework.Internal.ITestExecutionContext)
+NUnit.Framework.Internal.Commands.TestMethodCommand:Execute (NUnit.Framework.Internal.ITestExecutionContext)
+UnityEngine.TestTools.UnityTestMethodCommand:Execute (NUnit.Framework.Internal.ITestExecutionContext) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/UnityTestMethodCommand.cs:19)
+UnityEngine.TestRunner.NUnitExtensions.Runner.UnityLogCheckDelegatingCommand/<>c__DisplayClass2_0:<Execute>b__0 () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/UnityLogCheckDelegatingCommand.cs:24)
+UnityEngine.TestRunner.NUnitExtensions.Runner.UnityLogCheckDelegatingCommand:CaptureException (NUnit.Framework.Internal.TestResult,System.Action) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/UnityLogCheckDelegatingCommand.cs:72)
+UnityEngine.TestRunner.NUnitExtensions.Runner.UnityLogCheckDelegatingCommand:ExecuteAndCheckLog (UnityEngine.TestTools.Logging.LogScope,NUnit.Framework.Internal.TestResult,System.Action) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/UnityLogCheckDelegatingCommand.cs:83)
+UnityEngine.TestRunner.NUnitExtensions.Runner.UnityLogCheckDelegatingCommand:Execute (NUnit.Framework.Internal.ITestExecutionContext) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/UnityLogCheckDelegatingCommand.cs:24)
+UnityEngine.TestRunner.NUnitExtensions.Runner.UnityLogCheckDelegatingCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/UnityLogCheckDelegatingCommand.cs:35)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<NUnit.Framework.ITestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.ImmediateEnumerableCommand:Execute (NUnit.Framework.Internal.ITestExecutionContext) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/ImmediateEnumerableCommand.cs:18)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:219)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<System.Reflection.MethodInfo>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.BeforeAfterTestCommandBase`1/<ExecuteEnumerable>d__16<UnityEngine.TestTools.IOuterUnityTestAction>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/BeforeAfterTestCommandBase.cs:212)
+UnityEngine.TestTools.RetryCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RetryCommand.cs:37)
+UnityEngine.TestTools.RepeatCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/RepeatCommand.cs:36)
+UnityEngine.TestTools.IgnoreTestCommand/<ExecuteEnumerable>d__3:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/IgnoreTestCommand.cs:42)
+UnityEngine.TestTools.StrictCheckCommand/<ExecuteEnumerable>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Commands/StrictCheckCommand.cs:29)
+UnityEngine.TestRunner.NUnitExtensions.Runner.DefaultTestWorkItem/<PerformWork>d__2:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/DefaultTestWorkItem.cs:50)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<RunChildren>d__17:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:207)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<PerformWork>d__13:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:82)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<RunChildren>d__17:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:207)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<PerformWork>d__13:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:82)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<RunChildren>d__17:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:207)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<PerformWork>d__13:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:82)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<RunChildren>d__17:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:207)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<PerformWork>d__13:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:82)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<RunChildren>d__17:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:207)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<PerformWork>d__13:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:82)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<RunChildren>d__17:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:207)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<PerformWork>d__13:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:82)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<RunChildren>d__17:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:207)
+UnityEngine.TestRunner.NUnitExtensions.Runner.CompositeWorkItem/<PerformWork>d__13:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEngine.TestRunner/NUnitExtensions/Runner/CompositeWorkItem.cs:82)
+UnityEditor.TestTools.TestRunner.EditModeRunner:MoveNextAndUpdateYieldObject () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRunner/EditModeRunner.cs:167)
+UnityEditor.TestTools.TestRunner.EditModeRunner:TestConsumer (UnityEditor.TestTools.TestRunner.TestRunnerStateSerializer) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRunner/EditModeRunner.cs:200)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.EditModeRunTask/<Execute>d__1:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/EditModeRunTask.cs:48)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteStep () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:173)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteCallback () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:108)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs Line: 259)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 119.0 MB to 119.0 MB.
+Total: 6.416100 ms (FindLiveObjects: 0.167900 ms CreateObjectMapping: 0.066400 ms MarkObjects: 6.098000 ms  DeleteObjects: 0.082800 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 119.0 MB to 119.0 MB.
+Total: 5.717400 ms (FindLiveObjects: 0.221200 ms CreateObjectMapping: 0.076700 ms MarkObjects: 5.409700 ms  DeleteObjects: 0.008700 ms)
+
+Start importing Assets/__DoorPrototypeSceneBuilderTests_ed48e9fce52842ee90d618768b3773e5 using Guid(78e15c4f475eb004393d79c8dfda48a8) (DefaultImporter) -> (artifact id: '61369c9f179e02d6eb7347553a0d3953') in 0.0154347 seconds
+Refreshing native plugins compatible for Editor in 1.31 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=93b2120186a113d42b5a18271d0f3f13): Total: 0.049 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_ed48e9fce52842ee90d618768b3773e5/FloorTile.asset using Guid(4dc0301ce365d0e479c837254882f09f) (NativeFormatImporter) -> (artifact id: '1a0ab5a982feba21f7abf69ed27a68ec') in 0.001759 seconds
+Refreshing native plugins compatible for Editor in 1.47 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=ecfb6a34991b5e64eafe622c91f2b8e9): Total: 0.027 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_ed48e9fce52842ee90d618768b3773e5/FloorTile.asset using Guid(4dc0301ce365d0e479c837254882f09f) (NativeFormatImporter) -> (artifact id: '03997a1f381c0cff75c1e5fd4885ada4') in 0.0023088 seconds
+Refreshing native plugins compatible for Editor in 1.45 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=da3f15b56caa5f84bb22ffaf49341bdb): Total: 0.018 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_ed48e9fce52842ee90d618768b3773e5/WallTile.asset using Guid(852d269dc727ee443a54442000086f49) (NativeFormatImporter) -> (artifact id: '2e919365a1350c43d5200ef395ecea2f') in 0.0019502 seconds
+Refreshing native plugins compatible for Editor in 1.46 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=46b50b7dd7b81e942b9c3f00c93472de): Total: 0.026 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_ed48e9fce52842ee90d618768b3773e5/WallTile.asset using Guid(852d269dc727ee443a54442000086f49) (NativeFormatImporter) -> (artifact id: '98579f45fe747d8875c302e305de9c14') in 0.0039209 seconds
+Refreshing native plugins compatible for Editor in 1.47 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=965662e4851c44141b03c0847bcf3427): Total: 0.020 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_ed48e9fce52842ee90d618768b3773e5/ArchitecturalBorderTile.asset using Guid(02beb7f0f955f0e498f0e6bf9bc96c97) (NativeFormatImporter) -> (artifact id: 'b2e2d59a2f3ab22cbf21e0dfe6a557e1') in 0.0033666 seconds
+Refreshing native plugins compatible for Editor in 1.98 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=54a1485e7cfd3c9418fbcd265a161043): Total: 0.028 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/__DoorPrototypeSceneBuilderTests_ed48e9fce52842ee90d618768b3773e5/ArchitecturalBorderTile.asset using Guid(02beb7f0f955f0e498f0e6bf9bc96c97) (NativeFormatImporter) -> (artifact id: '851a5cd9b6a21e27eb8b6169e961b1cf') in 0.0040331 seconds
+Refreshing native plugins compatible for Editor in 2.08 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=af4a1eee49ec11b4490cee320f1b8ed9): Total: 0.022 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 42 unused Assets / (12.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 119.3 MB to 119.3 MB.
+Total: 5.695200 ms (FindLiveObjects: 0.230100 ms CreateObjectMapping: 0.084600 ms MarkObjects: 5.299500 ms  DeleteObjects: 0.080300 ms)
+
+Refreshing native plugins compatible for Editor in 1.47 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=4fc3998b1f2f19a4a871db9cc12780a3): Total: 0.029 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 12 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 119.0 MB to 119.0 MB.
+Total: 6.002200 ms (FindLiveObjects: 0.222800 ms CreateObjectMapping: 0.076500 ms MarkObjects: 5.681600 ms  DeleteObjects: 0.020800 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 119.2 MB to 119.2 MB.
+Total: 5.963100 ms (FindLiveObjects: 0.157500 ms CreateObjectMapping: 0.066400 ms MarkObjects: 5.679500 ms  DeleteObjects: 0.058800 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 119.2 MB to 119.2 MB.
+Total: 6.460100 ms (FindLiveObjects: 0.163500 ms CreateObjectMapping: 0.060600 ms MarkObjects: 6.223800 ms  DeleteObjects: 0.011100 ms)
+
+Unloading 2 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 21 unused Assets / (6.1 KB). Loaded Objects now: 5504.
+Memory consumption went from 119.2 MB to 119.2 MB.
+Total: 6.299900 ms (FindLiveObjects: 0.204400 ms CreateObjectMapping: 0.333900 ms MarkObjects: 5.696600 ms  DeleteObjects: 0.063700 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5504.
+Memory consumption went from 119.2 MB to 119.2 MB.
+Total: 5.601100 ms (FindLiveObjects: 0.187900 ms CreateObjectMapping: 0.063600 ms MarkObjects: 5.339700 ms  DeleteObjects: 0.009100 ms)
+
+Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-46a2d92b957149cf88ca4107fcd0e001\test-results.xml
+Executing IPostBuildCleanup for: Unity.PerformanceTesting.Editor.TestRunBuilder.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<ExecuteMethods>d__8<UnityEngine.TestTools.IPostBuildCleanup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:51)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<Execute>d__7<UnityEngine.TestTools.IPostBuildCleanup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:35)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteStep () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:173)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteCallback () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:108)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs Line: 51)
+
+Asset Pipeline Refresh (id=e936316735b76d745b626466de464857): Total: 0.010 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (0 B). Loaded Objects now: 5510.
+Memory consumption went from 118.9 MB to 118.9 MB.
+Total: 6.131400 ms (FindLiveObjects: 0.182900 ms CreateObjectMapping: 0.067000 ms MarkObjects: 5.871800 ms  DeleteObjects: 0.008900 ms)
+
+DisplayProgressbar: Undo
+Test run completed. Exiting with code 0 (Ok). Run completed.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:ExitApplication (UnityEditor.TestTools.TestRunner.CommandLineTest.Executer/ReturnCodes,string) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:81)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:ExitIfRunIsCompleted () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:74)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs Line: 81)
+
+Start importing ProjectSettings/EditorBuildSettings.asset using Guid(0000000000000000b000000000000000) (LibraryAssetImporter) -> (artifact id: '0685600c26805809423fbae87cc742c6') in 0.0017668 seconds
+Refreshing native plugins compatible for Editor in 1.69 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=ff39615be0ce1334e86a04d406865fa0): Total: 0.028 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+[Physics::Module] Cleanup current backned.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori channel disconnected successfully.
+AcceleratorClientConnectionCallback - disconnected - :0
+Cleanup mono
+Checking for leaked weakptr:
+  Found no leaked weakptrs.
+[Package Manager] Server process was shutdown
+##utp:{"type":"MemoryLeaks","version":2,"phase":"Immediate","time":1787654269919,"processId":40160,"allocatedMemory":12219837,"memoryLabels":[{"Default":14269},{"Permanent":15412},{"NewDelete":67953},{"Thread":4237960},{"Manager":30010},{"VertexData":8},{"Geometry":816},{"VFX":-104},{"Texture":296},{"Shader":78821},{"Material":24},{"GfxDevice":57248},{"Animation":328},{"Audio":4040},{"FontEngine":256},{"Physics":1241},{"Serialization":880},{"Input":14824},{"JobScheduler":33472},{"TextLib":160},{"Mono":32},{"ScriptingNativeRuntime":155060},{"BaseObject":1669872},{"Resource":1304},{"Renderer":2928},{"Transform":4646},{"File":3945},{"WebCam":616},{"Culling":32},{"Terrain":11394},{"Wind":24},{"STL":40},{"String":9786},{"DynamicArray":97674},{"HashMap":102518},{"Utility":2666358},{"Curl":48},{"PoolAlloc":1960},{"AI":40},{"TypeTree":5005},{"ScriptManager":512},{"RuntimeInitializeOnLoadManager":64},{"SpriteAtlas":112},{"GI":7824},{"Director":8240},{"WebRequest":808},{"VR":46058},{"SceneManager":496},{"Video":208},{"LazyScriptCache":32},{"Tilemap":12288},{"NativeArray":8},{"Camera":17},{"Secure":1},{"SerializationCache":1576},{"APIUpdating":10320},{"Subsystems":336},{"VirtualTexturing":57888},{"StaticSafetyDebugInfo":278528},{"Analytics":256},{"Hierarchy":272},{"Gui":80},{"EditorUtility":94674},{"VersionControl":4},{"Undo":947},{"AssetDatabase":2362631},{"EditorGi":328},{"UnityConnect":24536},{"Upm":1972},{"DrivenProperties":72},{"LocalIPC":278},{"ProfilerEditor":9738},{"CoreBusinessMetrics":3961},{"Licensing":3512},{"AssetReference":32},{"IPCStream":32}]}

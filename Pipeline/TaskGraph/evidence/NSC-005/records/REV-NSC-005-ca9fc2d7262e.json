@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "record_type": "revalidation",
+  "record_id": "REV-NSC-005-ca9fc2d7262e",
+  "task_id": "NSC-005",
+  "task_contract": {
+    "path": "Tasks/NSC-005.yaml",
+    "revision": 1,
+    "sha256": "1799a48d509b19ae56bbd845b1b584a362db46633e1c484d9b0a6a93d8f6e088"
+  },
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "6be2c5808e38db9ad093f3d56b32f655426fcd41d7844148521553d031f933de"
+  },
+  "validated_state": {
+    "commit": "ca9fc2d7262e5ecf1abb7eb5b711d5f009a55b22",
+    "tree": "ed3625d8a69f78bacb13c9567dd3033a7583e556"
+  },
+  "conformance_surfaces": [
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMana.cs",
+      "blob_sha": "e700430a7f33e7c2d19d2c40e42b9c1e1dc54ed2",
+      "role": "player_mana_owner"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+      "blob_sha": "1e57b77ee143ad8741cd921a93781c0ccf133577",
+      "role": "readable_denied_cast_feedback"
+    },
+    {
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/PlayerManaPlayModeTests.cs",
+      "blob_sha": "5e8e2c58ade24d780d48b2e9ca1710862c4f54d7",
+      "role": "completion_gate_tests"
+    },
+    {
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "blob_sha": "00c477ec2f94990fbbfa27b2340c130deb1bf69e",
+      "role": "committed_scene_integration"
+    }
+  ],
+  "gate_results": [
+    {
+      "gate_id": "VAL-001",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.xml",
+          "blob_sha": "e011e45db09c4cd1705941747d88559a85d8561c"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.log",
+          "blob_sha": "031e3a88b6b3bc75a97087985f144dff787e7787"
+        }
+      ],
+      "notes": "Revalidated at merged NSC-041 state ca9fc2d7262e: complete PlayMode suite 93/93 passed. This preserves the completion-gate coverage represented by basis record REV-NSC-005-287f3e4e41ac."
+    },
+    {
+      "gate_id": "VAL-002",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.xml",
+          "blob_sha": "e011e45db09c4cd1705941747d88559a85d8561c"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.log",
+          "blob_sha": "031e3a88b6b3bc75a97087985f144dff787e7787"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/HumanValidation-ca9fc2d7262e.txt",
+          "blob_sha": "6430d7539caf2317737dc2c1fc0e70ed8109a6f1"
+        }
+      ],
+      "notes": "Revalidated at merged NSC-041 state ca9fc2d7262e: complete PlayMode suite 93/93 passed; manual Play Mode revalidation approved by cathode26. This preserves the completion-gate coverage represented by basis record REV-NSC-005-287f3e4e41ac."
+    },
+    {
+      "gate_id": "VAL-003",
+      "result": "pass",
+      "evidence": [
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.xml",
+          "blob_sha": "e011e45db09c4cd1705941747d88559a85d8561c"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/SharedRevalidation-PlayMode-ca9fc2d7262e.log",
+          "blob_sha": "031e3a88b6b3bc75a97087985f144dff787e7787"
+        },
+        {
+          "path": "Pipeline/TaskGraph/evidence/NSC-005/artifacts/HumanValidation-ca9fc2d7262e.txt",
+          "blob_sha": "6430d7539caf2317737dc2c1fc0e70ed8109a6f1"
+        }
+      ],
+      "notes": "Revalidated at merged NSC-041 state ca9fc2d7262e: complete PlayMode suite 93/93 passed; manual Play Mode revalidation approved by cathode26. This preserves the completion-gate coverage represented by basis record REV-NSC-005-287f3e4e41ac."
+    }
+  ],
+  "human_approval": {
+    "required": true,
+    "decision": "approved",
+    "approved_by": "cathode26",
+    "notes": "Shared human revalidation approved after the merged NSC-041 visual/runtime check."
+  },
+  "recorded_at": "2026-08-25T10:53:16.480596Z",
+  "revalidation": {
+    "basis_record_id": "REV-NSC-005-287f3e4e41ac",
+    "reason_type": "code_change",
+    "summary": "Revalidates the task after NSC-041 legitimately changed shared DoorPrototype builder/tests/scene surfaces to add door visual affordance and feedback, then merged current main. Complete clean Unity suites and the shared manual Play Mode review confirmed the prior task behavior remains conformant."
+  }
+}

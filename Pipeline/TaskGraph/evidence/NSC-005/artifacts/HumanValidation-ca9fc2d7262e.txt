@@ -1,0 +1,15 @@
+NSC-005 Shared-Surface Revalidation
+Validated commit: ca9fc2d7262e5ecf1abb7eb5b711d5f009a55b22
+Validated tree: ed3625d8a69f78bacb13c9567dd3033a7583e556
+Reviewer: cathode26
+Recorded UTC: 2026-08-25T10:53:16.480596Z
+
+Automated validation at this same committed state:
+- Complete Door Prototype EditMode suite: 34/34 passed.
+- Complete Door Prototype PlayMode suite: 93/93 passed.
+- Both strict manifests report clean-before/clean-after and unchanged HEAD/tree.
+
+Manual Play Mode validation:
+- After exhausting mana with the debug spend control, another spend attempt shows readable mana and denied/insufficient-mana feedback.
+
+Decision: APPROVED
