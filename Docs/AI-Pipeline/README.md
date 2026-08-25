@@ -10,6 +10,7 @@ The documentation is intentionally split so a fresh AI context only needs the ma
 
 - `START_HERE.md` — routing / table of contents for humans and AI assistants.
 - `CURRENT_STATE.md` — exactly where pipeline implementation currently stands and the next action.
+- `OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md` — durable operator preference and transfer-safety rules; human-facing external handoff files default to the Windows Downloads folder, while authoritative/tool-owned files remain in place.
 - `DECISIONS.md` — durable architecture decisions so they are not repeatedly re-litigated.
 - `00_MASTER_CONTEXT.md` — complete target architecture.
 - `01_MILESTONE_TASK_GRAPH.md` — task artifacts, dependency graph, ready queue.
