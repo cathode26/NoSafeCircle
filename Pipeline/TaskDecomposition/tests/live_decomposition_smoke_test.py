@@ -139,11 +139,11 @@ def main() -> int:
             "${NSC_DECOMPOSITION_HOST_OUTPUT_ROOT:-../NoSafeCircle-DecompositionOutputs}"
             ":/decomposition-output:rw"
         )
-        assert compose_text.count(external_mount) == 2
+        assert compose_text.count(external_mount) == 3
         assert "Pipeline/TaskDecomposition/outputs:/decomposition-output" not in compose_text
         assert compose_text.count(
             "NSC_DECOMPOSITION_OUTPUT_ROOT: /decomposition-output"
-        ) == 2
+        ) == 3
 
         # Production provider construction is exact and is never invoked here.
         claude_key, claude_configuration = provider_configuration("claude")
