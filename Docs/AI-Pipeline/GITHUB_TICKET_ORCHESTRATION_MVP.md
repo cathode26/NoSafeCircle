@@ -4,359 +4,265 @@
 
 This is the minimum coordination layer for running several **human-directed ChatGPT orchestrators in parallel** against No Safe Circle.
 
-It supports two bounded orchestrator work types under generic selection:
+It supports:
 
 - `work_type: implementation` — fresh implementation of a suitable undelivered concrete executable contract;
-- `work_type: decomposition` — Stage D1B.1 read-only decomposition of an eligible decomposition-relevant parent contract.
+- `work_type: decomposition` — Stage D1B.1 read-only decomposition of an eligible decomposition-relevant parent.
 
-`decomposition` is an orchestrator work type, not a new TaskGraph `kind` or fabricated `NSC-###` work contract.
-
-The implementation flow is:
+The canonical Windows task path is defined by:
 
 ```text
-select implementation task
-    ↓
-check GitHub Issue
-    ↓
-claim Issue
-    ↓
-create isolated standalone clone + task branch
-    ↓
-perform normal ExecutionCrew / Unity / TaskDelivery workflow
-    ↓
-publish structured closeout to Issue
-    ↓
-close Issue after normal delivery/merge
-```
-
-The decomposition flow is:
-
-```text
-select decomposition-relevant parent
-    ↓
-check GitHub Issue
-    ↓
-claim/reserve parent Issue
-    ↓
-run Stage D1B.1 against physically read-only source
-    ↓
-publish Decomposition Closeout + review-only artifacts
-    ↓
-stop at human review/application boundary
-```
-
-This is intentionally **not** the final autonomous Supervisor. It does not implement dependency readiness, automatic priority selection, lease expiry, heartbeats, distributed locking, automatic PRs, automatic merge, GitHub Projects, budgets, or continuous polling.
-
-The human operator accepts the possibility that two ChatGPT windows might claim the same ticket at nearly the same time and will correct that manually if it occurs.
-
-For generic task-picking behavior, including candidate retry and decomposition selection, read:
-
-```text
-Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md
-Docs/AI-Pipeline/GENERIC_TASK_SELECTION_RETRY_AND_DECOMPOSITION.md
+Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md
 ```
 
 ## Source-of-truth split
 
 ### TaskGraph owns durable work truth
 
-`Tasks/NSC-###.yaml` owns:
-
-- task identity/title;
-- scope;
-- dependencies;
-- acceptance criteria;
-- completion gates;
-- downstream integration obligations;
-- execution/decomposition state;
-- exclusive resources;
-- canon/GDD evidence;
-- contract revision/provenance.
+`Tasks/NSC-###.yaml` owns task identity, scope, dependencies, acceptance criteria, completion gates, downstream obligations, execution/decomposition state, exclusive resources, canon evidence, and provenance.
 
 Committed TaskGraph evidence owns current conformance.
 
 ### GitHub owns operational visibility
 
-A GitHub Issue owns the shared answer to:
+A GitHub Issue answers:
 
-- Is somebody currently working on or reserving this task?
-- Which ChatGPT orchestration window claimed it?
-- Is the current orchestration work implementation or decomposition?
-- What approach did that orchestrator intend to use?
-- What branch/base commit/checkout did it use for implementation?
-- What provider/run/output did it use for decomposition?
-- What did it actually implement or propose?
-- What choices did it make?
-- What was missing or underspecified?
-- What validation/review happened?
-- What follow-up remains?
+- is the task currently claimed/reserved?;
+- which ChatGPT worker owns the orchestration?;
+- what work type is active?;
+- which base commit, branch/checkout, provider/run/output is being used?;
+- what approach, decisions, blockers, validation, and closeout were recorded?
 
-GitHub operational state never replaces TaskGraph authority.
+GitHub never replaces TaskGraph authority.
 
 ## Issue state convention
 
-For an Issue whose title starts with the exact task ID:
+For the Issue whose title starts with the exact task ID:
 
 | GitHub state | Meaning |
 | --- | --- |
-| no Issue | available; ticket has not been created yet |
-| open + unassigned | available/released |
-| open + assigned | claimed/in progress or deliberately reserved awaiting review |
-| closed | orchestration finished under the applicable workflow |
+| no Issue | available; create before claiming |
+| open + unassigned | available / released |
+| open + assigned | claimed / in progress or deliberately reserved |
+| closed | orchestration finished |
 
-For this MVP, assignment is the claim/reservation marker. No labels or Projects board are required.
+Assignment is the current claim marker. Simultaneous claim atomicity is intentionally deferred.
 
-A review-ready decomposition that still awaits human review/application should remain clearly reserved or otherwise marked so another orchestrator does not immediately rerun the same parent contract/hash.
+## Issue title/body
 
-## Issue title
-
-Use the existing TaskGraph task ID:
+Use:
 
 ```text
 NSC-044 — Ruined Entry Spatial Blockout
 ```
 
-For decomposition work, still use the **existing parent NSC ID**. Do not create a fake new TaskGraph ID for the act of decomposition.
+The body should mirror the committed task contract: purpose, bounded/decomposition reason, dependencies, acceptance criteria, completion gates, downstream obligations, execution/decomposition state, exclusive resources, canon evidence, scope notes, contract path/revision/reconciliation key, and the Issue-state convention.
 
-The exact NSC ID must begin the title so other orchestrators can search reliably.
+For decomposition work, keep the existing parent NSC ID; do not fabricate a new TaskGraph task for the act of decomposition.
 
-## Issue body
+## Claim protocol
 
-The Issue body should be generated from the committed task contract and include:
+Before selecting work:
 
-- what the task accomplishes;
-- why it is bounded or why it requires decomposition;
-- dependencies;
-- acceptance criteria;
-- completion/validation gates;
-- downstream integration obligations;
-- execution/decomposition state;
-- exclusive resources;
-- canon/design evidence;
-- task contract path/revision/reconciliation key;
-- the operational-state convention.
+1. inspect current TaskGraph state and active decomposition candidates;
+2. inspect candidate contracts;
+3. search GitHub Issues for exact NSC IDs;
+4. skip assigned/closed candidates;
+5. inspect exclusive-resource conflicts;
+6. under a generic request, continue to another candidate when an early one is unsuitable.
 
-`Pipeline/Supervisor/task_checkout.py checkout ...` emits an `issue-body.md` for implementation work that follows the existing implementation format. Decomposition claims may use the same parent contract body and add decomposition-specific context in the Claim / Planned Approach.
+When selecting an available work unit:
 
-## Claim protocol for each ChatGPT window
+1. create/fill its Issue if absent;
+2. assign it to `cathode26`;
+3. identify the worker ID;
+4. explicitly identify `work_type: implementation` or `work_type: decomposition`;
+5. post a **Claim / Planned Approach**;
+6. create/enter the canonical task checkout;
+7. start the applicable bounded pipeline.
 
-Before picking work:
+## Canonical checkout path
 
-1. Read the current repository/task graph and mandatory selection docs.
-2. Build fresh implementation candidates from appropriate current `not_delivered` concrete executable work.
-3. Also inspect active contracts for decomposition-work candidates accepted by the production Progressive Decomposer preflight.
-4. For each plausible candidate, search GitHub Issues for its exact NSC ID.
-5. Exclude an open Issue that is already assigned.
-6. Exclude a closed Issue.
-7. Inspect exclusive-resource conflicts with current claims.
-8. Under a generic task-picking request, if the first candidate is unavailable/unsuitable, **continue to the next sensible candidate rather than stopping**.
-9. When selecting an unclaimed work unit:
-   - create its Issue if needed;
-   - assign the Issue to `cathode26`;
-   - identify this orchestration window with a worker ID such as `chatgpt-1`;
-   - explicitly identify `work_type: implementation` or `work_type: decomposition`;
-   - post a Claim / Planned Approach comment;
-   - start the appropriate bounded pipeline.
-
-### Local checkout for implementation
-
-For `work_type: implementation`, from a clean current NoSafeCircle checkout:
-
-```powershell
-python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1
-```
-
-The helper follows the authoritative Windows rule:
-
-- clone from `https://github.com/cathode26/NoSafeCircle.git`;
-- do not clone the local working copy;
-- do not use a Git worktree for Docker-backed execution;
-- start from the exact current remote `main`;
-- create an isolated descriptive task branch;
-- validate TaskGraph before work begins.
-
-For provider-backed Docker commands inside the standalone clone, continue to use the documented fixed Compose project:
+Shared operator/main checkout:
 
 ```text
-docker compose -p nosafecircle ...
+C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
 ```
 
-### Read-only source for decomposition
+Claimed NSC task checkout:
 
-For `work_type: decomposition`, do **not** create an implementation checkout merely because the old MVP flow always did so.
+```text
+C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+```
 
-Follow `Pipeline/TaskDecomposition/README.md`. Stage D1B.1 requires a clean, physically read-only source mount and a filesystem-disjoint output root. The documented provider-backed command uses the decomposition compose profiles.
+Examples:
 
-The authoritative decomposition eligibility check is `Pipeline/TaskDecomposition/context_builder.py::validate_task_selection`.
+```text
+C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+```
+
+Preserve the hyphenated task ID. Do not use `NoSafeCircle-NSC...`, `-DECOMP`, or timestamped checkout-directory variants as the normal task path.
+
+### Implementation checkout
+
+Use the Supervisor helper with an explicit canonical path:
+
+```powershell
+python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+```
+
+The helper must clone from GitHub/current remote `main`, use a standalone clone, create the task branch, validate TaskGraph, and leave the checkout clean before provider work.
+
+### Decomposition checkout
+
+Decomposition uses the same task directory:
+
+```text
+C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+```
+
+and a filesystem-disjoint authoritative output sibling, normally:
+
+```text
+C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021-Outputs
+```
+
+Read `Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md` before D1B.1.
 
 ## Claim / Planned Approach comment
 
-Every claimed Issue should contain a comment with the information applicable to its work type:
+Record information applicable to the work type:
 
 ```text
 Worker
 work_type: implementation | decomposition
 Exact base/source main commit
-Branch + Checkout                         # implementation
-Provider + decomposition output location  # decomposition
+Canonical checkout path
+Branch                         # implementation
+Provider + output location     # decomposition
 Planned approach
 Expected validation/review boundary
 Assumptions / risks
 ```
 
-The **Planned approach** should explain what the orchestrator intends to do to accomplish the work, not merely repeat acceptance-criterion text.
+The planned approach must describe how the orchestrator intends to accomplish the work, not merely repeat acceptance criteria.
 
-For implementation, identify implementation choices already expected. If missing design is discovered rather than implementation freedom, follow existing contract/design authority rules rather than silently inventing canon.
+## Implementation workflow
 
-For decomposition, explain why the parent is decomposition-relevant and what D1B.1 is expected to decide/propose. Do not imply that the resulting graph delta will be applied automatically.
-
-## Normal implementation
-
-After an implementation claim/checkout, follow the existing real-task delivery workflow. This MVP does not replace:
+After claim/checkout, follow the established real-task delivery path:
 
 - Contract Locality Auditor;
-- ExecutionCrew;
+- ExecutionCrew when applicable;
 - human candidate review;
-- Unity validation;
+- Unity/runtime/human validation;
+- authoritative validation evidence;
 - TaskDelivery review/finalize;
-- evidence publication;
-- TaskGraph conformance derivation;
+- committed evidence;
+- TaskGraph-derived conformance;
 - human merge authority.
 
-The Issue is the shared orchestration dashboard around those systems.
+The Issue is the dashboard around those systems.
 
-## Decomposition execution
+## Decomposition workflow
 
-After a decomposition claim, follow the existing Stage D1B.1 pipeline in `Pipeline/TaskDecomposition/README.md`.
+Follow `Pipeline/TaskDecomposition/README.md` and `Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md`.
 
-The decomposition result may be:
+D1B.1 may return:
 
 - `already_concrete`;
 - `decomposed`;
 - `needs_artifact`;
 - `needs_human`.
 
-D1B.1 outputs remain `review_only_not_applied`. `graph_delta.json`, when present, is not automatic graph authority. Stage D1C reusable graph application remains unimplemented.
+Outputs remain `review_only_not_applied`; `graph_delta.json`, when present, is not automatically applied.
 
-A generic task-picking request authorizes selecting and running an eligible decomposition proposal, not silently applying its result.
+A `review_ready` result is successful completion of the decomposition work unit even when the semantic result is `needs_artifact` or `needs_human`.
 
-## Implementation closeout protocol
+## Implementation closeout
 
-Before closing an implementation ticket, generate a closeout draft from the task checkout:
+Generate the draft using the canonical task directory:
 
 ```powershell
-python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC044
+python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
 ```
 
-The report is written outside the repository under:
+The final Closeout Report must state:
 
-```text
-%USERPROFILE%\Downloads\NoSafeCircleOutput\TicketOrchestration\<TASK-ID>\<timestamp>\
-```
+1. outcome;
+2. what changed;
+3. how the task was accomplished;
+4. decisions/choices made;
+5. missing/underspecified items;
+6. additions beyond original task;
+7. validation performed/results;
+8. remaining follow-ups/risks;
+9. actual TaskGraph closeout state;
+10. final branch/commit/merge identities.
 
-The orchestrator must fill every required section.
+If a section has nothing to report, write `None.`.
 
-### Required implementation closeout narrative
+Close the Issue only after the normal delivery/merge path is finished. Issue closure does not establish conformance.
 
-The final Issue comment must explicitly answer:
+## Decomposition closeout
 
-1. **Outcome** — what result exists now?
-2. **What changed** — what behavior/content/code was added or changed?
-3. **How I accomplished the task** — what approach/steps were used?
-4. **Decisions and choices I made** — what implementation freedom was exercised?
-5. **Missing or underspecified items I encountered** — what was not specified clearly?
-6. **Additions beyond the original task** — what extra was added and why?
-7. **Validation performed** — which tests/runtime/human checks ran and what happened?
-8. **Remaining follow-ups / risks** — what still needs attention?
-9. **TaskGraph closeout state** — what did current conformance report after authoritative delivery/merge?
-
-If a section has nothing to report, write `None.`. Do not omit the section.
-
-### Closing implementation
-
-After the closeout report is posted and normal delivery/merge is finished:
-
-- close the GitHub Issue as completed;
-- leave the closeout report as durable operational history.
-
-Closing a GitHub Issue does not itself establish conformance. The report should quote the actual TaskGraph-derived state rather than inventing completion truth.
-
-## Decomposition closeout protocol
-
-If D1B.1 reaches `review_ready`, post a **Decomposition Closeout** comment with:
+If D1B.1 reaches `review_ready`, post a **Decomposition Closeout** containing:
 
 1. worker ID and `work_type: decomposition`;
-2. parent task ID/revision/source commit;
-3. provider and run ID;
-4. semantic decision;
-5. `decomposition_result.json` identity/path;
-6. `graph_delta.json` identity/path when present;
-7. concise proposed-child or `needs_artifact` / `needs_human` summary;
+2. parent ID/revision/source commit;
+3. canonical source checkout and output paths;
+4. provider/run ID;
+5. semantic decision;
+6. `decomposition_result.json` and `graph_delta.json` identities when present;
+7. concise proposal/blocker summary;
 8. explicit `review_only_not_applied` statement;
 9. required human/review/application next action.
 
-A `review_ready` result is successful completion of the **decomposition work unit** even when the semantic decision is `needs_artifact` or `needs_human`.
-
-Do not claim the parent implementation is delivered/conformant merely because decomposition succeeded. Keep the parent clearly reserved/marked while the review-ready output awaits human review/application so another orchestrator does not immediately duplicate the run.
+Do not mark the parent implementation delivered merely because decomposition succeeded. Keep review-ready work clearly reserved while awaiting human review/application.
 
 ## Release / abandonment
 
-If a worker stops without completing the selected work unit:
+If a worker stops without completing the work unit:
 
-1. add an Issue comment explaining why the work is being released;
-2. preserve useful branch/checkout/log/decomposition-output artifacts;
-3. unassign the Issue unless it must remain deliberately reserved awaiting human review;
-4. keep the Issue open unless orchestration is truly finished under the applicable workflow.
+1. comment why and record useful state;
+2. preserve useful canonical checkout/log/output artifacts;
+3. unassign unless the Issue must remain intentionally reserved for review;
+4. keep it open unless orchestration is truly finished.
 
-For a **generic task-picking request**, release of a genuinely blocked candidate normally returns the orchestrator to current candidate selection:
+Under a generic request, a genuine hard blocker normally returns the orchestrator to the candidate-selection loop. Do not task-hop merely because ordinary implementation/validation is difficult.
+
+## Existing checkout rule
+
+Never overwrite, delete, reset, or casually reuse:
 
 ```text
-release blocked candidate
-        ↓
-refresh current main + TaskGraph + Issues
-        ↓
-choose next sensible implementation or decomposition candidate
-        ↓
-continue until viable work starts or safe candidates are exhausted
+C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
 ```
 
-Do not task-hop because normal implementation is difficult. Compilation errors, failing tests, implementation bugs, and ordinary bounded repair stay inside the selected task's normal execution/GER/validation loop.
-
-Do not delete the branch, checkout, logs, or decomposition outputs automatically. Preserve them until the human decides whether they contain useful work.
+Inspect and reconcile it. Do not create a differently named duplicate checkout as the normal collision workaround.
 
 ## Explicit-task exception
 
-Automatic substitution/retry applies to a generic request such as:
+Generic selection may retry/substitute candidates. If the human explicitly names a task, report that task's blocker rather than silently switching to another NSC ID.
 
-> Go pick a task and start on it.
+## Fresh-window prompt
 
-If the human explicitly names the target (`Work on NSC-042` or `Decompose NSC-021`), a blocker must be reported for that target rather than silently substituting another NSC task unless the human separately authorizes substitution.
+A short instruction is enough because the repository now contains the full process:
 
-## Five-window startup prompt
+> Go pick a task and start on it. Follow the current repository's mandatory TaskGraph selection, GitHub claim, canonical task checkout, implementation/decomposition, retry, validation, and closeout rules.
 
-The human can give each ChatGPT window a short generic instruction because the repository now contains the selection policy. For example, changing only the worker number:
-
-> You are `chatgpt-1`, one No Safe Circle task orchestrator. Go pick a task and start on it. Follow the current repository's mandatory task-selection, retry, decomposition, GitHub-claim, checkout/execution, and closeout instructions. Keep trying sensible candidates if an early generic candidate is unavailable or genuinely blocked; do not substitute another task if I explicitly name one.
-
-Use worker IDs `chatgpt-1` through `chatgpt-5`.
-
-A fully fresh window should read `AI_PIPELINE.md`, `START_HERE.md`, `TASK_SELECTION_AND_CHECKOUT.md`, `GENERIC_TASK_SELECTION_RETRY_AND_DECOMPOSITION.md`, and the applicable implementation/decomposition runbook rather than relying on this example prompt as the complete policy.
+A fresh window should read `AI_PIPELINE.md`, `START_HERE.md`, `TASK_SELECTION_AND_CHECKOUT.md`, `TASK_CHECKOUT_PATH_CONVENTION.md`, `GENERIC_TASK_SELECTION_RETRY_AND_DECOMPOSITION.md`, and the applicable runbook.
 
 ## Known MVP limitations
 
-Deliberately deferred:
+Still deliberately deferred:
 
 - simultaneous-claim atomicity;
-- automatic issue synchronization for every TaskGraph item;
 - dependency-readiness policy;
-- automatic task ranking;
+- automatic ranking;
 - GitHub Projects;
-- Draft PR creation;
-- bot/GitHub App authentication;
-- lease timeout/heartbeat;
-- resource-level claims;
-- automatic merge/close;
-- reusable automatic graph application for decomposition (D1C);
+- automatic PR/merge;
+- lease heartbeat;
+- automatic release;
+- D1C reusable graph application;
 - D1B.2 independent decomposition verification/refinement.
-
-Generic orchestrator retry after a genuine candidate skip/release is now a documented human-authorized behavior, but it is still performed by the ChatGPT orchestrator rather than a persistent local autonomous polling supervisor.
