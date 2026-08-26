@@ -16,6 +16,7 @@ from conformance_records import (
     load_committed_records,
     semantic_json_sha256,
 )
+from decomposition_graph_semantics import aggregate_child_state_summary
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -131,6 +132,65 @@ def _maximal(repo: GitRepository, records: list[CommittedRecord]) -> list[Commit
     return sorted(maximal, key=lambda item: item.record_id)
 
 
+def _explicit_aggregate_conformance(
+    *,
+    root: Path | str,
+    task: dict[str, Any],
+    head: str,
+    head_tree: str,
+    dirty: bool,
+) -> ConformanceState | None:
+    child_ids = task.get("decomposition_children")
+    if not (
+        task.get("kind") == "feature"
+        and task.get("decomposition_state") == "decomposed"
+        and isinstance(child_ids, list)
+        and child_ids
+    ):
+        return None
+
+    child_states: dict[str, str] = {}
+    for child_id in child_ids:
+        child_result = evaluate_current_conformance(root=root, selector=child_id)
+        child_states[child_id] = child_result.state
+    complete, summary = aggregate_child_state_summary(child_states)
+    task_id = str(task.get("id") or "")
+    title = str(task.get("title") or "")
+    if complete:
+        return ConformanceState(
+            task_id,
+            title,
+            "conformant",
+            head,
+            head_tree,
+            None,
+            (
+                _finding(
+                    "aggregate_children_conformant",
+                    "All explicitly delegated decomposition children are conformant; "
+                    f"aggregate completion is derived without a separate parent implementation pass ({summary}).",
+                ),
+            ),
+            dirty,
+        )
+    return ConformanceState(
+        task_id,
+        title,
+        "aggregate",
+        head,
+        head_tree,
+        None,
+        (
+            _finding(
+                "aggregate_children_incomplete",
+                "Decomposed feature remains aggregate until every explicitly delegated child is conformant "
+                f"({summary}).",
+            ),
+        ),
+        dirty,
+    )
+
+
 def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") -> ConformanceState:
     repo = GitRepository(root)
     head = repo.head()
@@ -147,6 +207,17 @@ def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") ->
     if disposition in {"cancelled", "superseded"}:
         return ConformanceState(task_id, title, disposition, head, head_tree, None,
             (_finding(f"contract_{disposition}", f"Contract disposition is {disposition}."),), dirty)
+
+    aggregate_result = _explicit_aggregate_conformance(
+        root=root,
+        task=task,
+        head=head,
+        head_tree=head_tree,
+        dirty=dirty,
+    )
+    if aggregate_result is not None:
+        return aggregate_result
+
     if task.get("kind") == "feature" or task.get("execution_scope") != "single_agent":
         return ConformanceState(task_id, title, "aggregate", head, head_tree, None,
             (_finding("non_executable_contract", "Feature or non-executable contract is aggregate."),), dirty)
