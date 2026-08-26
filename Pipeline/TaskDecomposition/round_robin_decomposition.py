@@ -229,10 +229,13 @@ def _round_invocation_id(
     round_number: int,
     role: str,
 ) -> str:
+    role_slug = role.replace("_", "-")
     suffix = hashlib.sha256(
         f"{run_id}:{round_number}:{role}".encode("utf-8")
     ).hexdigest()[:12]
-    return f"{task_id.lower()}-d1b2-r{round_number:02d}-{role}-{suffix}"
+    return _validate_run_id(
+        f"{task_id.lower()}-d1b2-r{round_number:02d}-{role_slug}-{suffix}"
+    )
 
 
 def _round_request(
