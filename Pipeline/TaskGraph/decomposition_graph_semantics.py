@@ -69,6 +69,21 @@ def validate_decomposition_graph_semantics(plan: Any) -> None:
                     f"Decomposition child {child_id} of active aggregate {parent_id} must be active."
                 )
 
+        expected_active_children = {
+            task["id"]
+            for task in tasks
+            if task.get("contract_disposition") == "active"
+            and task.get("parent") == parent_id
+        }
+        actual_children = set(child_ids)
+        if actual_children != expected_active_children:
+            missing = sorted(expected_active_children - actual_children)
+            extra = sorted(actual_children - expected_active_children)
+            raise DecompositionGraphSemanticsError(
+                f"Decomposed aggregate {parent_id}.decomposition_children must exactly name all "
+                f"active direct children (missing={missing}, extra={extra})."
+            )
+
         for dependent in tasks:
             if dependent.get("contract_disposition") != "active":
                 continue
