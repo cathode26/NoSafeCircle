@@ -138,7 +138,6 @@ DECOMPOSITION_RESULT_SCHEMA = {
                     "replacement_local_keys": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "minItems": 1,
                     },
                     "reason": {"type": "string"},
                 },
