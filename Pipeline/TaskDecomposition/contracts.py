@@ -396,6 +396,46 @@ class ParentCoverageRecord:
 
 
 @dataclass(frozen=True)
+class InboundDependencyRewrite:
+    dependent_task_id: str
+    replacement_local_keys: tuple[str, ...]
+    reason: str
+
+    @classmethod
+    def from_dict(cls, raw: Any, label: str) -> "InboundDependencyRewrite":
+        value = _object(raw, label, {"dependent_task_id", "replacement_local_keys", "reason"})
+        dependent_task_id = _text(value["dependent_task_id"], f"{label}.dependent_task_id")
+        if not TASK_ID_RE.fullmatch(dependent_task_id):
+            raise DecompositionContractError(
+                f"{label}.dependent_task_id has invalid NSC identity: {dependent_task_id!r}."
+            )
+        replacement_local_keys = _string_tuple(
+            value["replacement_local_keys"], f"{label}.replacement_local_keys"
+        )
+        if not replacement_local_keys:
+            raise DecompositionContractError(
+                f"{label}.replacement_local_keys must contain at least one concrete child key."
+            )
+        for local_key in replacement_local_keys:
+            if not LOCAL_KEY_RE.fullmatch(local_key):
+                raise DecompositionContractError(
+                    f"{label}.replacement_local_keys contains invalid local key {local_key!r}."
+                )
+        return cls(
+            dependent_task_id,
+            replacement_local_keys,
+            _text(value["reason"], f"{label}.reason"),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "dependent_task_id": self.dependent_task_id,
+            "replacement_local_keys": list(self.replacement_local_keys),
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
 class ParentObligationRef:
     parent_entry_type: str
     parent_entry_id: str
@@ -467,6 +507,7 @@ class DecompositionResult:
     reason: str
     children: tuple[ChildProposal, ...]
     parent_requirement_coverage: tuple[ParentCoverageRecord, ...]
+    inbound_dependency_rewrites: tuple[InboundDependencyRewrite, ...]
     unsupported_assumptions: tuple[str, ...]
     unresolved_questions: tuple[str, ...]
     artifact_proposal: ArtifactProposal | None
@@ -476,7 +517,8 @@ class DecompositionResult:
         value = _snapshot(raw)
         required = {
             "schema_version", "parent_task", "decision", "gap_type", "reason", "children",
-            "parent_requirement_coverage", "unsupported_assumptions", "unresolved_questions",
+            "parent_requirement_coverage", "inbound_dependency_rewrites",
+            "unsupported_assumptions", "unresolved_questions",
         }
         value = _object(value, "decomposition_result", required, {"artifact_proposal"})
         version = _text(value["schema_version"], "decomposition_result.schema_version")
@@ -499,6 +541,19 @@ class DecompositionResult:
             ParentCoverageRecord.from_dict(item, f"decomposition_result.parent_requirement_coverage[{index}]")
             for index, item in enumerate(_list(value["parent_requirement_coverage"], "decomposition_result.parent_requirement_coverage"))
         )
+        rewrites = tuple(
+            InboundDependencyRewrite.from_dict(
+                item, f"decomposition_result.inbound_dependency_rewrites[{index}]"
+            )
+            for index, item in enumerate(
+                _list(value["inbound_dependency_rewrites"], "decomposition_result.inbound_dependency_rewrites")
+            )
+        )
+        dependent_ids = [rewrite.dependent_task_id for rewrite in rewrites]
+        if len(dependent_ids) != len(set(dependent_ids)):
+            raise DecompositionContractError(
+                "decomposition_result.inbound_dependency_rewrites contains duplicate dependent_task_id values."
+            )
         raw_artifact = value.get("artifact_proposal")
         artifact = (
             ArtifactProposal.from_dict(raw_artifact)
@@ -513,6 +568,7 @@ class DecompositionResult:
             _text(value["reason"], "decomposition_result.reason"),
             children,
             coverage,
+            rewrites,
             _string_tuple(value["unsupported_assumptions"], "decomposition_result.unsupported_assumptions"),
             _string_tuple(value["unresolved_questions"], "decomposition_result.unresolved_questions"),
             artifact,
@@ -529,6 +585,10 @@ class DecompositionResult:
             "parent_requirement_coverage": [
                 ParentCoverageRecord.to_dict(record)
                 for record in self.parent_requirement_coverage
+            ],
+            "inbound_dependency_rewrites": [
+                InboundDependencyRewrite.to_dict(rewrite)
+                for rewrite in self.inbound_dependency_rewrites
             ],
             "unsupported_assumptions": list(self.unsupported_assumptions),
             "unresolved_questions": list(self.unresolved_questions),
