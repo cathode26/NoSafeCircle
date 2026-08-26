@@ -102,6 +102,28 @@ Round-robin rules:
 - Findings are review artifacts only. Do not claim implementation, testing, graph
   application, approval, delivery, conformance, or readiness.
 
+Replacement-candidate invariants when verdict=`revise`:
+
+- Copy the exact current `parent_task` identity; never substitute a byte hash or new revision.
+- Use decomposition-result schema `1.1` and return every required top-level field.
+- `decision=decomposed` uses `gap_type=execution`, one or more concrete single-agent
+  implementation children, complete parent AC/VAL/INT coverage, and exactly one
+  `inbound_dependency_rewrites` record for every active direct dependent of the parent.
+- A non-decomposed decision contains no children and no inbound dependency rewrites.
+- Every parent acceptance criterion, completion gate, and downstream integration
+  obligation has exactly one coverage record; every child AC/VAL/INT entry is traced by
+  that coverage.
+- Every child `local_key` uses stable lowercase kebab-case and is reused exactly in local
+  dependencies, coverage targets, and inbound dependency rewrites.
+- A child completion gate must be locally completable. A proof that requires later authored
+  content belongs in a downstream integration obligation owned by the appropriate later task.
+- If separately implemented components require assembly/wiring to become usable, that
+  sewing is another explicit child task with dependencies on those components.
+- Conversely, do not invent an integration child when another proposed or existing task
+  already owns the complete assembly/validation responsibility.
+- Set `artifact_proposal` consistently with the selected decision; do not invent design or
+  implementation authority absent from the committed context.
+
 Semantic rubric — inspect all of these explicitly before choosing a verdict:
 
 - duplicate responsibility between proposed children or with existing contracts;
