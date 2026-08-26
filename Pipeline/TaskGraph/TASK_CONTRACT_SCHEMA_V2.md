@@ -21,7 +21,7 @@ A v2 task contract may define:
 - downstream integration obligations;
 - GDD and repository evidence captured when the contract was created;
 - per-contract provenance;
-- `decomposition_children` for a newly decomposed aggregate feature.
+- `decomposition_children` and `decomposition_requirement_sha256` for a newly decomposed aggregate feature.
 
 A v2 task contract may not claim:
 
@@ -67,7 +67,7 @@ Those states will be derived later from task contracts, current canon, attempt j
 }
 ```
 
-`decomposition_children` is not a universal required field. It is added by the new decomposition transition when a previously executable contract becomes an explicit decomposed aggregate feature.
+`decomposition_children` and `decomposition_requirement_sha256` are not universal required fields. They are added by the new decomposition transition when a previously executable contract becomes an explicit decomposed aggregate feature.
 
 ## Contract revision
 
@@ -129,6 +129,7 @@ The transitioned parent has this structural shape:
   "execution_scope": "not_applicable",
   "decomposition_state": "decomposed",
   "decomposition_children": ["NSC-050", "NSC-051", "NSC-052"],
+  "decomposition_requirement_sha256": "<sha256 of AC/VAL/INT obligations at decomposition>",
   "exclusive_resources": []
 }
 ```
@@ -138,11 +139,14 @@ For contracts that contain `decomposition_children`, TaskGraph requires:
 - the list is non-empty and contains unique task IDs;
 - every listed child exists, is active, and directly names the aggregate as its `parent`;
 - the list exactly equals the aggregate's complete active direct-child set;
+- `decomposition_requirement_sha256` is a lowercase SHA-256 binding to the exact aggregate acceptance criteria, completion gates, and downstream integration obligations reviewed during decomposition;
 - the aggregate is `kind: feature`, `execution_scope: not_applicable`, and `decomposition_state: decomposed`;
 - the aggregate holds no executable exclusive-resource locks;
 - no active contract keeps a `depends_on` edge to the aggregate.
 
-The list is the machine-readable child completion set. Aggregate conformance is derived from the conformance of all listed children. There is no later implementation or delivery pass on the aggregate itself.
+The list is the machine-readable child completion set. Aggregate conformance is derived from the conformance of all listed children only while the current AC/VAL/INT requirement hash still equals `decomposition_requirement_sha256`. If those parent obligations change after decomposition, TaskGraph reports `needs_replan` rather than allowing old child completion to prove new requirements.
+
+There is no later implementation or delivery pass on the aggregate itself.
 
 If component children require a final assembly, wiring, or integration pass to make the parent capability usable, that work must be another explicit child task with dependencies on the component children. It cannot remain implicit work on the aggregate parent.
 
