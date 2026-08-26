@@ -153,7 +153,8 @@ Once a work unit is selected:
 4. post **Claim / Planned Approach** with worker ID;
 5. record `work_type: implementation` or `work_type: decomposition`;
 6. record the intended canonical checkout path;
-7. only then create/enter the task checkout and start the selected pipeline.
+7. for decomposition, record the canonical Downloads output root/run convention;
+8. only then create/enter the task checkout and start the selected pipeline.
 
 Detailed Issue rules:
 
@@ -212,16 +213,23 @@ Decomposition uses the **same canonical task directory**, not a `-DECOMP` direct
 C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
 ```
 
-Authoritative D1B.1 outputs stay outside that checkout, normally:
+The host D1B.1 output root follows the canonical Downloads hierarchy:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021-Outputs
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021
+```
+
+Each no-overwrite decomposition run then lands beneath that task root using its run ID, for example:
+
+```text
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\20260825-195246
 ```
 
 Read:
 
 ```text
 Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md
+Docs/AI-Pipeline/OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md
 Pipeline/TaskDecomposition/README.md
 ```
 
@@ -231,11 +239,11 @@ The production CLI is:
 python3 Pipeline/TaskDecomposition/run_decomposition.py --task-id <TASK-ID> --provider <claude|codex>
 ```
 
-Use the documented Docker-backed flow so source is physically read-only and output is filesystem-disjoint.
+Use the documented Docker-backed flow so source is physically read-only and output is filesystem-disjoint. Set `NSC_DECOMPOSITION_HOST_OUTPUT_ROOT` to `Downloads\NoSafeCircleOutput\<TASK-ID>` before the provider command. Do not use a task-sibling `...\<TASK-ID>-Outputs` directory as the normal operator path.
 
 D1B.1 outputs are `review_only_not_applied`; generic task selection does not authorize graph-delta application.
 
-If `review_ready`, post a Decomposition Closeout with worker ID, parent ID/revision/source commit, canonical checkout/output paths, provider/run ID, semantic decision, result identities, proposed-child/blocker summary, explicit review-only status, and required next action.
+If `review_ready`, post a Decomposition Closeout with worker ID, parent ID/revision/source commit, canonical checkout path, exact Downloads run path, provider/run ID, semantic decision, result identities, proposed-child/blocker summary, explicit review-only status, and required next action.
 
 ## 9. Generic retry loop
 
@@ -333,7 +341,7 @@ enter C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
         ↓
 implementation → normal delivery
 OR
-decomposition → D1B.1 + <TASK-ID>-Outputs
+decomposition → D1B.1 + Downloads\NoSafeCircleOutput\<TASK-ID>\<RunId>
         ↓
 closeout/review boundary
 ```
