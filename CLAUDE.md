@@ -20,6 +20,12 @@ If this operating guidance and current project canon/state appear inconsistent, 
 
 The imported document is engineering operating guidance, not game-design canon. It does not weaken or replace the source-of-truth boundary above.
 
+## Required decomposition checkout policy
+
+@Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md
+
+When acting as a task orchestrator, decomposition work must leave the shared `C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle` checkout after claim and before D1B.1 execution. Create and enter the task-identifying standalone decomposition clone required by the imported policy. This is operator coordination guidance and does not grant the decomposition agent additional repository-write authority.
+
 ## Global operating rules
 
 - Do not expand approved feature/task scope without authorization.
