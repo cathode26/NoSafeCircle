@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import re
 from typing import Any
 
 from work_graph_validate import WorkGraphValidationError
@@ -7,6 +10,31 @@ from work_graph_validate import WorkGraphValidationError
 
 class DecompositionGraphSemanticsError(WorkGraphValidationError):
     """Raised when a decomposed aggregate violates post-decomposition graph semantics."""
+
+
+_AGGREGATE_REQUIREMENT_FIELDS = (
+    "acceptance_criteria",
+    "completion_gates",
+    "downstream_integration_obligations",
+)
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def aggregate_requirement_sha256(task: dict[str, Any]) -> str:
+    """Hash the parent obligations whose exact coverage justified the decomposition."""
+
+    payload = {
+        field: task.get(field, [])
+        for field in _AGGREGATE_REQUIREMENT_FIELDS
+    }
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def validate_decomposition_graph_semantics(plan: Any) -> None:
@@ -32,6 +60,11 @@ def validate_decomposition_graph_semantics(plan: Any) -> None:
         if len(child_ids) != len(set(child_ids)):
             raise DecompositionGraphSemanticsError(
                 f"Decomposed aggregate {parent_id} contains duplicate decomposition_children."
+            )
+        requirement_hash = parent.get("decomposition_requirement_sha256")
+        if not isinstance(requirement_hash, str) or not _SHA256_RE.fullmatch(requirement_hash):
+            raise DecompositionGraphSemanticsError(
+                f"Decomposed aggregate {parent_id} must record decomposition_requirement_sha256."
             )
         if parent.get("decomposition_state") != "decomposed":
             raise DecompositionGraphSemanticsError(
