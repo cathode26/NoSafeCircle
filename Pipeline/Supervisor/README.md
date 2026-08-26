@@ -10,6 +10,28 @@ It does **not** implement autonomous dispatch, dependency readiness, leases, rac
 - GitHub Issues provide shared operational visibility between concurrent human-directed orchestrators.
 - A GitHub Issue being closed does **not** prove TaskGraph conformance.
 
+## Canonical task checkout path
+
+All task checkouts must follow:
+
+```text
+Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md
+```
+
+The shared operator checkout is:
+
+```text
+C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+```
+
+A claimed task checkout is named by the exact hyphenated TaskGraph ID directly under the crew root:
+
+```text
+C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+```
+
+Do not use `NoSafeCircle-NSC044` as the normal checkout directory name.
+
 ## MVP issue state
 
 For an Issue whose title begins with an exact `NSC-###` ID:
@@ -22,12 +44,14 @@ The MVP intentionally does not solve the simultaneous-claim race. The human oper
 
 ## Local helper
 
-`task_checkout.py` deliberately does not require a GitHub token or GitHub CLI. ChatGPT uses the connected GitHub integration to create/search/assign/comment/close Issues. The local helper owns only deterministic local-machine work:
+`task_checkout.py` deliberately does not require a GitHub token or GitHub CLI. ChatGPT uses the connected GitHub integration to create/search/assign/comment/close Issues. The local helper owns deterministic local-machine work.
+
+Use the canonical checkout path explicitly:
 
 ```text
 python Pipeline/Supervisor/task_checkout.py show NSC-044
-python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1
-python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC044
+python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
 ```
 
 ### Checkout behavior
@@ -81,4 +105,4 @@ The ChatGPT orchestrator, using the connected GitHub integration, owns the opera
 8. close the Issue only after the orchestration is truly finished;
 9. if work is abandoned, unassign the still-open Issue and add a release reason instead of closing it as completed.
 
-See `Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md` for the five-window operator protocol.
+See `Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md` for the multi-window operator protocol.
