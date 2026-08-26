@@ -435,26 +435,44 @@ def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_resu
         )
         for child in children
     ]
+    existing_active_child_ids = [
+        task["id"]
+        for task in source.tasks
+        if task.get("contract_disposition") == "active"
+        and task.get("parent") == parent["id"]
+    ]
+    new_child_ids = [allocation[child.local_key] for child in children]
+    aggregate_child_ids = existing_active_child_ids + new_child_ids
+
     proposed_parent = deepcopy(parent)
     proposed_parent["contract_revision"] = parent["contract_revision"] + 1
     proposed_parent["kind"] = "feature"
     proposed_parent["execution_scope"] = "not_applicable"
     proposed_parent["decomposition_state"] = "decomposed"
-    proposed_parent["decomposition_children"] = [
-        allocation[child.local_key] for child in children
-    ]
+    proposed_parent["decomposition_children"] = aggregate_child_ids
     proposed_parent["exclusive_resources"] = []
-    child_identity = ", ".join(
+    all_child_identity = ", ".join(
+        f"{task_id} ({tasks_by_id[task_id]['reconciliation_key']})"
+        for task_id in existing_active_child_ids
+    )
+    if all_child_identity and new_child_ids:
+        all_child_identity += ", "
+    all_child_identity += ", ".join(
+        f"{allocation[child.local_key]} ({child.local_key})" for child in children
+    )
+    new_child_identity = ", ".join(
         f"{allocation[child.local_key]} ({child.local_key})" for child in children
     )
     proposed_parent["execution_reason"] = (
-        "Non-executable aggregate feature. All implementation responsibilities are delegated "
-        f"to child contracts: {child_identity}. No later implementation pass on {parent['id']} exists."
+        "Non-executable aggregate feature. All implementation responsibilities are represented "
+        f"by active direct child contracts: {all_child_identity}. No later implementation pass "
+        f"on {parent['id']} exists."
     )
     proposed_parent["decomposition_reason"] = (
-        f"Decomposed into reviewed child contracts: {child_identity}. "
-        "Aggregate conformance is derived from the complete delegated child set; any required "
-        "assembly or integration must be an explicit child contract."
+        f"This decomposition adds reviewed child contracts: {new_child_identity}. "
+        f"The complete active direct-child set is: {all_child_identity}. Aggregate conformance "
+        "is derived from that complete child set; any required assembly or integration must be "
+        "an explicit child contract."
     )
 
     rewritten_dependents: dict[str, dict[str, Any]] = {}
