@@ -10,6 +10,10 @@ If you are an AI assistant or developer continuing work on the autonomous game-d
 
 `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md`
 
+`Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md`
+
+The canonical Windows convention is: shared operator checkout `C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle`; claimed task checkout `C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>`, preserving the exact hyphenated ID (for example `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`).
+
 For generic requests such as **"Go pick a task and start on it"**, also follow:
 
 `Docs/AI-Pipeline/GENERIC_TASK_SELECTION_RETRY_AND_DECOMPOSITION.md`
@@ -45,7 +49,7 @@ python Pipeline/TaskGraph/taskcontrol.py list --disposition active
 
 Use `taskcontrol.py show <TASK-ID>` to inspect each plausible candidate's actual scope, dependencies, gates, execution/decomposition state, and exclusive resources. `not_delivered` is only a candidate-discovery signal; it does not establish dependency readiness or execution authorization.
 
-After narrowing the TaskGraph candidates, search GitHub Issues for the exact NSC IDs, skip assigned or closed tickets, inspect exclusive-resource conflicts, claim the chosen Issue before starting the appropriate pipeline, and publish the required planned-approach and closeout reports. GitHub is the shared operational dashboard; TaskGraph and committed evidence remain authoritative.
+After narrowing the TaskGraph candidates, search GitHub Issues for the exact NSC IDs, skip assigned or closed tickets, inspect exclusive-resource conflicts, claim the chosen Issue before starting the appropriate pipeline, enter the canonical task checkout path, and publish the required planned-approach and closeout reports. GitHub is the shared operational dashboard; TaskGraph and committed evidence remain authoritative.
 
 For a **generic** task-picking request, do not stop because the first candidate is assigned, closed, resource-conflicted, rejected by deterministic preflight, or genuinely blocked outside its bounded authority. Record/release the unsuitable candidate as appropriate, refresh current state, and try the next sensible implementation or decomposition candidate. Continue until viable work is started or the safe candidate pool is exhausted and human intervention is required.
 
@@ -55,7 +59,9 @@ For full bulk-state semantics, read:
 
 `Pipeline/TaskGraph/TASK_STATES.md`
 
-For decomposition eligibility, review-only outputs, and production commands, read:
+For decomposition eligibility, checkout isolation, review-only outputs, and production commands, read:
+
+`Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md`
 
 `Pipeline/TaskDecomposition/README.md`
 
