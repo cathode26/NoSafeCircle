@@ -23,6 +23,7 @@ for _module_root in (ROOT, PIPELINE_ROOT, TASK_GRAPH_ROOT):
         sys.path.insert(0, str(_module_root))
 
 from Pipeline.AgentRuntime.agent_runner import AgentRunner
+from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import (
     AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
     AgentInvocationRequest,
@@ -85,6 +86,7 @@ ROUND_ROBIN_RUN_RESULT_SCHEMA_VERSION = "1.0"
 ROUND_RESULT_SCHEMA_VERSION = "1.0"
 SUPPORTED_PROVIDERS = frozenset({"claude", "codex"})
 _RUN_ID_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
+ProviderBundle = tuple[str, RuntimeConfiguration, Mapping[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -285,29 +287,27 @@ def _run_request(
 
 def _invoke_round(
     *,
-    source_root: Path,
     run_dir: Path,
     round_number: int,
     task_id: str,
     run_id: str,
     role: str,
     provider: str,
+    provider_bundle: ProviderBundle,
     prompt: str,
     output_schema: dict[str, Any],
     context_paths: tuple[str, ...],
     task_contract_identity: TaskContractIdentity,
     budgets: Budgets,
+    heartbeat_seconds: float,
     reporter: ProgressReporter,
-    provider_factory: ProviderFactory | None,
 ) -> tuple[AgentResult | None, Exception | None, float, str]:
     invocation_id = _round_invocation_id(
         task_id, run_id, round_number, role
     )
     round_dir = run_dir / "rounds" / f"{round_number:02d}"
     round_dir.mkdir(parents=True)
-    key, configuration, registry = _validated_provider_bundle(
-        provider, source_root, provider_factory
-    )
+    key, configuration, registry = provider_bundle
     invocation = AgentInvocationRequest(
         AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
         invocation_id,
@@ -337,11 +337,10 @@ def _invoke_round(
         invocation_id=invocation_id,
     )
     stopped = threading.Event()
-    interval = heartbeat_interval()
     invocation_started = time.monotonic()
 
     def heartbeat() -> None:
-        while not stopped.wait(interval):
+        while not stopped.wait(heartbeat_seconds):
             elapsed = round(time.monotonic() - invocation_started, 1)
             reporter.emit(
                 "round_provider_heartbeat",
@@ -453,7 +452,19 @@ def run_round_robin_decomposition(
     generator_prompt = build_decomposer_prompt(context)
     generator_budget = decomposer_budgets()
     reviewer_budget = reviewer_budgets()
+    heartbeat_seconds = heartbeat_interval()
     selected_run_id = _validate_run_id(run_id or _new_run_id(task_id))
+    provider_bundles: dict[str, ProviderBundle] = {
+        provider: _validated_provider_bundle(
+            provider, source_identity.root, provider_factory
+        )
+        for provider in dict.fromkeys(order)
+    }
+    changed_during_provider_setup = source_revalidation_reasons(source_identity)
+    if changed_during_provider_setup:
+        raise DecompositionPreflightError(
+            "; ".join(changed_during_provider_setup)
+        )
 
     safe_output_root.mkdir(parents=True, exist_ok=True)
     run_dir = safe_output_root / selected_run_id
@@ -564,26 +575,32 @@ def run_round_robin_decomposition(
         )
 
         agent_result, invocation_exception, round_duration, actual_invocation_id = _invoke_round(
-            source_root=source_identity.root,
             run_dir=run_dir,
             round_number=round_number,
             task_id=task_id,
             run_id=selected_run_id,
             role=role,
             provider=provider,
+            provider_bundle=provider_bundles[provider],
             prompt=prompt,
             output_schema=output_schema,
             context_paths=context_paths,
             task_contract_identity=task_contract_identity,
             budgets=budgets,
+            heartbeat_seconds=heartbeat_seconds,
             reporter=reporter,
-            provider_factory=provider_factory,
         )
         if actual_invocation_id != invocation_id:
             rejection_reasons.append("internal invocation identity mismatch")
             run_status = "rejected"
             break
 
+        task_request_reference = (
+            f"rounds/{round_number:02d}/task_execution/{invocation_id}/task_request.json"
+        )
+        agent_result_reference = (
+            f"rounds/{round_number:02d}/agent_runtime/{invocation_id}/result.json"
+        )
         round_summary: dict[str, Any] = {
             "schema_version": ROUND_RESULT_SCHEMA_VERSION,
             "round_number": round_number,
@@ -612,10 +629,14 @@ def run_round_robin_decomposition(
             "new_finding_ids": [],
             "unresolved_finding_ids": sorted(unresolved_findings),
             "task_execution_request_path": (
-                f"rounds/{round_number:02d}/task_execution/{invocation_id}/task_request.json"
+                task_request_reference
+                if (run_dir / task_request_reference).is_file()
+                else None
             ),
             "agent_runtime_result_path": (
-                f"rounds/{round_number:02d}/agent_runtime/{invocation_id}/result.json"
+                agent_result_reference
+                if (run_dir / agent_result_reference).is_file()
+                else None
             ),
             "status": "rejected",
             "authority": "review_only_not_applied",
