@@ -102,9 +102,9 @@ def validate_decomposition_review(
             raise DecompositionReviewPolicyError(
                 "revise requires a complete revised decomposition candidate."
             )
-        if not blocking_new:
+        if not unresolved:
             raise DecompositionReviewPolicyError(
-                "revise requires at least one new blocking finding against the reviewed candidate."
+                "revise requires at least one blocking finding: either a new finding or a prior finding marked still_blocking."
             )
     elif result.verdict == "needs_human":
         if result.revised_decomposition is not None:
