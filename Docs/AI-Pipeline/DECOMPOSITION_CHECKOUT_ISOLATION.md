@@ -113,6 +113,30 @@ C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\20260825-195246
 
 Do not pre-create the run-ID directory itself; the pipeline creates it and fails closed on collisions.
 
+## Human review must check completion locality
+
+A structurally valid `review_ready` decomposition is not automatically suitable for graph application. Before approving proposed children, explicitly check whether any child completion gate requires a downstream task or content that depends on the parent being decomposed.
+
+A common bad pattern is:
+
+```text
+Parent A
+  -> proposed child A1 has completion gate requiring Task B's authored content
+Task B
+  -> depends on Parent A
+```
+
+This is a semantic completion cycle even if the proposed dependency graph is structurally acyclic because A1 may never declare B as an explicit dependency. Do not approve that shape merely because `proposed_graph_validation.result` is `valid`.
+
+Preferred correction:
+
+- keep the child behavior locally provable with representative/test-owned geometry or fixtures;
+- move the real downstream authored-content proof into the child's `downstream_integration_obligations` when it cannot be satisfied until later content exists;
+- preserve the parent obligation by mapping parent coverage to that downstream integration obligation;
+- let the downstream content task validate the same owned interface once the real authored content exists.
+
+Concrete example: if a Ranged Enemy projectile child must eventually be proven against Chapel of Ash pew/column geometry, but the Chapel blockout task depends on the Ranged Enemy parent, the projectile child should locally prove generic gameplay-geometry occlusion and carry an integration obligation for the later Chapel proof. It should not require the future Chapel blockout as its own completion gate.
+
 ## Docker / PowerShell 5.1 note
 
 When a provider command needs stdout and stderr combined for `Tee-Object`, place `2>&1` **inside** the command executed by `cmd.exe`. Do not attach PowerShell-side `2>&1` to the native invocation while `$ErrorActionPreference = "Stop"`, because ordinary Docker Compose stderr progress can be promoted to `NativeCommandError`.
