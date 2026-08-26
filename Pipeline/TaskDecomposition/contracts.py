@@ -517,13 +517,21 @@ class DecompositionResult:
         value = _snapshot(raw)
         required = {
             "schema_version", "parent_task", "decision", "gap_type", "reason", "children",
-            "parent_requirement_coverage", "inbound_dependency_rewrites",
-            "unsupported_assumptions", "unresolved_questions",
+            "parent_requirement_coverage", "unsupported_assumptions", "unresolved_questions",
         }
-        value = _object(value, "decomposition_result", required, {"artifact_proposal"})
+        value = _object(
+            value,
+            "decomposition_result",
+            required,
+            {"artifact_proposal", "inbound_dependency_rewrites"},
+        )
         version = _text(value["schema_version"], "decomposition_result.schema_version")
-        if version != "1.0":
+        if version not in {"1.0", "1.1"}:
             raise DecompositionContractError(f"Unsupported decomposition schema_version: {version!r}.")
+        if version == "1.1" and "inbound_dependency_rewrites" not in value:
+            raise DecompositionContractError(
+                "decomposition_result schema 1.1 requires inbound_dependency_rewrites."
+            )
         decision = _text(value["decision"], "decomposition_result.decision")
         gap_type = _text(value["gap_type"], "decomposition_result.gap_type")
         if decision not in DECISIONS:
@@ -546,7 +554,10 @@ class DecompositionResult:
                 item, f"decomposition_result.inbound_dependency_rewrites[{index}]"
             )
             for index, item in enumerate(
-                _list(value["inbound_dependency_rewrites"], "decomposition_result.inbound_dependency_rewrites")
+                _list(
+                    value.get("inbound_dependency_rewrites", []),
+                    "decomposition_result.inbound_dependency_rewrites",
+                )
             )
         )
         dependent_ids = [rewrite.dependent_task_id for rewrite in rewrites]
@@ -586,10 +597,6 @@ class DecompositionResult:
                 ParentCoverageRecord.to_dict(record)
                 for record in self.parent_requirement_coverage
             ],
-            "inbound_dependency_rewrites": [
-                InboundDependencyRewrite.to_dict(rewrite)
-                for rewrite in self.inbound_dependency_rewrites
-            ],
             "unsupported_assumptions": list(self.unsupported_assumptions),
             "unresolved_questions": list(self.unresolved_questions),
             "artifact_proposal": (
@@ -598,6 +605,11 @@ class DecompositionResult:
                 else None
             ),
         }
+        if self.schema_version != "1.0" or self.inbound_dependency_rewrites:
+            result["inbound_dependency_rewrites"] = [
+                InboundDependencyRewrite.to_dict(rewrite)
+                for rewrite in self.inbound_dependency_rewrites
+            ]
         return result
 
     def canonical_json(self) -> str:
