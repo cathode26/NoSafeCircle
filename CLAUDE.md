@@ -20,6 +20,12 @@ If this operating guidance and current project canon/state appear inconsistent, 
 
 The imported document is engineering operating guidance, not game-design canon. It does not weaken or replace the source-of-truth boundary above.
 
+## Required dependency-state policy
+
+@Docs/AI-Pipeline/ADR-045_NEEDS_TESTING_NON_BLOCKING_DEPENDENCY.md
+
+When selecting, checking, or executing downstream task work, never treat a dependency's `needs_testing` state as a blocker by itself and never require every dependency to report exactly `conformant`. `needs_testing` is revalidation debt on previously delivered/evidenced work, not revocation of the integrated dependency. Separate concrete dependency problems still require normal review.
+
 ## Required decomposition checkout policy
 
 @Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md

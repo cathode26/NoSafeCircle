@@ -75,6 +75,8 @@ Other states such as `conformant`, `needs_replan`, `needs_human`, `needs_testing
 
 In particular, `needs_testing` means the task was previously completed/evidenced but later tracked changes mean current `HEAD` is no longer proven without another testing/revalidation pass. Do **not** select a `needs_testing` task as fresh implementation work unless the human explicitly asks to retest, repair, or revalidate it.
 
+**Dependency invariant:** when that previously completed/evidenced task appears in another task's `depends_on`, `needs_testing` must **never block the downstream task solely because of that state**. It is revalidation debt on the dependency, not revocation of its integrated implementation. Do not generate or enforce a generic guard requiring every dependency to report exactly `conformant`. Inspect separate concrete dependency problems independently. See `Docs/AI-Pipeline/ADR-045_NEEDS_TESTING_NON_BLOCKING_DEPENDENCY.md`.
+
 Full state semantics are documented in:
 
 ```text
@@ -158,7 +160,7 @@ TaskGraph inspection does **not** establish:
 - merge authority;
 - autonomous dispatch authority.
 
-Dependency readiness remains intentionally unimplemented. A human/orchestrator must still inspect dependencies and use judgment rather than claiming the state/list command made a candidate ready.
+Dependency readiness remains intentionally unimplemented. A human/orchestrator must still inspect dependencies and use judgment rather than claiming the state/list command made a candidate ready. That judgment must preserve ADR-045: `needs_testing` on an already-delivered dependency is non-blocking by itself and must not be converted into a synthetic `state == conformant` readiness rule.
 
 ## 4. Check GitHub operational claim state
 
@@ -322,6 +324,8 @@ Typical skip-and-continue reasons include:
 - candidate does not match the selected work type;
 - decomposition-selection preflight rejects the parent;
 - current repository evidence makes the candidate plainly unsuitable.
+
+A dependency's `needs_testing` state is **not** a skip reason by itself. Do not cascade that revalidation debt into downstream blockage.
 
 Do not create noisy Issue comments for candidates merely inspected and skipped before claim.
 

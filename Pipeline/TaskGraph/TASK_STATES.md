@@ -34,6 +34,26 @@ Feature or non-`single_agent` contracts report `aggregate`. Cancelled and supers
 
 `needs_testing` does **not** mean the task was never completed. For normal new implementation selection, treat it as already-built work whose current behavior may need retesting. `not_delivered` is the normal state used to discover genuinely new implementation work.
 
+## Dependency semantics
+
+Evidence-derived conformance of one task and downstream dependency satisfaction are different axes.
+
+A task that reports `needs_testing` was previously delivered/evidenced. When that task appears in another task's `depends_on` list, its `needs_testing` state is **non-blocking solely because of that state**. It represents revalidation debt on the dependency itself; it does not revoke the integrated implementation and must not cascade-block downstream task selection, checkout, decomposition, or execution.
+
+Do not generate or enforce a generic dependency guard that requires every dependency to report exactly `conformant`, for example:
+
+```powershell
+if ($Dependency.state -ne "conformant") {
+    throw "Dependency is not ready"
+}
+```
+
+That guard is invalid under the current TaskGraph semantics because dependency-readiness policy is intentionally unimplemented and `needs_testing` is not a missing-implementation state.
+
+A downstream task may still have a separate concrete blocker: for example, a required dependency implementation may actually be absent from `main`, a dependency contract may have materially changed, repository inspection may show required behavior is missing, the Contract Locality Auditor may identify an undeclared integration, or a resource conflict may make parallel work unsafe. Inspect those facts independently. Do not use `needs_testing` itself as the blocker.
+
+See `Docs/AI-Pipeline/ADR-045_NEEDS_TESTING_NON_BLOCKING_DEPENDENCY.md` for the controlling decision and command-generation examples.
+
 ## Canon granularity
 
 Delivery/baseline/revalidation records retain the SHA-256 of the complete canonical GDD that existed at the validated commit. That hash is immutable **historical audit provenance**.
