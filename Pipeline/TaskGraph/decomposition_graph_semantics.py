@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+from typing import Any
+
+from work_graph_validate import WorkGraphValidationError
+
+
+class DecompositionGraphSemanticsError(WorkGraphValidationError):
+    """Raised when a decomposed aggregate violates post-decomposition graph semantics."""
+
+
+def validate_decomposition_graph_semantics(plan: Any) -> None:
+    """Validate semantics that apply once a decomposition publishes explicit child identity.
+
+    Older reviewed decompositions predate ``decomposition_children`` and remain readable for
+    compatibility. Every new graph delta must publish that field, which opts the aggregate
+    into the stricter semantics below.
+    """
+
+    tasks = tuple(plan.tasks)
+    tasks_by_id = {task["id"]: task for task in tasks}
+
+    for parent in tasks:
+        child_ids = parent.get("decomposition_children")
+        if child_ids is None:
+            continue
+        parent_id = parent["id"]
+        if not isinstance(child_ids, list) or not child_ids:
+            raise DecompositionGraphSemanticsError(
+                f"Decomposed aggregate {parent_id}.decomposition_children must be a non-empty list."
+            )
+        if len(child_ids) != len(set(child_ids)):
+            raise DecompositionGraphSemanticsError(
+                f"Decomposed aggregate {parent_id} contains duplicate decomposition_children."
+            )
+        if parent.get("decomposition_state") != "decomposed":
+            raise DecompositionGraphSemanticsError(
+                f"{parent_id}.decomposition_children is only valid when decomposition_state='decomposed'."
+            )
+        if parent.get("kind") != "feature":
+            raise DecompositionGraphSemanticsError(
+                f"Decomposed aggregate {parent_id} must have kind='feature', not {parent.get('kind')!r}."
+            )
+        if parent.get("execution_scope") != "not_applicable":
+            raise DecompositionGraphSemanticsError(
+                f"Decomposed aggregate {parent_id} must have execution_scope='not_applicable'."
+            )
+        if parent.get("exclusive_resources") != []:
+            raise DecompositionGraphSemanticsError(
+                f"Decomposed aggregate {parent_id} may not retain executable exclusive-resource locks."
+            )
+
+        for child_id in child_ids:
+            if not isinstance(child_id, str) or not child_id.strip():
+                raise DecompositionGraphSemanticsError(
+                    f"{parent_id}.decomposition_children contains a blank or non-string child ID."
+                )
+            child = tasks_by_id.get(child_id)
+            if child is None:
+                raise DecompositionGraphSemanticsError(
+                    f"Decomposed aggregate {parent_id} references missing child {child_id!r}."
+                )
+            if child.get("parent") != parent_id:
+                raise DecompositionGraphSemanticsError(
+                    f"Decomposition child {child_id} must be a direct child of aggregate {parent_id}."
+                )
+            if child.get("contract_disposition") != "active":
+                raise DecompositionGraphSemanticsError(
+                    f"Decomposition child {child_id} of active aggregate {parent_id} must be active."
+                )
+
+        for dependent in tasks:
+            if dependent.get("contract_disposition") != "active":
+                continue
+            if parent_id in dependent.get("depends_on", []):
+                raise DecompositionGraphSemanticsError(
+                    f"Active contract {dependent['id']} may not depend on decomposed aggregate "
+                    f"{parent_id}; rewrite the dependency to the concrete decomposition child "
+                    "or children whose capability it actually consumes."
+                )
+
+
+def aggregate_child_state_summary(child_states: dict[str, str]) -> tuple[bool, str]:
+    """Return whether every delegated child is conformant plus a deterministic summary."""
+
+    if not child_states:
+        return False, "no delegated child states were available"
+    ordered = sorted(child_states.items())
+    complete = all(state == "conformant" for _, state in ordered)
+    summary = ", ".join(f"{task_id}={state}" for task_id, state in ordered)
+    return complete, summary
