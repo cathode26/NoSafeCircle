@@ -19,6 +19,7 @@ from TaskDecomposition.contracts import DecompositionResult
 from TaskDecomposition.policy import semantic_json_sha256 as contract_hash
 from TaskDecomposition.policy import validate_decomposition_result
 from TaskDecomposition.tests.decomposition_contracts_smoke_test import decomposed_result
+from decomposition_graph_semantics import validate_decomposition_graph_semantics
 from graph_delta import GraphDeltaPlanningError, plan_graph_delta
 from work_graph_transform import WorkGraphPlan
 from work_graph_validate import validate_work_graph_plan
@@ -81,6 +82,10 @@ def make_plan() -> WorkGraphPlan:
         task("NSC-010", "existing-runtime", "implementation", "NSC-001", "single_agent", "concrete", resources=("logical:shared",)),
         task("NSC-020", "inactive-history", "implementation", "NSC-001", "single_agent", "concrete", disposition="cancelled"),
         task(
+            "NSC-030", "downstream-consumer", "implementation", "NSC-001",
+            "single_agent", "concrete", dependencies=("NSC-042",),
+        ),
+        task(
             "NSC-042", "synthetic-parent", "implementation", "NSC-001",
             "needs_execution_decomposition", "concrete",
             dependencies=("NSC-010",), resources=("logical:shared",),
@@ -110,6 +115,13 @@ def validated_result(plan: WorkGraphPlan, *, invalid_dependency: bool = False):
     ]
     raw["children"][0]["exclusive_resources"] = ["logical:shared", "logical:new-shared"]
     raw["children"][1]["exclusive_resources"] = ["logical:new-shared"]
+    raw["inbound_dependency_rewrites"] = [
+        {
+            "dependent_task_id": "NSC-030",
+            "replacement_local_keys": ["runtime-integration"],
+            "reason": "The downstream consumer needs the finished integrated capability.",
+        }
+    ]
     return validate_decomposition_result(
         raw,
         parent_task=parent,
@@ -136,6 +148,7 @@ def replace_parent(plan: WorkGraphPlan, mutate) -> WorkGraphPlan:
 def main() -> int:
     source = make_plan()
     validate_work_graph_plan(source)
+    validate_decomposition_graph_semantics(source)
     result = validated_result(source)
     selector = result.parent_task
     source_before = json.dumps(
@@ -150,7 +163,7 @@ def main() -> int:
 
     delta = plan_graph_delta(source, selector, result)
     payload = delta.to_dict()
-    assert payload["graph_delta_schema_version"] == "1.0"
+    assert payload["graph_delta_schema_version"] == "1.1"
     assert payload["authority"] == "review_only_not_applied"
     assert payload["allocated_local_key_to_task_id"] == {
         "runtime-core": "NSC-043",
@@ -175,41 +188,48 @@ def main() -> int:
     overlay = payload["proposed_graph_overlay"]
     proposed_parent = next(task for task in overlay["tasks"] if task["id"] == "NSC-042")
     original_parent = next(task for task in source.tasks if task["id"] == "NSC-042")
+    proposed_consumer = next(task for task in overlay["tasks"] if task["id"] == "NSC-030")
+    original_consumer = next(task for task in source.tasks if task["id"] == "NSC-030")
     assert proposed_parent["contract_revision"] == 4
+    assert proposed_parent["kind"] == "feature"
     assert proposed_parent["execution_scope"] == "not_applicable"
     assert proposed_parent["decomposition_state"] == "decomposed"
-    assert proposed_parent["execution_reason"].startswith(
-        "Execution responsibilities are delegated to child contracts:"
-    )
-    assert proposed_parent["decomposition_reason"].startswith(
-        "Decomposed into reviewed child contracts:"
-    )
-    assert "Proposed" not in proposed_parent["execution_reason"]
-    assert "Proposed" not in proposed_parent["decomposition_reason"]
+    assert proposed_parent["decomposition_children"] == ["NSC-043", "NSC-044"]
+    assert proposed_parent["exclusive_resources"] == []
+    assert "No later implementation pass" in proposed_parent["execution_reason"]
+    assert "Aggregate conformance is derived" in proposed_parent["decomposition_reason"]
     for field in (
-        "id", "reconciliation_key", "kind", "type", "parent", "depends_on",
-        "exclusive_resources", "acceptance_criteria", "completion_gates",
-        "downstream_integration_obligations", "gdd_evidence", "provenance",
+        "id", "reconciliation_key", "type", "parent", "depends_on",
+        "acceptance_criteria", "completion_gates", "downstream_integration_obligations",
+        "gdd_evidence", "provenance",
     ):
         assert proposed_parent[field] == original_parent[field], field
-    assert "does not claim implementation completion" in proposed_parent["decomposition_reason"]
+    assert proposed_consumer["contract_revision"] == original_consumer["contract_revision"] + 1
+    assert proposed_consumer["depends_on"] == ["NSC-044"]
+    inbound = payload["inbound_dependency_changes"]
+    assert len(inbound) == 1
+    assert inbound[0]["dependent_task_id"] == "NSC-030"
+    assert inbound[0]["before_dependencies"] == ["NSC-042"]
+    assert inbound[0]["after_dependencies"] == ["NSC-044"]
+    assert inbound[0]["replacement_local_keys"] == ["runtime-integration"]
     assert payload["parent_before_hash"] == contract_hash(original_parent)
     assert payload["parent_after_hash"] == contract_hash(proposed_parent)
 
     changes = {change["resource_key"]: change for change in payload["resource_group_changes"]}
-    assert changes["logical:shared"]["change_type"] == "extended"
-    assert changes["logical:shared"]["after"]["work_ids"] == ["NSC-010", "NSC-042", "NSC-043"]
+    assert changes["logical:shared"]["change_type"] == "updated"
+    assert changes["logical:shared"]["after"]["work_ids"] == ["NSC-010", "NSC-043"]
     assert changes["logical:new-shared"]["change_type"] == "created"
     assert changes["logical:new-shared"]["after"]["work_ids"] == ["NSC-043", "NSC-044"]
     validation = payload["proposed_graph_validation"]
     assert validation["result"] == "valid"
-    assert validation["task_count"] == 6
-    validate_work_graph_plan(
-        WorkGraphPlan(
-            overlay["id_map"], tuple(overlay["tasks"]),
-            tuple(overlay["resource_groups"]), tuple(overlay["project_requirements"]),
-        )
+    assert validation["decomposition_aggregate_semantics"] == "valid"
+    assert validation["task_count"] == 7
+    proposed_plan = WorkGraphPlan(
+        overlay["id_map"], tuple(overlay["tasks"]),
+        tuple(overlay["resource_groups"]), tuple(overlay["project_requirements"]),
     )
+    validate_work_graph_plan(proposed_plan)
+    validate_decomposition_graph_semantics(proposed_plan)
 
     assert json.dumps(
         {
@@ -256,6 +276,13 @@ def main() -> int:
 
     parent = next(task for task in source.tasks if task["id"] == "NSC-042")
     incomplete_raw = decomposed_result(parent)
+    incomplete_raw["inbound_dependency_rewrites"] = [
+        {
+            "dependent_task_id": "NSC-030",
+            "replacement_local_keys": ["runtime-integration"],
+            "reason": "Consumer needs integration.",
+        }
+    ]
     incomplete_raw["parent_requirement_coverage"].pop()
     incomplete_result = DecompositionResult.from_dict(incomplete_raw)
     expect_failure(
@@ -284,6 +311,35 @@ def main() -> int:
         existing_reconciliation_keys=source.id_map,
     )
     expect_failure(lambda: plan_graph_delta(source, cyclic_result.parent_task, cyclic_result), "cycle")
+
+    missing_rewrite_raw = decomposed_result(parent)
+    missing_rewrite_result = validate_decomposition_result(
+        missing_rewrite_raw,
+        parent_task=parent,
+        existing_reconciliation_keys=source.id_map,
+    )
+    expect_failure(
+        lambda: plan_graph_delta(source, missing_rewrite_result.parent_task, missing_rewrite_result),
+        "exactly cover active direct dependents",
+    )
+
+    extra_rewrite_raw = decomposed_result(parent)
+    extra_rewrite_raw["inbound_dependency_rewrites"] = [
+        {
+            "dependent_task_id": "NSC-010",
+            "replacement_local_keys": ["runtime-integration"],
+            "reason": "This is not actually a dependent.",
+        }
+    ]
+    extra_rewrite_result = validate_decomposition_result(
+        extra_rewrite_raw,
+        parent_task=parent,
+        existing_reconciliation_keys=source.id_map,
+    )
+    expect_failure(
+        lambda: plan_graph_delta(source, extra_rewrite_result.parent_task, extra_rewrite_result),
+        "exactly cover active direct dependents",
+    )
 
     collision_plan = deepcopy(source)
     collision_plan.id_map["runtime-core"] = collision_plan.id_map.pop("existing-runtime")
