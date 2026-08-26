@@ -158,8 +158,7 @@
         "floor-run-restart-bootstrap",
         "floor-run-restart-persistent-closure",
         "force-wave",
-        "frost-field",
-        "gameplay-navigation-locomotion"
+        "frost-field"
       ],
       "resource_key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -170,8 +169,7 @@
         "NSC-032",
         "NSC-033",
         "NSC-009",
-        "NSC-008",
-        "NSC-025"
+        "NSC-008"
       ]
     },
     {
@@ -190,7 +188,8 @@
         "chapel-of-ash-blockout",
         "lower-vault-blockout",
         "final-room-blockout",
-        "five-room-continuity-door-sequence"
+        "five-room-continuity-door-sequence",
+        "gameplay-navigation-locomotion"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -208,7 +207,8 @@
         "NSC-046",
         "NSC-047",
         "NSC-048",
-        "NSC-049"
+        "NSC-049",
+        "NSC-025"
       ]
     }
   ]
