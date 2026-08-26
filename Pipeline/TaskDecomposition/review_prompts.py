@@ -76,8 +76,10 @@ Your output is a structured review. You may do exactly one of the following:
    - Resolve or withdraw every prior unresolved blocking finding.
 
 2. `revise`
-   - Identify one or more blocking defects in the current candidate.
-   - Emit each defect as a structured finding.
+   - The current candidate still has at least one blocking defect.
+   - For a NEW defect, emit a new structured finding with this round's finding prefix.
+   - For a previously reported defect that remains, mark its prior resolution
+     `still_blocking`; do not duplicate it under a new finding ID.
    - Emit a COMPLETE replacement decomposition result in `revised_decomposition`.
    - Never emit a patch, partial child list, prose-only correction, or graph application.
    - The replacement must preserve the exact parent identity and use decomposition schema 1.1.
