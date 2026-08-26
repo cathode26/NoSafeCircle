@@ -15,7 +15,10 @@ from TaskDecomposition.contracts import (
     ParentTaskIdentity,
 )
 from TaskDecomposition.policy import DecompositionPolicyError, validate_decomposition_result
-from decomposition_graph_semantics import validate_decomposition_graph_semantics
+from decomposition_graph_semantics import (
+    aggregate_requirement_sha256,
+    validate_decomposition_graph_semantics,
+)
 from persistent_work_graph import PersistentWorkGraph
 from work_graph_transform import WorkGraphPlan
 from work_graph_validate import WorkGraphValidationError, validate_work_graph_plan
@@ -450,6 +453,7 @@ def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_resu
     proposed_parent["execution_scope"] = "not_applicable"
     proposed_parent["decomposition_state"] = "decomposed"
     proposed_parent["decomposition_children"] = aggregate_child_ids
+    proposed_parent["decomposition_requirement_sha256"] = aggregate_requirement_sha256(parent)
     proposed_parent["exclusive_resources"] = []
     all_child_identity = ", ".join(
         f"{task_id} ({tasks_by_id[task_id]['reconciliation_key']})"
@@ -545,6 +549,7 @@ def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_resu
             "execution_scope": proposed_parent["execution_scope"],
             "decomposition_state": proposed_parent["decomposition_state"],
             "decomposition_children": deepcopy(proposed_parent["decomposition_children"]),
+            "decomposition_requirement_sha256": proposed_parent["decomposition_requirement_sha256"],
         },
         "allocated_local_key_to_task_id": deepcopy(allocation),
         "id_map_additions": deepcopy(allocation),
