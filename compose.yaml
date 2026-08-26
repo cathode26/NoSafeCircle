@@ -173,6 +173,33 @@ services:
       - codex-config:/home/agent/.codex
     command: ["bash"]
 
+  # Stage D1B.2 alternates Claude and Codex inside one physically read-only
+  # container. Both provider configuration volumes are mounted, while the only
+  # writable task-associated surface remains the external decomposition output.
+  round-robin-decompose:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    environment:
+      NSC_DECOMPOSITION_OUTPUT_ROOT: /decomposition-output
+      CLAUDE_CONFIG_DIR: /home/agent/.claude
+      DISABLE_AUTOUPDATER: "1"
+      CODEX_HOME: /home/agent/.codex
+      GIT_CONFIG_COUNT: "2"
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: "true"
+      GIT_CONFIG_KEY_1: core.filemode
+      GIT_CONFIG_VALUE_1: "false"
+    volumes:
+      - .:/workspace:ro
+      - ${NSC_DECOMPOSITION_HOST_OUTPUT_ROOT:-../NoSafeCircle-DecompositionOutputs}:/decomposition-output:rw
+      - claude-config:/home/agent/.claude
+      - codex-config:/home/agent/.codex
+    command: ["bash"]
+
 volumes:
   claude-config:
   codex-config:
