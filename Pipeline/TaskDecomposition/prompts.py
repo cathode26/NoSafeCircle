@@ -44,8 +44,8 @@ Authority and inspection rules:
 - Every `local_key` must match `^[a-z0-9]+(?:-[a-z0-9]+)*$`: use lowercase
   kebab-case with only lowercase ASCII letters, digits, and single hyphens. Underscores,
   spaces, uppercase letters, leading/trailing hyphens, and repeated hyphens are forbidden.
-- `local_dependencies` and parent-coverage targets must reuse the proposed `local_key`
-  exactly.
+- `local_dependencies`, inbound dependency rewrites, and parent-coverage targets must reuse
+  the proposed `local_key` exactly.
 - A `local_key` becomes a proposed durable `reconciliation_key`; use a stable descriptive
   domain name rather than an NSC task number or temporary numbering.
 - Valid examples for NSC-021: `door-lock-break-lifecycle`,
@@ -58,6 +58,20 @@ Authority and inspection rules:
   criterion and at least one completion gate.
 - Every child AC/VAL/INT entry must trace through parent coverage. Every parent AC/VAL/INT
   entry must have exactly one coverage record.
+- A successful `decomposed` decision converts the selected parent into a non-executable
+  aggregate feature. There is no later hidden implementation pass on the parent.
+- Every implementation action required to satisfy the parent must therefore exist in the
+  proposed children. If separately implemented components need assembly, wiring, or an
+  end-to-end integration pass before the parent capability is usable, propose that work as
+  another explicit implementation child and make it depend on the component children.
+- The supplied graph neighborhood includes every direct dependent whose `depends_on`
+  currently names the selected parent. For `decomposed`, provide exactly one
+  `inbound_dependency_rewrites` record for every such active dependent. Replace the parent
+  with the child or children whose concrete capability the dependent actually consumes.
+  Do not mechanically select the last child or highest future task ID.
+- An active downstream contract may not keep a dependency on the decomposed aggregate.
+  If the approved contracts and canon do not establish a safe replacement child frontier,
+  choose `needs_human` and state the unresolved dependency question instead of guessing.
 - No output may imply approval, graph application, readiness, authorization, delivery,
   conformance, completion, or execution.
 
@@ -74,12 +88,19 @@ Choose exactly one D1A decision:
 1. `already_concrete`
    - `gap_type` is `none`; `children` is empty.
    - Every parent obligation is `retained_by_parent`.
+   - `inbound_dependency_rewrites` is empty.
    - Set `artifact_proposal` to null.
    - `unresolved_questions` and `unsupported_assumptions` are empty.
 
 2. `decomposed`
    - `gap_type` is `execution`; propose one or more bounded implementation children.
    - Coverage uses only `assigned_to_child` and `shared_integration`.
+   - All parent implementation and necessary assembly/integration work is explicit in the
+     children; completing the delegated child set is sufficient to complete the aggregate.
+   - `inbound_dependency_rewrites` contains exactly one mapping for every active direct
+     dependent that currently names the selected parent, targeting the concrete child
+     frontier that dependent actually consumes. It is empty only when there are no such
+     dependents.
    - Set `artifact_proposal` to null.
    - `unresolved_questions` and `unsupported_assumptions` are empty.
 
@@ -89,6 +110,7 @@ Choose exactly one D1A decision:
    - Retained obligations may remain `retained_by_parent`; at least one obligation is
      `blocked_by_artifact`.
    - Artifact source obligations exactly match the obligations blocked by the artifact.
+   - `inbound_dependency_rewrites` is empty.
    - `artifact_proposal` is the required object; it is not authorization and no artifact
      is generated here.
 
@@ -96,6 +118,7 @@ Choose exactly one D1A decision:
    - `gap_type` is `uncertain`, `design`, or `execution`; `children` is empty.
    - Retained obligations may remain `retained_by_parent`; at least one obligation is
      `blocked_by_human`.
+   - `inbound_dependency_rewrites` is empty.
    - `unresolved_questions` is nonempty.
    - Set `artifact_proposal` to null.
 
