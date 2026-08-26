@@ -111,6 +111,8 @@ $env:NSC_DECOMPOSITION_HOST_OUTPUT_ROOT = $OutputRoot
 
 D1B.1 creates its no-overwrite `<RunId>` child directory. Do not pre-create that run directory and do not put authoritative decomposition output inside `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`.
 
+After a decomposition reaches `review_ready`, keep using the same checkout for review/closeout. Do not apply the graph delta merely because the overlay validator passed. Human review must confirm each proposed child is locally completable; if a child gate requires downstream content whose task depends on the parent, move that deferred proof to a downstream integration obligation and keep the child gate locally testable.
+
 ## Existing checkout rule
 
 Never overwrite, delete, reset, or casually reuse an existing `C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>` directory merely because a new orchestrator wants that task.
