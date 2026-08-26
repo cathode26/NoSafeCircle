@@ -206,13 +206,14 @@ def parent_identity(parent: dict[str, Any]) -> dict[str, Any]:
 
 def base_result(parent: dict[str, Any], decision: str, gap: str) -> dict[str, Any]:
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "parent_task": parent_identity(parent),
         "decision": decision,
         "gap_type": gap,
         "reason": "Synthetic deterministic review proposal.",
         "children": [],
         "parent_requirement_coverage": [],
+        "inbound_dependency_rewrites": [],
         "unsupported_assumptions": [],
         "unresolved_questions": [],
         "artifact_proposal": None,
@@ -291,6 +292,13 @@ def decomposed_result(parent: dict[str, Any], *, missing_dependency: bool = Fals
             ],
         },
     )
+    value["inbound_dependency_rewrites"] = [
+        {
+            "dependent_task_id": "NSC-012",
+            "replacement_local_keys": ["bounded-child"],
+            "reason": "The direct dependent consumes the completed bounded child capability.",
+        }
+    ]
     return value
 
 

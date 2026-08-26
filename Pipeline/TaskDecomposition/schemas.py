@@ -25,7 +25,7 @@ PARENT_ENTRY_TYPES = [
 DECOMPOSITION_RESULT_SCHEMA = {
     "type": "object",
     "properties": {
-        "schema_version": {"type": "string", "enum": ["1.0"]},
+        "schema_version": {"type": "string", "enum": ["1.1"]},
         "parent_task": {
             "type": "object",
             "properties": {
@@ -129,6 +129,22 @@ DECOMPOSITION_RESULT_SCHEMA = {
                 "additionalProperties": False,
             },
         },
+        "inbound_dependency_rewrites": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "dependent_task_id": {"type": "string"},
+                    "replacement_local_keys": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "reason": {"type": "string"},
+                },
+                "required": ["dependent_task_id", "replacement_local_keys", "reason"],
+                "additionalProperties": False,
+            },
+        },
         "unsupported_assumptions": {"type": "array", "items": {"type": "string"}},
         "unresolved_questions": {"type": "array", "items": {"type": "string"}},
         "artifact_proposal": {
@@ -160,8 +176,8 @@ DECOMPOSITION_RESULT_SCHEMA = {
     },
     "required": [
         "schema_version", "parent_task", "decision", "gap_type", "reason",
-        "children", "parent_requirement_coverage", "unsupported_assumptions",
-        "unresolved_questions", "artifact_proposal",
+        "children", "parent_requirement_coverage", "inbound_dependency_rewrites",
+        "unsupported_assumptions", "unresolved_questions", "artifact_proposal",
     ],
     "additionalProperties": False,
 }

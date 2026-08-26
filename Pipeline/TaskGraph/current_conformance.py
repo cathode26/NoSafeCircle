@@ -16,6 +16,10 @@ from conformance_records import (
     load_committed_records,
     semantic_json_sha256,
 )
+from decomposition_graph_semantics import (
+    aggregate_child_state_summary,
+    aggregate_requirement_sha256,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -131,6 +135,85 @@ def _maximal(repo: GitRepository, records: list[CommittedRecord]) -> list[Commit
     return sorted(maximal, key=lambda item: item.record_id)
 
 
+def _explicit_aggregate_conformance(
+    *,
+    root: Path | str,
+    task: dict[str, Any],
+    head: str,
+    head_tree: str,
+    dirty: bool,
+) -> ConformanceState | None:
+    child_ids = task.get("decomposition_children")
+    if not (
+        task.get("kind") == "feature"
+        and task.get("decomposition_state") == "decomposed"
+        and isinstance(child_ids, list)
+        and child_ids
+    ):
+        return None
+
+    task_id = str(task.get("id") or "")
+    title = str(task.get("title") or "")
+    expected_requirement_hash = task.get("decomposition_requirement_sha256")
+    current_requirement_hash = aggregate_requirement_sha256(task)
+    if expected_requirement_hash != current_requirement_hash:
+        return ConformanceState(
+            task_id,
+            title,
+            "needs_replan",
+            head,
+            head_tree,
+            None,
+            (
+                _finding(
+                    "aggregate_requirements_changed",
+                    "Aggregate AC/VAL/INT requirements changed after decomposition; the delegated child set "
+                    "must be reviewed/replanned before aggregate conformance can be derived.",
+                ),
+            ),
+            dirty,
+        )
+
+    child_states: dict[str, str] = {}
+    for child_id in child_ids:
+        child_result = evaluate_current_conformance(root=root, selector=child_id)
+        child_states[child_id] = child_result.state
+    complete, summary = aggregate_child_state_summary(child_states)
+    if complete:
+        return ConformanceState(
+            task_id,
+            title,
+            "conformant",
+            head,
+            head_tree,
+            None,
+            (
+                _finding(
+                    "aggregate_children_conformant",
+                    "All explicitly delegated decomposition children are conformant; "
+                    f"aggregate completion is derived without a separate parent implementation pass ({summary}).",
+                ),
+            ),
+            dirty,
+        )
+    return ConformanceState(
+        task_id,
+        title,
+        "aggregate",
+        head,
+        head_tree,
+        None,
+        (
+            _finding(
+                "aggregate_children_incomplete",
+                "Decomposed feature remains aggregate until every explicitly delegated child is conformant "
+                f"({summary}).",
+            ),
+        ),
+        dirty,
+    )
+
+
 def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") -> ConformanceState:
     repo = GitRepository(root)
     head = repo.head()
@@ -147,6 +230,17 @@ def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") ->
     if disposition in {"cancelled", "superseded"}:
         return ConformanceState(task_id, title, disposition, head, head_tree, None,
             (_finding(f"contract_{disposition}", f"Contract disposition is {disposition}."),), dirty)
+
+    aggregate_result = _explicit_aggregate_conformance(
+        root=root,
+        task=task,
+        head=head,
+        head_tree=head_tree,
+        dirty=dirty,
+    )
+    if aggregate_result is not None:
+        return aggregate_result
+
     if task.get("kind") == "feature" or task.get("execution_scope") != "single_agent":
         return ConformanceState(task_id, title, "aggregate", head, head_tree, None,
             (_finding("non_executable_contract", "Feature or non-executable contract is aggregate."),), dirty)
@@ -251,7 +345,7 @@ def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") ->
     for state_name, candidates, code, message in (
         ("needs_replan", replan, "contract_changed", "Current contract revision or semantic hash differs from prior evidence."),
         ("needs_human", human, "human_approval_missing", "Required human approval is missing."),
-        ("needs_testing", stale, "evidence_stale", "Prior evidence exists, but current HEAD changed a tracked surface or lineage; the previously completed task may need testing again."),
+        ("needs_testing", stale, "evidence_stale", "Prior evidence exists, but current HEAD changed a tracked surface or lineage; the previously completed task may need testing again before current conformance can be claimed."),
     ):
         if candidates:
             maximal = _maximal(repo, candidates)

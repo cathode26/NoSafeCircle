@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from decomposition_graph_semantics import validate_decomposition_graph_semantics
 from work_graph_transform import WorkGraphPlan
 from work_graph_validate import WorkGraphValidationSummary, validate_work_graph_plan
 
@@ -169,6 +170,7 @@ def load_persistent_work_graph(root: Path = ROOT) -> PersistentWorkGraph:
     )
     try:
         validation = validate_work_graph_plan(plan)
+        validate_decomposition_graph_semantics(plan)
     except Exception as exc:
         raise PersistentWorkGraphError(f"Persistent work graph validation failed: {exc}") from exc
     return PersistentWorkGraph(plan=plan, marker=marker, validation=validation)

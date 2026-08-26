@@ -4,6 +4,7 @@ import hashlib
 import json
 import sys
 from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
 PIPELINE = Path(__file__).resolve().parents[2]
@@ -97,13 +98,14 @@ def child(key: str) -> dict:
 
 def base(parent: dict, decision: str, gap: str) -> dict:
     return {
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "parent_task": identity(parent),
         "decision": decision,
         "gap_type": gap,
         "reason": "Deterministic synthetic reason.",
         "children": [],
         "parent_requirement_coverage": [],
+        "inbound_dependency_rewrites": [],
         "unsupported_assumptions": [],
         "unresolved_questions": [],
         "artifact_proposal": None,
@@ -267,6 +269,7 @@ def main() -> int:
         reason=decomposed.reason,
         children=decomposed.children,
         parent_requirement_coverage=decomposed.parent_requirement_coverage,
+        inbound_dependency_rewrites=decomposed.inbound_dependency_rewrites,
         unsupported_assumptions=decomposed.unsupported_assumptions,
         unresolved_questions=decomposed.unresolved_questions,
         artifact_proposal=decomposed.artifact_proposal,
@@ -282,6 +285,7 @@ def main() -> int:
     for valid in (concrete, decomposed, artifact, human):
         validate_instance(valid.to_dict(), DECOMPOSITION_RESULT_SCHEMA)
         assert "artifact_proposal" in valid.to_dict()
+        assert "inbound_dependency_rewrites" in valid.to_dict()
     assert concrete.to_dict()["artifact_proposal"] is None
     assert artifact.to_dict()["artifact_proposal"] == blocked_result(
         parent, "needs_artifact"
@@ -292,10 +296,15 @@ def main() -> int:
         DECOMPOSITION_RESULT_SCHEMA["properties"]["artifact_proposal"],
     )
 
-    omitted_artifact = retained_result(parent)
-    del omitted_artifact["artifact_proposal"]
-    compatible = DecompositionResult.from_dict(omitted_artifact)
+    legacy_payload = retained_result(parent)
+    legacy_payload["schema_version"] = "1.0"
+    legacy_payload.pop("inbound_dependency_rewrites")
+    legacy_payload.pop("artifact_proposal")
+    compatible = DecompositionResult.from_dict(legacy_payload)
+    assert compatible.schema_version == "1.0"
+    assert compatible.inbound_dependency_rewrites == ()
     assert compatible.artifact_proposal is None
+    assert "inbound_dependency_rewrites" not in compatible.to_dict()
     assert compatible.to_dict()["artifact_proposal"] is None
 
     bad = retained_result(parent)
@@ -419,6 +428,64 @@ def main() -> int:
         bad = decomposed_result(parent)
         bad[field] = ["Not acceptable on an accepted result."]
         expect_failure(bad, parent, "may not contain unsupported assumptions")
+
+    rewrite = decomposed_result(parent)
+    rewrite["inbound_dependency_rewrites"] = [
+        {
+            "dependent_task_id": "NSC-050",
+            "replacement_local_keys": ["runtime-integration"],
+            "reason": "Consumer requires the integrated child capability.",
+        }
+    ]
+    validated_rewrite = validate_decomposition_result(rewrite, parent_task=parent)
+    assert validated_rewrite.inbound_dependency_rewrites[0].replacement_local_keys == (
+        "runtime-integration",
+    )
+
+    bad = decomposed_result(parent)
+    bad["inbound_dependency_rewrites"] = [
+        {
+            "dependent_task_id": "NSC-050",
+            "replacement_local_keys": [],
+            "reason": "Invalid empty replacement set.",
+        }
+    ]
+    expect_failure(bad, parent, "at least one concrete child key")
+
+    bad = decomposed_result(parent)
+    bad["inbound_dependency_rewrites"] = [
+        {
+            "dependent_task_id": "NSC-050",
+            "replacement_local_keys": ["missing-child"],
+            "reason": "Invalid unknown child.",
+        }
+    ]
+    expect_failure(bad, parent, "references unknown child")
+
+    bad = decomposed_result(parent)
+    bad["inbound_dependency_rewrites"] = [
+        {
+            "dependent_task_id": "NSC-050",
+            "replacement_local_keys": ["runtime-integration"],
+            "reason": "first",
+        },
+        {
+            "dependent_task_id": "NSC-050",
+            "replacement_local_keys": ["runtime-core"],
+            "reason": "duplicate dependent",
+        },
+    ]
+    expect_failure(bad, parent, "duplicate dependent_task_id")
+
+    bad = retained_result(parent)
+    bad["inbound_dependency_rewrites"] = [
+        {
+            "dependent_task_id": "NSC-050",
+            "replacement_local_keys": ["runtime-core"],
+            "reason": "Non-decomposed results cannot rewrite dependencies.",
+        }
+    ]
+    expect_failure(bad, parent, "may not contain inbound dependency rewrites")
 
     mixed_artifact = blocked_result(parent, "needs_artifact")
     mixed_artifact["parent_requirement_coverage"][1]["disposition"] = "retained_by_parent"
