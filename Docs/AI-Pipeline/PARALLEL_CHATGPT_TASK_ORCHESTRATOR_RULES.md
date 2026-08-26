@@ -12,6 +12,8 @@ Read it with:
 - `Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md`;
 - `Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md`;
 - `Docs/AI-Pipeline/REAL_TASK_DELIVERY_WINDOWS_CLONE_NOTE.md`;
+- `Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md`;
+- `Docs/AI-Pipeline/OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md`;
 - `Pipeline/ExecutionCrew/README.md`;
 - `Pipeline/TaskDelivery/README.md`;
 - `Pipeline/TaskDecomposition/README.md` when decomposition is selected.
@@ -44,12 +46,27 @@ C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
 
 The hyphenated TaskGraph ID is preserved. Do not invent `NoSafeCircle-NSC...`, `-DECOMP`, or timestamped checkout directory variants as the normal task path. The authoritative rule is `Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md`.
 
+For `work_type: decomposition`, use:
+
+```text
+source checkout:
+C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+
+host output root:
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\<TASK-ID>
+
+actual immutable run:
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\<TASK-ID>\<RunId>
+```
+
+Do not use a task-sibling `...\<TASK-ID>-Outputs` directory as the normal operator output path. Do not pre-create `<RunId>`; the pipeline creates it with no-overwrite semantics.
+
 ## Selectable work types
 
 A generic task request may select:
 
 1. **`work_type: implementation`** — fresh implementation of an undelivered concrete executable TaskGraph contract;
-2. **`work_type: decomposition`** — Stage D1B.1 read-only decomposition of an existing active decomposition-relevant parent contract.
+2. **`work_type: decomposition`** — read-only decomposition of an existing active decomposition-relevant parent contract, normally through Stage D1B.2 round-robin review/refinement.
 
 `decomposition` is an orchestrator work type, not a TaskGraph `kind` and not a fabricated NSC task.
 
@@ -104,7 +121,9 @@ When an available work unit is chosen:
 2. post a **Claim / Planned Approach** comment with worker ID;
 3. explicitly record `work_type: implementation` or `work_type: decomposition`;
 4. record exact base/source `main` commit;
-5. only after the claim exists, create/enter the canonical task checkout and start the selected pipeline.
+5. record the canonical task checkout;
+6. for decomposition, record the Downloads output root and provider order/mode;
+7. only after the claim exists, create/enter the canonical task checkout and start the selected pipeline.
 
 ### Implementation checkout
 
@@ -124,13 +143,19 @@ Decomposition uses the same task directory, for example:
 C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
 ```
 
-and a filesystem-disjoint output sibling such as:
+and the external Downloads output root:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021-Outputs
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021
 ```
 
-Read `Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md` before D1B.1.
+with each run stored as:
+
+```text
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\<RunId>
+```
+
+Read `Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md` and `Pipeline/TaskDecomposition/README.md` before provider-backed decomposition.
 
 ## Claim / Planned Approach content
 
@@ -142,7 +167,7 @@ work_type: implementation | decomposition
 Exact base/source main commit
 Canonical checkout path
 Branch                           # implementation
-Provider + output location       # decomposition
+Mode + provider order + output root  # decomposition
 Planned approach
 Expected validation/review boundary
 Assumptions / risks
@@ -180,18 +205,112 @@ An implementation claim does not bypass the existing delivery process. Continue 
 
 For `work_type: decomposition`, follow `Pipeline/TaskDecomposition/README.md` and `Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md`.
 
-D1B.1 may return:
+Normal new provider-backed decomposition uses Stage D1B.2:
 
-- `already_concrete`;
-- `decomposed`;
-- `needs_artifact`;
-- `needs_human`.
+```text
+initial provider authors candidate
+        ↓
+deterministic D1A validation
+        ↓
+other provider independently reviews
+        ├─ pass -> review_ready
+        ├─ revise -> reviewer becomes latest author; rotate
+        └─ needs_human -> bounded human-authority stop
+```
 
-A `review_ready` run is successful completion of the decomposition work unit. D1B.1 outputs remain `review_only_not_applied`; a graph delta is never silently applied.
+Mandatory D1B.2 properties:
 
-Post a **Decomposition Closeout** containing worker ID, parent task/revision/source commit, canonical checkout and output paths, provider/run ID, semantic decision, artifact identities, concise proposal/blocker summary, explicit `review_only_not_applied`, and required human next action.
+- the latest candidate author may not approve its own candidate;
+- every generated/revised candidate passes deterministic validation before another provider reviews it;
+- unresolved blocking findings carry forward with explicit resolution status;
+- the loop has a deterministic call limit;
+- a final unreviewed revision becomes `needs_human`, never `review_ready`;
+- source remains physically read-only;
+- output remains external and no-overwrite;
+- no graph delta is automatically applied.
+
+D1B.1 remains a compatible one-provider proposal/diagnosis path. Use it only when explicitly requested, for bounded diagnostics, or when a second provider is unavailable and the limitation is disclosed.
+
+A D1B.2 `review_ready` run is successful completion of the decomposition work unit with independent semantic PASS. It remains `review_only_not_applied`.
+
+A D1B.2 `needs_human` run is also a successful bounded diagnosis at the authority boundary. Preserve unresolved findings and request the decision.
+
+Post a **Decomposition Closeout** containing worker ID, parent task/revision/source commit, canonical checkout and Downloads run paths, mode/provider order/run ID, semantic decision/final status, final candidate author/independent approver when present, artifact identities, concise proposal/blocker summary, unresolved findings when present, explicit `review_only_not_applied`, and required human next action.
 
 Do not claim the parent implementation is delivered merely because decomposition succeeded.
+
+## Deterministic setup and provider execution are separate phases
+
+For provider-backed work, split the operator flow:
+
+### Phase 1 — deterministic setup
+
+- inspect exact checkout path;
+- verify correct branch/HEAD/clean tree;
+- refresh or fast-forward from current `main` when allowed;
+- validate TaskGraph;
+- validate work-type preflight;
+- create/verify the external output parent;
+- print exact source/output identity;
+- do not invoke a provider.
+
+### Phase 2 — provider run
+
+- reverify exact source identity;
+- invoke the documented Docker service;
+- preserve live transcript and immutable run artifacts;
+- revalidate source after every provider call;
+- stop at `review_ready`, `needs_human`, rejection, or failure.
+
+Do not hide provider execution inside a large setup block whose early failure makes it unclear whether a provider was spent.
+
+## Checkout creation rules
+
+Implementation/decomposition task checkouts must:
+
+- be standalone clones from GitHub, not local clones of the shared checkout;
+- start from current remote `main`;
+- enable `core.longpaths`;
+- remain clean before provider work;
+- stay on `main` for decomposition source checkouts unless a documented later stage explicitly creates an implementation branch;
+- use task-specific implementation branches for implementation work.
+
+Do not use Git worktrees for Docker-backed provider execution unless the repository explicitly approves that workflow.
+
+## Existing checkout collisions
+
+If the canonical task directory already exists:
+
+```text
+C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+```
+
+stop and inspect it.
+
+Do not:
+
+- delete it automatically;
+- reset it automatically;
+- overwrite it;
+- create a differently named duplicate as the normal workaround.
+
+Reconcile ownership/state first.
+
+## Validation and clean-tree authority
+
+- Deterministic tools, not model claims, establish test results.
+- A provider result does not prove the source remained unchanged.
+- Revalidate HEAD/tree/status after every provider call.
+- Authoritative Unity validation must use the repository clean-test runner when Unity tests apply.
+- Review-only pipeline infrastructure work may use pure Python/component smoke tests when no Unity runtime behavior changes.
+- Raw hash-bound validation artifacts must not be edited for formatting.
+
+Read:
+
+```text
+Docs/Engineering/UNITY_TESTING_POLICY.md
+Docs/AI-Pipeline/TASK_ITERATION_AND_CLOSEOUT_PLAYBOOK.md
+```
 
 ## Mandatory implementation closeout
 
@@ -234,7 +353,7 @@ On release:
 4. refresh `main`, TaskGraph, and GitHub claims;
 5. continue to the next sensible candidate under a generic request.
 
-A successful `review_ready` decomposition is not a retry failure; stop at the human review/application boundary.
+A D1B.2 `review_ready` or explicit `needs_human` result is not a retry failure; stop at the human review/application boundary.
 
 ## Existing task directory rule
 
@@ -243,6 +362,23 @@ Never overwrite, delete, reset, or casually reuse an existing `C:\UnityProjects\
 ## Explicit-task exception
 
 Automatic substitution applies only to generic requests. If the human explicitly names a task, report blockers for that task rather than silently switching to another NSC task.
+
+## Forbidden behaviors
+
+- working directly in the shared primary checkout;
+- relying on chat titles as claim state;
+- starting provider work before GitHub claim;
+- using stale local `main` without refresh;
+- running duplicate decomposition on the same parent/hash concurrently;
+- automatically applying a decomposition graph delta;
+- treating D1B.1 structural `review_ready` as independent semantic approval;
+- allowing a D1B.2 candidate author to approve its own candidate;
+- treating an unreviewed final revision as `review_ready`;
+- using task-sibling `-Outputs` as the normal Windows output path;
+- inventing alternate task checkout names to bypass collisions;
+- task-hopping after ordinary implementation/test failure;
+- claiming conformance without committed TaskGraph evidence;
+- merging without human merge authority.
 
 ## Fresh ChatGPT behavior
 
@@ -261,13 +397,13 @@ exclude assigned/closed/conflicted candidates
         ↓
 choose viable work
         ↓
-claim Issue + planned approach + work_type
+claim Issue + planned approach + work_type + canonical paths
         ↓
 enter C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
         ↓
 implementation → normal delivery workflow
 OR
-decomposition → D1B.1 read-only workflow with <TASK-ID>-Outputs
+decomposition → D1B.2 read-only workflow + Downloads output root
         ↓
 closeout/review boundary
 ```
