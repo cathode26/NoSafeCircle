@@ -2,289 +2,264 @@
 
 This is the first file any AI assistant or developer should read before working on the autonomous development pipeline.
 
-## Purpose
-
-The pipeline is built across multiple work sessions and AI contexts. Do not rely on conversation memory as the source of truth.
+## Core rule
 
 **The repository is the source of truth.**
 
-## If the human asks you to pick and start a task
+Do not reconstruct the current pipeline from an old chat transcript. Read the current repository state and routed documentation first.
 
-A request such as **"pick a task," "start another task," or "go pick a task and start on it"** is sufficient instruction to begin the repository-driven task-selection workflow. Do not require the human to preselect an NSC ID or restate the orchestration process when the repository already contains the information needed to choose safely.
+## Current status snapshot
 
-Before selecting or starting fresh implementation work:
+Last refreshed after D1B.2 round-robin decomposition merged to `main` on 2026-08-26.
 
-1. read `Docs/AI-Pipeline/PARALLEL_CHATGPT_TASK_ORCHESTRATOR_RULES.md` and `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md`;
-2. discover fresh implementation candidates with:
+Observed merged baseline:
 
-   ```powershell
-   python Pipeline/TaskGraph/taskcontrol.py states --state not_delivered
-   ```
+```text
+fabb221c83efde230272760400d01747b90c0dc7
+```
 
-3. treat `needs_testing` as previously completed/evidenced work that may need another testing/revalidation pass, **not** as fresh implementation work unless the human explicitly asks to retest, repair, or revalidate it;
-4. inspect plausible candidates with `python Pipeline/TaskGraph/taskcontrol.py show <TASK-ID>` and review their dependencies, acceptance criteria, completion gates, decomposition state, and `exclusive_resources`;
-5. check GitHub Issues for the exact candidate NSC IDs, skip assigned or closed tickets, and check exclusive-resource conflicts with currently claimed work;
-6. claim the chosen Issue and post the required Claim / Planned Approach before creating the isolated checkout;
-7. create the checkout with `Pipeline/Supervisor/task_checkout.py checkout ...`, then follow the normal real-task delivery workflow through implementation, Unity/runtime validation, evidence closeout, TaskGraph conformance, and human merge authority.
+Current validated TaskGraph shape:
 
-`not_delivered` is candidate discovery only. It does not establish dependency readiness or execution authorization. The detailed selection algorithm and authority boundaries live in `TASK_SELECTION_AND_CHECKOUT.md`; do not reconstruct them from an old chat transcript.
+```text
+Task contract schema:  2.0
+Active contracts:      49
+Superseded contracts:  0
+Cancelled contracts:   0
+Parent edges:           48
+Dependency edges:       82
+Resource groups:        9
+Project requirements:   17
+Parent hierarchy:       connected + acyclic
+Dependency graph:       acyclic
+```
 
-## Current Status Snapshot
+Current implemented major pipeline pieces include:
 
-The repository has moved beyond the original provider-adapter proving phase. The persistent TaskGraph, provider-neutral AgentRuntime/TaskExecution boundary, Claude and OpenAI/Codex adapters, clean Unity validation runner, schema-v2 task contracts, committed conformance evidence, Stage D1B.1 live decomposition, and the Minimum Production ExecutionCrew are all implemented.
+- persistent schema-v2 TaskGraph;
+- evidence-derived current conformance;
+- provider-neutral AgentRuntime / TaskExecution;
+- Claude Code and OpenAI/Codex provider adapters;
+- Contract Locality Auditor;
+- Minimum Production ExecutionCrew;
+- Unity/runtime/human validation and TaskDelivery evidence path;
+- D1A deterministic progressive-decomposition contracts and graph planning;
+- decomposed-parent aggregate-feature semantics;
+- D1B.1 compatible one-provider decomposition;
+- **D1B.2 bounded round-robin decomposition verification/refinement**.
 
-The validated persistent graph currently contains **40 active schema-v2 contracts**. `taskcontrol state` derives current conformance from committed evidence. Dependency readiness and autonomous dispatch remain intentionally unavailable:
+Autonomous dispatch remains intentionally disabled:
 
 ```text
 TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED
 EXECUTION AUTHORIZATION: DENIED
 ```
 
-A task being `active`, `implementation`, `single_agent`, and `concrete` makes it eligible for a human-selected ExecutionCrew run; it does **not** prove that the task is ready, authorized, or even semantically local enough to execute safely.
+A `conformant` state never grants readiness, execution, graph-application, or merge authority.
 
-The current ExecutionCrew order is:
+## Read current architecture first
+
+For the concise design that exists now:
+
+`Docs/AI-Pipeline/CURRENT_PIPELINE_DESIGN.md`
+
+For live routing/status and current proving priorities:
+
+`Docs/AI-Pipeline/CURRENT_STATE.md`
+
+## If the human asks you to pick and start a task
+
+A request such as **"pick a task," "start another task," or "go pick a task and start on it"** is sufficient instruction to begin the repository-driven task-selection workflow. Do not require the human to preselect an NSC ID when the committed selection policy can choose safely.
+
+Before selecting work:
+
+1. read `Docs/AI-Pipeline/PARALLEL_CHATGPT_TASK_ORCHESTRATOR_RULES.md`;
+2. read `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md`;
+3. read `Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md`;
+4. inspect current TaskGraph state;
+5. inspect GitHub Issues for shared operational claims;
+6. inspect exclusive-resource conflicts;
+7. claim before execution.
+
+Fresh implementation candidate discovery starts with:
+
+```powershell
+python Pipeline/TaskGraph/taskcontrol.py states --state not_delivered
+```
+
+Decomposition candidate discovery also inspects active contracts:
+
+```powershell
+python Pipeline/TaskGraph/taskcontrol.py list --disposition active
+python Pipeline/TaskGraph/taskcontrol.py show <TASK-ID>
+```
+
+`not_delivered` and contract shape are candidate signals only. They do not prove dependency readiness or execution authorization.
+
+## Current decomposition rule
+
+For normal new production decomposition, use **D1B.2 round robin**, not the old one-provider path.
+
+Normal CLI:
+
+```bash
+python3 Pipeline/TaskDecomposition/run_round_robin_decomposition.py --task-id <TASK-ID>
+```
+
+Default provider sequence:
 
 ```text
-clean source + authoritative persistent-TaskGraph preflight
+Codex authors
     ↓
-read-only Contract Locality Auditor (high_reasoning)
+Claude reviews/revises
     ↓
-    ├── contract problem → CONTRACT_REVIEW_REQUIRED → human contract review/repair
-    └── local contract
-            ↓
-        Implementer
-            ↓
-        deterministic Git scope check
-            ↓
-        Unity Test Author
-            ↓
-        deterministic Git scope check
-            ↓
-        read-only Validator
-            ↓
-        optional one bounded repair cycle
-            ↓
-        human review
+Codex reviews/revises
+    ↓
+Claude reviews/revises
 ```
 
-The Contract Locality Auditor classifies every current AC/VAL as `local_to_task`, `requires_declared_dependency`, `downstream_integration`, `missing_design`, or `ambiguous` before any writer role runs. It does not edit the task contract or graph. A contract that requires undeclared/future behavior returns `CONTRACT_REVIEW_REQUIRED` rather than spending an implementation cycle trying to fake the integration.
+The run stops earlier when an independent reviewer passes or when the system reaches `needs_human`, failure, or the circuit breaker.
 
-The Validator also uses structured reason codes. `runtime_not_executed` means the task is locally valid but authoritative Unity/runtime evidence still has to run, so semantic `REVIEW_READY` may still be correct. `missing_integration_dependency` or `design_ambiguity` means the task contract itself needs review and cannot be hidden behind a generic `not_proven`.
+The most recent candidate author may never approve that candidate.
 
-ExecutionCrew supports both exact existing tracked role paths and exact human-approved absent new paths. The old scaffold-file workaround is no longer the normal task-start procedure. For successfully created new files under `Assets/`, the pipeline creates deterministic `.meta` sidecars outside model write authority. Exact-path authority never broadens to a directory, sibling/helper file, design, readiness, or dispatch authority.
+Canonical Docker-backed invocation:
 
-ExecutionCrew still does **not** run Unity, apply candidate patches, commit, push, merge, publish evidence automatically, grant conformance, derive readiness, or authorize autonomous dispatch.
+```bash
+docker compose -p nosafecircle-m2a run --rm -T round-robin-decompose python3 Pipeline/TaskDecomposition/run_round_robin_decomposition.py --task-id <TASK-ID>
+```
 
-Progressive decomposition remains separate. Stage D1B.1 is implemented and live-proven. Stage **D1B.2 independent decomposition verification/refinement** is the next planned pipeline architecture slice. D1B.2 checks proposed decomposition before graph application; the Contract Locality Auditor is the execution-time safety net for an already-approved concrete task.
-
-For real gameplay delivery, do not reconstruct the process from old chat transcripts. Follow the committed runbook and current-state file. Closeout follows `authoritative clean Unity run -> validation manifest -> TaskDelivery human review -> record_delivery.py -> staged-evidence validation -> committed evidence -> TaskGraph-derived conformance`.
-
-## Required Reading Order
-
-1. Read `Docs/AI-Pipeline/CURRENT_STATE.md`.
-2. If you are selecting, picking, claiming, or starting a real gameplay task, read `Docs/AI-Pipeline/PARALLEL_CHATGPT_TASK_ORCHESTRATOR_RULES.md` and `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md` before choosing work.
-3. If you are executing or closing out a real gameplay task, read `Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md`, `Pipeline/ExecutionCrew/README.md`, and `Pipeline/TaskDelivery/README.md` before constructing commands.
-4. If the work changes provider/runtime behavior, read `Docs/AI-Pipeline/08_STAGE_4B_CLAUDE_CODE_PROVIDER.md`, `ADR-037_CLAUDE_CODE_PROVIDER_BOUNDARY.md`, and `ADR-038_PRACTICAL_REPOSITORY_READ_SEARCH.md`.
-5. Read `Docs/AI-Pipeline/00_MASTER_CONTEXT.md` when broader target architecture is relevant.
-6. Read the milestone/context file named by `CURRENT_STATE.md` for the active architecture slice.
-7. Read `Docs/AI-Pipeline/DECISIONS.md` whenever the work touches architecture, Git workflow, task semantics, autonomy, RAG, GER, evaluation/refinement, validation, progressive decomposition, locality, artifact authority, or evidence authority.
-8. Inspect the actual repository, current branch, TaskGraph, and committed source state before changing anything.
-
-Any work touching Unity tests, validation harnesses, scenes, prefabs, builders/generators, or evidence-producing Unity runs must also read `Docs/Engineering/UNITY_TESTING_POLICY.md`.
-
-For current pipeline architecture work, `CURRENT_STATE.md` is the routing authority. The next planned slice is D1B.2 independent decomposition verification/refinement; `Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md` remains broader semantic context for progressive decomposition and artifact authority.
-
-`01_MILESTONE_TASK_GRAPH.md` is a completed milestone record and semantic reference, not the active implementation plan.
-
-Do not read every milestone file unless the current work requires broader architecture context.
-
-## Milestone Routing Table
-
-Current work | Read this file
---- | ---
-**Current next pipeline slice:** D1B.2 independent decomposition verification/refinement | `CURRENT_STATE.md` plus `02_RAG_SCANNER_CONTEXT.md`
-Real gameplay task execution, contract locality, bounded repair, human review, Unity validation, evidence closeout | `REAL_TASK_DELIVERY_RUNBOOK.md`, `Pipeline/ExecutionCrew/README.md`, `Pipeline/TaskDelivery/README.md`, and `04_EXECUTION_GER_VALIDATION_CONTEXT.md`
-Completed persistent graph semantics, stable IDs, task contracts, conformance | `01_MILESTONE_TASK_GRAPH.md`
-RAG canon retrieval, scanner/context packs, progressive decomposition, artifact authority | `02_RAG_SCANNER_CONTEXT.md`
-Supervisor, task claiming, Git branches/worktrees, GitHub Issues/Projects/PRs | `03_SUPERVISOR_GIT_GITHUB_CONTEXT.md`
-Provider-neutral AgentRuntime, Claude/OpenAI adapters, and production ExecutionCrew architecture | `06_PROVIDER_NEUTRAL_EXECUTION_CREW_PLAN.md`
-Provider-adapter implementation and fail-closed capability mapping | `07_PROVIDER_ADAPTER_CAPABILITY_MAPPING.md` and `ADR-035_PROVIDER_ADAPTER_ENFORCEMENT.md`
-Completed Stage 4B Claude Code provider and accepted containment/lifecycle boundary | `08_STAGE_4B_CLAUDE_CODE_PROVIDER.md` and `ADR-037_CLAUDE_CODE_PROVIDER_BOUNDARY.md`
-Continuous autonomous ticket processing, budgets, blockers, parallel workers, planning refresh | `05_CONTINUOUS_AUTONOMY_CONTEXT.md`
-
-## Milestone 1 Commands
-
-The completed persistent graph can be inspected locally with:
+Real Windows decomposition output belongs under:
 
 ```text
-python Pipeline/TaskGraph/taskcontrol.py validate
-python Pipeline/TaskGraph/taskcontrol.py list
-python Pipeline/TaskGraph/taskcontrol.py show NSC-003
-python Pipeline/TaskGraph/taskcontrol.py state NSC-011 --json
-python Pipeline/TaskGraph/taskcontrol.py graph
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\<TASK-ID>\<RunId>\
 ```
 
-`taskcontrol ready` and `taskcontrol authorize` remain intentionally disabled/unavailable under schema v2 until separate dependency-readiness and dispatch policies are implemented and approved.
+All D1B.2 output is `review_only_not_applied`.
 
-Do **not** rerun the initial persistent-graph bootstrap. `Pipeline/TaskGraph/BOOTSTRAP_PERSISTED.json` marks it complete.
+The compatible D1B.1 one-provider command remains available only when specifically desired:
 
-## Current Human-Selected Gameplay Task
+```bash
+python3 Pipeline/TaskDecomposition/run_decomposition.py --task-id <TASK-ID> --provider <codex|claude>
+```
 
-Do not hard-code an old "first task" from this document. Gameplay work advances while pipeline work is being developed.
-
-Before starting a real task:
-
-1. read `CURRENT_STATE.md`;
-2. run `taskcontrol validate`;
-3. inspect the human-selected task with `taskcontrol show <TASK-ID>`;
-4. inspect relevant committed conformance with `taskcontrol state <TASK-ID> --json`;
-5. follow `REAL_TASK_DELIVERY_RUNBOOK.md`;
-6. let the mandatory Contract Locality Auditor decide whether the selected concrete task is semantically local enough to proceed to writer roles.
-
-If the result is `CONTRACT_REVIEW_REQUIRED`, repair the task contract through the human-reviewed TaskGraph workflow instead of forcing implementation tests to simulate systems that do not exist.
-
-## Important GER Lesson
-
-Assignment 6 demonstrated that GER is not only a gate for generated content.
-
-For No Safe Circle, the successful loop was:
-
-`bounded task → implement → evaluate → collect validation/runtime feedback → refine → re-evaluate → approve or circuit-break`
-
-The camera implementation passed static evaluation before it was actually usable in Unity. Runtime failures were converted into structured feedback and sent back through the Refiner.
-
-Future execution work must therefore treat runtime evidence as first-class validation input rather than assuming source-level success means the feature works.
-
-Reference:
-
-- `Assignment6GER/README_Assignment6.md`
-- `Docs/AI-Pipeline/00_MASTER_CONTEXT.md`
-- `Docs/AI-Pipeline/DECISIONS.md`
-
-## Important Progressive-Decomposition Lesson
-
-The task graph does not need the entire game decomposed into low-level implementation tickets in advance.
-
-When high-level work approaches the actionable frontier, the Progressive Decomposer determines why it is not yet a safe one-agent handoff.
-
-There are two distinct cases:
-
-1. **Execution-size problem** — approved design is concrete, but the implementation record is too broad. Split only the already-approved responsibilities.
-2. **Design-information problem** — approved design/content is missing. Propose the smallest missing artifact instead of inventing the design.
-
-Detecting missing design and generating missing design are separate actions.
-
-Artifact creation must pass the Artifact Authority Gate before generation.
-
-## Important Artifact-Authority Lesson
-
-An AI-generated artifact is not trusted merely because it exists.
-
-The trust path is:
+Read:
 
 ```text
-Missing approved design detected
-        ↓
-Artifact proposal
-        ↓
-Artifact Authority Gate
-        ↓
-Authorized generation
-        ↓
-Artifact GER / required evaluators
-        ↓
-Approved artifact
-        ↓
-Trusted downstream context
+Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md
+Pipeline/TaskDecomposition/README.md
+Docs/AI-Pipeline/ADR-034_DECOMPOSED_AGGREGATE_FEATURES.md
+Docs/AI-Pipeline/ADR-035_ROUND_ROBIN_DECOMPOSITION_REVIEW.md
+Docs/AI-Pipeline/CURRENT_PIPELINE_DESIGN.md
 ```
 
-Approved artifacts may add authorized detail where the GDD leaves room, but they may not contradict or silently replace root canon.
+## Current GDDRAG boundary
 
-## Important Reconciliation-Snapshot Lesson
+`Pipeline/GDDRAG` is a production deterministic search tool over the current canonical GDD, but **D1B.2 does not currently use it**.
 
-Reconciliation is not the mutable task database.
+Current decomposition review receives the full committed GDD through the deterministic context package. The project is intentionally proving this full-context round-robin design before adding retrieval complexity.
 
-Each full Reconciliation Agent run produces an immutable point-in-time snapshot of GDD requirements versus repository state.
+A possible future GDDRAG-assisted reviewer is documented in `CURRENT_PIPELINE_DESIGN.md`. It should be built only if live decomposition shows meaningful token/context/latency pressure or repeated canon-attention failures.
 
-The initial persistent graph was seeded only after independent verification and human approval.
+## If you are implementing gameplay
 
-Later implementation work updates the persistent graph; it does not rewrite old reconciliation snapshots.
-
-A later reconciliation creates a new snapshot and may propose a graph delta. That delta must cross an explicit review/diff/apply boundary before changing persistent work.
-
-Safe cascading readiness changes remain deterministic `taskcontrol` behavior, not direct LLM graph rewrites.
-
-## Independent Reconciliation Verification Gate
-
-A successful Reconciliation Agent run is a candidate snapshot, not automatic graph truth.
-
-Before the initial bootstrap, the multi-model Reconciliation Verification Crew independently audited:
-
-- GDD coverage;
-- dependency/decomposition semantics;
-- repository evidence;
-- execution scope / one-agent handoff size.
-
-Material findings were unioned rather than majority-voted, repaired through bounded refinement, and independently re-verified before human approval.
-
-The approved bootstrap source ended with zero material findings.
-
-This verification architecture remains available for later substantial reconciliation events; do not rerun it for every ordinary implementation ticket.
-
-## Current-Output Convention
-
-Use:
-
-`Pipeline/Reconciliation/outputs/current/`
-
-for the latest human-facing reconciliation/verification status.
-
-Treat:
-
-`Pipeline/Reconciliation/outputs/runs/`
-
-as immutable audit history.
-
-Do not use mutable `outputs/current/` as authority for the already-approved initial bootstrap. The approval manifest binds the specific immutable verification artifacts used for that seed.
-
-## Core Principle
-
-**Use deterministic local tools for facts and computation. Use LLMs for judgment and bounded implementation.**
-
-The local supervisor will eventually own the autonomous loop. Claude or another coding model is a bounded worker operating on one selected piece of work at a time.
-
-A worker does not declare itself successful. Project evidence does.
-
-An implementation worker also does not silently create new game design. Missing design becomes an explicit artifact proposal.
-
-## Current Development Rule
-
-From this point forward, pipeline implementation should be tested by advancing the actual game.
-
-Prefer this pattern:
+Read:
 
 ```text
-real ready/near-ready No Safe Circle work
-        ↓
-implement only the infrastructure needed for that work
-        ↓
-use it on the real task
-        ↓
-measure what failed / what was missing
-        ↓
-add the next bounded infrastructure slice
+Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md
+Docs/AI-Pipeline/REAL_TASK_DELIVERY_WINDOWS_CLONE_NOTE.md
+Pipeline/ExecutionCrew/README.md
+Pipeline/TaskDelivery/README.md
+Docs/Engineering/UNITY_TESTING_POLICY.md
 ```
 
-Avoid building later autonomous layers speculatively before the preceding single-task path has proven reliable.
+The current implementation flow is:
 
-## End-of-Session Rule
+```text
+clean source + TaskGraph preflight
+        ↓
+Contract Locality Auditor
+        ├─ contract problem → CONTRACT_REVIEW_REQUIRED
+        └─ local contract
+               ↓
+           Implementer
+               ↓
+       deterministic scope check
+               ↓
+         Unity Test Author
+               ↓
+       deterministic scope check
+               ↓
+          read-only Validator
+               ↓
+      optional bounded repair
+               ↓
+          human review
+               ↓
+ authoritative Unity/runtime evidence
+               ↓
+ TaskDelivery + committed evidence
+               ↓
+ evidence-derived conformance
+               ↓
+       human merge authority
+```
 
-Before ending a meaningful pipeline work session:
+ExecutionCrew does not run Unity, apply graph deltas, commit/push/merge automatically, or grant conformance/readiness.
 
-1. Update `CURRENT_STATE.md` when the milestone/slice changed.
-2. Update the active milestone completion/status notes when appropriate.
-3. Add an entry to `DECISIONS.md` if an architectural decision changed.
-4. Ensure commands and newly-created files are documented.
-5. Commit the documentation with the implementation it describes.
+## Decomposed-parent rule
 
-A new AI window should be able to resume by reading the repository without needing the previous chat transcript.
+A newly decomposed parent becomes a non-executable aggregate feature. Its explicit executable descendants own all implementation work.
+
+If components require later assembly or sewing, that work must be its own child task. There is no hidden implementation pass on the aggregate parent.
+
+Downstream tasks must consume the concrete child capability they actually need rather than keeping an ordinary dependency on the decomposed aggregate.
+
+## Current intentional gaps
+
+Still not implemented as production authority:
+
+```text
+D1C reusable reviewed graph application
+Artifact Authority / production artifact-generation GER
+Dependency readiness policy
+Autonomous dispatch
+Automatic merge authority
+GDDRAG-assisted D1B.2 review
+```
+
+## Required reading order
+
+1. `Docs/AI-Pipeline/CURRENT_STATE.md`
+2. `Docs/AI-Pipeline/CURRENT_PIPELINE_DESIGN.md`
+3. task-selection/orchestration docs when choosing real work;
+4. delivery docs when implementing/closing gameplay work;
+5. `Pipeline/TaskDecomposition/README.md` when decomposing;
+6. `Docs/AI-Pipeline/DECISIONS.md` when changing architecture/authority semantics;
+7. broader milestone context only when the current work actually needs it.
+
+`Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md` is broader architectural/future context. It must not be mistaken for the exact current D1B.2 runtime: current D1B.2 still includes the full committed GDD and does not yet use GDDRAG retrieval.
+
+## Development rule
+
+Use the real game to decide what infrastructure to build next:
+
+```text
+real near-frontier work
+        ↓
+use current pipeline
+        ↓
+measure what failed or cost too much
+        ↓
+add the smallest justified infrastructure slice
+```
+
+In particular, test D1B.2 decomposition before adding GDDRAG to it.
+
+## End-of-session rule
+
+Before ending a meaningful pipeline architecture session:
+
+1. update `CURRENT_STATE.md` when the current architecture/proving frontier changed;
+2. update `CURRENT_PIPELINE_DESIGN.md` when actual runtime architecture changed;
+3. update `DECISIONS.md` or an ADR when authority semantics changed;
+4. keep commands and usage examples current;
+5. commit documentation with the implementation or architecture change it describes.
