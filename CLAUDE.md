@@ -20,11 +20,17 @@ If this operating guidance and current project canon/state appear inconsistent, 
 
 The imported document is engineering operating guidance, not game-design canon. It does not weaken or replace the source-of-truth boundary above.
 
+## Required task checkout path policy
+
+@Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md
+
+The shared operator checkout is `C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle`. A claimed NSC task uses `C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>`, preserving the hyphenated ID, for example `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`. Do not invent `NoSafeCircle-NSC...` directory variants.
+
 ## Required decomposition checkout policy
 
 @Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md
 
-When acting as a task orchestrator, decomposition work must leave the shared `C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle` checkout after claim and before D1B.1 execution. Create and enter the task-identifying standalone decomposition clone required by the imported policy. This is operator coordination guidance and does not grant the decomposition agent additional repository-write authority.
+When acting as a task orchestrator, decomposition work must leave the shared checkout after claim and before D1B.1 execution. Decomposition uses the same canonical task directory, e.g. `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`, with authoritative outputs in a filesystem-disjoint sibling such as `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021-Outputs`. This is operator coordination guidance and does not grant the decomposition agent additional repository-write authority.
 
 ## Global operating rules
 
