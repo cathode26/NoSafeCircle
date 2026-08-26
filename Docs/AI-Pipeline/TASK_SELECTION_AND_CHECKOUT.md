@@ -40,7 +40,7 @@ Preserve the hyphenated TaskGraph ID. Do not create `NoSafeCircle-NSC...`, `-DEC
 ## Selectable work types
 
 1. **fresh implementation work** — implement an existing concrete TaskGraph contract that has not yet been delivered;
-2. **decomposition work** — run Stage D1B.1 against an existing decomposition-relevant parent and produce review-ready artifacts.
+2. **decomposition work** — run the bounded decomposition pipeline against an existing decomposition-relevant parent and produce review-ready or explicit needs-human artifacts.
 
 `decomposition` is an orchestrator work type, not a TaskGraph `kind`.
 
@@ -212,7 +212,7 @@ Decomposition uses the **same canonical task directory**, not a `-DECOMP` direct
 C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
 ```
 
-Authoritative D1B.1 output uses the Downloads task root and per-run child directory:
+Authoritative decomposition output uses the Downloads task root and per-run child directory:
 
 ```text
 C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\<RunId>
@@ -223,21 +223,51 @@ Read:
 ```text
 Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md
 Pipeline/TaskDecomposition/README.md
+Docs/AI-Pipeline/ADR-035_ROUND_ROBIN_DECOMPOSITION_REVIEW.md
 ```
 
-The production CLI is:
+For normal new provider-backed decomposition, use Stage D1B.2:
+
+```bash
+python3 Pipeline/TaskDecomposition/run_round_robin_decomposition.py \
+  --task-id <TASK-ID> \
+  --providers codex,claude \
+  --max-calls 4
+```
+
+Use the documented `round-robin-decompose` Docker service so source is physically read-only, output is filesystem-disjoint, and both provider configuration volumes are available.
+
+D1B.2 alternates candidate authorship and independent semantic review. Every generated/revised candidate passes deterministic D1A validation before another provider reviews it. The latest candidate author may never approve its own candidate. The run stops on:
+
+- independent `pass` -> `review_ready`;
+- explicit `needs_human` authority boundary;
+- deterministic rejection;
+- provider failure;
+- bounded call limit.
+
+If the call limit ends immediately after a revision, the result is `needs_human`; an unreviewed final revision cannot become `review_ready`.
+
+D1B.1 remains the compatible one-provider proposal/diagnosis command:
 
 ```bash
 python3 Pipeline/TaskDecomposition/run_decomposition.py --task-id <TASK-ID> --provider <claude|codex>
 ```
 
-Use the documented Docker-backed flow so source is physically read-only and output is filesystem-disjoint.
+Use D1B.1 only when the human explicitly requests a one-provider run, for bounded diagnostics, or when the second provider is unavailable and that limitation is disclosed.
 
-D1B.1 outputs are `review_only_not_applied`; generic task selection does not authorize graph-delta application.
+All decomposition outputs are `review_only_not_applied`; generic task selection does not authorize graph-delta application.
 
-`review_ready` means the model result passed the Stage D1A structural/semantic contract and the proposed overlay validator when applicable. It does **not** mean the human should automatically approve or apply the graph delta. Human review must still check execution locality, especially whether any proposed child completion gate depends on future authored content or a downstream task that itself depends on the parent. Treat that as a semantic completion cycle and request correction before graph application even when `proposed_graph_validation.result` is `valid`.
+D1B.2 `review_ready` means:
 
-If `review_ready`, post a Decomposition Closeout with worker ID, parent ID/revision/source commit, canonical checkout/output paths, provider/run ID, semantic decision, result identities, proposed-child/blocker summary, explicit review-only status, and required next action.
+- the candidate passed deterministic schema/policy/graph validation;
+- a provider other than its latest author independently passed it;
+- no blocking semantic finding remains unresolved.
+
+It still does **not** mean the human should automatically approve or apply the graph delta. Human review/application authority remains separate.
+
+A D1B.2 `needs_human` result is a successful bounded diagnosis, not a provider failure. Preserve the unresolved findings and ask for the required authority decision.
+
+If `review_ready` or `needs_human`, post a Decomposition Closeout with worker ID, parent ID/revision/source commit, canonical checkout/output paths, mode/provider order/run ID, semantic decision, final candidate/approver identities when present, proposed-child or blocker summary, unresolved findings when present, explicit review-only status, and required next action.
 
 ## 9. Generic retry loop
 
@@ -288,7 +318,7 @@ Release and retry only for a real hard blocker outside bounded authority/budget,
 
 Preserve useful task checkout/output/log artifacts when releasing.
 
-A `review_ready` decomposition is successful decomposition work, not a retry failure.
+A `review_ready` decomposition is successful decomposition work. A D1B.2 `needs_human` result is also successful bounded decomposition work at the human-authority boundary. Neither authorizes graph application.
 
 ## 10. Existing checkout rule
 
@@ -335,9 +365,9 @@ enter C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
         ↓
 implementation → normal delivery
 OR
-decomposition → D1B.1 + Downloads\NoSafeCircleOutput\<TASK-ID>\<RunId>
+decomposition → D1B.2 + Downloads\NoSafeCircleOutput\<TASK-ID>\<RunId>
         ↓
-closeout/review boundary
+closeout/review/application boundary
 ```
 
 Do not ask the human to repeat this process when it is already committed in the repository.
