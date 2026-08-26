@@ -153,8 +153,7 @@ Once a work unit is selected:
 4. post **Claim / Planned Approach** with worker ID;
 5. record `work_type: implementation` or `work_type: decomposition`;
 6. record the intended canonical checkout path;
-7. for decomposition, record the canonical Downloads output root/run convention;
-8. only then create/enter the task checkout and start the selected pipeline.
+7. only then create/enter the task checkout and start the selected pipeline.
 
 Detailed Issue rules:
 
@@ -213,23 +212,16 @@ Decomposition uses the **same canonical task directory**, not a `-DECOMP` direct
 C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
 ```
 
-The host D1B.1 output root follows the canonical Downloads hierarchy:
+Authoritative D1B.1 output uses the Downloads task root and per-run child directory:
 
 ```text
-C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021
-```
-
-Each no-overwrite decomposition run then lands beneath that task root using its run ID, for example:
-
-```text
-C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\20260825-195246
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\<RunId>
 ```
 
 Read:
 
 ```text
 Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md
-Docs/AI-Pipeline/OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md
 Pipeline/TaskDecomposition/README.md
 ```
 
@@ -239,11 +231,13 @@ The production CLI is:
 python3 Pipeline/TaskDecomposition/run_decomposition.py --task-id <TASK-ID> --provider <claude|codex>
 ```
 
-Use the documented Docker-backed flow so source is physically read-only and output is filesystem-disjoint. Set `NSC_DECOMPOSITION_HOST_OUTPUT_ROOT` to `Downloads\NoSafeCircleOutput\<TASK-ID>` before the provider command. Do not use a task-sibling `...\<TASK-ID>-Outputs` directory as the normal operator path.
+Use the documented Docker-backed flow so source is physically read-only and output is filesystem-disjoint.
 
 D1B.1 outputs are `review_only_not_applied`; generic task selection does not authorize graph-delta application.
 
-If `review_ready`, post a Decomposition Closeout with worker ID, parent ID/revision/source commit, canonical checkout path, exact Downloads run path, provider/run ID, semantic decision, result identities, proposed-child/blocker summary, explicit review-only status, and required next action.
+`review_ready` means the model result passed the Stage D1A structural/semantic contract and the proposed overlay validator when applicable. It does **not** mean the human should automatically approve or apply the graph delta. Human review must still check execution locality, especially whether any proposed child completion gate depends on future authored content or a downstream task that itself depends on the parent. Treat that as a semantic completion cycle and request correction before graph application even when `proposed_graph_validation.result` is `valid`.
+
+If `review_ready`, post a Decomposition Closeout with worker ID, parent ID/revision/source commit, canonical checkout/output paths, provider/run ID, semantic decision, result identities, proposed-child/blocker summary, explicit review-only status, and required next action.
 
 ## 9. Generic retry loop
 
