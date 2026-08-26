@@ -87,23 +87,29 @@ C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
 
 It does not add `-DECOMP` to the checkout directory. The GitHub Issue records `work_type: decomposition`.
 
-D1B.1 source remains read-only. Authoritative decomposition outputs must remain filesystem-disjoint from the source checkout. The normal task-identifying sibling output path is:
+D1B.1 source remains read-only. Authoritative decomposition output must be filesystem-disjoint from the source checkout and must follow the external Downloads run layout from `Docs/AI-Pipeline/OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md`:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021-Outputs
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\<TASK-ID>\<RunId>
 ```
 
-Example:
+Representative NSC-021 run:
+
+```text
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\20260825-195246
+```
+
+The host output root supplied to Compose/D1B.1 is the task folder above the run ID:
 
 ```powershell
 $TaskId = "NSC-021"
-$CrewRoot = "C:\UnityProjects\NoSafeCircleAgentCrew"
-$Checkout = Join-Path $CrewRoot $TaskId
-$Output = Join-Path $CrewRoot "$TaskId-Outputs"
-$env:NSC_DECOMPOSITION_HOST_OUTPUT_ROOT = $Output
+$Downloads = Join-Path $env:USERPROFILE "Downloads"
+$OutputRoot = Join-Path $Downloads (Join-Path "NoSafeCircleOutput" $TaskId)
+New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
+$env:NSC_DECOMPOSITION_HOST_OUTPUT_ROOT = $OutputRoot
 ```
 
-Do not put authoritative decomposition outputs inside `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`.
+D1B.1 creates its no-overwrite `<RunId>` child directory. Do not pre-create that run directory and do not put authoritative decomposition output inside `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`.
 
 ## Existing checkout rule
 
@@ -126,4 +132,10 @@ Claim and closeout records should use the canonical checkout path verbatim, for 
 C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
 ```
 
-Human-facing report copies may still use the documented Downloads handoff convention. Repository-authoritative or hash-bound pipeline outputs remain wherever their owning pipeline requires them.
+For decomposition, closeout should also record the exact authoritative run directory, for example:
+
+```text
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\20260825-195246
+```
+
+Human-facing report copies use the same documented Downloads hierarchy. Repository-authoritative or hash-bound pipeline outputs remain wherever their owning pipeline explicitly requires them.
