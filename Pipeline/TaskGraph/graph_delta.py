@@ -15,11 +15,12 @@ from TaskDecomposition.contracts import (
     ParentTaskIdentity,
 )
 from TaskDecomposition.policy import DecompositionPolicyError, validate_decomposition_result
+from decomposition_graph_semantics import validate_decomposition_graph_semantics
 from persistent_work_graph import PersistentWorkGraph
 from work_graph_transform import WorkGraphPlan
 from work_graph_validate import WorkGraphValidationError, validate_work_graph_plan
 
-GRAPH_DELTA_SCHEMA_VERSION = "1.0"
+GRAPH_DELTA_SCHEMA_VERSION = "1.1"
 NSC_ID_RE = re.compile(r"^NSC-(\d{3,})$")
 
 
@@ -235,7 +236,7 @@ def _update_resource_groups(
         }
         result.append(after)
         if before != after:
-            changes.append({"change_type": "extended", "resource_key": resource, "before": before, "after": deepcopy(after)})
+            changes.append({"change_type": "updated", "resource_key": resource, "before": before, "after": deepcopy(after)})
 
     for resource in sorted(set(owners) - existing_resources):
         if len(owners[resource]) <= 1:
@@ -260,8 +261,75 @@ def _validation_dict(summary: Any) -> dict[str, Any]:
         "resource_group_count": summary.resource_group_count,
         "project_requirement_count": summary.project_requirement_count,
         "task_schema_version": summary.task_schema_version,
+        "decomposition_aggregate_semantics": "valid",
         "result": "valid",
     }
+
+
+def _active_inbound_dependents(
+    tasks: tuple[dict[str, Any], ...], parent_id: str
+) -> dict[str, dict[str, Any]]:
+    return {
+        task["id"]: task
+        for task in tasks
+        if task.get("contract_disposition") == "active"
+        and parent_id in task.get("depends_on", [])
+    }
+
+
+def _validate_inbound_rewrite_coverage(
+    active_dependents: dict[str, dict[str, Any]], result: DecompositionResult
+) -> dict[str, Any]:
+    rewrites = {
+        rewrite.dependent_task_id: rewrite
+        for rewrite in result.inbound_dependency_rewrites
+    }
+    expected = set(active_dependents)
+    actual = set(rewrites)
+    missing = sorted(expected - actual)
+    extra = sorted(actual - expected)
+    if missing or extra:
+        raise GraphDeltaPlanningError(
+            "Inbound dependency rewrites must exactly cover active direct dependents of the "
+            f"selected parent (missing={missing}, extra={extra})."
+        )
+    return rewrites
+
+
+def _rewrite_dependent(
+    dependent: dict[str, Any],
+    *,
+    parent_id: str,
+    replacement_ids: list[str],
+    reason: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    before_dependencies = list(dependent["depends_on"])
+    after_dependencies: list[str] = []
+    for dependency in before_dependencies:
+        if dependency == parent_id:
+            after_dependencies.extend(replacement_ids)
+        else:
+            after_dependencies.append(dependency)
+    if parent_id in after_dependencies:
+        raise GraphDeltaPlanningError(
+            f"Dependent {dependent['id']} retained aggregate dependency {parent_id}."
+        )
+    if len(after_dependencies) != len(set(after_dependencies)):
+        raise GraphDeltaPlanningError(
+            f"Inbound rewrite for {dependent['id']} resolves duplicate dependencies."
+        )
+    revised = deepcopy(dependent)
+    revised["contract_revision"] = dependent["contract_revision"] + 1
+    revised["depends_on"] = after_dependencies
+    change = {
+        "dependent_task_id": dependent["id"],
+        "before_contract_revision": dependent["contract_revision"],
+        "after_contract_revision": revised["contract_revision"],
+        "before_dependencies": before_dependencies,
+        "after_dependencies": deepcopy(after_dependencies),
+        "reason": reason,
+    }
+    return revised, change
 
 
 def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_result: Any) -> GraphDeltaPlan:
@@ -275,6 +343,7 @@ def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_resu
         raise GraphDeltaPlanningError("source_graph must be a validated WorkGraphPlan or PersistentWorkGraph.")
     try:
         validate_work_graph_plan(source)
+        validate_decomposition_graph_semantics(source)
     except WorkGraphValidationError as exc:
         raise GraphDeltaPlanningError(f"Source work graph is invalid: {exc}") from exc
 
@@ -334,6 +403,9 @@ def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_resu
         raise GraphDeltaPlanningError(f"Child local keys collide with existing reconciliation keys: {sorted(collisions)}.")
     _detect_local_cycles(children, local_keys)
 
+    active_dependents = _active_inbound_dependents(source.tasks, parent["id"])
+    rewrites = _validate_inbound_rewrite_coverage(active_dependents, result)
+
     existing_numbers = []
     for task_id in tasks_by_id:
         match = NSC_ID_RE.fullmatch(task_id)
@@ -365,22 +437,50 @@ def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_resu
     ]
     proposed_parent = deepcopy(parent)
     proposed_parent["contract_revision"] = parent["contract_revision"] + 1
+    proposed_parent["kind"] = "feature"
     proposed_parent["execution_scope"] = "not_applicable"
     proposed_parent["decomposition_state"] = "decomposed"
+    proposed_parent["decomposition_children"] = [
+        allocation[child.local_key] for child in children
+    ]
+    proposed_parent["exclusive_resources"] = []
     child_identity = ", ".join(
         f"{allocation[child.local_key]} ({child.local_key})" for child in children
     )
     proposed_parent["execution_reason"] = (
-        f"Execution responsibilities are delegated to child contracts: {child_identity}."
+        "Non-executable aggregate feature. All implementation responsibilities are delegated "
+        f"to child contracts: {child_identity}. No later implementation pass on {parent['id']} exists."
     )
     proposed_parent["decomposition_reason"] = (
         f"Decomposed into reviewed child contracts: {child_identity}. "
-        "This aggregate state does not claim implementation completion."
+        "Aggregate conformance is derived from the complete delegated child set; any required "
+        "assembly or integration must be an explicit child contract."
     )
+
+    rewritten_dependents: dict[str, dict[str, Any]] = {}
+    inbound_changes: list[dict[str, Any]] = []
+    for dependent_id in sorted(rewrites, key=lambda value: int(value.split("-", 1)[1])):
+        rewrite = rewrites[dependent_id]
+        replacement_ids = [allocation[key] for key in rewrite.replacement_local_keys]
+        revised, change = _rewrite_dependent(
+            active_dependents[dependent_id],
+            parent_id=parent["id"],
+            replacement_ids=replacement_ids,
+            reason=rewrite.reason,
+        )
+        rewritten_dependents[dependent_id] = revised
+        change["replacement_local_keys"] = list(rewrite.replacement_local_keys)
+        change["replacement_task_ids"] = replacement_ids
+        inbound_changes.append(change)
 
     proposed_tasks = []
     for task in source.tasks:
-        proposed_tasks.append(proposed_parent if task["id"] == parent["id"] else deepcopy(task))
+        if task["id"] == parent["id"]:
+            proposed_tasks.append(proposed_parent)
+        elif task["id"] in rewritten_dependents:
+            proposed_tasks.append(rewritten_dependents[task["id"]])
+        else:
+            proposed_tasks.append(deepcopy(task))
     proposed_tasks.extend(deepcopy(proposed_children))
     proposed_id_map = deepcopy(source.id_map)
     proposed_id_map.update(allocation)
@@ -399,6 +499,7 @@ def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_resu
     )
     try:
         validation = validate_work_graph_plan(proposed_plan)
+        validate_decomposition_graph_semantics(proposed_plan)
     except WorkGraphValidationError as exc:
         raise GraphDeltaPlanningError(f"Proposed graph overlay is invalid: {exc}") from exc
 
@@ -412,6 +513,7 @@ def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_resu
         "parent_after_hash": parent_after_hash,
         "parent_before_summary": {
             "task_id": parent["id"],
+            "kind": parent["kind"],
             "contract_revision": parent["contract_revision"],
             "contract_disposition": parent["contract_disposition"],
             "execution_scope": parent["execution_scope"],
@@ -419,14 +521,17 @@ def plan_graph_delta(source_graph: Any, parent_selector: Any, decomposition_resu
         },
         "parent_after_summary": {
             "task_id": proposed_parent["id"],
+            "kind": proposed_parent["kind"],
             "contract_revision": proposed_parent["contract_revision"],
             "contract_disposition": proposed_parent["contract_disposition"],
             "execution_scope": proposed_parent["execution_scope"],
             "decomposition_state": proposed_parent["decomposition_state"],
+            "decomposition_children": deepcopy(proposed_parent["decomposition_children"]),
         },
         "allocated_local_key_to_task_id": deepcopy(allocation),
         "id_map_additions": deepcopy(allocation),
         "proposed_child_contracts": deepcopy(proposed_children),
+        "inbound_dependency_changes": inbound_changes,
         "resource_group_changes": resource_changes,
         "proposed_graph_semantic_hash": semantic_json_sha256(proposed_overlay),
         "proposed_graph_validation": _validation_dict(validation),
