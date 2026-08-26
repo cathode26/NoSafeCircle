@@ -1,0 +1,79 @@
+name: D1B.2 Core Deterministic Validation
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/d1b2-core-deterministic.yml"
+      - "Pipeline/AgentRuntime/**"
+      - "Pipeline/TaskDecomposition/**"
+      - "Pipeline/TaskExecution/**"
+      - "Pipeline/TaskGraph/**"
+      - "compose.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-core:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure deterministic Python execution
+        shell: pwsh
+        run: |
+          "PYTHONDONTWRITEBYTECODE=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "PYTHONPYCACHEPREFIX=$env:RUNNER_TEMP\NoSafeCircle-PyCache-D1B2" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Invocation-ID contract proof
+        run: python Pipeline/TaskDecomposition/tests/round_invocation_id_smoke_test.py
+
+      - name: Review contracts and finding lifecycle
+        run: python Pipeline/TaskDecomposition/tests/review_contracts_smoke_test.py
+
+      - name: Decomposition contracts
+        run: python Pipeline/TaskDecomposition/tests/decomposition_contracts_smoke_test.py
+
+      - name: Graph delta
+        run: python Pipeline/TaskGraph/graph_delta_smoke_test.py
+
+      - name: Aggregate decomposition semantics
+        run: python Pipeline/TaskGraph/decomposition_graph_semantics_smoke_test.py
+
+      - name: D1B.1 fake-provider regression
+        run: python Pipeline/TaskDecomposition/tests/live_decomposition_smoke_test.py
+
+      - name: D1B.2 round-robin fake-provider suite
+        run: python Pipeline/TaskDecomposition/tests/round_robin_decomposition_smoke_test.py
+
+      - name: Current persistent TaskGraph validation
+        run: python Pipeline/TaskGraph/taskcontrol.py validate
+
+      - name: Python compile check
+        run: python -m compileall -q Pipeline/TaskDecomposition Pipeline/TaskGraph Pipeline/AgentRuntime Pipeline/TaskExecution
+
+      - name: Pull-request whitespace check
+        shell: pwsh
+        run: |
+          git diff --check origin/${{ github.event.pull_request.base.ref }}...HEAD
+
+      - name: Verify clean checkout
+        shell: pwsh
+        run: |
+          $status = git status --porcelain=v1 --untracked-files=all
+          if ($status) {
+            git status --short --untracked-files=all
+            throw "Deterministic validation changed the checkout."
+          }
