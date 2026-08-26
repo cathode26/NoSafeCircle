@@ -118,6 +118,14 @@ Everything produced here has authority `review_only_not_applied`. D1B.1 never ch
 
 A generic task-picking instruction authorizes the orchestrator to **select and run** an eligible D1B.1 proposal. It does **not** authorize applying the proposal. `graph_delta.json` remains review-only. Stage D1C reusable graph application remains unimplemented.
 
+### Human review after `review_ready`
+
+`review_ready` means D1A accepted the structured result and, for `decision=decomposed`, the proposed graph overlay is structurally valid. It is not automatic graph-application approval.
+
+Before applying a reviewed proposal, the human/orchestrator must still check execution locality and dependency realism. In particular, reject or revise a proposal when a proposed child completion gate requires downstream authored content or a downstream task that itself depends on the parent being decomposed. That creates a semantic completion cycle even if the explicit dependency graph remains acyclic.
+
+Use `downstream_integration_obligations` for such deferred cross-system proofs when appropriate. Keep the child locally provable with representative/test-owned fixtures, and preserve parent requirement coverage by mapping the parent obligation to the downstream integration entry instead of falsely making unavailable future content a child completion prerequisite.
+
 ## GitHub coordination and decomposition closeout
 
 When decomposition is selected as orchestrator work, use the GitHub Issue for the existing parent `NSC-###` contract. The Claim / Planned Approach must explicitly say:
