@@ -5,6 +5,7 @@ from copy import deepcopy
 from decomposition_graph_semantics import (
     DecompositionGraphSemanticsError,
     aggregate_child_state_summary,
+    aggregate_requirement_sha256,
     validate_decomposition_graph_semantics,
 )
 from work_graph_transform import WorkGraphPlan
@@ -46,6 +47,7 @@ def strict_plan() -> WorkGraphPlan:
     parent = task("NSC-010", "aggregate", parent="NSC-001", kind="feature")
     parent["decomposition_state"] = "decomposed"
     parent["decomposition_children"] = ["NSC-020"]
+    parent["decomposition_requirement_sha256"] = aggregate_requirement_sha256(parent)
     child = task("NSC-020", "child", parent="NSC-010")
     dependent = task("NSC-030", "dependent", parent="NSC-001", depends_on=("NSC-020",))
     tasks = (root, parent, child, dependent)
@@ -78,15 +80,26 @@ def with_tasks(plan: WorkGraphPlan, tasks: list[dict]) -> WorkGraphPlan:
 def main() -> int:
     plan = strict_plan()
     validate_decomposition_graph_semantics(plan)
+    aggregate = plan.tasks[1]
+    original_requirement_hash = aggregate["decomposition_requirement_sha256"]
+    assert original_requirement_hash == aggregate_requirement_sha256(aggregate)
+    changed_requirements = deepcopy(aggregate)
+    changed_requirements["acceptance_criteria"][0]["requirement"] = "changed after decomposition"
+    assert aggregate_requirement_sha256(changed_requirements) != original_requirement_hash
 
     # Legacy reviewed decompositions without decomposition_children remain readable.
     legacy_tasks = list(deepcopy(plan.tasks))
     legacy_tasks[1].pop("decomposition_children")
+    legacy_tasks[1].pop("decomposition_requirement_sha256")
     validate_decomposition_graph_semantics(with_tasks(plan, legacy_tasks))
 
     bad = list(deepcopy(plan.tasks))
     bad[1]["kind"] = "implementation"
     expect_failure(with_tasks(plan, bad), "kind='feature'")
+
+    bad = list(deepcopy(plan.tasks))
+    bad[1]["decomposition_requirement_sha256"] = "not-a-hash"
+    expect_failure(with_tasks(plan, bad), "decomposition_requirement_sha256")
 
     bad = list(deepcopy(plan.tasks))
     bad[1]["exclusive_resources"] = ["logical:aggregate-lock"]
