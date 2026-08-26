@@ -4,7 +4,13 @@
 
 This is mandatory operating guidance for any orchestrator that selects or runs `work_type: decomposition` for No Safe Circle.
 
-The human operator may have many task-orchestrator terminals open at once. The visible Windows/PowerShell working-directory path is part of the operator's coordination UI: it must identify which task that terminal is working on. Decomposition is therefore **not exempt** from isolated task-specific checkout rules merely because D1B.1 is read-only.
+The human operator may have many task-orchestrator terminals open at once. The visible Windows/PowerShell working-directory path is part of the operator coordination UI, so decomposition must use the same canonical task directory convention as implementation work.
+
+The authoritative path convention is:
+
+```text
+Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md
+```
 
 ## Mandatory rule
 
@@ -14,80 +20,104 @@ The shared repository root:
 C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
 ```
 
-may be used to refresh `main`, inspect TaskGraph state, discover candidates, and coordinate/claim GitHub Issues. It must **not** remain the working directory once a decomposition work unit has been selected and claimed.
+may be used to refresh `main`, inspect TaskGraph state, discover candidates, and coordinate/claim GitHub Issues. It must **not** remain the working directory once decomposition work has been selected and claimed.
 
 After claiming `work_type: decomposition`, and **before any decomposition provider invocation**, the orchestrator must:
 
 1. create a fresh standalone clone from `https://github.com/cathode26/NoSafeCircle.git` at current remote `main`;
-2. place it in a sibling directory whose name visibly identifies both the parent NSC task and decomposition work;
-3. `Set-Location` / `cd` into that directory;
-4. run the D1B.1 decomposition workflow from that directory;
+2. use the exact task-ID directory directly under the crew root;
+3. `Set-Location` / `cd` into that task directory;
+4. run D1B.1 from that directory;
 5. keep decomposition outputs filesystem-disjoint from the source checkout.
 
-Canonical Windows naming:
+For NSC-021 the canonical paths are:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC021-DECOMP
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC021-DECOMP-Outputs
+C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021-Outputs
 ```
 
-Replace `NSC021` with the selected parent task ID without the hyphen in the directory-name segment, matching the existing task-checkout naming style.
-
-The shell prompt for an active decomposition should therefore look like:
+The shell prompt for active NSC-021 decomposition should therefore look like:
 
 ```text
-PS C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC021-DECOMP>
+PS C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021>
 ```
 
-and **not**:
+and not like any of these:
 
 ```text
 PS C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle>
+PS C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC021-DECOMP>
+PS C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC021-Decomposition-<timestamp>>
 ```
 
-The task-specific checkout path is a required human-visible coordination signal, not cosmetic naming.
+The task ID itself is the required human-visible coordination label. `work_type: decomposition`, worker ID, provider, and run ID belong in GitHub/pipeline records rather than the checkout directory name.
 
 ## Checkout constraints
 
 - Clone from the GitHub remote, not from the local shared repository.
 - Use a standalone clone, not a Git worktree.
 - Start from current remote `main`.
-- Decomposition source work is read-only; no task branch is required merely to run D1B.1.
-- Require a completely clean source checkout before the decomposition preflight.
-- Do not overwrite or casually reuse an existing decomposition checkout.
-- If the canonical task path already exists and cannot be proven to belong to the same active claimed work/source identity, create a distinct task-identifying path by appending the worker ID, for example `NoSafeCircle-NSC021-DECOMP-chatgpt-2`.
-- Never fall back to running decomposition from the shared `NoSafeCircle` root because checkout creation failed. Treat inability to create/enter the isolated directory as an execution blocker.
+- Use `git -c core.longpaths=true clone ...` because the repository contains deeply nested historical pipeline paths.
+- After cloning, set `git config core.longpaths true` in the task checkout.
+- Decomposition source work is read-only; no task implementation branch is required merely to run D1B.1.
+- Require a completely clean source checkout before decomposition preflight.
+- Do not overwrite or casually reuse an existing canonical task checkout.
+- If `C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>` already exists, inspect and reconcile it rather than creating a differently named duplicate directory.
+- Never fall back to running decomposition from the shared `NoSafeCircle` root because checkout creation failed.
 
 ## PowerShell pattern
 
 After the parent Issue is claimed:
 
 ```powershell
-$taskId = "NSC-021"
-$taskDirId = $taskId -replace '-', ''
-$crewRoot = "C:\UnityProjects\NoSafeCircleAgentCrew"
-$checkout = Join-Path $crewRoot "NoSafeCircle-$taskDirId-DECOMP"
-$output = Join-Path $crewRoot "NoSafeCircle-$taskDirId-DECOMP-Outputs"
-if (Test-Path $checkout) { throw "Decomposition checkout already exists: $checkout" }
-git clone --branch main --single-branch https://github.com/cathode26/NoSafeCircle.git $checkout
-Set-Location $checkout
-$env:NSC_DECOMPOSITION_HOST_OUTPUT_ROOT = $output
+$TaskId = "NSC-021"
+$CrewRoot = "C:\UnityProjects\NoSafeCircleAgentCrew"
+$Checkout = Join-Path $CrewRoot $TaskId
+$Output = Join-Path $CrewRoot "$TaskId-Outputs"
+
+if (Test-Path -LiteralPath $Checkout) {
+    throw "Task checkout already exists: $Checkout"
+}
+if (Test-Path -LiteralPath $Output) {
+    throw "Task decomposition output directory already exists: $Output"
+}
+
+git -c core.longpaths=true clone --branch main --single-branch https://github.com/cathode26/NoSafeCircle.git $Checkout
+if ($LASTEXITCODE -ne 0) { throw "git clone failed" }
+
+Set-Location $Checkout
+git config core.longpaths true
+New-Item -ItemType Directory -Force -Path $Output | Out-Null
+$env:NSC_DECOMPOSITION_HOST_OUTPUT_ROOT = $Output
+
 git branch --show-current
 git rev-parse HEAD
 git status --short
+python Pipeline/TaskGraph/taskcontrol.py validate
 ```
 
-Only after the prompt visibly shows the task-specific decomposition directory should the orchestrator run the documented Docker-backed D1B.1 command from `Pipeline/TaskDecomposition/README.md`.
+Only after the prompt visibly shows the canonical task directory should the orchestrator run the documented Docker-backed D1B.1 command from `Pipeline/TaskDecomposition/README.md`.
 
-The output directory may use another explicit task-identifying sibling path when necessary, but it must remain outside the source checkout.
+## Docker / PowerShell 5.1 note
+
+When a provider command needs stdout and stderr combined for `Tee-Object`, place `2>&1` **inside** the command executed by `cmd.exe`. Do not attach PowerShell-side `2>&1` to the native invocation while `$ErrorActionPreference = "Stop"`, because ordinary Docker Compose stderr progress can be promoted to `NativeCommandError`.
+
+Example shape:
+
+```powershell
+$DockerCommand = "docker compose -p nosafecircle-m2a run --rm -T codex-decompose python3 Pipeline/TaskDecomposition/run_decomposition.py --task-id NSC-021 --provider codex --run-id $RunId 2>&1"
+& cmd.exe /d /s /c $DockerCommand | Tee-Object -FilePath $ProviderLog
+$ProviderExit = $LASTEXITCODE
+```
 
 ## Closeout visibility
 
 The Decomposition Closeout must record:
 
-- the task-specific source checkout path;
-- the external decomposition output path;
-- the parent task ID and source commit;
-- the existing D1B.1 run/result identities required by the decomposition policy.
+- canonical task source checkout path, e.g. `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`;
+- external decomposition output path, e.g. `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021-Outputs`;
+- parent task ID and source commit;
+- provider, run ID, and existing D1B.1 result identities.
 
-This rule changes operator checkout isolation only. It does not change decomposition authority: outputs remain `review_only_not_applied`, and decomposition still grants no readiness, delivery, conformance, graph-application, or merge authority.
+This rule changes operator checkout isolation only. It does not change decomposition authority: outputs remain `review_only_not_applied`, and decomposition grants no readiness, delivery, conformance, graph-application, or merge authority.
