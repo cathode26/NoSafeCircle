@@ -20,7 +20,7 @@ committed-source preflight -> deterministic context -> TaskExecutionRequest
 
 Human authorization may be specific (`Decompose NSC-021`) or generic (`Go pick a task and start on it`) when the generic selection request is being handled under `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md` and `Docs/AI-Pipeline/GENERIC_TASK_SELECTION_RETRY_AND_DECOMPOSITION.md`. Under a generic request, the orchestrator may select an eligible decomposition parent as the bounded work unit. This does not weaken the deterministic task-selection preflight or any review/application boundary.
 
-The source is bound to exact HEAD/tree/branch, must be completely clean, and is revalidated after the provider and before accepted artifact publication. Production execution additionally requires a physically read-only source mount. The output root must be filesystem-disjoint from the source. The Decomposer receives only `repository_read` and `repository_search`, empty write boundaries, the D1A output schema, the `high_reasoning` class, and bounded turn/timeout budgets. It cannot receive repository write or approved-command capabilities.
+The source is bound to exact HEAD/tree/branch, must be completely clean, and is revalidated after the provider and before accepted artifact publication. Production execution additionally requires a physically read-only source mount. The output root must be filesystem-disjoint from the source. For real task orchestration on the Windows operator machine, `Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md` and `Docs/AI-Pipeline/OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md` additionally require the host output root to be `Downloads\NoSafeCircleOutput\<TASK-ID>` so each D1B.1 run lands at `Downloads\NoSafeCircleOutput\<TASK-ID>\<RunId>`. The Decomposer receives only `repository_read` and `repository_search`, empty write boundaries, the D1A output schema, the `high_reasoning` class, and bounded turn/timeout budgets. It cannot receive repository write or approved-command capabilities.
 
 Claude uses configuration `claude-decomposition`, provider `claude-code`, and `NSC_CLAUDE_MODEL` (default `claude-sonnet-5`). Codex uses `codex-decomposition`, provider `openai-codex`, and `NSC_OPENAI_CODEX_MODEL` (default `gpt-5.6-sol`). The default limits are 48 turns and 1440 seconds, configurable with positive contract-validated `NSC_TASK_DECOMPOSER_TURN_LIMIT` and `NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS`. `NSC_DECOMPOSITION_HEARTBEAT_SECONDS` defaults to 15.
 
@@ -98,6 +98,20 @@ Each no-overwrite run directory contains:
     result.json
 ```
 
+On the Windows operator machine, the canonical task-associated form is:
+
+```text
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\<TASK-ID>\<RunId>\
+```
+
+For example:
+
+```text
+C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\20260825-195246\
+```
+
+The parent `<TASK-ID>` folder is the host output root. D1B.1 creates the `<RunId>` directory itself and fails closed if that run directory already exists; do not pre-create the run directory.
+
 JSON review artifacts use strict finite JSON, deterministic key ordering, UTF-8, LF, one trailing newline, and atomic no-overwrite publication. Runtime raw artifacts remain available when the outer layer rejects model output. Progress telemetry excludes prompts, raw provider output, credentials, and reasoning. Artifact references in the final result are run-relative.
 
 Everything produced here has authority `review_only_not_applied`. D1B.1 never changes task contracts, ID maps, resource groups, project requirements, the GDD, or implementation files. It does not establish readiness, authorization, delivery, conformance, completion, priority, or dependency readiness.
@@ -118,6 +132,8 @@ If the run reaches `review_ready`, post a **Decomposition Closeout** with:
 
 - worker ID;
 - parent task ID/revision/source commit;
+- canonical task checkout path;
+- exact Downloads run path;
 - provider and run ID;
 - semantic decision;
 - paths/identities of `decomposition_result.json` and `graph_delta.json` when present;
@@ -135,9 +151,19 @@ The production CLI requires a physically read-only source checkout:
 python3 Pipeline/TaskDecomposition/run_decomposition.py --task-id NSC-021 --provider codex
 ```
 
-`--task-id` and `--provider` are required. `--provider` is `claude` or `codex`; `--source` defaults to the repository root; `--output-root` defaults to `NSC_DECOMPOSITION_OUTPUT_ROOT` when set and otherwise to the sibling `<repository-parent>/NoSafeCircle-DecompositionOutputs` directory outside the checkout; and `--run-id` accepts an optional validated lowercase slug. Exit 0 means `review_ready`, exit 1 means `agent_failed` or `rejected`, and exit 2 means deterministic preflight blockage. Stdout is reserved for the final machine-readable run result and progress is written to stderr.
+`--task-id` and `--provider` are required. `--provider` is `claude` or `codex`; `--source` defaults to the repository root; `--output-root` defaults to `NSC_DECOMPOSITION_OUTPUT_ROOT` when set and otherwise to the sibling `<repository-parent>/NoSafeCircle-DecompositionOutputs` directory outside the checkout; and `--run-id` accepts an optional validated lowercase slug. That generic CLI default exists for tool-level use, but **real Windows task orchestration must not rely on it**. Set the host decomposition output root to `C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\<TASK-ID>` before invoking Docker-backed D1B.1. Exit 0 means `review_ready`, exit 1 means `agent_failed` or `rejected`, and exit 2 means deterministic preflight blockage. Stdout is reserved for the final machine-readable run result and progress is written to stderr.
 
-Compose keeps `/workspace` read-only and mounts `${NSC_DECOMPOSITION_HOST_OUTPUT_ROOT:-../NoSafeCircle-DecompositionOutputs}` at `/decomposition-output`. Set `NSC_DECOMPOSITION_HOST_OUTPUT_ROOT` on the host to choose another external directory. The `nosafecircle-m2a` project name intentionally reuses the existing authenticated Claude and Codex volumes.
+Compose keeps `/workspace` read-only and mounts `${NSC_DECOMPOSITION_HOST_OUTPUT_ROOT:-../NoSafeCircle-DecompositionOutputs}` at `/decomposition-output`. The fallback is a tool-level default, not the canonical operator path. For real task orchestration set `NSC_DECOMPOSITION_HOST_OUTPUT_ROOT` on the host to `Downloads\NoSafeCircleOutput\<TASK-ID>`. The `nosafecircle-m2a` project name intentionally reuses the existing authenticated Claude and Codex volumes.
+
+Windows host setup example:
+
+```powershell
+$TaskId = "NSC-021"
+$Downloads = Join-Path $env:USERPROFILE "Downloads"
+$OutputRoot = Join-Path $Downloads (Join-Path "NoSafeCircleOutput" $TaskId)
+New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
+$env:NSC_DECOMPOSITION_HOST_OUTPUT_ROOT = $OutputRoot
+```
 
 Documented live proving commands (not run as part of D1B.1 implementation):
 
