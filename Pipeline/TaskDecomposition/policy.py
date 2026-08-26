@@ -92,6 +92,10 @@ def validate_decomposition_result(
             raise DecompositionPolicyError("decomposed requires one or more child proposals.")
     elif result.children:
         raise DecompositionPolicyError(f"{result.decision} may not contain child proposals.")
+    if result.decision != "decomposed" and result.inbound_dependency_rewrites:
+        raise DecompositionPolicyError(
+            f"{result.decision} may not contain inbound dependency rewrites."
+        )
 
     if result.decision == "needs_artifact":
         if result.artifact_proposal is None:
@@ -130,6 +134,19 @@ def validate_decomposition_result(
     coverage_by_parent: dict[tuple[str, str], Any] = {}
     traced_child_entries: set[tuple[str, str, str]] = set()
     child_by_key = {child.local_key: child for child in result.children}
+
+    for rewrite in result.inbound_dependency_rewrites:
+        if rewrite.dependent_task_id == identity.task_id:
+            raise DecompositionPolicyError(
+                "Inbound dependency rewrite may not target the selected parent itself."
+            )
+        for local_key in rewrite.replacement_local_keys:
+            if local_key not in child_by_key:
+                raise DecompositionPolicyError(
+                    "Inbound dependency rewrite for "
+                    f"{rewrite.dependent_task_id} references unknown child {local_key!r}."
+                )
+
     allowed_dispositions = {
         "already_concrete": {"retained_by_parent"},
         "decomposed": {"assigned_to_child", "shared_integration"},
