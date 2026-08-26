@@ -30,9 +30,15 @@ A typical executable task may report states such as:
 - `invalid_evidence` — committed evidence is structurally or semantically invalid;
 - `ambiguous_evidence` — more than one maximal current-valid record exists.
 
-Feature or non-`single_agent` contracts report `aggregate`. Cancelled and superseded contracts report their dispositions as their derived states.
+Feature or non-`single_agent` contracts normally report `aggregate`. Cancelled and superseded contracts report their dispositions as their derived states.
+
+A newly decomposed aggregate feature is a special derived case. When its contract explicitly carries `decomposition_children`, TaskGraph evaluates those child contracts rather than looking for a separate parent delivery record. If every listed child is currently `conformant`, the aggregate itself reports `conformant`. If any listed child is not conformant, the parent remains `aggregate` and the finding lists the child states. There is no separate implementation or delivery pass on the parent after decomposition.
+
+The explicit `decomposition_children` list is validated to match every active direct child of the aggregate. Any required final assembly/integration work must therefore be another child task; it cannot be hidden work that occurs after the listed children finish.
 
 `needs_testing` does **not** mean the task was never completed. For normal new implementation selection, treat it as already-built work whose current behavior may need retesting. `not_delivered` is the normal state used to discover genuinely new implementation work.
+
+See `Docs/AI-Pipeline/ADR-034_DECOMPOSED_AGGREGATE_FEATURES.md` for the aggregate/decomposition semantics.
 
 ## Canon granularity
 
