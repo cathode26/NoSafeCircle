@@ -360,11 +360,30 @@ def main() -> int:
     changed_source = replace_parent(source, lambda parent: parent.__setitem__("title", "Changed title"))
     expect_failure(lambda: plan_graph_delta(changed_source, selector, result), "SHA-256 changed")
 
-    inactive_source = replace_parent(source, lambda parent: parent.__setitem__("contract_disposition", "cancelled"))
+    # Keep this source graph valid while isolating the selected-parent disposition check.
+    # An active dependent of a cancelled parent would fail normal graph validation first.
+    inactive_tasks = list(deepcopy(source.tasks))
+    next(task for task in inactive_tasks if task["id"] == "NSC-042")["contract_disposition"] = "cancelled"
+    next(task for task in inactive_tasks if task["id"] == "NSC-030")["contract_disposition"] = "cancelled"
+    inactive_source = WorkGraphPlan(
+        deepcopy(source.id_map),
+        tuple(inactive_tasks),
+        deepcopy(source.resource_groups),
+        deepcopy(source.project_requirements),
+    )
+    validate_work_graph_plan(inactive_source)
+    validate_decomposition_graph_semantics(inactive_source)
     inactive_parent = next(task for task in inactive_source.tasks if task["id"] == "NSC-042")
     inactive_raw = decomposed_result(inactive_parent)
-    inactive_result = validate_decomposition_result(inactive_raw, parent_task=inactive_parent, existing_reconciliation_keys=inactive_source.id_map)
-    expect_failure(lambda: plan_graph_delta(inactive_source, inactive_result.parent_task, inactive_result), "not active")
+    inactive_result = validate_decomposition_result(
+        inactive_raw,
+        parent_task=inactive_parent,
+        existing_reconciliation_keys=inactive_source.id_map,
+    )
+    expect_failure(
+        lambda: plan_graph_delta(inactive_source, inactive_result.parent_task, inactive_result),
+        "not active",
+    )
 
     invalid_result = validated_result(source, invalid_dependency=True)
     expect_failure(
