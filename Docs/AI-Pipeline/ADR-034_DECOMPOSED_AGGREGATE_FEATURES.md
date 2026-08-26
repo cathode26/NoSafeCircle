@@ -26,9 +26,12 @@ execution_scope: not_applicable
 decomposition_state: decomposed
 exclusive_resources: []
 decomposition_children: [<all active direct child task IDs>]
+decomposition_requirement_sha256: <hash of parent AC/VAL/INT obligations>
 ```
 
 `decomposition_children` is the machine-readable completion set for the aggregate. It must exactly name every active direct child under that aggregate, including active children that existed before the current decomposition plus children introduced by the current graph delta.
+
+`decomposition_requirement_sha256` binds the child delegation to the exact parent acceptance criteria, completion gates, and downstream integration obligations that were reviewed during decomposition. If those obligations later change, aggregate conformance becomes `needs_replan` even when all previously delegated children are conformant. This prevents child completion from silently proving a newer parent contract that was never decomposed.
 
 The parent keeps its NSC identity, hierarchy position, approved requirements, GDD traceability, and provenance. It is no longer implementation work and must not be selected, dispatched, delivered, or tested as a separate implementation task.
 
@@ -55,15 +58,17 @@ There is never a hidden "finish the parent" pass after the children. If an exist
 
 ## Derived aggregate completion
 
-The aggregate's conformance is derived from its explicit child set:
+The aggregate's conformance is derived from its explicit child set only while the aggregate requirement hash still matches:
 
 ```text
 aggregate conformant
     iff
+current AC/VAL/INT hash == decomposition_requirement_sha256
+    AND
 all decomposition_children are conformant
 ```
 
-No separate parent delivery record or implementation pass is required. If any delegated child is incomplete, stale, needs human review, or otherwise non-conformant, the aggregate remains an aggregate/incomplete feature.
+No separate parent delivery record or implementation pass is required. If any delegated child is incomplete, stale, needs human review, or otherwise non-conformant, the aggregate remains an aggregate/incomplete feature. If the aggregate's own requirements changed after decomposition, it reports `needs_replan` until the delegation is reviewed again.
 
 ## Downstream dependency rewrites
 
@@ -107,6 +112,7 @@ The aggregate parent holds no executable exclusive-resource locks. Resource owne
 New graph deltas are valid only when both the normal TaskGraph validator and the decomposition aggregate semantic validator pass. The strict validator requires:
 
 - an explicit non-empty `decomposition_children` set;
+- a valid `decomposition_requirement_sha256` binding;
 - `kind: feature`;
 - `execution_scope: not_applicable`;
 - `decomposition_state: decomposed`;
@@ -117,7 +123,7 @@ New graph deltas are valid only when both the normal TaskGraph validator and the
 
 ## Compatibility
 
-Historical reviewed decompositions predate `decomposition_children`. They remain readable and are not silently rewritten by this change. The strict aggregate semantics opt in when `decomposition_children` exists. Historical aggregates can be migrated deliberately in a separate reviewed change.
+Historical reviewed decompositions predate `decomposition_children` and `decomposition_requirement_sha256`. They remain readable and are not silently rewritten by this change. The strict aggregate semantics opt in when `decomposition_children` exists. Historical aggregates can be migrated deliberately in a separate reviewed change.
 
 ## Authority boundary
 
