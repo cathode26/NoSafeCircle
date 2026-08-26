@@ -8,7 +8,53 @@ from decomposition_graph_semantics import (
     validate_decomposition_graph_semantics,
 )
 from work_graph_transform import WorkGraphPlan
-from work_graph_validate_smoke_test import make_plan
+
+
+def task(task_id: str, key: str, *, parent: str, kind: str = "implementation", depends_on=()) -> dict:
+    return {
+        "schema_version": "2.0",
+        "id": task_id,
+        "contract_revision": 1,
+        "contract_disposition": "active",
+        "title": key,
+        "reconciliation_key": key,
+        "kind": kind,
+        "type": "synthetic",
+        "execution_scope": "not_applicable" if kind == "feature" else "single_agent",
+        "execution_reason": "synthetic",
+        "decomposition_state": "coarse" if kind == "feature" else "concrete",
+        "decomposition_reason": "synthetic",
+        "parent": parent,
+        "depends_on": list(depends_on),
+        "exclusive_resources": [],
+        "acceptance_criteria": [{"criterion_id": "AC-001", "reference": "synthetic", "requirement": "synthetic"}],
+        "completion_gates": [{"gate_id": "VAL-001", "reference": "synthetic", "requirement": "synthetic"}],
+        "downstream_integration_obligations": [],
+        "gdd_evidence": [],
+        "basis": "direct_gdd",
+        "source_scope": "required",
+        "confidence": "high",
+        "notes": "",
+        "repository_state_at_bootstrap": "not_applicable",
+        "repository_evidence_at_bootstrap": [],
+        "provenance": {"origin": "synthetic"},
+    }
+
+
+def strict_plan() -> WorkGraphPlan:
+    root = task("NSC-001", "root", parent="", kind="feature")
+    parent = task("NSC-010", "aggregate", parent="NSC-001", kind="feature")
+    parent["decomposition_state"] = "decomposed"
+    parent["decomposition_children"] = ["NSC-020"]
+    child = task("NSC-020", "child", parent="NSC-010")
+    dependent = task("NSC-030", "dependent", parent="NSC-001", depends_on=("NSC-020",))
+    tasks = (root, parent, child, dependent)
+    return WorkGraphPlan(
+        {item["reconciliation_key"]: item["id"] for item in tasks},
+        tasks,
+        (),
+        ({"title": "review", "requirement_type": "pipeline_constraint", "status": "confirmed"},),
+    )
 
 
 def expect_failure(plan: WorkGraphPlan, fragment: str) -> None:
@@ -20,66 +66,47 @@ def expect_failure(plan: WorkGraphPlan, fragment: str) -> None:
         raise AssertionError(f"Expected decomposition semantics failure containing {fragment!r}")
 
 
-def strict_plan() -> WorkGraphPlan:
-    base = make_plan()
-    tasks = list(deepcopy(base.tasks))
-    parent = tasks[1]
-    parent["kind"] = "feature"
-    parent["execution_scope"] = "not_applicable"
-    parent["decomposition_state"] = "decomposed"
-    parent["decomposition_children"] = ["NSC-020"]
-    parent["exclusive_resources"] = []
-    child = tasks[3]
-    child["parent"] = "NSC-010"
-    child["depends_on"] = []
-    groups = tuple(
-        group for group in deepcopy(base.resource_groups)
-        if "NSC-010" not in group["work_ids"]
+def with_tasks(plan: WorkGraphPlan, tasks: list[dict]) -> WorkGraphPlan:
+    return WorkGraphPlan(
+        {item["reconciliation_key"]: item["id"] for item in tasks},
+        tuple(tasks),
+        plan.resource_groups,
+        plan.project_requirements,
     )
-    return WorkGraphPlan(base.id_map, tuple(tasks), groups, base.project_requirements)
 
 
 def main() -> int:
-    # Legacy reviewed decompositions without decomposition_children remain readable.
-    legacy = make_plan()
-    legacy_tasks = list(deepcopy(legacy.tasks))
-    legacy_tasks[1]["decomposition_state"] = "decomposed"
-    legacy_tasks[1]["execution_scope"] = "not_applicable"
-    validate_decomposition_graph_semantics(
-        WorkGraphPlan(legacy.id_map, tuple(legacy_tasks), legacy.resource_groups, legacy.project_requirements)
-    )
-
     plan = strict_plan()
     validate_decomposition_graph_semantics(plan)
 
-    bad = deepcopy(plan)
-    tasks = list(bad.tasks)
-    tasks[1]["kind"] = "implementation"
-    expect_failure(WorkGraphPlan(bad.id_map, tuple(tasks), bad.resource_groups, bad.project_requirements), "kind='feature'")
+    # Legacy reviewed decompositions without decomposition_children remain readable.
+    legacy_tasks = list(deepcopy(plan.tasks))
+    legacy_tasks[1].pop("decomposition_children")
+    validate_decomposition_graph_semantics(with_tasks(plan, legacy_tasks))
 
-    bad = deepcopy(plan)
-    tasks = list(bad.tasks)
-    tasks[1]["exclusive_resources"] = ["logical:aggregate-lock"]
-    expect_failure(WorkGraphPlan(bad.id_map, tuple(tasks), bad.resource_groups, bad.project_requirements), "resource")
+    bad = list(deepcopy(plan.tasks))
+    bad[1]["kind"] = "implementation"
+    expect_failure(with_tasks(plan, bad), "kind='feature'")
 
-    bad = deepcopy(plan)
-    tasks = list(bad.tasks)
-    tasks[1]["decomposition_children"] = ["NSC-999"]
-    expect_failure(WorkGraphPlan(bad.id_map, tuple(tasks), bad.resource_groups, bad.project_requirements), "missing child")
+    bad = list(deepcopy(plan.tasks))
+    bad[1]["exclusive_resources"] = ["logical:aggregate-lock"]
+    expect_failure(with_tasks(plan, bad), "resource")
 
-    bad = deepcopy(plan)
-    tasks = list(bad.tasks)
-    tasks[3]["parent"] = "NSC-001"
-    expect_failure(WorkGraphPlan(bad.id_map, tuple(tasks), bad.resource_groups, bad.project_requirements), "direct child")
+    bad = list(deepcopy(plan.tasks))
+    bad[1]["decomposition_children"] = ["NSC-999"]
+    expect_failure(with_tasks(plan, bad), "missing child")
 
-    bad = deepcopy(plan)
-    tasks = list(bad.tasks)
-    tasks[2]["contract_disposition"] = "active"
-    tasks[2]["depends_on"] = ["NSC-010"]
-    expect_failure(
-        WorkGraphPlan(bad.id_map, tuple(tasks), bad.resource_groups, bad.project_requirements),
-        "may not depend on decomposed aggregate",
-    )
+    bad = list(deepcopy(plan.tasks))
+    bad[2]["parent"] = "NSC-001"
+    expect_failure(with_tasks(plan, bad), "direct child")
+
+    bad = list(deepcopy(plan.tasks))
+    bad[3]["depends_on"] = ["NSC-010"]
+    expect_failure(with_tasks(plan, bad), "may not depend on decomposed aggregate")
+
+    bad = list(deepcopy(plan.tasks))
+    bad.append(task("NSC-021", "second-child", parent="NSC-010"))
+    expect_failure(with_tasks(plan, bad), "exactly name all active direct children")
 
     complete, summary = aggregate_child_state_summary(
         {"NSC-050": "conformant", "NSC-051": "conformant", "NSC-052": "conformant"}
