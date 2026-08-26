@@ -82,8 +82,10 @@ Graph-delta planning must:
 2. require the decomposition result to contain exactly one rewrite for each dependent and no extras;
 3. replace the parent dependency with the allocated child task ID or IDs;
 4. increment the rewritten dependent's contract revision;
-5. reject duplicate, missing, unknown, or stale rewrites;
+5. reject duplicate, missing, unknown, empty, or stale rewrites;
 6. validate the complete proposed graph after all rewrites.
+
+The provider-facing schema uses the repository's deliberately small fail-closed AgentRuntime JSON-Schema subset. Constraints outside that subset, including the rule that `replacement_local_keys` is non-empty, are enforced by the immutable decomposition contract and semantic policy before graph-delta planning. Structural schema acceptance alone is never sufficient for publication.
 
 The decomposer must not mechanically choose the numerically last child. A downstream consumer should depend on the child capability it actually needs. When the approved contracts and canon do not establish a safe mapping, the decomposer must return `needs_human` rather than guess.
 
