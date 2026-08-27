@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any, Iterable
 
-from .candidate_integration import CandidateIntegrationReceipt, CandidateIntegrator
+from .candidate_integration import CandidateIntegrator
 from .contracts import ExecutionScopePlan, TaskReviewContractError
-from .execution_bridge import ExecutionCrewBridge, ExecutionCrewReceipt
+from .execution_bridge import ExecutionCrewBridge
 from .issue_workflow import (
     WorkflowActor,
     WorkflowEventType,
@@ -21,11 +20,8 @@ from .issue_workflow import (
     utc_now,
 )
 from .issue_workflow_store import IssueWorkflowStoreError
-from .pipeline_scope import RepositoryScopeAuthority
 from .real_workflow import RealTaskReviewWorkflow
-
-
-PIPELINE_HANDOFF_MARKER = "nsc-execution-handoff"
+from .repository_scope import RepositoryScopeAuthority
 
 
 class ProductionPipelineError(TaskReviewContractError):
@@ -174,8 +170,7 @@ class ProductionTaskController:
         return self.workflow.prepare_task_checkout()
 
     def repository_facts(self) -> dict[str, Any]:
-        scope = self._require_scope()
-        return scope.facts()
+        return self._require_scope().facts()
 
     def list_repository_files(self, *, prefix: str, limit: int = 200) -> dict[str, Any]:
         return self._require_scope().list_files(prefix=prefix, limit=limit)
@@ -225,8 +220,7 @@ class ProductionTaskController:
         retry_run_id: str | None = None,
         feedback_file: str | None = None,
     ) -> dict[str, Any]:
-        execution = self._require_execution()
-        receipt = execution.run(
+        receipt = self._require_execution().run(
             plan_id=plan_id,
             provider=self.execution_provider,
             retry_run_id=retry_run_id,
@@ -242,28 +236,17 @@ class ProductionTaskController:
         human_steps: Iterable[str],
         expected_result: str,
     ) -> dict[str, Any]:
-        integrator = self._require_integrator()
-        receipt = integrator.integrate(run_id)
-        metadata = {
-            "schema_version": "1.0",
-            "task_id": receipt.task_id,
-            "lease_id": receipt.lease_id,
-            "plan_id": receipt.plan_id,
-            "run_id": receipt.run_id,
-            "provider": receipt.provider,
-            "branch": receipt.branch,
-            "base_head": receipt.base_head,
-            "commit": receipt.commit,
-            "candidate_sha256": receipt.candidate_sha256,
-            "changed_paths": list(receipt.changed_paths),
-        }
-        summary = implementation_summary.strip()
-        summary += (
-            "\n\n<!-- "
-            + PIPELINE_HANDOFF_MARKER
-            + " "
-            + json.dumps(metadata, sort_keys=True, separators=(",", ":"))
-            + " -->"
+        receipt = self._require_integrator().integrate(run_id)
+        summary = "\n".join(
+            (
+                implementation_summary.strip(),
+                "",
+                "### Pipeline identity",
+                f"- **ExecutionCrew run:** `{receipt.run_id}`",
+                f"- **Execution provider:** `{receipt.provider}`",
+                f"- **Candidate SHA-256:** `{receipt.candidate_sha256}`",
+                f"- **Verified changed paths:** `{len(receipt.changed_paths)}`",
+            )
         )
         handoff = self.workflow.publish_human_handoff(
             branch=receipt.branch,
