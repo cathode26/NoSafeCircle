@@ -1,28 +1,24 @@
 # GDD RAG — Production GDD Retrieval
 
-This is Milestone 2A1: extracting the proven Assignment 4 GDD retrieval approach into a
-standalone, hash-verified production tool that indexes the **current** canonical GDD
-Markdown, not the historical Assignment 4 knowledge base.
+`Pipeline/GDDRAG` is the deterministic, hash-verified production retrieval layer for the current canonical GDD at `Docs/GDD/No_Safe_Circle_GDD.md`. It is separate from the historical Assignment 4 knowledge base and never falls back to that older data.
 
-## Why this was extracted
+## Current production state
 
-`DynamicContentPipeline` (Assignment 4) is a completed historical course project. Its
-knowledge base (`DynamicContentPipeline/knowledge_base/No_Safe_Circle_GDD_RAG.json`) was
-built from the **July 30, 2026** GDD and is stale relative to the current canonical
-Markdown at `Docs/GDD/No_Safe_Circle_GDD.md` (revised August 21, 2026). Its 39 chunks were
-also manually curated (hand-written titles, entities, and keywords), which is not
-something the current pipeline can regenerate deterministically without an LLM.
+The current canonical GDD was revised August 25, 2026. Rebuilding the production index from that document yields **78 deterministic chunks**. The chunk count is emergent from the Markdown structure and may change again when the canonical GDD changes.
 
-Milestone 2 (`Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md`) calls for reusing the Assignment
-4 retrieval approach rather than rebuilding RAG from scratch, and for local tools to answer
-factual GDD questions without spending LLM tokens. This tool satisfies both: it copies and
-adapts the proven deterministic tokenizer/scoring behavior from
-`DynamicContentPipeline/retrieval.py`, but builds its own chunk index directly and
-deterministically from the current canonical Markdown, so it always reflects the GDD that
-is actually in the repository.
+The index is written to:
 
-`DynamicContentPipeline` is left untouched. This tool never imports it and never reads its
-knowledge base at runtime (`gdd_rag_smoke_test.py` asserts this).
+```text
+Pipeline/GDDRAG/knowledge_base/No_Safe_Circle_GDD_RAG.json
+```
+
+The currently reviewed source SHA-256 is:
+
+```text
+c26d5077ccdc2e8408129fef2d3571758777b29f99241d8aed1b39d73ea3e1a6
+```
+
+Do not treat that hash or the 78-chunk count as permanent constants. `gddctl.py status` and `validate` are the authority for freshness.
 
 ## Commands
 
@@ -34,168 +30,81 @@ python Pipeline/GDDRAG/gddctl.py search "<query>"
 python Pipeline/GDDRAG/gddctl.py search "<query>" --json
 ```
 
-`--knowledge-base <path>` (before the subcommand) points every command at an alternate
-index file; it defaults to `Pipeline/GDDRAG/knowledge_base/No_Safe_Circle_GDD_RAG.json`.
+No GDDRAG command calls an LLM or external API. Retrieval and index construction are deterministic local computation over the canonical Markdown.
 
-No command in this tool calls an LLM or any external API. Everything is deterministic
-local computation over the canonical Markdown file.
+## Required rebuild workflow after a GDD change
 
-## Rebuild workflow
-
-Run `rebuild` after any change to `Docs/GDD/No_Safe_Circle_GDD.md`:
+After any committed change to `Docs/GDD/No_Safe_Circle_GDD.md`:
 
 ```text
 python Pipeline/GDDRAG/gddctl.py rebuild
+python Pipeline/GDDRAG/gddctl.py validate
+python Pipeline/GDDRAG/tests/gdd_rag_smoke_test.py
+python Pipeline/GDDRAG/tests/integrity_regression_test.py
+python Pipeline/GDDRAG/tests/retrieval_regression_test.py
 ```
 
-This reads the canonical Markdown, computes its SHA-256, parses it into deterministic
-structural chunks, and writes
-`Pipeline/GDDRAG/knowledge_base/No_Safe_Circle_GDD_RAG.json`. Two rebuilds from an
-unchanged source produce byte-identical output (`gdd_rag_smoke_test.py` proves this) — no
-timestamps or other nondeterministic values are written into the index.
+A normal retrieval-regression failure immediately after a legitimate GDD change does **not** automatically mean the retriever is defective. The strict regression test pins reviewed top hits from the previous canonical GDD state so retrieval drift cannot be silently accepted.
 
-Commit the regenerated `knowledge_base/No_Safe_Circle_GDD_RAG.json` alongside any GDD
-change, the same way `DynamicContentPipeline` commits its own knowledge base.
+If the strict retrieval test reports changed pinned results, inspect all drift at once:
 
-## Chunking approach
-
-`index_builder.py` parses the canonical Markdown's own heading structure (`#`, `##`,
-`###`) rather than manually curating a fixed chunk count:
-
-- Each heading's own content — the text before its next heading of any level — becomes one
-  chunk, tagged with `title`, `section` (nearest `##` ancestor), `subsection` (the `###`
-  heading itself, if any), and the full `heading_path` from the document title down.
-- A chunk larger than `max_chunk_chars` (3200) is split, but only at deterministic
-  paragraph/list-item boundaries:
-  - **Tables** (contiguous `|`-prefixed lines) are never split, even if they exceed the
-    size cap, so a table's rows are never left structurally broken. (`Development Agent
-    Roles`, an ~5.4k-character table, is intentionally kept as one oversized chunk.)
-  - **Lists** are split between bullet items, never through one — each split-off chunk
-    holds whole bullets only.
-  - A single physical paragraph line has no smaller deterministic boundary and is kept
-    whole even if it exceeds the cap; this has not occurred with the current GDD.
-- Rebuilding against the current GDD produces 41 chunks. This number is emergent from the
-  document's own structure, not a target.
-
-Each chunk records `source.start_line` / `source.end_line` (1-indexed, inclusive) into
-`Docs/GDD/No_Safe_Circle_GDD.md`, so any result can be traced back to the exact canonical
-text it came from.
-
-## Schema (`schema_version: "2.0"`)
-
-```json
-{
-  "schema_version": "2.0",
-  "generator": {"name": "...", "version": "..."},
-  "source": {"file": "Docs/GDD/No_Safe_Circle_GDD.md", "sha256": "<hex>"},
-  "document": {
-    "document_id": "...", "title": "...", "document_type": "...", "status": "...",
-    "author": "...", "original_date": "...", "revised_date": "...", "source_docx": "...",
-    "canonical_markdown": "Docs/GDD/No_Safe_Circle_GDD.md", "language": "en",
-    "total_chunks": 41
-  },
-  "chunking": {"strategy": "...", "max_chunk_chars": 3200, "overlap": 0, "recommended_top_k": 4, "recommended_search_fields": [...]},
-  "retrieval_guidance": {"canonicality_rule": "...", "default_filter": {"domain": "game_design", "canonical": true}},
-  "chunks": [
-    {
-      "chunk_id": "nsc-gdd-001",
-      "order": 1,
-      "title": "...",
-      "section": "... or null",
-      "subsection": "... or null",
-      "heading_path": ["No Safe Circle", "..."],
-      "domain": "game_design",
-      "canonical": true,
-      "source": {"file": "Docs/GDD/No_Safe_Circle_GDD.md", "start_line": 21, "end_line": 36},
-      "chunk_part": {"index": 1, "count": 2} ,
-      "text": "...",
-      "char_count": 1852,
-      "sha256": "<hex>"
-    }
-  ]
-}
+```text
+python Pipeline/GDDRAG/tests/retrieval_regression_test.py --review-baseline
 ```
 
-`chunk_part` is `null` for chunks that are not part of a section split into multiple
-pieces.
+That inspection mode is read-only. It prints every pinned query with its previous and current top hit, source lines, top-three chunk IDs, and full current top-hit text. Review every changed result against current canon. If and only if the new hits are semantically correct, deliberately update `EXPECTED_TOP_HITS` in `tests/retrieval_regression_test.py` and rerun the strict test.
 
-## Freshness behavior
+Never automatically rewrite pinned expectations merely because `rebuild` changed chunk IDs. See `Pipeline/GDDRAG/BASELINE_REVIEW.md` for the full operator rule.
 
-`status` reports the canonical GDD path, the current source SHA-256, the indexed source
-SHA-256, the chunk count, and `CURRENT` or `STALE` (or `MISSING` if no index has been built
-yet).
+Commit the regenerated knowledge-base JSON and any deliberately reviewed baseline update together with, or immediately after, the canonical GDD revision that caused them.
 
-`validate` fails (non-zero exit) when:
+## Freshness and integrity boundary
 
-- the indexed source SHA-256 does not match the current GDD's SHA-256 (stale index);
-- `document.total_chunks` does not match the actual chunk count;
-- any `chunk_id` is duplicated;
-- any chunk's `source.start_line`/`end_line` is missing, non-integer, or invalid
-  (`end_line < start_line`, etc.);
-- any chunk's `source.file` is not the canonical GDD path;
-- any chunk is missing a required field (`chunk_id`, `title`, `text`, `domain`,
-  `canonical`, `source`).
+`gddctl.py status` reports the canonical GDD path, current source SHA-256, indexed source SHA-256, chunk count, and `CURRENT`, `STALE`, or `MISSING` state.
 
-`search` runs the same validation before retrieving anything and refuses to return results
-on a stale or structurally invalid index — it never falls back to the historical
-Assignment 4 knowledge base.
+`gddctl.py validate` fails when the index is stale or structurally invalid, including source-hash mismatch, invalid chunk counts/IDs, bad source ranges, wrong source paths, missing required fields, or indexed text that no longer matches the canonical source lines.
+
+`search` performs the same freshness/integrity validation before retrieval and refuses to serve a stale index.
+
+## Chunking
+
+`index_builder.py` uses deterministic Markdown heading/table/list structure. Each chunk records a source line range into the canonical GDD. Large content is split only at deterministic structural boundaries; tables are not split through rows and list items are not split internally. There is no hand-authored entity or keyword metadata in the production index.
+
+Two rebuilds from identical canonical input produce byte-identical index output. No timestamps or provider-generated metadata are written into the index.
 
 ## Retriever
 
-`retrieval.py` is adapted from `DynamicContentPipeline/retrieval.py`: the same deterministic
-stemmer/tokenizer, BM25-style weighted field scoring (`title`/`section`/`subsection`/`text`),
-phrase (n-gram) matching, query-coverage scoring, and stable `(-score, chunk_id)` result
-ordering. The historical `entities`/`keywords` fields and their scoring boosts were dropped
-because this production chunker does not fabricate that metadata (see Known limitations).
+`retrieval.py` uses deterministic tokenization/stemming, weighted field scoring over title/section/subsection/text, phrase matching, query-coverage scoring, and stable `(-score, chunk_id)` result ordering.
 
-## Retrieval checks against the current GDD
+The production retriever intentionally has no LLM ranking stage. A broad ownership table can sometimes outrank a narrower prose section when it contains the relevant terms at higher density. The pinned regression suite exists so those ranking outcomes are reviewed deliberately when canon changes.
 
-Run after rebuilding, `top_k=3`, against the August 21, 2026 canonical GDD:
+## Current reviewed regression baseline
 
-| Query | Top result | Heading | Lines | Score |
-|---|---|---|---|---|
-| mouse-directed movement and cursor-to-gameplay-plane projection | nsc-gdd-007 | Player Actions and Systems | 62-69 | 47.20 |
-| Charged Fireball movement restriction ownership | nsc-gdd-026 | Development Agent Ownership Invariants | 208-212 | 39.92 |
-| Frost Field cursor placement and Ranged Enemy limitation | nsc-gdd-025 | Development Agent Roles | 197-204 | 31.83 |
-| door click-to-approach and automatic five-second timer | nsc-gdd-025 | Development Agent Roles | 197-204 | 35.47 |
-| locked-door break and forward enemy pursuit | nsc-gdd-018 | Door and Pursuit Rules | 151-153 | 33.98 |
-| floor restart owner-controlled reset entry points | nsc-gdd-037 | Runtime Implementation | 300-304 | 44.78 |
-| victory suspend/re-enable ownership | nsc-gdd-027 | Development Agent Ownership Invariants | 213-219 | 37.49 |
-| Active Enemy Registry fifteen-enemy cap | nsc-gdd-019 | Active Enemy Registry and Encounter Admission | 157-161 | 41.47 |
-| fixed isometric camera requirements | nsc-gdd-034 | 2.5D Isometric Visual and World Representation | 280-287 | 25.44 |
-| Windows build and canonical scene registration | nsc-gdd-039 | Approved Unity Packages and Windows Build Configuration | 325-328 | 56.62 |
+Against the August 25, 2026 canonical GDD, the reviewed top hits are:
 
-Two queries ("Frost Field cursor placement..." and "door click-to-approach...") rank the
-`Development Agent Roles` table first because that table's per-agent cells directly
-restate the relevant ownership/behavior text at high term density; the dedicated
-`Spell and Enemy Interactions` and `Runtime Implementation` chunks that describe the same
-behavior in gameplay terms rank close behind (2nd/3rd). This is the same class of
-retrieval-tuning tradeoff documented in `DynamicContentPipeline/README.md`'s Frost Field
-example — a real ranking behavior to be aware of, not a defect in the index. These ten
-results are pinned as a regression baseline in `tests/retrieval_regression_test.py`.
+| Query | Reviewed top hit |
+|---|---|
+| mouse-directed movement and cursor-to-gameplay-plane projection | `nsc-gdd-007` |
+| Charged Fireball movement restriction ownership | `nsc-gdd-063` |
+| Frost Field cursor placement and Ranged Enemy limitation | `nsc-gdd-062` |
+| door click-to-approach and automatic five-second timer | `nsc-gdd-062` |
+| locked-door break and forward enemy pursuit | `nsc-gdd-055` |
+| floor restart owner-controlled reset entry points | `nsc-gdd-074` |
+| victory suspend/re-enable ownership | `nsc-gdd-064` |
+| Active Enemy Registry fifteen-enemy cap | `nsc-gdd-056` |
+| fixed isometric camera requirements | `nsc-gdd-071` |
+| Windows build and canonical scene registration | `nsc-gdd-076` |
 
-## Known limitations
+These IDs are a reviewed regression baseline for the current canonical GDD, not permanent semantic identifiers.
 
-- **No curated `entities`/`keywords` metadata.** The Assignment 4 knowledge base had
-  hand-authored entity/keyword lists per chunk, which boosted retrieval precision for
-  known named concepts. This production chunker is fully deterministic and does not
-  fabricate that metadata, so ranking relies on `title`/`section`/`subsection`/`text`
-  alone. This is why a broad table chunk can occasionally outrank a more specific prose
-  chunk, as shown above.
-- **Oversized single-line paragraphs are not split.** If a future GDD edit introduces one
-  very long paragraph written as a single physical Markdown line and it exceeds
-  `max_chunk_chars`, it will be kept as one oversized chunk rather than invented a
-  sub-paragraph boundary. Not currently triggered by the GDD.
-- **Headings deeper than `###` are not chunk boundaries.** None exist in the current GDD;
-  a `####+` heading would currently be treated as ordinary content of its nearest `###`
-  ancestor.
-- **Front matter parsing is intentionally minimal**: it only reads simple
-  `key: "quoted value"` lines from the leading `---`-delimited YAML block, which is all the
-  current GDD front matter uses.
+## D1B.2 reviewer-context experiment
 
-## Relationship to Milestone 2
+The opt-in D1B.2 GDDRAG A/B path uses this production index only after freshness/integrity validation succeeds. In the experiment mode, the decomposition generator retains the normal full context while reviewer rounds omit the embedded full-GDD text and receive bounded, deduplicated, source-attributed GDDRAG navigation hints instead.
 
-This slice implements only the RAG extraction/rebuild/freshness piece of Milestone 2
-(`Docs/AI-Pipeline/02_RAG_SCANNER_CONTEXT.md`). It intentionally does not implement NSC-003,
-the task context pack, the project scanner, the Progressive Decomposer, Artifact Authority,
-or the supervisor/GER integration — those remain separate bounded slices.
+RAG results remain navigation hints, not independent authority. The canonical GDD remains authoritative; a missing retrieved chunk is never proof that a rule does not exist. Reviewer repository read/search remains available when retrieved hints are insufficient.
+
+The default full-context D1B.2 path remains unchanged so token cost, duration, findings, and semantic output can be compared directly.
+
+## Historical Assignment 4 relationship
+
+`DynamicContentPipeline` is a completed historical course project whose older manually curated knowledge base came from a prior GDD revision. Production GDDRAG reuses the proven deterministic retrieval approach but builds its own index directly from current canonical Markdown. It does not import or read the historical knowledge base at runtime.
