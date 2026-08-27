@@ -29,4 +29,4 @@ jobs:
       - name: Validate human result and advance workflow
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python Pipeline/TaskReviewAgent/issue_workflow_action.py
+        run: python Pipeline/TaskReviewAgent/issue_state_action.py
