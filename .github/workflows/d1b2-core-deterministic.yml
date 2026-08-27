@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/d1b2-core-deterministic.yml"
       - "Pipeline/AgentRuntime/**"
+      - "Pipeline/GDDRAG/**"
+      - "Docs/GDD/No_Safe_Circle_GDD.md"
       - "Pipeline/TaskDecomposition/**"
       - "Pipeline/TaskExecution/**"
       - "Pipeline/TaskGraph/**"
@@ -37,6 +39,15 @@ jobs:
           "PYTHONDONTWRITEBYTECODE=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "PYTHONPYCACHEPREFIX=$env:RUNNER_TEMP\NoSafeCircle-PyCache-D1B2" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Production GDDRAG freshness and integrity
+        run: python Pipeline/GDDRAG/gddctl.py validate
+
+      - name: GDDRAG reviewer-context smoke test
+        run: python Pipeline/TaskDecomposition/tests/gdd_rag_review_context_smoke_test.py
+
+      - name: Controlled reviewer replay smoke test
+        run: python Pipeline/TaskDecomposition/tests/reviewer_replay_smoke_test.py
+
       - name: Invocation-ID contract proof
         run: python Pipeline/TaskDecomposition/tests/round_invocation_id_smoke_test.py
 
@@ -62,7 +73,7 @@ jobs:
         run: python Pipeline/TaskGraph/taskcontrol.py validate
 
       - name: Python compile check
-        run: python -m compileall -q Pipeline/TaskDecomposition Pipeline/TaskGraph Pipeline/AgentRuntime Pipeline/TaskExecution
+        run: python -m compileall -q Pipeline/GDDRAG Pipeline/TaskDecomposition Pipeline/TaskGraph Pipeline/AgentRuntime Pipeline/TaskExecution
 
       - name: Pull-request whitespace check
         shell: pwsh
