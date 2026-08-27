@@ -10,7 +10,6 @@ from typing import Any
 
 from .contracts import TaskReviewContractError, semantic_sha256, validate_task_id
 from .coordination import CoordinationObserver
-from .durable_checkout import DurableTaskCheckoutManager
 from .issue_workflow_store import (
     GhIssueBackend,
     IssueWorkflowService,
@@ -23,6 +22,7 @@ from .real_checkout import (
     _normalized_remote,
 )
 from .real_observation import RealTaskObserver
+from .resumable_checkout import ResumableTaskCheckoutManager
 
 
 class RealTaskReviewWorkflow:
@@ -58,7 +58,7 @@ class RealTaskReviewWorkflow:
             self.issue_workflow = None
 
         manager_type = (
-            DurableTaskCheckoutManager
+            ResumableTaskCheckoutManager
             if self.issue_workflow is not None
             else RealTaskCheckoutManager
         )
