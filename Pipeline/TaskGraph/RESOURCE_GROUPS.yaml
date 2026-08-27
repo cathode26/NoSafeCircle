@@ -7,7 +7,9 @@
         "enemy-status-effect-displacement",
         "locked-door-enemy-attack",
         "melee-enemy",
-        "ranged-enemy"
+        "ranged-enemy-keep-distance-movement",
+        "ranged-enemy-projectile-attack",
+        "ranged-enemy-prefab-wiring"
       ],
       "resource_key": "logical:enemy-locomotion-behavior-surface",
       "work_ids": [
@@ -15,7 +17,9 @@
         "NSC-013",
         "NSC-017",
         "NSC-015",
-        "NSC-016"
+        "NSC-053",
+        "NSC-054",
+        "NSC-055"
       ]
     },
     {

@@ -1,0 +1,125 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-016 AC-002 — Required Enemy Roster",
+      "requirement": "Shows a readable attack wind-up and then spawns a slow moving projectile; beginning or completing the wind-up does not apply instant damage."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-016 AC-003 — Runtime Implementation; Chapel of Ash cover requirement",
+      "requirement": "After spawning, the projectile collides with gameplay cover such as wall, pew, or column colliders, stops or despawns on that collision, and cannot damage the player through or after the cover."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-016 AC-004 — Required Enemy Roster",
+      "requirement": "Calls PlayerHealth.TakeDamage only when the projectile reaches the player and does not store a second copy of player-health state."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-016 AC-005 — Required Enemy Roster",
+      "requirement": "Attack wind-up and projectile spawning continue when no Melee Enemy is alive; the attack behavior does not query for or require a Melee Enemy component, GameObject, or count."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-016 AC-006 — Spell and Enemy Interactions",
+      "requirement": "Shared Frost slowdown does not pause, cancel, or lengthen attack wind-up or cooldown and does not change projectile speed or lifetime."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "NSC-016 AC-008 — Floor-run restart ownership",
+      "requirement": "Exposes a public reset method that cancels an active wind-up, restores the initial attack timer or cooldown state, and destroys or despawns every projectile still owned by that enemy."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-016 VAL-002 — Required Enemy Roster; Player Health ownership",
+      "requirement": "In a Play Mode test with an unobstructed path, verify the attack wind-up is visible, a slow projectile spawns, and PlayerHealth.TakeDamage is called only when the projectile reaches the player."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-016 VAL-003 — Runtime Implementation; Chapel of Ash cover requirement",
+      "requirement": "In a Play Mode test, place a representative cover collider in the projectile path and verify the projectile stops or despawns at the cover without calling PlayerHealth.TakeDamage through or after it."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "NSC-016 VAL-004 — Spell and Enemy Interactions",
+      "requirement": "In a Play Mode test, apply the shared Frost slowdown and verify attack wind-up duration, attack timing, projectile speed, and projectile lifetime remain unchanged."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "NSC-016 VAL-006 — Floor-run restart ownership",
+      "requirement": "In Play Mode, call the public reset method during wind-up and while a projectile is in flight; verify the wind-up is cancelled, all owned projectiles are removed, attack timing returns to its initial state, and no delayed player damage occurs."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "NSC-016 VAL-001 — Required Enemy Roster",
+      "requirement": "In a Play Mode test with no Melee Enemy present, verify the Ranged Enemy remains able to complete its wind-up and spawn a projectile."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Attack wind-up, projectile movement, cover collision, Player Health damage, Frost timing independence, and attack reset form one bounded ranged-attack behavior with focused Play Mode tests.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-014",
+    "NSC-004",
+    "NSC-013"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-016 INT-001 — Chapel of Ash blockout",
+      "requirement": "When the Chapel of Ash blockout exists, fire a real Ranged Enemy projectile toward CA-W or CA-E and verify an authored pew or column collider stops it without player damage."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-016 INT-002 — Floor-run restart ownership",
+      "requirement": "When the Floor Run/Restart Orchestrator is connected, verify it calls the ranged-attack public reset method and leaves no wind-up, cooldown, projectile, or delayed-damage state from the failed run."
+    }
+  ],
+  "exclusive_resources": [
+    "logical:enemy-locomotion-behavior-surface"
+  ],
+  "execution_reason": "One agent can implement the complete projectile attack and prove its collision, damage, Frost-independence, and reset behavior without also assembling the final enemy prefab.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Required Enemy Roster",
+      "requirement": "The Ranged Enemy fires a slow telegraphed shot and remains functional after its Melee support is defeated."
+    },
+    {
+      "reference": "Runtime Implementation; Chapel of Ash",
+      "requirement": "Ranged projectiles are stopped by authored gameplay cover."
+    },
+    {
+      "reference": "Player Health ownership",
+      "requirement": "Enemy attacks request player damage through Player Health rather than storing separate health state."
+    },
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "The ranged attack owner exposes a reset entry point for active attack and projectile state."
+    }
+  ],
+  "id": "NSC-054",
+  "kind": "implementation",
+  "notes": "A clear line-of-sight check before firing is not required. This child implements projectile collision with cover after the shot is spawned.",
+  "parent": "NSC-016",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-2e86f4a379ab3f36dfd476d6afefcbe502dd04d338ea28b6d5e9b26b190b30f3",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "6169c9087abcd9e65e55a1b7edd777185d68c86577bb8032be2bafdc263dbcf5",
+    "parent_task_id": "NSC-016"
+  },
+  "reconciliation_key": "ranged-enemy-projectile-attack",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Ranged Enemy Projectile Attack, Cover Collision, and Reset",
+  "type": "enemy_behavior"
+}
