@@ -2,18 +2,33 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
+import re
+import shutil
+import sys
+import tempfile
 from dataclasses import replace
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping
 
+from .delivery_review import file_sha256
 from .downstream_issue import DownstreamIssueCoordinator, DownstreamIssueError, _meaningful
 from .downstream_pipeline import (
+    _SHA40,
+    _VALID_PLATFORMS,
     DownstreamPipelineError,
     DownstreamTaskController,
     _copy,
     _decode,
+    _file_fact,
     _git,
     _git_text,
+    _json_object,
+    _manifest,
+    _required_platforms,
+    _run,
 )
 from .issue_workflow import (
     WorkflowActor,
@@ -27,6 +42,7 @@ from .issue_workflow import (
     utc_now,
 )
 from .issue_workflow_store import IssueWorkflowStoreError
+from .real_workflow import RealTaskReviewWorkflow
 
 
 _READ_PREFIXES = (
@@ -35,6 +51,13 @@ _READ_PREFIXES = (
     "Docs/GDD/",
     "Docs/Engineering/",
     "Docs/AI-Pipeline/UNITY_PROGRAMMER_LANGUAGE.md",
+)
+_DOWNSTREAM_DERIVED_STATES = frozenset(
+    {
+        "not_delivered",
+        "needs_testing",
+        "conformant",
+    }
 )
 
 
@@ -53,6 +76,32 @@ def _safe_prefix(value: str) -> str:
     ):
         raise DownstreamPipelineError("repository prefix is outside downstream read roots")
     return value
+
+
+class DownstreamTaskReviewWorkflow(RealTaskReviewWorkflow):
+    """Permit a known managed downstream Issue to resume after evidence exists.
+
+    This workflow class is only selected after the durable Issue has already proved
+    that its phase is delivery_evidence or merge_closeout. It deliberately does not
+    change the ordinary implementation workflow's dispatch policy.
+    """
+
+    def _task_ready_for_coordination(
+        self,
+        environment: dict[str, Any],
+        task: dict[str, Any],
+    ) -> bool:
+        return (
+            environment.get("ready") is True
+            and environment.get("controller_clean") is True
+            and environment.get("taskgraph_valid") is True
+            and task.get("contract_disposition") == "active"
+            and task.get("kind") == "implementation"
+            and task.get("execution_scope") == "single_agent"
+            and task.get("decomposition_state") == "concrete"
+            and task.get("derived_state") in _DOWNSTREAM_DERIVED_STATES
+            and task.get("dependencies_conformant") is True
+        )
 
 
 class ResumableDownstreamIssueCoordinator(DownstreamIssueCoordinator):
@@ -80,6 +129,8 @@ class ResumableDownstreamIssueCoordinator(DownstreamIssueCoordinator):
                 "pending-check release requires this worker's merge_closeout lease"
             )
         exact_head = _meaningful(head_commit, "head_commit")
+        if not _SHA40.fullmatch(exact_head):
+            raise DownstreamIssueError("head_commit must be a lowercase 40-character SHA")
         next_state, event = transition(
             state,
             event_type=WorkflowEventType.AGENT_LEASE_RELEASED,
@@ -123,7 +174,9 @@ class ResumableDownstreamIssueCoordinator(DownstreamIssueCoordinator):
         )
         verified = self.service.find(task_id)
         if verified is None or not verified.valid or verified.state != next_state:
-            raise IssueWorkflowStoreError("evidence-head lease release could not be verified")
+            raise IssueWorkflowStoreError(
+                "evidence-head lease release could not be verified"
+            )
         return {"status": "agent_ready", **verified.to_dict()}
 
 
@@ -167,7 +220,9 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
     ) -> dict[str, Any]:
         self._assert_checkout()
         if not isinstance(limit, int) or not 1 <= limit <= 1000:
-            raise DownstreamPipelineError("repository file limit must be 1 through 1000")
+            raise DownstreamPipelineError(
+                "repository file limit must be 1 through 1000"
+            )
         prefix = _safe_prefix(prefix)
         raw = _git_text(
             self.command_runner,
@@ -196,7 +251,9 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
     ) -> dict[str, Any]:
         self._assert_checkout()
         if not isinstance(query, str) or not query.strip() or len(query) > 160:
-            raise DownstreamPipelineError("search query must be 1 through 160 characters")
+            raise DownstreamPipelineError(
+                "search query must be 1 through 160 characters"
+            )
         if any(ord(character) < 32 or ord(character) == 127 for character in query):
             raise DownstreamPipelineError("search query contains a control character")
         if not isinstance(limit, int) or not 1 <= limit <= 300:
@@ -242,6 +299,264 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
             "matches": matches,
         }
 
+    def _assert_human_tested_head(self, state: Mapping[str, Any]) -> None:
+        super()._assert_human_tested_head(state)
+        base_commit = _git_text(
+            self.command_runner,
+            self.checkout,
+            "rev-parse",
+            "origin/main",
+        )
+        if not _SHA40.fullmatch(base_commit):
+            raise DownstreamPipelineError("origin/main did not resolve to a commit")
+        if base_commit == state.get("head_commit"):
+            raise DownstreamPipelineError(
+                "human-tested task branch contains no commits beyond current main"
+            )
+        existing = self.state.get("delivery_base_commit")
+        if existing is not None and existing != base_commit:
+            raise DownstreamPipelineError(
+                "origin/main changed after authoritative downstream work began. "
+                "Integrate current main and repeat the human validation handoff."
+            )
+        if existing is None:
+            self.state["delivery_base_commit"] = base_commit
+            self._persist()
+
+    def run_authoritative_unity_test(
+        self,
+        *,
+        test_platform: str,
+        test_filter: str,
+    ) -> dict[str, Any]:
+        _, workflow_state = self._require_lease(WorkflowPhase.DELIVERY_EVIDENCE)
+        if test_platform not in _VALID_PLATFORMS:
+            raise DownstreamPipelineError(
+                "test_platform must be EditMode or PlayMode"
+            )
+        test_filter = _meaningful(test_filter, "test_filter")
+        self._assert_human_tested_head(workflow_state)
+        existing = [
+            item
+            for item in self.state.get("validation_manifests") or []
+            if isinstance(item, Mapping)
+            and item.get("test_platform") == test_platform
+            and item.get("test_filter") == test_filter
+        ]
+        if existing:
+            manifest = _manifest(Path(existing[0]["path"]))
+            if manifest["commit"] != workflow_state["head_commit"]:
+                raise DownstreamPipelineError("stored validation manifest is stale")
+            return manifest
+
+        script = self.checkout / "Pipeline" / "Testing" / "run_unity_tests_clean.ps1"
+        if not script.is_file():
+            raise DownstreamPipelineError("clean Unity test runner is missing")
+        shell = "powershell.exe" if os.name == "nt" else "pwsh"
+        command = [
+            shell,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script),
+            "-TestPlatform",
+            test_platform,
+            "-TestFilter",
+            test_filter,
+            "-ProjectPath",
+            str(self.checkout),
+        ]
+        if self.unity_executable:
+            command.extend(("-UnityExecutable", self.unity_executable))
+        result = _run(
+            self.command_runner,
+            command,
+            cwd=self.checkout,
+            timeout_seconds=float(
+                os.getenv("NSC_TASK_AGENT_UNITY_TIMEOUT_SECONDS", "3600")
+            ),
+            check=False,
+        )
+        stdout = _decode(result.stdout or b"", "Unity runner stdout")
+        stderr = _decode(result.stderr or b"", "Unity runner stderr")
+        if result.returncode != 0:
+            raise DownstreamPipelineError(
+                f"authoritative Unity test failed ({result.returncode})\n"
+                f"{stdout}\n{stderr}"
+            )
+        match = re.search(
+            r"(?im)^Validation manifest:\s*(.+?)\s*$",
+            stdout,
+        )
+        if match is None:
+            raise DownstreamPipelineError(
+                "Unity runner did not print a validation manifest path"
+            )
+        source_manifest = Path(match.group(1).strip()).resolve(strict=True)
+        source_fact = _manifest(source_manifest)
+        if source_fact["commit"] != workflow_state["head_commit"]:
+            raise DownstreamPipelineError(
+                "Unity test validated a different commit"
+            )
+        expected_tree = _git_text(
+            self.command_runner,
+            self.checkout,
+            "rev-parse",
+            "HEAD^{tree}",
+        )
+        if source_fact["tree"] != expected_tree:
+            raise DownstreamPipelineError(
+                "Unity test validated a different Git tree"
+            )
+
+        output = self._output_root(workflow_state["head_commit"])
+        destination = output / "validation" / (
+            f"{test_platform}-"
+            f"{hashlib.sha256(test_filter.encode('utf-8')).hexdigest()[:12]}"
+        )
+        if destination.exists() or destination.is_symlink():
+            raise DownstreamPipelineError(
+                "validation destination already exists with unknown identity: "
+                f"{destination}"
+            )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source_manifest.parent, destination)
+        manifest = _manifest(destination / source_manifest.name)
+        manifests = [
+            item
+            for item in self.state.get("validation_manifests") or []
+            if not (
+                isinstance(item, Mapping)
+                and item.get("test_platform") == test_platform
+                and item.get("test_filter") == test_filter
+            )
+        ]
+        manifests.append(manifest)
+        manifests.sort(
+            key=lambda item: (item["test_platform"], item["test_filter"])
+        )
+        self.state["validation_manifests"] = manifests
+        self.state["implementation_commit"] = workflow_state["head_commit"]
+        self.state["implementation_tree"] = expected_tree
+        self._persist()
+        return _copy(manifest)
+
+    def create_delivery_review_draft(self) -> dict[str, Any]:
+        observation, workflow_state = self._require_lease(
+            WorkflowPhase.DELIVERY_EVIDENCE
+        )
+        self._assert_human_tested_head(workflow_state)
+        required = set(_required_platforms(observation["task"]))
+        manifests = [
+            _manifest(Path(item["path"]))
+            for item in self.state.get("validation_manifests") or []
+            if isinstance(item, Mapping) and isinstance(item.get("path"), str)
+        ]
+        platforms = {item["test_platform"] for item in manifests}
+        if not required.issubset(platforms):
+            raise DownstreamPipelineError(
+                "missing required authoritative platforms: "
+                f"{sorted(required - platforms)}"
+            )
+        for item in manifests:
+            if item["commit"] != workflow_state["head_commit"]:
+                raise DownstreamPipelineError(
+                    "validation manifest is stale for the human-tested commit"
+                )
+
+        human = self._human_validation_artifact(
+            workflow_state["head_commit"]
+        )
+        output_root = self._output_root(workflow_state["head_commit"])
+        draft_path = output_root / "delivery-review-draft.json"
+        if draft_path.exists():
+            stored = self.state.get("draft_path")
+            if (
+                stored == str(draft_path)
+                and self.state.get("draft_sha256")
+                == file_sha256(draft_path)
+            ):
+                return self.delivery_review_facts()
+            raise DownstreamPipelineError(
+                "delivery draft path already exists with unknown identity"
+            )
+        base_commit = self.state.get("delivery_base_commit")
+        if not isinstance(base_commit, str) or not _SHA40.fullmatch(base_commit):
+            raise DownstreamPipelineError(
+                "stable delivery base commit is unavailable"
+            )
+        if (
+            _git(
+                self.command_runner,
+                self.checkout,
+                "merge-base",
+                "--is-ancestor",
+                base_commit,
+                workflow_state["head_commit"],
+                check=False,
+            ).returncode
+            != 0
+        ):
+            raise DownstreamPipelineError(
+                "delivery base is not an ancestor of the human-tested commit"
+            )
+        script = (
+            self.checkout
+            / "Pipeline"
+            / "TaskDelivery"
+            / "generate_delivery_spec.py"
+        )
+        command = [
+            sys.executable,
+            str(script),
+            "draft",
+            "--root",
+            str(self.checkout),
+            "--task-id",
+            self.task_id,
+            "--base-commit",
+            base_commit,
+            "--human-validation",
+            human["path"],
+            "--output",
+            str(draft_path),
+        ]
+        for manifest in manifests:
+            command.extend(("--validation-manifest", manifest["path"]))
+        _run(
+            self.command_runner,
+            command,
+            cwd=self.checkout,
+            timeout_seconds=900.0,
+        )
+        draft = _json_object(
+            draft_path.read_bytes(),
+            "delivery review draft",
+        )
+        if (
+            draft.get("review_status") != "needs_human"
+            or draft.get("validated_commit")
+            != workflow_state["head_commit"]
+            or draft.get("base_commit") != base_commit
+        ):
+            raise DownstreamPipelineError(
+                "TaskDelivery draft identity is invalid"
+            )
+        self.state.update(
+            {
+                "implementation_commit": workflow_state["head_commit"],
+                "base_commit": base_commit,
+                "human_validation": human,
+                "draft_path": str(draft_path),
+                "draft_sha256": file_sha256(draft_path),
+                "proposal_path": None,
+                "proposal_sha256": None,
+            }
+        )
+        self._persist()
+        return self.delivery_review_facts()
+
     def finalize_delivery_evidence_and_open_pr(self) -> dict[str, Any]:
         result = super().finalize_delivery_evidence_and_open_pr()
         if self.issue is None:
@@ -267,4 +582,122 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
             **_copy(result),
             "status": "checks_pending",
             "lease_release": release,
+        }
+
+    def verify_post_merge_and_complete(self) -> dict[str, Any]:
+        _, _ = self._require_lease(WorkflowPhase.MERGE_CLOSEOUT)
+        merge_commit = self.state.get("merged_commit")
+        if not isinstance(merge_commit, str) or not _SHA40.fullmatch(
+            merge_commit
+        ):
+            raise DownstreamPipelineError("merge commit is unavailable")
+        with tempfile.TemporaryDirectory(
+            prefix=f"{self.task_id.casefold()}-post-merge-"
+        ) as temporary:
+            clone = Path(temporary) / "main"
+            remote = _git_text(
+                self.command_runner,
+                self.checkout,
+                "remote",
+                "get-url",
+                "origin",
+            )
+            _run(
+                self.command_runner,
+                (
+                    "git",
+                    "clone",
+                    "--branch",
+                    "main",
+                    "--single-branch",
+                    remote,
+                    str(clone),
+                ),
+                cwd=self.checkout.parent,
+                timeout_seconds=900.0,
+            )
+            main_head = _git_text(
+                self.command_runner,
+                clone,
+                "rev-parse",
+                "HEAD",
+            )
+            if (
+                _git(
+                    self.command_runner,
+                    clone,
+                    "merge-base",
+                    "--is-ancestor",
+                    merge_commit,
+                    main_head,
+                    check=False,
+                ).returncode
+                != 0
+            ):
+                raise DownstreamPipelineError(
+                    f"merged commit {merge_commit} is not contained in "
+                    f"origin/main {main_head}"
+                )
+            validation = _run(
+                self.command_runner,
+                (
+                    sys.executable,
+                    "Pipeline/TaskGraph/taskcontrol.py",
+                    "validate",
+                ),
+                cwd=clone,
+                timeout_seconds=900.0,
+            )
+            if "taskcontrol validate: PASS" not in _decode(
+                validation.stdout,
+                "taskcontrol validate",
+            ):
+                raise DownstreamPipelineError(
+                    "post-merge TaskGraph validation did not pass"
+                )
+            state = self._task_state(clone, self.task_id)
+            if state.get("state") != "conformant":
+                raise DownstreamPipelineError(
+                    "post-merge TaskGraph state is not conformant: "
+                    f"{state}"
+                )
+        if self.issue is None:
+            raise DownstreamPipelineError("Issue workflow is unavailable")
+        result = self.issue.complete(
+            task_id=self.task_id,
+            pull_request_url=self.state["pull_request_url"],
+            pull_request_number=self.state["pull_request_number"],
+            merged_commit=merge_commit,
+            conformant_record_id=str(
+                state.get("selected_record_id")
+                or self.state.get("conformance_record_id")
+                or self.state.get("record_id")
+            ),
+        )
+        service = self.workflow.issue_workflow
+        assert service is not None
+        snapshot = service.find(self.task_id)
+        if snapshot is not None:
+            _run(
+                self.command_runner,
+                (
+                    "gh",
+                    "issue",
+                    "close",
+                    str(snapshot.issue_number),
+                    "--repo",
+                    "cathode26/NoSafeCircle",
+                    "--reason",
+                    "completed",
+                ),
+                cwd=self.checkout,
+                timeout_seconds=300.0,
+                check=False,
+            )
+        return {
+            "status": "complete",
+            "merged_commit": merge_commit,
+            "main_head": main_head,
+            "post_merge_state": state,
+            "issue": result,
         }
