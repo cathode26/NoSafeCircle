@@ -9,9 +9,9 @@ explicit NSC implementation task
         ↓
 inspect current pipeline state
         ↓
-choose the next bounded approved action
+claim GitHub Issue + prepare canonical checkout
         ↓
-prepare checkout + validate exact role paths + run ExecutionCrew
+validate exact role paths + run ExecutionCrew
         ↓
 deterministically prove review_ready candidate.patch
         ↓
@@ -20,83 +20,95 @@ HUMAN_REVIEW_READY
 
 The goal stops at **candidate review**. It does not apply the patch, open Unity, run Unity tests, commit implementation, push, merge, package delivery evidence, or claim TaskGraph conformance.
 
-## Current milestone
+## Current real boundary
 
-The first fake end-to-end slice remains available, but the first production boundary is now real:
+Two production boundaries are now real.
 
-```text
-current Git checkout
-        ↓
-real HEAD/tree/branch/cleanliness observation
-        ↓
-real taskcontrol validate
-        ↓
-exact committed Tasks/<TASK-ID>.yaml bytes + SHA-256
-        ↓
-real taskcontrol state for the selected task
-        ↓
-real taskcontrol state for every declared dependency
-        ↓
-deterministic next-action assessment
-```
+### 1. Real repository and TaskGraph observation
 
-This observation layer is read-only. It does not fetch, claim an Issue, create a task checkout, inspect provider authentication, plan write paths, invoke ExecutionCrew, or create a candidate.
+For the explicit task, the observer reads:
 
-### Facts returned by real observation
+- Git repository root, branch, `HEAD`, tree, `origin/main`, and clean/dirty state;
+- real `python Pipeline/TaskGraph/taskcontrol.py validate`;
+- exact committed `Tasks/<TASK-ID>.yaml` bytes using `git show HEAD:<path>`;
+- SHA-256 of those exact task-contract bytes;
+- real `taskcontrol state <TASK-ID> --json`;
+- real state for every declared dependency;
+- exact AC/VAL/INT entries and exclusive resources.
 
-- repository root, branch, HEAD, tree, `origin/main` identity when available, and porcelain status;
-- complete `taskcontrol validate` result;
-- exact committed task-contract SHA-256;
-- task disposition, kind, execution scope, decomposition state, and current evidence-derived state;
-- every declared dependency's evidence-derived state;
-- exact acceptance criteria, completion gates, downstream obligations, and exclusive resources;
-- a semantic hash binding the complete observation.
+The task and every dependency state must refer to the same `HEAD`.
 
-The observer reads task bytes with:
+### 2. Real GitHub-claim inspection and checkout preparation
+
+The checkout stage adds:
+
+- read-only `gh` inspection of the exact task Issue;
+- verification that the Issue is open, assigned to `cathode26`, and the latest TaskReviewAgent claim marker names the same worker ID;
+- exact canonical checkout path:
 
 ```text
-git show HEAD:Tasks/<TASK-ID>.yaml
+C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
 ```
 
-It therefore reports committed task authority rather than trusting an uncommitted working-tree file.
+- deterministic branch name derived from the task ID and committed task title;
+- source `HEAD == origin/main` enforcement;
+- canonical GitHub remote enforcement;
+- standalone remote clone, never a worktree or local-source clone;
+- TaskGraph validation inside the new checkout;
+- exact source commit/tree and task-contract hash verification;
+- clean-checkout verification;
+- an external identity manifest under:
 
-## Real read-only observation
+```text
+C:\UnityProjects\NoSafeCircleAgentCrew\.task-review-agent\<TASK-ID>.json
+```
 
-From the repository root:
+The checkout is cloned into a temporary sibling directory first. The canonical `<TASK-ID>` path appears only after every validation passes. A failed clone or validation cannot leave a partial canonical checkout.
+
+An existing canonical directory is never reset, deleted, overwritten, or bypassed with a differently named duplicate:
+
+- exact clean matching checkout + matching manifest → `ready`;
+- exact clean matching checkout without a manifest → safely adoptable;
+- wrong branch, commit, tree, remote, task hash, worker manifest, or any dirty state → `conflict` and human reconciliation.
+
+## GitHub claim boundary
+
+This slice **inspects** GitHub coordination but does not yet create, assign, comment on, or release an Issue.
+
+For an otherwise eligible task:
+
+```text
+no Issue / open unassigned → claim_task
+claimed by this exact worker → prepare_checkout
+assigned to another worker / closed / duplicate match → needs_human
+gh unavailable or unauthenticated → blocked
+```
+
+Checkout creation is impossible unless the observation already says `claimed_by_worker`.
+
+The next slice will implement the controlled claim action before checkout.
+
+## Commands
+
+### Real read-only task observation
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-TaskReviewAgent.ps1 -TaskId NSC-050 -Mode observe-real
 ```
 
-Or directly:
+### Real claim inspection and checkout preparation
+
+This command may create or resume the canonical checkout only if the task is eligible and already claimed by the same worker:
 
 ```powershell
-python Pipeline/TaskReviewAgent/run_agent.py --task-id NSC-050 --mode observe-real --source .
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-TaskReviewAgent.ps1 -TaskId NSC-### -Mode checkout-real -WorkerId task-review-agent-vincent
 ```
 
-The output includes:
+The controller checkout must be clean and exactly synchronized with `origin/main`.
 
-```text
-observation_authority = real_read_only
-downstream_authority = not_exposed
-authority = observation_only
-```
+### OpenAI-controlled checkout stage
 
-`deterministic_assessment.next_action` is currently one of:
-
-```text
-prepare_checkout
-needs_human
-blocked
-```
-
-The observer reports `prepare_checkout` only when the exact committed task is active, `implementation`, `single_agent`, `concrete`, `not_delivered`, every declared dependency is `conformant`, TaskGraph validates, and the controller checkout is clean.
-
-## Optional OpenAI interpretation of real facts
-
-The module is tested against OpenAI Agents SDK `0.22.0`.
-
-Install its isolated dependency:
+Install the isolated dependency:
 
 ```powershell
 python -m pip install -r Pipeline/TaskReviewAgent/requirements.txt
@@ -105,16 +117,34 @@ python -m pip install -r Pipeline/TaskReviewAgent/requirements.txt
 Set `OPENAI_API_KEY`, then run:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-TaskReviewAgent.ps1 -TaskId NSC-050 -Mode openai-observe-real
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-TaskReviewAgent.ps1 -TaskId NSC-### -Mode openai-checkout-real -WorkerId task-review-agent-vincent
 ```
 
-The OpenAI agent receives exactly one tool: `observe_goal_state`. It has no action tool. Its task ID, observation hash, next action, and authority are checked against the deterministic assessment before output is accepted. Model-written explanatory reasons are retained separately from the deterministic reasons.
+The OpenAI agent receives only:
+
+```text
+observe_goal_state
+prepare_task_checkout
+```
+
+It cannot claim the Issue. It must stop on `claim_task`, and it can call `prepare_task_checkout` only after deterministic observation reports `prepare_checkout`. After preparation it must re-observe; deterministic code rejects a final `validate_scope` claim unless the checkout is actually `ready`.
 
 The model defaults to `gpt-5.6` and can be overridden with `-Model` or `TASK_REVIEW_AGENT_MODEL`.
 
-## Retained fake end-to-end slice
+## Current NSC-050 proving result
 
-The deterministic fake workflow is still useful for regression testing the later stages:
+Real observation of `NSC-050` correctly stops before GitHub or checkout work because its declared dependencies are not both conformant:
+
+```text
+NSC-020 = not_delivered
+NSC-004 = needs_testing
+```
+
+The checkout boundary was therefore proven with temporary synthetic Git repositories in Windows CI, not by creating a real `NSC-050` checkout.
+
+## Retained fake end-to-end regression
+
+The fake workflow remains useful for safely testing the future downstream loop:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-TaskReviewAgent.ps1 -TaskId NSC-050 -Mode scripted
@@ -122,28 +152,24 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAge
 
 It demonstrates:
 
-1. a missing fake checkout;
-2. fake checkout preparation;
-3. deterministic rejection of an incorrect existing/new test-path classification;
-4. corrected scope validation;
-5. fake ExecutionCrew `review_ready`;
-6. hash-bound fake proof;
-7. rejection of forged or tampered proof.
+1. fake checkout preparation;
+2. deterministic rejection of an incorrect existing/new test-path classification;
+3. corrected scope validation;
+4. fake ExecutionCrew `review_ready`;
+5. hash-bound fake proof;
+6. rejection of forged or tampered proof.
 
-A real OpenAI agent can navigate the same fake downstream tools with `-Mode openai-fake`.
+A real OpenAI agent can navigate those same fake downstream tools with `-Mode openai-fake`.
 
-Fake-mode output is explicitly labeled:
-
-```text
-observation_authority = simulated
-downstream_authority = simulated
-```
+Fake output is explicitly labeled `simulated`.
 
 ## Authority boundary
 
-No current mode can:
+No current real mode can:
 
-- create or modify the canonical task checkout;
+- create, assign, comment on, close, or release a GitHub Issue;
+- plan implementation/test write paths;
+- invoke ExecutionCrew;
 - edit gameplay or test files;
 - apply `candidate.patch`;
 - run Unity;
@@ -153,31 +179,46 @@ No current mode can:
 - package delivery evidence;
 - claim delivery or TaskGraph conformance.
 
-The OpenAI model never establishes repository facts. Real facts come from Git and TaskGraph commands, and fake success proof remains confined to the explicitly simulated regression mode.
+The only real write authority is creation or adoption of one exact canonical task checkout after all eligibility and pre-existing claim checks pass.
 
 ## Validation
 
 ```powershell
 python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
+python Pipeline/TaskReviewAgent/tests/real_checkout_smoke_test.py
 python Pipeline/TaskReviewAgent/run_agent.py --task-id NSC-050 --mode observe-real --source .
 python -m compileall -q Pipeline/TaskReviewAgent
 ```
 
-The real-observation regression verifies that observation:
+The Windows checkout suite creates a temporary bare remote and proves:
 
-- matches exact committed task bytes and `taskcontrol state`;
-- derives dependency conformance from each dependency's real state;
-- does not fabricate checkout or write-scope facts;
-- preserves HEAD, tree, and clean working-tree state;
-- rejects a missing committed task contract.
+- an eligible claimed task advances to `prepare_checkout`;
+- a standalone checkout is created at the exact canonical child path;
+- source commit/tree, task-contract hash, branch, remote, TaskGraph, and cleanliness are verified;
+- the external manifest does not dirty the checkout;
+- an exact managed checkout resumes without recloning;
+- an unclaimed task cannot create a checkout;
+- a dirty existing checkout becomes `conflict` and stops at human reconciliation;
+- the controller repository remains unchanged.
 
 ## Next implementation slice
 
-Replace the next fake boundary while preserving this real observation contract:
+Add the controlled GitHub claim action:
 
-1. real canonical checkout inspection;
-2. safe create-or-resume preparation for `C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>`;
-3. re-observe the prepared checkout and bind it to the original source/task identities;
-4. keep path planning, ExecutionCrew, and candidate verification fake until checkout behavior is proven.
+```text
+real task/dependency observation
+        ↓
+resource-conflict check
+        ↓
+create Issue when absent or assign when available
+        ↓
+post Claim / Planned Approach with worker/base/branch/checkout
+        ↓
+re-observe claimed_by_worker
+        ↓
+prepare canonical checkout
+```
+
+After claim + checkout works in one command, replace the next fake boundary with bounded repository read/search and deterministic implementation/test path planning.
 
 Do not grant patch application or Unity execution authority in this goal. Those belong to the later `READY_FOR_HUMAN_UNITY_VALIDATION` goal.
