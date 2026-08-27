@@ -104,10 +104,14 @@ def main() -> int:
         rag_round_artifacts: list[str] = []
 
         def rag_reviewer_prompt(**kwargs: Any) -> str:
+            # Core passes unresolved findings as a generator. Materialize it once so
+            # both deterministic retrieval and the actual reviewer prompt see the
+            # identical unresolved-finding set.
+            unresolved = tuple(kwargs["unresolved_findings"])
             rag = build_review_rag_context(
                 context=kwargs["context"],
                 candidate=kwargs["candidate"],
-                unresolved_findings=kwargs["unresolved_findings"],
+                unresolved_findings=unresolved,
                 retriever=retriever,
                 top_k=args.rag_top_k,
                 max_chunks=args.rag_max_chunks,
@@ -115,6 +119,7 @@ def main() -> int:
             )
             prompt_kwargs = dict(kwargs)
             prompt_kwargs["context"] = rag.prompt_context
+            prompt_kwargs["unresolved_findings"] = unresolved
             prompt = full_context_reviewer_prompt(**prompt_kwargs)
             prompt = _insert_rag_hints(prompt, rag.artifact)
 
