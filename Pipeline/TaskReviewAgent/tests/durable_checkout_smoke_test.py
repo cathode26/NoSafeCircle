@@ -15,8 +15,13 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from Pipeline.TaskReviewAgent.contracts import TaskReviewContractError  # noqa: E402
 from Pipeline.TaskReviewAgent.durable_checkout import (  # noqa: E402
     DurableTaskCheckoutManager,
+)
+from Pipeline.TaskReviewAgent.goal_loop import (  # noqa: E402
+    GoalAction,
+    assess_goal_state,
 )
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     WorkflowActor,
@@ -26,9 +31,13 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     initial_state,
     transition,
 )
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    IssueWorkflowService,
+    MemoryIssueBackend,
+)
+from Pipeline.TaskReviewAgent.real_workflow import RealTaskReviewWorkflow  # noqa: E402
 
 TASK_ID = "NSC-777"
-CONTRACT_HASH = ""
 BRANCH = "nsc-777-durable-checkout-task"
 
 
@@ -53,9 +62,34 @@ def git(root: Path, *args: str, check: bool = True) -> str:
     return run("git", "-C", str(root), *args, cwd=root, check=check).stdout.strip()
 
 
+def git_bytes(root: Path, *args: str) -> bytes:
+    result = subprocess.run(
+        ("git", "-C", str(root), *args),
+        cwd=str(root),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise AssertionError(
+            f"git bytes command failed ({result.returncode}): {args!r}\n"
+            f"{result.stderr.decode(errors='replace')}"
+        )
+    return result.stdout
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
+
+
+def expect_error(action, text: str) -> None:
+    try:
+        action()
+    except TaskReviewContractError as exc:
+        require(text in str(exc), f"unexpected error: {exc}")
+    else:
+        raise AssertionError(f"expected TaskReviewContractError containing {text!r}")
 
 
 def taskcontrol_source() -> str:
@@ -139,14 +173,13 @@ def create_fixture(root: Path) -> tuple[Path, Path, dict, str, str, str]:
         cwd=root,
     )
     run("git", "clone", str(remote), str(controller), cwd=root)
-    contract_bytes = git(controller, "show", f"HEAD:Tasks/{TASK_ID}.yaml").encode()
     return (
         controller,
         remote,
         contract,
         git(controller, "rev-parse", "HEAD"),
         git(controller, "rev-parse", "HEAD^{tree}"),
-        hashlib.sha256(contract_bytes).hexdigest(),
+        hashlib.sha256(git_bytes(controller, "show", f"HEAD:Tasks/{TASK_ID}.yaml")).hexdigest(),
     )
 
 
@@ -218,6 +251,15 @@ def acquire(state, worker_id: str, source_head: str, checkout: Path, now: str):
     )[0]
 
 
+def commit_implementation(checkout: Path) -> str:
+    git(checkout, "config", "user.name", "Agent A")
+    git(checkout, "config", "user.email", "agent-a@example.invalid")
+    (checkout / "implementation.txt").write_text("implemented\n", encoding="utf-8")
+    git(checkout, "add", "implementation.txt")
+    git(checkout, "commit", "-m", "Implement synthetic task")
+    return git(checkout, "rev-parse", "HEAD")
+
+
 def test_checkout_survives_human_and_new_agent() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-durable-checkout-") as temporary:
         root = Path(temporary)
@@ -250,14 +292,8 @@ def test_checkout_survives_human_and_new_agent() -> None:
         created = first_manager.prepare(first_observation)
         require(created["status"] == "created", f"fresh checkout failed: {created}")
 
-        git(checkout, "config", "user.name", "Agent A")
-        git(checkout, "config", "user.email", "agent-a@example.invalid")
-        (checkout / "implementation.txt").write_text("implemented\n", encoding="utf-8")
-        git(checkout, "add", "implementation.txt")
-        git(checkout, "commit", "-m", "Implement synthetic task")
-        implementation_head = git(checkout, "rev-parse", "HEAD")
+        implementation_head = commit_implementation(checkout)
         git(checkout, "push", "-u", "origin", BRANCH)
-
         state, _ = transition(
             state,
             event_type=WorkflowEventType.HUMAN_HANDOFF_CREATED,
@@ -321,10 +357,75 @@ def test_checkout_survives_human_and_new_agent() -> None:
         )
 
 
+def test_real_workflow_rejects_unpushed_handoff() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-pushed-handoff-") as temporary:
+        root = Path(temporary)
+        controller, remote, contract, _, _, contract_hash = create_fixture(root)
+        checkout_root = root / "operator"
+        backend = MemoryIssueBackend()
+        task_record = {**contract, "task_contract_sha256": contract_hash}
+        service = IssueWorkflowService(
+            backend=backend,
+            task_loader=lambda task_id: task_record,
+            worker_id="agent-a",
+        )
+        workflow = RealTaskReviewWorkflow(
+            source=controller,
+            task_id=TASK_ID,
+            checkout_root=checkout_root,
+            worker_id="agent-a",
+            issue_workflow_service=service,
+            allow_local_remote_for_tests=True,
+        )
+        first = workflow.observe_goal_state()
+        require(
+            assess_goal_state(first).action is GoalAction.ACQUIRE_AGENT_LEASE,
+            "fresh managed task did not request an Issue lease",
+        )
+        workflow.acquire_agent_lease(
+            planned_approach="Implement and push the synthetic behavior.",
+            expected_validation="Commit, push, and create the Unity handoff.",
+        )
+        second = workflow.observe_goal_state()
+        require(
+            assess_goal_state(second).action is GoalAction.PREPARE_CHECKOUT,
+            "leased task did not advance to checkout",
+        )
+        workflow.prepare_task_checkout()
+        checkout = checkout_root / TASK_ID
+        head = commit_implementation(checkout)
+
+        handoff = lambda: workflow.publish_human_handoff(
+            branch=BRANCH,
+            head_commit=head,
+            implementation_summary="Implemented the synthetic task.",
+            completed_checks=["TaskGraph validation passed."],
+            human_steps=["Open the project.", "Verify the behavior."],
+            expected_result="The behavior works.",
+        )
+        expect_error(handoff, "has not been pushed")
+        git(checkout, "push", "-u", "origin", BRANCH)
+        result = handoff()
+        require(
+            result["status"] == "human_action_required",
+            f"pushed handoff was rejected: {result}",
+        )
+        require(
+            service.observe(TASK_ID)["status"] == "human_action_required",
+            "Issue did not become human-owned",
+        )
+        require(str(remote), "remote fixture disappeared")
+
+
 def main() -> int:
-    test_checkout_survives_human_and_new_agent()
-    print("PASS test_checkout_survives_human_and_new_agent")
-    print("TaskReviewAgent durable checkout smoke tests: PASS (1 test)")
+    tests = (
+        test_checkout_survives_human_and_new_agent,
+        test_real_workflow_rejects_unpushed_handoff,
+    )
+    for test in tests:
+        test()
+        print(f"PASS {test.__name__}")
+    print(f"TaskReviewAgent durable checkout smoke tests: PASS ({len(tests)} tests)")
     return 0
 
 
