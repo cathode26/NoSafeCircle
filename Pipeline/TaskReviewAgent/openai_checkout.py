@@ -34,11 +34,19 @@ def run_openai_real_checkout(
         reasons: list[str]
         authority: str
 
+    initial_checkout_status: str | None = None
+
     @function_tool
     def observe_goal_state() -> str:
         """Read real Git, TaskGraph, GitHub claim, and canonical checkout facts."""
 
-        return _json(workflow.observe_goal_state())
+        nonlocal initial_checkout_status
+        observation = workflow.observe_goal_state()
+        if initial_checkout_status is None:
+            initial_checkout_status = str(
+                (observation.get("checkout") or {}).get("status") or "unknown"
+            )
+        return _json(observation)
 
     @function_tool
     def prepare_task_checkout() -> str:
@@ -125,14 +133,17 @@ OUTPUT
             )
 
     if expected.action.value == "validate_scope":
-        if "prepare_task_checkout" not in workflow.action_log[calls_before:]:
-            raise TaskReviewContractError(
-                "OpenAI checkout agent claimed validate_scope without "
-                "preparing/resuming checkout"
-            )
         if observation["checkout"].get("status") != "ready":
             raise TaskReviewContractError(
                 "OpenAI checkout agent reached validate_scope without a ready checkout"
+            )
+        if (
+            initial_checkout_status != "ready"
+            and "prepare_task_checkout" not in workflow.action_log[calls_before:]
+        ):
+            raise TaskReviewContractError(
+                "OpenAI checkout agent claimed validate_scope without "
+                "preparing the initially non-ready checkout"
             )
 
     return {
