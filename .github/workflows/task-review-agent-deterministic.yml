@@ -37,6 +37,12 @@ jobs:
       - name: Run durable Issue workflow smoke tests
         run: python Pipeline/TaskReviewAgent/tests/issue_workflow_smoke_test.py
 
+      - name: Run downstream Issue transition smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_issue_smoke_test.py
+
+      - name: Run delivery review proposal smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/delivery_review_smoke_test.py
+
       - name: Run real checkout boundary smoke tests
         run: python Pipeline/TaskReviewAgent/tests/real_checkout_smoke_test.py
 
@@ -51,6 +57,15 @@ jobs:
 
       - name: Run connected Issue to human handoff test
         run: python Pipeline/TaskReviewAgent/tests/production_controller_smoke_test.py
+
+      - name: Run downstream delivery controller smoke test
+        run: python Pipeline/TaskReviewAgent/tests/downstream_pipeline_smoke_test.py
+
+      - name: Run ExecutionCrew CLI compatibility test
+        run: python Pipeline/TaskReviewAgent/tests/execution_crew_cli_smoke_test.py
+
+      - name: Run durable workflow API compatibility test
+        run: python Pipeline/TaskReviewAgent/tests/workflow_public_api_smoke_test.py
 
       - name: Run real read-only observation CLI
         run: python Pipeline/TaskReviewAgent/run_agent.py --task-id NSC-050 --mode observe-real --source .
