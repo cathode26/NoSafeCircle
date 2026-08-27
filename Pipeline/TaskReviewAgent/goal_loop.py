@@ -1,4 +1,4 @@
-"""Deterministic goal loop used to prove the fake-tool vertical slice."""
+"""Deterministic goal loop used to prove the bounded TaskReviewAgent slices."""
 
 from __future__ import annotations
 
@@ -84,12 +84,20 @@ class ScriptedScopePlanner:
 def assess_goal_state(observation: dict[str, Any]) -> GoalAssessment:
     environment = observation.get("environment") or {}
     if not environment.get("ready"):
-        return GoalAssessment(GoalAction.BLOCKED, ("task-review environment is not ready",))
+        reasons = tuple(environment.get("errors") or ())
+        return GoalAssessment(
+            GoalAction.BLOCKED,
+            reasons or ("task-review environment is not ready",),
+        )
     if not environment.get("controller_clean"):
         return GoalAssessment(GoalAction.BLOCKED, ("controller checkout is not clean",))
     if not environment.get("taskgraph_valid"):
         return GoalAssessment(GoalAction.BLOCKED, ("TaskGraph validation failed",))
-    if not environment.get("provider_auth_available"):
+
+    provider_auth_required = environment.get("provider_auth_required", True)
+    if provider_auth_required is not False and not environment.get(
+        "provider_auth_available"
+    ):
         return GoalAssessment(
             GoalAction.BLOCKED,
             ("ExecutionCrew provider authentication is unavailable",),
@@ -109,7 +117,16 @@ def assess_goal_state(observation: dict[str, Any]) -> GoalAssessment:
         if task.get(field) != expected
     ]
     if task.get("dependencies_conformant") is not True:
-        failures.append("one or more declared dependencies are not conformant")
+        dependency_states = task.get("dependency_states") or []
+        nonconformant = [
+            f"{item.get('task_id')}={item.get('state')}"
+            for item in dependency_states
+            if item.get("state") != "conformant"
+        ]
+        failures.append(
+            "one or more declared dependencies are not conformant"
+            + (f": {', '.join(nonconformant)}" if nonconformant else "")
+        )
     if failures:
         return GoalAssessment(GoalAction.NEEDS_HUMAN, tuple(failures))
 
