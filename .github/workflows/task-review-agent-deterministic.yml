@@ -17,7 +17,7 @@ permissions:
 jobs:
   windows-smoke:
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Check out exact PR head
@@ -48,6 +48,9 @@ jobs:
 
       - name: Run production scope ExecutionCrew commit push test
         run: python Pipeline/TaskReviewAgent/tests/production_pipeline_smoke_test.py
+
+      - name: Run connected Issue to human handoff test
+        run: python Pipeline/TaskReviewAgent/tests/production_controller_smoke_test.py
 
       - name: Run real read-only observation CLI
         run: python Pipeline/TaskReviewAgent/run_agent.py --task-id NSC-050 --mode observe-real --source .
