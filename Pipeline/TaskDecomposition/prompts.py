@@ -75,6 +75,31 @@ Authority and inspection rules:
 - No output may imply approval, graph application, readiness, authorization, delivery,
   conformance, completion, or execution.
 
+Human-facing Unity language:
+- The primary human reader is an experienced Unity game programmer.
+- Write human-facing string fields, including child `title`, requirements, reasons, notes,
+  integration rationale, and unresolved questions, so the Unity work is recognizable
+  without translating pipeline or game-design jargon.
+- Lead with the concrete Unity asset, component, behavior, method, or test when it is known:
+  Prefab, GameObject, MonoBehaviour, SpriteRenderer, Collider, LayerMask, movement, attack
+  wind-up, projectile, damage method, public reset method, Edit Mode test, or Play Mode test.
+- Prefer `uses`, `calls`, `reads from`, or `connects to` over `consumes`; name the shared
+  component or system instead of calling it a `foundation`; name the public reset method
+  instead of saying `owner-controlled operation`; and name the exact components being wired
+  instead of using `integration` by itself.
+- Use `enemy type` for a design concept and `prefab` for a Unity asset instead of using
+  `archetype` for both. Keep abstract taxonomy only in machine-facing fields such as
+  `kind`, `type`, `local_key`, `reconciliation_key`, `execution_scope`, and coverage
+  dispositions.
+- Do not combine separate behaviors behind slash wording. Target knowledge, the decision to
+  fire, line-of-sight checks, projectile collision, and damage are different requirements
+  unless canon explicitly binds them together.
+- This is a wording rule, not authority to invent class names, methods, files, physics
+  technology, mechanics, tuning, or architecture absent from the supplied context.
+- A child title must answer: what Unity thing or behavior is being built, and what does it do?
+- Example: prefer `Ranged Enemy Prefab Setup and Frost Movement Test` over
+  `Ranged Enemy Archetype Prefab Assembly and Frost Integration`.
+
 Output parent identity — copy this exact D1A semantic identity into `parent_task`:
 {semantic_text}
 

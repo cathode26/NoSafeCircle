@@ -1,22 +1,24 @@
 {
   "schema_version": "2.0",
   "id": "NSC-016",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
-  "title": "Ranged Enemy Archetype",
+  "title": "Ranged Enemy Prefab with Keep-Distance Movement and Projectile Attack",
   "reconciliation_key": "ranged-enemy",
   "kind": "implementation",
   "type": "enemy_archetype",
   "execution_scope": "needs_execution_decomposition",
-  "execution_reason": "Bundles keep-away positioning logic, telegraphed-attack timing, line-of-sight/occlusion checks, Frost-interaction correctness, plus Enemy Health/Defeat and Active Enemy Registry integration and SpriteRenderer presentation into one archetype; these are independently verifiable responsibilities exceeding a single bounded handoff.",
+  "execution_reason": "This task combines three separately testable Unity jobs: keep-distance movement using the shared enemy pursuit component; a visible attack wind-up, slow projectile, cover collision, Player Health damage call, and attack reset; and a world-space SpriteRenderer prefab wired to Enemy Health/Defeat, Active Enemy Registry, Frost slowdown, and defeat behavior.",
   "decomposition_state": "concrete",
-  "decomposition_reason": "Ranged Enemy's behavior (moderate-distance keep-away, slow telegraphed shot, occlusion check, standalone viability, Frost interaction) is already concretely specified by the GDD; no additional design invention is required at this coarse level.",
+  "decomposition_reason": "The required movement, projectile, damage, Frost, prefab, health, registry, and reset behavior is defined. It can be split into bounded Unity implementation tasks without inventing new design.",
   "parent": "NSC-010",
   "depends_on": [
     "NSC-014",
     "NSC-012",
     "NSC-011",
-    "NSC-026"
+    "NSC-004",
+    "NSC-013",
+    "NSC-039"
   ],
   "exclusive_resources": [
     "logical:enemy-locomotion-behavior-surface"
@@ -24,94 +26,115 @@
   "acceptance_criteria": [
     {
       "reference": "Required Enemy Roster",
-      "requirement": "Keeps moderate distance from the player and fires a slow, telegraphed ranged shot rather than an instantaneous attack.",
+      "requirement": "Uses the current player target supplied by the shared enemy pursuit component and keeps a moderate distance by moving closer when too far away and backing away or repositioning when too close.",
       "criterion_id": "AC-001"
     },
     {
-      "reference": "Runtime Implementation",
-      "requirement": "Attack includes a line-of-sight/projectile-occlusion check so cover (e.g., Chapel of Ash pews/columns) actually blocks shots.",
+      "reference": "Required Enemy Roster",
+      "requirement": "Shows a readable attack wind-up, then spawns a slow moving projectile. The attack is not hitscan and does not apply instant damage when the wind-up begins or ends.",
       "criterion_id": "AC-002"
     },
     {
-      "reference": "Required Enemy Roster",
-      "requirement": "Deals damage to the player exclusively through the shared Player Health damage interface (existing PlayerHealth.TakeDamage).",
+      "reference": "Runtime Implementation; Chapel of Ash cover requirement",
+      "requirement": "After it is spawned, the projectile collides with gameplay cover such as walls, pews, and columns. A projectile that hits cover stops or despawns and cannot damage the player through or after that cover. This task does not require a clear line of sight before the enemy starts or releases an attack.",
       "criterion_id": "AC-003"
     },
     {
       "reference": "Required Enemy Roster",
-      "requirement": "Functions correctly as a standalone pursuer if it ends up fighting without Melee support, without requiring melee presence to operate.",
+      "requirement": "A projectile that reaches the player requests damage only through the shared Player Health damage interface, currently PlayerHealth.TakeDamage, and the ranged-enemy scripts do not store a second copy of player health.",
       "criterion_id": "AC-004"
     },
     {
-      "reference": "Spell and Enemy Interactions",
-      "requirement": "Frost Field slowdown affects only the Ranged Enemy's repositioning/locomotion speed and does not suppress, pause, or otherwise slow its telegraphed attack execution.",
+      "reference": "Required Enemy Roster",
+      "requirement": "Movement and projectile attacks continue to work when no Melee Enemy is alive. The Ranged Enemy does not query for or require a Melee Enemy component, object, or count before it can pursue, reposition, or attack.",
       "criterion_id": "AC-005"
     },
     {
-      "reference": "Environment Presentation and Authoring Direction",
-      "requirement": "Delivers a usable assembled world-space SpriteRenderer archetype prefab integrating the shared pursuit/locomotion foundation (moderate-distance keep-away behavior), Enemy Health/Defeat participation, Active Enemy Registry participation, and Ranged attack/occlusion behavior.",
+      "reference": "Spell and Enemy Interactions",
+      "requirement": "Frost Field changes only the movement speed used for approach, retreat, and repositioning. Frost does not pause, cancel, lengthen, or otherwise change the attack wind-up, attack cooldown, projectile speed, or projectile lifetime.",
       "criterion_id": "AC-006"
     },
     {
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled attack-state reset entry point that clears any in-progress telegraphed-shot windup and cancels/despawns any in-flight projectile when the Floor Run/Restart Orchestrator invokes floor restart, so no mid-execution attack state carries over from a failed run.",
+      "reference": "Environment Presentation and Authoring Direction; Enemy health and defeat ownership; Active Enemy Registry",
+      "requirement": "Creates a reusable world-space SpriteRenderer Ranged Enemy prefab and connects the shared pursuit, keep-distance movement, projectile attack, Enemy Health/Defeat, and Active Enemy Registry behavior. The ranged-enemy scripts do not duplicate health, defeat, or registry bookkeeping. Defeat stops movement and attacks and unregisters the enemy exactly once through the shared interfaces.",
       "criterion_id": "AC-007"
     },
     {
       "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Exposes an owner-controlled restart/reset entry point that clears ranged attack/telegraph timing and any in-flight projectile state for floor restart, invoked by the Floor Run/Restart Orchestrator rather than mutated directly.",
+      "requirement": "The ranged-attack component exposes a public reset method that cancels an active wind-up, clears its attack timer or cooldown state, and destroys or despawns every projectile still owned by that enemy. The Floor Run/Restart Orchestrator calls this method instead of editing attack fields or projectile objects directly.",
       "criterion_id": "AC-008"
     }
   ],
   "completion_gates": [
     {
-      "reference": "Dungeon Floor Structure (Chapel of Ash) / Development Agent Roles (Unity Validation Agent)",
-      "requirement": "Chapel of Ash line-of-sight/projectile-occlusion Play Mode validation confirming cover blocks shots.",
+      "reference": "Required Enemy Roster",
+      "requirement": "In Play Mode with no Melee Enemy present, verify that the Ranged Enemy uses the shared player target, approaches when too far away, retreats or repositions when too close, and remains able to attack.",
       "gate_id": "VAL-001"
     },
     {
-      "reference": "Spell and Enemy Interactions",
-      "requirement": "Verify a slowed (Frost Field) Ranged Enemy continues its normal telegraphed attack behavior while its repositioning speed is reduced.",
+      "reference": "Required Enemy Roster; Player Health ownership",
+      "requirement": "In Play Mode with an unobstructed projectile path, verify that the enemy shows the attack wind-up, spawns a slow projectile, and calls PlayerHealth.TakeDamage only when the projectile reaches the player.",
       "gate_id": "VAL-002"
     },
     {
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify an in-progress telegraphed shot or in-flight projectile is cancelled/cleared by floor restart, with no attack state surviving into the next run.",
+      "reference": "Runtime Implementation; Chapel of Ash cover requirement",
+      "requirement": "In Play Mode, place a representative cover collider or equivalent gameplay cover geometry in the projectile path and allow the enemy to fire. Verify that the projectile reaches the cover, stops or despawns there, and never calls PlayerHealth.TakeDamage through or after the cover.",
       "gate_id": "VAL-003"
     },
     {
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "Verify floor restart clears ranged attack/telegraph timing and any in-flight projectile state through the owner-controlled reset entry point.",
+      "reference": "Spell and Enemy Interactions",
+      "requirement": "In Play Mode, apply the shared Frost slowdown and verify that approach, retreat, and repositioning become slower while attack wind-up duration, attack timing, projectile speed, and projectile lifetime remain unchanged.",
       "gate_id": "VAL-004"
+    },
+    {
+      "reference": "Enemy health and defeat ownership; Active Enemy Registry",
+      "requirement": "In Play Mode, instantiate or enable the assembled Ranged Enemy prefab, verify that it registers exactly once, apply lethal damage through Enemy Health/Defeat, and verify that movement and attacks stop, active projectiles are cleared, and the enemy unregisters exactly once without duplicate health or registry state.",
+      "gate_id": "VAL-005"
+    },
+    {
+      "reference": "Section 2 — Floor-run restart ownership",
+      "requirement": "In Play Mode, call the ranged-attack reset method during an attack wind-up and again while a projectile is in flight. Verify that the wind-up is cancelled, all owned projectiles are removed, attack timing returns to its initial state, and no delayed Player Health damage occurs after reset.",
+      "gate_id": "VAL-006"
     }
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "reference": "Dungeon Floor Structure (Chapel of Ash); Approved Five-Room Spatial Layout Blockout",
+      "requirement": "When the Chapel of Ash blockout is available, verify that its authored pew or column gameplay geometry stops a real Ranged Enemy projectile from at least one designated cover position.",
+      "obligation_id": "INT-001"
+    },
+    {
+      "reference": "Section 2 — Floor-run restart ownership",
+      "requirement": "When the Floor Run/Restart Orchestrator is connected, verify that it invokes the ranged-attack reset method and leaves no wind-up, cooldown, projectile, or delayed-damage state from the failed run.",
+      "obligation_id": "INT-002"
+    }
+  ],
   "gdd_evidence": [
     {
       "reference": "Required Enemy Roster",
-      "requirement": "Ranged Enemy keeps moderate distance and fires a slow telegraphed shot; forces lateral movement while Melee Enemies close in."
+      "requirement": "The Ranged Enemy keeps moderate distance, shows a slow telegraphed shot, and remains functional after its Melee support is defeated."
     },
     {
-      "reference": "Required Enemy Roster",
-      "requirement": "A Ranged Enemy may end up fighting alone if its Melee support is defeated first; tap Fireball, cover, and lateral movement remain effective against a lone survivor."
-    },
-    {
-      "reference": "Runtime Implementation",
-      "requirement": "Ranged Enemy attacks include a line-of-sight/projectile-occlusion check so Chapel of Ash's cover actually blocks shots."
+      "reference": "Runtime Implementation; Dungeon Floor Structure (Chapel of Ash)",
+      "requirement": "Room geometry provides cover from ranged pressure. The required implementation result is that a fired projectile cannot pass through gameplay cover and damage the player."
     },
     {
       "reference": "Spell and Enemy Interactions",
-      "requirement": "Frost Field slows a Ranged Enemy's repositioning but does not stop its attacks; the player must still move laterally or use room geometry to avoid incoming shots."
+      "requirement": "Frost Field slows Ranged Enemy repositioning but does not stop or slow its attacks."
     },
     {
-      "reference": "Environment Presentation and Authoring Direction / Runtime Implementation",
-      "requirement": "The wizard and enemies use world-space SpriteRenderers and prefabs with consistent isometric sorting conventions."
+      "reference": "Environment Presentation and Authoring Direction",
+      "requirement": "Enemies are reusable world-space SpriteRenderer prefabs using the shared isometric sorting convention."
+    },
+    {
+      "reference": "Enemy health and defeat ownership; Active Enemy Registry",
+      "requirement": "Enemy Health/Defeat owns health and defeat, defeat unregisters through the shared Active Enemy Registry interface, and consumers do not duplicate either system's state."
     }
   ],
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "The GDD's encounter-composition rule that Ranged Enemy never spawns as an isolated encounter is content/authoring policy owned by dungeon-encounter-content-authoring (a different domain), not this archetype's own behavior; this item only needs to remain correct when it happens to end up alone mid-encounter.",
+  "notes": "A clear line of sight before firing is intentionally not required by this contract. Target knowledge, firing at a current or last-known position, difficulty-specific accuracy, and intentional cover fire may be decided by the shared pursuit/attack design later; this task requires only that a spawned projectile obey gameplay cover collision. Encounter authoring still owns the rule that a Ranged Enemy is introduced with Melee support. Revision 2 rewrites the task in concrete Unity language, targets the specific SpriteRenderer prefab/sorting child NSC-039, adds the missing Player Health and Frost dependencies, removes duplicate reset requirements, and adds a runtime prefab health/defeat/registry wiring test.",
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
