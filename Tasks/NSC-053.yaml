@@ -1,0 +1,75 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-016 AC-001 — Required Enemy Roster",
+      "requirement": "Uses the current player target supplied by the shared enemy pursuit component, moves closer when outside the moderate-distance range, and backs away or repositions when too close."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-016 AC-005 — Required Enemy Roster",
+      "requirement": "Approach, retreat, and repositioning continue when no Melee Enemy is alive; the movement behavior does not query for or require a Melee Enemy component, GameObject, or count."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-016 AC-006 — Spell and Enemy Interactions",
+      "requirement": "Reads the movement speed affected by the shared Frost slowdown for approach, retreat, and repositioning without using that value to control attack wind-up, cooldown, projectile speed, or projectile lifetime."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-016 VAL-001 — Required Enemy Roster",
+      "requirement": "In a Play Mode test with no Melee Enemy present, verify the Ranged Enemy uses the shared player target, approaches when too far away, and retreats or repositions when too close."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-016 VAL-004 — Spell and Enemy Interactions",
+      "requirement": "In a Play Mode test, apply the shared Frost slowdown and verify that approach, retreat, and repositioning become slower."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Keep-distance movement is a bounded Unity behavior with its own shared-target and Frost-speed inputs, separate from projectile spawning and prefab wiring.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-014",
+    "NSC-013"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "logical:enemy-locomotion-behavior-surface"
+  ],
+  "execution_reason": "One agent can implement and validate the Ranged Enemy's approach, retreat, and repositioning behavior against the existing pursuit and Frost interfaces.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Required Enemy Roster",
+      "requirement": "The Ranged Enemy keeps moderate distance from the wizard."
+    },
+    {
+      "reference": "Spell and Enemy Interactions",
+      "requirement": "Frost Field slows a Ranged Enemy's repositioning without stopping its attacks."
+    }
+  ],
+  "id": "NSC-053",
+  "kind": "implementation",
+  "notes": "Exact distance thresholds and movement speeds remain playtesting values. This child does not decide when to fire or implement projectile behavior.",
+  "parent": "NSC-016",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-2e86f4a379ab3f36dfd476d6afefcbe502dd04d338ea28b6d5e9b26b190b30f3",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "6169c9087abcd9e65e55a1b7edd777185d68c86577bb8032be2bafdc263dbcf5",
+    "parent_task_id": "NSC-016"
+  },
+  "reconciliation_key": "ranged-enemy-keep-distance-movement",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Ranged Enemy Keep-Distance Movement and Frost Speed Response",
+  "type": "enemy_behavior"
+}

@@ -21,12 +21,12 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "The room dimensions, prop footprints, routes, and one projectile-cover Play Mode test are explicit enough for one bounded room-blockout task.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-026",
-    "NSC-016"
+    "NSC-054"
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [

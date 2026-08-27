@@ -1,0 +1,73 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-016 AC-007 — Environment Presentation and Authoring Direction; Enemy Health/Defeat; Active Enemy Registry",
+      "requirement": "Creates a reusable world-space SpriteRenderer Ranged Enemy prefab using the shared isometric sorting convention and connects the shared pursuit component, keep-distance movement, projectile attack, Enemy Health/Defeat, and Active Enemy Registry behavior without duplicating health, defeat, or registry state."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-016 AC-007 — Enemy Health/Defeat; Active Enemy Registry",
+      "requirement": "Connects the Enemy Health/Defeat transition so defeat stops movement and attacks, clears active projectiles, and unregisters the persistent enemy exactly once through the shared registry interface."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-016 VAL-005 — Enemy Health/Defeat; Active Enemy Registry",
+      "requirement": "In a Play Mode prefab test, instantiate or enable the assembled Ranged Enemy prefab, verify it registers exactly once, apply lethal damage through Enemy Health/Defeat, and verify movement and attacks stop, active projectiles are cleared, and it unregisters exactly once."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-016 VAL-001 — Required Enemy Roster; assembled-prefab integration",
+      "requirement": "In a Play Mode prefab test with no Melee Enemy present, instantiate the assembled Ranged Enemy prefab and verify that the same live instance approaches when outside its intended distance, retreats or repositions when too close, and separately completes a visible attack wind-up and spawns a projectile without either behavior disabling, overriding, or preventing the other."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "The reusable SpriteRenderer prefab requires an explicit assembly child because the separately implemented movement and projectile components must be connected to shared pursuit, health, defeat, registry, and sorting behavior before the parent feature is usable.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-012",
+    "NSC-011",
+    "NSC-039",
+    "NSC-053",
+    "NSC-054"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "logical:enemy-locomotion-behavior-surface"
+  ],
+  "execution_reason": "After the movement and projectile behaviors exist, one agent can assemble the prefab and validate its shared-component wiring and defeat response.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Environment Presentation and Authoring Direction",
+      "requirement": "Enemies use reusable world-space SpriteRenderer prefabs following the shared isometric sorting convention."
+    },
+    {
+      "reference": "Enemy Health/Defeat; Active Enemy Registry",
+      "requirement": "Enemy Health/Defeat owns health and defeat, and defeat unregisters through the shared Active Enemy Registry interface."
+    }
+  ],
+  "id": "NSC-055",
+  "kind": "implementation",
+  "notes": "This child connects the named components into the reusable prefab. Encounter placement and the rule requiring Melee support remain outside this proposal. Human-approved audit correction: the assembled-prefab Play Mode coverage must also prove that keep-distance movement and projectile attack operate together on the same live GameObject; the focused component tests remain owned by NSC-053 and NSC-054.",
+  "parent": "NSC-016",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-2e86f4a379ab3f36dfd476d6afefcbe502dd04d338ea28b6d5e9b26b190b30f3",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "6169c9087abcd9e65e55a1b7edd777185d68c86577bb8032be2bafdc263dbcf5",
+    "parent_task_id": "NSC-016"
+  },
+  "reconciliation_key": "ranged-enemy-prefab-wiring",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Ranged Enemy SpriteRenderer Prefab Setup and Defeat Wiring",
+  "type": "enemy_prefab"
+}

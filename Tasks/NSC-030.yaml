@@ -31,14 +31,14 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "Exact encounter placements, triggers, per-door durability values, and Final Room pressure composition are explicitly left to later authoring/playtesting by the GDD; only composition/sizing rules (3-8 enemies, never-isolated Ranged Enemy, mixed compositions in two named rooms, Ranged Enemy first introduced in Chapel of Ash) are currently fixed. Inventing exact placements/triggers now would fabricate missing design. Encounter placement/content authoring is a real prerequisite consumer of the room spaces produced by five-room-content-authoring (GDD Section 5 — 2.5D Isometric Visual and World Representation: 'encounter placement/content consumes the authored room spaces and the encounter-admission/cap foundation'); once both features gain concrete descendants, a Progressive Decomposer must attach a concrete encounter-placement -> authored-room implementation/artifact dependency between those descendants rather than a feature-to-feature edge.",
   "decomposition_state": "needs_future_decomposition",
   "depends_on": [
     "NSC-028",
     "NSC-050",
     "NSC-015",
-    "NSC-016"
+    "NSC-055"
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [],
