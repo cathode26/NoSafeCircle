@@ -151,7 +151,6 @@
     },
     {
       "reconciliation_keys": [
-        "door-close-lock-break-lifecycle",
         "doorway-crossing-state",
         "final-escape-victory",
         "fireball",
@@ -162,7 +161,6 @@
       ],
       "resource_key": "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
       "work_ids": [
-        "NSC-021",
         "NSC-020",
         "NSC-035",
         "NSC-007",
@@ -189,7 +187,8 @@
         "lower-vault-blockout",
         "final-room-blockout",
         "five-room-continuity-door-sequence",
-        "gameplay-navigation-locomotion"
+        "gameplay-navigation-locomotion",
+        "door-close-lock-break-lifecycle"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -208,7 +207,8 @@
         "NSC-047",
         "NSC-048",
         "NSC-049",
-        "NSC-025"
+        "NSC-025",
+        "NSC-021"
       ]
     }
   ]
