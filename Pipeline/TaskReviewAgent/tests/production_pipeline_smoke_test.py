@@ -50,6 +50,22 @@ def git(root: Path, *args: str, check: bool = True) -> str:
     return run("git", "-C", str(root), *args, cwd=root, check=check).stdout.strip()
 
 
+def git_bytes(root: Path, *args: str) -> bytes:
+    result = subprocess.run(
+        ("git", "-C", str(root), *args),
+        cwd=str(root),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise AssertionError(
+            f"binary git command failed ({result.returncode}): {' '.join(args)}\n"
+            f"{result.stderr.decode('utf-8', errors='replace')}"
+        )
+    return result.stdout
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -131,7 +147,7 @@ def create_fixture(root: Path) -> tuple[Path, Path, dict, str]:
     checkout.parent.mkdir(parents=True)
     run("git", "clone", str(remote), str(checkout), cwd=root)
     git(checkout, "switch", "-c", BRANCH)
-    contract_bytes = git(checkout, "show", f"HEAD:Tasks/{TASK_ID}.yaml").encode("utf-8")
+    contract_bytes = git_bytes(checkout, "show", f"HEAD:Tasks/{TASK_ID}.yaml")
     task = {
         **contract,
         "task_id": TASK_ID,
