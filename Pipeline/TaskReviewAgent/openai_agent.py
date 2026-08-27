@@ -1,4 +1,4 @@
-"""OpenAI Agents SDK adapter over the bounded TaskReviewAgent tool surface."""
+"""OpenAI Agents SDK adapters over bounded TaskReviewAgent tool surfaces."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ from typing import Any
 
 from .contracts import (
     ExecutionScopePlan,
-    OutcomeStatus,
     TASK_REVIEW_SCHEMA_VERSION,
     TaskReviewContractError,
     TaskReviewOutcome,
     TaskReviewRequest,
 )
-from .goal_loop import TaskReviewToolSurface, verify_agent_outcome
+from .goal_loop import TaskReviewToolSurface, assess_goal_state, verify_agent_outcome
+from .real_observation import RealTaskObserver
 
 
 TESTED_OPENAI_AGENTS_VERSION = "0.22.0"
@@ -23,7 +23,7 @@ DEFAULT_MODEL = "gpt-5.6"
 
 
 class OpenAIAgentsUnavailable(RuntimeError):
-    """Raised when the optional OpenAI Agents SDK runtime is not installed."""
+    """Raised when the optional OpenAI Agents SDK runtime is unavailable."""
 
 
 def installed_agents_version() -> str | None:
@@ -37,6 +37,24 @@ def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, allow_nan=False, indent=2, sort_keys=True)
 
 
+def _require_runtime(max_turns: int) -> tuple[Any, Any, Any, Any, Any]:
+    if not os.getenv("OPENAI_API_KEY"):
+        raise OpenAIAgentsUnavailable(
+            "OPENAI_API_KEY is required for an OpenAI-backed TaskReviewAgent mode"
+        )
+    if type(max_turns) is not int or not 4 <= max_turns <= 100:
+        raise TaskReviewContractError("max_turns must be an integer from 4 through 100")
+    try:
+        from agents import Agent, ModelSettings, Runner, function_tool
+        from pydantic import BaseModel, ConfigDict
+    except ImportError as exc:
+        raise OpenAIAgentsUnavailable(
+            "OpenAI Agents SDK is not installed. Run: "
+            "python -m pip install -r Pipeline/TaskReviewAgent/requirements.txt"
+        ) from exc
+    return Agent, ModelSettings, Runner, function_tool, (BaseModel, ConfigDict)
+
+
 def run_openai_fake_agent(
     request: TaskReviewRequest,
     tools: TaskReviewToolSurface,
@@ -46,19 +64,8 @@ def run_openai_fake_agent(
 ) -> TaskReviewOutcome:
     """Use a real OpenAI agent to navigate only the deterministic fake tool surface."""
 
-    if not os.getenv("OPENAI_API_KEY"):
-        raise OpenAIAgentsUnavailable("OPENAI_API_KEY is required for --mode openai-fake")
-    if type(max_turns) is not int or not 4 <= max_turns <= 100:
-        raise TaskReviewContractError("max_turns must be an integer from 4 through 100")
-
-    try:
-        from agents import Agent, Runner, function_tool
-        from pydantic import BaseModel, ConfigDict
-    except ImportError as exc:
-        raise OpenAIAgentsUnavailable(
-            "OpenAI Agents SDK is not installed. Run: "
-            "python -m pip install -r Pipeline/TaskReviewAgent/requirements.txt"
-        ) from exc
+    Agent, _, Runner, function_tool, pydantic_types = _require_runtime(max_turns)
+    BaseModel, ConfigDict = pydantic_types
 
     class HumanReviewProofModel(BaseModel):
         model_config = ConfigDict(extra="forbid")
@@ -189,6 +196,113 @@ OPERATING RULES
     if outcome.task_id != request.task_id:
         raise TaskReviewContractError("OpenAI agent changed the explicit task identity")
     return verify_agent_outcome(tools, outcome)
+
+
+def run_openai_real_observation(
+    request: TaskReviewRequest,
+    observer: RealTaskObserver,
+    *,
+    model: str | None = None,
+    max_turns: int = 12,
+) -> dict[str, Any]:
+    """Let an OpenAI agent classify the next action from real read-only facts only."""
+
+    Agent, ModelSettings, Runner, function_tool, pydantic_types = _require_runtime(max_turns)
+    BaseModel, ConfigDict = pydantic_types
+
+    class ObservationAssessmentModel(BaseModel):
+        model_config = ConfigDict(extra="forbid")
+
+        schema_version: str
+        task_id: str
+        observation_sha256: str
+        next_action: str
+        reasons: list[str]
+        authority: str
+
+    calls_before = len(observer.action_log)
+
+    @function_tool
+    def observe_goal_state() -> str:
+        """Read real committed Git and TaskGraph facts for the explicit task."""
+
+        return _json(observer.observe_goal_state())
+
+    instructions = f"""
+You are the read-only observation stage of the No Safe Circle Task Review Supervisor.
+
+TASK
+Inspect the exact explicit task {request.task_id} by calling observe_goal_state. Do not infer
+repository facts without the tool.
+
+AUTHORITY
+This run is real read-only observation only. There is no checkout-creation, path-planning,
+ExecutionCrew, patch, Unity, commit, push, merge, delivery, or conformance action tool.
+
+OUTPUT
+Return one structured assessment:
+- schema_version exactly {TASK_REVIEW_SCHEMA_VERSION};
+- task_id exactly {request.task_id};
+- observation_sha256 copied exactly from the tool result;
+- next_action chosen from prepare_checkout, validate_scope, run_execution_crew,
+  verify_human_review_ready, needs_human, or blocked;
+- reasons explaining the classification;
+- authority exactly real_read_only.
+
+CLASSIFICATION
+- blocked when the environment is not ready, the controller is dirty, or TaskGraph is invalid;
+- needs_human when the task is not active implementation/single_agent/concrete/not_delivered
+  or any declared dependency is not conformant;
+- prepare_checkout when the task is eligible and checkout status is not ready;
+- never claim a later action when its prerequisite state has not been observed.
+""".strip()
+
+    agent = Agent(
+        name="No Safe Circle Real Task Observer",
+        model=model or os.getenv("TASK_REVIEW_AGENT_MODEL", DEFAULT_MODEL),
+        instructions=instructions,
+        tools=[observe_goal_state],
+        output_type=ObservationAssessmentModel,
+        model_settings=ModelSettings(tool_choice="required"),
+    )
+
+    result = Runner.run_sync(
+        agent,
+        f"Observe {request.task_id} and report the exact next bounded action.",
+        max_turns=max_turns,
+    )
+    final_output = result.final_output
+    if not isinstance(final_output, ObservationAssessmentModel):
+        raise TaskReviewContractError(
+            "OpenAI real-observation agent did not return the required structured output"
+        )
+    if len(observer.action_log) <= calls_before or observer.last_observation is None:
+        raise TaskReviewContractError(
+            "OpenAI real-observation agent returned without calling observe_goal_state"
+        )
+
+    observation = observer.last_observation
+    expected = assess_goal_state(observation)
+    payload = final_output.model_dump(mode="json")
+    expected_reasons = list(expected.reasons)
+    fixed_checks = {
+        "schema_version": TASK_REVIEW_SCHEMA_VERSION,
+        "task_id": request.task_id,
+        "observation_sha256": observation["observation_sha256"],
+        "next_action": expected.action.value,
+        "authority": "real_read_only",
+    }
+    for field, expected_value in fixed_checks.items():
+        if payload.get(field) != expected_value:
+            raise TaskReviewContractError(
+                "OpenAI real-observation assessment did not match deterministic "
+                f"{field}: {payload.get(field)!r} != {expected_value!r}"
+            )
+    return {
+        **fixed_checks,
+        "reasons": expected_reasons,
+        "model_reasons": list(payload.get("reasons") or []),
+    }
 
 
 def describe_runtime() -> dict[str, Any]:
