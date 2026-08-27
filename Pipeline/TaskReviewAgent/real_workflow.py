@@ -16,7 +16,12 @@ from .issue_workflow_store import (
     IssueWorkflowService,
     IssueWorkflowStoreError,
 )
-from .real_checkout import RealTaskCheckoutManager
+from .real_checkout import (
+    RealTaskCheckoutManager,
+    _git,
+    _git_text,
+    _normalized_remote,
+)
 from .real_observation import RealTaskObserver
 
 
@@ -257,6 +262,93 @@ class RealTaskReviewWorkflow:
             json.dumps(self.last_checkout_result, ensure_ascii=False, allow_nan=False)
         )
 
+    def _verify_pushed_handoff(self, branch: str, head_commit: str) -> None:
+        if self.last_observation is None:
+            raise TaskReviewContractError(
+                "human handoff requires a current workflow observation"
+            )
+        checkout = self.checkout_manager.checkout_path
+        if not checkout.is_dir():
+            raise TaskReviewContractError("human handoff checkout does not exist")
+        actual_root = _git_text(checkout, "rev-parse", "--show-toplevel", check=False)
+        if not actual_root or Path(actual_root).resolve() != checkout.resolve():
+            raise TaskReviewContractError("human handoff path is not the canonical Git root")
+        actual_branch = _git_text(checkout, "branch", "--show-current", check=False)
+        actual_head = _git_text(checkout, "rev-parse", "--verify", "HEAD", check=False)
+        status = _git_text(
+            checkout,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            check=False,
+        )
+        if actual_branch != branch:
+            raise TaskReviewContractError(
+                f"human handoff branch {branch!r} is not checked out: {actual_branch!r}"
+            )
+        if actual_head != head_commit:
+            raise TaskReviewContractError(
+                f"human handoff commit {head_commit!r} is not checkout HEAD {actual_head!r}"
+            )
+        if status:
+            raise TaskReviewContractError(
+                "human handoff requires a completely clean committed checkout"
+            )
+        expected_branch = self.checkout_manager.expected_branch(self.last_observation)
+        if branch != expected_branch:
+            raise TaskReviewContractError(
+                f"human handoff branch differs from workflow branch {expected_branch!r}"
+            )
+        base_head = self.checkout_manager.expected_head(self.last_observation)
+        ancestry = _git(
+            checkout,
+            "merge-base",
+            "--is-ancestor",
+            base_head,
+            head_commit,
+            check=False,
+        )
+        if ancestry.returncode != 0:
+            raise TaskReviewContractError(
+                "human handoff commit is not descended from the recorded workflow head"
+            )
+        remote_output = _git_text(
+            checkout,
+            "ls-remote",
+            "--heads",
+            "origin",
+            f"refs/heads/{branch}",
+            check=False,
+        )
+        remote_head = remote_output.split()[0] if remote_output.split() else ""
+        if remote_head != head_commit:
+            raise TaskReviewContractError(
+                "human handoff commit has not been pushed as the exact remote task branch"
+            )
+        actual_remote = _git_text(checkout, "remote", "get-url", "origin", check=False)
+        observed_remote = str(
+            (self.last_observation.get("environment") or {}).get("remote_url") or ""
+        )
+        if not actual_remote or _normalized_remote(actual_remote) != _normalized_remote(
+            observed_remote
+        ):
+            raise TaskReviewContractError(
+                "human handoff checkout origin differs from the controller origin"
+            )
+        task = self.last_observation["task"]
+        contract = _git(
+            checkout,
+            "show",
+            f"{head_commit}:{task['contract_path']}",
+            check=False,
+        )
+        if contract.returncode != 0 or hashlib.sha256(contract.stdout).hexdigest() != task.get(
+            "task_contract_sha256"
+        ):
+            raise TaskReviewContractError(
+                "human handoff commit does not contain the current task contract identity"
+            )
+
     def publish_human_handoff(
         self,
         *,
@@ -270,6 +362,7 @@ class RealTaskReviewWorkflow:
         self.action_log.append("publish_human_handoff")
         if self.issue_workflow is None:
             raise TaskReviewContractError("Issue workflow writes are unavailable")
+        self._verify_pushed_handoff(branch, head_commit)
         result = self.issue_workflow.publish_human_handoff(
             task_id=self.task_id,
             branch=branch,
