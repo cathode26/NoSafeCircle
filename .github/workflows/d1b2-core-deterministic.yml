@@ -45,6 +45,9 @@ jobs:
       - name: GDDRAG reviewer-context smoke test
         run: python Pipeline/TaskDecomposition/tests/gdd_rag_review_context_smoke_test.py
 
+      - name: Controlled reviewer replay smoke test
+        run: python Pipeline/TaskDecomposition/tests/reviewer_replay_smoke_test.py
+
       - name: Invocation-ID contract proof
         run: python Pipeline/TaskDecomposition/tests/round_invocation_id_smoke_test.py
 
