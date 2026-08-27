@@ -1,0 +1,79 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-021 AC-006; GDD §3 Door passability contract",
+      "requirement": "Connect DoorInteractable semantic state changes to the shared navigation passability interface from NSC-025 so sealed and locked doors block enemy movement while open and broken doors allow forward enemy movement."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-021 AC-006; GDD §4 Door/navigation integration prerequisite",
+      "requirement": "Door code sends semantic state through the navigation-owned interface and does not directly change NavMesh, navigation links, carving, or other enemy-walkability internals."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-021 AC-008; GDD §2 Floor-run restart ownership",
+      "requirement": "Door initialization and the public door reset method resend the restored sealed state through the navigation passability interface so enemy walkability matches the reset DoorInteractable state."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-021 AC-006; GDD §3 Door passability contract",
+      "requirement": "Using a test-owned door and the NSC-025 navigation interface, verify that sealed, open, locked, broken, and reset-to-sealed transitions produce the required enemy-walkability result without DoorInteractable manipulating navigation internals."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "This child isolates the cross-component connection between DoorInteractable semantic state and the navigation-owned passability interface after both components exist.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-025",
+    "NSC-050"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-021 VAL-001; NSC-017 Locked-Door Enemy Attack Initiation",
+      "requirement": "After NSC-017 is connected, validate that a pursuing enemy repeatedly calls the DoorInteractable damage method while a locked door blocks its route, the door changes to broken at zero durability, and the enemy resumes forward movement using the navigation layer's broken-door passability result."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "logical:gameplay-walkability-surface"
+  ],
+  "execution_reason": "One agent can connect the completed DoorInteractable state changes to the existing navigation-owned interface and validate all four semantic states with test-owned scene objects.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD §3 Door passability contract",
+      "requirement": "Door and Interaction supplies sealed, open, locked, and broken state while the shared navigation layer translates that state into enemy walkability."
+    },
+    {
+      "reference": "GDD §4 Door/navigation integration prerequisite",
+      "requirement": "The navigation-owned passability interface must exist before Door and Interaction sends state changes through it."
+    }
+  ],
+  "id": "NSC-051",
+  "kind": "implementation",
+  "notes": "The Unity mechanism beneath the passability interface remains owned by NSC-025. Real locked-door enemy attack and post-breach pursuit are deferred to the explicit downstream obligation because NSC-017 currently depends on the selected parent.",
+  "parent": "NSC-021",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-f09937afe7f3a88895af12c9cb8dd1b76ae60aca0a902d7e960499bc8478d4fc",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "2973f7d2e90f747f8eacf48f1509fa2d5d732300af71936137683d54cf8062f5",
+    "parent_task_id": "NSC-021"
+  },
+  "reconciliation_key": "door-passability-publication",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "DoorInteractable State Connection to Enemy Door Passability",
+  "type": "gameplay_system"
+}

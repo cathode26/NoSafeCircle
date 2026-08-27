@@ -1,0 +1,76 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-021 AC-007; GDD §2 Door feedback",
+      "requirement": "Each accepted call to the DoorInteractable damage method while the door is locked produces player-facing banging and shaking feedback and updates visible cracks and a durability indicator before the door breaks. Rejected calls while the door is sealed, open, or already broken do not produce breach feedback."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-021 AC-007; GDD §2 Door feedback",
+      "requirement": "Cracks and the durability indicator progress with remaining durability so repeated accepted damage to a locked door makes an approaching breach increasingly readable during normal play."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-021 AC-008; GDD §2 Floor-run restart ownership",
+      "requirement": "The DoorInteractable lifecycle reset restores the feedback GameObjects and durability indicator to their undamaged values, cancels any active shake or bang response, and leaves feedback consistent with the restored DoorInteractable state."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-021 VAL-003; GDD §2 Door feedback",
+      "requirement": "In Play Mode, lock a test-owned door, apply accepted damage below the break threshold, and verify that banging, shaking, visible cracks, and the durability indicator are perceivable before current durability reaches zero."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-021 VAL-005; GDD §3 Player Experience Success Criteria",
+      "requirement": "In Play Mode, lock a test-owned door, apply repeated accepted damage, and verify that the feedback progression clearly communicates an approaching breach. Then reset the door and verify all feedback returns to its undamaged state."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "This child contains the player-facing GameObjects and durability UI that respond to DoorInteractable damage without owning semantic state or durability.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-050"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "execution_reason": "One agent can add the accepted-damage-driven feedback component and scene-builder wiring and validate it with repeated test-owned calls to the public DoorInteractable damage method after locking the door.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD §2 Door feedback",
+      "requirement": "Banging, shaking, cracks, and a durability indicator show when a breach is near."
+    },
+    {
+      "reference": "GDD §3 Player Experience Success Criteria",
+      "requirement": "The player must understand that waiting behind a locked door allows surviving enemies to break through."
+    }
+  ],
+  "id": "NSC-052",
+  "kind": "implementation",
+  "notes": "The exact visual and audio assets are implementation choices. This child responds only to damage accepted while DoorInteractable is locked; it does not decide when enemies attack, change current durability directly, or own the locked-to-broken transition.",
+  "parent": "NSC-021",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-f09937afe7f3a88895af12c9cb8dd1b76ae60aca0a902d7e960499bc8478d4fc",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "2973f7d2e90f747f8eacf48f1509fa2d5d732300af71936137683d54cf8062f5",
+    "parent_task_id": "NSC-021"
+  },
+  "reconciliation_key": "door-breach-feedback",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Door Breach Feedback: Banging, Shaking, Cracks, and Durability Indicator",
+  "type": "gameplay_feedback"
+}

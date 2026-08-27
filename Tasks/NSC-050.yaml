@@ -1,0 +1,101 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-021 AC-001; GDD §2 Close and Lock",
+      "requirement": "DoorInteractable uses the Door-owned forward-side crossing state from NSC-020 to close and lock an open door automatically without another player command."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-021 AC-002; GDD §2 Player Health ownership",
+      "requirement": "When locking finishes, DoorInteractable calls the Player Health restore method supplied by NSC-004 with its configured fixed recovery amount; it does not edit Player Health fields."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-021 AC-003; GDD §3 Door and Pursuit Rules",
+      "requirement": "The door's player blocker prevents backward player movement after the door locks and continues preventing backward movement after the door breaks; the player cannot reopen or unlock the door."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-021 AC-004; GDD §3 Locked-door attack and durability ownership",
+      "requirement": "While the door is locked, DoorInteractable stores current durability and exposes a public door-damage method for enemy attacks. Accepted damage reduces current durability and changes the door from locked to broken when durability reaches zero. Calls made while the door is sealed, open, or already broken do not reduce durability or trigger another state transition, and callers cannot edit durability or semantic door state directly."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-021 AC-005; GDD §3 Door and Pursuit Rules",
+      "requirement": "A broken DoorInteractable remains in its broken/open semantic state and cannot close, relock, or return to an earlier semantic state during the current run. Its player blocker continues preventing backward travel. Publishing the broken state as forward-passable to enemy navigation is owned by the door-passability child."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "NSC-021 AC-008; GDD §2 Floor-run restart ownership",
+      "requirement": "Expose a public DoorInteractable lifecycle-reset method that restores DoorInteractable-owned open, locked, and broken state, sealed geometry, the player blocker, and current durability to the serialized maximum. NSC-020 remains the owner of doorway-crossing state and its own reset method; this child does not create or directly overwrite a second crossing-state field."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "NSC-021 AC-009; GDD §4 Dungeon Encounter Agent",
+      "requirement": "Expose a serialized maximum-durability value on each door component so level authoring can configure each door while DoorInteractable retains ownership of current durability and damage handling."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-021 VAL-002; GDD §3 Door and Pursuit Rules",
+      "requirement": "In a Play Mode test, verify that damage calls made before the door locks are rejected. Then cross an open test door, verify automatic locking and backward-player blocking, apply repeated accepted damage until the door breaks, verify further damage calls are rejected, and verify the player still cannot move backward through the broken doorway."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-021 VAL-004; GDD §3 Player Experience Success Criteria",
+      "requirement": "In Play Mode, verify that forward-side crossing visibly closes and locks the door without a second input and that the resulting player blocker makes forward progress final."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "This child contains the DoorInteractable-owned semantic state, durability, health-restore call, player blocker, and reset method that must exist before navigation publication or breach feedback can be connected.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-020",
+    "NSC-004"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "execution_reason": "One agent can implement and locally validate the cohesive DoorInteractable state and damage behavior plus its scene-builder wiring without changing navigation or breach-feedback ownership.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD §2 Close and Lock",
+      "requirement": "Forward-side crossing automatically closes and locks the door, requests fixed health recovery through Player Health, and requires no second input."
+    },
+    {
+      "reference": "GDD §3 Door and Pursuit Rules",
+      "requirement": "Door and Interaction owns durability, the public damage method, locked-to-broken state changes, permanent forward-only player progression, and broken-door behavior."
+    },
+    {
+      "reference": "GDD §2 Floor-run restart ownership",
+      "requirement": "Door opening, crossing, durability, locked state, broken state, and blockers return to their initial values through a Door-owned reset method."
+    }
+  ],
+  "id": "NSC-050",
+  "kind": "implementation",
+  "notes": "Enemy behavior remains responsible for deciding when to attack a locked door. This child accepts damage only while locked and owns the resulting DoorInteractable durability and state changes. NSC-020 remains the sole owner of doorway-crossing state and its reset method.",
+  "parent": "NSC-021",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-f09937afe7f3a88895af12c9cb8dd1b76ae60aca0a902d7e960499bc8478d4fc",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 2,
+    "parent_contract_sha256": "2973f7d2e90f747f8eacf48f1509fa2d5d732300af71936137683d54cf8062f5",
+    "parent_task_id": "NSC-021"
+  },
+  "reconciliation_key": "door-lock-break-state",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "DoorInteractable Auto-Lock, Durability, Breaking, and Floor Reset",
+  "type": "gameplay_system"
+}

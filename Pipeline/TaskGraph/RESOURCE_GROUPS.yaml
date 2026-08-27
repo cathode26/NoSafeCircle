@@ -1,8 +1,5 @@
 {
-  "schema_version": "1.0",
-  "serialization_format": "yaml_1_2_json_subset",
   "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-  "verification_run_id": "20260821T195959Z-43dba5de",
   "resource_groups": [
     {
       "reconciliation_keys": [
@@ -34,25 +31,25 @@
     },
     {
       "reconciliation_keys": [
-        "door-close-lock-break-lifecycle",
         "gameplay-navigation-locomotion",
         "ruined-entry-blockout",
         "bone-archive-blockout",
         "chapel-of-ash-blockout",
         "lower-vault-blockout",
         "final-room-blockout",
-        "five-room-continuity-door-sequence"
+        "five-room-continuity-door-sequence",
+        "door-passability-publication"
       ],
       "resource_key": "logical:gameplay-walkability-surface",
       "work_ids": [
-        "NSC-021",
         "NSC-025",
         "NSC-044",
         "NSC-045",
         "NSC-046",
         "NSC-047",
         "NSC-048",
-        "NSC-049"
+        "NSC-049",
+        "NSC-051"
       ]
     },
     {
@@ -81,7 +78,6 @@
     },
     {
       "reconciliation_keys": [
-        "door-close-lock-break-lifecycle",
         "door-open-interaction",
         "doorway-crossing-state",
         "final-escape-victory",
@@ -104,11 +100,13 @@
         "chapel-of-ash-blockout",
         "lower-vault-blockout",
         "final-room-blockout",
-        "five-room-continuity-door-sequence"
+        "five-room-continuity-door-sequence",
+        "door-lock-break-state",
+        "door-passability-publication",
+        "door-breach-feedback"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
-        "NSC-021",
         "NSC-019",
         "NSC-020",
         "NSC-035",
@@ -131,22 +129,29 @@
         "NSC-046",
         "NSC-047",
         "NSC-048",
-        "NSC-049"
+        "NSC-049",
+        "NSC-050",
+        "NSC-051",
+        "NSC-052"
       ]
     },
     {
       "reconciliation_keys": [
-        "door-close-lock-break-lifecycle",
         "door-open-interaction",
         "doorway-crossing-state",
-        "door-visual-affordance-feedback"
+        "door-visual-affordance-feedback",
+        "door-lock-break-state",
+        "door-passability-publication",
+        "door-breach-feedback"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
       "work_ids": [
-        "NSC-021",
         "NSC-019",
         "NSC-020",
-        "NSC-041"
+        "NSC-041",
+        "NSC-050",
+        "NSC-051",
+        "NSC-052"
       ]
     },
     {
@@ -188,7 +193,9 @@
         "final-room-blockout",
         "five-room-continuity-door-sequence",
         "gameplay-navigation-locomotion",
-        "door-close-lock-break-lifecycle"
+        "door-lock-break-state",
+        "door-passability-publication",
+        "door-breach-feedback"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -208,8 +215,13 @@
         "NSC-048",
         "NSC-049",
         "NSC-025",
-        "NSC-021"
+        "NSC-050",
+        "NSC-051",
+        "NSC-052"
       ]
     }
-  ]
+  ],
+  "schema_version": "1.0",
+  "serialization_format": "yaml_1_2_json_subset",
+  "verification_run_id": "20260821T195959Z-43dba5de"
 }
