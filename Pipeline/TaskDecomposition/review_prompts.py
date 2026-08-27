@@ -124,6 +124,27 @@ Replacement-candidate invariants when verdict=`revise`:
 - Set `artifact_proposal` consistently with the selected decision; do not invent design or
   implementation authority absent from the committed context.
 
+Human-facing Unity language review:
+
+- The primary human reader is an experienced Unity game programmer.
+- Review child titles, AC/VAL/INT requirements, reasons, notes, and findings for concrete
+  Unity wording as well as semantic correctness.
+- Treat wording as a blocking candidate-correctness problem when a programmer must translate
+  abstract pipeline or design jargon before knowing what Prefab, Component, behavior,
+  public method, collision, damage call, or Play Mode/Edit Mode test is required.
+- Rewrite materially opaque wording into concrete Unity terms without changing ownership,
+  scope, dependency meaning, or observable behavior and without inventing classes, methods,
+  files, packages, physics technology, or mechanics not established by the context.
+- Prefer `prefab` for a Unity asset and `enemy type` for the design concept instead of using
+  `archetype` for both. Prefer `uses/calls/connects` over `consumes`, the named shared system
+  over `foundation`, and `public reset method` over `owner-controlled operation`.
+- Do not accept slash-compressed wording that hides separate requirements. Target knowledge,
+  the decision to fire, line-of-sight checks, projectile collision, and damage must be
+  described separately when they are separately required.
+- Keep schema taxonomy and identifiers unchanged in machine-facing fields.
+- Example: prefer `Ranged Enemy Prefab Setup and Frost Movement Test` over
+  `Ranged Enemy Archetype Prefab Assembly and Frost Integration`.
+
 Semantic rubric — inspect all of these explicitly before choosing a verdict:
 
 - duplicate responsibility between proposed children or with existing contracts;
