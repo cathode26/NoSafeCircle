@@ -1,4 +1,4 @@
-"""Deterministic goal loop used to prove the bounded TaskReviewAgent slices."""
+"""Deterministic goal assessment and the retained fake end-to-end regression loop."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from .contracts import (
 
 
 class GoalAction(str, Enum):
+    CLAIM_TASK = "claim_task"
     PREPARE_CHECKOUT = "prepare_checkout"
     VALIDATE_SCOPE = "validate_scope"
     RUN_EXECUTION_CREW = "run_execution_crew"
@@ -64,6 +65,7 @@ class ScriptedScopePlanner:
         request: TaskReviewRequest,
         observation: dict[str, Any],
     ) -> Iterable[ExecutionScopePlan]:
+        _ = request
         facts = observation["repository_scope_facts"]
         implementations = tuple(facts["existing_implementation_paths"])
         absent_test = tuple(facts["absent_test_paths"])
@@ -84,16 +86,14 @@ class ScriptedScopePlanner:
 def assess_goal_state(observation: dict[str, Any]) -> GoalAssessment:
     environment = observation.get("environment") or {}
     if not environment.get("ready"):
-        reasons = tuple(environment.get("errors") or ())
         return GoalAssessment(
             GoalAction.BLOCKED,
-            reasons or ("task-review environment is not ready",),
+            tuple(environment.get("errors") or ("task-review environment is not ready",)),
         )
     if not environment.get("controller_clean"):
         return GoalAssessment(GoalAction.BLOCKED, ("controller checkout is not clean",))
     if not environment.get("taskgraph_valid"):
         return GoalAssessment(GoalAction.BLOCKED, ("TaskGraph validation failed",))
-
     provider_auth_required = environment.get("provider_auth_required", True)
     if provider_auth_required is not False and not environment.get(
         "provider_auth_available"
@@ -118,20 +118,56 @@ def assess_goal_state(observation: dict[str, Any]) -> GoalAssessment:
     ]
     if task.get("dependencies_conformant") is not True:
         dependency_states = task.get("dependency_states") or []
-        nonconformant = [
+        summary = ", ".join(
             f"{item.get('task_id')}={item.get('state')}"
             for item in dependency_states
-            if item.get("state") != "conformant"
-        ]
+            if isinstance(item, dict)
+        )
         failures.append(
             "one or more declared dependencies are not conformant"
-            + (f": {', '.join(nonconformant)}" if nonconformant else "")
+            + (f": {summary}" if summary else "")
         )
     if failures:
         return GoalAssessment(GoalAction.NEEDS_HUMAN, tuple(failures))
 
+    coordination = observation.get("coordination")
+    if isinstance(coordination, dict):
+        coordination_status = coordination.get("status")
+        coordination_reasons = tuple(coordination.get("reasons") or ())
+        if coordination_status in ("available_missing", "available_unassigned"):
+            return GoalAssessment(
+                GoalAction.CLAIM_TASK,
+                coordination_reasons
+                or ("GitHub Issue must be created/assigned and claimed before checkout",),
+            )
+        if coordination_status == "unavailable":
+            return GoalAssessment(
+                GoalAction.BLOCKED,
+                coordination_reasons or ("GitHub coordination is unavailable",),
+            )
+        if coordination_status in ("claimed_by_other", "closed", "conflict"):
+            return GoalAssessment(
+                GoalAction.NEEDS_HUMAN,
+                coordination_reasons
+                or (f"GitHub coordination status is {coordination_status}",),
+            )
+        if coordination_status != "claimed_by_worker":
+            return GoalAssessment(
+                GoalAction.BLOCKED,
+                (f"unsupported GitHub coordination status: {coordination_status!r}",),
+            )
+
     checkout = observation.get("checkout") or {}
-    if checkout.get("status") != "ready":
+    checkout_status = checkout.get("status")
+    if checkout_status == "conflict":
+        return GoalAssessment(
+            GoalAction.NEEDS_HUMAN,
+            tuple(
+                checkout.get("reasons")
+                or ("canonical task checkout conflicts with expected state",)
+            ),
+        )
+    if checkout_status != "ready":
         return GoalAssessment(GoalAction.PREPARE_CHECKOUT)
 
     run = observation.get("execution_run")
@@ -149,7 +185,10 @@ def assess_goal_state(observation: dict[str, Any]) -> GoalAssessment:
     ):
         return GoalAssessment(
             GoalAction.NEEDS_HUMAN,
-            tuple(run.get("reasons") or ("ExecutionCrew reached a human authority boundary",)),
+            tuple(
+                run.get("reasons")
+                or ("ExecutionCrew reached a human authority boundary",)
+            ),
         )
     return GoalAssessment(
         GoalAction.BLOCKED,
@@ -186,6 +225,15 @@ def run_scripted_vertical_slice(
         observation = tools.observe_goal_state()
         assessment = assess_goal_state(observation)
 
+        if assessment.action is GoalAction.CLAIM_TASK:
+            return TaskReviewOutcome(
+                OutcomeStatus.NEEDS_HUMAN,
+                request.task_id,
+                "The retained scripted fake surface does not expose GitHub claim creation.",
+                None,
+                assessment.reasons or ("GitHub claim is required",),
+            )
+
         if assessment.action is GoalAction.PREPARE_CHECKOUT:
             tools.prepare_task_checkout()
             continue
@@ -218,7 +266,9 @@ def run_scripted_vertical_slice(
         if assessment.action is GoalAction.RUN_EXECUTION_CREW:
             plan_id = observation.get("accepted_plan_id")
             if type(plan_id) is not str:
-                raise TaskReviewContractError("accepted plan observation is missing plan_id")
+                raise TaskReviewContractError(
+                    "accepted plan observation is missing plan_id"
+                )
             tools.run_execution_crew(plan_id)
             continue
 
@@ -229,8 +279,8 @@ def run_scripted_vertical_slice(
                 OutcomeStatus.HUMAN_REVIEW_READY,
                 request.task_id,
                 (
-                    "ExecutionCrew produced a review-ready candidate patch. The patch remains "
-                    "review-only and has not been applied."
+                    "ExecutionCrew produced a review-ready candidate patch. The patch "
+                    "remains review-only and has not been applied."
                 ),
                 proof,
                 (),
