@@ -10,6 +10,7 @@ from typing import Any
 
 from .contracts import TaskReviewContractError, semantic_sha256, validate_task_id
 from .coordination import CoordinationObserver
+from .durable_checkout import DurableTaskCheckoutManager
 from .issue_workflow_store import (
     GhIssueBackend,
     IssueWorkflowService,
@@ -39,13 +40,6 @@ class RealTaskReviewWorkflow:
         if not self.worker_id:
             raise TaskReviewContractError("worker_id must be non-empty")
         self.base_observer = RealTaskObserver(self.source, self.task_id)
-        self.checkout_manager = RealTaskCheckoutManager(
-            source_root=self.base_observer.root,
-            task_id=self.task_id,
-            checkout_root=checkout_root,
-            worker_id=self.worker_id,
-            allow_local_remote_for_tests=allow_local_remote_for_tests,
-        )
         self.legacy_coordination_observer = coordination_observer
         if issue_workflow_service is not None:
             self.issue_workflow = issue_workflow_service
@@ -57,6 +51,19 @@ class RealTaskReviewWorkflow:
             )
         else:
             self.issue_workflow = None
+
+        manager_type = (
+            DurableTaskCheckoutManager
+            if self.issue_workflow is not None
+            else RealTaskCheckoutManager
+        )
+        self.checkout_manager = manager_type(
+            source_root=self.base_observer.root,
+            task_id=self.task_id,
+            checkout_root=checkout_root,
+            worker_id=self.worker_id,
+            allow_local_remote_for_tests=allow_local_remote_for_tests,
+        )
         self.action_log: list[str] = []
         self.last_observation: dict[str, Any] | None = None
         self.last_lease_result: dict[str, Any] | None = None
