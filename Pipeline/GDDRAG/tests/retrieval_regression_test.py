@@ -18,15 +18,15 @@ from retrieval import GDDRetriever  # noqa: E402
 # auto-accept new chunk IDs merely because the index was rebuilt.
 EXPECTED_TOP_HITS = {
     "mouse-directed movement and cursor-to-gameplay-plane projection": "nsc-gdd-007",
-    "Charged Fireball movement restriction ownership": "nsc-gdd-026",
-    "Frost Field cursor placement and Ranged Enemy limitation": "nsc-gdd-025",
-    "door click-to-approach and automatic five-second timer": "nsc-gdd-025",
-    "locked-door break and forward enemy pursuit": "nsc-gdd-018",
-    "floor restart owner-controlled reset entry points": "nsc-gdd-037",
-    "victory suspend/re-enable ownership": "nsc-gdd-027",
-    "Active Enemy Registry fifteen-enemy cap": "nsc-gdd-019",
-    "fixed isometric camera requirements": "nsc-gdd-034",
-    "Windows build and canonical scene registration": "nsc-gdd-039",
+    "Charged Fireball movement restriction ownership": "nsc-gdd-063",
+    "Frost Field cursor placement and Ranged Enemy limitation": "nsc-gdd-062",
+    "door click-to-approach and automatic five-second timer": "nsc-gdd-062",
+    "locked-door break and forward enemy pursuit": "nsc-gdd-055",
+    "floor restart owner-controlled reset entry points": "nsc-gdd-074",
+    "victory suspend/re-enable ownership": "nsc-gdd-064",
+    "Active Enemy Registry fifteen-enemy cap": "nsc-gdd-056",
+    "fixed isometric camera requirements": "nsc-gdd-071",
+    "Windows build and canonical scene registration": "nsc-gdd-076",
 }
 
 
