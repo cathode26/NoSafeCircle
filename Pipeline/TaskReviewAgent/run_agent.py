@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -26,6 +25,9 @@ from Pipeline.TaskReviewAgent.goal_loop import (  # noqa: E402
     ScriptedScopePlanner,
     assess_goal_state,
     run_scripted_vertical_slice,
+)
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    IssueWorkflowStoreError,
 )
 from Pipeline.TaskReviewAgent.openai_agent import (  # noqa: E402
     OpenAIAgentsUnavailable,
@@ -61,9 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "scripted/openai-fake retain the fake end-to-end regression; "
             "observe-real/openai-observe-real read committed Git/TaskGraph facts only; "
-            "checkout-real/openai-checkout-real additionally inspect GitHub claim state "
-            "and may create or resume the canonical checkout only when it is already "
-            "claimed by the selected worker"
+            "checkout-real/openai-checkout-real may initialize/acquire the durable Issue "
+            "workflow and create/resume the canonical checkout"
         ),
     )
     parser.add_argument("--source", type=Path, default=ROOT)
@@ -138,25 +139,43 @@ def real_checkout_report(
             "reasons": list(assessment.reasons),
         },
         "agent_assessment": agent_assessment,
+        "agent_lease": workflow.last_lease_result,
         "checkout_preparation": workflow.last_checkout_result,
         "action_log": list(workflow.action_log),
         "observation_authority": "real_read_only",
-        "github_authority": "read_only_claim_inspection",
-        "checkout_authority": "create_or_resume_after_existing_claim",
+        "github_authority": "durable_issue_state_and_event_log",
+        "checkout_authority": "create_or_resume_after_agent_lease",
         "downstream_authority": "not_exposed",
-        "authority": "checkout_preparation_only",
+        "authority": "issue_lease_and_checkout_only",
     }
 
 
 def run_deterministic_checkout(
     workflow: RealTaskReviewWorkflow,
 ) -> dict[str, Any]:
-    observation = workflow.observe_goal_state()
-    assessment = assess_goal_state(observation)
-    if assessment.action is GoalAction.PREPARE_CHECKOUT:
-        workflow.prepare_task_checkout()
+    for _ in range(5):
         observation = workflow.observe_goal_state()
-    return observation
+        assessment = assess_goal_state(observation)
+        if assessment.action is GoalAction.ACQUIRE_AGENT_LEASE:
+            workflow.acquire_agent_lease(
+                planned_approach=(
+                    "Inspect the task-owned Unity components and tests, prepare the exact "
+                    "bounded implementation/test path plan, and use ExecutionCrew after "
+                    "the next boundary is connected."
+                ),
+                expected_validation=(
+                    "Preserve TaskGraph validity and checkout cleanliness, then stop before "
+                    "path planning because that authority is not exposed in this slice."
+                ),
+            )
+            continue
+        if assessment.action is GoalAction.PREPARE_CHECKOUT:
+            workflow.prepare_task_checkout()
+            continue
+        return observation
+    raise TaskReviewContractError(
+        "Issue/checkout workflow exhausted its bounded deterministic loop"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -243,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
         TaskReviewContractError,
         RealObservationError,
         RealCheckoutError,
+        IssueWorkflowStoreError,
         OpenAIAgentsUnavailable,
         OSError,
     ) as exc:
