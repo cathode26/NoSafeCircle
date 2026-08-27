@@ -24,11 +24,18 @@ from Pipeline.TaskReviewAgent.downstream_pipeline import (  # noqa: E402
     DownstreamPipelineError,
 )
 from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
+    DownstreamTaskReviewWorkflow,
     ResumableDownstreamTaskController,
 )
 from Pipeline.TaskReviewAgent.generic_selection import (  # noqa: E402
     GenericSelectionError,
     select_agent_ready_task,
+)
+from Pipeline.TaskReviewAgent.issue_queue import repo_root  # noqa: E402
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    GhIssueBackend,
+    IssueWorkflowService,
+    IssueWorkflowStoreError,
 )
 from Pipeline.TaskReviewAgent.openai_agent import (  # noqa: E402
     OpenAIAgentsUnavailable,
@@ -97,20 +104,62 @@ def _workflow_state(observation: dict) -> dict:
     return state if isinstance(state, dict) else {}
 
 
+def _managed_issue_phase(
+    *,
+    source: Path,
+    task_id: str,
+    worker_id: str,
+) -> str | None:
+    """Read the durable Issue before choosing the workflow eligibility policy."""
+
+    root = repo_root(source.resolve())
+    service = IssueWorkflowService(
+        backend=GhIssueBackend(source_root=root),
+        task_loader=lambda selected: {
+            "id": selected,
+            "exclusive_resources": [],
+        },
+        worker_id=worker_id,
+    )
+    snapshot = service.find(task_id)
+    if snapshot is None:
+        return None
+    if not snapshot.valid:
+        raise GenericSelectionError(
+            "Managed Issue is invalid and cannot be routed: "
+            + "; ".join(snapshot.reasons)
+        )
+    if not snapshot.managed or snapshot.state is None:
+        return None
+    return snapshot.state.phase.value
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         selection = None
         if args.task_id:
             request = TaskReviewRequest(args.task_id)
+            selected_phase = _managed_issue_phase(
+                source=args.source,
+                task_id=request.task_id,
+                worker_id=args.worker_id,
+            )
         else:
             selection = select_agent_ready_task(
                 source=args.source,
                 worker_id=args.worker_id,
             )
             request = TaskReviewRequest(selection["task_id"])
+            selected_phase = selection.get("phase")
 
-        workflow = RealTaskReviewWorkflow(
+        downstream_selected = selected_phase in _DOWNSTREAM_PHASES
+        workflow_type = (
+            DownstreamTaskReviewWorkflow
+            if downstream_selected
+            else RealTaskReviewWorkflow
+        )
+        workflow = workflow_type(
             source=args.source,
             task_id=request.task_id,
             checkout_root=args.checkout_root,
@@ -118,7 +167,19 @@ def main(argv: list[str] | None = None) -> int:
         )
         routing_observation = workflow.observe_goal_state()
         state = _workflow_state(routing_observation)
-        downstream = state.get("phase") in _DOWNSTREAM_PHASES
+        observed_phase = state.get("phase")
+        downstream = observed_phase in _DOWNSTREAM_PHASES
+
+        if downstream_selected and not downstream:
+            raise GenericSelectionError(
+                "Managed Issue changed after selection and no longer has a "
+                "downstream phase; rerun selection."
+            )
+        if downstream and not downstream_selected:
+            raise GenericSelectionError(
+                "Managed Issue entered a downstream phase during routing; rerun so "
+                "the downstream eligibility policy is selected explicitly."
+            )
 
         if downstream:
             controller = ResumableDownstreamTaskController(
@@ -185,6 +246,7 @@ def main(argv: list[str] | None = None) -> int:
         TaskReviewContractError,
         DownstreamPipelineError,
         GenericSelectionError,
+        IssueWorkflowStoreError,
         OpenAIAgentsUnavailable,
         OpenAIDownstreamPipelineError,
         OSError,
