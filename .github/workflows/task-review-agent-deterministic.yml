@@ -61,6 +61,9 @@ jobs:
       - name: Run downstream delivery controller smoke test
         run: python Pipeline/TaskReviewAgent/tests/downstream_pipeline_smoke_test.py
 
+      - name: Run downstream resume and closeout regression tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_smoke_test.py
+
       - name: Run ExecutionCrew CLI compatibility test
         run: python Pipeline/TaskReviewAgent/tests/execution_crew_cli_smoke_test.py
 
