@@ -142,11 +142,20 @@ def test_resume_ignores_only_stale_origin_main() -> None:
             allow_local_remote_for_tests=True,
         )
         inspected = manager.inspect(resume_observation)
-        require(inspected["status"] == "ready", f"stale origin/main blocked resume: {inspected}")
+        require(
+            inspected["status"] in ("ready", "unmanaged_exact"),
+            f"stale origin/main blocked resume: {inspected}",
+        )
         require(
             inspected.get("origin_main_refresh_required") is True,
             "stale origin/main was not reported",
         )
+        if inspected["status"] == "unmanaged_exact":
+            inspected = manager.prepare(resume_observation)
+            require(
+                inspected["status"] == "ready",
+                f"exact checkout could not be safely adopted: {inspected}",
+            )
         require(inspected["head_commit"] == handoff_head, "human-tested commit changed")
         require(git(checkout, "rev-parse", "HEAD") == handoff_head, "checkout was rewritten")
         require(git(controller, "rev-parse", "HEAD") == current_main, "controller changed")
