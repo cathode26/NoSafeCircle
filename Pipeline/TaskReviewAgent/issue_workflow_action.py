@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    ALL_STATE_LABELS,
     STATE_LABELS,
     WorkflowState,
     parse_human_validation_result,
@@ -143,20 +144,15 @@ class GitHubRestBackend:
     def ensure_labels(self) -> None:
         return None
 
-    def restore_human_action_label(self) -> None:
+    def restore_state_label(self, state: WorkflowState) -> None:
         issue = self._issue()
         labels = [
             item.get("name")
             for item in issue.get("labels") or []
             if isinstance(item, dict) and item.get("name")
         ]
-        labels = [
-            item
-            for item in labels
-            if item != STATE_LABELS[WorkflowState.AGENT_READY.value]
-        ]
-        if STATE_LABELS[WorkflowState.HUMAN_ACTION_REQUIRED.value] not in labels:
-            labels.append(STATE_LABELS[WorkflowState.HUMAN_ACTION_REQUIRED.value])
+        labels = [item for item in labels if item not in ALL_STATE_LABELS]
+        labels.append(STATE_LABELS[state.value])
         self.update_issue(self.issue_number, labels=sorted(set(labels)))
 
 
@@ -199,18 +195,23 @@ def main() -> int:
         issue_number=issue_number,
         token=token,
     )
+    state = None
     try:
         state = parse_state(str(issue.get("body") or ""))
         if state is None:
+            return 0
+        # Creating or updating an Issue that is already agent-ready may itself emit a labeled
+        # event. That is not a human handoff transition and must be a no-op.
+        if state.state is WorkflowState.AGENT_READY:
             return 0
         if state.state is not WorkflowState.HUMAN_ACTION_REQUIRED:
             raise IssueWorkflowStoreError(
                 "nsc-state:agent-ready may be applied by a human only while the "
                 "managed workflow is human_action_required"
             )
-        # The human just added agent-ready, so restore the label matching the still-current
-        # state before the service verifies and records the transition.
-        backend.restore_human_action_label()
+        # The human just added agent-ready. Restore the still-authoritative current-state
+        # label before the service verifies and records the transition.
+        backend.restore_state_label(state.state)
         result_body = _latest_human_result(backend.get_comments(issue_number))
         if result_body is None:
             raise IssueWorkflowStoreError(
@@ -234,11 +235,12 @@ def main() -> int:
         return 0
     except Exception as exc:
         try:
-            backend.restore_human_action_label()
+            if state is not None:
+                backend.restore_state_label(state.state)
             backend.add_comment(
                 issue_number,
                 "## Workflow state change rejected\n\n"
-                "The Issue remains `human_action_required`.\n\n"
+                "The managed Issue state did not change.\n\n"
                 f"Reason: {exc}",
             )
         except Exception:
