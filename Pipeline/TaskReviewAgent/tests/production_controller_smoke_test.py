@@ -74,6 +74,8 @@ def require(condition: bool, message: str) -> None:
 
 
 def add_game_surface(controller: Path) -> None:
+    git(controller, "config", "user.name", "Production Controller Smoke")
+    git(controller, "config", "user.email", "production-controller@example.invalid")
     (controller / "Assets/NoSafeCircle/Synthetic/Scripts").mkdir(parents=True)
     (controller / "Assets/NoSafeCircle/Synthetic/Tests").mkdir(parents=True)
     (controller / IMPLEMENTATION).write_text(
