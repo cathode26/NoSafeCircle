@@ -13,12 +13,16 @@ param(
 
     [string]$CheckoutRoot,
 
+    [string]$UnityExecutable,
+
+    [string]$OutputRoot,
+
     [string]$Model,
 
     [string]$Source,
 
-    [ValidateRange(12, 100)]
-    [int]$MaxTurns = 80
+    [ValidateRange(12, 160)]
+    [int]$MaxTurns = 120
 )
 
 $ErrorActionPreference = 'Stop'
@@ -77,6 +81,17 @@ if (-not [string]::IsNullOrWhiteSpace($TaskId)) {
 if (-not [string]::IsNullOrWhiteSpace($CheckoutRoot)) {
     $Arguments += @('--checkout-root', $CheckoutRoot)
 }
+if (-not [string]::IsNullOrWhiteSpace($UnityExecutable)) {
+    $UnityExecutable = (Resolve-Path -LiteralPath $UnityExecutable).Path
+    $Arguments += @('--unity-executable', $UnityExecutable)
+}
+if (-not [string]::IsNullOrWhiteSpace($OutputRoot)) {
+    if (-not (Test-Path -LiteralPath $OutputRoot -PathType Container)) {
+        New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
+    }
+    $OutputRoot = (Resolve-Path -LiteralPath $OutputRoot).Path
+    $Arguments += @('--output-root', $OutputRoot)
+}
 if (-not [string]::IsNullOrWhiteSpace($Model)) {
     $Arguments += @('--model', $Model)
 }
@@ -89,6 +104,7 @@ else {
     Write-Host "Task: $TaskId"
 }
 Write-Host "Execution provider: $ExecutionProvider"
+Write-Host 'Pipeline phase: selected automatically from the durable Issue state'
 
 & python @Arguments
 if ($LASTEXITCODE -ne 0) {
