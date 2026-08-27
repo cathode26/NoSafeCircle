@@ -1,12 +1,20 @@
-"""Production-safe downstream wrappers for durable resume behavior."""
+"""Production wrappers that keep downstream state resumable across agent runs."""
 
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Any, Mapping
+from pathlib import PurePosixPath
+from typing import Any, Iterable, Mapping
 
 from .downstream_issue import DownstreamIssueCoordinator, DownstreamIssueError, _meaningful
-from .downstream_pipeline import DownstreamTaskController
+from .downstream_pipeline import (
+    DownstreamPipelineError,
+    DownstreamTaskController,
+    _copy,
+    _decode,
+    _git,
+    _git_text,
+)
 from .issue_workflow import (
     WorkflowActor,
     WorkflowEventType,
@@ -21,8 +29,34 @@ from .issue_workflow import (
 from .issue_workflow_store import IssueWorkflowStoreError
 
 
+_READ_PREFIXES = (
+    "Assets/",
+    "Tasks/",
+    "Docs/GDD/",
+    "Docs/Engineering/",
+    "Docs/AI-Pipeline/UNITY_PROGRAMMER_LANGUAGE.md",
+)
+
+
+def _safe_prefix(value: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise DownstreamPipelineError("repository prefix must be non-empty")
+    value = value.strip().replace("\\", "/")
+    path = PurePosixPath(value)
+    if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+        raise DownstreamPipelineError("repository prefix must be a safe relative path")
+    check = value if value.endswith("/") else value + "/"
+    if not any(
+        check.casefold().startswith(prefix.casefold())
+        or prefix.casefold().startswith(check.casefold())
+        for prefix in _READ_PREFIXES
+    ):
+        raise DownstreamPipelineError("repository prefix is outside downstream read roots")
+    return value
+
+
 class ResumableDownstreamIssueCoordinator(DownstreamIssueCoordinator):
-    """Release a merge-closeout lease at the exact evidence commit to resume."""
+    """Advance the managed checkout identity when an evidence commit is published."""
 
     def release_for_pending_checks(
         self,
@@ -62,17 +96,16 @@ class ResumableDownstreamIssueCoordinator(DownstreamIssueCoordinator):
             },
             now=now or utc_now(),
         )
-        # The implementation handoff commit was the previous durable resume point.
-        # Delivery evidence is a later committed state on the same task branch, so a
-        # future generic worker must resume the exact evidence commit recorded here.
+        # Keep Vincent's original human_handoff_commit intact while advancing the
+        # exact branch head that the next generic agent must resume.
         next_state = replace(next_state, head_commit=exact_head)
         self.service.backend.add_comment(
             snapshot.issue_number,
             render_event_comment(
                 event,
-                "The agent released its lease after publishing delivery evidence. "
-                f"A later generic agent should resume `{pull_request_url}` at the exact "
-                f"evidence commit `{exact_head}`.",
+                "The evidence commit and pull request are published. The agent "
+                "released its lease so any later generic agent can resume merge "
+                f"closeout at `{exact_head}` from {pull_request_url}.",
             ),
         )
         self.service.backend.update_issue(
@@ -81,8 +114,8 @@ class ResumableDownstreamIssueCoordinator(DownstreamIssueCoordinator):
                 snapshot.body,
                 next_state,
                 next_action=(
-                    "Resume merge closeout at the recorded evidence commit after the "
-                    "pull-request checks finish."
+                    "Resume merge closeout at the recorded evidence commit, inspect "
+                    "pull-request checks, and merge only after they pass."
                 ),
             ),
             labels=labels_for_state(next_state.state, snapshot.labels),
@@ -90,53 +123,135 @@ class ResumableDownstreamIssueCoordinator(DownstreamIssueCoordinator):
         )
         verified = self.service.find(task_id)
         if verified is None or not verified.valid or verified.state != next_state:
-            raise IssueWorkflowStoreError("lease release could not be verified")
+            raise IssueWorkflowStoreError("evidence-head lease release could not be verified")
         return {"status": "agent_ready", **verified.to_dict()}
 
 
 class ResumableDownstreamTaskController(DownstreamTaskController):
-    """Use durable proposal revision and evidence-commit handoff semantics."""
+    """Connected controller used by the generic launcher."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        service = self.workflow.issue_workflow
-        self.issue = (
-            ResumableDownstreamIssueCoordinator(service)
-            if service is not None
-            else None
-        )
+    def __init__(self, **values: Any) -> None:
+        super().__init__(**values)
+        if self.workflow.issue_workflow is not None:
+            self.issue = ResumableDownstreamIssueCoordinator(
+                self.workflow.issue_workflow
+            )
 
     def _next_action(
         self,
         observation: Mapping[str, Any],
         state: Mapping[str, Any] | None,
     ) -> str:
-        base = super()._next_action(observation, state)
+        action = super()._next_action(observation, state)
         if (
             state is not None
             and state.get("state") == WorkflowState.AGENT_WORKING.value
+            and state.get("worker_id") == self.workflow.worker_id
             and state.get("phase") == WorkflowPhase.DELIVERY_EVIDENCE.value
-            and base == "publish_delivery_review"
         ):
-            latest = self._latest_delivery_approval()
+            approval = self._latest_delivery_approval()
             if (
-                latest is not None
-                and latest.get("decision") == "request_changes"
-                and latest.get("proposal_sha256") == self.state.get("proposal_sha256")
+                approval is not None
+                and approval.get("decision") == "request_changes"
+                and approval.get("proposal_sha256")
+                == self.state.get("proposal_sha256")
             ):
                 return "create_delivery_review_proposal"
-        return base
+        return action
+
+    def list_repository_files(
+        self,
+        *,
+        prefix: str = "Assets/",
+        limit: int = 300,
+    ) -> dict[str, Any]:
+        self._assert_checkout()
+        if not isinstance(limit, int) or not 1 <= limit <= 1000:
+            raise DownstreamPipelineError("repository file limit must be 1 through 1000")
+        prefix = _safe_prefix(prefix)
+        raw = _git_text(
+            self.command_runner,
+            self.checkout,
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "HEAD",
+            "--",
+            prefix,
+        )
+        paths = [line for line in raw.splitlines() if line]
+        return {
+            "prefix": prefix,
+            "count": min(len(paths), limit),
+            "truncated": len(paths) > limit,
+            "paths": paths[:limit],
+        }
+
+    def search_repository(
+        self,
+        *,
+        query: str,
+        prefixes: Iterable[str] = ("Assets/",),
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        self._assert_checkout()
+        if not isinstance(query, str) or not query.strip() or len(query) > 160:
+            raise DownstreamPipelineError("search query must be 1 through 160 characters")
+        if any(ord(character) < 32 or ord(character) == 127 for character in query):
+            raise DownstreamPipelineError("search query contains a control character")
+        if not isinstance(limit, int) or not 1 <= limit <= 300:
+            raise DownstreamPipelineError("search limit must be 1 through 300")
+        approved = [_safe_prefix(value) for value in prefixes]
+        result = _git(
+            self.command_runner,
+            self.checkout,
+            "grep",
+            "-n",
+            "-I",
+            "-F",
+            "--",
+            query,
+            "HEAD",
+            "--",
+            *approved,
+            check=False,
+        )
+        if result.returncode not in (0, 1):
+            raise DownstreamPipelineError("git grep failed")
+        matches: list[dict[str, Any]] = []
+        for line in _decode(result.stdout, "git grep output").splitlines():
+            rendered = line[5:] if line.startswith("HEAD:") else line
+            try:
+                path, line_number, text = rendered.split(":", 2)
+                matches.append(
+                    {
+                        "path": path,
+                        "line": int(line_number),
+                        "text": text[:500],
+                    }
+                )
+            except (TypeError, ValueError):
+                continue
+            if len(matches) >= limit:
+                break
+        return {
+            "query": query,
+            "prefixes": approved,
+            "count": len(matches),
+            "truncated": len(matches) >= limit,
+            "matches": matches,
+        }
 
     def finalize_delivery_evidence_and_open_pr(self) -> dict[str, Any]:
         result = super().finalize_delivery_evidence_and_open_pr()
         if self.issue is None:
-            raise DownstreamIssueError("Issue workflow is unavailable")
+            raise DownstreamPipelineError("Issue workflow is unavailable")
         evidence_commit = self.state.get("evidence_commit")
         pull_request_url = self.state.get("pull_request_url")
         if not isinstance(evidence_commit, str) or not isinstance(
             pull_request_url, str
         ):
-            raise DownstreamIssueError(
+            raise DownstreamPipelineError(
                 "delivery finalization did not persist PR/evidence identities"
             )
         release = self.issue.release_for_pending_checks(
@@ -144,9 +259,12 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
             pull_request_url=pull_request_url,
             head_commit=evidence_commit,
             reason=(
-                "Delivery evidence was committed, TaskGraph derived conformant, and the "
-                "pull request was opened. A future generic run should inspect checks and "
-                "continue merge closeout."
+                "Delivery evidence was committed, TaskGraph derived conformant, and "
+                "the pull request was opened. Resume after its checks finish."
             ),
         )
-        return {**result, "status": "agent_ready", "release": release}
+        return {
+            **_copy(result),
+            "status": "checks_pending",
+            "lease_release": release,
+        }
