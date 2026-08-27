@@ -17,7 +17,8 @@ from .contracts import (
 
 
 class GoalAction(str, Enum):
-    CLAIM_TASK = "claim_task"
+    ACQUIRE_AGENT_LEASE = "acquire_agent_lease"
+    CLAIM_TASK = "claim_task"  # compatibility with pre-workflow coordination results
     PREPARE_CHECKOUT = "prepare_checkout"
     VALIDATE_SCOPE = "validate_scope"
     RUN_EXECUTION_CREW = "run_execution_crew"
@@ -37,15 +38,10 @@ class TaskReviewToolSurface(Protocol):
     action_log: list[str]
 
     def observe_goal_state(self) -> dict[str, Any]: ...
-
     def prepare_task_checkout(self) -> dict[str, Any]: ...
-
     def validate_execution_scope(self, plan: ExecutionScopePlan): ...
-
     def run_execution_crew(self, plan_id: str): ...
-
     def verify_human_review_ready(self, run_id: str): ...
-
     def require_known_proof(self, proof): ...
 
 
@@ -81,6 +77,66 @@ class ScriptedScopePlanner:
             existing_test_paths=(),
             new_test_paths=absent_test,
         )
+
+
+def _coordination_assessment(coordination: dict[str, Any]) -> GoalAssessment | None:
+    status = coordination.get("workflow_status", coordination.get("status"))
+    reasons = tuple(coordination.get("reasons") or ())
+
+    if status in ("agent_ready_uninitialized", "agent_ready"):
+        return GoalAssessment(
+            GoalAction.ACQUIRE_AGENT_LEASE,
+            reasons or ("Issue workflow is ready for an agent lease",),
+        )
+    if status == "agent_working_by_worker":
+        return None
+    if status == "agent_working_by_other":
+        return GoalAssessment(
+            GoalAction.NEEDS_HUMAN,
+            reasons or ("another agent currently owns the Issue lease",),
+        )
+    if status == "human_action_required":
+        return GoalAssessment(
+            GoalAction.NEEDS_HUMAN,
+            reasons or ("Vincent owns the current Unity/runtime step",),
+        )
+    if status == "blocked":
+        return GoalAssessment(
+            GoalAction.NEEDS_HUMAN,
+            reasons or ("the Issue workflow is blocked",),
+        )
+    if status == "complete":
+        return GoalAssessment(GoalAction.COMPLETE)
+    if status == "conflict":
+        return GoalAssessment(
+            GoalAction.BLOCKED,
+            reasons or ("the Issue workflow state or event log is invalid",),
+        )
+
+    # Compatibility with the prior assignment/comment claim convention.
+    if status in ("available_missing", "available_unassigned"):
+        return GoalAssessment(
+            GoalAction.CLAIM_TASK,
+            reasons or ("GitHub Issue must be claimed before checkout",),
+        )
+    if status == "claimed_by_worker":
+        return None
+    if status == "unavailable":
+        return GoalAssessment(
+            GoalAction.BLOCKED,
+            reasons or ("GitHub coordination is unavailable",),
+        )
+    if status in ("claimed_by_other", "closed"):
+        return GoalAssessment(
+            GoalAction.NEEDS_HUMAN,
+            reasons or (f"GitHub coordination status is {status}",),
+        )
+    if status == "not_observed":
+        return None
+    return GoalAssessment(
+        GoalAction.BLOCKED,
+        (f"unsupported GitHub coordination status: {status!r}",),
+    )
 
 
 def assess_goal_state(observation: dict[str, Any]) -> GoalAssessment:
@@ -132,30 +188,9 @@ def assess_goal_state(observation: dict[str, Any]) -> GoalAssessment:
 
     coordination = observation.get("coordination")
     if isinstance(coordination, dict):
-        coordination_status = coordination.get("status")
-        coordination_reasons = tuple(coordination.get("reasons") or ())
-        if coordination_status in ("available_missing", "available_unassigned"):
-            return GoalAssessment(
-                GoalAction.CLAIM_TASK,
-                coordination_reasons
-                or ("GitHub Issue must be created/assigned and claimed before checkout",),
-            )
-        if coordination_status == "unavailable":
-            return GoalAssessment(
-                GoalAction.BLOCKED,
-                coordination_reasons or ("GitHub coordination is unavailable",),
-            )
-        if coordination_status in ("claimed_by_other", "closed", "conflict"):
-            return GoalAssessment(
-                GoalAction.NEEDS_HUMAN,
-                coordination_reasons
-                or (f"GitHub coordination status is {coordination_status}",),
-            )
-        if coordination_status != "claimed_by_worker":
-            return GoalAssessment(
-                GoalAction.BLOCKED,
-                (f"unsupported GitHub coordination status: {coordination_status!r}",),
-            )
+        assessment = _coordination_assessment(coordination)
+        if assessment is not None:
+            return assessment
 
     checkout = observation.get("checkout") or {}
     checkout_status = checkout.get("status")
@@ -225,13 +260,13 @@ def run_scripted_vertical_slice(
         observation = tools.observe_goal_state()
         assessment = assess_goal_state(observation)
 
-        if assessment.action is GoalAction.CLAIM_TASK:
+        if assessment.action in (GoalAction.ACQUIRE_AGENT_LEASE, GoalAction.CLAIM_TASK):
             return TaskReviewOutcome(
                 OutcomeStatus.NEEDS_HUMAN,
                 request.task_id,
-                "The retained scripted fake surface does not expose GitHub claim creation.",
+                "The retained scripted fake surface does not expose Issue workflow writes.",
                 None,
-                assessment.reasons or ("GitHub claim is required",),
+                assessment.reasons or ("Issue workflow transition is required",),
             )
 
         if assessment.action is GoalAction.PREPARE_CHECKOUT:
@@ -287,13 +322,13 @@ def run_scripted_vertical_slice(
             )
             return verify_agent_outcome(tools, outcome)
 
-        if assessment.action is GoalAction.NEEDS_HUMAN:
+        if assessment.action in (GoalAction.NEEDS_HUMAN, GoalAction.COMPLETE):
             return TaskReviewOutcome(
                 OutcomeStatus.NEEDS_HUMAN,
                 request.task_id,
-                "The task reached a human authority boundary before candidate review.",
+                "The task reached a human or completed workflow boundary.",
                 None,
-                assessment.reasons,
+                assessment.reasons or ("workflow is complete",),
             )
 
         if assessment.action is GoalAction.BLOCKED:
