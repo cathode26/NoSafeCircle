@@ -81,6 +81,12 @@ class RepositoryScopeAuthority(_RepositoryScopeAuthority):
         }
 
 
+# TaskReviewAgent modules created before this facade imported the original class directly.
+# Install the corrected method on that class so all existing call sites receive the same
+# deterministic search behavior without widening the read authority.
+_RepositoryScopeAuthority.search = RepositoryScopeAuthority.search
+
+
 __all__ = (
     "AcceptedExecutionScope",
     "RepositoryScopeAuthority",
