@@ -26,7 +26,14 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
         filtered = [reason for reason in reasons if reason != _STALE_MAIN_REASON]
         if filtered:
             return result
-        result = {**result, "reasons": []}
-        result["status"] = "ready" if result.get("managed") else "unmanaged_exact"
-        result["origin_main_refresh_required"] = True
+
+        remote_url = str(result.get("remote_url") or "")
+        managed = bool(remote_url) and self._manifest_matches(observation, remote_url)
+        result = {
+            **result,
+            "reasons": [],
+            "managed": managed,
+            "origin_main_refresh_required": True,
+        }
+        result["status"] = "ready" if managed else "unmanaged_exact"
         return result
