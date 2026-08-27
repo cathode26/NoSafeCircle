@@ -4,8 +4,19 @@ param(
     [ValidatePattern('^NSC-[0-9]{3}$')]
     [string]$TaskId,
 
-    [ValidateSet('scripted', 'openai-fake', 'observe-real', 'openai-observe-real')]
+    [ValidateSet(
+        'scripted',
+        'openai-fake',
+        'observe-real',
+        'openai-observe-real',
+        'checkout-real',
+        'openai-checkout-real'
+    )]
     [string]$Mode = 'scripted',
+
+    [string]$WorkerId = $env:TASK_REVIEW_AGENT_WORKER_ID,
+
+    [string]$CheckoutRoot,
 
     [string]$Model,
 
@@ -19,7 +30,12 @@ $ErrorActionPreference = 'Stop'
 $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 Set-Location $RepositoryRoot
 
-if ($Mode -like 'openai-*') {
+if ([string]::IsNullOrWhiteSpace($WorkerId)) {
+    $machine = [Environment]::MachineName.ToLowerInvariant()
+    $WorkerId = "task-review-agent-$machine"
+}
+
+if ($Mode.StartsWith('openai-', [System.StringComparison]::Ordinal)) {
     if ([string]::IsNullOrWhiteSpace($env:OPENAI_API_KEY)) {
         throw "OPENAI_API_KEY is required for -Mode $Mode."
     }
@@ -42,8 +58,13 @@ $Arguments = @(
     '--task-id', $TaskId,
     '--mode', $Mode,
     '--source', $Source,
+    '--worker-id', $WorkerId,
     '--max-turns', $MaxTurns.ToString()
 )
+
+if (-not [string]::IsNullOrWhiteSpace($CheckoutRoot)) {
+    $Arguments += @('--checkout-root', $CheckoutRoot)
+}
 
 if (-not [string]::IsNullOrWhiteSpace($Model)) {
     $Arguments += @('--model', $Model)
