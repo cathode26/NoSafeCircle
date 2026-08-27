@@ -1,8 +1,4 @@
 {
-  "schema_version": "1.0",
-  "serialization_format": "json",
-  "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-  "verification_run_id": "20260821T195959Z-43dba5de",
   "id_map": {
     "active-enemy-registry": "NSC-011",
     "bone-archive-blockout": "NSC-045",
@@ -10,8 +6,11 @@
     "combat": "NSC-006",
     "delivery-and-build": "NSC-036",
     "desktop-webgl-build-artifact": "NSC-043",
+    "door-breach-feedback": "NSC-052",
     "door-close-lock-break-lifecycle": "NSC-021",
+    "door-lock-break-state": "NSC-050",
     "door-open-interaction": "NSC-019",
+    "door-passability-publication": "NSC-051",
     "door-visual-affordance-feedback": "NSC-041",
     "doors": "NSC-018",
     "doorway-crossing-state": "NSC-020",
@@ -53,5 +52,9 @@
     "world": "NSC-022",
     "world-sprite-prefab-sorting": "NSC-039",
     "world-visual-foundation": "NSC-026"
-  }
+  },
+  "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+  "schema_version": "1.0",
+  "serialization_format": "json",
+  "verification_run_id": "20260821T195959Z-43dba5de"
 }

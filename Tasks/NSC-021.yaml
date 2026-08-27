@@ -1,103 +1,99 @@
 {
-  "schema_version": "2.0",
-  "id": "NSC-021",
-  "contract_revision": 2,
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Section 2 — Close and Lock",
+      "requirement": "When the shared doorway-crossing state reports that the player crossed to the forward side, the door closes and locks automatically without another click or button press."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Section 2 — Player Health ownership",
+      "requirement": "When automatic locking finishes, the door calls the shared Player Health restore interface for the configured fixed recovery. Player Health clamps the result to maximum health; the door never edits Player Health fields directly."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Section 3 — Door and Pursuit Rules",
+      "requirement": "After a door becomes locked, the player cannot reopen it, unlock it, or move backward through that doorway. The same backward-travel restriction remains after the door breaks."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Section 3 — Locked-door attack and durability ownership",
+      "requirement": "The door component stores current durability, exposes a public damage-receive interface for enemy attacks, and changes from locked to broken when durability reaches zero. Calling systems cannot edit durability or door state directly."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Section 3 — Door and Pursuit Rules",
+      "requirement": "A broken door stays open for forward enemy movement and cannot close or lock again during the run. It still cannot be used by the player to return to an earlier room."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "Section 3 — Door passability contract",
+      "requirement": "Whenever the door changes between sealed, open, locked, and broken, it sends that state through the shared navigation passability interface. Sealed and locked block enemy movement; open and broken allow forward enemy movement. Door code does not manipulate NavMesh or doorway walkability directly."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "Section 2 — Door feedback",
+      "requirement": "Before the door breaks, the player can perceive banging, shaking, visible cracks, and a durability indicator that respond to damage and remaining durability."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "Section 2 — Floor-run restart ownership",
+      "requirement": "The door component exposes a public reset method that restores its opening/crossing, locked-or-broken state, durability, player blocker, and related door-owned state for a new floor run. The Floor Run/Restart Orchestrator calls this method instead of editing door fields."
+    },
+    {
+      "criterion_id": "AC-009",
+      "reference": "Section 4 — Dungeon Encounter Agent",
+      "requirement": "Each door prefab or scene instance has a serialized maximum-durability value that level authoring can configure. The door component still owns current durability, damage handling, and the broken transition at runtime."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Section 3 — Door and Pursuit Rules",
+      "requirement": "After the enemy locked-door attack task is connected, verify that an enemy still pursuing the player repeatedly calls the door damage interface while blocked, the door breaks at zero durability, and the enemy resumes forward movement through the now-passable doorway."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Section 3 — Door and Pursuit Rules",
+      "requirement": "In Play Mode, verify that the player cannot move backward through either a locked door or the same door after it breaks."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Section 2 — Door feedback",
+      "requirement": "In Play Mode, verify that banging, shaking, cracks, and the durability indicator are visible or audible before the door reaches zero durability."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Section 3 - Player Experience Success Criteria",
+      "requirement": "In Play Mode, crossing an open doorway visibly closes and locks the door without a second input, and the result is understandable during normal play."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Section 3 - Player Experience Success Criteria",
+      "requirement": "Using repeated test-owned door damage, verify that the feedback progression clearly communicates that waiting too long will allow the door to break. Real enemy-pressure validation remains a later connection with the enemy attack task."
+    }
+  ],
+  "confidence": "high",
   "contract_disposition": "active",
-  "title": "Door Auto-Lock, Durability, Breaking, Passability, and Feedback",
-  "reconciliation_key": "door-close-lock-break-lifecycle",
-  "kind": "implementation",
-  "type": "gameplay_system",
-  "execution_scope": "needs_execution_decomposition",
-  "execution_reason": "This task combines three separately testable Unity jobs: DoorInteractable state, durability, damage, health-restore, and reset behavior; sending door-state changes to the shared navigation passability interface; and player-facing breach effects and durability UI. Those jobs should not be handed to one implementation agent as one change.",
-  "decomposition_state": "concrete",
-  "decomposition_reason": "The required behavior is already defined. The remaining work can be split into a DoorInteractable state/damage task, a navigation-passability connection task, and a breach-feedback task without inventing new design.",
-  "parent": "NSC-018",
+  "contract_revision": 3,
+  "decomposition_children": [
+    "NSC-050",
+    "NSC-051",
+    "NSC-052"
+  ],
+  "decomposition_reason": "This decomposition adds reviewed child contracts: NSC-050 (door-lock-break-state), NSC-051 (door-passability-publication), NSC-052 (door-breach-feedback). The complete active direct-child set is: NSC-050 (door-lock-break-state), NSC-051 (door-passability-publication), NSC-052 (door-breach-feedback). Aggregate conformance is derived from that complete child set; any required assembly or integration must be an explicit child contract.",
+  "decomposition_requirement_sha256": "1a6ca51bbaa6afd42b4f96ea761c4ea707fd363cbf0a70e4444514de157ed0fb",
+  "decomposition_state": "decomposed",
   "depends_on": [
     "NSC-020",
     "NSC-004",
     "NSC-025"
   ],
-  "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity",
-    "logical:gameplay-walkability-surface"
-  ],
-  "acceptance_criteria": [
-    {
-      "reference": "Section 2 — Close and Lock",
-      "requirement": "When the shared doorway-crossing state reports that the player crossed to the forward side, the door closes and locks automatically without another click or button press.",
-      "criterion_id": "AC-001"
-    },
-    {
-      "reference": "Section 2 — Player Health ownership",
-      "requirement": "When automatic locking finishes, the door calls the shared Player Health restore interface for the configured fixed recovery. Player Health clamps the result to maximum health; the door never edits Player Health fields directly.",
-      "criterion_id": "AC-002"
-    },
-    {
-      "reference": "Section 3 — Door and Pursuit Rules",
-      "requirement": "After a door becomes locked, the player cannot reopen it, unlock it, or move backward through that doorway. The same backward-travel restriction remains after the door breaks.",
-      "criterion_id": "AC-003"
-    },
-    {
-      "reference": "Section 3 — Locked-door attack and durability ownership",
-      "requirement": "The door component stores current durability, exposes a public damage-receive interface for enemy attacks, and changes from locked to broken when durability reaches zero. Calling systems cannot edit durability or door state directly.",
-      "criterion_id": "AC-004"
-    },
-    {
-      "reference": "Section 3 — Door and Pursuit Rules",
-      "requirement": "A broken door stays open for forward enemy movement and cannot close or lock again during the run. It still cannot be used by the player to return to an earlier room.",
-      "criterion_id": "AC-005"
-    },
-    {
-      "reference": "Section 3 — Door passability contract",
-      "requirement": "Whenever the door changes between sealed, open, locked, and broken, it sends that state through the shared navigation passability interface. Sealed and locked block enemy movement; open and broken allow forward enemy movement. Door code does not manipulate NavMesh or doorway walkability directly.",
-      "criterion_id": "AC-006"
-    },
-    {
-      "reference": "Section 2 — Door feedback",
-      "requirement": "Before the door breaks, the player can perceive banging, shaking, visible cracks, and a durability indicator that respond to damage and remaining durability.",
-      "criterion_id": "AC-007"
-    },
-    {
-      "reference": "Section 2 — Floor-run restart ownership",
-      "requirement": "The door component exposes a public reset method that restores its opening/crossing, locked-or-broken state, durability, player blocker, and related door-owned state for a new floor run. The Floor Run/Restart Orchestrator calls this method instead of editing door fields.",
-      "criterion_id": "AC-008"
-    },
-    {
-      "reference": "Section 4 — Dungeon Encounter Agent",
-      "requirement": "Each door prefab or scene instance has a serialized maximum-durability value that level authoring can configure. The door component still owns current durability, damage handling, and the broken transition at runtime.",
-      "criterion_id": "AC-009"
-    }
-  ],
-  "completion_gates": [
-    {
-      "reference": "Section 3 — Door and Pursuit Rules",
-      "requirement": "After the enemy locked-door attack task is connected, verify that an enemy still pursuing the player repeatedly calls the door damage interface while blocked, the door breaks at zero durability, and the enemy resumes forward movement through the now-passable doorway.",
-      "gate_id": "VAL-001"
-    },
-    {
-      "reference": "Section 3 — Door and Pursuit Rules",
-      "requirement": "In Play Mode, verify that the player cannot move backward through either a locked door or the same door after it breaks.",
-      "gate_id": "VAL-002"
-    },
-    {
-      "reference": "Section 2 — Door feedback",
-      "requirement": "In Play Mode, verify that banging, shaking, cracks, and the durability indicator are visible or audible before the door reaches zero durability.",
-      "gate_id": "VAL-003"
-    },
-    {
-      "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "In Play Mode, crossing an open doorway visibly closes and locks the door without a second input, and the result is understandable during normal play.",
-      "gate_id": "VAL-004"
-    },
-    {
-      "reference": "Section 3 - Player Experience Success Criteria",
-      "requirement": "Using repeated test-owned door damage, verify that the feedback progression clearly communicates that waiting too long will allow the door to break. Real enemy-pressure validation remains a later connection with the enemy attack task.",
-      "gate_id": "VAL-005"
-    }
-  ],
   "downstream_integration_obligations": [],
+  "exclusive_resources": [],
+  "execution_reason": "Non-executable aggregate feature. All implementation responsibilities are represented by active direct child contracts: NSC-050 (door-lock-break-state), NSC-051 (door-passability-publication), NSC-052 (door-breach-feedback). No later implementation pass on NSC-021 exists.",
+  "execution_scope": "not_applicable",
   "gdd_evidence": [
     {
       "reference": "Section 2 — Player Actions and Systems, 'Close and Lock'",
@@ -124,34 +120,39 @@
       "requirement": "Door opening/crossing, lock/broken state, and durability must be restored through a door-owned reset method when a new floor run starts."
     }
   ],
-  "basis": "direct_gdd",
-  "source_scope": "required",
-  "confidence": "high",
+  "id": "NSC-021",
+  "kind": "feature",
   "notes": "Enemy code still owns deciding when a pursuing enemy attacks a locked door. This task owns the Door damage method, durability, state change, navigation notification, feedback, and reset behavior. Revision 2 rewrites the human-facing contract in concrete Unity language and corrects the canonical gameplay scene lock to Assets/Scenes/DoorPrototype.unity; it does not add mechanics or change runtime ownership.",
-  "repository_state_at_bootstrap": "missing",
+  "parent": "NSC-018",
+  "provenance": {
+    "bootstrap_status_observation": "open",
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "origin": "verified_reconciliation_bootstrap",
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "source_schema_version": "1.0",
+    "verification_run_id": "20260821T195959Z-43dba5de"
+  },
+  "reconciliation_key": "door-close-lock-break-lifecycle",
   "repository_evidence_at_bootstrap": [
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
       "evidence_type": "code",
-      "observation": "No closing, locking, durability field, damage-receive method, broken state, breach feedback, or navigation-publication code exists; Complete() is a one-way IsOpen=true transition with no further lifecycle."
+      "observation": "No closing, locking, durability field, damage-receive method, broken state, breach feedback, or navigation-publication code exists; Complete() is a one-way IsOpen=true transition with no further lifecycle.",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs"
     },
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
       "evidence_type": "code",
-      "observation": "Only exposes TakeDamage(float) and a CurrentHealth getter; there is no restore/heal method, confirming the Player Health restore interface this work must request does not yet exist."
+      "observation": "Only exposes TakeDamage(float) and a CurrentHealth getter; there is no restore/heal method, confirming the Player Health restore interface this work must request does not yet exist.",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs"
     },
     {
-      "path": "Packages/manifest.json",
       "evidence_type": "project_setting",
-      "observation": "com.unity.ai.navigation is not declared, and no NavMesh-related script exists under Assets/NoSafeCircle, confirming the gameplay navigation/passability layer this work must publish to does not yet exist."
+      "observation": "com.unity.ai.navigation is not declared, and no NavMesh-related script exists under Assets/NoSafeCircle, confirming the gameplay navigation/passability layer this work must publish to does not yet exist.",
+      "path": "Packages/manifest.json"
     }
   ],
-  "provenance": {
-    "origin": "verified_reconciliation_bootstrap",
-    "source_schema_version": "1.0",
-    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "verification_run_id": "20260821T195959Z-43dba5de",
-    "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2"
-  }
+  "repository_state_at_bootstrap": "missing",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Door Auto-Lock, Durability, Breaking, Passability, and Feedback",
+  "type": "gameplay_system"
 }
