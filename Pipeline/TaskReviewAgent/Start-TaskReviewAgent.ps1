@@ -32,7 +32,8 @@ Set-Location $RepositoryRoot
 
 if ([string]::IsNullOrWhiteSpace($WorkerId)) {
     $machine = [Environment]::MachineName.ToLowerInvariant()
-    $WorkerId = "task-review-agent-$machine"
+    $stamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    $WorkerId = "task-review-agent-$machine-$PID-$stamp"
 }
 
 if ($Mode.StartsWith('openai-', [System.StringComparison]::Ordinal)) {
