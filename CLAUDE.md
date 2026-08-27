@@ -20,6 +20,12 @@ If this operating guidance and current project canon/state appear inconsistent, 
 
 The imported document is engineering operating guidance, not game-design canon. It does not weaken or replace the source-of-truth boundary above.
 
+## Required human-facing Unity language
+
+@Docs/AI-Pipeline/UNITY_PROGRAMMER_LANGUAGE.md
+
+The primary human reader is a Unity game programmer. Write task titles, task requirements, review findings, implementation summaries, test summaries, validation summaries, issue comments, closeouts, handoffs, and documentation in concrete Unity terms. Keep abstract taxonomy in machine-facing schema fields, and do not invent implementation details merely to make wording more concrete.
+
 ## Required task checkout path policy
 
 @Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md
@@ -37,6 +43,7 @@ When acting as a task orchestrator, decomposition work must leave the shared che
 - Do not expand approved feature/task scope without authorization.
 - Do not silently invent missing game design.
 - Generated gameplay code must be testable and understandable by a human Unity developer.
+- Human-facing output must name the concrete Unity asset, component, behavior, method, or test whenever that information is established.
 - Treat Unity scenes, prefabs, shared builder scripts, and ProjectSettings conservatively because they are non-merge-safe integration surfaces.
 - Do not directly edit Unity scene YAML unless an explicitly approved task requires that mechanism; prefer the project's established authoring path.
 - Do not commit, push, reset, rebase, or modify Git history unless the active task explicitly authorizes Git operations.
