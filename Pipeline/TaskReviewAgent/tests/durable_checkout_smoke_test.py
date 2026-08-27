@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -232,7 +231,9 @@ def test_checkout_survives_human_and_new_agent() -> None:
         require(inspected["status"] == "ready", f"new worker could not resume: {inspected}")
         require(inspected["head_commit"] == handoff_head, "handoff commit changed")
 
-        shutil.rmtree(checkout)
+        saved_checkout = root / "saved-checkout"
+        checkout.rename(saved_checkout)
+        require(not checkout.exists(), "canonical checkout path was not released")
         recloned = manager_b.prepare(resume_observation)
         require(recloned["status"] == "ready", f"remote branch resume failed: {recloned}")
         require(git(checkout, "rev-parse", "HEAD") == handoff_head, "wrong resumed commit")
@@ -246,6 +247,7 @@ def test_checkout_survives_human_and_new_agent() -> None:
             git(controller, "status", "--porcelain=v1", "--untracked-files=all") == "",
             "controller was dirtied",
         )
+        require(saved_checkout.is_dir(), "original checkout evidence was not preserved")
 
 
 def test_real_workflow_rejects_unpushed_handoff() -> None:
