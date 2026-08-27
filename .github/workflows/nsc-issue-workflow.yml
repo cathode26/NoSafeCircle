@@ -1,0 +1,32 @@
+name: NSC Issue Workflow Transition
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  human-result-to-agent-ready:
+    if: github.event.label.name == 'nsc-state:agent-ready'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out workflow controller
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate human result and advance workflow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python Pipeline/TaskReviewAgent/issue_workflow_action.py
