@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/task-review-agent-deterministic.yml"
+      - ".github/workflows/nsc-issue-workflow.yml"
       - "Pipeline/TaskReviewAgent/**"
   workflow_dispatch:
 
@@ -29,6 +30,9 @@ jobs:
 
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
+
+      - name: Run durable Issue workflow smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/issue_workflow_smoke_test.py
 
       - name: Run real checkout boundary smoke tests
         run: python Pipeline/TaskReviewAgent/tests/real_checkout_smoke_test.py
