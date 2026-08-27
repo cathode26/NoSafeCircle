@@ -1,268 +1,269 @@
-# GitHub Ticket Orchestration MVP
+# GitHub Issue Orchestration
 
 ## Purpose
 
-This is the minimum coordination layer for running several **human-directed ChatGPT orchestrators in parallel** against No Safe Circle.
+GitHub Issues are the durable operational controller for No Safe Circle task orchestration.
 
-It supports:
+TaskGraph remains the authority for task meaning, dependencies, acceptance criteria, completion gates, exclusive resources, and committed conformance. Git and validation artifacts remain the authority for implementation and test facts.
 
-- `work_type: implementation` — fresh implementation of a suitable undelivered concrete executable contract;
-- `work_type: decomposition` — Stage D1B.1 read-only decomposition of an eligible decomposition-relevant parent.
+The Issue records:
 
-The canonical Windows task path is defined by:
+- who acts next;
+- which workflow phase is active;
+- which agent owns the current lease;
+- which task branch and commit must be resumed or tested;
+- what Vincent must do in Unity;
+- the complete append-only transition history.
+
+Read the complete state/event contract:
 
 ```text
-Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md
+Docs/AI-Pipeline/ISSUE_WORKFLOW_STATE_MACHINE.md
+Pipeline/TaskReviewAgent/README.md
 ```
+
+## Resume before selecting new work
+
+A generic agent must first run:
+
+```powershell
+python Pipeline/TaskReviewAgent/issue_queue.py --source .
+```
+
+Validated `agent_ready` Issues must be resumed before the agent selects a new TaskGraph task.
+
+Only when the queue is empty may the agent continue to fresh candidate discovery:
+
+```powershell
+python Pipeline/TaskGraph/taskcontrol.py states --state not_delivered
+```
+
+`not_delivered` remains a discovery signal, not dependency readiness or autonomous dispatch authority.
 
 ## Source-of-truth split
 
-### TaskGraph owns durable work truth
+### TaskGraph
 
-`Tasks/NSC-###.yaml` owns task identity, scope, dependencies, acceptance criteria, completion gates, downstream obligations, execution/decomposition state, exclusive resources, canon evidence, and provenance.
+TaskGraph owns durable work truth:
 
-Committed TaskGraph evidence owns current conformance.
+- task identity and contract revision;
+- required Unity behavior;
+- dependencies;
+- acceptance criteria and completion gates;
+- downstream obligations;
+- exclusive resources;
+- evidence-derived current conformance.
 
-### GitHub owns operational visibility
+### Git and validation artifacts
 
-A GitHub Issue answers:
+Git and deterministic runners own:
 
-- is the task currently claimed/reserved?;
-- which ChatGPT worker owns the orchestration?;
-- what work type is active?;
-- which base commit, branch/checkout, provider/run/output is being used?;
-- what approach, decisions, blockers, validation, and closeout were recorded?
+- task branch and commit identity;
+- actual changed files;
+- clean/dirty state;
+- Unity test execution results;
+- validation manifests and evidence bytes.
 
-GitHub never replaces TaskGraph authority.
+### GitHub Issue workflow
 
-## Issue state convention
+The managed Issue owns operational state:
 
-For the Issue whose title starts with the exact task ID:
+- `agent_ready`;
+- `agent_working`;
+- `human_action_required`;
+- `blocked`;
+- `complete`.
 
-| GitHub state | Meaning |
-| --- | --- |
-| no Issue | available; create before claiming |
-| open + unassigned | available / released |
-| open + assigned | claimed / in progress or deliberately reserved |
-| closed | orchestration finished |
+Its phase records whether the next agent should perform implementation, repair, delivery evidence, or merge closeout.
 
-Assignment is the current claim marker. Simultaneous claim atomicity is intentionally deferred.
+GitHub workflow state does not create delivery or conformance.
 
-## Issue title/body
+## Managed Issue state
 
-Use:
+The Issue body contains a visible dashboard and hidden `nsc-workflow-state` JSON.
+
+Every transition is an append-only Issue comment containing a hidden `nsc-workflow-event` JSON object. Event IDs form a SHA-256 chain. The managed state must match the final event and exactly one matching state label.
+
+State labels:
 
 ```text
-NSC-044 — Ruined Entry Spatial Blockout
+nsc-state:agent-ready
+nsc-state:agent-working
+nsc-state:human-action
+nsc-state:blocked
+nsc-state:complete
 ```
 
-The body should mirror the committed task contract: purpose, bounded/decomposition reason, dependencies, acceptance criteria, completion gates, downstream obligations, execution/decomposition state, exclusive resources, canon evidence, scope notes, contract path/revision/reconciliation key, and the Issue-state convention.
+If the state block, label, task-contract hash, event sequence, previous-event chain, or final state disagrees, agents stop for reconciliation.
 
-For decomposition work, keep the existing parent NSC ID; do not fabricate a new TaskGraph task for the act of decomposition.
+## Agent lease
 
-## Claim protocol
+An agent may begin task work only after it acquires a managed lease.
 
-Before selecting work:
+The lease transition records:
 
-1. inspect current TaskGraph state and active decomposition candidates;
-2. inspect candidate contracts;
-3. search GitHub Issues for exact NSC IDs;
-4. skip assigned/closed candidates;
-5. inspect exclusive-resource conflicts;
-6. under a generic request, continue to another candidate when an early one is unsuitable.
+- worker ID;
+- exact current main commit;
+- intended task branch;
+- canonical checkout path;
+- concrete planned approach;
+- expected validation.
 
-When selecting an available work unit:
+Before granting the lease, the workflow checks other managed Issues for overlapping task `exclusive_resources`. Issues in `agent_working`, `human_action_required`, or `blocked` continue reserving their resources.
 
-1. create/fill its Issue if absent;
-2. assign it to `cathode26`;
-3. identify the worker ID;
-4. explicitly identify `work_type: implementation` or `work_type: decomposition`;
-5. post a **Claim / Planned Approach**;
-6. create/enter the canonical task checkout;
-7. start the applicable bounded pipeline.
+The Issue then becomes:
 
-## Canonical checkout path
+```text
+agent_working
+```
 
-Shared operator/main checkout:
+Only the worker named in the lease may continue that state.
+
+GitHub assignment to `cathode26` remains a visible repository convention, but assignment alone no longer establishes agent ownership. The managed state and lease do.
+
+## Canonical checkout
+
+The shared controller checkout is:
 
 ```text
 C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
 ```
 
-Claimed NSC task checkout:
+The task checkout is:
 
 ```text
 C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
 ```
 
-Examples:
+The task ID remains hyphenated. Do not create `NoSafeCircle-NSC...`, `-DECOMP`, `-FINAL`, or timestamped task-checkout variants.
+
+The workflow creates a standalone clone from the approved remote, validates the exact task contract and TaskGraph, creates the deterministic task branch, and writes its checkout identity manifest outside the repository.
+
+After a human handoff, the checkout may be resumed by a different agent worker. The task branch/commit—not the old worker ID—is the durable checkout identity.
+
+A missing checkout can be recreated from the exact recorded remote task branch and handoff commit.
+
+## Agent-to-human handoff
+
+A human handoff is allowed only after the task work is:
+
+- committed;
+- in a clean canonical checkout;
+- on the recorded task branch;
+- descended from the workflow base;
+- pushed as the exact remote task branch;
+- still bound to the current task-contract hash.
+
+The agent appends an Issue comment containing:
+
+- branch;
+- exact commit to test;
+- checkout path;
+- concrete implementation summary;
+- checks already completed;
+- numbered Unity steps;
+- expected result;
+- PASS/FAIL result template.
+
+The Issue then becomes:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+human_action_required / unity_runtime_validation
 ```
 
-Preserve the hyphenated task ID. Do not use `NoSafeCircle-NSC...`, `-DECOMP`, or timestamped checkout-directory variants as the normal task path.
+Agents stop. Vincent owns the next action.
 
-### Implementation checkout
+## Human result
 
-Use the Supervisor helper with an explicit canonical path:
-
-```powershell
-python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
-```
-
-The helper must clone from GitHub/current remote `main`, use a standalone clone, create the task branch, validate TaskGraph, and leave the checkout clean before provider work.
-
-### Decomposition checkout
-
-Decomposition uses the same task directory:
+Vincent tests the exact handoff commit and posts:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+## Human validation result
+
+Result: PASS
+Tested commit: `<40-character commit SHA>`
+
+Completed steps:
+- ...
+
+Notes:
+...
 ```
 
-and a filesystem-disjoint authoritative output sibling, normally:
+or:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021-Outputs
+## Human validation result
+
+Result: FAIL
+Tested commit: `<40-character commit SHA>`
+
+Failed step:
+...
+
+Reproduction:
+...
+
+Expected:
+...
+
+Observed:
+...
 ```
 
-Read `Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md` before D1B.1.
-
-## Claim / Planned Approach comment
-
-Record information applicable to the work type:
+Vincent then applies:
 
 ```text
-Worker
-work_type: implementation | decomposition
-Exact base/source main commit
-Canonical checkout path
-Branch                         # implementation
-Provider + output location     # decomposition
-Planned approach
-Expected validation/review boundary
-Assumptions / risks
+nsc-state:agent-ready
 ```
 
-The planned approach must describe how the orchestrator intends to accomplish the work, not merely repeat acceptance criteria.
+The Issue workflow Action validates the managed state, event chain, result format, and exact tested commit.
 
-## Implementation workflow
-
-After claim/checkout, follow the established real-task delivery path:
-
-- Contract Locality Auditor;
-- ExecutionCrew when applicable;
-- human candidate review;
-- Unity/runtime/human validation;
-- authoritative validation evidence;
-- TaskDelivery review/finalize;
-- committed evidence;
-- TaskGraph-derived conformance;
-- human merge authority.
-
-The Issue is the dashboard around those systems.
-
-## Decomposition workflow
-
-Follow `Pipeline/TaskDecomposition/README.md` and `Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md`.
-
-D1B.1 may return:
-
-- `already_concrete`;
-- `decomposed`;
-- `needs_artifact`;
-- `needs_human`.
-
-Outputs remain `review_only_not_applied`; `graph_delta.json`, when present, is not automatically applied.
-
-A `review_ready` result is successful completion of the decomposition work unit even when the semantic result is `needs_artifact` or `needs_human`.
-
-## Implementation closeout
-
-Generate the draft using the canonical task directory:
-
-```powershell
-python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
-```
-
-The final Closeout Report must state:
-
-1. outcome;
-2. what changed;
-3. how the task was accomplished;
-4. decisions/choices made;
-5. missing/underspecified items;
-6. additions beyond original task;
-7. validation performed/results;
-8. remaining follow-ups/risks;
-9. actual TaskGraph closeout state;
-10. final branch/commit/merge identities.
-
-If a section has nothing to report, write `None.`.
-
-Close the Issue only after the normal delivery/merge path is finished. Issue closure does not establish conformance.
-
-## Decomposition closeout
-
-If D1B.1 reaches `review_ready`, post a **Decomposition Closeout** containing:
-
-1. worker ID and `work_type: decomposition`;
-2. parent ID/revision/source commit;
-3. canonical source checkout and output paths;
-4. provider/run ID;
-5. semantic decision;
-6. `decomposition_result.json` and `graph_delta.json` identities when present;
-7. concise proposal/blocker summary;
-8. explicit `review_only_not_applied` statement;
-9. required human/review/application next action.
-
-Do not mark the parent implementation delivered merely because decomposition succeeded. Keep review-ready work clearly reserved while awaiting human review/application.
-
-## Release / abandonment
-
-If a worker stops without completing the work unit:
-
-1. comment why and record useful state;
-2. preserve useful canonical checkout/log/output artifacts;
-3. unassign unless the Issue must remain intentionally reserved for review;
-4. keep it open unless orchestration is truly finished.
-
-Under a generic request, a genuine hard blocker normally returns the orchestrator to the candidate-selection loop. Do not task-hop merely because ordinary implementation/validation is difficult.
-
-## Existing checkout rule
-
-Never overwrite, delete, reset, or casually reuse:
+Result transition:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+PASS -> agent_ready / delivery_evidence
+FAIL -> agent_ready / repair
 ```
 
-Inspect and reconcile it. Do not create a differently named duplicate checkout as the normal collision workaround.
+An invalid transition restores `nsc-state:human-action` and leaves a rejection comment.
 
-## Explicit-task exception
+## Later-agent resume
 
-Generic selection may retry/substitute candidates. If the human explicitly names a task, report that task's blocker rather than silently switching to another NSC ID.
+A later generic agent discovers the Issue through `issue_queue.py`, acquires a new lease, and resumes the recorded branch and commit.
 
-## Fresh-window prompt
+After PASS it continues authoritative validation, TaskDelivery, evidence, conformance, and closeout.
 
-A short instruction is enough because the repository now contains the full process:
+After FAIL it uses the human report as repair input, commits and pushes a new branch commit, and creates a new human handoff.
 
-> Go pick a task and start on it. Follow the current repository's mandatory TaskGraph selection, GitHub claim, canonical task checkout, implementation/decomposition, retry, validation, and closeout rules.
+The same Issue retains every handoff and result.
 
-A fresh window should read `AI_PIPELINE.md`, `START_HERE.md`, `TASK_SELECTION_AND_CHECKOUT.md`, `TASK_CHECKOUT_PATH_CONVENTION.md`, `GENERIC_TASK_SELECTION_RETRY_AND_DECOMPOSITION.md`, and the applicable runbook.
+## Blocked and complete
 
-## Known MVP limitations
+Use `blocked` for a human decision or external prerequisite that prevents the next authorized action. Record the exact blocker and safe work that can continue.
 
-Still deliberately deferred:
+Use `complete` only after the normal delivery, evidence, conformance, merge, and operational closeout process is finished. Closing an Issue by itself never establishes TaskGraph conformance.
 
-- simultaneous-claim atomicity;
-- dependency-readiness policy;
-- automatic ranking;
-- GitHub Projects;
-- automatic PR/merge;
-- lease heartbeat;
-- automatic release;
-- D1C reusable graph application;
-- D1B.2 independent decomposition verification/refinement.
+## Decomposition work
+
+Decomposition remains review-only until separately applied. A decomposition Issue can use the same durable workflow states, but `review_ready` decomposition does not mean the parent implementation is delivered.
+
+Follow:
+
+```text
+Pipeline/TaskDecomposition/README.md
+Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md
+```
+
+## Authority boundary
+
+The Issue state machine grants bounded operational authority. It never overrides:
+
+- the selected task contract;
+- approved GDD canon;
+- exact write boundaries;
+- Unity testing policy;
+- human review requirements;
+- delivery evidence validation;
+- TaskGraph conformance;
+- merge authority.
