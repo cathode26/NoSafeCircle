@@ -3,26 +3,26 @@
     {
       "criterion_id": "AC-001",
       "reference": "GDD — Approved Five-Room Spatial Layout Blockout §7",
-      "requirement": "Author the Chapel of Ash shell at X [-12,+12], Z [20,42], its D2 and D3 openings, 4.0-unit central aisle, eight approved pew footprints, and four approved column footprints with their specified heights."
+      "requirement": "Build the Chapel of Ash room shell at X [-12,+12], Z [20,42], including the D2 and D3 openings, 4.0-unit central aisle, eight approved pew footprints, and four approved column footprints at their specified heights."
     },
     {
       "criterion_id": "AC-002",
       "reference": "GDD — Approved Five-Room Spatial Layout Blockout §7",
-      "requirement": "Preserve the approved central-versus-side-route tradeoff, lateral openings between pew rows, minimum 2.5-unit side-route clearances, designated CA-W and CA-E cover pockets, and melee-accessible cover routes rather than fully safe tunnels."
+      "requirement": "Keep the approved central-aisle versus side-route tradeoff, lateral openings between pew rows, minimum 2.5-unit side-route clearances, CA-W and CA-E cover pockets, and routes that Melee Enemies can still reach rather than turning either side into a fully safe tunnel."
     }
   ],
   "basis": "direct_gdd",
   "completion_gates": [
     {
       "gate_id": "VAL-001",
-      "reference": "NSC-029 VAL-002; GDD — Approved Five-Room Spatial Layout Blockout §§7 and 12",
-      "requirement": "Validation using the Ranged Enemy's owned line-of-sight/projectile-occlusion behavior verifies that authored pew or column gameplay geometry occludes at least one of CA-W or CA-E from a representative attack path originating in the opposite half of the chapel."
+      "reference": "NSC-029 VAL-002; GDD — Approved Five-Room Spatial Layout Blockout §§7 and 12; NSC-016 projectile-cover clarification",
+      "requirement": "In Play Mode, fire or directly trigger a real Ranged Enemy projectile along a representative path from the opposite half of the chapel toward CA-W or CA-E. Verify that an authored pew or column gameplay collider stops or despawns the projectile and that PlayerHealth.TakeDamage is not called through or after that cover. The enemy does not need a clear pre-fire line of sight for this test."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
-  "decomposition_reason": "Chapel of Ash has explicit geometry and a specialized occlusion gate, forming a bounded room-authoring and integration-validation unit.",
+  "contract_revision": 2,
+  "decomposition_reason": "The room dimensions, prop footprints, routes, and one projectile-cover Play Mode test are explicit enough for one bounded room-blockout task.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-026",
@@ -34,17 +34,17 @@
     "unity-scene:Assets/Scenes/DoorPrototype.unity",
     "logical:gameplay-walkability-surface"
   ],
-  "execution_reason": "One agent can author the approved chapel blockout and validate its cover against the existing Ranged Enemy occlusion interface without taking ownership of that enemy behavior.",
+  "execution_reason": "One agent can build the approved Chapel of Ash blockout and run the room-specific projectile-cover test using the Ranged Enemy projectile behavior supplied by its dependency. This task does not implement enemy movement, targeting, or attacks.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
     {
       "reference": "GDD — Approved Five-Room Spatial Layout Blockout §7",
-      "requirement": "Chapel of Ash has an exposed central aisle, longer side routes, explicit pews and columns, designated cover pockets, and a requirement that real gameplay geometry occlude a representative ranged attack."
+      "requirement": "Chapel of Ash has an exposed central aisle, longer side routes, explicit pews and columns, designated cover pockets, and real gameplay geometry that blocks a representative ranged projectile path."
     }
   ],
   "id": "NSC-046",
   "kind": "implementation",
-  "notes": "No ranged or melee encounter placement is included; the enemy dependency exists only because the parent gate requires validation through the owned ranged-occlusion behavior.",
+  "notes": "Enemy placement and encounter composition are not included. The Ranged Enemy dependency exists only so this room can prove that a real fired projectile collides with the authored pew or column cover. Revision 2 replaces ambiguous line-of-sight/projectile-occlusion wording with a concrete projectile collision and no-damage-through-cover Play Mode test.",
   "parent": "NSC-029",
   "provenance": {
     "graph_delta_plan_id": "GDP-5f799a9d352217a315b42a5ec36178abecd2ff16235c9191797508850edfc9d2",
@@ -58,6 +58,6 @@
   "repository_state_at_bootstrap": "not_applicable",
   "schema_version": "2.0",
   "source_scope": "required",
-  "title": "Chapel of Ash Spatial Blockout and Occlusion Validation",
+  "title": "Chapel of Ash Blockout and Projectile Cover Test",
   "type": "content-authoring"
 }
