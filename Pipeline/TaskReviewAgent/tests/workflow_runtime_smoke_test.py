@@ -101,7 +101,18 @@ class FakeCheckoutManager:
         return "nsc-777-task"
 
     def inspect(self, observation):
-        state = observation["coordination"]["workflow_state"]
+        coordination = observation.get("coordination") or {}
+        state = coordination.get("workflow_state")
+        if not isinstance(state, dict):
+            # RealTaskReviewWorkflow performs an initial eligibility-gated checkout
+            # observation before DurableIssueTaskReviewWorkflow restores the managed
+            # closeout Issue. Model that first pass instead of assuming Issue state.
+            return {
+                "status": "not_observed",
+                "path": str(self.checkout_path),
+                "branch": None,
+                "head_commit": None,
+            }
         return {
             "status": "ready",
             "path": str(self.checkout_path),
