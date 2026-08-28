@@ -65,6 +65,9 @@ jobs:
       - name: Run strict Codex supervisor turn smoke tests
         run: python Pipeline/TaskReviewAgent/tests/codex_supervisor_turn_smoke_test.py
 
+      - name: Run live progress logging smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/progress_logging_smoke_test.py
+
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
 
