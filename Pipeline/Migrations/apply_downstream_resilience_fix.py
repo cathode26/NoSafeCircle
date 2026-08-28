@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import json
+import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -17,7 +18,9 @@ def decode_parts(group: str, destination: Path) -> None:
         raise RuntimeError(f"missing bootstrap chunks for {group}")
     encoded = "".join(path.read_text(encoding="ascii") for path in parts)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_bytes(base64.b64decode(encoded, validate=True))
+    destination.write_bytes(
+        zlib.decompress(base64.b85decode("".join(encoded.split()).encode("ascii")))
+    )
 
 
 def patch_once(path: Path, old: str, new: str, label: str) -> None:
