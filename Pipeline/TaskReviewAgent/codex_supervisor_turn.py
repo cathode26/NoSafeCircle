@@ -71,6 +71,129 @@ def _number(value: Any, *, field: str, minimum: float, maximum: float) -> float:
     return result
 
 
+def _schema_types(value: Any, *, field: str) -> tuple[str, ...]:
+    if type(value) is str and value:
+        return (value,)
+    if (
+        isinstance(value, list)
+        and value
+        and all(type(item) is str and item for item in value)
+        and len(set(value)) == len(value)
+    ):
+        return tuple(value)
+    raise SupervisorTurnError(f"{field}.type must be a string or unique string array")
+
+
+def _strict_output_schema(value: Any, *, path: str = "$") -> dict[str, Any]:
+    """Convert nullable optional fields into strict required nullable fields.
+
+    Codex ``--output-schema`` uses OpenAI Structured Outputs. Every declared
+    object property must therefore appear in that object's ``required`` array.
+    The host decision contract models unused action arguments as nullable, so
+    making those fields required preserves the intended semantics: an unused
+    argument is emitted as JSON null and is filtered by the host validator.
+    """
+
+    try:
+        result = json.loads(
+            json.dumps(value, ensure_ascii=False, allow_nan=False)
+        )
+    except (TypeError, ValueError, RecursionError) as exc:
+        raise SupervisorTurnError(f"{path} must be finite JSON") from exc
+    if not isinstance(result, dict):
+        raise SupervisorTurnError(f"{path} must be a JSON Schema object")
+
+    kinds = _schema_types(result.get("type"), field=path)
+    if "object" in kinds:
+        properties = result.get("properties", {})
+        if not isinstance(properties, dict) or any(
+            type(name) is not str for name in properties
+        ):
+            raise SupervisorTurnError(f"{path}.properties must be an object")
+        required = result.get("required", [])
+        if (
+            not isinstance(required, list)
+            or any(type(name) is not str for name in required)
+            or len(set(required)) != len(required)
+            or any(name not in properties for name in required)
+        ):
+            raise SupervisorTurnError(
+                f"{path}.required must contain unique declared property names"
+            )
+        for name, child in properties.items():
+            child_path = f"{path}.properties.{name}"
+            properties[name] = _strict_output_schema(child, path=child_path)
+            if name not in required:
+                child_types = _schema_types(
+                    properties[name].get("type"),
+                    field=child_path,
+                )
+                if "null" not in child_types:
+                    raise SupervisorTurnError(
+                        f"{child_path} is optional but does not allow null"
+                    )
+        result["properties"] = properties
+        result["required"] = list(properties)
+    if "array" in kinds:
+        if "items" not in result:
+            raise SupervisorTurnError(f"{path}.items is required for arrays")
+        result["items"] = _strict_output_schema(
+            result["items"],
+            path=f"{path}.items",
+        )
+    return result
+
+
+def _error_text(value: Any) -> list[str]:
+    if type(value) is str and value.strip():
+        return [value.strip()]
+    if isinstance(value, Mapping):
+        messages: list[str] = []
+        for key in ("message", "error", "detail", "reason", "code"):
+            if key in value:
+                messages.extend(_error_text(value[key]))
+        return messages
+    if isinstance(value, list):
+        messages: list[str] = []
+        for item in value:
+            messages.extend(_error_text(item))
+        return messages
+    return []
+
+
+def _provider_failure_detail(exc: ProviderInvocationError) -> str:
+    """Return bounded provider diagnostics without echoing prompts or credentials."""
+
+    messages: list[str] = []
+    event_types: list[str] = []
+    raw_log = getattr(exc, "raw_log", "")
+    if isinstance(raw_log, str):
+        for line in raw_log.splitlines():
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, Mapping):
+                continue
+            event_type = event.get("type")
+            if type(event_type) is str and event_type:
+                event_types.append(event_type)
+            if (
+                type(event_type) is str
+                and ("error" in event_type.casefold() or "fail" in event_type.casefold())
+            ):
+                messages.extend(_error_text(event))
+    unique_messages = list(dict.fromkeys(messages))[:8]
+    if unique_messages:
+        return str(exc) + "\nCodex error events:\n- " + "\n- ".join(unique_messages)
+    unique_types = list(dict.fromkeys(event_types))[-12:]
+    if unique_types:
+        return str(exc) + "\nCodex JSONL event types: " + ", ".join(unique_types)
+    return str(exc)
+
+
 def _request() -> dict[str, Any]:
     try:
         value = json.load(sys.stdin)
@@ -87,9 +210,11 @@ def _request() -> dict[str, Any]:
         raise SupervisorTurnError("unsupported turn request schema_version")
     request["run_id"] = _text(request.get("run_id"), field="run_id")
     request["prompt"] = _text(request.get("prompt"), field="prompt")
-    request["output_schema"] = _object(
-        request.get("output_schema"),
-        field="output_schema",
+    request["output_schema"] = _strict_output_schema(
+        _object(
+            request.get("output_schema"),
+            field="output_schema",
+        )
     )
     request["model"] = _text(request.get("model"), field="model")
     request["reasoning_effort"] = _text(
@@ -153,7 +278,14 @@ def main() -> int:
             flush=True,
         )
         return 0
-    except (SupervisorTurnError, ValueError, ProviderInvocationError) as exc:
+    except ProviderInvocationError as exc:
+        print(
+            "CODEX SUPERVISOR TURN: STOP\n" + _provider_failure_detail(exc),
+            file=sys.stderr,
+            flush=True,
+        )
+        return 2
+    except (SupervisorTurnError, ValueError) as exc:
         print(f"CODEX SUPERVISOR TURN: STOP\n{exc}", file=sys.stderr, flush=True)
         return 2
 
