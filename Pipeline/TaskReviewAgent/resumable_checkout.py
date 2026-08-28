@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .durable_checkout import DurableTaskCheckoutManager
-from .real_checkout import _git, _git_text
+from .real_checkout import _decode, _git, _git_text
 
 
 _STALE_MAIN_REASON = "checkout origin/main does not match current controller main"
@@ -110,7 +110,10 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
         }
 
     def _safe_dirty_paths(self) -> list[str] | None:
-        raw = _git_text(
+        # Do not use _git_text here: its trailing/leading strip is correct for
+        # hashes and branch names but would remove the first porcelain status
+        # column when the first entry is an unstaged modification (" M").
+        result = _git(
             self.checkout_path,
             "-c",
             "core.quotepath=false",
@@ -118,6 +121,7 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
             "--porcelain=v1",
             "--untracked-files=all",
         )
+        raw = _decode(result.stdout, label="git status stdout")
         if not raw:
             return []
         paths: list[str] = []
