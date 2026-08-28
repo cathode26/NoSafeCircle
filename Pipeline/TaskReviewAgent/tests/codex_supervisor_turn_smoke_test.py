@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Mapping
@@ -106,11 +109,68 @@ def test_provider_error_event_is_visible_without_raw_prompt() -> None:
     require("thread-1" not in detail, "non-error transcript content leaked")
 
 
+def test_launcher_enables_host_python_utf8() -> None:
+    launcher = (
+        ROOT / "Pipeline" / "TaskReviewAgent" / "Start-GameTaskAgent.ps1"
+    ).read_text(encoding="utf-8")
+    require(
+        "$env:PYTHONUTF8 = '1'" in launcher,
+        "launcher does not enable Python UTF-8 mode before host orchestration",
+    )
+    require(
+        "Remove-Item Env:PYTHONUTF8" in launcher,
+        "launcher does not restore an unset process-level PYTHONUTF8 value",
+    )
+
+    probe = r'''
+import json
+import subprocess
+import sys
+
+if sys.flags.utf8_mode != 1:
+    raise SystemExit("host Python did not enter UTF-8 mode")
+
+payload = '{"message":"Issue \u2014 \u201cquoted\u201d"}'
+producer = subprocess.run(
+    [
+        sys.executable,
+        "-c",
+        "import sys; sys.stdout.buffer.write(" + repr(payload.encode("utf-8")) + ")",
+    ],
+    text=True,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    check=False,
+)
+if producer.returncode != 0:
+    raise SystemExit("UTF-8 producer failed: " + producer.stderr)
+if producer.stdout != payload:
+    raise SystemExit("text=True did not decode UTF-8 exactly: " + repr(producer.stdout))
+if json.loads(producer.stdout)["message"] != "Issue \u2014 \u201cquoted\u201d":
+    raise SystemExit("decoded GitHub-style JSON changed Unicode content")
+print("host-python-utf8-ok")
+'''.strip()
+    environment = os.environ.copy()
+    environment["PYTHONUTF8"] = "1"
+    result = subprocess.run(
+        (sys.executable, "-c", probe),
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    stdout = result.stdout.decode("utf-8", errors="strict").strip()
+    stderr = result.stderr.decode("utf-8", errors="replace").strip()
+    require(result.returncode == 0, stderr or stdout)
+    require(stdout == "host-python-utf8-ok", stdout)
+
+
 def main() -> int:
     tests = (
         test_decision_schema_becomes_strict,
         test_nonnullable_optional_property_is_rejected,
         test_provider_error_event_is_visible_without_raw_prompt,
+        test_launcher_enables_host_python_utf8,
     )
     for test in tests:
         test()
