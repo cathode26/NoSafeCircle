@@ -255,9 +255,27 @@ if ($SupervisorVolume) {
 }
 Write-Host "Execution provider: $ExecutionProvider"
 Write-Host "Durable output root: $OutputRoot"
+Write-Host 'Host Python UTF-8 mode: enabled'
 Write-Host 'Pipeline phase: selected automatically from the durable Issue state'
 
-& python @Arguments
-if ($LASTEXITCODE -ne 0) {
-    throw "Game Task Agent stopped with exit code $LASTEXITCODE."
+$PreviousPythonUtf8 = [Environment]::GetEnvironmentVariable('PYTHONUTF8', 'Process')
+$AgentExitCode = 1
+try {
+    # Python must enter UTF-8 mode at interpreter startup. This makes every
+    # text=True GitHub/Git subprocess decode deterministic on Windows instead
+    # of using the machine's legacy ANSI code page.
+    $env:PYTHONUTF8 = '1'
+    & python @Arguments
+    $AgentExitCode = $LASTEXITCODE
+}
+finally {
+    if ($null -eq $PreviousPythonUtf8) {
+        Remove-Item Env:PYTHONUTF8 -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:PYTHONUTF8 = $PreviousPythonUtf8
+    }
+}
+if ($AgentExitCode -ne 0) {
+    throw "Game Task Agent stopped with exit code $AgentExitCode."
 }
