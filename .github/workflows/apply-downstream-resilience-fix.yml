@@ -1,0 +1,81 @@
+name: Apply Downstream Resilience Fix
+
+on:
+  push:
+    branches:
+      - fix/downstream-pass-carry-forward-resilience
+    paths:
+      - ".bootstrap/downstream-resilience/READY"
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    runs-on: windows-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out exact bootstrap branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/downstream-pass-carry-forward-resilience
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure Git identity
+        shell: pwsh
+        run: |
+          git config user.name "No Safe Circle Resilience Fix"
+          git config user.email "resilience@users.noreply.github.com"
+
+      - name: Materialize the change
+        run: python Pipeline/Migrations/apply_downstream_resilience_fix.py
+
+      - name: Configure deterministic fixture identity
+        shell: pwsh
+        run: |
+          git config --global user.name "TaskReviewAgent Tests"
+          git config --global user.email "task-review-agent-tests@example.invalid"
+
+      - name: Run focused downstream resilience tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py
+
+      - name: Run existing mainline reintegration tests
+        run: python Pipeline/TaskReviewAgent/tests/mainline_reintegration_smoke_test.py
+
+      - name: Run existing checkout loop-guard tests
+        run: python Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py
+
+      - name: Run contract-migration checkout tests
+        run: python Pipeline/TaskReviewAgent/tests/contract_migration_checkout_smoke_test.py
+
+      - name: Validate TaskGraph
+        run: python Pipeline/TaskGraph/taskcontrol.py validate
+
+      - name: Compile TaskReviewAgent
+        run: python -m compileall -q Pipeline/TaskReviewAgent
+
+      - name: Remove bootstrap-only files
+        shell: pwsh
+        run: |
+          git rm -r -f .bootstrap/downstream-resilience
+          git rm -f Pipeline/Migrations/apply_downstream_resilience_fix.py
+          git rm -f .github/workflows/apply-downstream-resilience-fix.yml
+
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Commit and push validated change
+        shell: pwsh
+        run: |
+          git add -A
+          if (git diff --cached --quiet) {
+            throw "Bootstrap produced no change."
+          }
+          git commit -m "Fix downstream PASS carry-forward and rejection loops"
+          git push origin HEAD:fix/downstream-pass-carry-forward-resilience
