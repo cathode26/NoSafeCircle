@@ -105,6 +105,9 @@ jobs:
       - name: Run resume after unrelated mainline progress test
         run: python Pipeline/TaskReviewAgent/tests/resumable_checkout_smoke_test.py
 
+      - name: Run contract migration checkout resume test
+        run: python Pipeline/TaskReviewAgent/tests/contract_migration_checkout_smoke_test.py
+
       - name: Run production scope ExecutionCrew commit push test
         run: python Pipeline/TaskReviewAgent/tests/production_pipeline_smoke_test.py
 
