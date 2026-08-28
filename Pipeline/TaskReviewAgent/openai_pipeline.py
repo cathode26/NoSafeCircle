@@ -1,17 +1,257 @@
-"""OpenAI Agents SDK supervisor for the real task-to-human-Unity pipeline."""
+"""Authenticated Codex CLI supervisor for the real task-to-human-Unity pipeline."""
 
 from __future__ import annotations
 
-import os
-from typing import Any
+from typing import Any, Mapping
 
+from .codex_supervisor import (
+    CodexDockerDecisionProvider,
+    CodexSupervisorError,
+    DecisionProvider,
+    SupervisorDecision,
+    render_supervisor_prompt,
+)
 from .contracts import TASK_REVIEW_SCHEMA_VERSION, TaskReviewContractError, TaskReviewRequest
-from .openai_agent import DEFAULT_MODEL, _json, _require_runtime
 from .production_pipeline import ProductionTaskController
 
 
 class OpenAIProductionPipelineError(TaskReviewContractError):
-    """Raised when the model output disagrees with deterministic workflow state."""
+    """Raised when the goal loop cannot safely reach a deterministic terminal state."""
+
+
+_ACTIONS = {
+    "acquire_agent_lease": (
+        "Reserve the managed Issue for this worker. Arguments: planned_approach, "
+        "expected_validation."
+    ),
+    "prepare_task_checkout": "Create or resume the canonical isolated task checkout. No arguments.",
+    "repository_facts": "Read task-owned resource hints and suggested implementation/test files. No arguments.",
+    "list_repository_files": "List committed files. Arguments: prefix; optional limit.",
+    "search_repository": "Search committed text. Arguments: query, prefixes; optional limit.",
+    "read_repository_file": "Read one committed file range. Arguments: path; optional start_line, end_line.",
+    "latest_human_feedback": "Read the latest validated human PASS/FAIL feedback. No arguments.",
+    "validate_execution_scope": (
+        "Validate exact file authority. Arguments: existing_implementation_paths, "
+        "new_implementation_paths, existing_test_paths, new_test_paths."
+    ),
+    "run_execution_crew": (
+        "Run ExecutionCrew using a validated plan. Arguments: plan_id; optional "
+        "retry_run_id and feedback_file."
+    ),
+    "integrate_commit_push_and_handoff": (
+        "Verify/apply a review_ready candidate, commit and push it, then publish Vincent's "
+        "Unity checklist. Arguments: run_id, implementation_summary, human_steps, expected_result."
+    ),
+    "record_pipeline_blocker": (
+        "Persist a genuine bounded blocker in the Issue. Arguments: summary, details."
+    ),
+}
+
+_GOAL_AND_RULES = """
+GOAL
+Advance the exact task from current deterministic state until its implementation and tests are
+committed and pushed on the canonical task branch and the managed Issue is
+human_action_required/unity_runtime_validation.
+
+AUTHORITY
+You choose only the next bounded action. ExecutionCrew is the only game-code author. Host Python
+validates and executes every action. You have no direct shell, repository-write, GitHub, Unity,
+commit, push, merge, delivery, or conformance authority.
+
+OPERATING RULES
+- Follow production_pipeline.next_action and never skip a prerequisite.
+- Do not select a different task.
+- Acquire a lease only with a concrete implementation approach and expected validation.
+- Before proposing scope, inspect repository_facts and read the Unity testing/programmer-language
+  policies plus enough current scripts and tests to identify the smallest exact file set.
+- Correct existing/new classifications from deterministic validation findings. Never include .meta.
+- Keep implementation and test scopes disjoint and include at least one C# test file.
+- Run ExecutionCrew only with a returned plan_id.
+- If ExecutionCrew returns a non-review-ready terminal status, record its exact blocker and artifact
+  identity rather than inventing a candidate.
+- Integrate only a returned review_ready run_id. Human steps must identify the checkout/scene,
+  numbered Play Mode actions, and observable PASS behavior derived from completion gates.
+- Stop at the human Issue boundary. Do not run downstream delivery or merge work.
+"""
+
+
+def _workflow_state(observation: Mapping[str, Any]) -> dict[str, Any]:
+    coordination = observation.get("coordination")
+    if not isinstance(coordination, Mapping):
+        return {}
+    state = coordination.get("workflow_state")
+    return dict(state) if isinstance(state, Mapping) else {}
+
+
+def _strings(values: Any) -> list[str]:
+    if isinstance(values, (list, tuple)):
+        return [str(item) for item in values if str(item).strip()]
+    return []
+
+
+def _terminal_outcome(
+    request: TaskReviewRequest,
+    observation: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    coordination = observation.get("coordination") or {}
+    state = _workflow_state(observation)
+    pipeline = observation.get("production_pipeline") or {}
+    environment = observation.get("environment") or {}
+    task = observation.get("task") or {}
+
+    if (
+        pipeline.get("status") == "human_action_required"
+        and state.get("state") == "human_action_required"
+    ):
+        return {
+            "schema_version": TASK_REVIEW_SCHEMA_VERSION,
+            "task_id": request.task_id,
+            "status": "human_action_required",
+            "issue_url": coordination.get("issue_url"),
+            "branch": state.get("branch"),
+            "commit": state.get("head_commit"),
+            "next_action": "Vincent completes the exact Unity checklist in the managed Issue.",
+            "blockers": [],
+            "authority": "committed_branch_to_human_unity_handoff",
+            "deterministic_final_state": observation,
+        }
+
+    if state.get("state") == "blocked":
+        return {
+            "schema_version": TASK_REVIEW_SCHEMA_VERSION,
+            "task_id": request.task_id,
+            "status": "blocked",
+            "issue_url": coordination.get("issue_url"),
+            "branch": state.get("branch"),
+            "commit": state.get("head_commit"),
+            "next_action": pipeline.get("next_action") or "Resolve the recorded Issue blocker.",
+            "blockers": _strings(coordination.get("reasons"))
+            or ["The managed Issue is in blocked state; inspect its latest event."],
+            "authority": "committed_branch_to_human_unity_handoff",
+            "deterministic_final_state": observation,
+        }
+
+    if environment.get("ready") is not True:
+        return {
+            "schema_version": TASK_REVIEW_SCHEMA_VERSION,
+            "task_id": request.task_id,
+            "status": "blocked",
+            "issue_url": coordination.get("issue_url"),
+            "branch": state.get("branch"),
+            "commit": state.get("head_commit"),
+            "next_action": "Repair the deterministic environment before retrying.",
+            "blockers": _strings(environment.get("errors"))
+            or ["The deterministic environment is not ready."],
+            "authority": "committed_branch_to_human_unity_handoff",
+            "deterministic_final_state": observation,
+        }
+
+    eligibility = {
+        "contract_disposition": task.get("contract_disposition") == "active",
+        "kind": task.get("kind") == "implementation",
+        "execution_scope": task.get("execution_scope") == "single_agent",
+        "decomposition_state": task.get("decomposition_state") == "concrete",
+        "derived_state": task.get("derived_state") == "not_delivered",
+        "dependencies_conformant": task.get("dependencies_conformant") is True,
+    }
+    if not all(eligibility.values()):
+        blockers = [name for name, passed in eligibility.items() if not passed]
+        return {
+            "schema_version": TASK_REVIEW_SCHEMA_VERSION,
+            "task_id": request.task_id,
+            "status": "needs_human",
+            "issue_url": coordination.get("issue_url"),
+            "branch": state.get("branch"),
+            "commit": state.get("head_commit"),
+            "next_action": "Resolve task-contract or dependency readiness before implementation.",
+            "blockers": [f"Eligibility condition failed: {name}" for name in blockers],
+            "authority": "committed_branch_to_human_unity_handoff",
+            "deterministic_final_state": observation,
+        }
+
+    if coordination.get("status") in {
+        "claimed_by_other",
+        "conflict",
+        "closed",
+        "unavailable",
+    }:
+        return {
+            "schema_version": TASK_REVIEW_SCHEMA_VERSION,
+            "task_id": request.task_id,
+            "status": "blocked",
+            "issue_url": coordination.get("issue_url"),
+            "branch": state.get("branch"),
+            "commit": state.get("head_commit"),
+            "next_action": "Resolve the GitHub Issue coordination conflict.",
+            "blockers": _strings(coordination.get("reasons"))
+            or [f"Issue coordination status is {coordination.get('status')!r}."],
+            "authority": "committed_branch_to_human_unity_handoff",
+            "deterministic_final_state": observation,
+        }
+    return None
+
+
+def _execute(
+    decision: SupervisorDecision,
+    controller: ProductionTaskController,
+) -> Any:
+    action = decision.action
+    if action == "acquire_agent_lease":
+        values = decision.validate_arguments(
+            required=("planned_approach", "expected_validation")
+        )
+        return controller.acquire_agent_lease(**values)
+    if action == "prepare_task_checkout":
+        decision.validate_arguments()
+        return controller.prepare_task_checkout()
+    if action == "repository_facts":
+        decision.validate_arguments()
+        return controller.repository_facts()
+    if action == "list_repository_files":
+        values = decision.validate_arguments(required=("prefix",), optional=("limit",))
+        return controller.list_repository_files(**values)
+    if action == "search_repository":
+        values = decision.validate_arguments(
+            required=("query", "prefixes"), optional=("limit",)
+        )
+        return controller.search_repository(**values)
+    if action == "read_repository_file":
+        values = decision.validate_arguments(
+            required=("path",), optional=("start_line", "end_line")
+        )
+        return controller.read_repository_file(**values)
+    if action == "latest_human_feedback":
+        decision.validate_arguments()
+        return controller.latest_human_feedback()
+    if action == "validate_execution_scope":
+        values = decision.validate_arguments(
+            required=(
+                "existing_implementation_paths",
+                "new_implementation_paths",
+                "existing_test_paths",
+                "new_test_paths",
+            )
+        )
+        return controller.validate_execution_scope(**values)
+    if action == "run_execution_crew":
+        values = decision.validate_arguments(
+            required=("plan_id",), optional=("retry_run_id", "feedback_file")
+        )
+        return controller.run_execution_crew(**values)
+    if action == "integrate_commit_push_and_handoff":
+        values = decision.validate_arguments(
+            required=(
+                "run_id",
+                "implementation_summary",
+                "human_steps",
+                "expected_result",
+            )
+        )
+        return controller.integrate_commit_push_and_handoff(**values)
+    if action == "record_pipeline_blocker":
+        values = decision.validate_arguments(required=("summary", "details"))
+        return controller.record_pipeline_blocker(**values)
+    raise CodexSupervisorError(f"unhandled production action: {action}")
 
 
 def run_openai_production_pipeline(
@@ -20,275 +260,73 @@ def run_openai_production_pipeline(
     *,
     model: str | None = None,
     max_turns: int = 80,
+    decision_provider: DecisionProvider | None = None,
 ) -> dict[str, Any]:
-    """Drive one explicit or queue-selected task to a committed human Unity handoff."""
+    """Drive a task with Codex CLI while host tools retain all authority."""
 
-    Agent, _, Runner, function_tool, pydantic_types = _require_runtime(max_turns)
-    BaseModel, ConfigDict = pydantic_types
+    if isinstance(max_turns, bool) or not isinstance(max_turns, int) or not 4 <= max_turns <= 160:
+        raise OpenAIProductionPipelineError("max_turns must be an integer from 4 through 160")
+    provider = decision_provider or CodexDockerDecisionProvider(
+        source=controller.workflow.base_observer.root,
+        model=model,
+    )
+    history: list[dict[str, Any]] = []
 
-    class PipelineOutcomeModel(BaseModel):
-        model_config = ConfigDict(extra="forbid")
-
-        schema_version: str
-        task_id: str
-        status: str
-        issue_url: str | None
-        branch: str | None
-        commit: str | None
-        next_action: str
-        blockers: list[str]
-        authority: str
-
-    observations_before = len(controller.workflow.action_log)
-
-    @function_tool
-    def observe_goal_state() -> str:
-        """Read current Git, TaskGraph, Issue, checkout, scope, crew, and integration state."""
-
-        return _json(controller.observe())
-
-    @function_tool
-    def acquire_agent_lease(planned_approach: str, expected_validation: str) -> str:
-        """Reserve the managed Issue for this worker after eligibility/resource checks."""
-
-        return _json(
-            controller.acquire_agent_lease(
-                planned_approach=planned_approach,
-                expected_validation=expected_validation,
-            )
+    for turn in range(1, max_turns + 1):
+        observation = controller.observe()
+        terminal = _terminal_outcome(request, observation)
+        if terminal is not None:
+            return terminal
+        prompt = render_supervisor_prompt(
+            task_id=request.task_id,
+            goal_and_rules=_GOAL_AND_RULES,
+            observation=observation,
+            history=history,
+            actions=_ACTIONS,
         )
-
-    @function_tool
-    def prepare_task_checkout() -> str:
-        """Create or resume the exact canonical task checkout and deterministic branch."""
-
-        return _json(controller.prepare_task_checkout())
-
-    @function_tool
-    def repository_facts() -> str:
-        """Read task-owned resource hints and relevant implementation/test file suggestions."""
-
-        return _json(controller.repository_facts())
-
-    @function_tool
-    def list_repository_files(prefix: str, limit: int = 200) -> str:
-        """List committed files under one approved repository prefix."""
-
-        return _json(controller.list_repository_files(prefix=prefix, limit=limit))
-
-    @function_tool
-    def search_repository(
-        query: str,
-        prefixes: list[str],
-        limit: int = 80,
-    ) -> str:
-        """Search committed text under approved roots without shell or write authority."""
-
-        return _json(
-            controller.search_repository(query=query, prefixes=prefixes, limit=limit)
+        decision = provider.decide(
+            task_id=request.task_id,
+            turn=turn,
+            prompt=prompt,
+            allowed_actions=tuple(_ACTIONS),
         )
-
-    @function_tool
-    def read_repository_file(
-        path: str,
-        start_line: int = 1,
-        end_line: int = 400,
-    ) -> str:
-        """Read a bounded line range from one committed text file."""
-
-        return _json(
-            controller.read_repository_file(
-                path=path,
-                start_line=start_line,
-                end_line=end_line,
-            )
-        )
-
-    @function_tool
-    def latest_human_feedback() -> str:
-        """Read the latest validated PASS/FAIL comment when the Issue is in repair/delivery."""
-
-        return _json(controller.latest_human_feedback())
-
-    @function_tool
-    def validate_execution_scope(
-        existing_implementation_paths: list[str],
-        new_implementation_paths: list[str],
-        existing_test_paths: list[str],
-        new_test_paths: list[str],
-    ) -> str:
-        """Mint a plan ID only for exact safe implementation/test file authority."""
-
         try:
-            result = controller.validate_execution_scope(
-                existing_implementation_paths=existing_implementation_paths,
-                new_implementation_paths=new_implementation_paths,
-                existing_test_paths=existing_test_paths,
-                new_test_paths=new_test_paths,
+            result = _execute(decision, controller)
+            history.append(
+                {
+                    "turn": turn,
+                    "action": decision.action,
+                    "rationale": decision.rationale,
+                    "result": result,
+                }
             )
         except TaskReviewContractError as exc:
-            result = {"accepted": False, "reasons": [str(exc)], "plan_id": None}
-        return _json(result)
-
-    @function_tool
-    def run_execution_crew(
-        plan_id: str,
-        retry_run_id: str | None = None,
-        feedback_file: str | None = None,
-    ) -> str:
-        """Run the existing Contract Auditor/Implementer/Test Author/Validator pipeline."""
-
-        return _json(
-            controller.run_execution_crew(
-                plan_id=plan_id,
-                retry_run_id=retry_run_id,
-                feedback_file=feedback_file,
+            history.append(
+                {
+                    "turn": turn,
+                    "action": decision.action,
+                    "rationale": decision.rationale,
+                    "tool_error": str(exc),
+                }
             )
-        )
 
-    @function_tool
-    def integrate_commit_push_and_handoff(
-        run_id: str,
-        implementation_summary: str,
-        human_steps: list[str],
-        expected_result: str,
-    ) -> str:
-        """Verify/apply candidate, commit/push branch, and publish Vincent's Issue checklist."""
-
-        return _json(
-            controller.integrate_commit_push_and_handoff(
-                run_id=run_id,
-                implementation_summary=implementation_summary,
-                human_steps=human_steps,
-                expected_result=expected_result,
+    observation = controller.observe()
+    state = _workflow_state(observation)
+    if state.get("state") == "agent_working" and state.get("worker_id") == controller.workflow.worker_id:
+        try:
+            controller.record_pipeline_blocker(
+                summary="Goal supervisor turn budget exhausted",
+                details=[
+                    f"The authenticated Codex supervisor used all {max_turns} bounded decisions.",
+                    "No human-ready terminal state was proven.",
+                ],
             )
-        )
-
-    @function_tool
-    def record_pipeline_blocker(summary: str, details: list[str]) -> str:
-        """Persist a genuine design/contract/operational blocker in the managed Issue."""
-
-        return _json(controller.record_pipeline_blocker(summary=summary, details=details))
-
-    instructions = f"""
-You are the No Safe Circle goal-oriented production task supervisor.
-
-GOAL
-Take exact task {request.task_id} through the existing repository pipeline until the agent has:
-1. acquired the durable Issue lease;
-2. created or resumed the canonical task checkout and branch;
-3. selected the smallest exact implementation and Unity-test file surface;
-4. run the existing ExecutionCrew;
-5. received crew_status=review_ready;
-6. deterministically applied candidate.patch;
-7. committed and pushed the exact task branch; and
-8. changed the managed Issue to human_action_required with concrete Unity steps for Vincent.
-
-YOU DO NOT WRITE GAME CODE DIRECTLY
-The only code-writing authority belongs to ExecutionCrew. You have bounded repository read/search,
-exact scope validation, ExecutionCrew invocation, candidate integration, Git commit/push, and Issue
-handoff tools. Never claim a tool action occurred without its returned proof.
-
-OPERATING LOOP
-- Always call observe_goal_state first and after lease or checkout changes.
-- Follow production_pipeline.next_action. Never skip a prerequisite.
-- If the task/dependencies are not eligible, return needs_human without claiming another task.
-- Acquire a lease with a concrete Unity implementation approach and expected validation.
-- Read Docs/Engineering/UNITY_TESTING_POLICY.md and
-  Docs/AI-Pipeline/UNITY_PROGRAMMER_LANGUAGE.md before proposing scope.
-- Start scope discovery from exclusive resources and repository_facts. Search/read enough current
-  code and tests to identify exact files. Keep scope minimal.
-- Correct existing/new classification using deterministic validation findings. Never scaffold a
-  file merely to make it existing. Never include .meta; ExecutionCrew owns new Assets sidecars.
-- Implementation and test scopes must be disjoint. Tests must include at least one C# test file.
-- Run ExecutionCrew only with a returned plan_id.
-- crew_status=review_ready is semantic candidate approval, not yet a commit or human validation.
-- For contract_review_required, blocked, rejected, or needs_human, record_pipeline_blocker with
-  exact result reasons/artifact identity. Do not fabricate a candidate.
-- For review_ready, call integrate_commit_push_and_handoff exactly once. Give Vincent numbered,
-  executable Unity steps derived from the task completion gates. State the exact expected result.
-- Stop after the Issue is human_action_required. Do not run Unity, merge, deliver, or claim
-  TaskGraph conformance.
-
-HUMAN HANDOFF QUALITY
-The implementation summary must name concrete Unity scripts/components/behavior and tests. The
-human steps must say which checkout/scene to open, what to do in Play Mode, and what observable
-behavior counts as PASS. Do not ask Vincent to inspect raw patches or finish implementation.
-
-FINAL OUTPUT
-Return schema_version={TASK_REVIEW_SCHEMA_VERSION}, task_id={request.task_id}, and authority
-exactly committed_branch_to_human_unity_handoff. status must be human_action_required,
-needs_human, or blocked. For human_action_required, copy the exact Issue URL, branch, and commit
-from final deterministic state and leave blockers empty.
-""".strip()
-
-    agent = Agent(
-        name="No Safe Circle Production Task Supervisor",
-        model=model or os.getenv("TASK_REVIEW_AGENT_MODEL", DEFAULT_MODEL),
-        instructions=instructions,
-        tools=[
-            observe_goal_state,
-            acquire_agent_lease,
-            prepare_task_checkout,
-            repository_facts,
-            list_repository_files,
-            search_repository,
-            read_repository_file,
-            latest_human_feedback,
-            validate_execution_scope,
-            run_execution_crew,
-            integrate_commit_push_and_handoff,
-            record_pipeline_blocker,
-        ],
-        output_type=PipelineOutcomeModel,
+            observation = controller.observe()
+            terminal = _terminal_outcome(request, observation)
+            if terminal is not None:
+                return terminal
+        except TaskReviewContractError:
+            pass
+    raise OpenAIProductionPipelineError(
+        f"Codex supervisor exhausted {max_turns} decisions without a deterministic terminal state"
     )
-
-    result = Runner.run_sync(
-        agent,
-        f"Advance {request.task_id} to its durable human Unity validation handoff.",
-        max_turns=max_turns,
-    )
-    final_output = result.final_output
-    if not isinstance(final_output, PipelineOutcomeModel):
-        raise OpenAIProductionPipelineError(
-            "OpenAI production supervisor did not return the required structured output"
-        )
-    if len(controller.workflow.action_log) <= observations_before:
-        raise OpenAIProductionPipelineError(
-            "OpenAI production supervisor returned without observing workflow state"
-        )
-
-    payload = final_output.model_dump(mode="json")
-    if payload.get("schema_version") != TASK_REVIEW_SCHEMA_VERSION:
-        raise OpenAIProductionPipelineError("model changed schema_version")
-    if payload.get("task_id") != request.task_id:
-        raise OpenAIProductionPipelineError("model changed explicit task identity")
-    if payload.get("authority") != "committed_branch_to_human_unity_handoff":
-        raise OpenAIProductionPipelineError("model changed final authority boundary")
-
-    final_observation = controller.observe()
-    state = ((final_observation.get("coordination") or {}).get("workflow_state") or {})
-    deterministic_status = (final_observation.get("production_pipeline") or {}).get("status")
-    if payload.get("status") == "human_action_required":
-        if deterministic_status != "human_action_required" or state.get("state") != "human_action_required":
-            raise OpenAIProductionPipelineError(
-                "model claimed human handoff before deterministic Issue state reached it"
-            )
-        fixed = {
-            "issue_url": (final_observation.get("coordination") or {}).get("issue_url"),
-            "branch": state.get("branch"),
-            "commit": state.get("head_commit"),
-        }
-        for field, expected in fixed.items():
-            if payload.get(field) != expected:
-                raise OpenAIProductionPipelineError(
-                    f"model changed final {field}: {payload.get(field)!r} != {expected!r}"
-                )
-        if payload.get("blockers"):
-            raise OpenAIProductionPipelineError("human_action_required cannot contain blockers")
-    elif payload.get("status") not in ("needs_human", "blocked"):
-        raise OpenAIProductionPipelineError("model returned unsupported final status")
-    return {
-        **payload,
-        "deterministic_final_state": final_observation,
-    }
