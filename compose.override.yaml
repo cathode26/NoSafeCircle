@@ -22,6 +22,9 @@ services:
 
 volumes:
   # The launcher selects an already-authenticated Codex CLI volume and exports
-  # its exact name. This avoids copying or exposing the stored credential.
+  # its exact name. It is external because the selected volume may belong to an
+  # older Compose project (for example nosafecircle-m2a); this avoids ownership
+  # warnings while preserving the credential bytes in place.
   task-supervisor-codex-config:
+    external: true
     name: ${NSC_TASK_SUPERVISOR_CODEX_VOLUME:-nosafecircle_codex-config}
