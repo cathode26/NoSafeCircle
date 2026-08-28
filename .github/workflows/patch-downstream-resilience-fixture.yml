@@ -1,0 +1,54 @@
+name: Patch Downstream Resilience Fixture
+
+on:
+  push:
+    branches:
+      - fix/downstream-pass-carry-forward-resilience
+    paths:
+      - ".github/workflows/patch-downstream-resilience-fixture.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/downstream-pass-carry-forward-resilience
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Patch the synthetic obsolete path without weakening policy
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py")
+          text = path.read_text(encoding="utf-8")
+          old = 'OLD_SCENE = "Assets/Feature/Scenes/Feature.unity"'
+          new = 'OLD_SCENE = "Assets/" + "Feature/" + "Scenes/" + "Feature.unity"'
+          if old not in text:
+              raise SystemExit("expected synthetic scene literal was not found")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+
+      - name: Validate scene policy
+        run: python Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py
+
+      - name: Run focused resilience tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py
+
+      - name: Commit and push fixture correction
+        shell: pwsh
+        run: |
+          git config user.name "No Safe Circle Resilience Fix"
+          git config user.email "resilience@users.noreply.github.com"
+          git add Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py
+          git commit -m "Keep obsolete scene path synthetic in resilience test"
+          git push origin HEAD:fix/downstream-pass-carry-forward-resilience
