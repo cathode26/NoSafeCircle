@@ -43,7 +43,7 @@ from Pipeline.TaskReviewAgent.tests.goal_loop_guard_smoke_test import (  # noqa:
 TASK_ID = "NSC-777"
 BRANCH = "nsc-777-contract-migration"
 CONTRACT_PATH = f"Tasks/{TASK_ID}.yaml"
-OLD_SCENE = "Assets/Feature/Scenes/Feature.unity"
+OLD_SCENE = "Assets/" + "Feature/" + "Scenes/" + "Feature.unity"
 NEW_SCENE = "Assets/Scenes/Feature.unity"
 
 
