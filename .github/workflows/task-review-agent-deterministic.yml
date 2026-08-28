@@ -68,6 +68,9 @@ jobs:
       - name: Run live progress logging smoke tests
         run: python Pipeline/TaskReviewAgent/tests/progress_logging_smoke_test.py
 
+      - name: Run checkout circuit-breaker smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py
+
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
 
