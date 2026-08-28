@@ -13,7 +13,23 @@ function Invoke-NscNativeCommand {
 
     $PreviousErrorActionPreference = $ErrorActionPreference
     $Lines = New-Object 'System.Collections.Generic.List[string]'
+    $NormalizedArguments = New-Object 'System.Collections.Generic.List[string]'
     $ExitCode = 1
+
+    foreach ($Argument in $ArgumentList) {
+        if ($null -eq $Argument) {
+            throw 'Native command arguments must not be null.'
+        }
+
+        # Windows here-strings use CRLF. Passing one directly to Linux bash
+        # leaves a carriage return on tokens such as `set -eu`, which Bash then
+        # interprets as an invalid option. Native multiline payloads are textual
+        # protocol values, so normalize them before crossing the OS boundary.
+        $Normalized = $Argument.Replace("`r`n", "`n").Replace("`r", "`n")
+        [void]$NormalizedArguments.Add($Normalized)
+    }
+
+    $NativeArgumentList = $NormalizedArguments.ToArray()
 
     try {
         # Windows PowerShell 5.1 converts native stderr into ErrorRecord objects.
@@ -21,7 +37,7 @@ function Invoke-NscNativeCommand {
         # terminate a successful command before LASTEXITCODE can be inspected.
         $ErrorActionPreference = 'Continue'
 
-        & $FilePath @ArgumentList 2>&1 | ForEach-Object {
+        & $FilePath @NativeArgumentList 2>&1 | ForEach-Object {
             $Text = $_.ToString()
             [void]$Lines.Add($Text)
             if ($StreamOutput) {
