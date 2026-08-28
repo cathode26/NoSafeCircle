@@ -1,0 +1,220 @@
+[CmdletBinding()]
+param(
+    [ValidatePattern('^NSC-[0-9]{3}$')]
+    [string]$TaskId,
+
+    [ValidateSet('claude', 'codex')]
+    [string]$ExecutionProvider = 'claude',
+
+    [ValidateSet('openai', 'observe')]
+    [string]$Mode = 'openai',
+
+    [string]$WorkerId,
+
+    [string]$CheckoutRoot,
+
+    [string]$UnityExecutable,
+
+    [string]$OutputRoot,
+
+    [string]$Model,
+
+    [string]$Source,
+
+    [ValidateRange(12, 160)]
+    [int]$MaxTurns = 120
+)
+
+$ErrorActionPreference = 'Stop'
+$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+Set-Location $RepositoryRoot
+
+if ([string]::IsNullOrWhiteSpace($Source)) {
+    $Source = $RepositoryRoot
+}
+else {
+    $Source = (Resolve-Path $Source).Path
+}
+
+if ([string]::IsNullOrWhiteSpace($WorkerId)) {
+    $machine = ([Environment]::MachineName.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
+    $WorkerId = "task-review-agent-$machine-$([Guid]::NewGuid().ToString('N').Substring(0, 10))"
+}
+
+if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
+    $CheckoutParent = Split-Path -Parent $RepositoryRoot
+    $OutputRoot = Join-Path $CheckoutParent '.task-review-agent\outputs'
+}
+if (-not (Test-Path -LiteralPath $OutputRoot -PathType Container)) {
+    New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
+}
+$OutputRoot = (Resolve-Path -LiteralPath $OutputRoot).Path
+
+foreach ($CommandName in @('git', 'gh', 'docker', 'python')) {
+    if ($null -eq (Get-Command $CommandName -ErrorAction SilentlyContinue)) {
+        if ($CommandName -eq 'gh') {
+            throw 'GitHub CLI is required but is not installed. Install it with: winget install --id GitHub.cli'
+        }
+        throw "Required command is not installed or not on PATH: $CommandName"
+    }
+}
+
+& gh auth status --hostname github.com | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw 'GitHub CLI must be authenticated. Run: gh auth login'
+}
+
+& docker compose version | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw 'Docker Desktop and Docker Compose must be available.'
+}
+
+$SupervisorVolume = $null
+if ($Mode -eq 'openai') {
+    # Codex CLI login is already stored in a Docker volume. The supervisor uses
+    # that login directly; it never requests or copies OPENAI_API_KEY.
+    $AllVolumes = @(docker volume ls --format '{{.Name}}')
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to enumerate Docker volumes.'
+    }
+
+    $Candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:NSC_TASK_SUPERVISOR_CODEX_VOLUME)) {
+        $Candidates += $env:NSC_TASK_SUPERVISOR_CODEX_VOLUME
+    }
+    foreach ($Preferred in @(
+        'nosafecircle-m2a_codex-config',
+        'nosafecircle_codex-config'
+    )) {
+        if ($AllVolumes -contains $Preferred) {
+            $Candidates += $Preferred
+        }
+    }
+    $Candidates += @(
+        $AllVolumes |
+            Where-Object { $_ -match 'codex-config$' } |
+            Sort-Object
+    )
+    $Candidates = @($Candidates | Select-Object -Unique)
+
+    if ($Candidates.Count -eq 0) {
+        throw 'No persisted Codex CLI configuration volume was found. Authenticate Codex once through an existing Compose project.'
+    }
+
+    & docker compose -p nosafecircle build codex-supervisor | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw 'The codex-supervisor Docker image could not be built.'
+    }
+
+    foreach ($Candidate in $Candidates) {
+        $env:NSC_TASK_SUPERVISOR_CODEX_VOLUME = $Candidate
+        & docker compose -p nosafecircle run --rm -T codex-supervisor codex login status *> $null
+        if ($LASTEXITCODE -eq 0) {
+            $SupervisorVolume = $Candidate
+            break
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($SupervisorVolume)) {
+        throw @"
+Persisted Codex volumes were found, but none reported an authenticated CLI session.
+Checked: $($Candidates -join ', ')
+No API key is required. Re-authenticate the intended volume with Codex CLI instead.
+"@
+    }
+    $env:NSC_TASK_SUPERVISOR_CODEX_VOLUME = $SupervisorVolume
+
+    $ExecutionService = "$ExecutionProvider-exec"
+    $ProviderVolume = "nosafecircle_$ExecutionProvider-config"
+    $ProviderConfigPath = if ($ExecutionProvider -eq 'claude') {
+        '/home/agent/.claude'
+    }
+    else {
+        '/home/agent/.codex'
+    }
+
+    & docker volume inspect $ProviderVolume | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "The shared ExecutionCrew provider volume is missing: $ProviderVolume"
+    }
+
+    $ExecutionOutputRoot = Join-Path $RepositoryRoot 'Pipeline\ExecutionCrew\outputs'
+    if (-not (Test-Path -LiteralPath $ExecutionOutputRoot -PathType Container)) {
+        New-Item -ItemType Directory -Path $ExecutionOutputRoot -Force | Out-Null
+    }
+    $ProbeName = "permission-probe-$([Guid]::NewGuid().ToString('N')).txt"
+    $HostProbePath = Join-Path $ExecutionOutputRoot $ProbeName
+    $ProbeScript = @"
+set -eu
+if touch '/workspace/$ProbeName' 2>/dev/null; then
+  rm -f '/workspace/$ProbeName'
+  echo 'ERROR: /workspace is writable but must be read-only.' >&2
+  exit 41
+fi
+test -d '$ProviderConfigPath'
+test -r '$ProviderConfigPath'
+test -w '$ProviderConfigPath'
+printf 'task-review-agent-permission-ok\n' > '/execution-output/$ProbeName'
+"@
+
+    try {
+        & docker compose -p nosafecircle run --rm -T $ExecutionService bash -lc $ProbeScript
+        if ($LASTEXITCODE -ne 0) {
+            throw "Docker permission preflight failed for $ExecutionService."
+        }
+        if (-not (Test-Path -LiteralPath $HostProbePath -PathType Leaf)) {
+            throw 'Docker reported success but the host did not receive the ExecutionCrew output probe.'
+        }
+        $ProbeValue = (Get-Content -LiteralPath $HostProbePath -Raw).Trim()
+        if ($ProbeValue -ne 'task-review-agent-permission-ok') {
+            throw 'Docker ExecutionCrew output probe had unexpected contents.'
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $HostProbePath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+$Arguments = @(
+    'Pipeline/TaskReviewAgent/run_pipeline_agent.py',
+    '--mode', $Mode,
+    '--source', $Source,
+    '--worker-id', $WorkerId,
+    '--execution-provider', $ExecutionProvider,
+    '--max-turns', $MaxTurns.ToString(),
+    '--output-root', $OutputRoot
+)
+
+if (-not [string]::IsNullOrWhiteSpace($TaskId)) {
+    $Arguments += @('--task-id', $TaskId)
+}
+if (-not [string]::IsNullOrWhiteSpace($CheckoutRoot)) {
+    $Arguments += @('--checkout-root', $CheckoutRoot)
+}
+if (-not [string]::IsNullOrWhiteSpace($UnityExecutable)) {
+    $UnityExecutable = (Resolve-Path -LiteralPath $UnityExecutable).Path
+    $Arguments += @('--unity-executable', $UnityExecutable)
+}
+if (-not [string]::IsNullOrWhiteSpace($Model)) {
+    $Arguments += @('--model', $Model)
+}
+
+Write-Host "Worker: $WorkerId"
+if ([string]::IsNullOrWhiteSpace($TaskId)) {
+    Write-Host 'Task: resume first validated agent-ready Issue'
+}
+else {
+    Write-Host "Task: $TaskId"
+}
+Write-Host "Goal supervisor: OpenAI Codex CLI in Docker (no API key)"
+if ($SupervisorVolume) {
+    Write-Host "Codex credential volume: $SupervisorVolume"
+}
+Write-Host "Execution provider: $ExecutionProvider"
+Write-Host "Durable output root: $OutputRoot"
+Write-Host 'Pipeline phase: selected automatically from the durable Issue state'
+
+& python @Arguments
+if ($LASTEXITCODE -ne 0) {
+    throw "Game Task Agent stopped with exit code $LASTEXITCODE."
+}

@@ -1,0 +1,2 @@
+# No host-side model SDK is required.
+# The goal supervisor uses authenticated Codex CLI through Docker.
