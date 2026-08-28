@@ -646,7 +646,7 @@ Response: stop gameplay work, inspect the live task `exclusive_resources` and `P
 
 ### Stale canonical scene path in a task contract
 
-Symptom: a task's live resource scope references `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity` even though the canonical scene is now `Assets/Scenes/DoorPrototype.unity`.
+Symptom: a live task resource points to a `.unity` asset outside `Assets/Scenes/`, or names a scene path that does not exist.
 
 Response: correct the live contract field, increment `contract_revision`, update `RESOURCE_GROUPS.yaml` symmetrically, commit the correction first, and preserve historical bootstrap evidence as historical evidence.
 

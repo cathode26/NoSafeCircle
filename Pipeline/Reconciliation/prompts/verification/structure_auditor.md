@@ -333,7 +333,7 @@ locks for the actual shared resources, including when applicable:
 
 ```text
 repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
-unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity
+unity-scene:Assets/Scenes/DoorPrototype.unity
 ```
 
 Do not add those locks if the navigation task can be completed without writing

@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-005",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Player Mana Ownership, Restart Reset, and Denied-Cast Feedback",
   "reconciliation_key": "player-mana",
@@ -80,7 +80,7 @@
       "observation": "Continuously binds a fill Image to CurrentMana/MaxMana every Update, satisfying the GDD's continuous mana indicator requirement."
     },
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "path": "Assets/Scenes/DoorPrototype.unity",
       "evidence_type": "scene",
       "observation": "Both PlayerMana.cs (guid fd54c6f00e974856b70833ac4771b9ae) and PlayerManaUI.cs (guid 0a03ab321b0847f59d3f91214dabcf5c) are serialized and wired on the Player/Canvas GameObjects, confirming the continuous mana indicator is currently integrated, not just buildable."
     },

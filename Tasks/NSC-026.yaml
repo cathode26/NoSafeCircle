@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-026",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Tilemap and SpriteRenderer World Visual Foundation",
   "reconciliation_key": "world-visual-foundation",
@@ -86,7 +86,7 @@
     {
       "evidence_type": "scene",
       "observation": "No Grid/Tilemap/TilemapRenderer serialized objects are present in the scene; door and wall visuals are serialized MeshRenderer/BoxCollider/MeshFilter primitives, not SpriteRenderer prefabs.",
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+      "path": "Assets/Scenes/DoorPrototype.unity"
     }
   ],
   "provenance": {
