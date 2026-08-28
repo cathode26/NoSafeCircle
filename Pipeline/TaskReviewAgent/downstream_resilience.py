@@ -35,6 +35,7 @@ from .downstream_pipeline import (
 from .issue_workflow import (
     WorkflowActor,
     WorkflowEventType,
+    WorkflowPhase,
     WorkflowState,
     labels_for_state,
     render_event_comment,
@@ -342,6 +343,75 @@ def _existing_carry_forward_receipt(
     return dict(receipt)
 
 
+def _integrated_main_for_migration(
+    controller: Any,
+    human_commit: str,
+    head: str,
+) -> str:
+    """Resolve the main parent that the clerical migration merged into the task.
+
+    The current origin/main may have advanced after the migration. The receipt must
+    therefore prove the historical migration first, then let integrate_current_main
+    handle later automation-only progress as a separate transition.
+    """
+
+    candidates = _git_text(
+        controller.command_runner,
+        controller.checkout,
+        "rev-list",
+        "--merges",
+        "--ancestry-path",
+        f"{human_commit}..{head}",
+        check=False,
+    ).splitlines()
+    for merge_commit in candidates:
+        values = _git_text(
+            controller.command_runner,
+            controller.checkout,
+            "rev-list",
+            "--parents",
+            "-n",
+            "1",
+            merge_commit,
+            check=False,
+        ).split()
+        if len(values) != 3:
+            continue
+        parents = values[1:]
+        contains_human = [
+            _git(
+                controller.command_runner,
+                controller.checkout,
+                "merge-base",
+                "--is-ancestor",
+                human_commit,
+                parent,
+                check=False,
+            ).returncode
+            == 0
+            for parent in parents
+        ]
+        if contains_human.count(True) != 1:
+            continue
+        main_parent = parents[contains_human.index(False)]
+        if (
+            _git(
+                controller.command_runner,
+                controller.checkout,
+                "merge-base",
+                "--is-ancestor",
+                main_parent,
+                head,
+                check=False,
+            ).returncode
+            == 0
+        ):
+            return main_parent
+    raise DownstreamPipelineError(
+        "clerical migration head does not contain one unambiguous mainline merge parent"
+    )
+
+
 def _build_contract_migration_receipt(
     controller: Any,
     state: Mapping[str, Any],
@@ -373,37 +443,11 @@ def _build_contract_migration_receipt(
             "human-tested commit is not an ancestor of the operational commit"
         )
 
-    _git(
-        controller.command_runner,
-        controller.checkout,
-        "fetch",
-        "origin",
-        "+refs/heads/main:refs/remotes/origin/main",
-        timeout_seconds=900.0,
+    current_main = _integrated_main_for_migration(
+        controller,
+        human_commit,
+        head,
     )
-    current_main = _git_text(
-        controller.command_runner,
-        controller.checkout,
-        "rev-parse",
-        "origin/main",
-    )
-    if not _SHA40.fullmatch(current_main):
-        raise DownstreamPipelineError("origin/main did not resolve to a commit")
-    if (
-        _git(
-            controller.command_runner,
-            controller.checkout,
-            "merge-base",
-            "--is-ancestor",
-            current_main,
-            head,
-            check=False,
-        ).returncode
-        != 0
-    ):
-        raise DownstreamPipelineError(
-            "origin/main advanced beyond the clerical migration integration"
-        )
 
     observation = getattr(controller, "last_observation", None)
     task = (
@@ -614,6 +658,78 @@ def _contract_migration_receipt_for(
     controller.state["delivery_base_commit"] = receipt["integrated_main_commit"]
     controller._persist()
     return receipt
+
+
+def _prepare_contract_migration_mainline_bridge(
+    self: Any,
+    state: Mapping[str, Any],
+    human: Mapping[str, Any],
+    head: str,
+) -> dict[str, Any]:
+    from .mainline_reintegration import _automation_receipt_for
+
+    existing = _automation_receipt_for(self, head)
+    if existing is not None:
+        return existing
+    carry_forward = _contract_migration_receipt_for(
+        self,
+        state,
+        human,
+        head,
+    )
+    payload = {
+        "schema_version": "1.0",
+        "task_id": self.task_id,
+        "branch": state.get("branch"),
+        "prior_task_head": carry_forward["human_tested_commit"],
+        "human_tested_commit": carry_forward["human_tested_commit"],
+        "main_head": carry_forward["integrated_main_commit"],
+        "merge_base": carry_forward["merge_base"],
+        "integrated_commit": head,
+        "classification": "automation_only",
+        "human_revalidation_required": False,
+        "main_changed_paths": carry_forward["main_changed_paths"],
+        "task_changed_paths": carry_forward["task_changed_paths"],
+        "overlap_paths": [],
+        "exclusive_overlap_paths": [],
+        "non_automation_paths": [],
+        "task_blob_changes_after_merge": [],
+        "created_at_utc": utc_now(),
+        "authority": "verified_contract_migration_mainline_bridge",
+        "carry_forward_receipt_sha256": carry_forward["receipt_sha256"],
+    }
+    bridge_receipt = {
+        **payload,
+        "receipt_sha256": semantic_sha256(payload),
+    }
+    self.state["mainline_reintegration"] = bridge_receipt
+    self._persist()
+    return bridge_receipt
+
+
+def _patched_integrate_current_main(self: Any) -> dict[str, Any]:
+    _observation, state = self._require_lease(
+        WorkflowPhase.DELIVERY_EVIDENCE
+    )
+    head = _git_text(
+        self.command_runner,
+        self.checkout,
+        "rev-parse",
+        "HEAD",
+    )
+    human = self._latest_human_validation()
+    if (
+        isinstance(human, Mapping)
+        and human.get("result") == "pass"
+        and human.get("tested_commit") != head
+    ):
+        _prepare_contract_migration_mainline_bridge(
+            self,
+            state,
+            human,
+            head,
+        )
+    return _ORIGINALS["integrate_current_main"](self)
 
 
 def _patched_assert_human_tested_head(
@@ -1045,6 +1161,7 @@ def install_downstream_resilience() -> None:
         {
             "assert_human_tested_head": controller._assert_human_tested_head,
             "human_validation_artifact": controller._human_validation_artifact,
+            "integrate_current_main": controller.integrate_current_main,
             "required_platforms": pipeline._required_platforms,
             "observe": controller.observe,
             "run_authoritative_unity_test": controller.run_authoritative_unity_test,
@@ -1060,6 +1177,7 @@ def install_downstream_resilience() -> None:
     controller._human_validation_artifact = _patched_human_validation_artifact
     controller.observe = _patched_observe
     controller.run_authoritative_unity_test = _patched_run_authoritative_unity_test
+    controller.integrate_current_main = _patched_integrate_current_main
 
     pipeline._required_platforms = _patched_required_platforms
     runtime._required_platforms = _patched_required_platforms
