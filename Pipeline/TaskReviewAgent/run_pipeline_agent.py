@@ -16,6 +16,9 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from Pipeline.TaskReviewAgent.codex_supervisor import (  # noqa: E402
+    describe_codex_runtime,
+)
 from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     TaskReviewContractError,
     TaskReviewRequest,
@@ -36,10 +39,6 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
     IssueWorkflowService,
     IssueWorkflowStoreError,
-)
-from Pipeline.TaskReviewAgent.openai_agent import (  # noqa: E402
-    OpenAIAgentsUnavailable,
-    describe_runtime,
 )
 from Pipeline.TaskReviewAgent.openai_downstream import (  # noqa: E402
     OpenAIDownstreamPipelineError,
@@ -93,7 +92,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--mode",
         choices=("openai", "observe"),
         default="openai",
-        help="openai drives the current Issue phase; observe reads without mutations",
+        help=(
+            "openai uses authenticated Codex CLI to drive the current Issue phase; "
+            "observe reads without mutations"
+        ),
     )
     return parser
 
@@ -203,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
                 "selection": selection,
                 "worker_id": args.worker_id,
                 "execution_provider": args.execution_provider,
-                "runtime": describe_runtime(),
+                "runtime": describe_codex_runtime(),
                 "observation": controller.observe(),
                 "authority": authority,
             }
@@ -220,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
                 "selected_pipeline": "downstream",
                 "selection": selection,
                 "worker_id": args.worker_id,
-                "runtime": describe_runtime(),
+                "runtime": describe_codex_runtime(),
                 "outcome": outcome,
             }
         else:
@@ -237,7 +239,7 @@ def main(argv: list[str] | None = None) -> int:
                 "selection": selection,
                 "worker_id": args.worker_id,
                 "execution_provider": args.execution_provider,
-                "runtime": describe_runtime(),
+                "runtime": describe_codex_runtime(),
                 "outcome": outcome,
             }
         print(json.dumps(result, indent=2, sort_keys=True))
@@ -247,7 +249,6 @@ def main(argv: list[str] | None = None) -> int:
         DownstreamPipelineError,
         GenericSelectionError,
         IssueWorkflowStoreError,
-        OpenAIAgentsUnavailable,
         OpenAIDownstreamPipelineError,
         OSError,
     ) as exc:
