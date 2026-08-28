@@ -31,6 +31,21 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Parse Game Task Agent PowerShell launcher
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1").Path,
+            [ref]$tokens,
+            [ref]$errors
+          )
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw "Game Task Agent PowerShell parsing failed."
+          }
+
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
 
