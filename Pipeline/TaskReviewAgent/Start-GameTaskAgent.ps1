@@ -26,6 +26,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$NativeCommandPath = Join-Path $PSScriptRoot 'NativeCommand.ps1'
+if (-not (Test-Path -LiteralPath $NativeCommandPath -PathType Leaf)) {
+    throw "Native command helper is missing: $NativeCommandPath"
+}
+. $NativeCommandPath
+
 $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 Set-Location $RepositoryRoot
 
@@ -59,13 +65,19 @@ foreach ($CommandName in @('git', 'gh', 'docker', 'python')) {
     }
 }
 
-& gh auth status --hostname github.com | Out-Null
-if ($LASTEXITCODE -ne 0) {
+$GitHubAuth = Invoke-NscNativeCommand `
+    -FilePath 'gh' `
+    -ArgumentList @('auth', 'status', '--hostname', 'github.com')
+if ($GitHubAuth.ExitCode -ne 0) {
+    $GitHubAuth.Output | ForEach-Object { Write-Host $_ }
     throw 'GitHub CLI must be authenticated. Run: gh auth login'
 }
 
-& docker compose version | Out-Null
-if ($LASTEXITCODE -ne 0) {
+$ComposeVersion = Invoke-NscNativeCommand `
+    -FilePath 'docker' `
+    -ArgumentList @('compose', 'version')
+if ($ComposeVersion.ExitCode -ne 0) {
+    $ComposeVersion.Output | ForEach-Object { Write-Host $_ }
     throw 'Docker Desktop and Docker Compose must be available.'
 }
 
@@ -73,10 +85,17 @@ $SupervisorVolume = $null
 if ($Mode -eq 'openai') {
     # Codex CLI login is already stored in a Docker volume. The supervisor uses
     # that login directly; it never requests or copies OPENAI_API_KEY.
-    $AllVolumes = @(docker volume ls --format '{{.Name}}')
-    if ($LASTEXITCODE -ne 0) {
+    $VolumeList = Invoke-NscNativeCommand `
+        -FilePath 'docker' `
+        -ArgumentList @('volume', 'ls', '--format', '{{.Name}}')
+    if ($VolumeList.ExitCode -ne 0) {
+        $VolumeList.Output | ForEach-Object { Write-Host $_ }
         throw 'Unable to enumerate Docker volumes.'
     }
+    $AllVolumes = @(
+        $VolumeList.Output |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
 
     $Candidates = @()
     if (-not [string]::IsNullOrWhiteSpace($env:NSC_TASK_SUPERVISOR_CODEX_VOLUME)) {
@@ -101,15 +120,28 @@ if ($Mode -eq 'openai') {
         throw 'No persisted Codex CLI configuration volume was found. Authenticate Codex once through an existing Compose project.'
     }
 
-    & docker compose -p nosafecircle build codex-supervisor | Out-Host
-    if ($LASTEXITCODE -ne 0) {
+    $SupervisorBuild = Invoke-NscNativeCommand `
+        -FilePath 'docker' `
+        -ArgumentList @(
+            'compose', '-p', 'nosafecircle',
+            'build', 'codex-supervisor'
+        ) `
+        -StreamOutput
+    if ($SupervisorBuild.ExitCode -ne 0) {
         throw 'The codex-supervisor Docker image could not be built.'
     }
 
     foreach ($Candidate in $Candidates) {
         $env:NSC_TASK_SUPERVISOR_CODEX_VOLUME = $Candidate
-        & docker compose -p nosafecircle run --rm -T codex-supervisor codex login status *> $null
-        if ($LASTEXITCODE -eq 0) {
+        $LoginStatus = Invoke-NscNativeCommand `
+            -FilePath 'docker' `
+            -ArgumentList @(
+                'compose', '-p', 'nosafecircle',
+                'run', '--rm', '-T',
+                'codex-supervisor',
+                'codex', 'login', 'status'
+            )
+        if ($LoginStatus.ExitCode -eq 0) {
             $SupervisorVolume = $Candidate
             break
         }
@@ -133,8 +165,11 @@ No API key is required. Re-authenticate the intended volume with Codex CLI inste
         '/home/agent/.codex'
     }
 
-    & docker volume inspect $ProviderVolume | Out-Null
-    if ($LASTEXITCODE -ne 0) {
+    $ProviderVolumeCheck = Invoke-NscNativeCommand `
+        -FilePath 'docker' `
+        -ArgumentList @('volume', 'inspect', $ProviderVolume)
+    if ($ProviderVolumeCheck.ExitCode -ne 0) {
+        $ProviderVolumeCheck.Output | ForEach-Object { Write-Host $_ }
         throw "The shared ExecutionCrew provider volume is missing: $ProviderVolume"
     }
 
@@ -158,8 +193,16 @@ printf 'task-review-agent-permission-ok\n' > '/execution-output/$ProbeName'
 "@
 
     try {
-        & docker compose -p nosafecircle run --rm -T $ExecutionService bash -lc $ProbeScript
-        if ($LASTEXITCODE -ne 0) {
+        $PermissionProbe = Invoke-NscNativeCommand `
+            -FilePath 'docker' `
+            -ArgumentList @(
+                'compose', '-p', 'nosafecircle',
+                'run', '--rm', '-T',
+                $ExecutionService,
+                'bash', '-lc', $ProbeScript
+            ) `
+            -StreamOutput
+        if ($PermissionProbe.ExitCode -ne 0) {
             throw "Docker permission preflight failed for $ExecutionService."
         }
         if (-not (Test-Path -LiteralPath $HostProbePath -PathType Leaf)) {
@@ -206,7 +249,7 @@ if ([string]::IsNullOrWhiteSpace($TaskId)) {
 else {
     Write-Host "Task: $TaskId"
 }
-Write-Host "Goal supervisor: OpenAI Codex CLI in Docker (no API key)"
+Write-Host 'Goal supervisor: OpenAI Codex CLI in Docker (no API key)'
 if ($SupervisorVolume) {
     Write-Host "Codex credential volume: $SupervisorVolume"
 }
