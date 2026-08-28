@@ -58,17 +58,11 @@ jobs:
       - name: Run connected Issue to human handoff test
         run: python Pipeline/TaskReviewAgent/tests/production_controller_smoke_test.py
 
-      - name: Run downstream delivery controller smoke test
-        run: python Pipeline/TaskReviewAgent/tests/downstream_pipeline_smoke_test.py
-
-      - name: Run downstream resume and closeout regression tests
+      - name: Run downstream delivery and closeout smoke tests
         run: python Pipeline/TaskReviewAgent/tests/downstream_smoke_test.py
 
-      - name: Run ExecutionCrew CLI compatibility test
-        run: python Pipeline/TaskReviewAgent/tests/execution_crew_cli_smoke_test.py
-
-      - name: Run durable workflow API compatibility test
-        run: python Pipeline/TaskReviewAgent/tests/workflow_public_api_smoke_test.py
+      - name: Run workflow runtime compatibility tests
+        run: python Pipeline/TaskReviewAgent/tests/workflow_runtime_smoke_test.py
 
       - name: Run real read-only observation CLI
         run: python Pipeline/TaskReviewAgent/run_agent.py --task-id NSC-050 --mode observe-real --source .
