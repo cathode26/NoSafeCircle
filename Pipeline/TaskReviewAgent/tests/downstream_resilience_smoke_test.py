@@ -22,12 +22,16 @@ from Pipeline.TaskReviewAgent.downstream_pipeline import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
     _build_contract_migration_receipt,
+    _prepare_contract_migration_mainline_bridge,
     validation_plan_for,
 )
 from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
     ResumableDownstreamTaskController,
 )
 from Pipeline.TaskReviewAgent.goal_loop_guard import GuardedTaskController  # noqa: E402
+from Pipeline.TaskReviewAgent.mainline_reintegration import (  # noqa: E402
+    _automation_receipt_for,
+)
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     IssueWorkflowEvent,
     WorkflowActor,
@@ -354,6 +358,85 @@ def test_verified_contract_migration_carries_original_pass() -> None:
         require(tested.state["delivery_base_commit"] == receipt["integrated_main_commit"], "base not stabilized")
 
 
+def test_verified_migration_bridges_later_mainline_integration() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-carry-forward-later-main-") as temporary:
+        repo, state, human, human_commit, operational_commit = create_migration_fixture(
+            Path(temporary)
+        )
+        git(repo, "switch", "main")
+        later = repo / "Pipeline/TaskReviewAgent/later_automation.py"
+        later.write_text("# later automation-only change\n", encoding="utf-8")
+        git(repo, "add", ".")
+        git(repo, "commit", "-m", "Advance automation after migration")
+        later_main = git(repo, "rev-parse", "HEAD")
+        git(repo, "push", "origin", "main")
+        git(repo, "switch", BRANCH)
+        git(repo, "fetch", "origin", "+refs/heads/main:refs/remotes/origin/main")
+        require(
+            run(
+                "git",
+                "-C",
+                str(repo),
+                "merge-base",
+                "--is-ancestor",
+                later_main,
+                operational_commit,
+                cwd=repo,
+                check=False,
+            ).returncode
+            != 0,
+            "fixture did not advance main beyond the migration head",
+        )
+
+        old_hash = hashlib.sha256(
+            subprocess.check_output(
+                ["git", "-C", str(repo), "show", f"{human_commit}:{CONTRACT_PATH}"]
+            )
+        ).hexdigest()
+        event = migration_event(
+            old_hash=old_hash,
+            new_hash=state["task_contract_sha256"],
+            human_commit=human_commit,
+            operational_commit=operational_commit,
+        )
+        tested = object.__new__(ResumableDownstreamTaskController)
+        tested.task_id = TASK_ID
+        tested.checkout = repo
+        tested.command_runner = _default_runner
+        tested.workflow = FakeWorkflow(FakeService(event))
+        tested.state = {}
+        tested.last_observation = {
+            "task": {
+                "task_id": TASK_ID,
+                "contract_path": CONTRACT_PATH,
+                "task_contract_sha256": state["task_contract_sha256"],
+            }
+        }
+        tested._persist = lambda: None
+        tested._latest_human_validation = lambda: human
+
+        bridge = _prepare_contract_migration_mainline_bridge(
+            tested,
+            state,
+            human,
+            operational_commit,
+        )
+        require(
+            bridge["human_tested_commit"] == human_commit,
+            "bridge changed the original human commit",
+        )
+        require(
+            bridge["main_head"] != later_main,
+            "bridge incorrectly treated later main as the historical migration base",
+        )
+        recognized = _automation_receipt_for(tested, operational_commit)
+        require(recognized is not None, "mainline integration did not recognize the bridge")
+        require(
+            recognized["human_tested_commit"] == human_commit,
+            "recognized bridge lost the original PASS identity",
+        )
+
+
 def test_behavioral_contract_change_is_rejected() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-carry-forward-behavior-") as temporary:
         repo, state, human, human_commit, operational_commit = create_migration_fixture(
@@ -472,6 +555,7 @@ def test_second_identical_rejection_releases_lease() -> None:
 def main() -> int:
     tests = (
         test_verified_contract_migration_carries_original_pass,
+        test_verified_migration_bridges_later_mainline_integration,
         test_behavioral_contract_change_is_rejected,
         test_task_owned_blob_change_is_rejected,
         test_nsc020_validation_policy_is_playmode_only,
