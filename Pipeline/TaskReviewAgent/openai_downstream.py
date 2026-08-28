@@ -1,17 +1,240 @@
-"""OpenAI supervisor for delivery evidence, conformance, PR merge, and closeout."""
+"""Authenticated Codex CLI supervisor for delivery evidence and verified closeout."""
 
 from __future__ import annotations
 
-import os
-from typing import Any
+from typing import Any, Mapping
 
+from .codex_supervisor import (
+    CodexDockerDecisionProvider,
+    CodexSupervisorError,
+    DecisionProvider,
+    SupervisorDecision,
+    render_supervisor_prompt,
+)
 from .contracts import TASK_REVIEW_SCHEMA_VERSION, TaskReviewContractError, TaskReviewRequest
 from .downstream_runtime import ResumableDownstreamTaskController
-from .openai_agent import DEFAULT_MODEL, _json, _require_runtime
 
 
 class OpenAIDownstreamPipelineError(TaskReviewContractError):
-    """Raised when model output disagrees with deterministic downstream state."""
+    """Raised when the goal loop cannot safely reach a downstream terminal state."""
+
+
+_ACTIONS = {
+    "acquire_agent_lease": (
+        "Acquire the current delivery/closeout phase. Arguments: planned_approach, "
+        "expected_validation."
+    ),
+    "prepare_task_checkout": "Resume/recreate the canonical checkout at the recorded head. No arguments.",
+    "read_issue_log": "Read validated workflow events and human comments. No arguments.",
+    "list_repository_files": "List committed files. Optional arguments: prefix, limit.",
+    "search_repository": "Search committed text. Arguments: query, prefixes; optional limit.",
+    "read_repository_file": "Read one committed file range. Arguments: path; optional start_line, end_line.",
+    "run_authoritative_unity_test": (
+        "Run one clean Unity validation filter. Arguments: test_platform, test_filter."
+    ),
+    "create_delivery_review_draft": "Create TaskDelivery's immutable clerical draft. No arguments.",
+    "delivery_review_facts": "Read exact candidate surfaces, evidence IDs, and gates. No arguments.",
+    "create_delivery_review_proposal": (
+        "Create a hash-bound proposal without approving it. Arguments: selected_surfaces, "
+        "gate_mappings, approval_notes."
+    ),
+    "publish_delivery_review": "Publish the proposal and transfer the Issue to Vincent. No arguments.",
+    "finalize_delivery_evidence_and_open_pr": (
+        "After exact human approval, package evidence, prove conformance, push, and open PR. No arguments."
+    ),
+    "inspect_or_merge_pull_request": (
+        "Inspect checks; release if pending, block on failure, or merge exact passing head. No arguments."
+    ),
+    "verify_post_merge_and_complete": (
+        "Verify fresh main remains conformant, complete the journal, and close the Issue. No arguments."
+    ),
+}
+
+_GOAL_AND_RULES = """
+GOAL
+Resume the durable Issue after Vincent's Unity PASS and move it through authoritative Unity
+validation, hash-bound human delivery review, TaskDelivery evidence, TaskGraph conformance, pull
+request checks, exact merge, fresh-main verification, and Issue completion.
+
+AUTHORITY
+You choose only one next bounded action. Host Python executes and validates it. You have no direct
+shell, repository-write, GitHub, Unity, evidence, approval, commit, push, or merge authority.
+
+OPERATING RULES
+- Follow downstream.next_action and never skip a prerequisite.
+- Acquire a lease before any downstream side effect.
+- Read the Issue log, task contract, Unity testing policy, and programmer-language policy.
+- Select exact Unity test filters from committed tests and run every required platform.
+- Human PASS is not authoritative automated evidence; only passed validation manifests are.
+- After drafting, inspect every surface candidate, evidence artifact, and completion gate.
+- Select only truthful committed conformance surfaces, give each a concrete semantic role, and map
+  each gate to specific evidence with a gate-specific explanation.
+- You may propose delivery mappings but never approve them. Publish the proposal and stop at the
+  human review boundary. A rejected proposal cannot be reused.
+- After exact approval, finalization must establish TaskGraph conformant before PR creation.
+- Pending checks release the lease for a later generic run. Merge only the exact recorded head with
+  history preserved. If main advanced beyond the validated integration, stop rather than merge.
+- Complete only after fresh origin/main validates and still derives the task as conformant.
+- Never edit game code, task contracts, the GDD, approved mappings, validation manifests, or
+  immutable evidence bytes. Never force-push, squash, or rebase.
+"""
+
+
+def _workflow_state(observation: Mapping[str, Any]) -> dict[str, Any]:
+    coordination = observation.get("coordination")
+    if not isinstance(coordination, Mapping):
+        return {}
+    state = coordination.get("workflow_state")
+    return dict(state) if isinstance(state, Mapping) else {}
+
+
+def _strings(values: Any) -> list[str]:
+    if isinstance(values, (list, tuple)):
+        return [str(item) for item in values if str(item).strip()]
+    return []
+
+
+def _terminal_outcome(
+    request: TaskReviewRequest,
+    observation: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    coordination = observation.get("coordination") or {}
+    state = _workflow_state(observation)
+    downstream = observation.get("downstream") or {}
+    receipt = downstream.get("receipt") or {}
+    environment = observation.get("environment") or {}
+    next_action = downstream.get("next_action")
+    fixed = {
+        "schema_version": TASK_REVIEW_SCHEMA_VERSION,
+        "task_id": request.task_id,
+        "issue_url": coordination.get("issue_url"),
+        "branch": state.get("branch"),
+        "commit": state.get("head_commit"),
+        "pull_request_url": receipt.get("pull_request_url"),
+        "authority": "delivery_evidence_to_verified_merge_closeout",
+        "deterministic_final_state": observation,
+    }
+
+    if state.get("state") == "complete":
+        return {
+            **fixed,
+            "status": "complete",
+            "next_action": "No further action; fresh main is conformant and the Issue is closed.",
+            "blockers": [],
+        }
+
+    if (
+        state.get("state") == "blocked"
+        and state.get("phase") == "delivery_evidence"
+        and state.get("current_actor") == "human"
+        and next_action == "vincent_reviews_delivery_proposal"
+    ):
+        return {
+            **fixed,
+            "status": "human_delivery_review",
+            "next_action": "Vincent reviews the exact proposal recorded in the Issue.",
+            "blockers": [],
+        }
+
+    if (
+        state.get("state") == "agent_ready"
+        and state.get("phase") == "merge_closeout"
+        and isinstance(receipt.get("evidence_commit"), str)
+        and isinstance(receipt.get("pull_request_url"), str)
+        and not receipt.get("merged_commit")
+    ):
+        return {
+            **fixed,
+            "status": "checks_pending",
+            "next_action": "Run the generic agent again after pull-request checks finish.",
+            "blockers": [],
+        }
+
+    if state.get("state") == "blocked":
+        return {
+            **fixed,
+            "status": "blocked",
+            "next_action": next_action or "Resolve the latest durable Issue blocker.",
+            "blockers": _strings(coordination.get("reasons"))
+            or ["The managed downstream Issue is blocked; inspect its latest event."],
+        }
+
+    if environment.get("ready") is not True:
+        return {
+            **fixed,
+            "status": "blocked",
+            "next_action": "Repair the deterministic environment before retrying.",
+            "blockers": _strings(environment.get("errors"))
+            or ["The deterministic environment is not ready."],
+        }
+
+    if coordination.get("status") in {"claimed_by_other", "conflict", "unavailable"}:
+        return {
+            **fixed,
+            "status": "blocked",
+            "next_action": "Resolve the Issue coordination conflict.",
+            "blockers": _strings(coordination.get("reasons"))
+            or [f"Issue coordination status is {coordination.get('status')!r}."],
+        }
+    return None
+
+
+def _execute(
+    decision: SupervisorDecision,
+    controller: ResumableDownstreamTaskController,
+) -> Any:
+    action = decision.action
+    if action == "acquire_agent_lease":
+        values = decision.validate_arguments(
+            required=("planned_approach", "expected_validation")
+        )
+        return controller.acquire_agent_lease(**values)
+    if action == "prepare_task_checkout":
+        decision.validate_arguments()
+        return controller.prepare_task_checkout()
+    if action == "read_issue_log":
+        decision.validate_arguments()
+        return controller.read_issue_log()
+    if action == "list_repository_files":
+        values = decision.validate_arguments(optional=("prefix", "limit"))
+        return controller.list_repository_files(**values)
+    if action == "search_repository":
+        values = decision.validate_arguments(
+            required=("query", "prefixes"), optional=("limit",)
+        )
+        return controller.search_repository(**values)
+    if action == "read_repository_file":
+        values = decision.validate_arguments(
+            required=("path",), optional=("start_line", "end_line")
+        )
+        return controller.read_repository_file(**values)
+    if action == "run_authoritative_unity_test":
+        values = decision.validate_arguments(required=("test_platform", "test_filter"))
+        return controller.run_authoritative_unity_test(**values)
+    if action == "create_delivery_review_draft":
+        decision.validate_arguments()
+        return controller.create_delivery_review_draft()
+    if action == "delivery_review_facts":
+        decision.validate_arguments()
+        return controller.delivery_review_facts()
+    if action == "create_delivery_review_proposal":
+        values = decision.validate_arguments(
+            required=("selected_surfaces", "gate_mappings", "approval_notes")
+        )
+        return controller.create_delivery_review_proposal(**values)
+    if action == "publish_delivery_review":
+        decision.validate_arguments()
+        return controller.publish_delivery_review()
+    if action == "finalize_delivery_evidence_and_open_pr":
+        decision.validate_arguments()
+        return controller.finalize_delivery_evidence_and_open_pr()
+    if action == "inspect_or_merge_pull_request":
+        decision.validate_arguments()
+        return controller.inspect_or_merge_pull_request()
+    if action == "verify_post_merge_and_complete":
+        decision.validate_arguments()
+        return controller.verify_post_merge_and_complete()
+    raise CodexSupervisorError(f"unhandled downstream action: {action}")
 
 
 def run_openai_downstream_pipeline(
@@ -20,316 +243,56 @@ def run_openai_downstream_pipeline(
     *,
     model: str | None = None,
     max_turns: int = 100,
+    decision_provider: DecisionProvider | None = None,
 ) -> dict[str, Any]:
-    """Advance a human-passed task through evidence review and verified merge."""
+    """Drive downstream work with Codex CLI while host tools retain authority."""
 
-    Agent, _, Runner, function_tool, pydantic_types = _require_runtime(max_turns)
-    BaseModel, ConfigDict = pydantic_types
-
-    class DownstreamOutcomeModel(BaseModel):
-        model_config = ConfigDict(extra="forbid")
-
-        schema_version: str
-        task_id: str
-        status: str
-        issue_url: str | None
-        branch: str | None
-        commit: str | None
-        pull_request_url: str | None
-        next_action: str
-        blockers: list[str]
-        authority: str
-
-    observations_before = len(controller.workflow.action_log)
-
-    @function_tool
-    def observe_goal_state() -> str:
-        """Read TaskGraph, Issue, checkout, validation, evidence, PR, and closeout state."""
-
-        return _json(controller.observe())
-
-    @function_tool
-    def acquire_agent_lease(planned_approach: str, expected_validation: str) -> str:
-        """Acquire the current delivery/closeout phase for this exact worker."""
-
-        return _json(
-            controller.acquire_agent_lease(
-                planned_approach=planned_approach,
-                expected_validation=expected_validation,
-            )
-        )
-
-    @function_tool
-    def prepare_task_checkout() -> str:
-        """Resume or recreate the canonical checkout at the exact recorded branch commit."""
-
-        return _json(controller.prepare_task_checkout())
-
-    @function_tool
-    def read_issue_log() -> str:
-        """Read the validated workflow events and human comments for this task."""
-
-        return _json(controller.read_issue_log())
-
-    @function_tool
-    def list_repository_files(prefix: str = "Assets/", limit: int = 300) -> str:
-        """List committed files under one approved downstream read prefix."""
-
-        return _json(controller.list_repository_files(prefix=prefix, limit=limit))
-
-    @function_tool
-    def search_repository(
-        query: str,
-        prefixes: list[str],
-        limit: int = 100,
-    ) -> str:
-        """Search committed Unity/task/policy text without shell or write authority."""
-
-        return _json(
-            controller.search_repository(
-                query=query,
-                prefixes=prefixes,
-                limit=limit,
-            )
-        )
-
-    @function_tool
-    def read_repository_file(
-        path: str,
-        start_line: int = 1,
-        end_line: int = 500,
-    ) -> str:
-        """Read a bounded range from an approved committed repository file."""
-
-        return _json(
-            controller.read_repository_file(
-                path=path,
-                start_line=start_line,
-                end_line=end_line,
-            )
-        )
-
-    @function_tool
-    def run_authoritative_unity_test(
-        test_platform: str,
-        test_filter: str,
-    ) -> str:
-        """Run one clean manifest-producing Unity EditMode or PlayMode test filter."""
-
-        return _json(
-            controller.run_authoritative_unity_test(
-                test_platform=test_platform,
-                test_filter=test_filter,
-            )
-        )
-
-    @function_tool
-    def create_delivery_review_draft() -> str:
-        """Create TaskDelivery's immutable clerical draft from exact validation facts."""
-
-        return _json(controller.create_delivery_review_draft())
-
-    @function_tool
-    def delivery_review_facts() -> str:
-        """Read exact candidate surfaces, evidence IDs, and gates from the draft."""
-
-        return _json(controller.delivery_review_facts())
-
-    @function_tool
-    def create_delivery_review_proposal(
-        selected_surfaces: list[dict[str, str]],
-        gate_mappings: list[dict[str, Any]],
-        approval_notes: str,
-    ) -> str:
-        """Create a hash-bound proposal; this does not grant human approval."""
-
-        return _json(
-            controller.create_delivery_review_proposal(
-                selected_surfaces=selected_surfaces,
-                gate_mappings=gate_mappings,
-                approval_notes=approval_notes,
-            )
-        )
-
-    @function_tool
-    def publish_delivery_review() -> str:
-        """Give Vincent the exact proposal and move the Issue to human-owned review."""
-
-        return _json(controller.publish_delivery_review())
-
-    @function_tool
-    def finalize_delivery_evidence_and_open_pr() -> str:
-        """Use the approved proposal to commit evidence, prove conformance, and open the PR."""
-
-        return _json(controller.finalize_delivery_evidence_and_open_pr())
-
-    @function_tool
-    def inspect_or_merge_pull_request() -> str:
-        """Inspect checks; release if pending, block on failure, or merge exact passing head."""
-
-        return _json(controller.inspect_or_merge_pull_request())
-
-    @function_tool
-    def verify_post_merge_and_complete() -> str:
-        """Verify fresh main remains conformant, complete the journal, and close the Issue."""
-
-        return _json(controller.verify_post_merge_and_complete())
-
-    instructions = f"""
-You are the No Safe Circle downstream task supervisor for exact task {request.task_id}.
-
-GOAL
-Resume the durable managed Issue after Vincent's Unity PASS and advance it through the repository's
-existing authority boundaries:
-1. authoritative clean Unity validation manifest(s);
-2. a TaskDelivery review draft;
-3. an exact hash-bound proposal for conformance surfaces, semantic roles, gate evidence, and notes;
-4. a human delivery-evidence review recorded in the Issue;
-5. after exact approval, strict TaskDelivery finalization;
-6. record_delivery packaging, staging validation, evidence commit, push, and TaskGraph conformant;
-7. pull-request creation and terminal check inspection;
-8. merge with history preserved at the exact expected head; and
-9. fresh-main TaskGraph validation, conformant verification, Issue completion, and closeout.
-
-HUMAN AUTHORITY
-You may propose delivery mappings, but you may never approve them. The Issue must become a
-human-owned delivery review before TaskDelivery finalization. Only a validated APPROVE event whose
-Proposal SHA256 matches the current proposal authorizes finalization. REQUEST_CHANGES means create a
-new proposal revision after reading the human comment; never reuse the rejected proposal.
-
-OPERATING LOOP
-- Always call observe_goal_state first and after lease/checkout state changes.
-- Follow downstream.next_action exactly. Never skip a prerequisite.
-- Acquire a lease before any downstream side effect. Keep the planned approach concrete.
-- Read the Issue log, task contract, Unity testing policy, and Unity programmer language policy.
-- To choose Unity filters, list/search/read the committed test files and use exact test class or
-  namespace filters that exercise this task. Run every required_test_platform reported by observe.
-- A human PASS is not an authoritative automated test. Only run_authoritative_unity_test produces
-  validation manifests usable by TaskDelivery.
-- Before drafting, ensure each required platform has a passed manifest at the exact human-tested
-  commit/tree. Do not change code or integrate main after human testing; a stale base is a blocker.
-- After create_delivery_review_draft, inspect every surface candidate, artifact ID, and gate.
-- Select only truthful committed conformance surfaces. Give every selected path a concrete semantic
-  role. Map each gate to specific evidence IDs and explain why those artifacts prove that gate.
-  Do not map every artifact to every gate reflexively.
-- create_delivery_review_proposal does not approve anything. Publish it and stop when the managed
-  Issue becomes blocked/delivery_evidence with current_actor=human.
-- After a validated approval, finalize_delivery_evidence_and_open_pr performs the clerical package,
-  exact staging validation, evidence commit/push, TaskGraph conformance check, and PR creation. It
-  then releases the lease at the evidence commit. Stop with checks_pending; a future generic run
-  will resume automatically.
-- On a later merge_closeout lease, inspect_or_merge_pull_request. Pending checks release the lease.
-  Failed checks are a real blocker. Passing checks may merge only the exact recorded evidence head
-  with merge history preserved.
-- After merge, verify_post_merge_and_complete must clone/fetch fresh main, validate the TaskGraph,
-  require this task to remain conformant, append the completion event, and close the Issue.
-- Never edit game code, task contracts, the GDD, delivery mappings after approval, validation
-  manifests, or immutable evidence bytes. Never force-push, squash, rebase, or claim conformance
-  before deterministic tools return it.
-
-FINAL OUTPUT
-Return schema_version={TASK_REVIEW_SCHEMA_VERSION}, task_id={request.task_id}, and authority exactly
-`delivery_evidence_to_verified_merge_closeout`.
-Supported statuses are:
-- human_delivery_review: waiting for Vincent's exact proposal decision;
-- checks_pending: evidence branch and PR are published and the Issue is agent_ready/merge_closeout;
-- complete: PR merged and fresh main is conformant;
-- blocked or needs_human: a genuine bounded stop.
-Copy Issue/branch/commit/PR identities only from deterministic tool results.
-""".strip()
-
-    agent = Agent(
-        name="No Safe Circle Downstream Delivery Supervisor",
-        model=model or os.getenv("TASK_REVIEW_AGENT_MODEL", DEFAULT_MODEL),
-        instructions=instructions,
-        tools=[
-            observe_goal_state,
-            acquire_agent_lease,
-            prepare_task_checkout,
-            read_issue_log,
-            list_repository_files,
-            search_repository,
-            read_repository_file,
-            run_authoritative_unity_test,
-            create_delivery_review_draft,
-            delivery_review_facts,
-            create_delivery_review_proposal,
-            publish_delivery_review,
-            finalize_delivery_evidence_and_open_pr,
-            inspect_or_merge_pull_request,
-            verify_post_merge_and_complete,
-        ],
-        output_type=DownstreamOutcomeModel,
+    if isinstance(max_turns, bool) or not isinstance(max_turns, int) or not 4 <= max_turns <= 160:
+        raise OpenAIDownstreamPipelineError("max_turns must be an integer from 4 through 160")
+    provider = decision_provider or CodexDockerDecisionProvider(
+        source=controller.workflow.base_observer.root,
+        model=model,
     )
+    history: list[dict[str, Any]] = []
 
-    result = Runner.run_sync(
-        agent,
-        f"Advance {request.task_id} through its current downstream Issue phase.",
-        max_turns=max_turns,
+    for turn in range(1, max_turns + 1):
+        observation = controller.observe()
+        terminal = _terminal_outcome(request, observation)
+        if terminal is not None:
+            return terminal
+        prompt = render_supervisor_prompt(
+            task_id=request.task_id,
+            goal_and_rules=_GOAL_AND_RULES,
+            observation=observation,
+            history=history,
+            actions=_ACTIONS,
+        )
+        decision = provider.decide(
+            task_id=request.task_id,
+            turn=turn,
+            prompt=prompt,
+            allowed_actions=tuple(_ACTIONS),
+        )
+        try:
+            result = _execute(decision, controller)
+            history.append(
+                {
+                    "turn": turn,
+                    "action": decision.action,
+                    "rationale": decision.rationale,
+                    "result": result,
+                }
+            )
+        except TaskReviewContractError as exc:
+            history.append(
+                {
+                    "turn": turn,
+                    "action": decision.action,
+                    "rationale": decision.rationale,
+                    "tool_error": str(exc),
+                }
+            )
+
+    raise OpenAIDownstreamPipelineError(
+        f"Codex supervisor exhausted {max_turns} decisions without a deterministic terminal state"
     )
-    final_output = result.final_output
-    if not isinstance(final_output, DownstreamOutcomeModel):
-        raise OpenAIDownstreamPipelineError(
-            "OpenAI downstream supervisor did not return the required structured output"
-        )
-    if len(controller.workflow.action_log) <= observations_before:
-        raise OpenAIDownstreamPipelineError(
-            "OpenAI downstream supervisor returned without observing workflow state"
-        )
-
-    payload = final_output.model_dump(mode="json")
-    if payload.get("schema_version") != TASK_REVIEW_SCHEMA_VERSION:
-        raise OpenAIDownstreamPipelineError("model changed schema_version")
-    if payload.get("task_id") != request.task_id:
-        raise OpenAIDownstreamPipelineError("model changed task identity")
-    if payload.get("authority") != "delivery_evidence_to_verified_merge_closeout":
-        raise OpenAIDownstreamPipelineError("model changed authority boundary")
-
-    final_observation = controller.observe()
-    coordination = final_observation.get("coordination") or {}
-    state = coordination.get("workflow_state") or {}
-    status = payload.get("status")
-    if status == "human_delivery_review":
-        if not (
-            state.get("state") == "blocked"
-            and state.get("phase") == "delivery_evidence"
-            and state.get("current_actor") == "human"
-        ):
-            raise OpenAIDownstreamPipelineError(
-                "model claimed delivery review before deterministic Issue handoff"
-            )
-    elif status == "checks_pending":
-        if not (
-            state.get("state") == "agent_ready"
-            and state.get("phase") == "merge_closeout"
-            and isinstance(state.get("head_commit"), str)
-        ):
-            raise OpenAIDownstreamPipelineError(
-                "model claimed pending checks before durable evidence-head release"
-            )
-    elif status == "complete":
-        if state.get("state") != "complete":
-            raise OpenAIDownstreamPipelineError(
-                "model claimed completion before deterministic closeout"
-            )
-    elif status not in ("blocked", "needs_human"):
-        raise OpenAIDownstreamPipelineError("model returned an unsupported status")
-
-    fixed = {
-        "issue_url": coordination.get("issue_url"),
-        "branch": state.get("branch"),
-        "commit": state.get("head_commit"),
-        "pull_request_url": (
-            (final_observation.get("downstream") or {}).get("receipt") or {}
-        ).get("pull_request_url"),
-    }
-    for field, expected in fixed.items():
-        if payload.get(field) != expected:
-            raise OpenAIDownstreamPipelineError(
-                f"model changed final {field}: {payload.get(field)!r} != {expected!r}"
-            )
-    if status in ("human_delivery_review", "checks_pending", "complete") and payload.get(
-        "blockers"
-    ):
-        raise OpenAIDownstreamPipelineError(f"{status} cannot contain blockers")
-    return {**payload, "deterministic_final_state": final_observation}
