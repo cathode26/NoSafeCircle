@@ -42,11 +42,12 @@ $LineEndingProbe = Invoke-NscNativeCommand `
     -FilePath 'python' `
     -ArgumentList @(
         '-c',
-        'import sys; value=sys.argv[1]; print("contains-cr=" + str("\r" in value)); print("lf-count=" + str(value.count("\n")))',
+        'import sys; value=sys.argv[1]; print("contains-cr=" + str(chr(13) in value)); print("lf-count=" + str(value.count(chr(10))))',
         $WindowsMultilinePayload
     )
 
 if ($LineEndingProbe.ExitCode -ne 0) {
+    $LineEndingProbe.Output | ForEach-Object { Write-Host $_ }
     throw "Multiline argument probe returned $($LineEndingProbe.ExitCode)."
 }
 if (-not ($LineEndingProbe.Output -contains 'contains-cr=False')) {
