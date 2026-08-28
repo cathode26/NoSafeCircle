@@ -44,15 +44,21 @@ _TOP_LEVEL_TEXT_FILES = frozenset(
 )
 _LIVE_ROOTS = ("Assets/", "Docs/", "Packages/", "Pipeline/", "ProjectSettings/")
 _IMMUTABLE_OR_GENERATED_PREFIXES = (
-    "Pipeline/TaskGraph/migrations/",
     "Pipeline/ArchitectureReview/outputs/",
     "Pipeline/ExecutionCrew/outputs/",
+    "Pipeline/GDDRAG/knowledge_base/",
+    "Pipeline/Reconciliation/outputs/",
     "Pipeline/TaskDecomposition/outputs/",
+    "Pipeline/TaskGraph/migrations/",
 )
 _HISTORICAL_REFERENCE_ALLOWLIST = frozenset(
     {
         (
             "Docs/GDD/No_Safe_Circle_GDD.md",
+            "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+        ),
+        (
+            "Pipeline/TaskGraph/scene_path_policy.py",
             "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
         ),
     }
