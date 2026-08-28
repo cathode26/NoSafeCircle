@@ -76,6 +76,9 @@ jobs:
       - name: Run checkout circuit-breaker smoke tests
         run: python Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py
 
+      - name: Run mainline reintegration smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/mainline_reintegration_smoke_test.py
+
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
 
