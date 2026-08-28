@@ -1,0 +1,136 @@
+name: Finalize Downstream Resilience Fix
+
+on:
+  push:
+    branches:
+      - fix/downstream-pass-carry-forward-resilience-work4
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/downstream-pass-carry-forward-resilience-work4
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "No Safe Circle Resilience Fix"
+          git config user.email "resilience-fix@users.noreply.github.com"
+
+      - name: Apply final integration patches
+        shell: python
+        run: |
+          from pathlib import Path
+
+          root = Path.cwd()
+          init_path = root / "Pipeline/TaskReviewAgent/__init__.py"
+          text = init_path.read_text(encoding="utf-8")
+          text = text.replace(
+              "from .downstream_resilience import install_downstream_resilience\n",
+              "from .downstream_resilience import install_downstream_resilience\n"
+              "from .downstream_resilience_bridge import install_downstream_resilience_bridge\n",
+              1,
+          )
+          text = text.replace(
+              "install_mainline_reintegration()\ninstall_downstream_resilience()\n",
+              "install_mainline_reintegration()\n"
+              "install_downstream_resilience()\n"
+              "install_downstream_resilience_bridge()\n",
+              1,
+          )
+          text = text.replace(
+              '    "install_downstream_resilience",\n',
+              '    "install_downstream_resilience",\n'
+              '    "install_downstream_resilience_bridge",\n',
+              1,
+          )
+          if "install_downstream_resilience_bridge()" not in text:
+              raise SystemExit("bridge installation patch did not apply")
+          init_path.write_text(text, encoding="utf-8", newline="\n")
+
+          resilience_path = root / "Pipeline/TaskReviewAgent/downstream_resilience.py"
+          text = resilience_path.read_text(encoding="utf-8")
+          old = '        contract_path != task.get("contract_path")\n'
+          new = (
+              '        contract_path\n'
+              '        != (task.get("contract_path") or f"Tasks/{controller.task_id}.yaml")\n'
+          )
+          if old not in text:
+              raise SystemExit("contract-path fallback patch anchor is missing")
+          text = text.replace(old, new, 1)
+          old = (
+              '    if not callable(value) or name.startswith("_"):\n'
+              '        return value\n\n'
+              '    def guarded(*args: Any, **kwargs: Any) -> Any:\n'
+          )
+          new = (
+              '    if not callable(value) or name.startswith("_"):\n'
+              '        return value\n'
+              '    underlying = getattr(self, "_controller", None)\n'
+              '    if (\n'
+              '        underlying is None\n'
+              '        or underlying.__class__.__name__\n'
+              '        != "ResumableDownstreamTaskController"\n'
+              '    ):\n'
+              '        return value\n\n'
+              '    def guarded(*args: Any, **kwargs: Any) -> Any:\n'
+          )
+          if old not in text:
+              raise SystemExit("downstream-only guard patch anchor is missing")
+          resilience_path.write_text(
+              text.replace(old, new, 1),
+              encoding="utf-8",
+              newline="\n",
+          )
+
+      - name: Configure deterministic Git fixture identity
+        run: |
+          git config --global user.name "TaskReviewAgent Tests"
+          git config --global user.email "task-review-agent-tests@example.invalid"
+
+      - name: Run downstream resilience smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py
+
+      - name: Run mainline reintegration smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/mainline_reintegration_smoke_test.py
+
+      - name: Run contract migration checkout smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/contract_migration_checkout_smoke_test.py
+
+      - name: Run checkout circuit-breaker smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py
+
+      - name: Run downstream delivery and closeout smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_smoke_test.py
+
+      - name: Validate TaskGraph
+        run: python Pipeline/TaskGraph/taskcontrol.py validate
+
+      - name: Compile TaskReviewAgent
+        run: python -m compileall -q Pipeline/TaskReviewAgent
+
+      - name: Remove one-shot finalization workflow
+        run: git rm .github/workflows/apply-downstream-resilience-finalization.yml
+
+      - name: Validate final diff
+        run: git diff --check
+
+      - name: Commit and push final tested tree
+        run: |
+          git add -A
+          git commit -m "Fix downstream PASS carry-forward and rejection loops"
+          git push origin HEAD:fix/downstream-pass-carry-forward-resilience-work4
