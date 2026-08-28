@@ -47,6 +47,15 @@ jobs:
             throw "Game Task Agent PowerShell parsing failed."
           }
 
+      - name: Run Windows PowerShell native stderr smoke test
+        shell: pwsh
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass `
+            -File "Pipeline/TaskReviewAgent/tests/native_command_smoke_test.ps1"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows PowerShell native stderr smoke test failed."
+          }
+
       - name: Verify external Codex credential volume declaration
         run: python Pipeline/TaskReviewAgent/tests/compose_supervisor_volume_smoke_test.py
 
