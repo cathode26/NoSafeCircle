@@ -32,6 +32,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Configure deterministic Git fixture identity
+        run: |
+          git config --global user.name "TaskReviewAgent Tests"
+          git config --global user.email "task-review-agent-tests@example.invalid"
+
       - name: Parse Game Task Agent PowerShell launcher
         shell: pwsh
         run: |
@@ -64,6 +69,15 @@ jobs:
 
       - name: Run strict Codex supervisor turn smoke tests
         run: python Pipeline/TaskReviewAgent/tests/codex_supervisor_turn_smoke_test.py
+
+      - name: Run live progress logging smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/progress_logging_smoke_test.py
+
+      - name: Run checkout circuit-breaker smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py
+
+      - name: Run mainline reintegration smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/mainline_reintegration_smoke_test.py
 
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py

@@ -13,6 +13,7 @@ from .codex_supervisor import (
 )
 from .contracts import TASK_REVIEW_SCHEMA_VERSION, TaskReviewContractError, TaskReviewRequest
 from .production_pipeline import ProductionTaskController
+from .progress import NullProgress, ProgressLog, ProgressSink, summarize_result
 
 
 class OpenAIProductionPipelineError(TaskReviewContractError):
@@ -254,6 +255,44 @@ def _execute(
     raise CodexSupervisorError(f"unhandled production action: {action}")
 
 
+def _observation_fields(observation: Mapping[str, Any]) -> dict[str, Any]:
+    state = _workflow_state(observation)
+    pipeline = observation.get("production_pipeline") or {}
+    checkout = observation.get("checkout") or {}
+    coordination = observation.get("coordination") or {}
+    return {
+        "issue_state": state.get("state"),
+        "phase": state.get("phase"),
+        "pipeline_status": pipeline.get("status"),
+        "next_action": pipeline.get("next_action"),
+        "checkout_status": checkout.get("status"),
+        "issue_number": coordination.get("issue_number"),
+    }
+
+
+def _progress_for(
+    request: TaskReviewRequest,
+    controller: ProductionTaskController,
+    *,
+    decision_provider: DecisionProvider | None,
+    progress: ProgressSink | None,
+) -> tuple[ProgressSink, bool]:
+    if progress is not None:
+        return progress, False
+    if decision_provider is not None:
+        return NullProgress(), False
+    root = controller.workflow.base_observer.root.parent / ".task-review-agent" / "outputs"
+    return (
+        ProgressLog(
+            output_root=root,
+            task_id=request.task_id,
+            worker_id=controller.workflow.worker_id,
+            pipeline="implementation",
+        ),
+        True,
+    )
+
+
 def run_openai_production_pipeline(
     request: TaskReviewRequest,
     controller: ProductionTaskController,
@@ -261,72 +300,145 @@ def run_openai_production_pipeline(
     model: str | None = None,
     max_turns: int = 80,
     decision_provider: DecisionProvider | None = None,
+    progress: ProgressSink | None = None,
 ) -> dict[str, Any]:
     """Drive a task with Codex CLI while host tools retain all authority."""
 
     if isinstance(max_turns, bool) or not isinstance(max_turns, int) or not 4 <= max_turns <= 160:
         raise OpenAIProductionPipelineError("max_turns must be an integer from 4 through 160")
+    active_progress, owns_progress = _progress_for(
+        request,
+        controller,
+        decision_provider=decision_provider,
+        progress=progress,
+    )
     provider = decision_provider or CodexDockerDecisionProvider(
         source=controller.workflow.base_observer.root,
         model=model,
     )
     history: list[dict[str, Any]] = []
 
-    for turn in range(1, max_turns + 1):
-        observation = controller.observe()
-        terminal = _terminal_outcome(request, observation)
-        if terminal is not None:
-            return terminal
-        prompt = render_supervisor_prompt(
-            task_id=request.task_id,
-            goal_and_rules=_GOAL_AND_RULES,
-            observation=observation,
-            history=history,
-            actions=_ACTIONS,
-        )
-        decision = provider.decide(
-            task_id=request.task_id,
-            turn=turn,
-            prompt=prompt,
-            allowed_actions=tuple(_ACTIONS),
-        )
-        try:
-            result = _execute(decision, controller)
-            history.append(
-                {
-                    "turn": turn,
-                    "action": decision.action,
-                    "rationale": decision.rationale,
-                    "result": result,
-                }
+    try:
+        for turn in range(1, max_turns + 1):
+            with active_progress.heartbeat(
+                "state_observation",
+                f"Turn {turn}: reading deterministic workflow state",
+                turn=turn,
+            ):
+                observation = controller.observe()
+            observed = _observation_fields(observation)
+            active_progress.emit(
+                "state_observed",
+                f"Turn {turn}: deterministic state read",
+                turn=turn,
+                **observed,
             )
-        except TaskReviewContractError as exc:
-            history.append(
-                {
-                    "turn": turn,
-                    "action": decision.action,
-                    "rationale": decision.rationale,
-                    "tool_error": str(exc),
-                }
-            )
-
-    observation = controller.observe()
-    state = _workflow_state(observation)
-    if state.get("state") == "agent_working" and state.get("worker_id") == controller.workflow.worker_id:
-        try:
-            controller.record_pipeline_blocker(
-                summary="Goal supervisor turn budget exhausted",
-                details=[
-                    f"The authenticated Codex supervisor used all {max_turns} bounded decisions.",
-                    "No human-ready terminal state was proven.",
-                ],
-            )
-            observation = controller.observe()
             terminal = _terminal_outcome(request, observation)
             if terminal is not None:
+                active_progress.emit(
+                    "terminal_state",
+                    f"Reached terminal workflow state {terminal.get('status')}",
+                    turn=turn,
+                    **summarize_result(terminal),
+                )
+                if owns_progress:
+                    active_progress.finish(str(terminal.get("status") or "complete"))
                 return terminal
-        except TaskReviewContractError:
-            pass
-    raise OpenAIProductionPipelineError(
-        f"Codex supervisor exhausted {max_turns} decisions without a deterministic terminal state"
-    )
+            prompt = render_supervisor_prompt(
+                task_id=request.task_id,
+                goal_and_rules=_GOAL_AND_RULES,
+                observation=observation,
+                history=history,
+                actions=_ACTIONS,
+            )
+            with active_progress.heartbeat(
+                "codex_supervisor",
+                f"Turn {turn}: Codex is choosing the next bounded action",
+                turn=turn,
+                expected_next_action=observed.get("next_action"),
+            ):
+                decision = provider.decide(
+                    task_id=request.task_id,
+                    turn=turn,
+                    prompt=prompt,
+                    allowed_actions=tuple(_ACTIONS),
+                )
+            active_progress.emit(
+                "supervisor_decision",
+                f"Turn {turn}: Codex selected {decision.action}",
+                turn=turn,
+                action=decision.action,
+                rationale=" ".join(decision.rationale.split())[:500],
+            )
+            try:
+                with active_progress.heartbeat(
+                    "pipeline_action",
+                    f"Turn {turn}: executing {decision.action}",
+                    turn=turn,
+                    action=decision.action,
+                ):
+                    result = _execute(decision, controller)
+                active_progress.emit(
+                    "action_completed",
+                    f"Turn {turn}: {decision.action} completed",
+                    turn=turn,
+                    action=decision.action,
+                    result_summary=summarize_result(result),
+                )
+                history.append(
+                    {
+                        "turn": turn,
+                        "action": decision.action,
+                        "rationale": decision.rationale,
+                        "result": result,
+                    }
+                )
+            except TaskReviewContractError as exc:
+                active_progress.emit(
+                    "action_rejected",
+                    f"Turn {turn}: {decision.action} was rejected by deterministic validation",
+                    turn=turn,
+                    action=decision.action,
+                    error_type=type(exc).__name__,
+                    error=" ".join(str(exc).split())[:700],
+                )
+                history.append(
+                    {
+                        "turn": turn,
+                        "action": decision.action,
+                        "rationale": decision.rationale,
+                        "tool_error": str(exc),
+                    }
+                )
+
+        observation = controller.observe()
+        state = _workflow_state(observation)
+        if state.get("state") == "agent_working" and state.get("worker_id") == controller.workflow.worker_id:
+            try:
+                active_progress.emit(
+                    "turn_budget_exhausted",
+                    f"Codex used all {max_turns} bounded decisions; recording a durable blocker",
+                    max_turns=max_turns,
+                )
+                controller.record_pipeline_blocker(
+                    summary="Goal supervisor turn budget exhausted",
+                    details=[
+                        f"The authenticated Codex supervisor used all {max_turns} bounded decisions.",
+                        "No human-ready terminal state was proven.",
+                    ],
+                )
+                observation = controller.observe()
+                terminal = _terminal_outcome(request, observation)
+                if terminal is not None:
+                    if owns_progress:
+                        active_progress.finish(str(terminal.get("status") or "blocked"))
+                    return terminal
+            except TaskReviewContractError:
+                pass
+        raise OpenAIProductionPipelineError(
+            f"Codex supervisor exhausted {max_turns} decisions without a deterministic terminal state"
+        )
+    except BaseException:
+        if owns_progress:
+            active_progress.finish("failed")
+        raise

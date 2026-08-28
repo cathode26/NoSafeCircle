@@ -10,6 +10,7 @@ import socket
 import sys
 import uuid
 from pathlib import Path
+from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +35,9 @@ from Pipeline.TaskReviewAgent.generic_selection import (  # noqa: E402
     GenericSelectionError,
     select_agent_ready_task,
 )
+from Pipeline.TaskReviewAgent.goal_loop_guard import (  # noqa: E402
+    GuardedTaskController,
+)
 from Pipeline.TaskReviewAgent.issue_queue import repo_root  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
@@ -50,6 +54,7 @@ from Pipeline.TaskReviewAgent.openai_pipeline import (  # noqa: E402
 from Pipeline.TaskReviewAgent.production_pipeline import (  # noqa: E402
     ProductionTaskController,
 )
+from Pipeline.TaskReviewAgent.progress import ProgressLog  # noqa: E402
 from Pipeline.TaskReviewAgent.real_workflow import RealTaskReviewWorkflow  # noqa: E402
 
 
@@ -136,8 +141,16 @@ def _managed_issue_phase(
     return snapshot.state.phase.value
 
 
+def _outcome_status(result: dict[str, Any]) -> str:
+    outcome = result.get("outcome")
+    if isinstance(outcome, dict) and isinstance(outcome.get("status"), str):
+        return outcome["status"]
+    return "succeeded"
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    progress: ProgressLog | None = None
     try:
         selection = None
         if args.task_id:
@@ -148,6 +161,11 @@ def main(argv: list[str] | None = None) -> int:
                 worker_id=args.worker_id,
             )
         else:
+            print(
+                "[task-agent] Reading the durable agent-ready Issue queue...",
+                file=sys.stderr,
+                flush=True,
+            )
             selection = select_agent_ready_task(
                 source=args.source,
                 worker_id=args.worker_id,
@@ -167,10 +185,45 @@ def main(argv: list[str] | None = None) -> int:
             checkout_root=args.checkout_root,
             worker_id=args.worker_id,
         )
-        routing_observation = workflow.observe_goal_state()
+        pipeline_name = "downstream" if downstream_selected else "implementation"
+        if args.mode == "openai":
+            output_root = (
+                args.output_root.resolve()
+                if args.output_root is not None
+                else workflow.base_observer.root.parent
+                / ".task-review-agent"
+                / "outputs"
+            )
+            progress = ProgressLog(
+                output_root=output_root,
+                task_id=request.task_id,
+                worker_id=args.worker_id,
+                pipeline=pipeline_name,
+            )
+            progress.emit(
+                "routing_started",
+                "Selecting the deterministic pipeline route from the durable Issue state",
+                selected_phase=selected_phase,
+                issue_number=(selection or {}).get("issue_number"),
+            )
+            with progress.heartbeat(
+                "routing_observation",
+                "Reading the durable Issue, TaskGraph, Git, and checkout state",
+            ):
+                routing_observation = workflow.observe_goal_state()
+        else:
+            routing_observation = workflow.observe_goal_state()
+
         state = _workflow_state(routing_observation)
         observed_phase = state.get("phase")
         downstream = observed_phase in _DOWNSTREAM_PHASES
+        if progress is not None:
+            progress.emit(
+                "routing_completed",
+                f"Selected {'downstream' if downstream else 'implementation'} pipeline",
+                observed_phase=observed_phase,
+                issue_state=state.get("state"),
+            )
 
         if downstream_selected and not downstream:
             raise GenericSelectionError(
@@ -184,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         if downstream:
-            controller = ResumableDownstreamTaskController(
+            controller: Any = ResumableDownstreamTaskController(
                 workflow=workflow,
                 unity_executable=args.unity_executable,
                 output_root=args.output_root,
@@ -196,6 +249,9 @@ def main(argv: list[str] | None = None) -> int:
                 execution_provider=args.execution_provider,
             )
             authority = "read_only_production_pipeline_observation"
+
+        if args.mode == "openai":
+            controller = GuardedTaskController(controller, progress=progress)
 
         if args.mode == "observe":
             result = {
@@ -215,6 +271,7 @@ def main(argv: list[str] | None = None) -> int:
                 controller,
                 model=args.model,
                 max_turns=args.max_turns,
+                progress=progress,
             )
             result = {
                 "schema_version": "1.0",
@@ -231,6 +288,7 @@ def main(argv: list[str] | None = None) -> int:
                 controller,
                 model=args.model,
                 max_turns=args.max_turns,
+                progress=progress,
             )
             result = {
                 "schema_version": "1.0",
@@ -242,6 +300,8 @@ def main(argv: list[str] | None = None) -> int:
                 "runtime": describe_codex_runtime(),
                 "outcome": outcome,
             }
+        if progress is not None:
+            progress.finish(_outcome_status(result))
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     except (
@@ -251,8 +311,15 @@ def main(argv: list[str] | None = None) -> int:
         IssueWorkflowStoreError,
         OpenAIDownstreamPipelineError,
         OSError,
+        ValueError,
     ) as exc:
-        print(f"GAME TASK AGENT: STOP\n{exc}", file=sys.stderr)
+        if progress is not None:
+            progress.finish(
+                "failed",
+                error_type=type(exc).__name__,
+                error=" ".join(str(exc).split())[:900],
+            )
+        print(f"GAME TASK AGENT: STOP\n{exc}", file=sys.stderr, flush=True)
         return 2
 
 
