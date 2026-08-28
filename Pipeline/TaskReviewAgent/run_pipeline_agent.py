@@ -35,6 +35,9 @@ from Pipeline.TaskReviewAgent.generic_selection import (  # noqa: E402
     GenericSelectionError,
     select_agent_ready_task,
 )
+from Pipeline.TaskReviewAgent.goal_loop_guard import (  # noqa: E402
+    GuardedTaskController,
+)
 from Pipeline.TaskReviewAgent.issue_queue import repo_root  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
@@ -234,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         if downstream:
-            controller = ResumableDownstreamTaskController(
+            controller: Any = ResumableDownstreamTaskController(
                 workflow=workflow,
                 unity_executable=args.unity_executable,
                 output_root=args.output_root,
@@ -246,6 +249,9 @@ def main(argv: list[str] | None = None) -> int:
                 execution_provider=args.execution_provider,
             )
             authority = "read_only_production_pipeline_observation"
+
+        if args.mode == "openai":
+            controller = GuardedTaskController(controller, progress=progress)
 
         if args.mode == "observe":
             result = {
