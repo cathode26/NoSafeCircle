@@ -170,7 +170,7 @@
           "requirement": "The presence of the non-canonical Assets/Scenes stub scenes is repository evidence, not a design requirement; their deletion, retention, or repurposing is a human decision, and agents/reconciliation steps must not delete or reinterpret them merely to make scene inventory evidence cleaner."
         }
       ],
-      "evidence": "Directly stated in Section 5 Current Prototype Scene Evidence; confirmed present via Assets/Scenes/DoorPrototype.unity and Assets/Scenes/SampleScene.unity glob results."
+      "evidence": "Directly stated in Section 5 Current Prototype Scene Evidence; confirmed present via Assets/Scenes/SampleScene.unity glob results."
     },
     {
       "title": "Current prototype scene-builder exclusive-write lock",
@@ -179,7 +179,7 @@
       "gdd_evidence": [
         {
           "reference": "Section 4 - Shared Context and Coordination Rules",
-          "requirement": "Scene-authoring work that changes objects generated or maintained through Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs must take exclusive-write locks on both that builder and Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity."
+          "requirement": "Scene-authoring work that changes objects generated or maintained through Assets/Scenes/DoorPrototype.unity."
         }
       ],
       "evidence": "Directly stated as a required durable process rule in Section 4; per-task applications are represented as matching exclusive_resources entries across domain workers whose implementation writes through the builder/scene."

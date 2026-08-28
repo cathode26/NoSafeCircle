@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-003",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Mouse-Directed Player Movement, Shared Pointer Projection, and Movement Restriction",
   "reconciliation_key": "player-movement",
@@ -99,7 +99,7 @@
       "observation": "Unmodified stock Unity template action asset; Player map has only WASD/Dpad Move and button actions (Attack/Interact/Crouch/Jump/etc.), no cursor-to-gameplay-plane or click-to-move action, and PlayerMovement.cs does not reference it."
     },
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "path": "Assets/Scenes/DoorPrototype.unity",
       "evidence_type": "scene",
       "observation": "PlayerMovement.cs (guid 356044e6782dd0641a7e69b0abfa5c4a) is serialized on the Player GameObject, confirming current WASD movement is the integrated state, not merely available via the builder."
     }

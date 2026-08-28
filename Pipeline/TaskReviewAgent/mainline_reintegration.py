@@ -296,6 +296,21 @@ def _remote_branch_head(controller: Any, branch: str) -> str | None:
     return values[0] if values else None
 
 
+def _object_id_at(controller: Any, commit: str, path: str) -> str | None:
+    result = _git(
+        controller.command_runner,
+        controller.checkout,
+        "rev-parse",
+        "--verify",
+        f"{commit}:{path}",
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    value = _decode(result.stdout or b"", "git object identity").strip()
+    return value if _SHA40.fullmatch(value) else None
+
+
 def _restore_unpushed_head(controller: Any, task_head: str) -> None:
     _git(
         controller.command_runner,
@@ -862,21 +877,9 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
     exclusive_paths = _resource_paths(task.get("exclusive_resources") or [])
     blob_changed: list[str] = []
     for path in sorted(set(task_paths) | set(exclusive_paths), key=str.casefold):
-        before = _git_text(
-            self.command_runner,
-            self.checkout,
-            "rev-parse",
-            f"{task_head}:{path}",
-            check=False,
-        )
-        after = _git_text(
-            self.command_runner,
-            self.checkout,
-            "rev-parse",
-            f"{integrated_commit}:{path}",
-            check=False,
-        )
-        if before and before != after:
+        before = _object_id_at(self, task_head, path)
+        after = _object_id_at(self, integrated_commit, path)
+        if before != after and (before is not None or after is not None):
             blob_changed.append(path)
     if blob_changed and classification["classification"] == "automation_only":
         classification = {

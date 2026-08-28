@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-023",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Fixed Isometric Camera",
   "reconciliation_key": "fixed-isometric-camera",
@@ -72,7 +72,7 @@
       "observation": "LateUpdate only writes transform.position = target.position + offset; rotation is never read or written after Initialize captures the position offset."
     },
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "path": "Assets/Scenes/DoorPrototype.unity",
       "evidence_type": "scene",
       "observation": "Serialized Main Camera has orthographic: 1, orthographic size: 8, and a wired IsometricCameraFollow component (target + offset {10,10,-10}); no rotation-modifying component is attached."
     },

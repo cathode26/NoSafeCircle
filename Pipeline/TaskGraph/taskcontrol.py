@@ -14,6 +14,7 @@ from persistent_work_graph import PersistentWorkGraphError, load_persistent_work
 from task_contract_schema import TASK_CONTRACT_SCHEMA_VERSION
 from work_graph_validate import WorkGraphValidationError
 from current_conformance import evaluate_current_conformance
+from scene_path_policy import validate_scene_path_policy
 
 
 def _numeric_id(task: dict[str, Any]) -> int:
@@ -41,6 +42,7 @@ def _is_v2(graph) -> bool:
 
 
 def command_validate(graph) -> int:
+    scene_policy = validate_scene_path_policy()
     summary = graph.validation
     print("taskcontrol validate: PASS")
     print(f"Task contract schema:           {summary.task_schema_version}")
@@ -65,6 +67,7 @@ def command_validate(graph) -> int:
     print("Parent hierarchy:               connected + acyclic")
     print("Dependency graph:               acyclic")
     print("Autonomous dispatch authority:  DISABLED")
+    print(f"Canonical Unity scene root:     {scene_policy['canonical_root']}")
     return 0
 
 

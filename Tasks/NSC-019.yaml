@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-019",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "Cursor-Targeted Door Opening (Click-to-Approach, Arm's-Reach Auto-Timer, Interruption)",
   "reconciliation_key": "door-open-interaction",
@@ -124,7 +124,7 @@
       "observation": "BuildUI sets the interaction prompt text to 'Hold E to Open' and the ControlsHud text to 'Hold E - Open Door', confirming the currently integrated interaction model is a sustained keyboard hold, not an automatic no-hold timer."
     },
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "path": "Assets/Scenes/DoorPrototype.unity",
       "evidence_type": "scene",
       "observation": "DoorInteractable component is serialized on DoorRoot with doorVisual and doorwayBlocker object references wired (fileID 965940337 / 965940338), confirming the simplified door is actually integrated into the canonical scene, not merely buildable."
     },
