@@ -14,8 +14,9 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.delivery_review import (  # noqa: E402
     DeliveryReviewError,
-    create_delivery_proposal,
-    load_delivery_proposal,
+    DeliveryReviewProposal,
+    create_delivery_review_proposal,
+    file_sha256,
     materialize_approved_review,
 )
 
@@ -124,12 +125,11 @@ def test_proposal_and_approved_review() -> None:
             encoding="utf-8",
             newline="\n",
         )
-        proposal = create_delivery_proposal(
+        proposal = create_delivery_review_proposal(
             draft_path=draft_path,
             output_path=proposal_path,
             task_id=TASK_ID,
             branch="nsc-777-synthetic",
-            commit=COMMIT,
             selected_surfaces=[
                 {
                     "path": "Assets/NoSafeCircle/Synthetic/Feature.cs",
@@ -154,19 +154,23 @@ def test_proposal_and_approved_review() -> None:
             created_by="task-review-agent-smoke",
         )
         require(proposal_path.is_file(), "proposal was not published")
-        loaded = load_delivery_proposal(
-            proposal_path,
-            expected_sha256=proposal.sha256,
+        require(
+            proposal["proposal_sha256"] == file_sha256(proposal_path),
+            "proposal SHA changed",
         )
-        require(loaded.sha256 == proposal.sha256, "proposal SHA changed")
+        loaded = DeliveryReviewProposal.from_dict(
+            json.loads(proposal_path.read_text(encoding="utf-8"))
+        )
+        require(loaded.validated_commit == COMMIT, "proposal commit changed")
         approved = materialize_approved_review(
-            draft_path=draft_path,
             proposal_path=proposal_path,
-            proposal_sha256=proposal.sha256,
+            expected_proposal_sha256=proposal["proposal_sha256"],
             approved_by="Vincent",
             output_path=approved_path,
         )
-        value = json.loads(approved.read_text(encoding="utf-8"))
+        value = json.loads(
+            Path(approved["approved_review_path"]).read_text(encoding="utf-8")
+        )
         require(value["review_status"] == "approved", "review was not approved")
         require(
             value["human_approval"]["approved_by"] == "Vincent",
@@ -199,12 +203,11 @@ def test_invalid_proposals_fail_closed() -> None:
             newline="\n",
         )
         expect_error(
-            lambda: create_delivery_proposal(
+            lambda: create_delivery_review_proposal(
                 draft_path=draft_path,
                 output_path=root / "bad-evidence.json",
                 task_id=TASK_ID,
                 branch="nsc-777-synthetic",
-                commit=COMMIT,
                 selected_surfaces=[
                     {
                         "path": "Assets/NoSafeCircle/Synthetic/Feature.cs",
@@ -224,12 +227,11 @@ def test_invalid_proposals_fail_closed() -> None:
             "unknown artifact",
         )
         expect_error(
-            lambda: create_delivery_proposal(
+            lambda: create_delivery_review_proposal(
                 draft_path=draft_path,
                 output_path=root / "missing-gate.json",
                 task_id=TASK_ID,
                 branch="nsc-777-synthetic",
-                commit=COMMIT,
                 selected_surfaces=[
                     {
                         "path": "Assets/NoSafeCircle/Synthetic/Feature.cs",
@@ -240,7 +242,7 @@ def test_invalid_proposals_fail_closed() -> None:
                 approval_notes="Review this proposal.",
                 created_by="agent",
             ),
-            "exactly every draft gate",
+            "gate_mappings must be non-empty",
         )
 
 
