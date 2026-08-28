@@ -41,6 +41,15 @@ if ([string]::IsNullOrWhiteSpace($WorkerId)) {
     $WorkerId = "task-review-agent-$machine-$([Guid]::NewGuid().ToString('N').Substring(0, 10))"
 }
 
+if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
+    $CheckoutParent = Split-Path -Parent $RepositoryRoot
+    $OutputRoot = Join-Path $CheckoutParent '.task-review-agent\outputs'
+}
+if (-not (Test-Path -LiteralPath $OutputRoot -PathType Container)) {
+    New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
+}
+$OutputRoot = (Resolve-Path -LiteralPath $OutputRoot).Path
+
 & git --version | Out-Null
 if ($LASTEXITCODE -ne 0) {
     throw 'Git is required.'
@@ -64,6 +73,56 @@ if ($Mode -eq 'openai') {
     if ($LASTEXITCODE -ne 0) {
         throw 'OpenAI Agents SDK is missing. Run: python -m pip install -r Pipeline/TaskReviewAgent/requirements.txt'
     }
+
+    $ExecutionService = "$ExecutionProvider-exec"
+    $ProviderVolume = "nosafecircle_$ExecutionProvider-config"
+    $ProviderConfigPath = if ($ExecutionProvider -eq 'claude') {
+        '/home/agent/.claude'
+    }
+    else {
+        '/home/agent/.codex'
+    }
+
+    & docker volume inspect $ProviderVolume | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "The shared provider configuration volume is missing: $ProviderVolume"
+    }
+
+    $ExecutionOutputRoot = Join-Path $RepositoryRoot 'Pipeline\ExecutionCrew\outputs'
+    if (-not (Test-Path -LiteralPath $ExecutionOutputRoot -PathType Container)) {
+        New-Item -ItemType Directory -Path $ExecutionOutputRoot -Force | Out-Null
+    }
+    $ProbeName = "permission-probe-$([Guid]::NewGuid().ToString('N')).txt"
+    $HostProbePath = Join-Path $ExecutionOutputRoot $ProbeName
+    $ProbeScript = @"
+set -eu
+if touch '/workspace/$ProbeName' 2>/dev/null; then
+  rm -f '/workspace/$ProbeName'
+  echo 'ERROR: /workspace is writable but must be read-only.' >&2
+  exit 41
+fi
+test -d '$ProviderConfigPath'
+test -r '$ProviderConfigPath'
+test -w '$ProviderConfigPath'
+printf 'task-review-agent-permission-ok\n' > '/execution-output/$ProbeName'
+"@
+
+    try {
+        & docker compose -p nosafecircle run --rm -T $ExecutionService bash -lc $ProbeScript
+        if ($LASTEXITCODE -ne 0) {
+            throw "Docker permission preflight failed for $ExecutionService."
+        }
+        if (-not (Test-Path -LiteralPath $HostProbePath -PathType Leaf)) {
+            throw 'Docker reported success but the host did not receive the ExecutionCrew output probe.'
+        }
+        $ProbeValue = (Get-Content -LiteralPath $HostProbePath -Raw).Trim()
+        if ($ProbeValue -ne 'task-review-agent-permission-ok') {
+            throw 'Docker ExecutionCrew output probe had unexpected contents.'
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $HostProbePath -Force -ErrorAction SilentlyContinue
+    }
 }
 
 $Arguments = @(
@@ -72,7 +131,8 @@ $Arguments = @(
     '--source', $Source,
     '--worker-id', $WorkerId,
     '--execution-provider', $ExecutionProvider,
-    '--max-turns', $MaxTurns.ToString()
+    '--max-turns', $MaxTurns.ToString(),
+    '--output-root', $OutputRoot
 )
 
 if (-not [string]::IsNullOrWhiteSpace($TaskId)) {
@@ -84,13 +144,6 @@ if (-not [string]::IsNullOrWhiteSpace($CheckoutRoot)) {
 if (-not [string]::IsNullOrWhiteSpace($UnityExecutable)) {
     $UnityExecutable = (Resolve-Path -LiteralPath $UnityExecutable).Path
     $Arguments += @('--unity-executable', $UnityExecutable)
-}
-if (-not [string]::IsNullOrWhiteSpace($OutputRoot)) {
-    if (-not (Test-Path -LiteralPath $OutputRoot -PathType Container)) {
-        New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
-    }
-    $OutputRoot = (Resolve-Path -LiteralPath $OutputRoot).Path
-    $Arguments += @('--output-root', $OutputRoot)
 }
 if (-not [string]::IsNullOrWhiteSpace($Model)) {
     $Arguments += @('--model', $Model)
@@ -104,6 +157,7 @@ else {
     Write-Host "Task: $TaskId"
 }
 Write-Host "Execution provider: $ExecutionProvider"
+Write-Host "Durable output root: $OutputRoot"
 Write-Host 'Pipeline phase: selected automatically from the durable Issue state'
 
 & python @Arguments
