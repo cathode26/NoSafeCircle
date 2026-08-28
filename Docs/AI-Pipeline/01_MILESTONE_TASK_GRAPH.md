@@ -318,7 +318,7 @@ Initial shared resource groups include logical ownership surfaces plus concrete 
 - `Assets/InputSystem_Actions.inputactions`
 - `Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs`
 - `Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs`
-- `Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity`
+- `Assets/Scenes/DoorPrototype.unity`
 
 These become especially important later when the supervisor introduces claims/worktrees and eventually parallel workers.
 

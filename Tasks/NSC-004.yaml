@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-004",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Player Health Ownership, Restore, Death Transition, and Feedback",
   "reconciliation_key": "player-health",
@@ -83,7 +83,7 @@
       "observation": "Implements CurrentHealth, a clamped TakeDamage(amount) damage interface, and a Damaged event; has no restore/heal method, no zero-health/death event, and no reset entry point."
     },
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "path": "Assets/Scenes/DoorPrototype.unity",
       "evidence_type": "scene",
       "observation": "PlayerHealth.cs (guid ddabb8b125ed06f42863f611de5826f7) is serialized on the Player GameObject, confirming the current damage-only implementation is integrated."
     },

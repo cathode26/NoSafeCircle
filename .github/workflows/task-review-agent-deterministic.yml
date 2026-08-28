@@ -7,6 +7,8 @@ on:
       - ".github/workflows/nsc-issue-workflow.yml"
       - "compose.override.yaml"
       - "Pipeline/TaskReviewAgent/**"
+      - "Pipeline/TaskGraph/**"
+      - "Tasks/**"
       - "Docs/AI-Pipeline/ISSUE_WORKFLOW_STATE_MACHINE.md"
       - "Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md"
       - "AGENTS.md"
@@ -79,6 +81,9 @@ jobs:
       - name: Run mainline reintegration smoke tests
         run: python Pipeline/TaskReviewAgent/tests/mainline_reintegration_smoke_test.py
 
+      - name: Run canonical scene path and contract migration smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py
+
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
 
@@ -99,6 +104,9 @@ jobs:
 
       - name: Run resume after unrelated mainline progress test
         run: python Pipeline/TaskReviewAgent/tests/resumable_checkout_smoke_test.py
+
+      - name: Run contract migration checkout resume test
+        run: python Pipeline/TaskReviewAgent/tests/contract_migration_checkout_smoke_test.py
 
       - name: Run production scope ExecutionCrew commit push test
         run: python Pipeline/TaskReviewAgent/tests/production_pipeline_smoke_test.py

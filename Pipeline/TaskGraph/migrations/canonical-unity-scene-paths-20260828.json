@@ -1,0 +1,229 @@
+{
+  "canonical_scene_root": "Assets/Scenes/",
+  "changed_files": [
+    "Docs/AI-Pipeline/01_MILESTONE_TASK_GRAPH.md",
+    "Docs/AI-Pipeline/REAL_TASK_DELIVERY_RUNBOOK.md",
+    "Docs/GDD/No_Safe_Circle_GDD.md",
+    "Pipeline/Migrations/canonical_scene_paths_migration.py",
+    "Pipeline/Reconciliation/prompts/reconcile.md",
+    "Pipeline/Reconciliation/prompts/verification/refiner.md",
+    "Pipeline/Reconciliation/prompts/verification/structure_auditor.md",
+    "Pipeline/TaskGraph/PROJECT_REQUIREMENTS.yaml",
+    "Pipeline/TaskGraph/RESOURCE_GROUPS.yaml",
+    "Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py",
+    "Tasks/NSC-003.yaml",
+    "Tasks/NSC-004.yaml",
+    "Tasks/NSC-005.yaml",
+    "Tasks/NSC-007.yaml",
+    "Tasks/NSC-008.yaml",
+    "Tasks/NSC-009.yaml",
+    "Tasks/NSC-019.yaml",
+    "Tasks/NSC-020.yaml",
+    "Tasks/NSC-023.yaml",
+    "Tasks/NSC-025.yaml",
+    "Tasks/NSC-026.yaml",
+    "Tasks/NSC-032.yaml",
+    "Tasks/NSC-033.yaml",
+    "Tasks/NSC-035.yaml"
+  ],
+  "migration_id": "canonical-unity-scene-paths-20260828",
+  "schema_version": "1.0",
+  "task_contracts": [
+    {
+      "new_contract_revision": 3,
+      "new_sha256": "4b9899bb8df494bc85c14af090ecd9f00372432d9e0ea948a58fce6fd86b27bc",
+      "old_contract_revision": 2,
+      "old_sha256": "12fa6ea8e3106be80de3b1bca4c61ff52d56edb1349ca7aad45ab694270a8761",
+      "path": "Tasks/NSC-003.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-003"
+    },
+    {
+      "new_contract_revision": 3,
+      "new_sha256": "af72c0e60ba6783ef8a18d07b20f09011f44ec98af126e74c0bc326ba25d8235",
+      "old_contract_revision": 2,
+      "old_sha256": "dbc406bb4a58a727a47568b5ee98d32d4cc55ad4abc9101c79fcd191d0344065",
+      "path": "Tasks/NSC-004.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-004"
+    },
+    {
+      "new_contract_revision": 2,
+      "new_sha256": "411db6ef1198b8c355575e62c9cded619dff38d26bfbce8c4b483db1035ae8d7",
+      "old_contract_revision": 1,
+      "old_sha256": "60b445efa977b83b4cf84cd209fbd43881d7810761ebf7bbd6461bb8d696b123",
+      "path": "Tasks/NSC-005.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-005"
+    },
+    {
+      "new_contract_revision": 2,
+      "new_sha256": "53d0092cede3270bd6d9b2faa2cfd9af2ac353e1359719174cf6b4e52dba5bab",
+      "old_contract_revision": 1,
+      "old_sha256": "8fa75aafb452191dc2e8ecba1922998f523a579af325f525e997af91d0b8c597",
+      "path": "Tasks/NSC-007.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-007"
+    },
+    {
+      "new_contract_revision": 2,
+      "new_sha256": "5ea666cc00528124355fa96dee97a16467c1fbf8fc0d0700ce6319fe372777f3",
+      "old_contract_revision": 1,
+      "old_sha256": "00f55cc4fe493a8286d2db96d4531867d0937a500de329dcd76ed0191fe9db67",
+      "path": "Tasks/NSC-008.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-008"
+    },
+    {
+      "new_contract_revision": 2,
+      "new_sha256": "e4f6b16a65114ae748aa4697ddd91278ed564a0e251ba88c1ad222d1e3aeb1ee",
+      "old_contract_revision": 1,
+      "old_sha256": "c720f532a0fcc0684bab9a1b99a06027dde0b4bfa6224638c0a997fea4c4c8b2",
+      "path": "Tasks/NSC-009.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-009"
+    },
+    {
+      "new_contract_revision": 4,
+      "new_sha256": "2430200fb622fd5f931f4f8709832018e69e5927ab41c97b801347452280131a",
+      "old_contract_revision": 3,
+      "old_sha256": "1f1d8fae4bbffc1876ba1049318cb9f127769dae188e0beef2c6e2c81428efcb",
+      "path": "Tasks/NSC-019.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-019"
+    },
+    {
+      "new_contract_revision": 2,
+      "new_sha256": "f8c9e326646e16e2c4bcf5eba4a6505494a5044491bc70127d5b0a1603150a3b",
+      "old_contract_revision": 1,
+      "old_sha256": "a971844f00b0986faf3d21926e5c6a6901d97c6381c646c35b1017c6b9f8a6ef",
+      "path": "Tasks/NSC-020.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-020"
+    },
+    {
+      "new_contract_revision": 2,
+      "new_sha256": "e002181a040d4013d7f5fd413449c0520063b1e69d9f01bceaa2bfc60aca957b",
+      "old_contract_revision": 1,
+      "old_sha256": "b192a43c0755f210d4273063fd229f82cd2edd5d36e98269b0e44be42efca8cb",
+      "path": "Tasks/NSC-023.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-023"
+    },
+    {
+      "new_contract_revision": 3,
+      "new_sha256": "24d146fb26e7cfe7a3df64f0eadaf4479899efd5aae67e82f86dbdfac1e870ff",
+      "old_contract_revision": 2,
+      "old_sha256": "0964d061b73694a5da3ffb7abe71c3a9c5e507d25e131390114aca11dd459f51",
+      "path": "Tasks/NSC-025.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-025"
+    },
+    {
+      "new_contract_revision": 3,
+      "new_sha256": "9a53f73e2f03b16fad5eca81e6fbedac58462edc60c885273bc9ece30d03c154",
+      "old_contract_revision": 2,
+      "old_sha256": "9f582119747995b02299b859f4e0b4348d050af283f48dc8e6c3159d8ef34acc",
+      "path": "Tasks/NSC-026.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-026"
+    },
+    {
+      "new_contract_revision": 2,
+      "new_sha256": "621612ad82657a510b51311c0b9ef232b770774b3ea6b67a4c23bb2890935f3a",
+      "old_contract_revision": 1,
+      "old_sha256": "e7595b53dd8b0be4ff0efefd969ebca392f2a24e6cc3a98e8e89dc92bc1b4087",
+      "path": "Tasks/NSC-032.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-032"
+    },
+    {
+      "new_contract_revision": 4,
+      "new_sha256": "c6928d29da4f4fd0f7aee9f2a04a0a33442b34a9ffa9d07aa0371c66d93324a9",
+      "old_contract_revision": 3,
+      "old_sha256": "6bb89f5e2cbda90412540da9512b06f9cefe08e556368727be9279d9a1153c0e",
+      "path": "Tasks/NSC-033.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-033"
+    },
+    {
+      "new_contract_revision": 2,
+      "new_sha256": "21624740bed85048817f14fd0d12b8c0604f9fb31188eb02468265e14f073c8e",
+      "old_contract_revision": 1,
+      "old_sha256": "4ecf1a3136555796cfd461813d6ce6e726d97575450f08ac951a1420c448e26b",
+      "path": "Tasks/NSC-035.yaml",
+      "replacements": [
+        {
+          "from": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+          "to": "Assets/Scenes/DoorPrototype.unity"
+        }
+      ],
+      "task_id": "NSC-035"
+    }
+  ]
+}

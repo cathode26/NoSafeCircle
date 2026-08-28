@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-025",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Gameplay Navigation/Locomotion Foundation",
   "reconciliation_key": "gameplay-navigation-locomotion",
@@ -80,7 +80,7 @@
   "repository_state_at_bootstrap": "missing",
   "repository_evidence_at_bootstrap": [
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+      "path": "Assets/Scenes/DoorPrototype.unity",
       "evidence_type": "scene",
       "observation": "No NavMeshAgent, NavMeshSurface, or NavMeshObstacle component exists anywhere in the scene; the only NavMesh-related block present is Unity's default per-scene NavMeshSettings stub (m_NavMeshData: {fileID: 0}), which every Unity scene contains by default and is not evidence of a built navigation layer."
     },

@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-009",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Force Wave",
   "reconciliation_key": "force-wave",
@@ -17,7 +17,7 @@
   ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
     "repo-file:Assets/InputSystem_Actions.inputactions"
   ],
   "acceptance_criteria": [

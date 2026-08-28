@@ -31,7 +31,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_reason": "The GDD names the complete required participant list and the exact reset contract for full closure; no missing design remains, though most listed owners do not yet exist.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -58,7 +58,7 @@
   "exclusive_resources": [
     "logical:floor-run-restart-orchestrator",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
   ],
   "execution_reason": "This item spans wiring reset participation across roughly a dozen independently-owned systems (player systems, three spells, door lifecycle, enemy state, registry, encounters); that breadth exceeds a single bounded agent handoff even though each individual wiring point is simple once its owner exists.",
   "execution_scope": "needs_execution_decomposition",

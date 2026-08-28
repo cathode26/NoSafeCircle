@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from .durable_checkout import DurableTaskCheckoutManager
-from .real_checkout import _decode, _git, _git_text
+from .real_checkout import _decode, _git, _git_text, _normalized_remote
 
 
 _STALE_MAIN_REASON = "checkout origin/main does not match current controller main"
 _DIRTY_WORKTREE_REASON = "checkout working tree is not clean"
+_CONTRACT_HASH_REASON = "checkout task contract hash does not match current task authority"
+_MANIFEST_REASON = "external durable checkout manifest conflicts with task identity"
+_REMOTE_HEAD_REASON = "recorded handoff commit is not the pushed remote task branch"
 _SAFE_POST_HANDOFF_UNITY_CHURN = frozenset(
     {
         "ProjectSettings/EditorBuildSettings.asset",
@@ -20,14 +24,25 @@ _SAFE_POST_HANDOFF_UNITY_CHURN = frozenset(
 
 
 class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
-    """Resume an exact human-tested branch without treating Unity churn as task work.
+    """Resume exact durable task branches across safe editor and contract migrations.
 
-    A human-tested task branch remains bound to its exact remote branch commit and
-    task-contract hash. Unrelated mainline progress does not rewrite that branch.
-    Before downstream automation resumes, this manager may restore only a tiny exact
-    allowlist of unstaged ProjectSettings churn produced by opening/running Unity and
-    may refresh the local origin/main tracking ref. Any staged, untracked, task-owned,
-    or otherwise unexpected path remains a hard conflict.
+    Normal human-tested resumes remain bound to their exact remote branch commit and
+    task-contract hash. The manager may restore only a tiny allowlist of unstaged
+    ProjectSettings churn and refresh local tracking refs.
+
+    A repository-wide clerical task-contract migration may also advance the durable
+    Issue head. In that case this manager may fast-forward the existing clean task
+    checkout only when all of these identities agree:
+
+    - the checked-out branch is the exact Issue branch;
+    - the local head is an ancestor of the exact Issue head;
+    - the remote task branch equals that Issue head;
+    - the task contract at that remote head hashes to current TaskGraph authority;
+    - the origin remote still equals the controller origin.
+
+    The recovery never resets, rebases, force-pushes, or accepts an unexpected dirty
+    path. After the fast-forward it rewrites the external durable manifest to the new
+    contract identity and verifies the strict base-manager inspection passes.
     """
 
     def inspect(self, observation: dict[str, Any]) -> dict[str, Any]:
@@ -51,17 +66,17 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
         return result
 
     def prepare(self, observation: dict[str, Any]) -> dict[str, Any]:
-        recovery = self._recover_safe_post_handoff_churn(observation)
+        recovery = self._recover_safe_resume_state(observation)
         result = super().prepare(observation)
         if recovery:
             return {
                 **result,
                 **recovery,
-                "recovery_authority": "exact_human_handoff_unity_churn_allowlist",
+                "recovery_authority": "exact_durable_resume_identity",
             }
         return result
 
-    def _recover_safe_post_handoff_churn(
+    def _recover_safe_resume_state(
         self,
         observation: dict[str, Any],
     ) -> dict[str, Any]:
@@ -70,13 +85,45 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
         raw = super().inspect(observation)
         if raw.get("status") != "conflict":
             return {}
-        reasons = set(raw.get("reasons") or [])
-        permitted_reasons = {_STALE_MAIN_REASON, _DIRTY_WORKTREE_REASON}
-        if not reasons or not reasons.issubset(permitted_reasons):
+
+        reasons = list(raw.get("reasons") or [])
+        if not reasons:
+            return {}
+        reason_set = set(reasons)
+        head_reasons = [
+            reason
+            for reason in reasons
+            if reason.startswith("checkout HEAD ")
+            and " does not match workflow head " in reason
+        ]
+        permitted = {
+            _STALE_MAIN_REASON,
+            _DIRTY_WORKTREE_REASON,
+            _CONTRACT_HASH_REASON,
+            _MANIFEST_REASON,
+            _REMOTE_HEAD_REASON,
+            *head_reasons,
+        }
+        if not reason_set.issubset(permitted):
+            return {}
+
+        environment = observation.get("environment") or {}
+        task = observation.get("task") or {}
+        expected_branch = self.expected_branch(observation)
+        expected_head = self.expected_head(observation)
+        remote_url = str(raw.get("remote_url") or "")
+        expected_remote = str(environment.get("remote_url") or "")
+        if (
+            raw.get("branch") != expected_branch
+            or not remote_url
+            or not self._remote_allowed(remote_url)
+            or not expected_remote
+            or _normalized_remote(remote_url) != _normalized_remote(expected_remote)
+        ):
             return {}
 
         restored: list[str] = []
-        if _DIRTY_WORKTREE_REASON in reasons:
+        if _DIRTY_WORKTREE_REASON in reason_set:
             dirty = self._safe_dirty_paths()
             if not dirty:
                 return {}
@@ -91,22 +138,78 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
                 )
             restored = dirty
 
-        refreshed = False
-        if _STALE_MAIN_REASON in reasons:
+        _git(
+            self.checkout_path,
+            "fetch",
+            "origin",
+            "+refs/heads/main:refs/remotes/origin/main",
+            f"+refs/heads/{expected_branch}:refs/remotes/origin/{expected_branch}",
+        )
+        remote_head = _git_text(
+            self.checkout_path,
+            "rev-parse",
+            "--verify",
+            f"refs/remotes/origin/{expected_branch}",
+            check=False,
+        )
+        local_head = _git_text(
+            self.checkout_path,
+            "rev-parse",
+            "--verify",
+            "HEAD",
+            check=False,
+        )
+        if remote_head != expected_head or not local_head:
+            return {}
+        if (
             _git(
                 self.checkout_path,
-                "fetch",
-                "origin",
-                "+refs/heads/main:refs/remotes/origin/main",
-            )
-            refreshed = True
+                "merge-base",
+                "--is-ancestor",
+                local_head,
+                expected_head,
+                check=False,
+            ).returncode
+            != 0
+        ):
+            return {}
 
+        contract_path = task.get("contract_path")
+        expected_contract_hash = task.get("task_contract_sha256")
+        if not isinstance(contract_path, str) or not isinstance(expected_contract_hash, str):
+            return {}
+        contract = _git(
+            self.checkout_path,
+            "show",
+            f"{expected_head}:{contract_path}",
+            check=False,
+        )
+        if (
+            contract.returncode != 0
+            or hashlib.sha256(contract.stdout).hexdigest() != expected_contract_hash
+        ):
+            return {}
+
+        fast_forwarded = local_head != expected_head
+        if fast_forwarded:
+            _git(
+                self.checkout_path,
+                "merge",
+                "--ff-only",
+                expected_head,
+            )
+
+        self._write_manifest(observation, remote_url)
         verified = super().inspect(observation)
-        if verified.get("status") not in {"ready", "unmanaged_exact"}:
+        if verified.get("status") != "ready":
             return {}
         return {
             "recovered_unity_churn": restored,
-            "origin_main_refreshed": refreshed,
+            "origin_main_refreshed": True,
+            "contract_migration_fast_forwarded": fast_forwarded,
+            "prior_checkout_head": local_head,
+            "recovered_checkout_head": expected_head,
+            "durable_manifest_migrated": True,
         }
 
     def _safe_dirty_paths(self) -> list[str] | None:

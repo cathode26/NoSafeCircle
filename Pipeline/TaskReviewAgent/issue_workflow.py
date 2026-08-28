@@ -76,6 +76,7 @@ class WorkflowEventType(str, Enum):
     HUMAN_HANDOFF_CREATED = "human_handoff_created"
     HUMAN_VALIDATION_PASSED = "human_validation_passed"
     HUMAN_VALIDATION_FAILED = "human_validation_failed"
+    TASK_CONTRACT_MIGRATED = "task_contract_migrated"
     BLOCKED = "blocked"
     UNBLOCKED = "unblocked"
     COMPLETED = "completed"
@@ -579,6 +580,18 @@ def transition(
             updates.update(current_actor=actor_type)
         elif to_state is WorkflowState.COMPLETE:
             updates.update(current_actor=WorkflowActor.NONE)
+    if event_type is WorkflowEventType.TASK_CONTRACT_MIGRATED:
+        updates.update(
+            task_contract_sha256=event.details["new_task_contract_sha256"],
+            current_actor=WorkflowActor.AGENT,
+            worker_id=None,
+            lease_id=None,
+            branch=event.details.get("branch") or state.branch,
+            head_commit=event.details.get("head_commit") or state.head_commit,
+            checkout_path=event.details.get("checkout_path") or state.checkout_path,
+            human_handoff_commit=event.details.get("human_handoff_commit"),
+            human_result=event.details.get("human_result"),
+        )
     return replace(state, **updates), event
 
 
@@ -590,6 +603,31 @@ def _validate_transition(
     to_phase: WorkflowPhase,
     details: Mapping[str, Any],
 ) -> None:
+    if event_type is WorkflowEventType.TASK_CONTRACT_MIGRATED:
+        if state.state is WorkflowState.COMPLETE:
+            raise WorkflowContractError("complete workflow state cannot migrate task contract")
+        if to_state is not WorkflowState.AGENT_READY or actor_type is not WorkflowActor.AGENT:
+            raise WorkflowContractError("task contract migration must return the Issue to agent_ready")
+        old_hash = _sha(
+            details.get("old_task_contract_sha256"),
+            field="old_task_contract_sha256",
+            sha256=True,
+        )
+        new_hash = _sha(
+            details.get("new_task_contract_sha256"),
+            field="new_task_contract_sha256",
+            sha256=True,
+        )
+        if old_hash != state.task_contract_sha256 or new_hash == old_hash:
+            raise WorkflowContractError("task contract migration hash identities are invalid")
+        for key in ("branch", "checkout_path"):
+            _string(details.get(key), field=key)
+        for key in ("head_commit", "human_handoff_commit"):
+            _sha(details.get(key), field=key)
+        if details.get("human_result") not in (None, "pass", "fail"):
+            raise WorkflowContractError("task contract migration human_result is invalid")
+        return
+
     allowed = {
         (WorkflowState.AGENT_READY, WorkflowEventType.AGENT_LEASE_ACQUIRED): (
             WorkflowState.AGENT_WORKING,
@@ -756,11 +794,14 @@ def validate_event_chain(
     if len({event.event_id for event in ordered}) != len(ordered):
         raise WorkflowContractError("workflow event history contains duplicate event IDs")
     previous: IssueWorkflowEvent | None = None
+    expected_contract_sha256 = (
+        ordered[0].task_contract_sha256 if ordered else state.task_contract_sha256
+    )
     for index, event in enumerate(ordered, start=1):
         if event.task_id != state.task_id:
             raise WorkflowContractError("workflow event task does not match issue state")
-        if event.task_contract_sha256 != state.task_contract_sha256:
-            raise WorkflowContractError("workflow event contract hash changed")
+        if event.task_contract_sha256 != expected_contract_sha256:
+            raise WorkflowContractError("workflow event contract hash changed without a migration event")
         if event.sequence != index:
             raise WorkflowContractError("workflow event sequences are not contiguous")
         expected_previous = previous.event_id if previous else None
@@ -771,7 +812,18 @@ def validate_event_chain(
                 raise WorkflowContractError("workflow state chain is broken")
             if event.from_phase is not previous.to_phase:
                 raise WorkflowContractError("workflow phase chain is broken")
+        if event.event_type is WorkflowEventType.TASK_CONTRACT_MIGRATED:
+            old_hash = event.details.get("old_task_contract_sha256")
+            new_hash = event.details.get("new_task_contract_sha256")
+            if old_hash != expected_contract_sha256:
+                raise WorkflowContractError("task contract migration old hash is not current")
+            _sha(new_hash, field="new_task_contract_sha256", sha256=True)
+            if new_hash == old_hash:
+                raise WorkflowContractError("task contract migration did not change identity")
+            expected_contract_sha256 = new_hash
         previous = event
+    if expected_contract_sha256 != state.task_contract_sha256:
+        raise WorkflowContractError("Issue state does not use the final migrated contract hash")
     if state.state_version != len(ordered):
         raise WorkflowContractError("state_version does not match workflow event count")
     if not ordered:

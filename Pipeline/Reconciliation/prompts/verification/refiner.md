@@ -852,7 +852,7 @@ including when applicable:
 
 ```text
 repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs
-unity-scene:Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity
+unity-scene:Assets/Scenes/DoorPrototype.unity
 ```
 
 This is a concurrency repair, not a dependency edge.
