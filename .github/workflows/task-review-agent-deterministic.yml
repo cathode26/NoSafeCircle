@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/task-review-agent-deterministic.yml"
       - ".github/workflows/nsc-issue-workflow.yml"
+      - "compose.override.yaml"
       - "Pipeline/TaskReviewAgent/**"
       - "Docs/AI-Pipeline/ISSUE_WORKFLOW_STATE_MACHINE.md"
       - "Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md"
@@ -45,6 +46,9 @@ jobs:
             $errors | ForEach-Object { Write-Error $_.Message }
             throw "Game Task Agent PowerShell parsing failed."
           }
+
+      - name: Run API-key-free Codex supervisor smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/codex_supervisor_smoke_test.py
 
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
