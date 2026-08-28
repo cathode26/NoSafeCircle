@@ -47,6 +47,9 @@ jobs:
             throw "Game Task Agent PowerShell parsing failed."
           }
 
+      - name: Verify external Codex credential volume declaration
+        run: python Pipeline/TaskReviewAgent/tests/compose_supervisor_volume_smoke_test.py
+
       - name: Run API-key-free Codex supervisor smoke tests
         run: python Pipeline/TaskReviewAgent/tests/codex_supervisor_smoke_test.py
 
