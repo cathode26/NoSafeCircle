@@ -50,9 +50,13 @@ if (-not (Test-Path -LiteralPath $OutputRoot -PathType Container)) {
 }
 $OutputRoot = (Resolve-Path -LiteralPath $OutputRoot).Path
 
-& git --version | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    throw 'Git is required.'
+foreach ($CommandName in @('git', 'gh', 'docker', 'python')) {
+    if ($null -eq (Get-Command $CommandName -ErrorAction SilentlyContinue)) {
+        if ($CommandName -eq 'gh') {
+            throw 'GitHub CLI is required but is not installed. Install it with: winget install --id GitHub.cli'
+        }
+        throw "Required command is not installed or not on PATH: $CommandName"
+    }
 }
 
 & gh auth status --hostname github.com | Out-Null
@@ -65,14 +69,60 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Docker Desktop and Docker Compose must be available.'
 }
 
+$SupervisorVolume = $null
 if ($Mode -eq 'openai') {
-    if ([string]::IsNullOrWhiteSpace($env:OPENAI_API_KEY)) {
-        throw 'OPENAI_API_KEY is required for the goal-oriented OpenAI supervisor.'
-    }
-    & python -c "import agents"
+    # Codex CLI login is already stored in a Docker volume. The supervisor uses
+    # that login directly; it never requests or copies OPENAI_API_KEY.
+    $AllVolumes = @(docker volume ls --format '{{.Name}}')
     if ($LASTEXITCODE -ne 0) {
-        throw 'OpenAI Agents SDK is missing. Run: python -m pip install -r Pipeline/TaskReviewAgent/requirements.txt'
+        throw 'Unable to enumerate Docker volumes.'
     }
+
+    $Candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:NSC_TASK_SUPERVISOR_CODEX_VOLUME)) {
+        $Candidates += $env:NSC_TASK_SUPERVISOR_CODEX_VOLUME
+    }
+    foreach ($Preferred in @(
+        'nosafecircle-m2a_codex-config',
+        'nosafecircle_codex-config'
+    )) {
+        if ($AllVolumes -contains $Preferred) {
+            $Candidates += $Preferred
+        }
+    }
+    $Candidates += @(
+        $AllVolumes |
+            Where-Object { $_ -match 'codex-config$' } |
+            Sort-Object
+    )
+    $Candidates = @($Candidates | Select-Object -Unique)
+
+    if ($Candidates.Count -eq 0) {
+        throw 'No persisted Codex CLI configuration volume was found. Authenticate Codex once through an existing Compose project.'
+    }
+
+    & docker compose -p nosafecircle build codex-supervisor | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw 'The codex-supervisor Docker image could not be built.'
+    }
+
+    foreach ($Candidate in $Candidates) {
+        $env:NSC_TASK_SUPERVISOR_CODEX_VOLUME = $Candidate
+        & docker compose -p nosafecircle run --rm -T codex-supervisor codex login status *> $null
+        if ($LASTEXITCODE -eq 0) {
+            $SupervisorVolume = $Candidate
+            break
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($SupervisorVolume)) {
+        throw @"
+Persisted Codex volumes were found, but none reported an authenticated CLI session.
+Checked: $($Candidates -join ', ')
+No API key is required. Re-authenticate the intended volume with Codex CLI instead.
+"@
+    }
+    $env:NSC_TASK_SUPERVISOR_CODEX_VOLUME = $SupervisorVolume
 
     $ExecutionService = "$ExecutionProvider-exec"
     $ProviderVolume = "nosafecircle_$ExecutionProvider-config"
@@ -85,7 +135,7 @@ if ($Mode -eq 'openai') {
 
     & docker volume inspect $ProviderVolume | Out-Null
     if ($LASTEXITCODE -ne 0) {
-        throw "The shared provider configuration volume is missing: $ProviderVolume"
+        throw "The shared ExecutionCrew provider volume is missing: $ProviderVolume"
     }
 
     $ExecutionOutputRoot = Join-Path $RepositoryRoot 'Pipeline\ExecutionCrew\outputs'
@@ -155,6 +205,10 @@ if ([string]::IsNullOrWhiteSpace($TaskId)) {
 }
 else {
     Write-Host "Task: $TaskId"
+}
+Write-Host "Goal supervisor: OpenAI Codex CLI in Docker (no API key)"
+if ($SupervisorVolume) {
+    Write-Host "Codex credential volume: $SupervisorVolume"
 }
 Write-Host "Execution provider: $ExecutionProvider"
 Write-Host "Durable output root: $OutputRoot"
