@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "tasks": {
+    "NSC-020": {
+      "task_contract_sha256": "f8c9e326646e16e2c4bcf5eba4a6505494a5044491bc70127d5b0a1603150a3b",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
+    }
+  }
+}
