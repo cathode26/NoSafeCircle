@@ -84,6 +84,9 @@ jobs:
       - name: Run canonical scene path and contract migration smoke tests
         run: python Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py
 
+      - name: Run downstream PASS carry-forward and rejection guard tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py
+
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
 
