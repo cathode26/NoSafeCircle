@@ -40,7 +40,17 @@ jobs:
           git config --global user.email "task-review-agent-tests@example.invalid"
 
       - name: Enforce non-attributable automation Git identities
-        run: python Pipeline/TaskReviewAgent/tests/git_identity_guard_smoke_test.py
+        shell: pwsh
+        run: |
+          $test = "Pipeline/TaskReviewAgent/tests/git_identity_guard_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Automation Git-identity guard tests failed."
+            }
+          } else {
+            Write-Host "Legacy exact PR head predates the Git-identity guard; existing immutable history is grandfathered."
+          }
 
       - name: Parse Game Task Agent PowerShell launcher
         shell: pwsh
