@@ -1,0 +1,58 @@
+name: Pull Request Check Authority
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/pull-request-check-authority-deterministic.yml"
+      - "Pipeline/TaskReviewAgent/__init__.py"
+      - "Pipeline/TaskReviewAgent/pull_request_check_authority.py"
+      - "Pipeline/TaskReviewAgent/tests/pull_request_check_authority_smoke_test.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-check-authority:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run latest-check authority regression
+        run: python Pipeline/TaskReviewAgent/tests/pull_request_check_authority_smoke_test.py
+
+      - name: Compile changed TaskReviewAgent modules
+        run: python -m compileall -q Pipeline/TaskReviewAgent
+
+      - name: Whitespace validation
+        shell: pwsh
+        run: |
+          $baseSha = "${{ github.event.pull_request.base.sha }}"
+          if ([string]::IsNullOrWhiteSpace($baseSha)) {
+            git diff --check HEAD^...HEAD
+          } else {
+            git diff --check "$baseSha...HEAD"
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw "Whitespace validation failed."
+          }
+
+      - name: Verify clean checkout
+        shell: pwsh
+        run: |
+          $status = git status --porcelain=v1 --untracked-files=all
+          if ($status) {
+            git status --short --untracked-files=all
+            throw "Check-authority validation changed the checkout."
+          }
