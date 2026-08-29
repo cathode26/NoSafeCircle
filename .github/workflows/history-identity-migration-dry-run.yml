@@ -50,6 +50,7 @@ jobs:
           python Pipeline/HistoryMigration/history_identity_smoke_test.py
           python Pipeline/TaskGraph/history_identity_migration_smoke_test.py
           python Pipeline/HistoryMigration/issue_migration_smoke_test.py
+          python Pipeline/HistoryMigration/migration_plan_smoke_test.py
 
       - name: Run isolated rewrite against current main and remote branch audit refs
         shell: bash
@@ -159,6 +160,48 @@ jobs:
           print(json.dumps(report, indent=2, sort_keys=True))
           PY
 
+      - name: Build current ref and rollback migration plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRY="$RUNNER_TEMP/history-identity-dry-run/history-identity-dry-run.json"
+          PLAN="$RUNNER_TEMP/history-identity-migration-plan.json"
+          python Pipeline/HistoryMigration/migration_plan.py \
+            --dry-run-report "$DRY" \
+            --policy Pipeline/HistoryMigration/ref_policy.json \
+            --output "$PLAN"
+
+      - name: Verify preparation phase remains intentionally blocked
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "history-identity-migration-plan.json"
+          plan = json.loads(path.read_text(encoding="utf-8"))
+          if plan["source_main"] != os.environ["BASE_MAIN"]:
+              raise SystemExit("migration plan does not describe exact current origin/main")
+          if plan["unclassified_affected_branches"]:
+              raise SystemExit(
+                  f"affected branches lack reviewed migration policy: {plan['unclassified_affected_branches']}"
+              )
+          blockers = plan.get("pre_rewrite_blockers") or []
+          expected = [
+              item for item in blockers
+              if item.get("type") == "preparation_branch_not_integrated"
+              and item.get("branch") == "pipeline/history-identity-migration-v2"
+              and item.get("pull_request") == 85
+          ]
+          if len(expected) != 1:
+              raise SystemExit(f"expected PR #85 preparation blocker is missing or ambiguous: {blockers}")
+          if plan.get("ready_for_destructive_phase") is not False:
+              raise SystemExit("preparation plan must not authorize destructive history migration")
+          print(json.dumps(plan, indent=2, sort_keys=True))
+          PY
+
       - name: Prove NSC-020 TaskGraph conformance on rewritten history
         shell: bash
         run: |
@@ -199,13 +242,14 @@ jobs:
           print(json.dumps(proof, indent=2, sort_keys=True))
           PY
 
-      - name: Upload dry-run, impact, and TaskGraph proof reports
+      - name: Upload dry-run, impact, plan, and TaskGraph proof reports
         uses: actions/upload-artifact@v4
         with:
           name: history-identity-dry-run
           path: |
             ${{ runner.temp }}/history-identity-dry-run/history-identity-dry-run.json
             ${{ runner.temp }}/history-identity-impact.json
+            ${{ runner.temp }}/history-identity-migration-plan.json
             ${{ runner.temp }}/history-identity-taskgraph-proof.json
           if-no-files-found: error
           retention-days: 30
