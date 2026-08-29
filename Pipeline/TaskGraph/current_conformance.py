@@ -11,11 +11,11 @@ from conformance_records import (
     CANON_PATH,
     CommittedRecord,
     ConformanceRecordError,
-    GitRepository,
     canonical_text_sha256,
     load_committed_records,
     semantic_json_sha256,
 )
+from history_aware_repository import HistoryAwareGitRepository as GitRepository
 from decomposition_graph_semantics import (
     aggregate_child_state_summary,
     aggregate_requirement_sha256,

@@ -117,6 +117,32 @@ The workflow stops when it detects:
 - more than one workflow state block;
 - an incorrect or multiple state label.
 
+### Completed-workflow repository-history maintenance
+
+A closed `complete` Issue remains durable terminal workflow authority. It is not discarded merely because GitHub marks the Issue closed, and a later generic agent must not initialize a replacement Issue for the same completed task.
+
+A deliberate Git history identity rewrite is the one supported case where the live Git commit identity stored by a completed Issue may need to change without reopening gameplay work. The maintenance event is:
+
+```text
+complete / merge_closeout
+        ↓
+repository_history_migrated (human)
+        ↓
+complete / merge_closeout
+```
+
+This event is allowed only when committed repository-history migration authority proves the exact old/new commit translation and preserved Git tree. It records:
+
+- migration ID and committed manifest path;
+- rewrite-report SHA-256;
+- old and new live workflow commit;
+- preserved tree identity;
+- old and new human-handoff commit.
+
+The event does **not** change the task-contract hash, human PASS/FAIL result, branch, phase, or completed state. The historical event comments that named the old commits remain unchanged. A migration helper appends exactly one new hashed event and replaces only the live dashboard/state commit identity. It then re-reads the Issue and validates the full event chain again.
+
+A closed incomplete duplicate Issue is not upgraded into migration authority. It remains historical/duplicate and is ignored by the agent-ready queue.
+
 ## States
 
 | State | Next owner | Meaning |
