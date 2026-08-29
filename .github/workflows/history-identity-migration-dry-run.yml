@@ -6,6 +6,7 @@ on:
       - "Pipeline/HistoryMigration/**"
       - "Pipeline/TaskGraph/history_identity_migrations.py"
       - "Pipeline/TaskGraph/history_aware_repository.py"
+      - "Pipeline/TaskGraph/history_identity_migration_smoke_test.py"
       - "Pipeline/TaskGraph/current_conformance.py"
       - "Docs/AI-Pipeline/HISTORY_IDENTITY_MIGRATION.md"
       - ".github/workflows/history-identity-migration-dry-run.yml"
@@ -46,6 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           python Pipeline/HistoryMigration/history_identity_smoke_test.py
+          python Pipeline/TaskGraph/history_identity_migration_smoke_test.py
 
       - name: Run isolated rewrite against current main and remote branch audit refs
         shell: bash
