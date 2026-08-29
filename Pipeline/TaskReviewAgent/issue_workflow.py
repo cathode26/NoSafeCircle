@@ -36,6 +36,10 @@ HUMAN_RESULT_RE = re.compile(
     r"^\s*Tested commit:\s*`?([0-9a-f]{40})`?\s*$",
     re.DOTALL,
 )
+HISTORY_MIGRATION_MANIFEST_RE = re.compile(
+    r"^Pipeline/TaskGraph/migrations/repository-history-identity-"
+    r"([a-z0-9][a-z0-9._-]*)\.json$"
+)
 
 STATE_LABELS = {
     "agent_ready": "nsc-state:agent-ready",
@@ -77,6 +81,7 @@ class WorkflowEventType(str, Enum):
     HUMAN_VALIDATION_PASSED = "human_validation_passed"
     HUMAN_VALIDATION_FAILED = "human_validation_failed"
     TASK_CONTRACT_MIGRATED = "task_contract_migrated"
+    REPOSITORY_HISTORY_MIGRATED = "repository_history_migrated"
     BLOCKED = "blocked"
     UNBLOCKED = "unblocked"
     COMPLETED = "completed"
@@ -133,6 +138,68 @@ def _details(value: Any) -> dict[str, Any]:
     if not isinstance(normalized, dict):
         raise WorkflowContractError("event details must remain an object")
     return normalized
+
+
+def _history_migration_details(details: Mapping[str, Any]) -> dict[str, Any]:
+    expected = {
+        "migration_id",
+        "manifest_path",
+        "rewrite_report_sha256",
+        "old_head_commit",
+        "new_head_commit",
+        "head_tree",
+        "old_human_handoff_commit",
+        "new_human_handoff_commit",
+    }
+    if set(details) != expected:
+        raise WorkflowContractError(
+            "repository history migration details keys mismatch; "
+            f"missing={sorted(expected-set(details))}, "
+            f"extras={sorted(set(details)-expected)}"
+        )
+    migration_id = _string(details.get("migration_id"), field="migration_id")
+    manifest_path = _string(details.get("manifest_path"), field="manifest_path")
+    match = HISTORY_MIGRATION_MANIFEST_RE.fullmatch(manifest_path or "")
+    if match is None or match.group(1) != migration_id:
+        raise WorkflowContractError(
+            "repository history migration manifest_path and migration_id disagree"
+        )
+    rewrite_report_sha256 = _sha(
+        details.get("rewrite_report_sha256"),
+        field="rewrite_report_sha256",
+        sha256=True,
+    )
+    old_head_commit = _sha(details.get("old_head_commit"), field="old_head_commit")
+    new_head_commit = _sha(details.get("new_head_commit"), field="new_head_commit")
+    head_tree = _sha(details.get("head_tree"), field="head_tree")
+    old_handoff = _sha(
+        details.get("old_human_handoff_commit"),
+        field="old_human_handoff_commit",
+        optional=True,
+    )
+    new_handoff = _sha(
+        details.get("new_human_handoff_commit"),
+        field="new_human_handoff_commit",
+        optional=True,
+    )
+    if old_head_commit == new_head_commit:
+        raise WorkflowContractError(
+            "repository history migration must change the workflow head commit"
+        )
+    if (old_handoff is None) != (new_handoff is None):
+        raise WorkflowContractError(
+            "repository history migration handoff commits must both be null or both be Git SHAs"
+        )
+    return {
+        "migration_id": migration_id,
+        "manifest_path": manifest_path,
+        "rewrite_report_sha256": rewrite_report_sha256,
+        "old_head_commit": old_head_commit,
+        "new_head_commit": new_head_commit,
+        "head_tree": head_tree,
+        "old_human_handoff_commit": old_handoff,
+        "new_human_handoff_commit": new_handoff,
+    }
 
 
 @dataclass(frozen=True)
@@ -592,6 +659,15 @@ def transition(
             human_handoff_commit=event.details.get("human_handoff_commit"),
             human_result=event.details.get("human_result"),
         )
+    if event_type is WorkflowEventType.REPOSITORY_HISTORY_MIGRATED:
+        updates.update(
+            current_actor=WorkflowActor.NONE,
+            worker_id=None,
+            lease_id=None,
+            head_commit=event.details["new_head_commit"],
+            human_handoff_commit=event.details["new_human_handoff_commit"],
+            human_result=state.human_result,
+        )
     return replace(state, **updates), event
 
 
@@ -603,6 +679,34 @@ def _validate_transition(
     to_phase: WorkflowPhase,
     details: Mapping[str, Any],
 ) -> None:
+    if event_type is WorkflowEventType.REPOSITORY_HISTORY_MIGRATED:
+        if state.state is not WorkflowState.COMPLETE:
+            raise WorkflowContractError(
+                "repository history migration is allowed only from complete workflow state"
+            )
+        if state.phase is not WorkflowPhase.MERGE_CLOSEOUT:
+            raise WorkflowContractError(
+                "repository history migration requires merge_closeout phase"
+            )
+        if (
+            to_state is not WorkflowState.COMPLETE
+            or to_phase is not WorkflowPhase.MERGE_CLOSEOUT
+            or actor_type is not WorkflowActor.HUMAN
+        ):
+            raise WorkflowContractError(
+                "repository history migration must be a human complete-to-complete merge_closeout transition"
+            )
+        parsed = _history_migration_details(details)
+        if state.head_commit is None or parsed["old_head_commit"] != state.head_commit:
+            raise WorkflowContractError(
+                "repository history migration old_head_commit does not match Issue state"
+            )
+        if parsed["old_human_handoff_commit"] != state.human_handoff_commit:
+            raise WorkflowContractError(
+                "repository history migration old_human_handoff_commit does not match Issue state"
+            )
+        return
+
     if event_type is WorkflowEventType.TASK_CONTRACT_MIGRATED:
         if state.state is WorkflowState.COMPLETE:
             raise WorkflowContractError("complete workflow state cannot migrate task contract")
@@ -797,6 +901,8 @@ def validate_event_chain(
     expected_contract_sha256 = (
         ordered[0].task_contract_sha256 if ordered else state.task_contract_sha256
     )
+    expected_history_head: str | None = None
+    expected_history_handoff: str | None = None
     for index, event in enumerate(ordered, start=1):
         if event.task_id != state.task_id:
             raise WorkflowContractError("workflow event task does not match issue state")
@@ -821,6 +927,31 @@ def validate_event_chain(
             if new_hash == old_hash:
                 raise WorkflowContractError("task contract migration did not change identity")
             expected_contract_sha256 = new_hash
+        if event.event_type is WorkflowEventType.REPOSITORY_HISTORY_MIGRATED:
+            if (
+                event.from_state is not WorkflowState.COMPLETE
+                or event.to_state is not WorkflowState.COMPLETE
+                or event.from_phase is not WorkflowPhase.MERGE_CLOSEOUT
+                or event.to_phase is not WorkflowPhase.MERGE_CLOSEOUT
+                or event.actor_type is not WorkflowActor.HUMAN
+            ):
+                raise WorkflowContractError(
+                    "repository history migration event has an invalid state, phase, or actor"
+                )
+            parsed = _history_migration_details(event.details)
+            if expected_history_head is not None and parsed["old_head_commit"] != expected_history_head:
+                raise WorkflowContractError(
+                    "repository history migration head chain is broken"
+                )
+            if (
+                expected_history_handoff is not None
+                and parsed["old_human_handoff_commit"] != expected_history_handoff
+            ):
+                raise WorkflowContractError(
+                    "repository history migration human-handoff chain is broken"
+                )
+            expected_history_head = parsed["new_head_commit"]
+            expected_history_handoff = parsed["new_human_handoff_commit"]
         previous = event
     if expected_contract_sha256 != state.task_contract_sha256:
         raise WorkflowContractError("Issue state does not use the final migrated contract hash")
@@ -835,6 +966,16 @@ def validate_event_chain(
         raise WorkflowContractError("issue state does not point to the final workflow event")
     if state.state is not last.to_state or state.phase is not last.to_phase:
         raise WorkflowContractError("issue state does not match final workflow event")
+    if last.event_type is WorkflowEventType.REPOSITORY_HISTORY_MIGRATED:
+        parsed = _history_migration_details(last.details)
+        if state.head_commit != parsed["new_head_commit"]:
+            raise WorkflowContractError(
+                "Issue state head_commit does not match final repository history migration"
+            )
+        if state.human_handoff_commit != parsed["new_human_handoff_commit"]:
+            raise WorkflowContractError(
+                "Issue state human_handoff_commit does not match final repository history migration"
+            )
     return tuple(ordered)
 
 
