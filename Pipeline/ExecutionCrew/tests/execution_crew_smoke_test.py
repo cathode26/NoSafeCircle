@@ -44,7 +44,7 @@ def fixture(parent):
     write(root/IMPL,"public class PlayerMana { }\n"); write(root/TEST,"public class PlayerManaTests { }\n"); write(root/OTHER,"public class Other { }\n"); write(root/".gitignore","*.ignored\n/Library/\n")
     task={"schema_version":"2.0","id":TASK,"contract_revision":3,"contract_disposition":"active","title":"Mana","reconciliation_key":"player-mana","kind":"implementation","execution_scope":"single_agent","execution_reason":"Bounded fixture component that owns its own mana state.","decomposition_state":"concrete","decomposition_reason":"Fixture requires no missing design.","parent":"NSC-001","depends_on":[],"exclusive_resources":[],"acceptance_criteria":[{"criterion_id":"AC-001","reference":"fixture","requirement":"Mana behavior is implemented."}],"completion_gates":[{"gate_id":"VAL-001","reference":"fixture","requirement":"Unity behavior is verified."}],"downstream_integration_obligations":[],"provenance":{"origin":"fixture"}}
     write_persistent_graph(root,[root_task(),task,related_task()])
-    write(root/"Docs/GDD/No_Safe_Circle_GDD.md",f"# GDD\n{SECRET}\n"); write(root/"Docs/Engineering/UNITY_TESTING_POLICY.md","# Policy\nNever claim tests passed.\n")
+    write(root/"Docs/GDD/No_Safe_Circle_GDD.md",f"# GDD\n{SECRET}\n"); write(root/"Docs/Engineering/UNITY_TESTING_POLICY.md","# Policy\nNever claim tests passed.\n"); write(root/"Docs/Engineering/ENGINEERING_STANDARDS.md","# Engineering Standards\n## Reuse and tool selection\nSearch before creating parallel infrastructure.\n")
     cmd(root,"add","."); cmd(root,"commit","-qm","baseline"); return root
 
 class State:
@@ -56,6 +56,9 @@ class FakeProvider:
     def invoke(self,request,model):
         s=self.state; attempt=sum(1 for r,_,_ in s.calls if r==self.role)+1; s.calls.append((self.role,request,model))
         assert request.role==self.role
+        assert "Docs/Engineering/ENGINEERING_STANDARDS.md" in request.context_paths
+        if self.role in ("implementer", "test_author", "validator"):
+            assert "ENGINEERING REUSE / TOOL SELECTION" in request.prompt
         if s.feedback and self.role!="contract_locality_auditor":
             assert "HUMAN REVIEW REJECTION FROM PRIOR REVIEW-READY CANDIDATE" in request.prompt
             assert s.feedback in request.prompt

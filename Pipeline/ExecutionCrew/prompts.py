@@ -116,6 +116,11 @@ def implementer_prompt(*, task_id: str, title: str, task_contract: str, gdd: str
     review = _human_review(human_review_feedback or "", role="implementer")
     repair = "" if findings is None else "\nVALIDATOR BLOCKING FINDINGS FROM THE PRIOR PASS\n---\n" + json.dumps(findings, indent=2) + "\n---\n"
     return f"""You are the Implementer for {task_id} - {title}. Implement only approved production behavior. Do not invent game design or edit tests.
+ENGINEERING REUSE / TOOL SELECTION
+- Before designing the change, read Docs/Engineering/ENGINEERING_STANDARDS.md, especially "Reuse and tool selection", and search the current repository for established infrastructure.
+- Prefer direct references for clear local ownership. Consider typed deVoid Signals for genuinely cross-system event fan-out, DOTween plus an existing fader for presentation tween/fade, Addressables/content services for nontrivial dynamic asset lifetime or variants, and existing pools for repeated spawn/despawn churn.
+- Do not mechanically use these tools. Do not assume these dependencies are installed. Verify current package/plugin/asmdef/code availability. Do not add or upgrade a third-party dependency unless the TaskContract and write authority explicitly permit it.
+- Prefer extending a suitable existing abstraction over creating a parallel signal bus, fade coroutine, tween helper, loader, or pool. A different approach is valid when it is simpler or required; explain the reason in notes.
 EXISTING TRACKED FILES YOU MAY EDIT
 {_paths(implementation_paths)}
 APPROVED EXACT NEW FILES YOU MAY CREATE
@@ -141,6 +146,10 @@ def test_author_prompt(*, task_id: str, title: str, task_contract: str, gdd: str
     review = _human_review(human_review_feedback or "", role="test_author")
     repair = "" if findings is None else "\nVALIDATOR BLOCKING FINDINGS FROM THE PRIOR PASS\n---\n" + json.dumps(findings, indent=2) + "\n---\n"
     return f"""You are the independent Unity Test Author for {task_id} - {title}. Translate the acceptance criteria, completion gates, and actual implementation diff into tests. Do not invent design or alter production code.
+ENGINEERING REUSE / TOOL SELECTION
+- Read Docs/Engineering/ENGINEERING_STANDARDS.md and respect established project infrastructure while authoring tests.
+- Do not create test-only parallel signal, tween/fader, loader, or pool infrastructure when existing project behavior can be observed through its normal boundary.
+- Do not assume deVoid, DOTween, Addressables, or another dependency is installed; verify current project evidence. Tests must not force a production dependency choice that the TaskContract does not authorize.
 EXISTING TRACKED FILES YOU MAY EDIT
 {_paths(test_paths)}
 APPROVED EXACT NEW FILES YOU MAY CREATE
@@ -161,6 +170,10 @@ def validator_prompt(*, task_id: str, title: str, task_contract: str, gdd: str,
                      human_review_feedback: str | None = None) -> str:
     review = _human_review(human_review_feedback or "", role="validator")
     return f"""You are the independent read-only Validator for {task_id} - {title}. Semantically review the supplied implementation and test changes against the exact task and canon. You have no write authority. Do not run Unity, tests, builds, scripts, or package managers. A pass means semantic review only: it does not mean Unity passed, delivery occurred, conformance/readiness exists, or integration is approved.
+ENGINEERING REUSE / TOOL SELECTION
+- Read Docs/Engineering/ENGINEERING_STANDARDS.md and check whether the candidate unnecessarily duplicates suitable existing infrastructure.
+- Consider direct references, typed Signals, DOTween/fader, Addressables/content services, and pools only when relevant and actually available. Do not penalize a reasonable simpler approach merely for not using a preferred tool.
+- A candidate must not silently introduce or upgrade a third-party dependency outside task/write authority. Engineering guidance does not override GDD canon or the TaskContract.
 REPOSITORY VIEW SEMANTICS
 - The repository visible through Read/Glob/Grep is the committed BASELINE source at the captured source HEAD.
 - The baseline repository is intentionally unchanged and therefore WILL NOT contain the candidate changes.

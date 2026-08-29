@@ -47,6 +47,7 @@ RUN_ID_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$")
 GIT_OBJECT_RE = re.compile(r"^[0-9a-f]{40}$")
 GDD_PATH = "Docs/GDD/No_Safe_Circle_GDD.md"
 POLICY_PATH = "Docs/Engineering/UNITY_TESTING_POLICY.md"
+ENGINEERING_STANDARDS_PATH = "Docs/Engineering/ENGINEERING_STANDARDS.md"
 MAX_REVIEW_FEEDBACK_BYTES = 64 * 1024
 MAX_RETRY_CANDIDATE_BYTES = 16 * 1024 * 1024
 
@@ -1030,7 +1031,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             provider=construct_real_provider(provider_name,repo,writable)
             registry={provider.provider_identifier:provider}
         inv=AgentInvocationRequest(AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,invocation_id,role,prompt,
-            tuple(dict.fromkeys((f"Tasks/{task_id}.yaml",GDD_PATH,POLICY_PATH,*implementation_paths,*test_paths))),caps,boundaries,schema,capability_class,
+            tuple(dict.fromkeys((f"Tasks/{task_id}.yaml",GDD_PATH,POLICY_PATH,ENGINEERING_STANDARDS_PATH,*implementation_paths,*test_paths))),caps,boundaries,schema,capability_class,
             Budgets(int(os.getenv(f"NSC_{role.upper()}_TURN_LIMIT","32")),float(os.getenv(f"NSC_{role.upper()}_TIMEOUT_SECONDS","1200"))),
             key)
         if key != inv.provider_configuration_key: raise CrewBlocked("provider factory configuration key changed")

@@ -1,0 +1,52 @@
+# Optional reference-source overlay.
+# Include this file explicitly only for an agent run that needs approved source
+# comparison. The host root must already exist; Compose must not create it.
+
+x-reference-volume: &reference-volume
+  type: bind
+  source: ${NSC_REFERENCE_PROJECTS_ROOT:-../ReferenceProjects}
+  target: /reference
+  read_only: true
+  bind:
+    create_host_path: false
+
+x-reference-environment: &reference-environment
+  NSC_REFERENCE_ROOT: /reference
+  NSC_REFERENCE_SOURCE_REGISTRY: /workspace/Pipeline/ReferenceSources/reference_sources.json
+
+services:
+  claude:
+    environment:
+      <<: *reference-environment
+    volumes:
+      - *reference-volume
+
+  codex:
+    environment:
+      <<: *reference-environment
+    volumes:
+      - *reference-volume
+
+  claude-review:
+    environment:
+      <<: *reference-environment
+    volumes:
+      - *reference-volume
+
+  codex-review:
+    environment:
+      <<: *reference-environment
+    volumes:
+      - *reference-volume
+
+  claude-exec:
+    environment:
+      <<: *reference-environment
+    volumes:
+      - *reference-volume
+
+  codex-exec:
+    environment:
+      <<: *reference-environment
+    volumes:
+      - *reference-volume

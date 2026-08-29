@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "authority": "reference_only",
+  "host_root_default_relative_to_checkout": "../ReferenceProjects",
+  "canonical_windows_host_root": "C:\\UnityProjects\\NoSafeCircleAgentCrew\\ReferenceProjects",
+  "container_root": "/reference",
+  "default_access": "disabled",
+  "mount_mode": "read_only",
+  "sources": [
+    {
+      "id": "space-invaders",
+      "display_name": "SpaceInvaders",
+      "host_folder": "SpaceInvaders",
+      "container_path": "/reference/SpaceInvaders",
+      "canonical_for_no_safe_circle": false,
+      "required_for_pipeline_operation": false,
+      "permission_rule": "Use only after the human operator confirms the source may be provided to the configured model provider.",
+      "reuse_rule": "Extract patterns and preferences; prefer a clean No Safe Circle implementation.",
+      "expected_identity": "Record the source Git commit SHA or an operator-provided snapshot fingerprint before citing the source."
+    },
+    {
+      "id": "slot-engine-sanitized",
+      "display_name": "SlotEngine-Sanitized",
+      "host_folder": "SlotEngine-Sanitized",
+      "container_path": "/reference/SlotEngine-Sanitized",
+      "canonical_for_no_safe_circle": false,
+      "required_for_pipeline_operation": false,
+      "permission_rule": "Only an operator-sanitized and provider-authorized subset may be mounted. Local read permission alone is insufficient.",
+      "reuse_rule": "Do not publish or copy proprietary source. Reimplement approved architectural lessons without company-specific names, paths, APIs, labels, or content assumptions.",
+      "expected_identity": "Record the sanitized snapshot Git commit SHA or an operator-provided deterministic snapshot fingerprint before citing the source."
+    }
+  ],
+  "prohibited_uses": [
+    "game_design_authority",
+    "task_completion_evidence",
+    "runtime_or_compile_dependency",
+    "unbounded_project_ingestion",
+    "source_publication_without_permission",
+    "modification_of_mounted_content"
+  ]
+}

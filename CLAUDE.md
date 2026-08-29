@@ -14,11 +14,21 @@ Use these sources instead:
 
 If this operating guidance and current project canon/state appear inconsistent, do not manufacture a reconciliation fact from this file. Follow the active task's explicit source boundaries and surface the discrepancy for review when necessary.
 
-## Required engineering policy
+## Required engineering standards
+
+@Docs/Engineering/ENGINEERING_STANDARDS.md
+
+## Required Unity testing policy
 
 @Docs/Engineering/UNITY_TESTING_POLICY.md
 
-The imported document is engineering operating guidance, not game-design canon. It does not weaken or replace the source-of-truth boundary above.
+## Required external reference-project policy
+
+@Docs/Engineering/REFERENCE_PROJECTS.md
+
+@Pipeline/ReferenceSources/README.md
+
+The imported documents are engineering operating guidance, not game-design canon. They do not weaken or replace the source-of-truth boundary above. External reference projects remain optional, read-only, and non-authoritative.
 
 ## Required human-facing Unity language
 

@@ -2,6 +2,12 @@
 
 This file is operating guidance, not GDD canon.
 
+Any agent creating, modifying, or reviewing Unity runtime code, editor tools, tests, Addressables/build tooling, content-loading infrastructure, or related project architecture must first read `Docs/Engineering/ENGINEERING_STANDARDS.md`.
+
+Any agent given access to `/reference` or a host `ReferenceProjects` directory must first read `Docs/Engineering/REFERENCE_PROJECTS.md` and `Pipeline/ReferenceSources/reference_sources.json`. Reference projects are read-only, non-canonical evidence and never permission to copy or publish source.
+
+Before introducing a new signal/event bus, tween/fade utility, content loader, or pool, an engineering agent must search current project infrastructure and apply the reuse/tool-selection rules in `Docs/Engineering/ENGINEERING_STANDARDS.md`. Preferred tools are considered, not forced; package availability and task authority must be verified first.
+
 Any agent creating, modifying, reviewing, or running tests must first read `Docs/Engineering/UNITY_TESTING_POLICY.md`.
 
 Any agent producing task titles, task contracts, decomposition proposals, review findings, implementation summaries, test summaries, validation summaries, issue comments, closeouts, handoffs, or other human-facing output must first read `Docs/AI-Pipeline/UNITY_PROGRAMMER_LANGUAGE.md`. The primary human reader is a Unity game programmer. Use concrete Unity terms in human-facing text and keep abstract taxonomy only where a machine-facing schema requires it.
