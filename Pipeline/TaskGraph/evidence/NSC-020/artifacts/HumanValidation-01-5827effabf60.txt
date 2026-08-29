@@ -1,0 +1,23 @@
+Task: NSC-020
+Issue: https://github.com/cathode26/NoSafeCircle/issues/64
+Human-tested implementation commit: 5bf787a7f74aafd282ac770e4d736f4e7ea9e408
+Integrated commit being evidenced: 5827effabf6093d88310792b97dc1880fb7ba738
+Human result: PASS
+Integrated-commit human revalidation: NOT PERFORMED
+Reason: mainline drift was classified as automation_only.
+Integration receipt SHA256: c9ac42d45f931d82900bfe12ca2ff635e743e3b8fa692b800952ca8ed63d197d
+Authoritative Unity validation on the integrated commit is required.
+
+## Human validation result
+
+Result: PASS
+Tested commit: `5bf787a7f74aafd282ac770e4d736f4e7ea9e408`
+
+Completed steps:
+- Completion_OpensDoor_DoesNotSetCrossingState passed.
+- ForwardCrossingTrigger_AfterDoorOpen_SetsCrossingStateAndFiresEventOnce passed.
+- ResetDoor_ResetsCrossingState passed.
+- The complete PlayMode Run All result was green.
+
+Notes:
+The required NSC-020 PlayMode assertions passed with no unexpected Console errors.
