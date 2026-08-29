@@ -1,0 +1,120 @@
+{
+  "schema_version": "1.0",
+  "repository": "cathode26/NoSafeCircle",
+  "branch_actions": {
+    "main": {
+      "action": "rewrite",
+      "reason": "Canonical default branch must move to the sanitized history."
+    },
+    "fix/automation-git-identity-attribution": {
+      "action": "delete_after_migration",
+      "pull_request": 78,
+      "reason": "Merged fix branch; canonical content is already on main."
+    },
+    "fix/completed-task-duplicate-issue-guard": {
+      "action": "delete_after_migration",
+      "pull_request": 84,
+      "reason": "Merged fix branch; canonical content is already on main."
+    },
+    "fix/contract-migration-reintegration-bridge": {
+      "action": "delete_after_migration",
+      "pull_request": 72,
+      "reason": "Merged fix branch; canonical content is already on main."
+    },
+    "fix/delivery-review-artifact-grounding": {
+      "action": "delete_after_migration",
+      "pull_request": 76,
+      "reason": "Merged fix branch; canonical content is already on main."
+    },
+    "fix/downstream-authority-and-routing": {
+      "action": "delete_after_migration",
+      "pull_request": 75,
+      "reason": "Merged fix branch; canonical content is already on main."
+    },
+    "fix/latest-effective-pr-checks": {
+      "action": "delete_after_migration",
+      "pull_request": 82,
+      "reason": "Merged fix branch; canonical content is already on main."
+    },
+    "fix/legacy-pr-workflow-compatibility": {
+      "action": "delete_after_migration",
+      "pull_request": 80,
+      "reason": "Merged fix branch; canonical content is already on main."
+    },
+    "fix/merge-closeout-check-repoll": {
+      "action": "delete_after_migration",
+      "pull_request": 81,
+      "reason": "Merged fix branch; canonical content is already on main."
+    },
+    "fix/unity-evidence-whitespace-premerge": {
+      "action": "delete_after_migration",
+      "pull_request": 79,
+      "reason": "Merged fix branch; canonical content is already on main."
+    },
+    "fix/unity-friendly-task-agent-logging": {
+      "action": "delete_after_migration",
+      "pull_request": 74,
+      "reason": "Merged fix branch; canonical content is already on main."
+    },
+    "nsc-020-shared-doorway-crossing-state-forward-side-crossing-detection": {
+      "action": "delete_after_migration",
+      "pull_request": 77,
+      "reason": "Merged completed task branch; canonical gameplay and evidence are already on main."
+    },
+    "recovery/nsc-020-stale-lease": {
+      "action": "delete_after_migration",
+      "reason": "Historical recovery branch for a completed task; no longer operational authority."
+    },
+    "pipeline/history-identity-migration": {
+      "action": "delete_after_migration",
+      "reason": "Obsolete first migration attempt."
+    },
+    "pipeline/history-identity-migration-v2": {
+      "action": "merge_preparation_then_delete",
+      "pull_request": 85,
+      "reason": "Active preparation branch. It must be merged before the final freeze so migration compatibility exists on the source history, then removed after canonical main is rewritten."
+    },
+    "pipeline/history-identity-migration-v2-copy": {
+      "action": "delete_after_migration",
+      "reason": "Accidental temporary audit branch."
+    },
+    "pipeline/history-identity-migration-v2-pr": {
+      "action": "delete_after_migration",
+      "reason": "Accidental temporary audit branch."
+    },
+    "tmp-ignore": {
+      "action": "delete_after_migration",
+      "reason": "Accidental temporary audit branch."
+    }
+  },
+  "github_actions": {
+    "close_before_rewrite": [
+      {
+        "type": "pull_request",
+        "number": 73,
+        "action": "close_superseded",
+        "reason": "Open, non-mergeable PR on obsolete affected NSC-020 infrastructure history."
+      }
+    ],
+    "annotate_after_rewrite": [
+      {
+        "type": "issue",
+        "number": 64,
+        "action": "append_repository_history_migrated_event",
+        "reason": "Canonical completed NSC-020 workflow requires its live head translated while preserving the append-only event chain and human PASS."
+      },
+      {
+        "type": "pull_request",
+        "number": 77,
+        "action": "add_history_migration_note",
+        "reason": "Merged NSC-020 PR remains historical GitHub metadata and should point readers to the new canonical SHA mapping."
+      },
+      {
+        "type": "issue",
+        "number": 83,
+        "action": "leave_closed_duplicate_historical",
+        "reason": "Already-closed duplicate created by the pre-PR-84 bug; it is not workflow authority and must not receive a complete-state migration event."
+      }
+    ]
+  }
+}

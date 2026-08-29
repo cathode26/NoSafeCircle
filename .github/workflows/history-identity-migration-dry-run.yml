@@ -1,0 +1,255 @@
+name: History Identity Migration Dry Run
+
+on:
+  pull_request:
+    paths:
+      - "Pipeline/HistoryMigration/**"
+      - "Pipeline/TaskGraph/history_identity_migrations.py"
+      - "Pipeline/TaskGraph/history_aware_repository.py"
+      - "Pipeline/TaskGraph/history_identity_migration_smoke_test.py"
+      - "Pipeline/TaskGraph/current_conformance.py"
+      - "Pipeline/TaskReviewAgent/issue_workflow.py"
+      - "Docs/AI-Pipeline/HISTORY_IDENTITY_MIGRATION.md"
+      - ".github/workflows/history-identity-migration-dry-run.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out migration tooling
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Materialize exact current origin/main and remote branch audit refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          git branch -f main refs/remotes/origin/main
+
+          while IFS=' ' read -r ref sha; do
+            name="${ref#refs/remotes/origin/}"
+            if [[ "$name" == "HEAD" ]]; then
+              continue
+            fi
+            git update-ref "refs/heads/remote-audit/$name" "$sha"
+          done < <(git for-each-ref --format='%(refname) %(objectname)' refs/remotes/origin)
+
+          echo "BASE_MAIN=$(git rev-parse refs/heads/main)" >> "$GITHUB_ENV"
+          echo "BASE_MAIN_TREE=$(git rev-parse refs/heads/main^{tree})" >> "$GITHUB_ENV"
+
+      - name: Run history migration smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python Pipeline/HistoryMigration/history_identity_smoke_test.py
+          python Pipeline/TaskGraph/history_identity_migration_smoke_test.py
+          python Pipeline/HistoryMigration/issue_migration_smoke_test.py
+          python Pipeline/HistoryMigration/migration_plan_smoke_test.py
+
+      - name: Run isolated rewrite against current main and remote branch audit refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/history-identity-dry-run"
+          python Pipeline/HistoryMigration/history_identity.py dry-run --source . --output "$OUT"
+
+      - name: Verify current-main dry-run report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report_path = Path(os.environ["RUNNER_TEMP"]) / "history-identity-dry-run" / "history-identity-dry-run.json"
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+
+          if report["source_main"] != os.environ["BASE_MAIN"]:
+              raise SystemExit(
+                  f"dry-run source main mismatch: {report['source_main']} != {os.environ['BASE_MAIN']}"
+              )
+          if report["source_main_tree"] != os.environ["BASE_MAIN_TREE"]:
+              raise SystemExit("dry-run source main tree does not match current origin/main")
+          if report["target_main_tree"] != report["source_main_tree"]:
+              raise SystemExit("rewritten main tree changed")
+          if report.get("trees_preserved") is not True:
+              raise SystemExit("dry-run did not prove tree preservation")
+
+          github_user_noreply = "users." + "noreply.github.com"
+          targeted = {item["email"] for item in report["targeted_identity_occurrences"]}
+          required = {
+              f"resilience@{github_user_noreply}",
+              f"reintegration-bridge@{github_user_noreply}",
+              f"pipeline@{github_user_noreply}",
+          }
+          missing = sorted(required - targeted)
+          if missing:
+              raise SystemExit(f"configured unsafe identities are missing from current reachable refs: {missing}")
+
+          changed_remote_refs = [
+              row for row in report["ref_map"]
+              if row["changed"] and row["ref"].startswith("refs/heads/remote-audit/")
+          ]
+          if not changed_remote_refs:
+              raise SystemExit("remote branch audit found no refs affected by the rewrite")
+
+          print(
+              json.dumps(
+                  {
+                      "source_main": report["source_main"],
+                      "target_main": report["target_main"],
+                      "tree": report["target_main_tree"],
+                      "reachable_commit_count": report["reachable_commit_count"],
+                      "rewritten_commit_count": report["rewritten_commit_count"],
+                      "identity_target_count": report["identity_target_count"],
+                      "signature_removed_count": report["signature_removed_count"],
+                      "affected_remote_branch_count": len(changed_remote_refs),
+                  },
+                  indent=2,
+                  sort_keys=True,
+              )
+          )
+          PY
+
+      - name: Inventory tracked references and transient audit commits
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRY="$RUNNER_TEMP/history-identity-dry-run/history-identity-dry-run.json"
+          IMPACT="$RUNNER_TEMP/history-identity-impact.json"
+          python Pipeline/HistoryMigration/history_impact.py \
+            --source . \
+            --dry-run-report "$DRY" \
+            --output "$IMPACT"
+
+      - name: Verify repository impact inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "history-identity-impact.json"
+          report = json.loads(path.read_text(encoding="utf-8"))
+          if report["source_main"] != os.environ["BASE_MAIN"]:
+              raise SystemExit("impact report does not describe exact current origin/main")
+
+          expected_evidence = {
+              "Pipeline/TaskGraph/evidence/NSC-020/artifacts/HumanValidation-01-5827effabf60.txt",
+              "Pipeline/TaskGraph/evidence/NSC-020/artifacts/Unity-PlayMode-01-5827effabf60.log",
+              "Pipeline/TaskGraph/evidence/NSC-020/artifacts/Unity-PlayMode-01-5827effabf60.xml",
+              "Pipeline/TaskGraph/evidence/NSC-020/records/DEL-NSC-020-5827effabf60.json",
+          }
+          observed = set(report["affected_taskgraph_evidence_paths"])
+          missing = sorted(expected_evidence - observed)
+          if missing:
+              raise SystemExit(f"known NSC-020 evidence references were not inventoried: {missing}")
+
+          transient = report.get("transient_ranges") or []
+          if len(transient) != 1 or transient[0].get("prunable_candidate") is not True:
+              raise SystemExit("accidental empty-file create/remove pair is no longer a proven tree-neutral range")
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - name: Build current ref and rollback migration plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRY="$RUNNER_TEMP/history-identity-dry-run/history-identity-dry-run.json"
+          PLAN="$RUNNER_TEMP/history-identity-migration-plan.json"
+          python Pipeline/HistoryMigration/migration_plan.py \
+            --dry-run-report "$DRY" \
+            --policy Pipeline/HistoryMigration/ref_policy.json \
+            --output "$PLAN"
+
+      - name: Verify preparation phase remains intentionally blocked
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "history-identity-migration-plan.json"
+          plan = json.loads(path.read_text(encoding="utf-8"))
+          if plan["source_main"] != os.environ["BASE_MAIN"]:
+              raise SystemExit("migration plan does not describe exact current origin/main")
+          if plan["unclassified_affected_branches"]:
+              raise SystemExit(
+                  f"affected branches lack reviewed migration policy: {plan['unclassified_affected_branches']}"
+              )
+          blockers = plan.get("pre_rewrite_blockers") or []
+          expected = [
+              item for item in blockers
+              if item.get("type") == "preparation_branch_not_integrated"
+              and item.get("branch") == "pipeline/history-identity-migration-v2"
+              and item.get("pull_request") == 85
+          ]
+          if len(expected) != 1:
+              raise SystemExit(f"expected PR #85 preparation blocker is missing or ambiguous: {blockers}")
+          if plan.get("ready_for_destructive_phase") is not False:
+              raise SystemExit("preparation plan must not authorize destructive history migration")
+          print(json.dumps(plan, indent=2, sort_keys=True))
+          PY
+
+      - name: Prove NSC-020 TaskGraph conformance on rewritten history
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRY="$RUNNER_TEMP/history-identity-dry-run/history-identity-dry-run.json"
+          MIRROR="$RUNNER_TEMP/history-identity-dry-run/mirror.git"
+          WORKTREE="$RUNNER_TEMP/history-identity-taskgraph-worktree"
+          PROOF="$RUNNER_TEMP/history-identity-taskgraph-proof.json"
+          python Pipeline/HistoryMigration/taskgraph_proof.py \
+            --mirror "$MIRROR" \
+            --dry-run-report "$DRY" \
+            --worktree "$WORKTREE" \
+            --task-id NSC-020 \
+            --output "$PROOF"
+
+      - name: Verify NSC-020 TaskGraph proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "history-identity-taskgraph-proof.json"
+          proof = json.loads(path.read_text(encoding="utf-8"))
+          state = proof.get("conformance") or {}
+          if state.get("state") != "conformant":
+              raise SystemExit(f"rewritten history did not preserve NSC-020 conformance: {state}")
+          if state.get("selected_record_id") != "DEL-NSC-020-5827effabf60":
+              raise SystemExit(
+                  f"unexpected NSC-020 conformance record after rewrite: {state.get('selected_record_id')}"
+              )
+          if proof.get("source_evidence_edited") is not False:
+              raise SystemExit("TaskGraph proof unexpectedly edited source evidence")
+          if proof.get("translation_mode") != "committed_tree_verified_manifest":
+              raise SystemExit("TaskGraph proof did not use committed tree-verified translation authority")
+          print(json.dumps(proof, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload dry-run, impact, plan, and TaskGraph proof reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-identity-dry-run
+          path: |
+            ${{ runner.temp }}/history-identity-dry-run/history-identity-dry-run.json
+            ${{ runner.temp }}/history-identity-impact.json
+            ${{ runner.temp }}/history-identity-migration-plan.json
+            ${{ runner.temp }}/history-identity-taskgraph-proof.json
+          if-no-files-found: error
+          retention-days: 30
