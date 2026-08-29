@@ -70,9 +70,9 @@
       "reason": "Obsolete first migration attempt."
     },
     "pipeline/history-identity-migration-v2": {
-      "action": "merge_preparation_then_delete",
-      "pull_request": 85,
-      "reason": "Active preparation branch. It must be merged before the final freeze so migration compatibility exists on the source history, then removed after canonical main is rewritten."
+      "action": "delete_after_migration",
+      "pull_request": 86,
+      "reason": "Preparation PR #86 is merged; canonical migration tooling is on frozen main and this branch is now stale."
     },
     "pipeline/history-identity-migration-v2-copy": {
       "action": "delete_after_migration",
@@ -84,7 +84,7 @@
     },
     "tmp-ignore": {
       "action": "delete_after_migration",
-      "reason": "Accidental temporary audit branch."
+      "reason": "Disposable final-candidate audit carrier; never merge this branch into canonical main."
     }
   },
   "github_actions": {
@@ -93,7 +93,7 @@
         "type": "pull_request",
         "number": 73,
         "action": "close_superseded",
-        "reason": "Open, non-mergeable PR on obsolete affected NSC-020 infrastructure history."
+        "reason": "Closed, non-mergeable PR on obsolete affected NSC-020 infrastructure history."
       }
     ],
     "annotate_after_rewrite": [
