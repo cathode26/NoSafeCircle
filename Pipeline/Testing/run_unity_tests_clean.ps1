@@ -305,6 +305,37 @@ try {
 
     $manifestPath = Join-Path $artifactDirectory "validation-manifest.json"
     $manifestTemporaryPath = Join-Path $artifactDirectory (".validation-manifest-" + [Guid]::NewGuid().ToString("N") + ".tmp")
+
+    # Unity batch logs regularly contain trailing spaces. Normalize them before
+    # their SHA/size identities enter the authoritative validation manifest, so
+    # the exact reviewed artifact is also safe for a later evidence commit.
+    $logHygieneScript = Join-Path $resolvedProjectPath "Pipeline\Testing\unity_log_hygiene.py"
+    if (-not (Test-Path -LiteralPath $logHygieneScript -PathType Leaf)) {
+        Stop-WithCode $ExitResult "RESULT FAILURE: Unity log hygiene helper is missing: $logHygieneScript"
+    }
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $normalizationLines = @(
+            & python $logHygieneScript normalize --path $logPath --json 2>&1
+        )
+        $normalizationExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    $normalizationOutput = ($normalizationLines | Out-String).Trim()
+    if ($normalizationExitCode -ne 0) {
+        Stop-WithCode $ExitResult "RESULT FAILURE: Unity log normalization failed with exit code $normalizationExitCode.`n$normalizationOutput"
+    }
+    try {
+        $logNormalization = $normalizationOutput | ConvertFrom-Json
+    }
+    catch {
+        Stop-WithCode $ExitResult "RESULT FAILURE: Unity log normalizer returned invalid JSON.`n$normalizationOutput"
+    }
+    Write-Host "Unity log hygiene: $($logNormalization.status) (changed lines: $($logNormalization.changed_lines))"
+
     try {
         $xmlFile = Get-Item -LiteralPath $xmlPath -ErrorAction Stop
         $logFile = Get-Item -LiteralPath $logPath -ErrorAction Stop

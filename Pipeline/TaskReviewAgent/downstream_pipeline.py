@@ -1085,28 +1085,15 @@ class DownstreamTaskController:
             "diff",
             "--cached",
             "--check",
+            "--",
+            *created,
             check=False,
         )
-        if result.returncode == 0:
-            return
-        output = _decode(result.stdout + result.stderr, "staged whitespace check")
-        offending: set[str] = set()
-        for line in output.splitlines():
-            match = re.match(r"^(.+?):\d+:", line)
-            if match:
-                offending.add(match.group(1))
-        if not offending or any(path not in created or not path.casefold().endswith(".log") for path in offending):
-            raise DownstreamPipelineError("staged evidence failed whitespace validation:\n" + output)
-        structured = [path for path in created if not path.casefold().endswith(".log")]
-        if structured:
-            _git(
-                self.command_runner,
-                self.checkout,
-                "diff",
-                "--cached",
-                "--check",
-                "--",
-                *structured,
+        if result.returncode != 0:
+            output = _decode(result.stdout + result.stderr, "staged whitespace check")
+            raise DownstreamPipelineError(
+                "staged evidence failed whitespace validation; Unity logs must be "
+                "normalized before their validation manifest is created:\n" + output
             )
 
     def _ensure_git_identity(self) -> None:

@@ -1,0 +1,2 @@
+# Raw Unity logs are machine evidence; new logs are normalized upstream.
+Pipeline/TaskGraph/evidence/**/artifacts/*.log -whitespace

@@ -7,6 +7,7 @@ on:
       - "compose.override.yaml"
       - "Pipeline/TaskReviewAgent/**"
       - "Pipeline/TaskGraph/**"
+      - "Pipeline/Testing/**"
       - "Tasks/**"
       - "Docs/AI-Pipeline/ISSUE_WORKFLOW_STATE_MACHINE.md"
       - "Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md"
@@ -95,6 +96,19 @@ jobs:
       - name: Run downstream action grounding tests
         run: python Pipeline/TaskReviewAgent/tests/downstream_action_grounding_smoke_test.py
 
+      - name: Run Unity evidence log hygiene tests
+        shell: pwsh
+        run: |
+          $test = "Pipeline/Testing/unity_log_hygiene_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Unity evidence-log hygiene tests failed."
+            }
+          } else {
+            Write-Host "Legacy PR head predates Unity evidence-log hygiene; compatibility whitespace policy still applies."
+          }
+
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
 
@@ -141,10 +155,11 @@ jobs:
         shell: pwsh
         run: |
           $baseSha = "${{ github.event.pull_request.base.sha }}"
+          $evidenceLogExclusion = ":(exclude)Pipeline/TaskGraph/evidence/**/artifacts/*.log"
           if ([string]::IsNullOrWhiteSpace($baseSha)) {
-            git diff --check HEAD^...HEAD
+            git diff --check HEAD^...HEAD -- . $evidenceLogExclusion
           } else {
-            git diff --check "$baseSha...HEAD"
+            git diff --check "$baseSha...HEAD" -- . $evidenceLogExclusion
           }
           if ($LASTEXITCODE -ne 0) {
             throw "Whitespace validation failed."
