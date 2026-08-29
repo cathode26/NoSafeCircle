@@ -1,0 +1,188 @@
+name: Execute Approved History Migration One Shot
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/execute-approved-history-migration.yml"
+
+permissions:
+  actions: read
+  contents: write
+  issues: read
+  pull-requests: read
+
+env:
+  APPROVED_ARTIFACT_RUN: "33264605061"
+  APPROVED_ARTIFACT_NAME: history-identity-final-candidate
+  EXPECTED_SOURCE_MAIN: b8eb3ece7cf467e40a04b644c337cfa5d1d63d37
+  EXPECTED_SOURCE_TREE: 5b4a1dc09b457562dba69bcff86eb71a4839afcb
+  EXPECTED_FINAL_MAIN: 131cc63079532c0e741aa69791681fa153b0ebc5
+  EXPECTED_CANDIDATE_REPORT: 46e3789ef25ca940335adea2f9da51fa7b99a2794b0198900de5c50b6853b0bb
+  EXPECTED_REWRITTEN_BUNDLE_SHA256: a4fedc1f9d374e167965b32d01448501a3bc27b8185d257460c12f90313d0384
+  EXPECTED_ROLLBACK_BUNDLE_SHA256: 468dd856639ec85ce7a95fe95aa8bdc86515e260bcf644a4fb3fa1871d5c92b7
+  MIGRATION_ID: nsc-20260829-b8eb3ece7cf4
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out isolated safe executor branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Download exact approved candidate artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/approved-artifact"
+          mkdir -p "$OUT"
+          gh run download "$APPROVED_ARTIFACT_RUN" -R cathode26/NoSafeCircle -n "$APPROVED_ARTIFACT_NAME" -D "$OUT"
+          REPORT="$(find "$OUT" -name history-identity-final-candidate.json -type f -print -quit)"
+          PLAN="$(find "$OUT" -name history-identity-final-plan.json -type f -print -quit)"
+          BUNDLE="$(find "$OUT" -name rewritten-main.bundle -type f -print -quit)"
+          ROLLBACK="$(find "$OUT" -name rollback-pre-migration.bundle -type f -print -quit)"
+          [[ -n "$REPORT" && -n "$PLAN" && -n "$BUNDLE" && -n "$ROLLBACK" ]]
+          echo "REPORT=$REPORT" >> "$GITHUB_ENV"
+          echo "PLAN=$PLAN" >> "$GITHUB_ENV"
+          echo "BUNDLE=$BUNDLE" >> "$GITHUB_ENV"
+          echo "ROLLBACK=$ROLLBACK" >> "$GITHUB_ENV"
+
+      - name: Verify exact user-approved candidate and rollback material
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          def digest(p):
+              h=hashlib.sha256()
+              with open(p,'rb') as f:
+                  for chunk in iter(lambda:f.read(1024*1024),b''):
+                      h.update(chunk)
+              return h.hexdigest()
+          report=json.loads(Path(os.environ['REPORT']).read_text(encoding='utf-8'))
+          plan=json.loads(Path(os.environ['PLAN']).read_text(encoding='utf-8'))
+          checks={
+              'source_main': os.environ['EXPECTED_SOURCE_MAIN'],
+              'source_main_tree': os.environ['EXPECTED_SOURCE_TREE'],
+              'final_main': os.environ['EXPECTED_FINAL_MAIN'],
+              'report_sha256': os.environ['EXPECTED_CANDIDATE_REPORT'],
+          }
+          for k,v in checks.items():
+              if report.get(k)!=v:
+                  raise SystemExit(f'{k} mismatch: {report.get(k)} != {v}')
+          if report.get('ready_for_explicit_execution_approval') is not True:
+              raise SystemExit('candidate not marked execution-ready')
+          if digest(os.environ['BUNDLE']) != os.environ['EXPECTED_REWRITTEN_BUNDLE_SHA256']:
+              raise SystemExit('rewritten bundle hash mismatch')
+          if digest(os.environ['ROLLBACK']) != os.environ['EXPECTED_ROLLBACK_BUNDLE_SHA256']:
+              raise SystemExit('rollback bundle hash mismatch')
+          if plan.get('ready_for_destructive_phase') is not True or plan.get('pre_rewrite_blockers') or plan.get('unclassified_affected_branches'):
+              raise SystemExit('approved plan is blocked')
+          out=subprocess.check_output(['git','bundle','list-heads',os.environ['BUNDLE']],text=True).strip().splitlines()
+          if out != [f"{os.environ['EXPECTED_FINAL_MAIN']} refs/heads/main"]:
+              raise SystemExit(f'unexpected bundle head: {out}')
+          subprocess.check_call(['git','bundle','verify',os.environ['BUNDLE']])
+          subprocess.check_call(['git','bundle','verify',os.environ['ROLLBACK']])
+          print('Exact approved candidate and rollback material verified.')
+          PY
+
+      - name: Verify frozen remote and every approved branch lease
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force --prune origin '+refs/heads/*:refs/remotes/origin/*'
+          [[ "$(git rev-parse refs/remotes/origin/main)" == "$EXPECTED_SOURCE_MAIN" ]] || { echo 'origin/main moved' >&2; exit 1; }
+          [[ "$(git rev-parse refs/remotes/origin/main^{tree})" == "$EXPECTED_SOURCE_TREE" ]] || { echo 'origin/main tree moved' >&2; exit 1; }
+          python - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          plan=json.loads(Path(os.environ['PLAN']).read_text(encoding='utf-8'))
+          for row in plan['branch_actions']:
+              b=row['branch']; expected=row['old_commit']
+              p=subprocess.run(['git','rev-parse','--verify',f'refs/remotes/origin/{b}'],capture_output=True,text=True)
+              if p.returncode:
+                  raise SystemExit(f'affected branch missing: {b}')
+              actual=p.stdout.strip()
+              if actual!=expected:
+                  raise SystemExit(f'affected branch moved: {b}: {actual} != {expected}')
+          print('All approved branch leases match exactly.')
+          PY
+
+      - name: Atomically replace canonical main and delete affected stale branches
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          CANDIDATE_REPO="$RUNNER_TEMP/candidate-repo"
+          git clone "$BUNDLE" "$CANDIDATE_REPO"
+          [[ "$(git -C "$CANDIDATE_REPO" rev-parse HEAD)" == "$EXPECTED_FINAL_MAIN" ]]
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/cathode26/NoSafeCircle.git"
+          mapfile -t LEASES < <(python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=json.loads(Path(os.environ['PLAN']).read_text(encoding='utf-8'))
+          for row in p['branch_actions']:
+              print(f"--force-with-lease=refs/heads/{row['branch']}:{row['old_commit']}")
+          PY
+          )
+          mapfile -t REFSPECS < <(python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=json.loads(Path(os.environ['PLAN']).read_text(encoding='utf-8'))
+          print(f"{os.environ['EXPECTED_FINAL_MAIN']}:refs/heads/main")
+          for row in p['branch_actions']:
+              if row['action']=='delete_after_migration':
+                  print(f":refs/heads/{row['branch']}")
+          PY
+          )
+          git -C "$CANDIDATE_REPO" push --atomic "$REMOTE" "${LEASES[@]}" "${REFSPECS[@]}"
+
+      - name: Verify live canonical repository after rewrite
+        shell: bash
+        run: |
+          set -euo pipefail
+          POST="$RUNNER_TEMP/post-migration"
+          git clone https://github.com/cathode26/NoSafeCircle.git "$POST"
+          cd "$POST"
+          [[ "$(git rev-parse HEAD)" == "$EXPECTED_FINAL_MAIN" ]] || { echo 'remote main mismatch' >&2; exit 1; }
+          [[ "$(git rev-parse HEAD^\{tree\})" == "$EXPECTED_SOURCE_TREE" ]] || { echo 'rewritten parent tree mismatch' >&2; exit 1; }
+          test -f "Pipeline/TaskGraph/migrations/repository-history-identity-${MIGRATION_ID}.json"
+          python Pipeline/TaskGraph/taskcontrol.py validate
+          python - <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path.cwd()/'Pipeline'/'TaskGraph'))
+          from current_conformance import evaluate_current_conformance
+          r=evaluate_current_conformance(root=Path.cwd(), selector='NSC-020').to_dict()
+          if r.get('state')!='conformant' or r.get('selected_record_id')!='DEL-NSC-020-5827effabf60':
+              raise SystemExit(f'NSC-020 conformance failed: {r}')
+          unsafe=('resilience@users.noreply.github.com','reintegration-bridge@users.noreply.github.com','pipeline@users.noreply.github.com')
+          log=subprocess.check_output(['git','log','--format=%ae%n%ce','--all'],text=True).lower()
+          for email in unsafe:
+              if email in log:
+                  raise SystemExit(f'unsafe identity still reachable: {email}')
+          plan=json.loads(Path(os.environ['PLAN']).read_text(encoding='utf-8'))
+          remote=subprocess.check_output(['git','ls-remote','--heads','origin'],text=True)
+          refs={line.split()[1]:line.split()[0] for line in remote.splitlines() if line.strip()}
+          if refs.get('refs/heads/main')!=os.environ['EXPECTED_FINAL_MAIN']:
+              raise SystemExit('remote main ref mismatch')
+          for row in plan['branch_actions']:
+              if row['action']=='delete_after_migration' and f"refs/heads/{row['branch']}" in refs:
+                  raise SystemExit(f"stale branch remains: {row['branch']}")
+          Path(os.environ['RUNNER_TEMP'],'post-migration-verification.json').write_text(json.dumps(r,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print(json.dumps(r,indent=2,sort_keys=True))
+          PY
+
+      - name: Upload execution verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: approved-history-rewrite-verification
+          path: ${{ runner.temp }}/post-migration-verification.json
+          if-no-files-found: error
+          retention-days: 90
