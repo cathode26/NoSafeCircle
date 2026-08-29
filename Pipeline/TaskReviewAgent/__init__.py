@@ -9,12 +9,14 @@ from . import downstream_determinism as _downstream_determinism
 from .downstream_determinism import install_downstream_determinism
 from .downstream_action_grounding import install_downstream_action_grounding
 from .operator_logging import install_operator_logging
+from .git_identity_guard import install_git_identity_guard
 
 # Install deterministic downstream extensions before run_pipeline_agent imports
 # the controller and Codex action table. Resilience wraps reintegration;
 # downstream determinism restores durable event authority and narrows routing;
 # action grounding supplies exact host-verified proposal identities. Operator
-# logging remains the outer presentation-only layer.
+# logging remains the outer presentation-only layer. Git identity safety is
+# installed last so every automated commit path uses a non-attributable address.
 install_mainline_reintegration()
 install_downstream_resilience()
 install_downstream_determinism()
@@ -31,6 +33,7 @@ _codex_supervisor.decision_schema = _downstream_determinism._ORIGINALS[
 
 install_downstream_action_grounding()
 install_operator_logging()
+install_git_identity_guard()
 
 __all__ = [
     "TASK_REVIEW_SCHEMA_VERSION",
@@ -40,4 +43,5 @@ __all__ = [
     "install_downstream_determinism",
     "install_downstream_action_grounding",
     "install_operator_logging",
+    "install_git_identity_guard",
 ]
