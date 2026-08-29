@@ -106,6 +106,19 @@ jobs:
       - name: Run downstream action grounding tests
         run: python Pipeline/TaskReviewAgent/tests/downstream_action_grounding_smoke_test.py
 
+      - name: Run merge-closeout check repoll tests
+        shell: pwsh
+        run: |
+          $test = "Pipeline/TaskReviewAgent/tests/merge_closeout_check_repoll_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Merge-closeout check repoll tests failed."
+            }
+          } else {
+            Write-Host "Legacy exact PR head predates merge-closeout check repolling."
+          }
+
       - name: Run Unity evidence log hygiene tests
         shell: pwsh
         run: |
