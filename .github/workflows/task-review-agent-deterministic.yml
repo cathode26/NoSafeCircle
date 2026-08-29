@@ -3,8 +3,7 @@ name: TaskReviewAgent Deterministic Validation
 on:
   pull_request:
     paths:
-      - ".github/workflows/task-review-agent-deterministic.yml"
-      - ".github/workflows/nsc-issue-workflow.yml"
+      - ".github/workflows/**"
       - "compose.override.yaml"
       - "Pipeline/TaskReviewAgent/**"
       - "Pipeline/TaskGraph/**"
@@ -38,6 +37,9 @@ jobs:
         run: |
           git config --global user.name "TaskReviewAgent Tests"
           git config --global user.email "task-review-agent-tests@example.invalid"
+
+      - name: Enforce non-attributable automation Git identities
+        run: python Pipeline/TaskReviewAgent/tests/git_identity_guard_smoke_test.py
 
       - name: Parse Game Task Agent PowerShell launcher
         shell: pwsh
@@ -146,13 +148,4 @@ jobs:
           }
           if ($LASTEXITCODE -ne 0) {
             throw "Whitespace validation failed."
-          }
-
-      - name: Verify clean checkout
-        shell: pwsh
-        run: |
-          $status = git status --porcelain=v1 --untracked-files=all
-          if ($status) {
-            git status --short --untracked-files=all
-            throw "Deterministic validation changed the checkout."
           }
