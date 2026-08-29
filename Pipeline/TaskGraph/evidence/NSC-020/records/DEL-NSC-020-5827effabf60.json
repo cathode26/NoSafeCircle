@@ -1,0 +1,65 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "c26d5077ccdc2e8408129fef2d3571758777b29f99241d8aed1b39d73ea3e1a6"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "c4dbe2345a8311698ab6c82887e2b82d49282aba",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
+      "role": "Committed runtime implementation owning open-door forward-side crossing detection, shared crossing state/event exposure, and owner-controlled reset behavior."
+    },
+    {
+      "blob_sha": "e073091bf3d87c2787ac60c00eb8136839ae5f38",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs",
+      "role": "Committed PlayMode conformance tests covering that opening/interaction alone does not mark crossing and that reaching the forward side of an open door does."
+    }
+  ],
+  "delivery": {
+    "base_commit": "5d85b97e5c4073972428ce674075b3ef8f399218",
+    "candidate_commit": "5827effabf6093d88310792b97dc1880fb7ba738",
+    "integrated_commit": "5827effabf6093d88310792b97dc1880fb7ba738",
+    "integrated_tree": "1e08a1448fa92674337ad049cb6663eb7957065b"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "2c774187bfc3e4d337fe7f09aec57ec6afa4603f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-020/artifacts/Unity-PlayMode-01-5827effabf60.xml"
+        },
+        {
+          "blob_sha": "56180d9ce886012f5f58f0311e86a0c2ca74e234",
+          "path": "Pipeline/TaskGraph/evidence/NSC-020/artifacts/Unity-PlayMode-01-5827effabf60.log"
+        },
+        {
+          "blob_sha": "5dd116bf488477437177943b3a65774bd4edf469",
+          "path": "Pipeline/TaskGraph/evidence/NSC-020/artifacts/HumanValidation-01-5827effabf60.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "The Unity PlayMode results and log provide authoritative automated evidence at the validated commit that crossing is not set merely by interaction/opening and is set only after the wizard reaches the open door's forward side. HumanValidation-01 corroborates the delivered behavior but does not replace the automated evidence.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Proposal only; human approval remains required. Authoritative gate evidence is the passed hash-bound Unity PlayMode result and log. The human validation artifact is included only as corroborating delivery-review evidence, not as authoritative automated evidence.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-020-5827effabf60",
+  "record_type": "delivery",
+  "recorded_at": "2026-08-29T03:50:12Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-020.yaml",
+    "revision": 2,
+    "sha256": "18f801a7eb3929f4b7c030b1db943c68c8b823d6bb2db40303bfcbffd9fc273d"
+  },
+  "task_id": "NSC-020",
+  "validated_state": {
+    "commit": "5827effabf6093d88310792b97dc1880fb7ba738",
+    "tree": "1e08a1448fa92674337ad049cb6663eb7957065b"
+  }
+}
