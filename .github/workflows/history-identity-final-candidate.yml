@@ -1,0 +1,211 @@
+name: History Identity Final Candidate
+
+on:
+  pull_request:
+    paths:
+      - "Pipeline/HistoryMigration/**"
+      - "Pipeline/TaskGraph/history_identity_migrations.py"
+      - "Pipeline/TaskGraph/history_aware_repository.py"
+      - "Pipeline/TaskGraph/current_conformance.py"
+      - "Pipeline/TaskReviewAgent/issue_workflow.py"
+      - ".github/workflows/history-identity-final-candidate.yml"
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+env:
+  EXPECTED_SOURCE_MAIN: b8eb3ece7cf467e40a04b644c337cfa5d1d63d37
+  MIGRATION_ID: nsc-20260829-b8eb3ece7cf4
+  APPROVED_BY: Vincent Liguori (candidate preparation authorized)
+  APPROVED_AT: 2026-08-29T16:53:18Z
+
+jobs:
+  final-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out exact carrier head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Freeze exact origin/main and materialize remote audit refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force --prune origin '+refs/heads/*:refs/remotes/origin/*' '+refs/tags/*:refs/tags/*'
+          ACTUAL_MAIN="$(git rev-parse refs/remotes/origin/main)"
+          if [[ "$ACTUAL_MAIN" != "$EXPECTED_SOURCE_MAIN" ]]; then
+            echo "origin/main moved: $ACTUAL_MAIN != $EXPECTED_SOURCE_MAIN" >&2
+            exit 1
+          fi
+          git branch -f main refs/remotes/origin/main
+          while IFS=' ' read -r ref sha; do
+            name="${ref#refs/remotes/origin/}"
+            if [[ "$name" == "HEAD" ]]; then
+              continue
+            fi
+            git update-ref "refs/heads/remote-audit/$name" "$sha"
+          done < <(git for-each-ref --format='%(refname) %(objectname)' refs/remotes/origin)
+          echo "FROZEN_MAIN=$ACTUAL_MAIN" >> "$GITHUB_ENV"
+          echo "FROZEN_MAIN_TREE=$(git rev-parse refs/heads/main^{tree})" >> "$GITHUB_ENV"
+
+      - name: Verify GitHub preparation state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$(gh api repos/cathode26/NoSafeCircle/pulls/86 --jq '.merged')" == "true" ]]
+          [[ "$(gh api repos/cathode26/NoSafeCircle/pulls/86 --jq '.merge_commit_sha')" == "$EXPECTED_SOURCE_MAIN" ]]
+          [[ "$(gh api repos/cathode26/NoSafeCircle/pulls/73 --jq '.state')" == "closed" ]]
+          [[ "$(gh api repos/cathode26/NoSafeCircle/pulls/85 --jq '.state')" == "closed" ]]
+          [[ "$(gh api repos/cathode26/NoSafeCircle/issues/64 --jq '.state')" == "closed" ]]
+          gh api repos/cathode26/NoSafeCircle/issues/64 --jq '[.labels[].name] | index("nsc-state:complete") != null' | grep -Fx true
+
+      - name: Run migration compatibility smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python Pipeline/HistoryMigration/history_identity_smoke_test.py
+          python Pipeline/HistoryMigration/migration_plan_smoke_test.py
+          python Pipeline/TaskGraph/history_identity_migration_smoke_test.py
+          python Pipeline/HistoryMigration/issue_migration_smoke_test.py
+          python -m py_compile Pipeline/HistoryMigration/final_candidate.py
+
+      - name: Rewrite exact frozen history in an isolated mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/history-identity-final-dry-run"
+          python Pipeline/HistoryMigration/history_identity.py dry-run --source . --output "$OUT"
+          echo "DRY_RUN_DIR=$OUT" >> "$GITHUB_ENV"
+          echo "DRY_RUN_REPORT=$OUT/history-identity-dry-run.json" >> "$GITHUB_ENV"
+
+      - name: Inventory exact tracked impact
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMPACT="$RUNNER_TEMP/history-identity-final-impact.json"
+          python Pipeline/HistoryMigration/history_impact.py \
+            --source . \
+            --dry-run-report "$DRY_RUN_REPORT" \
+            --output "$IMPACT"
+          echo "IMPACT_REPORT=$IMPACT" >> "$GITHUB_ENV"
+
+      - name: Build reviewed final ref and rollback plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLAN="$RUNNER_TEMP/history-identity-final-plan.json"
+          python Pipeline/HistoryMigration/migration_plan.py \
+            --dry-run-report "$DRY_RUN_REPORT" \
+            --policy Pipeline/HistoryMigration/ref_policy.json \
+            --output "$PLAN"
+          echo "MIGRATION_PLAN=$PLAN" >> "$GITHUB_ENV"
+
+      - name: Verify destructive phase has no planning blocker
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          plan = json.loads(Path(os.environ["MIGRATION_PLAN"]).read_text(encoding="utf-8"))
+          if plan.get("source_main") != os.environ["EXPECTED_SOURCE_MAIN"]:
+              raise SystemExit("migration plan does not describe frozen origin/main")
+          if plan.get("ready_for_destructive_phase") is not True:
+              raise SystemExit(
+                  f"migration plan is blocked: {plan.get('pre_rewrite_blockers')} / "
+                  f"{plan.get('unclassified_affected_branches')}"
+              )
+          if plan.get("pre_rewrite_blockers") or plan.get("unclassified_affected_branches"):
+              raise SystemExit("migration plan claims ready while retaining blockers")
+          by_branch = {row["branch"]: row for row in plan["branch_actions"]}
+          for branch in ("pipeline/history-identity-migration-v2", "tmp-ignore"):
+              if by_branch.get(branch, {}).get("action") != "delete_after_migration":
+                  raise SystemExit(f"{branch} is not classified for deletion")
+          print(json.dumps(plan, indent=2, sort_keys=True))
+          PY
+
+      - name: Build signed-off candidate and rollback bundles without remote writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          CANDIDATE="$RUNNER_TEMP/history-identity-final-candidate"
+          WORKTREE="$RUNNER_TEMP/history-identity-final-worktree"
+          python Pipeline/HistoryMigration/final_candidate.py \
+            --source . \
+            --mirror "$DRY_RUN_DIR/mirror.git" \
+            --dry-run-report "$DRY_RUN_REPORT" \
+            --migration-plan "$MIGRATION_PLAN" \
+            --output "$CANDIDATE" \
+            --worktree "$WORKTREE" \
+            --expected-source-main "$EXPECTED_SOURCE_MAIN" \
+            --migration-id "$MIGRATION_ID" \
+            --approved-by "$APPROVED_BY" \
+            --approved-at "$APPROVED_AT" \
+            --task-id NSC-020
+          echo "FINAL_CANDIDATE_DIR=$CANDIDATE" >> "$GITHUB_ENV"
+          echo "FINAL_CANDIDATE_REPORT=$CANDIDATE/history-identity-final-candidate.json" >> "$GITHUB_ENV"
+
+      - name: Verify final candidate remains inert and fully recoverable
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["FINAL_CANDIDATE_DIR"])
+          report = json.loads(Path(os.environ["FINAL_CANDIDATE_REPORT"]).read_text(encoding="utf-8"))
+
+          def digest(path: Path) -> str:
+              value = hashlib.sha256()
+              with path.open("rb") as stream:
+                  for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                      value.update(chunk)
+              return value.hexdigest()
+
+          if report.get("source_main") != os.environ["EXPECTED_SOURCE_MAIN"]:
+              raise SystemExit("final candidate source main mismatch")
+          if report.get("ready_for_explicit_execution_approval") is not True:
+              raise SystemExit("final candidate is not ready for explicit execution review")
+          if report.get("final_main") == report.get("raw_rewritten_main"):
+              raise SystemExit("final main omitted the committed migration manifest")
+          state = report.get("taskgraph_conformance") or {}
+          if state.get("state") != "conformant":
+              raise SystemExit(f"NSC-020 is not conformant: {state}")
+          if state.get("selected_record_id") != "DEL-NSC-020-5827effabf60":
+              raise SystemExit("unexpected NSC-020 evidence record")
+          for section, key in (("rewritten_history", "bundle"), ("rollback", "bundle")):
+              item = report[section]
+              path = root / item[key]
+              if not path.is_file() or digest(path) != item[f"{key}_sha256"]:
+                  raise SystemExit(f"{section} bundle is missing or hash-mismatched")
+          script = (root / "execute-history-identity-migration.ps1").read_text(encoding="utf-8")
+          if "INERT BY DESIGN" not in script:
+              raise SystemExit("execution script lacks the deliberate approval stop")
+          if any(line.strip().startswith("git push") for line in script.splitlines()):
+              raise SystemExit("execution script contains an active git push")
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload final candidate, proof, and rollback material
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-identity-final-candidate
+          path: |
+            ${{ env.FINAL_CANDIDATE_DIR }}
+            ${{ env.DRY_RUN_REPORT }}
+            ${{ env.IMPACT_REPORT }}
+            ${{ env.MIGRATION_PLAN }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
