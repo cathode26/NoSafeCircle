@@ -15,9 +15,62 @@ from pathlib import Path
 from typing import Any, Iterator, Mapping, Protocol
 
 
-PROGRESS_SCHEMA_VERSION = "1.0"
+PROGRESS_SCHEMA_VERSION = "1.1"
 _SAFE_COMPONENT = re.compile(r"[^A-Za-z0-9._-]+")
 _SCALAR = (str, int, float, bool, type(None))
+_OPERATOR_LABELS = {
+    "run_started": "START",
+    "log_ready": "LOG",
+    "log_watch": "LOG",
+    "routing_started": "ROUTE",
+    "routing_completed": "ROUTE",
+    "state_observed": "STATE",
+    "codex_supervisor_started": "AGENT",
+    "codex_supervisor_heartbeat": "AGENT",
+    "codex_supervisor_failed": "AGENT ERROR",
+    "supervisor_decision": "PLAN",
+    "pipeline_action_started": "WORK",
+    "pipeline_action_heartbeat": "WORK",
+    "action_completed": "DONE",
+    "action_rejected": "BLOCKED",
+    "checkout_preparation_blocked": "BLOCKED",
+    "repeated_action_rejection": "BLOCKED",
+    "terminal_state": "RESULT",
+    "turn_budget_exhausted": "BLOCKED",
+    "run_finished": "END",
+}
+_TECHNICAL_ONLY_EVENTS = frozenset(
+    {
+        "routing_observation_started",
+        "routing_observation_completed",
+        "state_observation_started",
+        "state_observation_completed",
+        "codex_supervisor_completed",
+        "pipeline_action_completed",
+        "pipeline_action_failed",
+    }
+)
+_SENSITIVE_FIELD_NAMES = frozenset(
+    {
+        "api_key",
+        "access_token",
+        "credential",
+        "credentials",
+        "password",
+        "prompt",
+        "raw_prompt",
+        "raw_output",
+        "secret",
+        "secret_prompt",
+        "token",
+        "file_contents",
+        "content",
+        "body",
+        "feedback_text",
+        "patch",
+        "diff",
+    }
+)
 
 
 def utc_now() -> str:
@@ -48,6 +101,73 @@ def _short_text(value: Any, *, limit: int = 480) -> str:
     return text if len(text) <= limit else text[: limit - 3] + "..."
 
 
+def _safe_field_name(value: Any) -> str:
+    return _component(str(value), fallback="field").replace("-", "_").casefold()
+
+
+def _field_is_safe(key: str) -> bool:
+    normalized = key.casefold()
+    return (
+        normalized not in _SENSITIVE_FIELD_NAMES
+        and not normalized.endswith("_body")
+        and not normalized.endswith("_contents")
+        and not normalized.startswith("raw_")
+    )
+
+
+def _terminal_value(value: Any, *, limit: int = 180) -> str | None:
+    if isinstance(value, _SCALAR):
+        if value in (None, ""):
+            return None
+        return _short_text(value, limit=limit)
+    if isinstance(value, (list, tuple)):
+        rendered: list[str] = []
+        for item in value[:8]:
+            if not isinstance(item, _SCALAR):
+                continue
+            text = "<blank>" if isinstance(item, str) and not item.strip() else _short_text(item, limit=90)
+            if text:
+                rendered.append(text)
+        if not rendered:
+            return "(none)" if len(value) == 0 else None
+        suffix = f", +{len(value) - len(rendered)} more" if len(value) > len(rendered) else ""
+        return ", ".join(rendered) + suffix
+    return None
+
+
+def _flatten_terminal_fields(fields: Mapping[str, Any]) -> dict[str, str]:
+    """Flatten selected bounded fields for terminal/debug text without dumping payloads."""
+
+    flattened: dict[str, str] = {}
+    for raw_key, value in fields.items():
+        key = _safe_field_name(raw_key)
+        if not _field_is_safe(key):
+            continue
+        if isinstance(value, Mapping) and key in {
+            "action_arguments",
+            "provider_usage",
+            "result_summary",
+        }:
+            prefix = {
+                "action_arguments": "arg",
+                "provider_usage": "usage",
+                "result_summary": "result",
+            }[key]
+            for nested_key, nested_value in value.items():
+                child = _safe_field_name(nested_key)
+                combined = f"{prefix}_{child}"
+                if not _field_is_safe(child):
+                    continue
+                rendered = _terminal_value(nested_value)
+                if rendered is not None:
+                    flattened[combined] = rendered
+            continue
+        rendered = _terminal_value(value)
+        if rendered is not None:
+            flattened[key] = rendered
+    return flattened
+
+
 def summarize_result(value: Any) -> dict[str, Any]:
     """Return bounded identity/status fields without logging file contents or prompts."""
 
@@ -71,12 +191,37 @@ def summarize_result(value: Any) -> dict[str, Any]:
         "phase",
         "candidate_sha256",
         "returncode",
+        "clean",
+        "count",
+        "truncated",
+        "classification",
+        "human_revalidation_required",
+        "test_platform",
+        "test_filter",
+        "pull_request_url",
+        "evidence_commit",
+        "merged_commit",
+        "main_head",
+        "record_id",
+        "proposal_sha256",
     )
     summary: dict[str, Any] = {}
     for key in preferred:
         value_for_key = value.get(key)
         if isinstance(value_for_key, _SCALAR) and value_for_key not in (None, ""):
             summary[key] = value_for_key
+    for key in (
+        "paths",
+        "matches",
+        "events",
+        "comments",
+        "created_paths",
+        "validation_manifests",
+        "recovered_unity_churn",
+    ):
+        collection = value.get(key)
+        if isinstance(collection, (list, tuple)):
+            summary[f"{key}_count"] = len(collection)
     if not summary:
         summary["result_keys"] = sorted(str(key) for key in value)[:24]
     return summary
@@ -120,7 +265,7 @@ class NullProgress:
 
 
 class ProgressLog:
-    """Append-only progress journal that also prints concise live status to stderr."""
+    """Append-only progress journal with operator and technical text views."""
 
     def __init__(
         self,
@@ -145,6 +290,10 @@ class ProgressLog:
         self.heartbeat_seconds = float(raw_interval)
         if self.heartbeat_seconds <= 0:
             raise ValueError("heartbeat interval must be positive")
+        verbosity = os.getenv("NSC_TASK_AGENT_LOG_VERBOSITY", "operator").strip().casefold()
+        if verbosity not in {"operator", "debug"}:
+            raise ValueError("NSC_TASK_AGENT_LOG_VERBOSITY must be operator or debug")
+        self.verbosity = verbosity
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
         self.run_id = run_id or (
             f"{timestamp}-{_component(self.worker_id, fallback='worker')[-24:]}-"
@@ -157,6 +306,7 @@ class ProgressLog:
         )
         self.run_dir.mkdir(parents=True, exist_ok=False)
         self.text_path = self.run_dir / "progress.log"
+        self.debug_path = self.run_dir / "debug.log"
         self.events_path = self.run_dir / "progress.jsonl"
         self.metadata_path = self.run_dir / "run.json"
         self._lock = threading.RLock()
@@ -170,7 +320,9 @@ class ProgressLog:
             "pipeline": self.pipeline,
             "started_at_utc": utc_now(),
             "heartbeat_seconds": self.heartbeat_seconds,
+            "log_verbosity": self.verbosity,
             "progress_log": str(self.text_path),
+            "debug_log": str(self.debug_path),
             "events_log": str(self.events_path),
         }
         self.metadata_path.write_text(
@@ -184,10 +336,11 @@ class ProgressLog:
             run_id=self.run_id,
             worker_id=self.worker_id,
         )
-        self.emit("log_ready", f"Live progress log: {self.text_path}")
+        self.emit("log_ready", f"Operator progress log: {self.text_path}")
+        self.emit("debug_log_ready", f"Full technical log: {self.debug_path}")
         self.emit(
             "log_watch",
-            "Watch from another PowerShell window with: "
+            "Watch progress from another PowerShell window with: "
             f"Get-Content -Wait -LiteralPath '{self.text_path}'",
         )
 
@@ -196,10 +349,11 @@ class ProgressLog:
         clean_message = _short_text(message, limit=1200)
         with self._lock:
             self._sequence += 1
+            timestamp = utc_now()
             record = {
                 "schema_version": PROGRESS_SCHEMA_VERSION,
                 "sequence": self._sequence,
-                "timestamp_utc": utc_now(),
+                "timestamp_utc": timestamp,
                 "elapsed_seconds": round(time.monotonic() - self._started_monotonic, 3),
                 "run_id": self.run_id,
                 "task_id": self.task_id,
@@ -209,18 +363,22 @@ class ProgressLog:
                 "message": clean_message,
                 "fields": _safe_json(fields),
             }
-            terminal_fields = " ".join(
-                f"{key}={_short_text(value, limit=140)}"
-                for key, value in fields.items()
-                if isinstance(value, _SCALAR) and value not in (None, "")
+            terminal_fields = _flatten_terminal_fields(fields)
+            rendered_fields = " ".join(
+                f"{key}={_short_text(value, limit=180)}"
+                for key, value in terminal_fields.items()
             )
-            line = (
-                f"[{record['timestamp_utc']}] [{self.task_id}] "
-                f"[{event_name}] {clean_message}"
-                + (f" | {terminal_fields}" if terminal_fields else "")
+            debug_line = (
+                f"[{timestamp}] [{self.task_id}] [{event_name}] {clean_message}"
+                + (f" | {rendered_fields}" if rendered_fields else "")
             )
-            with self.text_path.open("a", encoding="utf-8", newline="\n") as handle:
-                handle.write(line + "\n")
+            operator_label = _OPERATOR_LABELS.get(event_name, event_name.replace("_", " ").upper())
+            operator_line = (
+                f"[{timestamp}] [{self.task_id}] [{operator_label}] {clean_message}"
+                + (f" | {rendered_fields}" if rendered_fields else "")
+            )
+            with self.debug_path.open("a", encoding="utf-8", newline="\n") as handle:
+                handle.write(debug_line + "\n")
                 handle.flush()
             with self.events_path.open("a", encoding="utf-8", newline="\n") as handle:
                 handle.write(
@@ -234,7 +392,13 @@ class ProgressLog:
                     + "\n"
                 )
                 handle.flush()
-            print(line, file=sys.stderr, flush=True)
+            visible = self.verbosity == "debug" or event_name not in _TECHNICAL_ONLY_EVENTS
+            if visible:
+                line = debug_line if self.verbosity == "debug" else operator_line
+                with self.text_path.open("a", encoding="utf-8", newline="\n") as handle:
+                    handle.write(line + "\n")
+                    handle.flush()
+                print(line, file=sys.stderr, flush=True)
 
     @contextmanager
     def heartbeat(
