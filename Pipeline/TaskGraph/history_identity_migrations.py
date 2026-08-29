@@ -41,6 +41,7 @@ class CommitTranslation:
     tree: str
     migration_id: str
     manifest_path: str
+    rewrite_report_sha256: str
 
 
 class HistoryIdentityMigrationResolver:
@@ -78,6 +79,7 @@ class HistoryIdentityMigrationResolver:
                 "tree": entry.tree,
                 "migration_id": entry.migration_id,
                 "manifest_path": entry.manifest_path,
+                "rewrite_report_sha256": entry.rewrite_report_sha256,
             }
             for old, entry in sorted(self._translations.items())
         }
@@ -298,6 +300,7 @@ class HistoryIdentityMigrationResolver:
                     tree=tree,
                     migration_id=migration_id,
                     manifest_path=path,
+                    rewrite_report_sha256=report_hash,
                 )
             )
         return result
