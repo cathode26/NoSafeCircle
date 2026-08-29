@@ -10,6 +10,7 @@ on:
       - "Pipeline/TaskDecomposition/**"
       - "Pipeline/TaskExecution/**"
       - "Pipeline/TaskGraph/**"
+      - "Pipeline/Testing/**"
       - "compose.yaml"
   workflow_dispatch:
 
@@ -72,13 +73,27 @@ jobs:
       - name: Current persistent TaskGraph validation
         run: python Pipeline/TaskGraph/taskcontrol.py validate
 
+      - name: Unity evidence log hygiene
+        shell: pwsh
+        run: |
+          $test = "Pipeline/Testing/unity_log_hygiene_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Unity evidence-log hygiene tests failed."
+            }
+          } else {
+            Write-Host "Legacy PR head predates Unity evidence-log hygiene; compatibility whitespace policy still applies."
+          }
+
       - name: Python compile check
-        run: python -m compileall -q Pipeline/GDDRAG Pipeline/TaskDecomposition Pipeline/TaskGraph Pipeline/AgentRuntime Pipeline/TaskExecution
+        run: python -m compileall -q Pipeline/GDDRAG Pipeline/TaskDecomposition Pipeline/TaskGraph Pipeline/AgentRuntime Pipeline/TaskExecution Pipeline/Testing
 
       - name: Pull-request whitespace check
         shell: pwsh
         run: |
-          git diff --check origin/${{ github.event.pull_request.base.ref }}...HEAD
+          $evidenceLogExclusion = ":(exclude)Pipeline/TaskGraph/evidence/**/artifacts/*.log"
+          git diff --check origin/${{ github.event.pull_request.base.ref }}...HEAD -- . $evidenceLogExclusion
 
       - name: Verify clean checkout
         shell: pwsh
