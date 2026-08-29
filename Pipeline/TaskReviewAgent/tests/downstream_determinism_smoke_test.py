@@ -19,7 +19,6 @@ if str(ROOT) not in sys.path:
 from Pipeline.TaskReviewAgent.codex_supervisor import (  # noqa: E402
     CodexSupervisorError,
     SupervisorDecision,
-    decision_schema,
 )
 from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_determinism import (  # noqa: E402
@@ -309,7 +308,7 @@ def test_automation_receipt_rejects_task_blob_change() -> None:
             raise AssertionError("task-owned blob mutation was accepted")
 
 
-def test_action_narrowing_and_schema_are_strict() -> None:
+def test_action_narrowing_and_host_validation_are_strict() -> None:
     actions = {
         "prepare_task_checkout": "prepare",
         "read_issue_log": "read",
@@ -342,22 +341,21 @@ def test_action_narrowing_and_schema_are_strict() -> None:
         "missing main object did not route to checkout preparation",
     )
 
-    schema = decision_schema(("search_repository",))
-    prefixes = schema["properties"]["arguments"]["properties"]["prefixes"]
-    require(prefixes.get("minItems") == 1, "prefix schema permits an empty list")
-    require(prefixes["items"].get("minLength") == 1, "prefix schema permits blanks")
-    decision = SupervisorDecision(
-        TASK_ID,
-        "search_repository",
-        {"query": "door", "prefixes": []},
-        "Search the task files.",
-    )
-    try:
-        decision.validate_arguments(required=("query", "prefixes"))
-    except CodexSupervisorError:
-        pass
-    else:
-        raise AssertionError("empty search prefix list passed host validation")
+    for prefixes in ([], [""], ["Assets/", "  "]):
+        decision = SupervisorDecision(
+            TASK_ID,
+            "search_repository",
+            {"query": "door", "prefixes": prefixes},
+            "Search the task files.",
+        )
+        try:
+            decision.validate_arguments(required=("query", "prefixes"))
+        except CodexSupervisorError:
+            pass
+        else:
+            raise AssertionError(
+                f"unsafe search prefixes passed host validation: {prefixes!r}"
+            )
 
 
 def test_controller_rejects_empty_prefixes() -> None:
@@ -492,7 +490,7 @@ def main() -> int:
         test_human_authority_ignores_agent_template,
         test_automation_receipt_rebuilds_from_issue_and_git,
         test_automation_receipt_rejects_task_blob_change,
-        test_action_narrowing_and_schema_are_strict,
+        test_action_narrowing_and_host_validation_are_strict,
         test_controller_rejects_empty_prefixes,
         test_history_is_bounded,
         test_same_state_rejection_streak_releases_after_three,
