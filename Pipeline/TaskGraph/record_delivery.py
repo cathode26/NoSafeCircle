@@ -41,6 +41,10 @@ from conformance_records import (
 )
 
 ROOT = Path(__file__).resolve().parents[2]
+TESTING_ROOT = ROOT / "Pipeline" / "Testing"
+if str(TESTING_ROOT) not in sys.path:
+    sys.path.insert(0, str(TESTING_ROOT))
+from unity_log_hygiene import trailing_whitespace_line_count
 
 DELIVERY_SPEC_SCHEMA_VERSION = "1.0"
 ARTIFACT_TYPES = {"unity_test_results", "unity_log", "human_validation", "other"}
@@ -421,6 +425,13 @@ def validate_human_validation_text(data: bytes, source_label: str) -> None:
 def validate_unity_log(data: bytes, source_label: str) -> None:
     if not data:
         raise RecordDeliveryError(f"Unity log artifact at {source_label} is empty.")
+    dirty_lines = trailing_whitespace_line_count(data)
+    if dirty_lines:
+        raise RecordDeliveryError(
+            f"Unity log artifact at {source_label} contains trailing whitespace on "
+            f"{dirty_lines} line(s). The authoritative Unity runner must normalize "
+            "the log before review and packaging."
+        )
 
 
 def determine_extension(artifact: ArtifactSpec) -> str:

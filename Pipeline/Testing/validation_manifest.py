@@ -11,6 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+try:
+    from .unity_log_hygiene import trailing_whitespace_line_count
+except ImportError:  # direct script/module-path execution
+    from unity_log_hygiene import trailing_whitespace_line_count
+
 
 class ValidationManifestError(RuntimeError):
     """Raised when a validation manifest or one of its artifacts is invalid."""
@@ -180,6 +185,16 @@ def load_validation_manifest(path: Path) -> UnityValidationManifest:
     log = _artifact(path.parent, artifacts["log"], "artifacts.log")
     if xml.relative_path != "test-results.xml" or log.relative_path != "unity.log":
         raise ValidationManifestError("Artifact relative paths do not match the supported manifest schema.")
+    try:
+        dirty_log_lines = trailing_whitespace_line_count(log.path.read_bytes())
+    except OSError as exc:
+        raise ValidationManifestError("Unity log artifact could not be inspected for hygiene.") from exc
+    if dirty_log_lines:
+        raise ValidationManifestError(
+            "Unity log artifact contains trailing whitespace on "
+            f"{dirty_log_lines} line(s); run_unity_tests_clean.ps1 must normalize it "
+            "before publishing the validation manifest."
+        )
     runner = _object(root["runner"], "runner", {"path"})
     if runner["path"] != "Pipeline/Testing/run_unity_tests_clean.ps1":
         raise ValidationManifestError("runner.path is unsupported.")
