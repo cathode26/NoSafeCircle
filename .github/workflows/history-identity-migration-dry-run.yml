@@ -20,12 +20,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Materialize exact current origin/main
+      - name: Materialize exact current origin/main and remote branch audit refs
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --force origin main:refs/remotes/origin/main
+          git fetch --force --prune origin '+refs/heads/*:refs/remotes/origin/*'
           git branch -f main refs/remotes/origin/main
+
+          while IFS=' ' read -r ref sha; do
+            name="${ref#refs/remotes/origin/}"
+            if [[ "$name" == "HEAD" ]]; then
+              continue
+            fi
+            git update-ref "refs/heads/remote-audit/$name" "$sha"
+          done < <(git for-each-ref --format='%(refname) %(objectname)' refs/remotes/origin)
+
           echo "BASE_MAIN=$(git rev-parse refs/heads/main)" >> "$GITHUB_ENV"
           echo "BASE_MAIN_TREE=$(git rev-parse refs/heads/main^{tree})" >> "$GITHUB_ENV"
 
@@ -35,7 +44,7 @@ jobs:
           set -euo pipefail
           python Pipeline/HistoryMigration/history_identity_smoke_test.py
 
-      - name: Run isolated rewrite against current main
+      - name: Run isolated rewrite against current main and remote branch audit refs
         shell: bash
         run: |
           set -euo pipefail
@@ -73,7 +82,14 @@ jobs:
           }
           missing = sorted(required - targeted)
           if missing:
-              raise SystemExit(f"configured unsafe identities are missing from current main: {missing}")
+              raise SystemExit(f"configured unsafe identities are missing from current reachable refs: {missing}")
+
+          changed_remote_refs = [
+              row for row in report["ref_map"]
+              if row["changed"] and row["ref"].startswith("refs/heads/remote-audit/")
+          ]
+          if not changed_remote_refs:
+              raise SystemExit("remote branch audit found no refs affected by the rewrite")
 
           print(
               json.dumps(
@@ -85,6 +101,7 @@ jobs:
                       "rewritten_commit_count": report["rewritten_commit_count"],
                       "identity_target_count": report["identity_target_count"],
                       "signature_removed_count": report["signature_removed_count"],
+                      "affected_remote_branch_count": len(changed_remote_refs),
                   },
                   indent=2,
                   sort_keys=True,
