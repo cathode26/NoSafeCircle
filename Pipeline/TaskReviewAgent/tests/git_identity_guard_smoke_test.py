@@ -121,14 +121,14 @@ def test_installed_guard_overrides_stale_checkout_identity() -> None:
 
 
 def test_workflows_do_not_invent_github_noreply_identities() -> None:
-    forbidden = ("@" + GITHUB_USER_NOREPLY_DOMAIN).encode("utf-8")
+    forbidden = ("@" + GITHUB_USER_NOREPLY_DOMAIN).encode("utf-8").lower()
     workflow_root = ROOT / ".github" / "workflows"
     paths = sorted((*workflow_root.glob("*.yml"), *workflow_root.glob("*.yaml")))
     require(bool(paths), "workflow policy test found no workflows")
     offenders = [
         path.relative_to(ROOT).as_posix()
         for path in paths
-        if forbidden.casefold() in path.read_bytes().lower()
+        if forbidden in path.read_bytes().lower()
     ]
     require(not offenders, "workflow contains account-attributable GitHub noreply identity: " + ", ".join(offenders))
 
