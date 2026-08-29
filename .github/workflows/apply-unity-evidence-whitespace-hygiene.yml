@@ -69,19 +69,20 @@ jobs:
         shell: pwsh
         run: git diff --check
 
-      - name: Remove one-shot installer
+      - name: Keep workflow changes for authenticated follow-up
         shell: pwsh
         run: |
-          git rm -f .github/workflows/apply-unity-evidence-whitespace-hygiene.yml
+          git restore --source=HEAD --worktree --staged -- .github/workflows/d1b2-core-deterministic.yml
+          git restore --source=HEAD --worktree --staged -- .github/workflows/task-review-agent-deterministic.yml
           git rm -f Pipeline/Migrations/install_unity_evidence_whitespace_hygiene.py
           git rm -f Pipeline/Migrations/repair_unity_evidence_installer.py
 
-      - name: Commit and push installed fix
+      - name: Commit and push installed non-workflow fix
         shell: pwsh
         run: |
           git add -A
           if (git diff --cached --quiet) {
-            throw "Installer produced no changes."
+            throw "Installer produced no non-workflow changes."
           }
           git commit -m "Normalize Unity evidence logs before merge"
           git push origin HEAD:fix/unity-evidence-whitespace-premerge
