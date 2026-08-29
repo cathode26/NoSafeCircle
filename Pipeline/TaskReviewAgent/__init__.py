@@ -12,6 +12,7 @@ from .operator_logging import install_operator_logging
 from .git_identity_guard import install_git_identity_guard
 from .merge_closeout_check_repoll import install_merge_closeout_check_repoll
 from .pull_request_check_authority import install_pull_request_check_authority
+from .completed_issue_guard import install_completed_issue_guard
 
 # Install deterministic downstream extensions before run_pipeline_agent imports
 # the controller and Codex action table. Resilience wraps reintegration;
@@ -19,8 +20,9 @@ from .pull_request_check_authority import install_pull_request_check_authority
 # action grounding supplies exact host-verified proposal identities. Operator
 # logging remains the outer presentation-only layer. Git identity safety applies
 # to every automated commit path. Merge-closeout repolling makes every new run
-# inspect live GitHub state; latest-check authority then ignores superseded check
-# history and makes a circuit-breaker release terminal for that current run.
+# inspect live GitHub state; latest-check authority ignores superseded check
+# history. Completed-Issue discovery is installed last so closing the canonical
+# workflow remains terminal instead of looking like an uninitialized new task.
 install_mainline_reintegration()
 install_downstream_resilience()
 install_downstream_determinism()
@@ -40,6 +42,7 @@ install_operator_logging()
 install_git_identity_guard()
 install_merge_closeout_check_repoll()
 install_pull_request_check_authority()
+install_completed_issue_guard()
 
 __all__ = [
     "TASK_REVIEW_SCHEMA_VERSION",
@@ -52,4 +55,5 @@ __all__ = [
     "install_git_identity_guard",
     "install_merge_closeout_check_repoll",
     "install_pull_request_check_authority",
+    "install_completed_issue_guard",
 ]
