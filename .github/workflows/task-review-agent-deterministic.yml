@@ -119,6 +119,19 @@ jobs:
             Write-Host "Legacy exact PR head predates merge-closeout check repolling."
           }
 
+      - name: Run completed Issue duplicate guard tests
+        shell: pwsh
+        run: |
+          $test = "Pipeline/TaskReviewAgent/tests/completed_issue_guard_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Completed Issue duplicate guard tests failed."
+            }
+          } else {
+            Write-Host "Legacy exact PR head predates completed-Issue duplicate prevention."
+          }
+
       - name: Run Unity evidence log hygiene tests
         shell: pwsh
         run: |
