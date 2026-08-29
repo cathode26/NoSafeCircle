@@ -20,6 +20,8 @@ Review-only decomposition outputs do not reserve future NSC IDs. If two pending 
 
 Before producing operational commands or human-facing handoff artifacts, read `Docs/AI-Pipeline/OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md`. Human-facing external files default to the Windows Downloads folder; repository-authoritative, pipeline-owned, and hash-bound files remain at their required locations.
 
+Any agent or GitHub Actions workflow that creates Git commits must use a non-attributable automation identity. Never invent or configure an address in the GitHub user noreply namespace (`<username>@users.noreply.github.com`): GitHub can associate that address with a real account. TaskReviewAgent automated commits must go through `Pipeline/TaskReviewAgent/git_identity_guard.py`; the default identity is `No Safe Circle TaskReviewAgent <task-review-agent@nosafecircle.invalid>`. A workflow that commits or pushes directly must likewise use a reserved `.invalid` email and must pass `Pipeline/TaskReviewAgent/tests/git_identity_guard_smoke_test.py`. Do not treat a friendly Git display name as proof that the email is safe.
+
 Any work involving Unity build targets, platform-dependent APIs or plugins, WebGL/browser compatibility, deployment, or release packaging must also read `Design/Approved/Platform/Desktop_WebGL_Publishing_Target.md`. Desktop WebGL is a human-approved additional publication target; it does not remove the canonical Windows Standalone requirement.
 
 Task meaning comes from the selected task contract and current approved canon. Deterministic tools, not agent claims, establish test results and clean-tree state.
