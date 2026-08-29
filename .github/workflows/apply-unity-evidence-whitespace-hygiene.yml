@@ -32,6 +32,9 @@ jobs:
           git config user.name "No Safe Circle Pipeline"
           git config user.email "pipeline@users.noreply.github.com"
 
+      - name: Repair generated-source escaping
+        run: python Pipeline/Migrations/repair_unity_evidence_installer.py
+
       - name: Install deterministic evidence hygiene
         run: python Pipeline/Migrations/install_unity_evidence_whitespace_hygiene.py
 
@@ -71,6 +74,7 @@ jobs:
         run: |
           git rm -f .github/workflows/apply-unity-evidence-whitespace-hygiene.yml
           git rm -f Pipeline/Migrations/install_unity_evidence_whitespace_hygiene.py
+          git rm -f Pipeline/Migrations/repair_unity_evidence_installer.py
 
       - name: Commit and push installed fix
         shell: pwsh
