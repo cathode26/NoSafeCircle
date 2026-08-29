@@ -157,3 +157,20 @@ python Pipeline/Testing/unity_workspace_hygiene_smoke_test.py
 ```
 
 It verifies that intended pre-Unity changes and task scene resources survive cleanup, known Unity churn is restored, approved generated untracked files can be removed explicitly, unexpected semantic tracked changes block, and stale snapshots fail after HEAD changes.
+
+## Authoritative Unity evidence-log hygiene
+
+Workspace cleanup and committed evidence cleanup are separate boundaries. The
+workspace helper restores proven-safe editor churn. Authoritative Unity logs are
+instead normalized by `Pipeline/Testing/run_unity_tests_clean.ps1` before the log
+SHA-256 and byte size enter `validation-manifest.json`.
+
+The normalizer removes only ASCII spaces and tabs at logical line ends. It
+preserves non-trailing content, original line endings, BOM bytes, and final-newline
+state. `validation_manifest.py`, `record_delivery.py`, and the downstream staged
+evidence check all reject a future unnormalized log.
+
+Previously approved raw logs remain byte-for-byte immutable. The repository
+whitespace gates exclude only `Pipeline/TaskGraph/evidence/**/artifacts/*.log` for
+that compatibility case; source, JSON, XML, task contracts, and every other path
+continue to use the full whitespace gate.
