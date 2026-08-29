@@ -286,6 +286,128 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
+        // VAL-001/AC-001: opening the door via the automatic timer alone must not set the shared
+        // doorway-crossing state; only actually reaching the forward-side crossing trigger does.
+        [UnityTest]
+        public IEnumerator Completion_OpensDoor_DoesNotSetCrossingState()
+        {
+            controller.BeginInteraction();
+            AdvanceDoorTime(door, door.Duration + 0.1f);
+
+            yield return null;
+
+            Assert.IsTrue(door.IsOpen, "Test setup must actually open the door.");
+            Assert.IsFalse(door.HasCrossedForward,
+                "Completing the automatic opening timer must not by itself set the shared doorway-crossing " +
+                "state.");
+        }
+
+        // AC-001: the forward-crossing trigger must not set crossing state while the door is
+        // still sealed, even if the wizard's collider reaches it (for example while still
+        // approaching before the door has finished opening).
+        [UnityTest]
+        public IEnumerator ForwardCrossingTrigger_WhileDoorSealed_DoesNotSetCrossingState()
+        {
+            var playerCollider = playerObject.AddComponent<BoxCollider>();
+
+            Assert.IsFalse(door.IsOpen, "Test setup must keep the door sealed.");
+
+            InvokeForwardCrossingTriggerEnter(door, playerCollider);
+
+            yield return null;
+
+            Assert.IsFalse(door.HasCrossedForward,
+                "Reaching the forward-crossing trigger while the door is still sealed must not set crossing " +
+                "state.");
+        }
+
+        // AC-001/AC-002: once the door is open, the wizard's collider reaching the
+        // forward-crossing trigger sets the shared HasCrossedForward state and fires the
+        // CrossedForward event exactly once, so door close/lock and final-escape victory can
+        // consume a stable owner-side interface instead of implementing their own crossing
+        // detector.
+        [UnityTest]
+        public IEnumerator ForwardCrossingTrigger_AfterDoorOpen_SetsCrossingStateAndFiresEventOnce()
+        {
+            var playerCollider = playerObject.AddComponent<BoxCollider>();
+
+            controller.BeginInteraction();
+            AdvanceDoorTime(door, door.Duration + 0.1f);
+            yield return null;
+
+            Assert.IsTrue(door.IsOpen, "Test setup must actually open the door before crossing.");
+
+            var crossedForwardFireCount = 0;
+            door.CrossedForward += () => crossedForwardFireCount++;
+
+            InvokeForwardCrossingTriggerEnter(door, playerCollider);
+            InvokeForwardCrossingTriggerEnter(door, playerCollider);
+
+            yield return null;
+
+            Assert.IsTrue(door.HasCrossedForward,
+                "Reaching the forward-crossing trigger on an open door must set the shared doorway-crossing " +
+                "state.");
+            Assert.AreEqual(1, crossedForwardFireCount,
+                "CrossedForward must fire exactly once even if the trigger reports entry more than once.");
+        }
+
+        // AC-001: the forward-crossing trigger must ignore colliders that do not belong to the
+        // wizard, so an unrelated collider cannot falsely set the shared crossing state.
+        [UnityTest]
+        public IEnumerator ForwardCrossingTrigger_IgnoresNonPlayerCollider()
+        {
+            controller.BeginInteraction();
+            AdvanceDoorTime(door, door.Duration + 0.1f);
+            yield return null;
+
+            Assert.IsTrue(door.IsOpen, "Test setup must actually open the door before crossing.");
+
+            var nonPlayerObject = new GameObject("NonPlayerCollider");
+            var nonPlayerCollider = nonPlayerObject.AddComponent<BoxCollider>();
+
+            try
+            {
+                InvokeForwardCrossingTriggerEnter(door, nonPlayerCollider);
+
+                yield return null;
+
+                Assert.IsFalse(door.HasCrossedForward,
+                    "A collider without a PlayerInteractionController ancestor must not set the shared " +
+                    "crossing state.");
+            }
+            finally
+            {
+                Object.Destroy(nonPlayerObject);
+            }
+        }
+
+        // AC-003: DoorInteractable's owner-controlled reset entry point also returns the shared
+        // doorway-crossing state to its floor-initial (not-crossed) value, consumed by the Floor
+        // Run/Restart Orchestrator.
+        [UnityTest]
+        public IEnumerator ResetDoor_ResetsCrossingState()
+        {
+            var playerCollider = playerObject.AddComponent<BoxCollider>();
+
+            controller.BeginInteraction();
+            AdvanceDoorTime(door, door.Duration + 0.1f);
+            yield return null;
+
+            InvokeForwardCrossingTriggerEnter(door, playerCollider);
+            yield return null;
+
+            Assert.IsTrue(door.HasCrossedForward, "Test setup must actually set crossing state before reset.");
+
+            door.ResetDoor();
+
+            yield return null;
+
+            Assert.IsFalse(door.HasCrossedForward,
+                "ResetDoor must return the shared doorway-crossing state to its floor-initial (not-crossed) " +
+                "value.");
+        }
+
         private static void AdvanceDoorTime(DoorInteractable target, float totalSeconds)
         {
             const float step = 0.05f;
@@ -303,6 +425,19 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
             Assert.IsNotNull(field, $"Expected a private field named '{fieldName}' on {target.GetType().Name}.");
             field.SetValue(target, value);
+        }
+
+        // AC-001: invokes DoorInteractable's private forward-crossing trigger handler directly so
+        // this component test can prove HasCrossedForward/CrossedForward semantics without
+        // depending on real physics trigger delivery, which is already covered separately by the
+        // real-physics arrival regression fixture below.
+        private static void InvokeForwardCrossingTriggerEnter(DoorInteractable target, Collider other)
+        {
+            var method = target.GetType().GetMethod("HandleForwardCrossingTriggerEnter",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(method,
+                "Expected a private HandleForwardCrossingTriggerEnter(Collider) method on DoorInteractable.");
+            method.Invoke(target, new object[] { other });
         }
     }
 
