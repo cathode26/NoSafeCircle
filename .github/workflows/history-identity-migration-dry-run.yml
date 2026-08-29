@@ -186,8 +186,8 @@ jobs:
               )
           if proof.get("source_evidence_edited") is not False:
               raise SystemExit("TaskGraph proof unexpectedly edited source evidence")
-          if proof.get("translation_mode") != "temporary_git_replace_refs":
-              raise SystemExit("TaskGraph proof did not use explicit commit translation")
+          if proof.get("translation_mode") != "committed_tree_verified_manifest":
+              raise SystemExit("TaskGraph proof did not use committed tree-verified translation authority")
           print(json.dumps(proof, indent=2, sort_keys=True))
           PY
 
