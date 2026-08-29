@@ -87,6 +87,9 @@ jobs:
       - name: Run downstream PASS carry-forward and rejection guard tests
         run: python Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py
 
+      - name: Run downstream authority and deterministic routing tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_determinism_smoke_test.py
+
       - name: Run deterministic TaskReviewAgent smoke tests
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
 
