@@ -120,7 +120,7 @@ jobs:
         run: |
           set -euo pipefail
           CANDIDATE_REPO="$RUNNER_TEMP/candidate-repo"
-          git clone "$BUNDLE" "$CANDIDATE_REPO"
+          git clone -b main "$BUNDLE" "$CANDIDATE_REPO"
           [[ "$(git -C "$CANDIDATE_REPO" rev-parse HEAD)" == "$EXPECTED_FINAL_MAIN" ]]
           REMOTE="https://x-access-token:${GH_TOKEN}@github.com/cathode26/NoSafeCircle.git"
           mapfile -t LEASES < <(python - <<'PY'
