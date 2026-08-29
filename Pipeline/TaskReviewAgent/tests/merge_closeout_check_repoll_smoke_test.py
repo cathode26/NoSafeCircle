@@ -13,9 +13,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from Pipeline.TaskReviewAgent import openai_downstream  # noqa: E402
+from Pipeline.TaskReviewAgent import pull_request_check_authority  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
     ResumableDownstreamTaskController,
 )
+from Pipeline.TaskReviewAgent import merge_closeout_check_repoll as repoll  # noqa: E402
 from Pipeline.TaskReviewAgent.merge_closeout_check_repoll import (  # noqa: E402
     _PENDING_CHECKS_CONFIRMED,
     _is_unresolved_agent_ready_closeout,
@@ -51,12 +53,16 @@ def closeout_observation() -> dict:
     }
 
 
-def test_repoll_layer_is_installed_last() -> None:
+def test_repoll_and_check_authority_layers_are_safely_ordered() -> None:
     require(
-        openai_downstream._terminal_outcome.__module__.endswith(
-            "merge_closeout_check_repoll"
-        ),
-        "terminal outcome was not wrapped by merge-closeout repolling",
+        openai_downstream._terminal_outcome
+        is pull_request_check_authority._guard_terminal_outcome,
+        "latest-check authority is not the outer terminal guard",
+    )
+    require(
+        pull_request_check_authority._ORIGINALS.get("terminal_outcome")
+        is repoll._patched_terminal_outcome,
+        "latest-check authority did not preserve merge-closeout repolling beneath it",
     )
     require(
         openai_downstream.run_openai_downstream_pipeline.__module__.endswith(
@@ -130,7 +136,7 @@ def test_merged_or_failed_inspection_does_not_arm_pending_terminal() -> None:
 
 def main() -> int:
     tests = (
-        test_repoll_layer_is_installed_last,
+        test_repoll_and_check_authority_layers_are_safely_ordered,
         test_new_invocation_does_not_assume_checks_are_pending,
         test_live_pending_result_terminates_only_the_current_run,
         test_merged_or_failed_inspection_does_not_arm_pending_terminal,
