@@ -1,0 +1,101 @@
+name: History Identity Migration Dry Run
+
+on:
+  pull_request:
+    paths:
+      - "Pipeline/HistoryMigration/**"
+      - "Docs/AI-Pipeline/HISTORY_IDENTITY_MIGRATION.md"
+      - ".github/workflows/history-identity-migration-dry-run.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out migration tooling
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Materialize exact current origin/main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --force origin main:refs/remotes/origin/main
+          git branch -f main refs/remotes/origin/main
+          echo "BASE_MAIN=$(git rev-parse refs/heads/main)" >> "$GITHUB_ENV"
+          echo "BASE_MAIN_TREE=$(git rev-parse refs/heads/main^{tree})" >> "$GITHUB_ENV"
+
+      - name: Run history migration smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python Pipeline/HistoryMigration/history_identity_smoke_test.py
+
+      - name: Run isolated rewrite against current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/history-identity-dry-run"
+          python Pipeline/HistoryMigration/history_identity.py dry-run --source . --output "$OUT"
+
+      - name: Verify current-main dry-run report
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          report_path = Path(os.environ["RUNNER_TEMP"]) / "history-identity-dry-run" / "history-identity-dry-run.json"
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+
+          if report["source_main"] != os.environ["BASE_MAIN"]:
+              raise SystemExit(
+                  f"dry-run source main mismatch: {report['source_main']} != {os.environ['BASE_MAIN']}"
+              )
+          if report["source_main_tree"] != os.environ["BASE_MAIN_TREE"]:
+              raise SystemExit("dry-run source main tree does not match current origin/main")
+          if report["target_main_tree"] != report["source_main_tree"]:
+              raise SystemExit("rewritten main tree changed")
+          if report.get("trees_preserved") is not True:
+              raise SystemExit("dry-run did not prove tree preservation")
+
+          targeted = {item["email"] for item in report["targeted_identity_occurrences"]}
+          required = {
+              "resilience@users.noreply.github.com",
+              "reintegration-bridge@users.noreply.github.com",
+              "pipeline@users.noreply.github.com",
+          }
+          missing = sorted(required - targeted)
+          if missing:
+              raise SystemExit(f"configured unsafe identities are missing from current main: {missing}")
+
+          print(
+              json.dumps(
+                  {
+                      "source_main": report["source_main"],
+                      "target_main": report["target_main"],
+                      "tree": report["target_main_tree"],
+                      "reachable_commit_count": report["reachable_commit_count"],
+                      "rewritten_commit_count": report["rewritten_commit_count"],
+                      "identity_target_count": report["identity_target_count"],
+                      "signature_removed_count": report["signature_removed_count"],
+                  },
+                  indent=2,
+                  sort_keys=True,
+              )
+          )
+          PY
+
+      - name: Upload dry-run report
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-identity-dry-run
+          path: ${{ runner.temp }}/history-identity-dry-run/history-identity-dry-run.json
+          if-no-files-found: error
+          retention-days: 30
