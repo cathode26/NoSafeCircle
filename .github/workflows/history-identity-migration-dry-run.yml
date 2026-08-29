@@ -151,12 +151,53 @@ jobs:
           print(json.dumps(report, indent=2, sort_keys=True))
           PY
 
-      - name: Upload dry-run and impact reports
+      - name: Prove NSC-020 TaskGraph conformance on rewritten history
+        shell: bash
+        run: |
+          set -euo pipefail
+          DRY="$RUNNER_TEMP/history-identity-dry-run/history-identity-dry-run.json"
+          MIRROR="$RUNNER_TEMP/history-identity-dry-run/mirror.git"
+          WORKTREE="$RUNNER_TEMP/history-identity-taskgraph-worktree"
+          PROOF="$RUNNER_TEMP/history-identity-taskgraph-proof.json"
+          python Pipeline/HistoryMigration/taskgraph_proof.py \
+            --mirror "$MIRROR" \
+            --dry-run-report "$DRY" \
+            --worktree "$WORKTREE" \
+            --task-id NSC-020 \
+            --output "$PROOF"
+
+      - name: Verify NSC-020 TaskGraph proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "history-identity-taskgraph-proof.json"
+          proof = json.loads(path.read_text(encoding="utf-8"))
+          state = proof.get("conformance") or {}
+          if state.get("state") != "conformant":
+              raise SystemExit(f"rewritten history did not preserve NSC-020 conformance: {state}")
+          if state.get("selected_record_id") != "DEL-NSC-020-5827effabf60":
+              raise SystemExit(
+                  f"unexpected NSC-020 conformance record after rewrite: {state.get('selected_record_id')}"
+              )
+          if proof.get("source_evidence_edited") is not False:
+              raise SystemExit("TaskGraph proof unexpectedly edited source evidence")
+          if proof.get("translation_mode") != "temporary_git_replace_refs":
+              raise SystemExit("TaskGraph proof did not use explicit commit translation")
+          print(json.dumps(proof, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload dry-run, impact, and TaskGraph proof reports
         uses: actions/upload-artifact@v4
         with:
           name: history-identity-dry-run
           path: |
             ${{ runner.temp }}/history-identity-dry-run/history-identity-dry-run.json
             ${{ runner.temp }}/history-identity-impact.json
+            ${{ runner.temp }}/history-identity-taskgraph-proof.json
           if-no-files-found: error
           retention-days: 30
