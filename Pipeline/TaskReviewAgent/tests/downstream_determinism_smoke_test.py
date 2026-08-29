@@ -475,11 +475,12 @@ def test_mainline_drift_is_reported_before_pass_receipt_work() -> None:
 
 
 def test_nsc020_policy_remains_playmode_only() -> None:
-    task = json.loads((ROOT / "Tasks/NSC-020.yaml").read_text(encoding="utf-8"))
+    task_bytes = subprocess.check_output(
+        ["git", "-C", str(ROOT), "show", "HEAD:Tasks/NSC-020.yaml"]
+    )
+    task = json.loads(task_bytes.decode("utf-8"))
     task["task_id"] = task["id"]
-    task["task_contract_sha256"] = hashlib.sha256(
-        (ROOT / "Tasks/NSC-020.yaml").read_bytes()
-    ).hexdigest()
+    task["task_contract_sha256"] = hashlib.sha256(task_bytes).hexdigest()
     plan = validation_plan_for(ROOT, task)
     require(plan is not None, "NSC-020 policy is missing")
     require(plan["required_test_platforms"] == ["PlayMode"], "NSC-020 policy broadened")
