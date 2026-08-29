@@ -10,13 +10,15 @@ from .downstream_determinism import install_downstream_determinism
 from .downstream_action_grounding import install_downstream_action_grounding
 from .operator_logging import install_operator_logging
 from .git_identity_guard import install_git_identity_guard
+from .merge_closeout_check_repoll import install_merge_closeout_check_repoll
 
 # Install deterministic downstream extensions before run_pipeline_agent imports
 # the controller and Codex action table. Resilience wraps reintegration;
 # downstream determinism restores durable event authority and narrows routing;
 # action grounding supplies exact host-verified proposal identities. Operator
-# logging remains the outer presentation-only layer. Git identity safety is
-# installed last so every automated commit path uses a non-attributable address.
+# logging remains the outer presentation-only layer. Git identity safety applies
+# to every automated commit path. Merge-closeout repolling is installed last so
+# each new generic run can inspect live GitHub checks through the final wrappers.
 install_mainline_reintegration()
 install_downstream_resilience()
 install_downstream_determinism()
@@ -34,6 +36,7 @@ _codex_supervisor.decision_schema = _downstream_determinism._ORIGINALS[
 install_downstream_action_grounding()
 install_operator_logging()
 install_git_identity_guard()
+install_merge_closeout_check_repoll()
 
 __all__ = [
     "TASK_REVIEW_SCHEMA_VERSION",
@@ -44,4 +47,5 @@ __all__ = [
     "install_downstream_action_grounding",
     "install_operator_logging",
     "install_git_identity_guard",
+    "install_merge_closeout_check_repoll",
 ]
