@@ -81,6 +81,19 @@ A trailing space after a backtick is nearly invisible and changes parsing.
 
 An `if` / `elseif` / `else`, `try` / `catch` / `finally`, function definition, loop, or here-string must be delivered as one syntactically complete block. Do not ask the operator to paste dependent syntax fragments separately.
 
+### REQUIRED: separate adjacent commands explicitly
+
+Every executable command must end through a real PowerShell statement boundary: a newline, semicolon when appropriate, closing block, or pipeline boundary.
+
+Do not produce accidental concatenations such as:
+
+```text
+git diff --cached --statgit commit ...
+git rev-parse HEADgit commit ...
+```
+
+A command generator must review the final rendered block, not only the intended logical steps.
+
 ### REQUIRED: disambiguate interpolated variables next to punctuation
 
 When punctuation can be parsed as part of a PowerShell variable reference, use explicit interpolation:
@@ -90,6 +103,24 @@ Write-Host "PR #$($PrNumber): $PrUrl"
 ```
 
 Do not rely on ambiguous forms such as a bare variable immediately followed by `:`.
+
+### PROHIBITED: `$PSScriptRoot`-dependent parameter defaults
+
+Do not calculate a `param()` default value from `$PSScriptRoot` when evaluation timing can occur before the script-relative value is safely available.
+
+Instead, accept a nullable/empty parameter and resolve the script-relative default after the `param()` block:
+
+```powershell
+param(
+    [string]$PromptPath
+)
+
+if ([string]::IsNullOrWhiteSpace($PromptPath)) {
+    $PromptPath = Join-Path $PSScriptRoot "prompt.txt"
+}
+```
+
+This prevents defaults from collapsing into malformed root-relative paths such as `\prompt.txt`.
 
 ## 3. Generated `.ps1` files must parse before execution
 
@@ -167,7 +198,33 @@ When remote state can be mutated, repository authority comes from the actual che
 
 An expected repository value may be used as an assertion. A mismatch must fail closed.
 
-## 5. Native executable semantics
+## 5. Large and quote-heavy payloads belong in files
+
+### REQUIRED: use durable files for large prompts, patches, JSON, or quote-heavy payloads
+
+Do not force long prompts or structured payloads through one giant command-line argument when a UTF-8 file handoff is available.
+
+This avoids:
+
+- Windows command-line length limits;
+- PowerShell quoting/here-string mistakes;
+- chat/composer size limits;
+- accidental prompt corruption;
+- unreadable operator commands.
+
+Load a prepared UTF-8 file explicitly, for example:
+
+```powershell
+$Prompt = Get-Content -Raw -Encoding UTF8 -LiteralPath $PromptPath
+```
+
+Follow `OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md` for the canonical external run directory and filenames.
+
+### DISCOURAGED: giant inline here-strings for human-transferred prompts
+
+Here-strings are acceptable for short controlled script literals. They are not the default transport for long prompts or documents that the human may need to inspect, upload, reuse, or pass to another process.
+
+## 6. Native executable semantics
 
 Git, Docker, GitHub CLI, Python, Unity command-line tools, Claude/Codex CLIs, and similar programs are native processes from PowerShell's perspective.
 
@@ -215,7 +272,7 @@ Suppressing stderr is not a substitute for interpreting the exit code. It can hi
 
 Do not run another native program, helper, or pipeline before saving the exit code that belongs to the command being checked.
 
-## 6. Cross-OS text boundaries
+## 7. Cross-OS text boundaries
 
 ### REQUIRED: normalize multiline payloads before Linux/Docker
 
@@ -241,7 +298,7 @@ Do not let a container report hundreds of CRLF-only changes and automatically wi
 
 When consuming JSON or other structured output from tools such as `gh`, decode/process it as UTF-8 rather than relying on the Windows console code page.
 
-## 7. Automated text editing
+## 8. Automated text editing
 
 Command-generated repository edits require the same fail-closed behavior as code.
 
@@ -284,7 +341,7 @@ A changed-file count alone is insufficient because two wrong files can still hav
 
 If a generated editor rewrites a text file, it must preserve or intentionally normalize encoding and newline behavior according to repository conventions. Avoid incidental BOM/newline churn.
 
-## 8. Git mutation safety
+## 9. Git mutation safety
 
 ### REQUIRED: stage exact paths for bounded work
 
@@ -357,7 +414,7 @@ If destructive recovery is genuinely required, it must be an explicit reviewed o
 
 When a known generated/stat-only file needs restoration, prove the exact file is safe to restore. Do not restore a whole directory or tree simply to make `git status` clean.
 
-## 9. Path and checkout safety
+## 10. Path and checkout safety
 
 ### REQUIRED: use path APIs, not string slicing
 
@@ -383,7 +440,7 @@ If a disposable clone triggers Git ownership protection because it was cloned fr
 
 Prefer a trusted remote origin for disposable verification clones when repository policy expects remote identity.
 
-## 10. Split deterministic setup from expensive provider execution
+## 11. Split deterministic setup from expensive provider execution
 
 For normal provider-backed work, deterministic preparation and provider execution are separate phases unless an established pipeline entry point intentionally combines them.
 
@@ -407,7 +464,7 @@ This prevents a provider call from starting merely because setup succeeded and m
 
 Follow the fuller rules in `OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md`.
 
-## 11. Long-running process visibility and lifecycle
+## 12. Long-running process visibility and lifecycle
 
 ### REQUIRED: visibly announce long-running work
 
@@ -450,7 +507,7 @@ Automation should launch the actual bounded process and have a clear lifecycle.
 
 If a container was started with automatic removal, its disappearance after stop/exit may be expected. Do not interpret a later "no such container" cleanup response as proof the original operation failed.
 
-## 12. Output volume is part of command correctness
+## 13. Output volume is part of command correctness
 
 ### REQUIRED: scope exploratory searches
 
@@ -483,7 +540,7 @@ A successful substantial command should end with a clear summary such as:
 
 Only print fields that actually apply, but do not make the operator infer success from preceding tool noise.
 
-## 13. Failure classification and recovery
+## 14. Failure classification and recovery
 
 A command standard is incomplete if it only defines the happy path.
 
@@ -566,7 +623,7 @@ Recovery inspection must therefore:
 - best-effort print branch/HEAD/tree state;
 - preserve the original exception as the final thrown error.
 
-## 14. State and mutation ledgers
+## 15. State and mutation ledgers
 
 A mutation ledger is recommended for multi-boundary runners.
 
@@ -585,7 +642,7 @@ Set a field only after the durable result has been independently re-observed.
 
 The ledger is not authority. It exists to make partial progress legible in terminal output. Current Git, GitHub, TaskGraph, files, and deterministic tests remain authoritative.
 
-## 15. External files and handoffs
+## 16. External files and handoffs
 
 Human-facing prompts, logs, patches, review bundles, and temporary handoff files should follow `OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md`.
 
@@ -597,7 +654,7 @@ Important command-construction implications include:
 - avoid giant inline prompts when a durable UTF-8 prompt file is safer;
 - verify required files exist before invoking a tool that depends on them.
 
-## 16. Repository editing and validation boundaries
+## 17. Repository editing and validation boundaries
 
 ### REQUIRED: validate before staging and again after staging when appropriate
 
@@ -618,13 +675,16 @@ Do not "fix the command" merely because a deterministic validation exposed a gen
 
 Conversely, a parser, path, encoding, invocation, or native-process handling error is a command-construction failure and should be corrected without changing production behavior to accommodate the bad command.
 
-## 17. Do / do not quick reference
+## 18. Do / do not quick reference
 
 | Do | Do not |
 | --- | --- |
 | Assume Windows PowerShell 5.1 | Use Bash `< file` redirection in a PowerShell block |
 | Deliver complete syntactic blocks | Send `else`, `catch`, or dependent syntax as a later fragment |
+| Separate adjacent commands explicitly | Allow command strings to concatenate accidentally |
+| Resolve `$PSScriptRoot` defaults after `param()` | Depend on `$PSScriptRoot` in parameter-default evaluation |
 | Define critical state inside the block | Depend on variables from a prior paste |
+| Use files for large/quote-heavy payloads | Put giant prompts into fragile command-line arguments |
 | Validate root, repo, branch, authority, and tree | Trust the inherited current directory |
 | Use native exit codes | Treat any stderr as failure |
 | Declare allowed predicate exit codes | Treat Git predicate exit `1` as automatically broken |
@@ -640,7 +700,7 @@ Conversely, a parser, path, encoding, invocation, or native-process handling err
 | Launch bounded provider processes | Leave interactive shells/containers alive indefinitely |
 | Print a concise final/recovery state | Make the operator infer what happened from raw output |
 
-## 18. Agent pre-handoff review checklist
+## 19. Agent pre-handoff review checklist
 
 Before an agent gives Vincent a substantial paste-ready command, the agent must review the command against this checklist.
 
@@ -648,8 +708,10 @@ Before an agent gives Vincent a substantial paste-ready command, the agent must 
 
 - Is the block Windows PowerShell 5.1 compatible?
 - Is every compound construct syntactically complete?
+- Are executable commands clearly separated rather than accidentally concatenated?
 - Are there any fragile continuation backticks that can be removed?
 - Are variable interpolations unambiguous around punctuation?
+- Are `$PSScriptRoot`-dependent defaults resolved after `param()`?
 - If this is a generated `.ps1`, has it been parser-preflighted?
 
 ### Identity and state
@@ -689,8 +751,9 @@ Before an agent gives Vincent a substantial paste-ready command, the agent must 
 - Are path operations path-aware rather than string arithmetic?
 - Are Windows path-length constraints relevant to any clone/temp operation?
 
-### Human usability
+### Payload and human usability
 
+- Should a large or quote-heavy argument be a file instead?
 - Will long-running work visibly show progress or heartbeat?
 - Is verbose output saved to a useful handoff path if needed?
 - Is output bounded enough to remain readable?
@@ -699,7 +762,7 @@ Before an agent gives Vincent a substantial paste-ready command, the agent must 
 
 If the answer to a relevant checklist item is "no", correct the command before presenting it.
 
-## 19. Machine-enforceable subset
+## 20. Machine-enforceable subset
 
 Not every rule above should become a linter. Mechanical checks should be limited to high-confidence failure patterns.
 
@@ -715,7 +778,7 @@ Good candidates include:
 
 Do not build a broad style linter that generates false positives or becomes another source of ceremony. The purpose of mechanical enforcement is to prevent known expensive failures.
 
-## 20. Core principle
+## 21. Core principle
 
 A good operator command does not merely work when executed once under ideal conditions.
 
