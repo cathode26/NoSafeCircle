@@ -3,13 +3,18 @@ name: History Identity Migration Dry Run
 on:
   pull_request:
     paths:
-      - "Pipeline/HistoryMigration/**"
+      - "Pipeline/HistoryMigration/history_identity.py"
+      - "Pipeline/HistoryMigration/history_impact.py"
+      - "Pipeline/HistoryMigration/issue_migration.py"
+      - "Pipeline/HistoryMigration/migration_plan.py"
+      - "Pipeline/HistoryMigration/ref_policy.json"
+      - "Pipeline/HistoryMigration/taskgraph_proof.py"
       - "Pipeline/TaskGraph/history_identity_migrations.py"
       - "Pipeline/TaskGraph/history_aware_repository.py"
       - "Pipeline/TaskGraph/history_identity_migration_smoke_test.py"
       - "Pipeline/TaskGraph/current_conformance.py"
       - "Pipeline/TaskReviewAgent/issue_workflow.py"
-      - "Docs/AI-Pipeline/HISTORY_IDENTITY_MIGRATION.md"
+      - "Pipeline/TaskGraph/migrations/**"
       - ".github/workflows/history-identity-migration-dry-run.yml"
   workflow_dispatch:
 

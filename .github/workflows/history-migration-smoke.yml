@@ -1,0 +1,37 @@
+name: History Migration Smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/history-migration-smoke.yml"
+      - "Pipeline/HistoryMigration/__init__.py"
+      - "Pipeline/HistoryMigration/history_identity_smoke_test.py"
+      - "Pipeline/HistoryMigration/issue_migration_smoke_test.py"
+      - "Pipeline/HistoryMigration/migration_plan_smoke_test.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run history migration smoke tests
+        run: |
+          python Pipeline/HistoryMigration/history_identity_smoke_test.py
+          python Pipeline/HistoryMigration/issue_migration_smoke_test.py
+          python Pipeline/HistoryMigration/migration_plan_smoke_test.py
