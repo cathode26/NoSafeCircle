@@ -216,6 +216,10 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/issue_workflow_smoke_test.py
 
+      - name: Run ephemeral Git-ref claim tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/claim_refs_smoke_test.py
+
       - name: Run real checkout boundary smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/real_checkout_smoke_test.py

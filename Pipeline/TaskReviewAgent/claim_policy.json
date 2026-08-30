@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "mode": "resume_only",
+  "namespace_preference": [
+    "refs/nsc/claims",
+    "refs/heads/nsc-claims"
+  ],
+  "creation": "atomic_multi_ref_nonexistence_cas",
+  "release": "atomic_multi_ref_exact_sha_cas",
+  "stale_claim_repair": "manual_exact_sha_only",
+  "activation": {
+    "status": "active",
+    "activated_namespace": "refs/nsc/claims"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "activation_candidate": "refs/nsc/claims",
+  "namespaces": {
+    "refs/heads/nsc-claims": {
+      "disjoint_parallel": true,
+      "error": null,
+      "exact_sha_fencing": true,
+      "multi_ref_atomic": true,
+      "namespace": "refs/heads/nsc-claims",
+      "same_task_race": {
+        "attempt": 1,
+        "loser_kind": "held_by_other",
+        "loser_status": "claim_conflict",
+        "winner_count": 1
+      },
+      "shared_resource_race": {
+        "attempt": 1,
+        "loser_kind": "held_by_other",
+        "loser_status": "claim_conflict",
+        "winner_count": 1
+      },
+      "single_ref_probe": {
+        "capability": true,
+        "create_stderr": "remote: \nremote: Create a pull request for 'nsc-claims/capability-probe/4de25b73fd0e4e82b2a078dec954d901' on GitHub by visiting:        \nremote:      https://github.com/cathode26/nsc-claim-probe-20260830-002843/pull/new/nsc-claims/capability-probe/4de25b73fd0e4e82b2a078dec954d901        \nremote: \nTo https://github.com/cathode26/nsc-claim-probe-20260830-002843.git\n * [new branch]      1f9a1f5a3dbce0054a4df1aa652cf0c496680280 -> nsc-claims/capability-probe/4de25b73fd0e4e82b2a078dec954d901",
+        "create_supported": true,
+        "delete_stderr": "To https://github.com/cathode26/nsc-claim-probe-20260830-002843.git\n - [deleted]         nsc-claims/capability-probe/4de25b73fd0e4e82b2a078dec954d901",
+        "delete_supported": true,
+        "namespace": "refs/heads/nsc-claims",
+        "probe_oid": "1f9a1f5a3dbce0054a4df1aa652cf0c496680280",
+        "probe_ref": "refs/heads/nsc-claims/capability-probe/4de25b73fd0e4e82b2a078dec954d901",
+        "remote": "https://github.com/cathode26/nsc-claim-probe-20260830-002843.git"
+      }
+    },
+    "refs/nsc/claims": {
+      "disjoint_parallel": true,
+      "error": null,
+      "exact_sha_fencing": true,
+      "multi_ref_atomic": true,
+      "namespace": "refs/nsc/claims",
+      "same_task_race": {
+        "attempt": 1,
+        "loser_kind": "held_by_other",
+        "loser_status": "claim_conflict",
+        "winner_count": 1
+      },
+      "shared_resource_race": {
+        "attempt": 1,
+        "loser_kind": "held_by_other",
+        "loser_status": "claim_conflict",
+        "winner_count": 1
+      },
+      "single_ref_probe": {
+        "capability": true,
+        "create_stderr": "To https://github.com/cathode26/nsc-claim-probe-20260830-002843.git\n * [new reference]   6d063f06674527eea8aeeec2e933e724fa6a155a -> refs/nsc/claims/capability-probe/3c873af91a4b47c09eecce3c50baf777",
+        "create_supported": true,
+        "delete_stderr": "To https://github.com/cathode26/nsc-claim-probe-20260830-002843.git\n - [deleted]         refs/nsc/claims/capability-probe/3c873af91a4b47c09eecce3c50baf777",
+        "delete_supported": true,
+        "namespace": "refs/nsc/claims",
+        "probe_oid": "6d063f06674527eea8aeeec2e933e724fa6a155a",
+        "probe_ref": "refs/nsc/claims/capability-probe/3c873af91a4b47c09eecce3c50baf777",
+        "remote": "https://github.com/cathode26/nsc-claim-probe-20260830-002843.git"
+      }
+    }
+  },
+  "remote": "https://github.com/cathode26/nsc-claim-probe-20260830-002843.git",
+  "schema_version": "1.0",
+  "source_head": "47c08de7d7fe27ac87e759d809c522c31a43d536"
+}
