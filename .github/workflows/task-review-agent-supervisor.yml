@@ -2,8 +2,8 @@ name: TaskReviewAgent Supervisor Validation
 
 # SUPERVISOR suite: Codex supervisor decisions/turns, Compose supervisor
 # credential/volume configuration, goal-loop/circuit-breaker logic, live
-# progress logging, and Start-GameTaskAgent PowerShell parsing/native command
-# behavior.
+# progress logging, operator-command policy, and Start-GameTaskAgent
+# PowerShell parsing/native command behavior.
 #
 # codex_supervisor.py and goal_loop_guard.py are cross-cutting: Delivery
 # modules (downstream_determinism.py, downstream_action_grounding.py) import
@@ -12,6 +12,10 @@ on:
   pull_request:
     paths:
       - ".github/workflows/task-review-agent-supervisor.yml"
+      - "AGENTS.md"
+      - "CLAUDE.md"
+      - "Docs/AI-Pipeline/OPERATOR_COMMAND_STANDARDS.md"
+      - "Docs/AI-Pipeline/OPERATOR_COMMAND_TEMPLATE.md"
       - "compose.override.yaml"
       - "Pipeline/TaskReviewAgent/codex_supervisor.py"
       - "Pipeline/TaskReviewAgent/codex_supervisor_turn.py"
@@ -28,6 +32,7 @@ on:
       - "Pipeline/TaskReviewAgent/tests/progress_logging_smoke_test.py"
       - "Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py"
       - "Pipeline/TaskReviewAgent/tests/native_command_smoke_test.ps1"
+      - "Pipeline/TaskReviewAgent/tests/operator_command_policy_smoke_test.ps1"
   workflow_dispatch:
 
 permissions:
@@ -49,6 +54,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Run Windows PowerShell operator command policy smoke test
+        shell: pwsh
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "Pipeline/TaskReviewAgent/tests/operator_command_policy_smoke_test.ps1"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows PowerShell operator command policy smoke test failed."
+          }
 
       - name: Parse Game Task Agent PowerShell launcher
         shell: pwsh
