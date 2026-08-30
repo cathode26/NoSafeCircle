@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .committed_tasks import load_committed_task
 from .contracts import validate_task_id
 from .issue_queue import repo_root
 from .issue_workflow_store import GhIssueBackend, IssueWorkflowService, IssueWorkflowStoreError
@@ -17,7 +18,7 @@ def select_agent_ready_task(*, source: Path | str, worker_id: str) -> dict:
     root = repo_root(Path(source).resolve())
     service = IssueWorkflowService(
         backend=GhIssueBackend(source_root=root),
-        task_loader=lambda task_id: {"id": task_id, "exclusive_resources": []},
+        task_loader=lambda task_id: load_committed_task(root, task_id),
         worker_id=worker_id,
     )
     ready = service.list_agent_ready()

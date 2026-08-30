@@ -66,6 +66,10 @@ def _completed_aware_candidates(
     for issue in issues:
         if not _matches_task(issue, task_id):
             continue
+        if not store.issue_author_authorized(issue):
+            # Public-repository Issues from unauthorized logins never become
+            # managed workflow authority, open or closed.
+            continue
         if _issue_closed(issue) and not _closed_complete(issue):
             continue
         candidates.append(issue)
@@ -73,24 +77,10 @@ def _completed_aware_candidates(
 
 
 def _gh_list_all_issues(self: Any) -> list[dict[str, Any]]:
-    value = self._json(
-        (
-            "gh",
-            "issue",
-            "list",
-            "--repo",
-            self.repository,
-            "--state",
-            "all",
-            "--limit",
-            "1000",
-            "--json",
-            "number,title,state,assignees,url,body,labels",
-        )
-    )
-    if not isinstance(value, list):
-        raise store.IssueWorkflowStoreError("gh issue list did not return an array")
-    return value
+    # Complete pagination: `gh api --paginate` follows Link headers until the
+    # listing is exhausted, so an old completed Issue past any fixed result
+    # limit still remains discoverable terminal authority.
+    return self._list_issues_via_api("all")
 
 
 def _open_agent_ready_only(self: Any) -> list[dict[str, Any]]:

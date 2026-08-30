@@ -20,6 +20,7 @@ if str(ROOT) not in sys.path:
 from Pipeline.TaskReviewAgent.codex_supervisor import (  # noqa: E402
     describe_codex_runtime,
 )
+from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     TaskReviewContractError,
     TaskReviewRequest,
@@ -122,10 +123,7 @@ def _managed_issue_phase(
     root = repo_root(source.resolve())
     service = IssueWorkflowService(
         backend=GhIssueBackend(source_root=root),
-        task_loader=lambda selected: {
-            "id": selected,
-            "exclusive_resources": [],
-        },
+        task_loader=lambda selected: load_committed_task(root, selected),
         worker_id=worker_id,
     )
     snapshot = service.find(task_id)
@@ -142,10 +140,18 @@ def _managed_issue_phase(
 
 
 def _outcome_status(result: dict[str, Any]) -> str:
+    """Report the pipeline outcome literally; never default to success.
+
+    A run whose outcome is missing or malformed did not prove successful work.
+    Observation-only runs report that they observed, nothing more.
+    """
+
     outcome = result.get("outcome")
     if isinstance(outcome, dict) and isinstance(outcome.get("status"), str):
         return outcome["status"]
-    return "succeeded"
+    if result.get("mode") == "observe":
+        return "observed"
+    return "unknown_outcome"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -300,9 +306,22 @@ def main(argv: list[str] | None = None) -> int:
                 "runtime": describe_codex_runtime(),
                 "outcome": outcome,
             }
+        status = _outcome_status(result)
         if progress is not None:
-            progress.finish(_outcome_status(result))
+            progress.finish(status)
         print(json.dumps(result, indent=2, sort_keys=True))
+        if args.mode == "openai" and status == "unknown_outcome":
+            # A run whose outcome is missing or malformed proved nothing.
+            # It must terminate as a failure, never as successful work.
+            print(
+                "GAME TASK AGENT: STOP\n"
+                "The pipeline finished without a usable outcome status; the run "
+                "result is recorded above but cannot be treated as successful "
+                "work.",
+                file=sys.stderr,
+                flush=True,
+            )
+            return 2
         return 0
     except (
         TaskReviewContractError,

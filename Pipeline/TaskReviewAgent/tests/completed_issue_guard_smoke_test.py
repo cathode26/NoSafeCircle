@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -212,21 +213,105 @@ def test_closed_incomplete_duplicate_is_ignored_by_find_and_queue() -> None:
     require(service.list_agent_ready() == [], "closed duplicate leaked into generic agent queue")
 
 
-def test_github_backend_requests_open_and_closed_issues() -> None:
+def test_github_backend_paginates_all_issues_completely() -> None:
+    """The listing must never truncate: an old completed Issue past the first
+    result page has to stay discoverable so it remains terminal authority."""
+
     backend = object.__new__(GhIssueBackend)
     backend.repository = "cathode26/NoSafeCircle"
     observed: dict[str, tuple[str, ...]] = {}
 
-    def fake_json(args: tuple[str, ...]):
-        observed["args"] = args
-        return []
+    def rest_issue(number: int, **extra):
+        # The REST API reports the API endpoint as `url` and the browser page
+        # as `html_url`; the backend must normalize `url` to the browser URL.
+        return {
+            "number": number,
+            "state": "open",
+            "user": {"login": "cathode26"},
+            "url": f"https://api.github.com/repos/cathode26/NoSafeCircle/issues/{number}",
+            "html_url": f"https://github.com/cathode26/NoSafeCircle/issues/{number}",
+            **extra,
+        }
 
-    backend._json = fake_json
+    page_one = [
+        rest_issue(index, title=f"NSC-{index:03d}") for index in range(1, 101)
+    ]
+    page_two = [
+        rest_issue(101, title="pull request", pull_request={}),
+        rest_issue(102, title=f"{TASK_ID} — Old completed task", state="closed"),
+    ]
+    # `gh api --paginate` emits one JSON array per page, concatenated.
+    stdout = json.dumps(page_one) + "\n" + json.dumps(page_two)
+
+    def fake_run(args, *, check=True):
+        observed["args"] = tuple(args)
+        return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    backend._run = fake_run
     result = GhIssueBackend.list_issues(backend)
-    require(result == [], "fake GitHub listing did not return its value")
     args = observed.get("args") or ()
-    require("--state" in args, "GitHub Issue list omitted state selection")
-    require(args[args.index("--state") + 1] == "all", "GitHub backend still requests open Issues only")
+    require("api" in args, "GitHub backend no longer uses the REST issues API")
+    require("--paginate" in args, "GitHub backend does not paginate the Issue listing")
+    require(
+        any("state=all" in str(item) for item in args),
+        "GitHub backend does not request open and closed Issues",
+    )
+    require(len(result) == 101, f"pagination lost or invented Issues: {len(result)}")
+    require(
+        all("pull_request" not in item for item in result),
+        "pull requests leaked into the Issue listing",
+    )
+    require(
+        any(item.get("number") == 102 for item in result),
+        "the completed Issue beyond the first page was forgotten",
+    )
+    require(
+        all(
+            item.get("url") == f"https://github.com/cathode26/NoSafeCircle/issues/{item['number']}"
+            for item in result
+        ),
+        "workflow snapshots would lose the human-facing browser URL: the REST "
+        "html_url was not normalized into the issue url field",
+    )
+
+
+def test_completed_issue_beyond_first_page_prevents_redispatch() -> None:
+    """A closed COMPLETE Issue that only complete pagination can see must keep
+    the task terminal instead of allowing a duplicate initialization."""
+
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    # Fill more than one REST page of unrelated open Issues before the
+    # canonical completed workflow so it sits beyond the first 100 results.
+    for index in range(105):
+        backend.create_issue(
+            title=f"Unrelated operational note {index}",
+            body="No workflow state here.",
+            labels=[],
+            assignees=["cathode26"],
+        )
+    canonical_number = create_closed_complete(service, backend)
+    require(canonical_number > 100, "fixture did not push the completed Issue past page one")
+    issue_count = len(backend.issues)
+
+    snapshot = service.find(TASK_ID)
+    require(snapshot is not None, "completed Issue beyond page one was not discovered")
+    require(snapshot.issue_number == canonical_number, "wrong Issue selected as terminal authority")
+    retry = service.acquire_agent_lease(
+        task=task(),
+        source_head="4" * 40,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="This must not reinitialize the completed task.",
+        expected_validation="No duplicate is created.",
+        now="2026-08-29T07:00:00Z",
+    )
+    require(retry["status"] == "blocked", "completed task beyond page one was redispatched")
+    require(len(backend.issues) == issue_count, "a duplicate Issue was created")
 
 
 def main() -> int:
@@ -234,7 +319,8 @@ def main() -> int:
         test_guard_is_installed_on_live_issue_store,
         test_closed_complete_issue_remains_terminal_and_cannot_duplicate,
         test_closed_incomplete_duplicate_is_ignored_by_find_and_queue,
-        test_github_backend_requests_open_and_closed_issues,
+        test_github_backend_paginates_all_issues_completely,
+        test_completed_issue_beyond_first_page_prevents_redispatch,
     )
     for test in tests:
         test()

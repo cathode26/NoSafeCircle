@@ -115,7 +115,7 @@ def test_state_event_round_trip_and_chain() -> None:
         state,
         event_type=WorkflowEventType.HUMAN_VALIDATION_FAILED,
         actor_type=WorkflowActor.HUMAN,
-        actor_id="Vincent",
+        actor_id="cathode26",
         to_state=WorkflowState.AGENT_READY,
         to_phase=WorkflowPhase.REPAIR,
         details={"tested_commit": HANDOFF_HEAD, "result": "fail"},
@@ -128,10 +128,11 @@ def test_state_event_round_trip_and_chain() -> None:
         next_action="Repair the failure.",
     )
     require(parse_state(body) == state, "state block round trip changed bytes")
+    author = {"login": "cathode26"}
     comments = [
-        {"body": render_event_comment(lease, "lease")},
-        {"body": render_event_comment(handoff, "handoff")},
-        {"body": render_event_comment(failed, "failure")},
+        {"author": author, "body": render_event_comment(lease, "lease")},
+        {"author": author, "body": render_event_comment(handoff, "handoff")},
+        {"author": author, "body": render_event_comment(failed, "failure")},
     ]
     events = parse_events(comments)
     require(validate_event_chain(state, events) == events, "valid chain was rejected")
@@ -197,7 +198,7 @@ Tested commit: `3333333333333333333333333333333333333333`
         lambda: service.apply_human_result(
             task_id=TASK_ID,
             result_body=wrong_result,
-            actor_id="Vincent",
+            actor_id="cathode26",
             now="2026-08-27T11:02:00Z",
         ),
         "handoff commit",
@@ -214,7 +215,7 @@ The player crossed the blocker.
     ready = service.apply_human_result(
         task_id=TASK_ID,
         result_body=failure_result,
-        actor_id="Vincent",
+        actor_id="cathode26",
         now="2026-08-27T11:03:00Z",
     )
     require(ready["status"] == "agent_ready", "human failure did not return agent-ready")

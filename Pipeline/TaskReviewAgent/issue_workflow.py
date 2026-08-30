@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Iterable, Mapping
 
+from .actor_policy import ActorPolicy, actor_login, default_actor_policy
 from .contracts import (
     GIT_SHA_RE,
     SHA256_RE,
@@ -552,13 +553,176 @@ class HumanValidationResult:
         object.__setattr__(self, "body", _string(self.body, field="human result body"))
 
 
+_FENCE_LINE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
+
+
+def strip_fenced_blocks(body: str) -> str:
+    """Remove fenced code blocks so instructional templates can never parse.
+
+    The agent handoff comment shows the human-result template inside a fenced
+    ```` ```text ```` block. Text inside any fence is quoted material, not a
+    statement by the comment author, so result parsing must never read it.
+
+    A fence opens with three or more consecutive backticks or tildes after
+    optional indentation; the marker character and the opening run length are
+    tracked. A close requires the SAME marker character, a run at least as
+    long as the opening run, and nothing but whitespace after it — so a
+    four-backtick outer fence is never closed early by a three-backtick line
+    quoted inside it. An unterminated fence is dropped through the end of the
+    body (fail closed).
+    """
+
+    kept: list[str] = []
+    fence_marker: str | None = None
+    fence_length = 0
+    for line in body.splitlines():
+        match = _FENCE_LINE_RE.match(line)
+        if fence_marker is None:
+            if match is not None:
+                run = match.group(1)
+                fence_marker = run[0]
+                fence_length = len(run)
+                continue
+            kept.append(line)
+        elif (
+            match is not None
+            and match.group(1)[0] == fence_marker
+            and len(match.group(1)) >= fence_length
+            and not match.group(2).strip()
+        ):
+            fence_marker = None
+            fence_length = 0
+    return "\n".join(kept)
+
+
 def parse_human_validation_result(body: str) -> HumanValidationResult | None:
     if type(body) is not str:
         return None
-    match = HUMAN_RESULT_RE.search(body)
+    match = HUMAN_RESULT_RE.search(strip_fenced_blocks(body))
     if not match:
         return None
     return HumanValidationResult(match.group(1).casefold(), match.group(2), body)
+
+
+def _comment_body(item: Any) -> str | None:
+    body = item.get("body") if isinstance(item, Mapping) else item
+    return body if type(body) is str else None
+
+
+def _comment_reference(item: Any, index: int) -> str:
+    if isinstance(item, Mapping) and item.get("id") is not None:
+        return f"comment {item.get('id')}"
+    return f"comment at position {index}"
+
+
+def _anchor_comment_index(comments: list[Any], event_id: str) -> int | None:
+    """Locate the comment that carries the workflow event ``event_id``."""
+
+    for index, item in enumerate(comments):
+        body = _comment_body(item)
+        if body is None:
+            continue
+        for match in EVENT_RE.findall(body):
+            try:
+                value = json.loads(match)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, Mapping) and value.get("event_id") == event_id:
+                return index
+    return None
+
+
+def human_comments_after_event(
+    comments: Iterable[Any],
+    *,
+    after_event_id: str,
+    policy: ActorPolicy | None = None,
+) -> tuple[list[Any], list[str]]:
+    """Return authorized-human comments posted after a workflow event comment.
+
+    Workflow-event comments (agent/automation authored) are excluded, as is any
+    comment without an authorized human author. If the anchoring event comment
+    cannot be found, no comment is eligible (fail closed) and the reason names
+    the missing event.
+    """
+
+    policy = policy or default_actor_policy()
+    items = list(comments)
+    anchor = _anchor_comment_index(items, after_event_id)
+    if anchor is None:
+        return [], [
+            f"the comment carrying workflow event {after_event_id} was not found; "
+            "no later human comment can be proven to follow it"
+        ]
+    candidates = []
+    for item in items[anchor + 1 :]:
+        body = _comment_body(item)
+        if body is None:
+            continue
+        if EVENT_RE.search(body):
+            continue
+        login = actor_login(item)
+        if login is None or not policy.is_authorized_human(login):
+            continue
+        candidates.append(item)
+    return candidates, []
+
+
+def find_human_validation_result(
+    comments: Iterable[Any],
+    *,
+    after_event_id: str,
+    expected_commit: str,
+    policy: ActorPolicy | None = None,
+) -> tuple[HumanValidationResult | None, list[str]]:
+    """Select the latest trustworthy human validation result.
+
+    A result counts only when it was posted after the comment carrying the
+    current handoff event, is not itself a workflow event comment, was authored
+    by the authorized human operator, and names the exact handoff commit.
+    Rejected near-matches are reported for diagnostics.
+    """
+
+    policy = policy or default_actor_policy()
+    items = list(comments)
+    anchor = _anchor_comment_index(items, after_event_id)
+    if anchor is None:
+        return None, [
+            f"the comment carrying handoff event {after_event_id} was not found; "
+            "no human result can be proven to follow the current handoff"
+        ]
+    reasons: list[str] = []
+    selected: HumanValidationResult | None = None
+    for index, item in enumerate(items[anchor + 1 :], start=anchor + 1):
+        body = _comment_body(item)
+        if body is None:
+            continue
+        if EVENT_RE.search(body):
+            continue
+        parsed = parse_human_validation_result(body)
+        if parsed is None:
+            continue
+        reference = _comment_reference(item, index)
+        login = actor_login(item)
+        if login is None:
+            reasons.append(
+                f"{reference} contains a validation result but has no author identity; rejected"
+            )
+            continue
+        if not policy.is_authorized_human(login):
+            reasons.append(
+                f"{reference} validation result author {login!r} is not the authorized "
+                "human operator; rejected"
+            )
+            continue
+        if parsed.tested_commit != expected_commit:
+            reasons.append(
+                f"{reference} tested commit {parsed.tested_commit} does not match the "
+                f"handoff commit {expected_commit}; rejected"
+            )
+            continue
+        selected = parsed
+    return selected, reasons
 
 
 def initial_state(
@@ -869,22 +1033,65 @@ def render_event_comment(event: IssueWorkflowEvent, summary: str) -> str:
     )
 
 
-def parse_events(comments: Iterable[Any]) -> tuple[IssueWorkflowEvent, ...]:
+MAX_IGNORED_COMMENT_DIAGNOSTICS = 10
+
+
+def parse_events(
+    comments: Iterable[Any],
+    *,
+    ignored_diagnostics: list[str] | None = None,
+) -> tuple[IssueWorkflowEvent, ...]:
+    """Parse workflow events, trusting only authorized event-comment authors.
+
+    The repository is public: any account can post a comment containing an
+    ``nsc-workflow-event`` block. A comment whose author is missing or is not
+    on the committed actor allow-list carries NO workflow authority: its
+    event-shaped content is ignored entirely for event-chain construction, so
+    an outside commenter can neither inject an event nor invalidate an
+    otherwise valid authorized chain. Each ignored comment is reported (up to
+    a bound) through ``ignored_diagnostics`` as non-authoritative visibility.
+
+    An AUTHORIZED comment with a malformed event block still fails closed —
+    the trusted history itself requires repair.
+    """
+
+    policy = default_actor_policy()
     events: list[IssueWorkflowEvent] = []
-    for item in comments:
+    ignored: list[str] = []
+    for index, item in enumerate(comments):
         body = item.get("body") if isinstance(item, Mapping) else item
         if type(body) is not str:
             continue
         matches = EVENT_RE.findall(body)
-        if len(matches) > 1:
-            raise WorkflowContractError("one issue comment contains multiple workflow events")
         if not matches:
             continue
+        login = actor_login(item)
+        if login is None:
+            ignored.append(
+                f"ignored event-shaped {_comment_reference(item, index)}: it has no "
+                "author identity and carries no workflow authority"
+            )
+            continue
+        if not policy.is_authorized_actor(login):
+            ignored.append(
+                f"ignored event-shaped {_comment_reference(item, index)} by "
+                f"unauthorized login {login!r}: it carries no workflow authority"
+            )
+            continue
+        if len(matches) > 1:
+            raise WorkflowContractError("one issue comment contains multiple workflow events")
         try:
             value = json.loads(matches[0])
         except json.JSONDecodeError as exc:
             raise WorkflowContractError("workflow event block is not valid JSON") from exc
         events.append(IssueWorkflowEvent.from_dict(value))
+    if ignored_diagnostics is not None and ignored:
+        ignored_diagnostics.extend(ignored[:MAX_IGNORED_COMMENT_DIAGNOSTICS])
+        if len(ignored) > MAX_IGNORED_COMMENT_DIAGNOSTICS:
+            ignored_diagnostics.append(
+                f"...and {len(ignored) - MAX_IGNORED_COMMENT_DIAGNOSTICS} more "
+                "ignored authority-shaped comments"
+            )
     return tuple(events)
 
 

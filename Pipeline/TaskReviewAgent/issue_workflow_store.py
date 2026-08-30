@@ -11,10 +11,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Protocol, Sequence
 
+from .actor_policy import actor_login, default_actor_policy
 from .contracts import TaskReviewContractError, semantic_sha256, validate_task_id
 from .issue_workflow import (
     ALL_STATE_LABELS,
+    MAX_IGNORED_COMMENT_DIAGNOSTICS,
     STATE_LABELS,
+    STATE_RE,
     IssueWorkflowEvent,
     IssueWorkflowState,
     WorkflowActor,
@@ -91,6 +94,10 @@ class IssueWorkflowSnapshot:
     managed: bool
     valid: bool
     reasons: tuple[str, ...]
+    # Non-authoritative visibility: authority-shaped comments from unauthorized
+    # or authorless accounts that were ignored during event-chain construction.
+    # These never make the Issue invalid and never block coordination.
+    ignored_comment_diagnostics: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -102,6 +109,7 @@ class IssueWorkflowSnapshot:
             "managed": self.managed,
             "valid": self.valid,
             "reasons": list(self.reasons),
+            "ignored_comment_diagnostics": list(self.ignored_comment_diagnostics),
             "workflow_state": self.state.to_dict() if self.state else None,
             "event_count": len(self.events),
             "last_event_id": self.events[-1].event_id if self.events else None,
@@ -110,6 +118,18 @@ class IssueWorkflowSnapshot:
 
 def _task_marker(task_id: str) -> str:
     return TASK_MARKER_TEMPLATE.format(task_id=validate_task_id(task_id))
+
+
+def issue_author_authorized(issue: Mapping[str, Any]) -> bool:
+    """True only when the Issue author is on the committed actor allow-list.
+
+    The repository is public; an Issue created by any other login must never
+    become managed workflow authority, no matter what its title or body claim.
+    A missing author fails closed.
+    """
+
+    login = actor_login(issue)
+    return login is not None and default_actor_policy().is_authorized_actor(login)
 
 
 def _issue_labels(issue: Mapping[str, Any]) -> tuple[str, ...]:
@@ -147,9 +167,41 @@ def _find_candidates(
             title == task_id or title.startswith(f"{task_id} —")
         )
         marker_match = type(body) is str and marker in body
-        if title_match or marker_match:
+        if (title_match or marker_match) and issue_author_authorized(issue):
             candidates.append(issue)
     return candidates
+
+
+def _unauthorized_claimant_diagnostics(
+    issues: Iterable[dict[str, Any]],
+    task_id: str,
+) -> list[str]:
+    """Name open unauthorized Issues that imitate this task, without authority.
+
+    An outside account can copy a task title or marker into a public Issue.
+    Such an Issue never becomes the managed Issue, never reserves resources,
+    and never blocks work — but it stays visible as a bounded non-authoritative
+    diagnostic naming the Issue and login.
+    """
+
+    marker = _task_marker(task_id)
+    diagnostics: list[str] = []
+    for issue in issues:
+        if str(issue.get("state") or "").upper() == "CLOSED":
+            continue
+        title = issue.get("title")
+        body = issue.get("body")
+        title_match = type(title) is str and (
+            title == task_id or title.startswith(f"{task_id} —")
+        )
+        marker_match = type(body) is str and marker in body
+        if (title_match or marker_match) and not issue_author_authorized(issue):
+            diagnostics.append(
+                f"ignored Issue #{issue.get('number')} by unauthorized login "
+                f"{actor_login(issue)!r}: it imitates {task_id} but carries no "
+                "workflow authority and reserves no resources"
+            )
+    return diagnostics[:MAX_IGNORED_COMMENT_DIAGNOSTICS]
 
 
 def render_contract_body(task: Mapping[str, Any]) -> str:
@@ -213,13 +265,22 @@ def _snapshot(
     labels = _issue_labels(issue)
     assignees = _issue_assignees(issue)
     reasons: list[str] = []
+    ignored_diagnostics: list[str] = []
     state = None
     events: tuple[IssueWorkflowEvent, ...] = ()
     try:
         state = parse_state(body)
         managed = state is not None
         if managed:
-            events = parse_events(backend.get_comments(number))
+            if not issue_author_authorized(issue):
+                raise WorkflowContractError(
+                    f"Issue #{number} claims managed workflow state but its author "
+                    f"{actor_login(issue)!r} is not an authorized workflow actor"
+                )
+            events = parse_events(
+                backend.get_comments(number),
+                ignored_diagnostics=ignored_diagnostics,
+            )
             validate_event_chain(state, events)
             expected_label = STATE_LABELS[state.state.value]
             state_labels = set(labels) & ALL_STATE_LABELS
@@ -243,6 +304,7 @@ def _snapshot(
         managed=managed,
         valid=not reasons,
         reasons=tuple(reasons),
+        ignored_comment_diagnostics=tuple(ignored_diagnostics),
     )
 
 
@@ -277,6 +339,11 @@ class IssueWorkflowService:
     def observe(self, task_id: str) -> dict[str, Any]:
         task_id = validate_task_id(task_id)
         snapshot = self.find(task_id)
+        # Unauthorized public Issues that imitate this task are visible as
+        # non-authoritative diagnostics only; they never change the status.
+        ignored_issues = _unauthorized_claimant_diagnostics(
+            self.backend.list_issues(), task_id
+        )
         if snapshot is None:
             return {
                 "status": "agent_ready_uninitialized",
@@ -286,6 +353,7 @@ class IssueWorkflowService:
                 "issue_url": None,
                 "workflow_state": None,
                 "reasons": ["no open Issue exists; the workflow can initialize it"],
+                "ignored_issue_diagnostics": ignored_issues,
                 "authority": "issue_workflow_read_write",
             }
         if not snapshot.valid:
@@ -294,6 +362,7 @@ class IssueWorkflowService:
                 "task_id": task_id,
                 "worker_id": self.worker_id,
                 **snapshot.to_dict(),
+                "ignored_issue_diagnostics": ignored_issues,
                 "authority": "issue_workflow_read_write",
             }
         if not snapshot.managed or snapshot.state is None:
@@ -303,6 +372,7 @@ class IssueWorkflowService:
                 "worker_id": self.worker_id,
                 **snapshot.to_dict(),
                 "reasons": ["Issue exists but has no managed workflow state"],
+                "ignored_issue_diagnostics": ignored_issues,
                 "authority": "issue_workflow_read_write",
             }
         state = snapshot.state
@@ -319,28 +389,77 @@ class IssueWorkflowService:
             "task_id": task_id,
             "worker_id": self.worker_id,
             **snapshot.to_dict(),
+            "ignored_issue_diagnostics": ignored_issues,
             "authority": "issue_workflow_read_write",
         }
 
-    def _resource_conflicts(self, task: Mapping[str, Any]) -> list[str]:
+    def _resource_conflicts(
+        self,
+        task: Mapping[str, Any],
+    ) -> tuple[list[str], list[str]]:
+        """Check every open workflow-claiming Issue for resource reservations.
+
+        Every valid open AUTHORIZED managed Issue whose state is not COMPLETE
+        reserves its committed task resources — including ``agent_ready``,
+        because a paused Issue in repair, delivery evidence, pending checks,
+        or merge closeout still owns its branch's write surfaces. An
+        authorized Issue that claims workflow state but cannot be validated
+        surfaces as a blocking coordination conflict requiring repair.
+
+        An Issue whose author is NOT on the committed actor allow-list carries
+        no workflow authority at all: it never reserves resources and never
+        blocks work, because otherwise any public account could deny service
+        by pasting state-looking text into an Issue. Such Issues are reported
+        in the second returned list as bounded non-authoritative diagnostics.
+        """
+
         selected_resources = set(task.get("exclusive_resources") or [])
-        if not selected_resources:
-            return []
         conflicts: list[str] = []
+        diagnostics: list[str] = []
+        # A resource-less candidate still scans every open Issue: an authorized
+        # Issue claiming managed workflow state with an invalid event chain has
+        # untrustworthy ownership/reservation state and must block coordination
+        # until repaired, even when the selected task reserves nothing itself.
         for issue in self.backend.list_issues():
+            if str(issue.get("state") or "").upper() == "CLOSED":
+                # A closed COMPLETE Issue reserves nothing; a closed incomplete
+                # duplicate carries no workflow authority (completed_issue_guard).
+                continue
+            number = issue.get("number")
+            body = str(issue.get("body") or "")
+            if STATE_RE.search(body) is None:
+                # Plain repository Issue without a managed workflow claim.
+                continue
+            if not issue_author_authorized(issue):
+                if len(diagnostics) < MAX_IGNORED_COMMENT_DIAGNOSTICS:
+                    diagnostics.append(
+                        f"ignored Issue #{number} by unauthorized login "
+                        f"{actor_login(issue)!r}: it imitates managed workflow "
+                        "state but carries no authority and reserves no resources"
+                    )
+                continue
             try:
                 snapshot = _snapshot(self.backend, issue)
-            except IssueWorkflowStoreError:
+            except IssueWorkflowStoreError as exc:
+                conflicts.append(
+                    f"workflow Issue #{number} could not be inspected: {exc}"
+                )
+                continue
+            if snapshot.state is not None and snapshot.state.task_id == task.get("id"):
                 continue
             if not snapshot.valid or snapshot.state is None:
+                conflicts.append(
+                    f"Issue #{number} claims managed workflow state but is invalid and "
+                    f"must be repaired before resource coordination: "
+                    + "; ".join(snapshot.reasons)
+                )
                 continue
-            if snapshot.state.task_id == task.get("id"):
+            if snapshot.state.state is WorkflowState.COMPLETE:
                 continue
-            if snapshot.state.state not in (
-                WorkflowState.AGENT_WORKING,
-                WorkflowState.HUMAN_ACTION_REQUIRED,
-                WorkflowState.BLOCKED,
-            ):
+            if not selected_resources:
+                # A valid Issue reserves resources only by actual overlap, and
+                # overlap with an empty selection is impossible, so the other
+                # task's resources need not be loaded.
                 continue
             try:
                 other = self.task_loader(snapshot.state.task_id)
@@ -356,7 +475,7 @@ class IssueWorkflowService:
                 conflicts.append(
                     f"{snapshot.state.task_id} reserves overlapping resources: {overlap}"
                 )
-        return conflicts
+        return conflicts, diagnostics
 
     def _initialize_issue(
         self,
@@ -412,9 +531,13 @@ class IssueWorkflowService:
         now: str | None = None,
     ) -> dict[str, Any]:
         task_id = validate_task_id(task.get("id"))
-        conflicts = self._resource_conflicts(task)
+        conflicts, coordination_diagnostics = self._resource_conflicts(task)
         if conflicts:
-            return {"status": "blocked", "reasons": conflicts}
+            return {
+                "status": "blocked",
+                "reasons": conflicts,
+                "coordination_diagnostics": coordination_diagnostics,
+            }
         occurred = now or utc_now()
         snapshot = self.find(task_id)
         if snapshot is None or not snapshot.managed:
@@ -430,11 +553,16 @@ class IssueWorkflowService:
                 "Issue workflow uses a different task contract hash"
             )
         if state.state is WorkflowState.AGENT_WORKING and state.worker_id == self.worker_id:
-            return {"status": "resumed", **snapshot.to_dict()}
+            return {
+                "status": "resumed",
+                "coordination_diagnostics": coordination_diagnostics,
+                **snapshot.to_dict(),
+            }
         if state.state is not WorkflowState.AGENT_READY:
             return {
                 "status": "blocked",
                 "reasons": [f"workflow state is {state.state.value}, not agent_ready"],
+                "coordination_diagnostics": coordination_diagnostics,
                 **snapshot.to_dict(),
             }
         lease_id = semantic_sha256(
@@ -503,7 +631,11 @@ class IssueWorkflowService:
                 "GitHub Issue lease transition could not be verified; stop to avoid a "
                 "split lease"
             )
-        return {"status": "acquired", **verified.to_dict()}
+        return {
+            "status": "acquired",
+            "coordination_diagnostics": coordination_diagnostics,
+            **verified.to_dict(),
+        }
 
     def publish_human_handoff(
         self,
@@ -568,11 +700,13 @@ class IssueWorkflowService:
             "",
             "### Record the result in this Issue",
             "",
+            "Post a new comment using this exact shape, replacing both placeholders:",
+            "",
             "```text",
             "## Human validation result",
             "",
-            "Result: PASS",
-            f"Tested commit: `{head_commit}`",
+            "Result: <PASS or FAIL>",
+            "Tested commit: <40-character commit SHA>",
             "",
             "Completed steps:",
             "- ...",
@@ -581,8 +715,9 @@ class IssueWorkflowService:
             "...",
             "```",
             "",
-            "For a failure, change `Result: PASS` to `Result: FAIL` and include the "
-            "exact failed step, reproduction, expected result, and observed result.",
+            "The exact commit to test is recorded above in this handoff. For a "
+            "failure, include the exact failed step, reproduction, expected result, "
+            "and observed result.",
             "After posting the result, apply the `nsc-state:agent-ready` label. The "
             "Issue workflow action will move the task back to agent work.",
         ]
@@ -624,6 +759,11 @@ class IssueWorkflowService:
         if state.state is not WorkflowState.HUMAN_ACTION_REQUIRED:
             raise IssueWorkflowStoreError(
                 f"human result requires human_action_required, found {state.state.value}"
+            )
+        if not default_actor_policy().is_authorized_human(actor_id):
+            raise IssueWorkflowStoreError(
+                f"human validation authority requires the authorized human operator "
+                f"login; {actor_id!r} is not authorized"
             )
         human_result = parse_human_validation_result(result_body)
         if human_result is None:
@@ -703,12 +843,15 @@ class IssueWorkflowService:
 class MemoryIssueBackend:
     """No-network backend for state-machine and race/failure tests."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, author_login: str = DEFAULT_ASSIGNEE) -> None:
         self.issues: dict[int, dict[str, Any]] = {}
         self.comments: dict[int, list[dict[str, Any]]] = {}
         self.next_issue = 1
         self.next_comment = 1
         self.labels: set[str] = set()
+        # Issues and comments created through this backend model the operator's
+        # authenticated gh session, so they carry the gh CLI author shape.
+        self.author_login = author_login
 
     def list_issues(self) -> list[dict[str, Any]]:
         return [json.loads(json.dumps(item)) for _, item in sorted(self.issues.items())]
@@ -732,6 +875,7 @@ class MemoryIssueBackend:
             "body": body,
             "state": "OPEN",
             "url": f"https://example.invalid/issues/{number}",
+            "author": {"login": self.author_login},
             "labels": [{"name": item} for item in labels],
             "assignees": [{"login": item} for item in assignees],
         }
@@ -757,7 +901,11 @@ class MemoryIssueBackend:
         return json.loads(json.dumps(issue))
 
     def add_comment(self, issue_number: int, body: str) -> dict[str, Any]:
-        comment = {"id": self.next_comment, "body": body}
+        comment = {
+            "id": self.next_comment,
+            "author": {"login": self.author_login},
+            "body": body,
+        }
         self.next_comment += 1
         self.comments.setdefault(issue_number, []).append(comment)
         return json.loads(json.dumps(comment))
@@ -821,25 +969,63 @@ class GhIssueBackend:
         except json.JSONDecodeError as exc:
             raise IssueWorkflowStoreError("GitHub CLI returned invalid JSON") from exc
 
-    def list_issues(self) -> list[dict[str, Any]]:
-        value = self._json(
+    def _list_issues_via_api(self, state: str) -> list[dict[str, Any]]:
+        """List issues completely via `gh api --paginate`.
+
+        `gh issue list --limit N` silently truncates after N results, which
+        would forget old completed tasks and let them be reinitialized. The
+        REST pagination follows Link headers to exhaustion, and any transport
+        failure raises instead of returning a partial listing. `--paginate`
+        emits one JSON array per page back-to-back, so the output is decoded
+        as concatenated JSON documents. Pull requests share the REST issues
+        endpoint and are excluded by their `pull_request` key.
+        """
+
+        result = self._run(
             (
                 "gh",
-                "issue",
-                "list",
-                "--repo",
-                self.repository,
-                "--state",
-                "open",
-                "--limit",
-                "1000",
-                "--json",
-                "number,title,state,assignees,url,body,labels",
+                "api",
+                "--paginate",
+                f"repos/{self.repository}/issues?state={state}&per_page=100",
             )
         )
-        if not isinstance(value, list):
-            raise IssueWorkflowStoreError("gh issue list did not return an array")
-        return value
+        decoder = json.JSONDecoder()
+        text = result.stdout
+        index = 0
+        issues: list[dict[str, Any]] = []
+        while True:
+            while index < len(text) and text[index] in " \t\r\n":
+                index += 1
+            if index >= len(text):
+                break
+            try:
+                page, index = decoder.raw_decode(text, index)
+            except json.JSONDecodeError as exc:
+                raise IssueWorkflowStoreError(
+                    "GitHub issue listing returned invalid JSON"
+                ) from exc
+            if not isinstance(page, list):
+                raise IssueWorkflowStoreError(
+                    "GitHub issue listing page was not an array"
+                )
+            for item in page:
+                if not isinstance(item, dict):
+                    raise IssueWorkflowStoreError(
+                        "GitHub issue listing entry was not an object"
+                    )
+                if "pull_request" in item:
+                    continue
+                html_url = item.get("html_url")
+                if isinstance(html_url, str) and html_url:
+                    # REST `url` is the API endpoint. gh issue list/view expose
+                    # the browser URL as `url`, and workflow snapshots surface
+                    # it through `issue_url`, so normalize to the browser URL.
+                    item = {**item, "url": html_url}
+                issues.append(item)
+        return issues
+
+    def list_issues(self) -> list[dict[str, Any]]:
+        return self._list_issues_via_api("open")
 
     def get_comments(self, issue_number: int) -> list[dict[str, Any]]:
         value = self._json(
@@ -901,7 +1087,7 @@ class GhIssueBackend:
                 "--repo",
                 self.repository,
                 "--json",
-                "number,title,state,assignees,url,body,labels",
+                "number,title,state,assignees,url,body,labels,author",
             )
         )
         if not isinstance(value, dict):

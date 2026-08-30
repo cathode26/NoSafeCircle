@@ -16,11 +16,16 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from Pipeline.TaskReviewAgent.actor_policy import (  # noqa: E402
+    actor_login,
+    default_actor_policy,
+)
+from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     ALL_STATE_LABELS,
     STATE_LABELS,
     WorkflowState,
-    parse_human_validation_result,
+    find_human_validation_result,
     parse_state,
 )
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
@@ -156,14 +161,6 @@ class GitHubRestBackend:
         self.update_issue(self.issue_number, labels=sorted(set(labels)))
 
 
-def _latest_human_result(comments: list[dict[str, Any]]) -> str | None:
-    for comment in reversed(comments):
-        body = comment.get("body")
-        if type(body) is str and parse_human_validation_result(body) is not None:
-            return body
-    return None
-
-
 def main() -> int:
     event_path = os.getenv("GITHUB_EVENT_PATH")
     token = os.getenv("GITHUB_TOKEN")
@@ -182,7 +179,7 @@ def main() -> int:
     issue = event.get("issue") or {}
     repository = ((event.get("repository") or {}).get("full_name"))
     issue_number = issue.get("number")
-    actor_id = ((event.get("sender") or {}).get("login")) or "human"
+    sender_login = ((event.get("sender") or {}).get("login"))
     if type(repository) is not str or type(issue_number) is not int:
         print(
             "Issue workflow event is missing repository/issue identity",
@@ -196,6 +193,7 @@ def main() -> int:
         token=token,
     )
     state = None
+    policy = default_actor_policy()
     try:
         state = parse_state(str(issue.get("body") or ""))
         if state is None:
@@ -209,27 +207,45 @@ def main() -> int:
                 "nsc-state:agent-ready may be applied by a human only while the "
                 "managed workflow is human_action_required"
             )
+        issue_author = actor_login(issue)
+        if issue_author is None or not policy.is_authorized_actor(issue_author):
+            raise IssueWorkflowStoreError(
+                f"Issue #{issue_number} claims managed workflow state but its author "
+                f"{issue_author!r} is not an authorized workflow actor"
+            )
+        if not policy.is_authorized_human(sender_login):
+            raise IssueWorkflowStoreError(
+                f"the nsc-state:agent-ready label was applied by {sender_login!r}, "
+                "who is not the authorized human operator"
+            )
+        if state.last_event_id is None or state.human_handoff_commit is None:
+            raise IssueWorkflowStoreError(
+                "human_action_required state has no recorded handoff event/commit"
+            )
         # The human just added agent-ready. Restore the still-authoritative current-state
         # label before the service verifies and records the transition.
         backend.restore_state_label(state.state)
-        result_body = _latest_human_result(backend.get_comments(issue_number))
-        if result_body is None:
+        human_result, rejections = find_human_validation_result(
+            backend.get_comments(issue_number),
+            after_event_id=state.last_event_id,
+            expected_commit=state.human_handoff_commit,
+        )
+        if human_result is None:
             raise IssueWorkflowStoreError(
-                "No Human validation result comment was found. Post the handoff template "
-                "with Result: PASS|FAIL and the exact Tested commit before changing state."
+                "No authorized Human validation result was posted after the current "
+                "handoff. Post the handoff template with Result: PASS|FAIL and the "
+                "exact Tested commit before changing state."
+                + ("".join(f" {item}" for item in rejections))
             )
         service = IssueWorkflowService(
             backend=backend,
-            task_loader=lambda task_id: {
-                "id": task_id,
-                "exclusive_resources": [],
-            },
+            task_loader=lambda task_id: load_committed_task(ROOT, task_id),
             worker_id="github-issue-workflow-action",
         )
         result = service.apply_human_result(
             task_id=state.task_id,
-            result_body=result_body,
-            actor_id=actor_id,
+            result_body=human_result.body,
+            actor_id=sender_login,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

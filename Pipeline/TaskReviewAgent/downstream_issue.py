@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, replace
 from typing import Any, Iterable
 
+from .actor_policy import default_actor_policy
 from .contracts import SHA256_RE, TaskReviewContractError
 from .issue_workflow import (
     WorkflowActor,
@@ -14,6 +15,7 @@ from .issue_workflow import (
     WorkflowState,
     labels_for_state,
     render_event_comment,
+    strip_fenced_blocks,
     transition,
     update_issue_body,
     utc_now,
@@ -50,7 +52,9 @@ class HumanDeliveryReview:
 def parse_human_delivery_review(body: str) -> HumanDeliveryReview | None:
     if not isinstance(body, str):
         return None
-    match = DELIVERY_REVIEW_RE.search(body)
+    # The agent's review-request comment shows the approval template inside a
+    # fenced block; quoted template text must never parse as a human decision.
+    match = DELIVERY_REVIEW_RE.search(strip_fenced_blocks(body))
     if match is None:
         return None
     return HumanDeliveryReview(
@@ -217,6 +221,11 @@ class DownstreamIssueCoordinator:
         ):
             raise DownstreamIssueError(
                 "delivery review result requires a human-owned delivery_evidence blocker"
+            )
+        if not default_actor_policy().is_authorized_human(actor_id):
+            raise DownstreamIssueError(
+                f"delivery review authority requires the authorized human operator "
+                f"login; {actor_id!r} is not authorized"
             )
         result = parse_human_delivery_review(result_body)
         if result is None:
