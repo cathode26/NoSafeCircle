@@ -244,6 +244,10 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/run_agent.py --task-id NSC-050 --mode observe-real --source .
 
+      - name: Run Stage 2 deterministic dispatch-plan tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/dispatch_plan_smoke_test.py
+
       - name: Run Core/Supervisor/Delivery CI split regression tests
         run: python Pipeline/TaskReviewAgent/tests/ci_workflow_split_smoke_test.py
 
