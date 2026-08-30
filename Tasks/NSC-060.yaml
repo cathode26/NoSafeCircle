@@ -1,0 +1,90 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-060",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Player Resource Feedback Modernization",
+  "reconciliation_key": "player-resource-feedback-modernization",
+  "kind": "implementation",
+  "type": "engineering-refactor",
+  "execution_scope": "single_agent",
+  "execution_reason": "The current Player Health and Player Mana UI code exposes a small, concrete modernization surface: health UI polls a discretely changing value every frame, while mana denied-cast feedback manually owns a presentation timer and refreshes bindings every frame. The work can preserve game semantics within three focused components.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "Current code and engineering standards define the desired event/tween/lifecycle behavior. No game-design or tuning decision is required.",
+  "parent": "NSC-056",
+  "depends_on": [
+    "NSC-004",
+    "NSC-005",
+    "NSC-057",
+    "NSC-059"
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealthUI.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "PlayerHealth.cs / PlayerHealthUI.cs current implementation",
+      "requirement": "Player Health exposes an owner-local observable health-changed notification covering damage, restore, and reset mutations, and PlayerHealthUI subscribes/unsubscribes symmetrically so its fill no longer requires per-frame polling."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Engineering Standards §5.1/§5.3",
+      "requirement": "Preserve the existing Damaged and Died semantics and the direct/local PlayerInteractionController damage subscription. Do not route this owner-local relationship through the global deVoid signal bus merely to use the new library."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "PlayerManaUI.cs current denied-cast feedback",
+      "requirement": "Replace PlayerManaUI's manual deniedFlashTimeRemaining presentation countdown with an owned DOTween tween/sequence that restarts deterministically on repeated denied casts and restores the captured normal color when completed or disabled."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "PlayerMana.cs continuous regeneration behavior",
+      "requirement": "Preserve correct continuous mana-bar fill during regeneration. Per-frame fill refresh may remain because mana can change every frame; do not dispatch a global signal every frame solely to eliminate Update."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Engineering Standards §6 lifecycle",
+      "requirement": "Remove the need to call PlayerManaUI.RefreshBindings every frame by using deterministic lifecycle binding or an explicit initialization/rebind boundary compatible with scene-builder wiring."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "Historical NSC-004/NSC-005 behavior",
+      "requirement": "Do not change health/mana maxima, damage, restore, spend, regeneration, post-cast delay, or denied-cast gameplay rules; this task is presentation/event-lifecycle refactoring only."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Regression coverage",
+      "requirement": "Existing Player Health, Player Mana, and door-damage interruption behavior remains covered and passes after the refactor."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "New event-lifecycle coverage",
+      "requirement": "Automated coverage proves the health-changed notification updates UI after damage, restore, and reset and does not leave duplicate subscriptions after enable/disable cycles."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "New DOTween lifecycle coverage",
+      "requirement": "Automated coverage proves repeated denied casts restart/replace the owned feedback tween safely and disabling the UI kills the tween and restores the expected normal color."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Human Play Mode inspection",
+      "requirement": "Developer verifies health fill, mana regeneration fill, and insufficient-mana feedback remain readable and behaviorally unchanged in Play Mode."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "basis": "human_approved_engineering_guidance",
+  "source_scope": "engineering",
+  "confidence": "high",
+  "notes": "Targeted follow-up to completed player-resource tasks. The old task evidence remains valid; this contract modernizes implementation structure without retroactively changing what NSC-004/NSC-005 delivered.",
+  "provenance": {
+    "origin": "human_approved_engineering_followup",
+    "engineering_source_commit": "014f3c55fca988ed4f253806aa71316196fd57d0",
+    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md"
+  }
+}

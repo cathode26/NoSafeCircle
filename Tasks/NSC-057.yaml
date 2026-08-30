@@ -1,0 +1,74 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-057",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Preferred Unity Tooling Library Integration",
+  "reconciliation_key": "preferred-unity-tooling-library-integration",
+  "kind": "implementation",
+  "type": "engineering-foundation",
+  "execution_scope": "human_integration_required",
+  "execution_reason": "Third-party dependency acquisition requires a developer-controlled source/version/license decision and Unity inspection. The implementation work is bounded after those choices but must not be performed silently by an autonomous coding agent.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The approved tools are deVoid Signals and DOTween; the unresolved details are acquisition/version/license choices that require developer approval rather than additional game design.",
+  "parent": "NSC-056",
+  "depends_on": [],
+  "exclusive_resources": [
+    "logical:third-party-unity-library-configuration",
+    "repo-file:Docs/Engineering/THIRD_PARTY_DEPENDENCIES.md"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Engineering Standards §5.4 Reuse and tool selection",
+      "requirement": "Integrate an approved deVoid Signals source/version and record its origin, exact version or commit identity, license, and repository placement in Docs/Engineering/THIRD_PARTY_DEPENDENCIES.md."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Engineering Standards §5.4 Reuse and tool selection",
+      "requirement": "Integrate an approved DOTween edition/source/version and record its origin, exact version, license/edition, and repository placement in Docs/Engineering/THIRD_PARTY_DEPENDENCIES.md."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Engineering Standards §5.4 dependency availability rule",
+      "requirement": "No Safe Circle runtime/editor assemblies that are intended to consume deVoid Signals or DOTween can resolve those APIs in Unity 6000.1.8f1 without missing-reference or assembly-definition errors."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "REFERENCE_PROJECTS.md and SlotEngine privacy audit",
+      "requirement": "The integration uses authorized third-party distributions or clean-room No Safe Circle code only; no raw SlotEngine/company source or private reference-project code is copied into the repository."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Engineering Standards §5.4 dependency authority",
+      "requirement": "No unrelated third-party dependency is added or upgraded as part of this work. Addressables remains a separate need-driven decision unless another approved task explicitly authorizes its installation."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Engineering Standards §13 Validation",
+      "requirement": "Developer inspects the recorded dependency source/version/license information and confirms both libraries are permitted for this course project."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Unity project integration",
+      "requirement": "Open the project in Unity 6000.1.8f1 and verify the project compiles without errors after the dependency integration."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Regression safety",
+      "requirement": "Run the current relevant Edit Mode and Play Mode regression suites after integration; adding the libraries alone must not change existing gameplay behavior."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "basis": "human_approved_engineering_guidance",
+  "source_scope": "engineering",
+  "confidence": "high",
+  "notes": "This task establishes availability, not mandatory use. Engineering agents still apply the consider-don't-force rules in ENGINEERING_STANDARDS.md.",
+  "provenance": {
+    "origin": "human_approved_engineering_followup",
+    "engineering_source_commit": "014f3c55fca988ed4f253806aa71316196fd57d0",
+    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md"
+  }
+}

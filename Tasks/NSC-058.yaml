@@ -1,0 +1,80 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-058",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Shared Hierarchy Fader Foundation",
+  "reconciliation_key": "shared-hierarchy-fader-foundation",
+  "kind": "implementation",
+  "type": "engineering-foundation",
+  "execution_scope": "single_agent",
+  "execution_reason": "A shared hierarchy fader is a bounded reusable presentation utility with clear ownership and testable state-restoration behavior. It depends on the approved DOTween integration but does not change game design.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The clean-room reference examples and engineering standard define the required abstraction and lifecycle behavior; additional game-design decisions are not required.",
+  "parent": "NSC-056",
+  "depends_on": [
+    "NSC-057"
+  ],
+  "exclusive_resources": [
+    "logical:shared-hierarchy-fader"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Engineering Standards §5.4 Hierarchy fader",
+      "requirement": "Provide a No Safe Circle-owned HierarchyFader abstraction that discovers or receives fade participants through a narrow IFadeTarget-style contract rather than hard-coding every supported renderer type into gameplay callers."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Engineering Standards §5.4 DOTween",
+      "requirement": "Use DOTween for normalized fade interpolation/sequencing while keeping participant discovery, original-state capture, restoration, and semantic fade ownership inside the fader layer."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Sanitized SlotEngine gem: fading lifecycle",
+      "requirement": "Support at least CanvasGroup, Unity UI Graphic, SpriteRenderer, and generic Renderer color fading without instantiating per-renderer materials; generic Renderer color changes use MaterialPropertyBlock or an equivalent non-material-cloning approach."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Engineering Standards §2.3 Explicit ownership",
+      "requirement": "Capture original visual state before the first owned fade and restore it exactly on explicit restore, cancellation/disable cleanup where restoration is requested, and after temporary presentation effects that promise restoration."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Engineering Standards §6/§7 lifecycle and cancellation",
+      "requirement": "Owned tweens are killed/cancelled deterministically when replaced or when their owner becomes invalid so no orphan tween continues mutating a disabled/destroyed hierarchy."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "Engineering Standards §5.4 presentation boundary",
+      "requirement": "The fader controls presentation only. Gameplay state transitions may request or await a fade but do not use tween progress as authoritative gameplay state."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Unity Edit/Play Mode validation",
+      "requirement": "Automated coverage proves supported fade targets capture, fade, and restore original alpha/color state without creating persistent material instances."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Unity lifecycle validation",
+      "requirement": "Automated coverage proves replacing/cancelling a fade and disabling/destroying its owner leaves no still-running owned tween and produces the documented restore/terminal state."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Human presentation inspection",
+      "requirement": "Developer runs one representative hierarchy fade in Play Mode and confirms the abstraction behaves correctly without changing gameplay state."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "basis": "human_approved_engineering_guidance",
+  "source_scope": "engineering",
+  "confidence": "high",
+  "notes": "Clean-room implementation informed by sanitized reference examples. Do not copy the original SlotEngine fader source.",
+  "provenance": {
+    "origin": "human_approved_engineering_followup",
+    "engineering_source_commit": "014f3c55fca988ed4f253806aa71316196fd57d0",
+    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md"
+  }
+}

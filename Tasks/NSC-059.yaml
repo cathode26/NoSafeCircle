@@ -1,0 +1,68 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-059",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Completed Gameplay Reuse Audit",
+  "reconciliation_key": "completed-gameplay-reuse-audit",
+  "kind": "artifact",
+  "type": "engineering-audit",
+  "execution_scope": "single_agent",
+  "execution_reason": "This is a bounded read-mostly engineering audit whose durable output is one repository document. It does not modify completed gameplay behavior or reopen historical task evidence.",
+  "decomposition_state": "concrete",
+  "decomposition_reason": "The audit rubric is defined by ENGINEERING_STANDARDS.md and the completed task/code evidence already in the repository.",
+  "parent": "NSC-056",
+  "depends_on": [],
+  "exclusive_resources": [
+    "repo-file:Docs/Engineering/COMPLETED_GAMEPLAY_REUSE_AUDIT.md"
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Engineering Standards §5.4 Reuse and tool selection",
+      "requirement": "Review code-bearing gameplay work that already has completion evidence and classify each relevant subsystem as Keep, Refactor, or Defer for direct references, local C# events, deVoid Signals, DOTween/fader use, Addressables/content loading, and pooling."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Engineering Standards — consider, don't force",
+      "requirement": "Every Refactor recommendation cites exact repository paths and a concrete maintenance, lifecycle, duplication, performance, or testability benefit. A library's existence by itself is never sufficient justification."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Engineering Standards §5.1/§5.3 communication boundaries",
+      "requirement": "Explicitly identify local C# event/direct-reference relationships that should remain local rather than being converted to deVoid Signals."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "TaskGraph evidence authority",
+      "requirement": "Treat completed-task contracts and evidence as historical behavior authority. Recommend additive follow-up task keys/targets for worthwhile refactors rather than changing old completion evidence or pretending the original work was incomplete."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Engineering Standards §8 Addressables and §10 pooling",
+      "requirement": "Do not recommend Addressables or pooling retrofits where the current code has no meaningful dynamic-loading/lifetime or repeated-spawn cost problem; record Defer/Keep when no concrete benefit exists."
+    }
+  ],
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Artifact review",
+      "requirement": "Docs/Engineering/COMPLETED_GAMEPLAY_REUSE_AUDIT.md contains an evidence-backed Keep/Refactor/Defer table plus prioritized follow-up recommendations and exact paths for every proposed change."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Historical integrity",
+      "requirement": "The audit changes no gameplay source, task-completion evidence, or historical GitHub workflow state."
+    }
+  ],
+  "downstream_integration_obligations": [],
+  "basis": "human_approved_engineering_guidance",
+  "source_scope": "engineering",
+  "confidence": "high",
+  "notes": "This audit is deliberately non-punitive. It is a modernization inventory, not a retroactive coding-standard compliance gate.",
+  "provenance": {
+    "origin": "human_approved_engineering_followup",
+    "engineering_source_commit": "014f3c55fca988ed4f253806aa71316196fd57d0",
+    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md"
+  }
+}

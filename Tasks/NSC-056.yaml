@@ -1,0 +1,29 @@
+{
+  "schema_version": "2.0",
+  "id": "NSC-056",
+  "contract_revision": 1,
+  "contract_disposition": "active",
+  "title": "Engineering Reuse and Tooling Modernization",
+  "reconciliation_key": "engineering-reuse-tooling-modernization",
+  "kind": "feature",
+  "type": "engineering-foundation",
+  "execution_scope": "not_applicable",
+  "execution_reason": "Organizational engineering feature. It groups additive modernization work without reopening or invalidating gameplay tasks whose behavior and evidence are already complete.",
+  "decomposition_state": "coarse",
+  "decomposition_reason": "The approved modernization direction is already split into bounded library integration, shared presentation infrastructure, completed-work audit, and targeted player-feedback retrofit tasks.",
+  "parent": "NSC-001",
+  "depends_on": [],
+  "exclusive_resources": [],
+  "acceptance_criteria": [],
+  "completion_gates": [],
+  "downstream_integration_obligations": [],
+  "basis": "human_approved_engineering_guidance",
+  "source_scope": "engineering",
+  "confidence": "high",
+  "notes": "Engineering-only organizational node. Existing gameplay task contracts and historical completion evidence remain authoritative for the behavior they delivered; modernization is represented by new follow-up contracts.",
+  "provenance": {
+    "origin": "human_approved_engineering_followup",
+    "engineering_source_commit": "014f3c55fca988ed4f253806aa71316196fd57d0",
+    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md"
+  }
+}
