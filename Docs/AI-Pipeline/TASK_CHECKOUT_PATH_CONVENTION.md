@@ -9,21 +9,21 @@ This is the authoritative Windows path convention for No Safe Circle task-orches
 The shared operator/main checkout remains:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+C:\NSC\NSC\NoSafeCircle
 ```
 
 Every claimed NSC task uses a standalone GitHub clone directly under the crew root, named by the exact TaskGraph ID with its hyphen preserved:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 Examples:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-040
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+C:\NSC\NSC\NSC-021
+C:\NSC\NSC\NSC-040
+C:\NSC\NSC\NSC-044
 ```
 
 Do **not** use checkout names such as:
@@ -44,7 +44,7 @@ Use Git long-path support during the clone because the repository contains deepl
 
 ```powershell
 $TaskId = "NSC-021"
-$CrewRoot = "C:\UnityProjects\NoSafeCircleAgentCrew"
+$CrewRoot = "C:\NSC\NSC"
 $Checkout = Join-Path $CrewRoot $TaskId
 
 if (Test-Path -LiteralPath $Checkout) {
@@ -72,7 +72,7 @@ After the GitHub Issue is claimed, implementation work uses the task directory a
 When using the Supervisor helper, pass the canonical path explicitly:
 
 ```powershell
-python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\NSC\NSC\NSC-044
 ```
 
 Do not rely on an older helper/default/example that produces a `NoSafeCircle-NSC...` checkout name. This document is the path authority.
@@ -82,7 +82,7 @@ Do not rely on an older helper/default/example that produces a `NoSafeCircle-NSC
 Decomposition uses the same task checkout convention:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+C:\NSC\NSC\NSC-021
 ```
 
 It does not add `-DECOMP` to the checkout directory. The GitHub Issue records `work_type: decomposition`.
@@ -109,13 +109,13 @@ New-Item -ItemType Directory -Force -Path $OutputRoot | Out-Null
 $env:NSC_DECOMPOSITION_HOST_OUTPUT_ROOT = $OutputRoot
 ```
 
-D1B.1 creates its no-overwrite `<RunId>` child directory. Do not pre-create that run directory and do not put authoritative decomposition output inside `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`.
+D1B.1 creates its no-overwrite `<RunId>` child directory. Do not pre-create that run directory and do not put authoritative decomposition output inside `C:\NSC\NSC\NSC-021`.
 
 After a decomposition reaches `review_ready`, keep using the same checkout for review/closeout. Do not apply the graph delta merely because the overlay validator passed. Human review must confirm each proposed child is locally completable; if a child gate requires downstream content whose task depends on the parent, move that deferred proof to a downstream integration obligation and keep the child gate locally testable.
 
 ## Existing checkout rule
 
-Never overwrite, delete, reset, or casually reuse an existing `C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>` directory merely because a new orchestrator wants that task.
+Never overwrite, delete, reset, or casually reuse an existing `C:\NSC\NSC\<TASK-ID>` directory merely because a new orchestrator wants that task.
 
 Before creating the checkout:
 
@@ -131,7 +131,7 @@ A differently named duplicate checkout is not the normal collision workaround. T
 Claim and closeout records should use the canonical checkout path verbatim, for example:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+C:\NSC\NSC\NSC-021
 ```
 
 For decomposition, closeout should also record the exact authoritative run directory, for example:

@@ -25,7 +25,7 @@ class FakeTaskFixture:
 
     @property
     def checkout_path(self) -> str:
-        return rf"C:\UnityProjects\NoSafeCircleAgentCrew\{self.task_id}"
+        return rf"C:\NSC\NSC\{self.task_id}"
 
     @property
     def branch(self) -> str:

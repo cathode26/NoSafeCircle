@@ -1,0 +1,27 @@
+name: Canonical Checkout Root Policy
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checkout-root-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Enforce canonical Windows checkout root
+        run: python Pipeline/TaskReviewAgent/tests/checkout_root_policy_smoke_test.py

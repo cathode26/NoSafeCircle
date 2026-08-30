@@ -120,7 +120,7 @@ If two agents race from the same state, duplicate sequence/previous-event relati
 After a valid Issue lease, the agent may create or resume only:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 Checkout preparation still enforces:

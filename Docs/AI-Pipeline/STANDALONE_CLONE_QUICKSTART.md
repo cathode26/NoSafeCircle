@@ -7,7 +7,7 @@ Use this procedure whenever you create an isolated No Safe Circle checkout for a
 Gameplay example:
 
 ```powershell
-$CheckoutName = "NoSafeCircle-NSC038"
+$CheckoutName = "NSC-038"
 $BranchName = "nsc-038-isometric-tilemap-visual-layer"
 ```
 
@@ -21,7 +21,7 @@ $BranchName = "validation-manifest-delivery-spec"
 ## 2. Clone from GitHub and create the branch
 
 ```powershell
-$ParentDirectory = "C:\UnityProjects\NoSafeCircleAgentCrew"
+$ParentDirectory = "C:\NSC\NSC"
 $CheckoutPath = Join-Path $ParentDirectory $CheckoutName
 
 if (Test-Path -LiteralPath $CheckoutPath) {
@@ -103,7 +103,7 @@ docker compose -p nosafecircle run --rm -T claude-exec python3 Pipeline/Executio
   --provider claude `
   --implementation-path <tracked-production-path> `
   --test-path <tracked-test-path> `
-  --host-output-root "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC###\Pipeline\ExecutionCrew\outputs"
+  --host-output-root "C:\NSC\NSC\NSC-###\Pipeline\ExecutionCrew\outputs"
 ```
 
 Mixed existing/new example:
@@ -115,7 +115,7 @@ docker compose -p nosafecircle run --rm -T codex-exec python3 Pipeline/Execution
   --implementation-path Assets/.../ExistingOwner.cs `
   --new-implementation-path Assets/.../NewHelper.cs `
   --new-test-path Assets/.../NewFeatureTests.cs `
-  --host-output-root "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC###\Pipeline\ExecutionCrew\outputs"
+  --host-output-root "C:\NSC\NSC\NSC-###\Pipeline\ExecutionCrew\outputs"
 ```
 
 No empty scaffold commit is needed for an absent exact file. Do not pre-create or pass `.meta` for approved new `Assets/` files; ExecutionCrew creates the deterministic sidecar. Parent directories must already exist as committed Git trees. Exact-new authority covers only the named file, never the directory or helper files.

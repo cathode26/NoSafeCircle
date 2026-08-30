@@ -50,7 +50,7 @@ MANIFEST_PATH = (
     f"repository-history-identity-{MIGRATION_ID}.json"
 )
 BRANCH = "nsc-777-history-migration"
-CHECKOUT = r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-777"
+CHECKOUT = r"C:\NSC\NSC\NSC-777"
 
 
 def require(value: bool, message: str) -> None:

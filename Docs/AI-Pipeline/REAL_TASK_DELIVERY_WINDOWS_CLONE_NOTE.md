@@ -15,20 +15,20 @@ On this development machine, create every isolated NSC task checkout from the Gi
 The shared operator/main checkout remains:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+C:\NSC\NSC\NoSafeCircle
 ```
 
 A claimed NSC task checkout is:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 Examples:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+C:\NSC\NSC\NSC-021
+C:\NSC\NSC\NSC-044
 ```
 
 Preserve the hyphenated TaskGraph ID. Do not use `NoSafeCircle-NSC021`, `NoSafeCircle-NSC021-DECOMP`, or timestamped task-directory variants as the normal task path.
@@ -39,7 +39,7 @@ For implementation work:
 
 ```powershell
 $TaskId = "NSC-044"
-$ParentDirectory = "C:\UnityProjects\NoSafeCircleAgentCrew"
+$ParentDirectory = "C:\NSC\NSC"
 $CheckoutPath = Join-Path $ParentDirectory $TaskId
 $BranchName = "nsc-044-ruined-entry-spatial-blockout"
 
@@ -77,7 +77,7 @@ Git long-path support is required during clone because the repository contains d
 When using the implementation checkout helper, pass the canonical path explicitly:
 
 ```powershell
-python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\NSC\NSC\NSC-044
 ```
 
 The path convention document is authoritative if an older helper default or example disagrees.
@@ -87,13 +87,13 @@ The path convention document is authoritative if an older helper default or exam
 Decomposition uses the same task checkout directory rather than adding a `-DECOMP` suffix:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+C:\NSC\NSC\NSC-021
 ```
 
 Read `Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md` before running D1B.1. Its authoritative output must remain outside the source checkout, normally:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021-Outputs
+C:\NSC\NSC\NSC-021-Outputs
 ```
 
 ## Do not clone the local checkout

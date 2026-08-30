@@ -30,7 +30,7 @@ EVIDENCE_HEAD = "3" * 40
 PROPOSAL_SHA = "b" * 64
 DRAFT_SHA = "c" * 64
 BRANCH = "nsc-777-downstream"
-CHECKOUT = r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-777"
+CHECKOUT = r"C:\NSC\NSC\NSC-777"
 
 
 def require(condition: bool, message: str) -> None:

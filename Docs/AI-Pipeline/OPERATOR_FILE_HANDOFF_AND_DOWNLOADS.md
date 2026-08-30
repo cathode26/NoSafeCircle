@@ -285,9 +285,9 @@ This block prepares the task and **does not invoke any provider**.
 ```powershell
 $ErrorActionPreference = "Stop"
 
-$Root = "C:\UnityProjects\NoSafeCircleAgentCrew"
+$Root = "C:\NSC\NSC"
 $MainDir = Join-Path $Root "NoSafeCircle"
-$TaskDir = Join-Path $Root "NoSafeCircle-NSC039"
+$TaskDir = Join-Path $Root "NSC-039"
 $Branch = "nsc-039-world-sprite-prefab-sorting"
 $Downloads = Join-Path $env:USERPROFILE "Downloads"
 
@@ -456,7 +456,7 @@ For the NSC-039 reference run, Claude is the selected provider:
 ```powershell
 $ErrorActionPreference = "Stop"
 
-$TaskDir = "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC039"
+$TaskDir = "C:\NSC\NSC\NSC-039"
 $Branch = "nsc-039-world-sprite-prefab-sorting"
 $Downloads = Join-Path $env:USERPROFILE "Downloads"
 $WorkId = "NSC-039"

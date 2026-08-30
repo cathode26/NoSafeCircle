@@ -19,20 +19,20 @@ A generic instruction such as **"Go pick a task and start on it"** authorizes se
 Shared operator/main checkout:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+C:\NSC\NSC\NoSafeCircle
 ```
 
 Claimed task checkout:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 Examples:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+C:\NSC\NSC\NSC-021
+C:\NSC\NSC\NSC-044
 ```
 
 Preserve the hyphenated TaskGraph ID. Do not create `NoSafeCircle-NSC...`, `-DECOMP`, or timestamped checkout-name variants as the normal task path.
@@ -169,7 +169,7 @@ Implementation work uses the canonical task directory.
 When using the Supervisor helper, pass the canonical path explicitly:
 
 ```powershell
-python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\NSC\NSC\NSC-044
 ```
 
 Before running it, require that the intended path does not already exist unless its ownership/state has been reconciled.
@@ -201,7 +201,7 @@ Then follow the normal real-task delivery process:
 Implementation closeout example:
 
 ```powershell
-python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\NSC\NSC\NSC-044
 ```
 
 ## 8. Decomposition checkout/execution
@@ -209,7 +209,7 @@ python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id c
 Decomposition uses the **same canonical task directory**, not a `-DECOMP` directory:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+C:\NSC\NSC\NSC-021
 ```
 
 Authoritative decomposition output uses the Downloads task root and per-run child directory:
@@ -325,7 +325,7 @@ A `review_ready` decomposition is successful decomposition work. A D1B.2 `needs_
 Never overwrite, delete, reset, or casually reuse an existing canonical task directory:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 Inspect it and reconcile its ownership/state. Do not create a differently named duplicate checkout as the normal collision workaround.
@@ -361,7 +361,7 @@ skip assigned/closed/conflicted candidates and KEEP TRYING
         ↓
 claim chosen Issue + planned approach
         ↓
-enter C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+enter C:\NSC\NSC\<TASK-ID>
         ↓
 implementation → normal delivery
 OR
