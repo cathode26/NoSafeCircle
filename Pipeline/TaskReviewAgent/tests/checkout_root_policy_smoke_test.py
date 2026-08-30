@@ -29,6 +29,7 @@ CANONICAL_CHECKOUT_ROOT = Path(r"C:\NSC\NSC")
 # Historical artifacts record where past runs actually occurred; the
 # ReferenceProjects host root is governed by its own independent policy.
 ALLOWED_PATH_PREFIXES = (
+    "Docs/AI-Pipeline/Historical-Context-Sessions/raw/",
     "Pipeline/TaskGraph/evidence/",
     "Pipeline/ArchitectureReview/outputs/",
     "Pipeline/Reconciliation/outputs/",
