@@ -103,14 +103,14 @@ foreach ($RequiredReference in @(
     'Docs/AI-Pipeline/OPERATOR_COMMAND_STANDARDS.md',
     'Docs/AI-Pipeline/OPERATOR_COMMAND_TEMPLATE.md'
 )) {
-    Require-True -Value $AgentsText.Contains($RequiredReference) -Message "AGENTS.md is missing required operator-command reference: $RequiredReference"
+    Require-True -Value ($AgentsText.Contains($RequiredReference)) -Message "AGENTS.md is missing required operator-command reference: $RequiredReference"
 }
 
 foreach ($RequiredImport in @(
     '@Docs/AI-Pipeline/OPERATOR_COMMAND_STANDARDS.md',
     '@Docs/AI-Pipeline/OPERATOR_COMMAND_TEMPLATE.md'
 )) {
-    Require-True -Value $ClaudeText.Contains($RequiredImport) -Message "CLAUDE.md is missing required operator-command import: $RequiredImport"
+    Require-True -Value ($ClaudeText.Contains($RequiredImport)) -Message "CLAUDE.md is missing required operator-command import: $RequiredImport"
 }
 Write-Host '[PASS] Mandatory AGENTS.md and CLAUDE.md pointers'
 
@@ -170,7 +170,7 @@ foreach ($RelativePath in $PowerShellFiles) {
     if ($Errors.Count -gt 0) {
         foreach ($ParseError in $Errors) {
             [void]$ParseFailures.Add(
-                "$RelativePath:$($ParseError.Extent.StartLineNumber): $($ParseError.Message)"
+                "$($RelativePath):$($ParseError.Extent.StartLineNumber): $($ParseError.Message)"
             )
         }
         continue
