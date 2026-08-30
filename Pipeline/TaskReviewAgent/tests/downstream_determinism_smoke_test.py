@@ -111,7 +111,7 @@ def test_human_authority_ignores_agent_template() -> None:
         from_phase=WorkflowPhase.UNITY_RUNTIME_VALIDATION,
         to_phase=WorkflowPhase.DELIVERY_EVIDENCE,
         actor_type=WorkflowActor.HUMAN,
-        actor_id="Vincent",
+        actor_id="cathode26",
         task_contract_sha256="a" * 64,
         occurred_at_utc="2026-08-28T10:00:00Z",
         details={

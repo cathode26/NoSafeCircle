@@ -177,7 +177,11 @@ def create_closed_complete_fixture() -> tuple[MemoryIssueBackend, IssueWorkflowS
     )
     issue_number = issue["number"]
     backend.comments[issue_number] = [
-        {"id": index, "body": render_event_comment(item, f"fixture event {index}")}
+        {
+            "id": index,
+            "author": {"login": "cathode26"},
+            "body": render_event_comment(item, f"fixture event {index}"),
+        }
         for index, item in enumerate(events, start=1)
     ]
     backend.next_comment = len(events) + 1

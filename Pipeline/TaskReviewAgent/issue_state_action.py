@@ -13,6 +13,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from Pipeline.TaskReviewAgent.actor_policy import (  # noqa: E402
+    actor_login,
+    default_actor_policy,
+)
+from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_issue import (  # noqa: E402
     DownstreamIssueCoordinator,
     parse_human_delivery_review,
@@ -22,7 +27,8 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     WorkflowActor,
     WorkflowPhase,
     WorkflowState,
-    parse_human_validation_result,
+    find_human_validation_result,
+    human_comments_after_event,
     parse_state,
 )
 from Pipeline.TaskReviewAgent.issue_workflow_action import (  # noqa: E402
@@ -34,13 +40,10 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
 )
 
 
-def _latest_matching_comment(
-    comments: list[dict[str, Any]],
-    parser,
-) -> str | None:
+def _latest_delivery_review_body(comments: list[dict[str, Any]]) -> str | None:
     for comment in reversed(comments):
         body = comment.get("body")
-        if type(body) is str and parser(body) is not None:
+        if type(body) is str and parse_human_delivery_review(body) is not None:
             return body
     return None
 
@@ -65,7 +68,7 @@ def main() -> int:
     issue = event.get("issue") or {}
     repository = ((event.get("repository") or {}).get("full_name"))
     issue_number = issue.get("number")
-    actor_id = ((event.get("sender") or {}).get("login")) or "human"
+    sender_login = ((event.get("sender") or {}).get("login"))
     if type(repository) is not str or type(issue_number) is not int:
         print(
             "Issue workflow event is missing repository/issue identity",
@@ -79,6 +82,7 @@ def main() -> int:
         token=token,
     )
     state = None
+    policy = default_actor_policy()
     try:
         state = parse_state(str(issue.get("body") or ""))
         if state is None:
@@ -88,53 +92,76 @@ def main() -> int:
         if state.state is WorkflowState.AGENT_READY:
             return 0
 
+        issue_author = actor_login(issue)
+        if issue_author is None or not policy.is_authorized_actor(issue_author):
+            raise IssueWorkflowStoreError(
+                f"Issue #{issue_number} claims managed workflow state but its author "
+                f"{issue_author!r} is not an authorized workflow actor"
+            )
+        if not policy.is_authorized_human(sender_login):
+            raise IssueWorkflowStoreError(
+                f"the nsc-state:agent-ready label was applied by {sender_login!r}, "
+                "who is not the authorized human operator; only the authorized "
+                "human login may hand a task back to agent work"
+            )
+
         # The human has temporarily added agent-ready beside the authoritative state
         # label. Restore the current state label before parsing/verifying the journal.
         backend.restore_state_label(state.state)
         comments = backend.get_comments(issue_number)
         service = IssueWorkflowService(
             backend=backend,
-            task_loader=lambda task_id: {
-                "id": task_id,
-                "exclusive_resources": [],
-            },
+            task_loader=lambda task_id: load_committed_task(ROOT, task_id),
             worker_id="github-issue-workflow-action",
         )
 
         if state.state is WorkflowState.HUMAN_ACTION_REQUIRED:
-            result_body = _latest_matching_comment(
-                comments,
-                parse_human_validation_result,
-            )
-            if result_body is None:
+            if state.last_event_id is None or state.human_handoff_commit is None:
                 raise IssueWorkflowStoreError(
-                    "No Human validation result comment was found. Post Result: "
-                    "PASS|FAIL with the exact Tested commit before changing state."
+                    "human_action_required state has no recorded handoff event/commit"
+                )
+            human_result, rejections = find_human_validation_result(
+                comments,
+                after_event_id=state.last_event_id,
+                expected_commit=state.human_handoff_commit,
+            )
+            if human_result is None:
+                raise IssueWorkflowStoreError(
+                    "No authorized Human validation result was posted after the "
+                    "current handoff. Post Result: PASS|FAIL with the exact Tested "
+                    "commit before changing state."
+                    + ("".join(f" {item}" for item in rejections))
                 )
             result = service.apply_human_result(
                 task_id=state.task_id,
-                result_body=result_body,
-                actor_id=actor_id,
+                result_body=human_result.body,
+                actor_id=sender_login,
             )
         elif (
             state.state is WorkflowState.BLOCKED
             and state.phase is WorkflowPhase.DELIVERY_EVIDENCE
             and state.current_actor is WorkflowActor.HUMAN
         ):
-            result_body = _latest_matching_comment(
+            if state.last_event_id is None:
+                raise IssueWorkflowStoreError(
+                    "blocked delivery review state has no recorded blocking event"
+                )
+            candidates, anchor_reasons = human_comments_after_event(
                 comments,
-                parse_human_delivery_review,
+                after_event_id=state.last_event_id,
             )
+            result_body = _latest_delivery_review_body(candidates)
             if result_body is None:
                 raise IssueWorkflowStoreError(
-                    "No Human delivery evidence review was found. Post Decision: "
-                    "APPROVE|REQUEST_CHANGES with the exact Proposal SHA256 before "
-                    "changing state."
+                    "No authorized Human delivery evidence review was posted after "
+                    "the current review request. Post Decision: APPROVE|"
+                    "REQUEST_CHANGES with the exact Proposal SHA256 before changing "
+                    "state." + ("".join(f" {item}" for item in anchor_reasons))
                 )
             result = DownstreamIssueCoordinator(service).apply_delivery_review(
                 task_id=state.task_id,
                 result_body=result_body,
-                actor_id=actor_id,
+                actor_id=sender_login,
             )
         else:
             raise IssueWorkflowStoreError(

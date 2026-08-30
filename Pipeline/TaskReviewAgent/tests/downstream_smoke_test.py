@@ -125,7 +125,7 @@ def test_issue_lifecycle_resumes_evidence_head() -> None:
             "Result: PASS\n"
             f"Tested commit: `{IMPLEMENTATION_HEAD}`\n"
         ),
-        actor_id="Vincent",
+        actor_id="cathode26",
         now="2026-08-27T12:02:00Z",
     )
     service.acquire_agent_lease(
@@ -158,7 +158,7 @@ def test_issue_lifecycle_resumes_evidence_head() -> None:
             "Decision: APPROVE\n"
             f"Proposal SHA256: `{'6' * 64}`\n"
         ),
-        actor_id="Vincent",
+        actor_id="cathode26",
         now="2026-08-27T12:05:00Z",
     )
     service.acquire_agent_lease(

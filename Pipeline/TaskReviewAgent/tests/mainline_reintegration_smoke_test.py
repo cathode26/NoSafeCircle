@@ -308,7 +308,7 @@ def prepare_service(
             "Result: PASS\n"
             f"Tested commit: `{task_head}`\n"
         ),
-        actor_id="Vincent",
+        actor_id="cathode26",
     )
     service.acquire_agent_lease(
         task=task(),

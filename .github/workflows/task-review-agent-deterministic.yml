@@ -132,6 +132,45 @@ jobs:
             Write-Host "Legacy exact PR head predates completed-Issue duplicate prevention."
           }
 
+      - name: Run actor authorization and public-trust boundary tests
+        shell: pwsh
+        run: |
+          $test = "Pipeline/TaskReviewAgent/tests/actor_authorization_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Actor authorization tests failed."
+            }
+          } else {
+            Write-Host "Legacy exact PR head predates the committed actor authorization policy."
+          }
+
+      - name: Run committed task contract loader tests
+        shell: pwsh
+        run: |
+          $test = "Pipeline/TaskReviewAgent/tests/committed_task_loader_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Committed task loader tests failed."
+            }
+          } else {
+            Write-Host "Legacy exact PR head predates the shared committed-task loader."
+          }
+
+      - name: Run exclusive resource reservation tests
+        shell: pwsh
+        run: |
+          $test = "Pipeline/TaskReviewAgent/tests/resource_reservation_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Resource reservation tests failed."
+            }
+          } else {
+            Write-Host "Legacy exact PR head predates open-Issue resource reservation."
+          }
+
       - name: Run Unity evidence log hygiene tests
         shell: pwsh
         run: |

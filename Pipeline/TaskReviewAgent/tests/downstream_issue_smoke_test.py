@@ -101,7 +101,7 @@ def ready_delivery_service(*, worker: str = "agent-delivery"):
             "Result: PASS\n"
             f"Tested commit: `{HANDOFF_HEAD}`\n"
         ),
-        actor_id="Vincent",
+        actor_id="cathode26",
         now="2026-08-27T16:02:00Z",
     )
     delivery = IssueWorkflowService(
@@ -152,7 +152,7 @@ def test_delivery_approval_and_evidence_head_resume() -> None:
                 "Decision: APPROVE\n"
                 f"Proposal SHA256: `{'d' * 64}`\n"
             ),
-            actor_id="Vincent",
+            actor_id="cathode26",
         ),
         "proposal identity",
     )
@@ -164,7 +164,7 @@ def test_delivery_approval_and_evidence_head_resume() -> None:
             f"Proposal SHA256: `{PROPOSAL_SHA}`\n"
             "\nNotes:\nApproved as proposed.\n"
         ),
-        actor_id="Vincent",
+        actor_id="cathode26",
         now="2026-08-27T16:05:00Z",
     )
     require(
@@ -213,7 +213,7 @@ def test_delivery_changes_return_to_delivery_evidence() -> None:
             f"Proposal SHA256: `{PROPOSAL_SHA}`\n"
             "\nNotes:\nMap VAL-001 only to the Play Mode XML.\n"
         ),
-        actor_id="Vincent",
+        actor_id="cathode26",
         now="2026-08-27T17:00:00Z",
     )
     require(

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from .contracts import TaskReviewContractError, validate_task_id
+from .committed_tasks import CommittedTaskError, load_committed_task
+from .contracts import TaskReviewContractError
 from .issue_workflow_store import GhIssueBackend, IssueWorkflowService
 
 
@@ -32,27 +31,10 @@ def _repo_root(source: Path | str) -> Path:
 
 
 def _committed_task(root: Path, task_id: str) -> dict[str, Any]:
-    task_id = validate_task_id(task_id)
-    path = f"Tasks/{task_id}.yaml"
-    result = subprocess.run(
-        ("git", "-C", str(root), "show", f"HEAD:{path}"),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-        timeout=60.0,
-    )
-    if result.returncode != 0:
-        raise DurableSelectionError(f"managed Issue task contract is missing: {path}")
     try:
-        value = json.loads(result.stdout.decode("utf-8-sig"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise DurableSelectionError(f"managed Issue task contract is invalid: {path}") from exc
-    if not isinstance(value, dict) or value.get("id") != task_id:
-        raise DurableSelectionError(f"managed Issue task identity mismatch: {path}")
-    return {
-        **value,
-        "task_contract_sha256": hashlib.sha256(result.stdout).hexdigest(),
-    }
+        return load_committed_task(root, task_id)
+    except CommittedTaskError as exc:
+        raise DurableSelectionError(str(exc)) from exc
 
 
 def select_agent_ready_issue(

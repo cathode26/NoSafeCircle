@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from .committed_tasks import CommittedTaskError, load_committed_task
 from .contracts import TaskReviewContractError, semantic_sha256, validate_task_id
 from .coordination import CoordinationObserver
 from .issue_workflow_store import (
@@ -76,32 +77,10 @@ class RealTaskReviewWorkflow:
         self.last_handoff_result: dict[str, Any] | None = None
 
     def _load_committed_task(self, task_id: str) -> dict[str, Any]:
-        task_id = validate_task_id(task_id)
-        path = f"Tasks/{task_id}.yaml"
-        result = subprocess.run(
-            ("git", "-C", str(self.base_observer.root), "show", f"HEAD:{path}"),
-            cwd=str(self.base_observer.root),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-            timeout=60.0,
-        )
-        if result.returncode != 0:
-            raise IssueWorkflowStoreError(
-                f"committed task contract is missing while reading Issue resources: {path}"
-            )
         try:
-            task = json.loads(result.stdout.decode("utf-8-sig"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise IssueWorkflowStoreError(
-                f"committed task contract is invalid JSON: {path}"
-            ) from exc
-        if not isinstance(task, dict) or task.get("id") != task_id:
-            raise IssueWorkflowStoreError(f"committed task identity mismatch: {path}")
-        return {
-            **task,
-            "task_contract_sha256": hashlib.sha256(result.stdout).hexdigest(),
-        }
+            return load_committed_task(self.base_observer.root, task_id)
+        except CommittedTaskError as exc:
+            raise IssueWorkflowStoreError(str(exc)) from exc
 
     def _remote_url(self) -> str | None:
         try:

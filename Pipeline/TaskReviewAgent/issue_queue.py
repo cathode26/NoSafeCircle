@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
+from Pipeline.TaskReviewAgent.contracts import TaskReviewContractError  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
     IssueWorkflowService,
@@ -43,10 +45,7 @@ def main() -> int:
         root = repo_root(args.source.resolve())
         service = IssueWorkflowService(
             backend=GhIssueBackend(source_root=root),
-            task_loader=lambda task_id: {
-                "id": task_id,
-                "exclusive_resources": [],
-            },
+            task_loader=lambda task_id: load_committed_task(root, task_id),
             worker_id=args.worker_id,
         )
         ready = service.list_agent_ready()
@@ -63,7 +62,7 @@ def main() -> int:
             )
         )
         return 0
-    except (IssueWorkflowStoreError, OSError) as exc:
+    except (TaskReviewContractError, OSError) as exc:
         print(f"ISSUE WORKFLOW QUEUE: STOP\n{exc}", file=sys.stderr)
         return 2
 
