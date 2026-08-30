@@ -72,13 +72,18 @@ MONOLITH_TEST_COMMANDS = (
     "Pipeline/TaskReviewAgent/tests/workflow_runtime_smoke_test.py",
     "Pipeline/TaskReviewAgent/run_agent.py",
     "Pipeline/TaskReviewAgent/tests/dispatch_plan_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/fresh_dispatch_smoke_test.py",
 )
 
-# Stage 2 deterministic dispatch planning is Core-owned: it must run inside
-# Core's windows-smoke job, gated exactly like every other Core regression
-# step, so a PR that removes it from Core is caught deterministically even
-# though it also appears in MONOLITH_TEST_COMMANDS above.
-CORE_ONLY_STEP_COMMAND = "Pipeline/TaskReviewAgent/tests/dispatch_plan_smoke_test.py"
+# Stage 2 deterministic dispatch planning and Stage 3 fresh-dispatch mutation
+# boundary tests are Core-owned: they must run inside Core's windows-smoke
+# job, gated exactly like every other Core regression step, so a PR that
+# removes either from Core is caught deterministically even though both also
+# appear in MONOLITH_TEST_COMMANDS above.
+CORE_ONLY_STEP_COMMANDS = (
+    "Pipeline/TaskReviewAgent/tests/dispatch_plan_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/fresh_dispatch_smoke_test.py",
+)
 CORE_FULL_SUITE_GATE = "if: steps.scope.outputs.run_full_core == 'true'"
 
 REPRESENTATIVE_SUPERVISOR_ONLY_PATHS = (
@@ -266,17 +271,18 @@ def _core_steps(core_workflow_text: str) -> list[str]:
 
 def test_dispatch_plan_tests_run_in_core_gated_like_other_core_tests() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
-    steps = [step for step in _core_steps(core_text) if CORE_ONLY_STEP_COMMAND in step]
-    require(
-        bool(steps),
-        f"Core workflow must run {CORE_ONLY_STEP_COMMAND}: removing it from Core must be caught here",
-    )
-    for step in steps:
+    for command in CORE_ONLY_STEP_COMMANDS:
+        steps = [step for step in _core_steps(core_text) if command in step]
         require(
-            CORE_FULL_SUITE_GATE in step,
-            f"{CORE_ONLY_STEP_COMMAND} must be gated exactly like the other Core "
-            f"regression tests ('{CORE_FULL_SUITE_GATE}'): {step}",
+            bool(steps),
+            f"Core workflow must run {command}: removing it from Core must be caught here",
         )
+        for step in steps:
+            require(
+                CORE_FULL_SUITE_GATE in step,
+                f"{command} must be gated exactly like the other Core "
+                f"regression tests ('{CORE_FULL_SUITE_GATE}'): {step}",
+            )
 
 
 def test_unknown_task_review_agent_file_routes_to_core() -> None:
