@@ -686,7 +686,7 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
                     "close",
                     str(snapshot.issue_number),
                     "--repo",
-                    "cathode26/NoSafeCircle",
+                    self._bound_repository(),
                     "--reason",
                     "completed",
                 ),

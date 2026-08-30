@@ -40,6 +40,26 @@ from .issue_workflow import (
 
 REPOSITORY = "cathode26/NoSafeCircle"
 TASK_MARKER_TEMPLATE = "<!-- no-safe-circle-task: {task_id} -->"
+
+# GitHub origin remote forms accepted as durable Issue-authority evidence.
+# Only these three shapes are recognized; anything else fails closed rather
+# than guessing a repository.
+_GITHUB_HTTPS_ORIGIN_RE = re.compile(
+    r"^https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?/?$"
+)
+_GITHUB_SCP_SSH_ORIGIN_RE = re.compile(
+    r"^git@github\.com:(?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?$"
+)
+_GITHUB_SSH_URL_ORIGIN_RE = re.compile(
+    r"^ssh://git@github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?/?$"
+)
+_OWNER_OR_REPO_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+# Matches `scheme://userinfo@` for ANY URI scheme (RFC 3986 scheme grammar),
+# not only http(s): an unsupported credential-bearing origin such as
+# ssh://user:secret@github.com/... must still be redacted before an error
+# message is built, even though that form is never accepted as a supported
+# GitHub remote (see _parse_github_repository).
+_CREDENTIAL_PREFIX_RE = re.compile(r"^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]+@")
 DEFAULT_ASSIGNEE = "cathode26"
 LABEL_DEFINITIONS = {
     "nsc-state:agent-ready": ("1d76db", "Ready for a generic agent to resume"),
@@ -62,6 +82,123 @@ BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT = "durable_resource_reservati
 
 class IssueWorkflowStoreError(TaskReviewContractError):
     """Raised when GitHub Issue workflow state cannot be changed safely."""
+
+
+def _redact_origin(url: str) -> str:
+    """Strip embedded HTTPS basic-auth credentials before an error message."""
+
+    return _CREDENTIAL_PREFIX_RE.sub(r"\1", url)
+
+
+def _parse_github_repository(origin: str) -> tuple[str, str] | None:
+    """Parse a Git origin remote URL into a GitHub ``(owner, repo)`` pair.
+
+    Returns ``None`` for anything that is not exactly one of the supported
+    GitHub remote shapes (HTTPS, SSH URL, or SCP-style SSH) with a well-formed
+    owner and repository segment. Never guesses from a partial match.
+    """
+
+    text = origin.strip()
+    for pattern in (
+        _GITHUB_HTTPS_ORIGIN_RE,
+        _GITHUB_SCP_SSH_ORIGIN_RE,
+        _GITHUB_SSH_URL_ORIGIN_RE,
+    ):
+        match = pattern.match(text)
+        if match is None:
+            continue
+        owner = match.group("owner")
+        repo = match.group("repo")
+        if not _OWNER_OR_REPO_SEGMENT_RE.match(owner):
+            return None
+        if not _OWNER_OR_REPO_SEGMENT_RE.match(repo):
+            return None
+        return owner, repo
+    return None
+
+
+def _normalize_owner_repo(value: str) -> str:
+    """Validate and canonicalize an explicit ``owner/repo`` assertion string."""
+
+    text = str(value).strip()
+    if text.count("/") != 1:
+        raise IssueWorkflowStoreError(
+            f"repository {value!r} must be exactly one 'owner/repo' segment"
+        )
+    owner, _, repo = text.partition("/")
+    if not _OWNER_OR_REPO_SEGMENT_RE.match(owner) or not _OWNER_OR_REPO_SEGMENT_RE.match(repo):
+        raise IssueWorkflowStoreError(f"repository {value!r} is malformed")
+    return f"{owner}/{repo}"
+
+
+def _origin_remote_url(source_root: Path) -> str:
+    try:
+        result = subprocess.run(
+            ("git", "-C", str(source_root), "remote", "get-url", "origin"),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=60.0,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise IssueWorkflowStoreError(
+            f"could not read the Git 'origin' remote for source checkout "
+            f"{source_root}: {exc}"
+        ) from exc
+    if result.returncode != 0:
+        stderr = (result.stderr or "").strip()
+        raise IssueWorkflowStoreError(
+            f"source checkout {source_root} has no readable Git 'origin' remote"
+            + (f": {stderr}" if stderr else "")
+        )
+    origin = result.stdout.strip()
+    if not origin:
+        raise IssueWorkflowStoreError(
+            f"source checkout {source_root} has an empty Git 'origin' remote URL"
+        )
+    return origin
+
+
+def resolve_issue_backend_repository(
+    source_root: Path | str,
+    *,
+    repository: str | None = None,
+) -> str:
+    """Bind durable GitHub Issue authority to the source checkout's Git origin.
+
+    The checkout's ``origin`` remote is the ONLY repository authority: this
+    never falls back to :data:`REPOSITORY`, the current working directory,
+    ``gh``'s notion of the current repository, or an environment variable.
+    Fails closed when the origin is missing, unreadable, or not a recognized
+    GitHub remote.
+
+    ``repository`` may be supplied as an explicit assertion (e.g. a
+    ``--repo`` CLI argument) that MUST match the origin-resolved repository,
+    case-insensitively. A mismatch raises before any GitHub Issue read or
+    write is attempted.
+    """
+
+    root = Path(source_root).resolve()
+    origin = _origin_remote_url(root)
+    parsed = _parse_github_repository(origin)
+    if parsed is None:
+        raise IssueWorkflowStoreError(
+            f"source checkout {root} 'origin' remote is not a supported GitHub "
+            f"repository remote: {_redact_origin(origin)!r}"
+        )
+    owner, repo = parsed
+    resolved = f"{owner}/{repo}"
+    if repository is None:
+        return resolved
+    asserted = _normalize_owner_repo(repository)
+    if asserted.casefold() != resolved.casefold():
+        raise IssueWorkflowStoreError(
+            f"explicit repository {repository!r} does not match {resolved!r} "
+            f"resolved from {root}'s Git 'origin' remote; refusing to bind "
+            "durable GitHub Issue authority to a different repository"
+        )
+    return resolved
 
 
 class IssueBackend(Protocol):
@@ -983,10 +1120,16 @@ class GhIssueBackend:
         self,
         *,
         source_root: Path | str,
-        repository: str = REPOSITORY,
+        repository: str | None = None,
     ) -> None:
         self.source_root = Path(source_root).resolve()
-        self.repository = repository
+        # Repository binding is resolved BEFORE any 'gh' presence/auth check
+        # or Issue operation: a source checkout can never silently borrow
+        # cathode26/NoSafeCircle's durable Issue authority merely because
+        # REPOSITORY used to be the default. See resolve_issue_backend_repository.
+        self.repository = resolve_issue_backend_repository(
+            self.source_root, repository=repository
+        )
         if shutil.which("gh") is None:
             raise IssueWorkflowStoreError("GitHub CLI 'gh' is not installed")
         auth = self._run(

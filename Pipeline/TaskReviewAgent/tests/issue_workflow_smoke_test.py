@@ -4,14 +4,24 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
+import tempfile
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import Pipeline.TaskReviewAgent.dispatch_plan as dispatch_plan_module  # noqa: E402
+import Pipeline.TaskReviewAgent.durable_selection as durable_selection_module  # noqa: E402
+import Pipeline.TaskReviewAgent.generic_selection as generic_selection_module  # noqa: E402
+import Pipeline.TaskReviewAgent.issue_queue as issue_queue_module  # noqa: E402
+import Pipeline.TaskReviewAgent.issue_workflow_store as issue_workflow_store_module  # noqa: E402
+import Pipeline.TaskReviewAgent.real_workflow as real_workflow_module  # noqa: E402
+import Pipeline.TaskReviewAgent.run_pipeline_agent as run_pipeline_agent_module  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     STATE_LABELS,
     IssueWorkflowEvent,
@@ -32,9 +42,12 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER,
     BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT,
+    REPOSITORY,
+    GhIssueBackend,
     IssueWorkflowService,
     IssueWorkflowStoreError,
     MemoryIssueBackend,
+    resolve_issue_backend_repository,
 )
 
 TASK_ID = "NSC-777"
@@ -464,6 +477,310 @@ def test_untyped_blocked_state_carries_no_blocked_kind() -> None:
     )
 
 
+def _run_git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ("git", "-C", str(cwd), *args),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+        timeout=60.0,
+    )
+
+
+def _make_repo(origin: str | None) -> tempfile.TemporaryDirectory:
+    """A throwaway local Git repository with an optional 'origin' remote.
+
+    Never contacts a network: 'git init'/'git remote add' only write local
+    Git metadata, and no fetch/push/clone is performed.
+    """
+
+    tmp = tempfile.TemporaryDirectory(prefix="nsc-repo-binding-")
+    root = Path(tmp.name)
+    _run_git(root, "init", "--quiet")
+    if origin is not None:
+        _run_git(root, "remote", "add", "origin", origin)
+    return tmp
+
+
+def test_resolve_repository_from_production_https_origin() -> None:
+    """Case A: production checkout origin resolves to cathode26/NoSafeCircle."""
+
+    with _make_repo("https://github.com/cathode26/NoSafeCircle.git") as tmp:
+        resolved = resolve_issue_backend_repository(tmp)
+        require(resolved == "cathode26/NoSafeCircle", f"unexpected resolution: {resolved}")
+        require(resolved == REPOSITORY, "production origin must match the REPOSITORY constant")
+
+
+def test_resolve_repository_from_disposable_https_origin() -> None:
+    """Case B: a disposable Gauntlet origin never resolves to NoSafeCircle."""
+
+    with _make_repo(
+        "https://github.com/cathode26/orchestrator-gauntlet-stage4-test.git"
+    ) as tmp:
+        resolved = resolve_issue_backend_repository(tmp)
+        require(
+            resolved == "cathode26/orchestrator-gauntlet-stage4-test",
+            f"unexpected resolution: {resolved}",
+        )
+        require(resolved != REPOSITORY, "disposable origin must not resolve to production")
+
+
+def test_resolve_repository_from_scp_style_ssh_origin() -> None:
+    """Case C: SCP-style SSH origin (git@github.com:owner/repo.git)."""
+
+    with _make_repo(
+        "git@github.com:cathode26/orchestrator-gauntlet-stage4-test.git"
+    ) as tmp:
+        resolved = resolve_issue_backend_repository(tmp)
+        require(
+            resolved == "cathode26/orchestrator-gauntlet-stage4-test",
+            f"unexpected SSH resolution: {resolved}",
+        )
+
+
+def test_resolve_repository_from_ssh_url_origin() -> None:
+    """Fable Medium-2: the supported ssh://git@github.com/... URL form resolves."""
+
+    with _make_repo(
+        "ssh://git@github.com/cathode26/orchestrator-gauntlet-stage4-test.git"
+    ) as tmp:
+        resolved = resolve_issue_backend_repository(tmp)
+        require(
+            resolved == "cathode26/orchestrator-gauntlet-stage4-test",
+            f"unexpected ssh:// resolution: {resolved}",
+        )
+        # Constructor-level coverage: a matching explicit repository assertion
+        # is accepted for the same supported ssh:// origin form.
+        resolved_with_assertion = resolve_issue_backend_repository(
+            tmp, repository="cathode26/orchestrator-gauntlet-stage4-test"
+        )
+        require(
+            resolved_with_assertion == "cathode26/orchestrator-gauntlet-stage4-test",
+            f"unexpected ssh:// resolution with assertion: {resolved_with_assertion}",
+        )
+
+
+def test_credential_bearing_ssh_origin_fails_safely_without_leaking_secret() -> None:
+    """Fable Medium-1: an unsupported ssh://user:secret@... origin must still
+
+    fail closed (it is not one of the three accepted GitHub remote shapes),
+    but the embedded credential must never reach the exception text.
+    """
+
+    with _make_repo("ssh://user:secret@github.com/owner/repo.git") as tmp:
+        try:
+            resolve_issue_backend_repository(tmp)
+        except IssueWorkflowStoreError as exc:
+            message = str(exc)
+            require("secret" not in message, f"credential leaked into error: {message}")
+            require(
+                "not a supported GitHub repository remote" in message,
+                f"unexpected error: {message}",
+            )
+        else:
+            raise AssertionError("credential-bearing ssh:// origin must fail closed")
+
+
+def test_https_credential_origin_remains_redacted() -> None:
+    """https://user:secret@... stays redacted when it fails closed."""
+
+    with _make_repo("https://user:secret@gitlab.com/owner/repo.git") as tmp:
+        try:
+            resolve_issue_backend_repository(tmp)
+        except IssueWorkflowStoreError as exc:
+            message = str(exc)
+            require("secret" not in message, f"credential leaked into error: {message}")
+        else:
+            raise AssertionError("non-GitHub credentialed origin must fail closed")
+
+
+def test_https_token_origin_remains_redacted() -> None:
+    """https://TOKEN@... (single-value userinfo) stays redacted when it fails closed."""
+
+    with _make_repo("https://ghp_faketoken@gitlab.com/owner/repo.git") as tmp:
+        try:
+            resolve_issue_backend_repository(tmp)
+        except IssueWorkflowStoreError as exc:
+            message = str(exc)
+            require(
+                "ghp_faketoken" not in message, f"token leaked into error: {message}"
+            )
+        else:
+            raise AssertionError("non-GitHub token-bearing origin must fail closed")
+
+
+def test_resolve_repository_missing_origin_fails_closed() -> None:
+    """Case D: no 'origin' remote at all fails closed rather than defaulting."""
+
+    with _make_repo(None) as tmp:
+        expect_error(
+            lambda: resolve_issue_backend_repository(tmp),
+            "no readable Git 'origin' remote",
+        )
+
+
+def test_gh_issue_backend_fails_closed_for_local_filesystem_origin() -> None:
+    """Case E: a REAL GhIssueBackend fails closed for a local/bare remote."""
+
+    with _make_repo("/tmp/some/bare/repo.git") as tmp:
+        expect_error(
+            lambda: GhIssueBackend(source_root=tmp),
+            "not a supported GitHub repository remote",
+        )
+
+
+def test_resolve_repository_non_github_remote_fails_closed() -> None:
+    """Case F: a well-formed but non-GitHub remote fails closed."""
+
+    with _make_repo("https://gitlab.com/cathode26/NoSafeCircle.git") as tmp:
+        expect_error(
+            lambda: resolve_issue_backend_repository(tmp),
+            "not a supported GitHub repository remote",
+        )
+
+
+def test_resolve_repository_malformed_github_remote_fails_closed() -> None:
+    """Case G: a GitHub host URL missing a repository segment fails closed."""
+
+    with _make_repo("https://github.com/cathode26") as tmp:
+        expect_error(
+            lambda: resolve_issue_backend_repository(tmp),
+            "not a supported GitHub repository remote",
+        )
+
+
+def test_explicit_repository_assertion_matching_origin_is_accepted() -> None:
+    """Case H: an explicit --repo-style assertion matching origin is accepted."""
+
+    with _make_repo("https://github.com/cathode26/NoSafeCircle.git") as tmp:
+        resolved = resolve_issue_backend_repository(tmp, repository="cathode26/NoSafeCircle")
+        require(resolved == "cathode26/NoSafeCircle", f"unexpected resolution: {resolved}")
+        # A case-insensitive assertion is accepted too, but the origin's own
+        # casing remains canonical.
+        resolved_case = resolve_issue_backend_repository(
+            tmp, repository="Cathode26/NoSafeCircle"
+        )
+        require(
+            resolved_case == "cathode26/NoSafeCircle",
+            f"case-insensitive assertion should still resolve to origin casing: {resolved_case}",
+        )
+
+
+def test_explicit_repository_assertion_mismatch_fails_closed() -> None:
+    """Case I: a mismatched explicit assertion fails BEFORE any Issue call."""
+
+    with _make_repo(
+        "https://github.com/cathode26/orchestrator-gauntlet-stage4-test.git"
+    ) as tmp:
+        expect_error(
+            lambda: resolve_issue_backend_repository(tmp, repository="cathode26/NoSafeCircle"),
+            "does not match",
+        )
+
+
+def test_gh_issue_backend_requires_source_root() -> None:
+    """Case J: constructing GhIssueBackend with no source_root stays impossible."""
+
+    try:
+        GhIssueBackend()  # type: ignore[call-arg]
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("GhIssueBackend() without source_root must be impossible")
+
+
+def test_gh_issue_backend_mismatch_fails_before_any_gh_invocation() -> None:
+    """Network-side-effect regression: a repository-assertion mismatch must
+    fail during safe construction, before 'gh' is even probed for -- i.e.
+    strictly before any possible ensure_labels/list_issues/create_issue/
+    update_issue/add_comment side effect."""
+
+    class _ForbiddenShutil:
+        @staticmethod
+        def which(name: str) -> str | None:
+            raise AssertionError(
+                f"repository mismatch must fail before probing for {name!r}"
+            )
+
+    original_shutil = issue_workflow_store_module.shutil
+    issue_workflow_store_module.shutil = _ForbiddenShutil()
+    try:
+        with _make_repo(
+            "https://github.com/cathode26/orchestrator-gauntlet-stage4-test.git"
+        ) as tmp:
+            expect_error(
+                lambda: GhIssueBackend(source_root=tmp, repository="cathode26/NoSafeCircle"),
+                "does not match",
+            )
+    finally:
+        issue_workflow_store_module.shutil = original_shutil
+
+
+def test_production_composition_binds_to_checkout_origin_not_default() -> None:
+    """Every real production construction site shares the same, repository-
+    bound GhIssueBackend symbol, and a disposable-origin checkout composes a
+    backend targeting itself -- never cathode26/NoSafeCircle. Covers Stage 2
+    read-only planning (dispatch_plan/durable_selection/generic_selection/
+    issue_queue) and Stage 3/4 durable Issue routing (real_workflow/
+    run_pipeline_agent). No GitHub network call is made: only 'gh auth
+    status' is faked, and every other subprocess call (git) runs for real
+    against the local throwaway repository."""
+
+    production_modules = (
+        dispatch_plan_module,
+        durable_selection_module,
+        generic_selection_module,
+        issue_queue_module,
+        real_workflow_module,
+        run_pipeline_agent_module,
+    )
+    for module in production_modules:
+        require(
+            module.GhIssueBackend is GhIssueBackend,
+            f"{module.__name__} must construct the shared, repository-bound "
+            "GhIssueBackend rather than a private copy",
+        )
+
+    class _FakeShutil:
+        @staticmethod
+        def which(name: str) -> str | None:
+            return f"/usr/bin/{name}"
+
+    original_shutil = issue_workflow_store_module.shutil
+    original_run = issue_workflow_store_module.subprocess.run
+
+    def fake_run(args, **kwargs):
+        args_tuple = tuple(args)
+        if args_tuple[:1] == ("gh",):
+            if args_tuple[:3] == ("gh", "auth", "status"):
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"unexpected 'gh' invocation in a network-free test: {args}")
+        return original_run(args, **kwargs)
+
+    issue_workflow_store_module.shutil = _FakeShutil()
+    issue_workflow_store_module.subprocess.run = fake_run
+    try:
+        with _make_repo(
+            "https://github.com/cathode26/orchestrator-gauntlet-stage4-test.git"
+        ) as tmp:
+            for module in production_modules:
+                backend = module.GhIssueBackend(source_root=tmp)
+                require(
+                    backend.repository == "cathode26/orchestrator-gauntlet-stage4-test",
+                    f"{module.__name__} composition bound to {backend.repository!r} "
+                    "instead of the checkout origin",
+                )
+                require(
+                    backend.repository != REPOSITORY,
+                    f"{module.__name__} composition must never silently target "
+                    f"{REPOSITORY}",
+                )
+    finally:
+        issue_workflow_store_module.shutil = original_shutil
+        issue_workflow_store_module.subprocess.run = original_run
+
+
 def main() -> int:
     tests = (
         test_state_event_round_trip_and_chain,
@@ -472,6 +789,22 @@ def main() -> int:
         test_durable_ownership_by_other_is_typed_blocked_kind,
         test_operational_resource_inspection_failure_is_not_benign,
         test_untyped_blocked_state_carries_no_blocked_kind,
+        test_resolve_repository_from_production_https_origin,
+        test_resolve_repository_from_disposable_https_origin,
+        test_resolve_repository_from_scp_style_ssh_origin,
+        test_resolve_repository_from_ssh_url_origin,
+        test_credential_bearing_ssh_origin_fails_safely_without_leaking_secret,
+        test_https_credential_origin_remains_redacted,
+        test_https_token_origin_remains_redacted,
+        test_resolve_repository_missing_origin_fails_closed,
+        test_gh_issue_backend_fails_closed_for_local_filesystem_origin,
+        test_resolve_repository_non_github_remote_fails_closed,
+        test_resolve_repository_malformed_github_remote_fails_closed,
+        test_explicit_repository_assertion_matching_origin_is_accepted,
+        test_explicit_repository_assertion_mismatch_fails_closed,
+        test_gh_issue_backend_requires_source_root,
+        test_gh_issue_backend_mismatch_fails_before_any_gh_invocation,
+        test_production_composition_binds_to_checkout_origin_not_default,
     )
     for test in tests:
         test()
