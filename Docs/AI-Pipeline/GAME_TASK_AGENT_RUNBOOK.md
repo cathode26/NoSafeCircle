@@ -42,7 +42,7 @@ The agent does not ask Vincent to review a raw patch or finish implementation. I
 From the clean shared controller checkout:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+C:\NSC\NSC\NoSafeCircle
 ```
 
 confirm:
@@ -99,7 +99,7 @@ When no validated agent-ready Issue exists, generic resume stops and asks for an
 3. It creates or resumes:
 
    ```text
-   C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+   C:\NSC\NSC\<TASK-ID>
    ```
 
 4. The OpenAI supervisor receives bounded repository read, search, and exact file-list tools. It does not receive unrestricted shell or direct game-code write authority.

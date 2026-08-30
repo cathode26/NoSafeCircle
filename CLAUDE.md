@@ -40,13 +40,13 @@ The primary human reader is a Unity game programmer. Write task titles, task req
 
 @Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md
 
-The shared operator checkout is `C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle`. A claimed NSC task uses `C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>`, preserving the hyphenated ID, for example `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`. Do not invent `NoSafeCircle-NSC...` directory variants.
+The shared operator checkout is `C:\NSC\NSC\NoSafeCircle`. A claimed NSC task uses `C:\NSC\NSC\<TASK-ID>`, preserving the hyphenated ID, for example `C:\NSC\NSC\NSC-021`. Do not invent `NoSafeCircle-NSC...` directory variants.
 
 ## Required decomposition checkout policy
 
 @Docs/AI-Pipeline/DECOMPOSITION_CHECKOUT_ISOLATION.md
 
-When acting as a task orchestrator, decomposition work must leave the shared checkout after claim and before D1B.1 execution. Decomposition uses the same canonical task directory, e.g. `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`, with authoritative outputs in a filesystem-disjoint sibling such as `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021-Outputs`. This is operator coordination guidance and does not grant the decomposition agent additional repository-write authority.
+When acting as a task orchestrator, decomposition work must leave the shared checkout after claim and before D1B.1 execution. Decomposition uses the same canonical task directory, e.g. `C:\NSC\NSC\NSC-021`, with authoritative outputs in a filesystem-disjoint sibling such as `C:\NSC\NSC\NSC-021-Outputs`. This is operator coordination guidance and does not grant the decomposition agent additional repository-write authority.
 
 ## Global operating rules
 

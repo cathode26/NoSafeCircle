@@ -40,7 +40,7 @@ OTHER_TASK_ID = "NSC-778"
 CONTRACT_HASH = "a" * 64
 SOURCE_HEAD = "1" * 40
 HANDOFF_HEAD = "2" * 40
-CHECKOUT = r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-777"
+CHECKOUT = r"C:\NSC\NSC\NSC-777"
 BRANCH = "nsc-777-synthetic-workflow"
 
 
@@ -268,7 +268,7 @@ def test_resource_conflict_and_tampered_history_fail_closed() -> None:
         task=tasks[OTHER_TASK_ID],
         source_head=SOURCE_HEAD,
         branch="nsc-778-other",
-        checkout_path=r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-778",
+        checkout_path=r"C:\NSC\NSC\NSC-778",
         planned_approach="Attempt overlapping work.",
         expected_validation="Should be blocked.",
         now="2026-08-27T12:01:00Z",

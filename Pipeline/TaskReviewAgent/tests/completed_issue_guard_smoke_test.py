@@ -39,7 +39,7 @@ TASK_ID = "NSC-777"
 CONTRACT_HASH = "7" * 64
 SOURCE_HEAD = "1" * 40
 BRANCH = "nsc-777-completed-issue-guard"
-CHECKOUT = "C:/NoSafeCircleAgentCrew/NSC-777"
+CHECKOUT = "C:/NSC/NSC/NSC-777"
 
 
 def require(value: bool, message: str) -> None:

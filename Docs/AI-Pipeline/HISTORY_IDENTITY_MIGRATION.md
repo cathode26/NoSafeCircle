@@ -36,7 +36,7 @@ Use the normal external handoff hierarchy. The output directory must not already
 
 ```powershell
 $ErrorActionPreference = "Stop"
-$Repo = "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle"
+$Repo = "C:\NSC\NSC\NoSafeCircle"
 $Downloads = Join-Path $env:USERPROFILE "Downloads"
 $WorkId = "History-Identity-Migration"
 $RunId = Get-Date -Format "yyyyMMdd-HHmmss"

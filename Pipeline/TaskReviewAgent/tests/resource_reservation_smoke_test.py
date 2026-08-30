@@ -39,8 +39,8 @@ TASK_B = "NSC-778"
 SHARED_RESOURCE = "unity-scene:Assets/Scenes/Shared.unity"
 SOURCE_HEAD = "1" * 40
 HANDOFF_HEAD = "2" * 40
-CHECKOUT_A = r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-777"
-CHECKOUT_B = r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-778"
+CHECKOUT_A = r"C:\NSC\NSC\NSC-777"
+CHECKOUT_B = r"C:\NSC\NSC\NSC-778"
 
 
 def require(condition: bool, message: str) -> None:
@@ -150,7 +150,7 @@ def test_agent_ready_issue_reserves_committed_resources() -> None:
         task=tasks["NSC-779"],
         source_head=SOURCE_HEAD,
         branch="nsc-779-task",
-        checkout_path=r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-779",
+        checkout_path=r"C:\NSC\NSC\NSC-779",
         planned_approach="Disjoint resources may proceed.",
         expected_validation="Lease acquired.",
         now="2026-08-29T10:04:00Z",
@@ -245,7 +245,7 @@ def test_invalid_workflow_issue_blocks_resource_less_task() -> None:
         task=tasks["NSC-779"],
         source_head=SOURCE_HEAD,
         branch="nsc-779-task",
-        checkout_path=r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-779",
+        checkout_path=r"C:\NSC\NSC\NSC-779",
         planned_approach="A resource-less task beside a corrupted Issue.",
         expected_validation="The corrupted Issue still blocks coordination.",
         now="2026-08-29T10:08:00Z",
@@ -353,7 +353,7 @@ def test_unauthorized_issue_never_reserves_or_blocks() -> None:
         task=tasks["NSC-779"],
         source_head=SOURCE_HEAD,
         branch="nsc-779-task",
-        checkout_path=r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-779",
+        checkout_path=r"C:\NSC\NSC\NSC-779",
         planned_approach="A task with no exclusive resources.",
         expected_validation="The forged Issue cannot block it.",
         now="2026-08-29T10:13:00Z",

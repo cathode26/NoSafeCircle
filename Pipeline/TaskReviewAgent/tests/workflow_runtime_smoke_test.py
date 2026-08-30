@@ -77,7 +77,7 @@ class FakeIssueWorkflow:
                 "lease_id": None,
                 "branch": "nsc-777-task",
                 "head_commit": EVIDENCE_HEAD,
-                "checkout_path": r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-777",
+                "checkout_path": r"C:\NSC\NSC\NSC-777",
                 "task_contract_sha256": CONTRACT_HASH,
                 "state_version": 6,
                 "last_event_id": "c" * 64,
@@ -95,7 +95,7 @@ class FakeIssueWorkflow:
 
 
 class FakeCheckoutManager:
-    checkout_path = Path(r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-777")
+    checkout_path = Path(r"C:\NSC\NSC\NSC-777")
 
     def expected_branch(self, observation):
         return "nsc-777-task"

@@ -138,6 +138,8 @@ def create_fixture(root: Path) -> tuple[Path, Path, str]:
         cwd=root,
     )
     run("git", "clone", str(remote), str(controller), cwd=root)
+    git(controller, "config", "user.name", "TaskReviewAgent Smoke")
+    git(controller, "config", "user.email", "task-review-agent@example.invalid")
     return controller, remote, git(controller, "rev-parse", "HEAD")
 
 

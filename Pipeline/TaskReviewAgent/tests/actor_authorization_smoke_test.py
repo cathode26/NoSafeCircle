@@ -48,7 +48,7 @@ CONTRACT_HASH = "a" * 64
 SOURCE_HEAD = "1" * 40
 HANDOFF_HEAD = "2" * 40
 WRONG_HEAD = "3" * 40
-CHECKOUT = r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-777"
+CHECKOUT = r"C:\NSC\NSC\NSC-777"
 BRANCH = "nsc-777-actor-authorization"
 HUMAN = {"login": "cathode26"}
 BOT = {"login": "github-actions[bot]"}
@@ -480,7 +480,7 @@ def test_unauthorized_issue_cannot_become_managed_task_issue() -> None:
         task=tasks[OTHER_TASK_ID],
         source_head=SOURCE_HEAD,
         branch="nsc-778-other",
-        checkout_path=r"C:\UnityProjects\NoSafeCircleAgentCrew\NSC-778",
+        checkout_path=r"C:\NSC\NSC\NSC-778",
         planned_approach="Attempt work while a forged Issue exists.",
         expected_validation="The forged Issue is surfaced, not trusted, not blocking.",
         now="2026-08-29T09:11:00Z",

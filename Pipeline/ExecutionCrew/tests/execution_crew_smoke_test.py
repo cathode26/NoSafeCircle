@@ -705,7 +705,7 @@ def main():
     write(source/IMPL,"public class PlayerMana { public int Mana; public int PreHostMarker; }\n")
     write(source/TEST,"public class PlayerManaTests { public void PreHostMarkerTest() {} }\n")
     cmd(source,"add",IMPL,TEST); cmd(source,"commit","-qm","pre host-root fixture state")
-    HOST_ROOT=r"C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs"
+    HOST_ROOT=r"C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs"
     assert validate_host_output_root(HOST_ROOT) is not None
     host_pass,host_pass_state,host_pass_dir=execute(source,outputs,"pass",90,provider="claude",host_output_root=HOST_ROOT)
     assert host_pass["crew_status"]=="review_ready"

@@ -33,10 +33,10 @@ The canonical Windows convention is:
 
 ```text
 shared operator checkout:
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+C:\NSC\NSC\NoSafeCircle
 
 claimed task checkout:
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 Preserve the exact hyphenated task ID.
@@ -221,6 +221,18 @@ If the human asks to sync/reconcile GitHub Issues from TaskGraph state, follow:
 `Docs/AI-Pipeline/TASKGRAPH_GITHUB_ISSUE_STATE_SYNC.md`
 
 TaskGraph is authoritative. GitHub only mirrors operational state. A pure sync does not itself reopen/close or assign/unassign Issues.
+
+## CI impact routing
+
+GitHub Actions workflow triggers are scoped by changed-path impact, not by PR title, branch name, labels, or commit-message tokens:
+
+- lightweight policy/docs/test-fixture-only changes trigger only their own narrow check (e.g. `history-migration-smoke.yml` for HistoryMigration test files, `checkout-root-policy.yml` for every PR);
+- production subsystem changes (e.g. `Pipeline/HistoryMigration/history_identity.py`) trigger that subsystem's full deterministic suite;
+- `Pipeline/TaskReviewAgent/**` is split into three targeted suites — `task-review-agent-deterministic.yml` (Core: contracts, authorization, committed task loading, Issue workflow state, resource reservation, checkout/resume, workflow runtime, real observation), `task-review-agent-supervisor.yml` (Codex supervisor, goal-loop/circuit-breaker, progress logging, Compose supervisor volume, Start-GameTaskAgent PowerShell), and `task-review-agent-delivery.yml` (downstream routing/action grounding, delivery review, ExecutionCrew integration, Issue-to-human handoff, merge-closeout polling). A known Supervisor- or Delivery-owned file routes only to its targeted suite (plus Core when the file is genuinely cross-cutting); an unrecognized or newly added `Pipeline/TaskReviewAgent/` file is not excluded from Core's path filter, so it fails safe by still running Core. This is a property of that workflow's specific include/exclude list, not a repository-wide guarantee — GitHub path filters cannot enforce a broader default for every subsystem;
+- cross-cutting files may intentionally trigger more than one targeted suite (see the routing comments at the top of each `task-review-agent-*.yml` file) rather than being silently skipped;
+- files outside these scoped systems remain governed entirely by their own workflow's path filters.
+
+A workflow file only triggers its own suite by naming itself explicitly (not a blanket `.github/workflows/**`), so unrelated workflow edits do not fan out into every deterministic check.
 
 ## Current intentional gaps
 

@@ -126,13 +126,13 @@ GitHub assignment to `cathode26` remains a visible repository convention, but as
 The shared controller checkout is:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+C:\NSC\NSC\NoSafeCircle
 ```
 
 The task checkout is:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 The task ID remains hyphenated. Do not create `NoSafeCircle-NSC...`, `-DECOMP`, `-FINAL`, or timestamped task-checkout variants.
