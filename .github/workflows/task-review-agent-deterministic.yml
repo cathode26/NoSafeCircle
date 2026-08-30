@@ -3,15 +3,12 @@ name: TaskReviewAgent Deterministic Validation
 on:
   pull_request:
     paths:
-      - ".github/workflows/**"
+      - ".github/workflows/task-review-agent-deterministic.yml"
       - "compose.override.yaml"
       - "Pipeline/TaskReviewAgent/**"
       - "Pipeline/TaskGraph/**"
       - "Pipeline/Testing/**"
       - "Tasks/**"
-      - "Docs/AI-Pipeline/ISSUE_WORKFLOW_STATE_MACHINE.md"
-      - "Docs/AI-Pipeline/GITHUB_TICKET_ORCHESTRATION_MVP.md"
-      - "AGENTS.md"
   workflow_dispatch:
 
 permissions:

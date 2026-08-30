@@ -222,6 +222,16 @@ If the human asks to sync/reconcile GitHub Issues from TaskGraph state, follow:
 
 TaskGraph is authoritative. GitHub only mirrors operational state. A pure sync does not itself reopen/close or assign/unassign Issues.
 
+## CI impact routing
+
+GitHub Actions workflow triggers are scoped by changed-path impact, not by PR title, branch name, labels, or commit-message tokens:
+
+- lightweight policy/docs/test-fixture-only changes trigger only their own narrow check (e.g. `history-migration-smoke.yml` for HistoryMigration test files, `checkout-root-policy.yml` for every PR);
+- production subsystem changes (e.g. `Pipeline/TaskReviewAgent/**`, `Pipeline/HistoryMigration/history_identity.py`) trigger that subsystem's full deterministic suite;
+- cross-cutting or unclassified changes default to the broader/expensive suites rather than being silently skipped.
+
+A workflow file only triggers its own suite by naming itself explicitly (not a blanket `.github/workflows/**`), so unrelated workflow edits do not fan out into every deterministic check.
+
 ## Current intentional gaps
 
 The following are not yet production authority:
