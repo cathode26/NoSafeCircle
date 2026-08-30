@@ -8,6 +8,12 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from .claim_policy import ClaimPolicy
+from .claim_refs import (
+    GitRefClaimClient,
+    acquire_issue_lease_with_claims,
+    build_activated_claim_client,
+)
 from .committed_tasks import CommittedTaskError, load_committed_task
 from .contracts import TaskReviewContractError, semantic_sha256, validate_task_id
 from .coordination import CoordinationObserver
@@ -38,6 +44,8 @@ class RealTaskReviewWorkflow:
         worker_id: str,
         coordination_observer: CoordinationObserver | None = None,
         issue_workflow_service: IssueWorkflowService | None = None,
+        claim_client: GitRefClaimClient | None = None,
+        claim_policy: ClaimPolicy | None = None,
         allow_local_remote_for_tests: bool = False,
     ) -> None:
         self.task_id = validate_task_id(task_id)
@@ -47,6 +55,15 @@ class RealTaskReviewWorkflow:
             raise TaskReviewContractError("worker_id must be non-empty")
         self.base_observer = RealTaskObserver(self.source, self.task_id)
         self.legacy_coordination_observer = coordination_observer
+        # The real production composition path is the branch where this
+        # workflow itself composes the mutating GitHub Issue backend. That
+        # path may never fall back to Issue-only admission merely because
+        # claim_client was omitted: lease acquisition must either use the
+        # explicitly activated claim client from the committed claim policy
+        # or stop closed before any Issue mutation. An injected
+        # issue_workflow_service is an explicit composition decision (tests,
+        # alternate backends) and keeps its injected claim behavior.
+        self.claim_coordination_required = False
         if issue_workflow_service is not None:
             self.issue_workflow = issue_workflow_service
         elif coordination_observer is None:
@@ -55,8 +72,15 @@ class RealTaskReviewWorkflow:
                 task_loader=self._load_committed_task,
                 worker_id=self.worker_id,
             )
+            self.claim_coordination_required = claim_client is None
         else:
             self.issue_workflow = None
+        # Stage 1 ephemeral claim layer. When present, explicit-task Issue
+        # lease acquisition is guarded by short-lived atomic Git-ref claims
+        # (see claim_refs.acquire_issue_lease_with_claims). The GitHub Issue
+        # lease remains the durable workflow authority either way.
+        self.claim_client = claim_client
+        self.claim_policy = claim_policy
 
         manager_type = (
             ResumableTaskCheckoutManager
@@ -212,14 +236,42 @@ class RealTaskReviewWorkflow:
             )
         task = dict(self.last_observation["task"])
         task["id"] = self.task_id
-        result = self.issue_workflow.acquire_agent_lease(
-            task=task,
-            source_head=self.last_observation["environment"]["source_head"],
-            branch=self.checkout_manager.expected_branch(self.last_observation),
-            checkout_path=str(self.checkout_manager.checkout_path),
-            planned_approach=planned_approach,
-            expected_validation=expected_validation,
-        )
+        if self.claim_client is None and self.claim_coordination_required:
+            # Fail closed BEFORE any Issue mutation: this raises
+            # ClaimCoordinationNotActivatedError until a reviewed policy
+            # change activates one capability-probe-proven namespace.
+            remote_url = self._remote_url()
+            if not remote_url:
+                raise TaskReviewContractError(
+                    "the controller checkout has no origin remote URL; atomic "
+                    "claim coordination cannot be composed"
+                )
+            self.claim_client = build_activated_claim_client(
+                local_repository=self.base_observer.root,
+                remote=remote_url,
+                worker_id=self.worker_id,
+                policy=self.claim_policy,
+            )
+        if self.claim_client is not None:
+            result = acquire_issue_lease_with_claims(
+                claim_client=self.claim_client,
+                issue_workflow=self.issue_workflow,
+                task=task,
+                source_head=self.last_observation["environment"]["source_head"],
+                branch=self.checkout_manager.expected_branch(self.last_observation),
+                checkout_path=str(self.checkout_manager.checkout_path),
+                planned_approach=planned_approach,
+                expected_validation=expected_validation,
+            )
+        else:
+            result = self.issue_workflow.acquire_agent_lease(
+                task=task,
+                source_head=self.last_observation["environment"]["source_head"],
+                branch=self.checkout_manager.expected_branch(self.last_observation),
+                checkout_path=str(self.checkout_manager.checkout_path),
+                planned_approach=planned_approach,
+                expected_validation=expected_validation,
+            )
         self.last_lease_result = json.loads(
             json.dumps(result, ensure_ascii=False, allow_nan=False)
         )
