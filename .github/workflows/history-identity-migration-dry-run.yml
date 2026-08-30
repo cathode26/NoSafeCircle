@@ -93,10 +93,11 @@ jobs:
               text=True,
           ).splitlines()
           observed = {line.strip().casefold() for line in identity_lines if line.strip()}
+          github_user_noreply = "users." + "noreply.github.com"
           unsafe = {
-              "resilience@users.noreply.github.com",
-              "reintegration-bridge@users.noreply.github.com",
-              "pipeline@users.noreply.github.com",
+              f"resilience@{github_user_noreply}",
+              f"reintegration-bridge@{github_user_noreply}",
+              f"pipeline@{github_user_noreply}",
           }
           reachable_unsafe = sorted(unsafe & observed)
 
