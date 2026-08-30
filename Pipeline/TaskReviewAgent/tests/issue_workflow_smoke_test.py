@@ -30,6 +30,8 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     validate_event_chain,
 )
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER,
+    BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT,
     IssueWorkflowService,
     IssueWorkflowStoreError,
     MemoryIssueBackend,
@@ -275,6 +277,14 @@ def test_resource_conflict_and_tampered_history_fail_closed() -> None:
     )
     require(blocked["status"] == "blocked", "resource conflict was not blocked")
     require("overlapping resources" in blocked["reasons"][0], "resource reason missing")
+    # MEDIUM-1: a proven overlap against another currently-valid, authorized,
+    # managed Issue is exactly the positively-typed benign resource-
+    # reservation conflict Stage 3 may retry as ordinary claim_conflict.
+    require(
+        blocked.get("blocked_kind") == BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT,
+        f"a proven durable resource-reservation overlap must carry the typed benign "
+        f"blocked_kind: {blocked}",
+    )
 
     issue_number = next(iter(backend.issues))
     backend.comments[issue_number][0]["body"] = backend.comments[issue_number][0][
@@ -283,12 +293,185 @@ def test_resource_conflict_and_tampered_history_fail_closed() -> None:
     observed = service.observe(TASK_ID)
     require(observed["status"] == "conflict", "tampered event history was accepted")
 
+    # An invalid/tampered managed Issue is never benign contention: acquiring
+    # against it must fail closed with an exception, never a typed
+    # blocked_kind that Stage 3 could retry.
+    expect_error(
+        lambda: service.acquire_agent_lease(
+            task=tasks[TASK_ID],
+            source_head=SOURCE_HEAD,
+            branch=BRANCH,
+            checkout_path=CHECKOUT,
+            planned_approach="Resume after tampering.",
+            expected_validation="Should fail closed, not retry.",
+            now="2026-08-27T12:02:00Z",
+        ),
+        "invalid workflow state",
+    )
+
+
+def test_durable_ownership_by_other_is_typed_blocked_kind() -> None:
+    """MEDIUM-1: another authorized worker's valid agent_working Issue for
+    the SAME task, with no exclusive-resource overlap involved, must block
+    with the positively-typed BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER --
+    exactly the shape Stage 3 maps to ordinary claim_conflict."""
+
+    backend = MemoryIssueBackend()
+    solo_task = {
+        **task(TASK_ID),
+        "exclusive_resources": [],
+    }
+    tasks = {TASK_ID: solo_task}
+    worker_a = IssueWorkflowService(
+        backend=backend, task_loader=lambda task_id: tasks[task_id], worker_id="agent-a"
+    )
+    acquired = worker_a.acquire_agent_lease(
+        task=solo_task,
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Reserve the task.",
+        expected_validation="Held by agent-a.",
+        now="2026-08-27T13:00:00Z",
+    )
+    require(acquired["status"] == "acquired", f"setup lease was not acquired: {acquired}")
+
+    worker_b = IssueWorkflowService(
+        backend=backend, task_loader=lambda task_id: tasks[task_id], worker_id="agent-b"
+    )
+    blocked = worker_b.acquire_agent_lease(
+        task=solo_task,
+        source_head=SOURCE_HEAD,
+        branch="nsc-777-worker-b",
+        checkout_path=r"C:\NSC\NSC\NSC-777-worker-b",
+        planned_approach="A different worker attempts the same task.",
+        expected_validation="Should be blocked as ordinary durable ownership.",
+        now="2026-08-27T13:01:00Z",
+    )
+    require(blocked["status"] == "blocked", f"a different worker's lease attempt was not blocked: {blocked}")
+    require(
+        blocked.get("blocked_kind") == BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER,
+        f"another worker's valid agent_working Issue must carry the typed benign "
+        f"blocked_kind: {blocked}",
+    )
+
+    # The SAME worker resuming its own lease must never carry a blocked_kind
+    # (it is not even blocked -- "resumed" -- so this also proves the
+    # blocked_kind is never emitted merely because the state is AGENT_WORKING).
+    resumed = worker_a.acquire_agent_lease(
+        task=solo_task,
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Resume the held task.",
+        expected_validation="Still held by agent-a.",
+        now="2026-08-27T13:02:00Z",
+    )
+    require(resumed["status"] == "resumed", f"the owning worker could not resume: {resumed}")
+    require("blocked_kind" not in resumed, f"a successful resume must never carry a blocked_kind: {resumed}")
+
+
+def test_operational_resource_inspection_failure_is_not_benign() -> None:
+    """MEDIUM-1 safety boundary: a task-load failure while scanning another
+    Issue's reserved resources is an operational failure, not proven ordinary
+    contention, even though a real overlap also exists elsewhere. Mixing one
+    unprovable conflict into the result must suppress blocked_kind entirely."""
+
+    backend = MemoryIssueBackend()
+    tasks = {TASK_ID: task(TASK_ID), OTHER_TASK_ID: task(OTHER_TASK_ID)}
+    holder = IssueWorkflowService(
+        backend=backend, task_loader=lambda task_id: tasks[task_id], worker_id="agent-a"
+    )
+    holder.acquire_agent_lease(
+        task=tasks[OTHER_TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch="nsc-778-holder",
+        checkout_path=r"C:\NSC\NSC\NSC-778",
+        planned_approach="Reserve the shared scene under a different task.",
+        expected_validation="Held by agent-a.",
+        now="2026-08-27T14:00:00Z",
+    )
+
+    def failing_task_loader(task_id: str) -> dict:
+        if task_id == OTHER_TASK_ID:
+            raise RuntimeError("synthetic committed-task load outage")
+        return tasks[task_id]
+
+    challenger = IssueWorkflowService(
+        backend=backend, task_loader=failing_task_loader, worker_id="agent-b"
+    )
+    blocked = challenger.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Attempt the overlapping resource.",
+        expected_validation="Should be blocked, but never as benign contention.",
+        now="2026-08-27T14:01:00Z",
+    )
+    require(blocked["status"] == "blocked", f"the resource scan should still block: {blocked}")
+    require(
+        "blocked_kind" not in blocked,
+        f"an operational task-load failure must never be misclassified as benign "
+        f"typed contention: {blocked}",
+    )
+
+
+def test_untyped_blocked_state_carries_no_blocked_kind() -> None:
+    """MEDIUM-1 safety boundary: a workflow state other than agent_ready or
+    agent_working (e.g. human_action_required) is an ordinary, unrelated
+    blocked shape and must stay untyped/terminal."""
+
+    backend = MemoryIssueBackend()
+    tasks = {TASK_ID: task(TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend, task_loader=lambda task_id: tasks[task_id], worker_id="agent-a"
+    )
+    service.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Implement the task and commit the exact branch.",
+        expected_validation="Run checks, then hand Unity validation to Vincent.",
+        now="2026-08-27T15:00:00Z",
+    )
+    service.publish_human_handoff(
+        task_id=TASK_ID,
+        branch=BRANCH,
+        head_commit=HANDOFF_HEAD,
+        checkout_path=CHECKOUT,
+        implementation_summary="Implemented the synthetic gameplay behavior and tests.",
+        completed_checks=("TaskGraph validation passed.",),
+        human_steps=("Open the project.",),
+        expected_result="The behavior matches AC-001.",
+        now="2026-08-27T15:01:00Z",
+    )
+
+    blocked = service.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Attempt to re-acquire while awaiting human validation.",
+        expected_validation="Should be blocked, but never as benign contention.",
+        now="2026-08-27T15:02:00Z",
+    )
+    require(blocked["status"] == "blocked", f"human_action_required must still block: {blocked}")
+    require(
+        "blocked_kind" not in blocked,
+        f"a non-agent_working blocked state must never carry a blocked_kind: {blocked}",
+    )
+
 
 def main() -> int:
     tests = (
         test_state_event_round_trip_and_chain,
         test_issue_service_handoff_human_result_and_resume,
         test_resource_conflict_and_tampered_history_fail_closed,
+        test_durable_ownership_by_other_is_typed_blocked_kind,
+        test_operational_resource_inspection_failure_is_not_benign,
+        test_untyped_blocked_state_carries_no_blocked_kind,
     )
     for test in tests:
         test()

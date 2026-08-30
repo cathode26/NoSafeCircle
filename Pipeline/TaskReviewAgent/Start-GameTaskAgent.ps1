@@ -244,7 +244,7 @@ if (-not [string]::IsNullOrWhiteSpace($Model)) {
 
 Write-Host "Worker: $WorkerId"
 if ([string]::IsNullOrWhiteSpace($TaskId)) {
-    Write-Host 'Task: resume existing actionable work, otherwise start one safe fresh implementation task'
+    Write-Host 'Task: resume existing actionable work, otherwise start one safe fresh implementation task (retries another candidate after ordinary claim contention)'
 }
 else {
     Write-Host "Task: $TaskId"
