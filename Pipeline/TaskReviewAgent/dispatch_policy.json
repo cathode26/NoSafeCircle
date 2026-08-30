@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "mode": "read_only_plan",
+  "autonomous_dispatch": false,
+  "preference": "resume_existing_before_fresh",
+  "fresh_implementation_derived_states": [
+    "not_delivered"
+  ],
+  "dependency_dispatch_satisfied_states": [
+    "conformant",
+    "needs_testing"
+  ],
+  "known_dependency_states": [
+    "conformant",
+    "needs_testing",
+    "not_delivered",
+    "needs_replan",
+    "needs_human",
+    "invalid_evidence",
+    "ambiguous_evidence",
+    "aggregate",
+    "cancelled",
+    "superseded"
+  ]
+}

@@ -825,6 +825,20 @@ class IssueWorkflowService:
             raise IssueWorkflowStoreError("human result transition could not be verified")
         return {"status": "agent_ready", **verified.to_dict()}
 
+    def resource_conflicts(
+        self,
+        task: Mapping[str, Any],
+    ) -> tuple[list[str], list[str]]:
+        """Public read-only view of the durable exclusive-resource reservation scan.
+
+        Returns the same ``(conflicts, diagnostics)`` shape as the internal
+        acquisition path uses, so read-only callers (Stage 2 dispatch
+        planning) can reuse the one committed reservation authority instead
+        of reimplementing it.
+        """
+
+        return self._resource_conflicts(task)
+
     def list_agent_ready(self) -> list[dict[str, Any]]:
         ready = []
         for issue in self.backend.list_issues():
