@@ -30,7 +30,9 @@ from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
     ResumableDownstreamIssueCoordinator,
     ResumableDownstreamTaskController,
 )
+from Pipeline.TaskReviewAgent import issue_workflow_store as issue_workflow_store_module  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    GhIssueBackend,
     IssueWorkflowService,
     MemoryIssueBackend,
 )
@@ -491,11 +493,221 @@ def test_delivery_review_materializes_exact_proposal() -> None:
         )
 
 
+def _fake_gh_environment() -> tuple[Any, Any]:
+    """Monkeypatch issue_workflow_store's shutil/subprocess so GhIssueBackend
+
+    construction succeeds without touching the network: only 'gh auth
+    status' is faked, and every other subprocess call (git) runs for real
+    against the local throwaway repositories these tests build.
+    """
+
+    class _FakeShutil:
+        @staticmethod
+        def which(name: str) -> str:
+            return f"/usr/bin/{name}"
+
+    original_shutil = issue_workflow_store_module.shutil
+    original_run = issue_workflow_store_module.subprocess.run
+
+    def fake_run(args, **kwargs):
+        values = tuple(args)
+        if values[:1] == ("gh",):
+            if values[:3] == ("gh", "auth", "status"):
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"unexpected 'gh' invocation in a network-free test: {values}")
+        return original_run(args, **kwargs)
+
+    issue_workflow_store_module.shutil = _FakeShutil()
+    issue_workflow_store_module.subprocess.run = fake_run
+    return original_shutil, original_run
+
+
+def _restore_gh_environment(original_shutil: Any, original_run: Any) -> None:
+    issue_workflow_store_module.shutil = original_shutil
+    issue_workflow_store_module.subprocess.run = original_run
+
+
+def _origin_checkout(root: Path, name: str, origin: str) -> Path:
+    checkout = root / name
+    init_repo(checkout)
+    (checkout / "seed.txt").write_text("seed\n", encoding="utf-8")
+    commit_all(checkout, "Seed")
+    git(checkout, "remote", "add", "origin", origin)
+    return checkout
+
+
+def test_bound_repository_resolves_to_checkout_origin_never_the_other() -> None:
+    """Every downstream repository identity comes from the task checkout's
+
+    own Git origin (via the durable GhIssueBackend already bound to it) --
+    a disposable Gauntlet checkout must never resolve to cathode26/NoSafeCircle,
+    and a production checkout must resolve to exactly that.
+    """
+
+    original_shutil, original_run = _fake_gh_environment()
+    try:
+        with tempfile.TemporaryDirectory(prefix="nsc-downstream-repo-binding-") as temporary:
+            root = Path(temporary)
+            cases = (
+                (
+                    "disposable",
+                    "https://github.com/cathode26/orchestrator-gauntlet-stage4-test.git",
+                    "cathode26/orchestrator-gauntlet-stage4-test",
+                ),
+                (
+                    "production",
+                    "https://github.com/cathode26/NoSafeCircle.git",
+                    "cathode26/NoSafeCircle",
+                ),
+            )
+            for name, origin, expected_repository in cases:
+                checkout = _origin_checkout(root, name, origin)
+                backend = GhIssueBackend(source_root=checkout)
+                controller = object.__new__(ResumableDownstreamTaskController)
+                controller.checkout = checkout
+                controller.workflow = SimpleNamespace(
+                    issue_workflow=SimpleNamespace(backend=backend)
+                )
+                resolved = controller._bound_repository()
+                require(
+                    resolved == expected_repository,
+                    f"{name} checkout resolved to {resolved!r}, expected {expected_repository!r}",
+                )
+                if name == "disposable":
+                    require(
+                        resolved != "cathode26/NoSafeCircle",
+                        "disposable checkout leaked the production repository",
+                    )
+    finally:
+        _restore_gh_environment(original_shutil, original_run)
+
+
+def test_downstream_gh_pr_view_uses_bound_repository_not_hardcode() -> None:
+    """A real downstream gh call site (_view_pr) must build its --repo
+
+    argument from the bound repository, matching whichever repository the
+    checkout/backend are actually bound to -- never a hardcoded literal.
+    """
+
+    original_shutil, original_run = _fake_gh_environment()
+    try:
+        with tempfile.TemporaryDirectory(prefix="nsc-downstream-view-pr-") as temporary:
+            root = Path(temporary)
+            cases = (
+                (
+                    "disposable",
+                    "https://github.com/cathode26/orchestrator-gauntlet-stage4-test.git",
+                    "cathode26/orchestrator-gauntlet-stage4-test",
+                ),
+                (
+                    "production",
+                    "https://github.com/cathode26/NoSafeCircle.git",
+                    "cathode26/NoSafeCircle",
+                ),
+            )
+            for name, origin, expected_repository in cases:
+                checkout = _origin_checkout(root, name, origin)
+                backend = GhIssueBackend(source_root=checkout)
+                captured: dict[str, Any] = {}
+
+                def runner(
+                    args: Sequence[str],
+                    cwd: Path,
+                    timeout_seconds: float,
+                ) -> subprocess.CompletedProcess[bytes]:
+                    del cwd, timeout_seconds
+                    captured["args"] = tuple(args)
+                    body = json.dumps(
+                        {
+                            "number": 1,
+                            "url": f"https://github.com/{expected_repository}/pull/1",
+                            "state": "OPEN",
+                            "headRefOid": "a" * 40,
+                        }
+                    ).encode("utf-8")
+                    return subprocess.CompletedProcess(tuple(args), 0, body, b"")
+
+                controller = object.__new__(ResumableDownstreamTaskController)
+                controller.checkout = checkout
+                controller.command_runner = runner
+                controller.workflow = SimpleNamespace(
+                    issue_workflow=SimpleNamespace(backend=backend)
+                )
+                controller._view_pr(1)
+                args = captured["args"]
+                require("--repo" in args, f"gh pr view omitted --repo: {args}")
+                repo_value = args[args.index("--repo") + 1]
+                require(
+                    repo_value == expected_repository,
+                    f"{name} gh pr view used {repo_value!r}, expected {expected_repository!r}",
+                )
+                require(
+                    not (name == "disposable" and repo_value == "cathode26/NoSafeCircle"),
+                    "disposable checkout's gh command targeted production NoSafeCircle",
+                )
+    finally:
+        _restore_gh_environment(original_shutil, original_run)
+
+
+def test_downstream_repository_mismatch_fails_before_any_gh_command() -> None:
+    """checkout origin = A, bound Issue backend repository = B must fail
+
+    BEFORE any downstream gh pr/issue command -- the fake command_runner
+    below raises if it is ever invoked, proving no gh call happens.
+    """
+
+    original_shutil, original_run = _fake_gh_environment()
+    try:
+        with tempfile.TemporaryDirectory(prefix="nsc-downstream-repo-mismatch-") as temporary:
+            root = Path(temporary)
+            checkout_a = _origin_checkout(
+                root,
+                "checkout-a",
+                "https://github.com/cathode26/orchestrator-gauntlet-stage4-test.git",
+            )
+            checkout_b = _origin_checkout(
+                root, "checkout-b", "https://github.com/cathode26/NoSafeCircle.git"
+            )
+            backend_b = GhIssueBackend(source_root=checkout_b)
+
+            def forbidden_runner(
+                args: Sequence[str],
+                cwd: Path,
+                timeout_seconds: float,
+            ) -> subprocess.CompletedProcess[bytes]:
+                raise AssertionError(
+                    f"a gh command ran despite a checkout/backend repository mismatch: {args}"
+                )
+
+            controller = object.__new__(ResumableDownstreamTaskController)
+            controller.checkout = checkout_a
+            controller.command_runner = forbidden_runner
+            controller.workflow = SimpleNamespace(
+                issue_workflow=SimpleNamespace(backend=backend_b)
+            )
+            try:
+                controller._view_pr(1)
+            except DownstreamPipelineError as exc:
+                require(
+                    "mismatched repository" in str(exc),
+                    f"unexpected error: {exc}",
+                )
+            else:
+                raise AssertionError(
+                    "mismatched checkout/backend repository was accepted before a gh command"
+                )
+    finally:
+        _restore_gh_environment(original_shutil, original_run)
+
+
 def main() -> int:
     tests = (
         test_issue_lifecycle_resumes_evidence_head,
         test_downstream_workflow_accepts_conformant_task_only,
         test_delivery_draft_uses_stable_main_base,
+        test_bound_repository_resolves_to_checkout_origin_never_the_other,
+        test_downstream_gh_pr_view_uses_bound_repository_not_hardcode,
+        test_downstream_repository_mismatch_fails_before_any_gh_command,
         test_post_merge_accepts_newer_main,
         test_delivery_review_materializes_exact_proposal,
     )

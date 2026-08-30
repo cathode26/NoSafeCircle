@@ -19,6 +19,7 @@ from .contracts import (
     semantic_sha256,
     validate_task_id,
 )
+from .issue_workflow_store import _parse_github_repository, _redact_origin
 
 
 CANONICAL_REMOTE = "https://github.com/cathode26/NoSafeCircle.git"
@@ -218,7 +219,15 @@ class RealTaskCheckoutManager:
         return current == self._manifest_payload(observation, remote_url)
 
     def _remote_allowed(self, remote_url: str) -> bool:
-        if _normalized_remote(remote_url) == _normalized_remote(CANONICAL_REMOTE):
+        # The approved repository is never a single global hardcode: it is
+        # whichever repository this controller checkout's own Git origin
+        # represents (production cathode26/NoSafeCircle, or a disposable
+        # Gauntlet repository -- both are equally valid). This only checks
+        # that the remote is a well-formed, supported GitHub remote; the
+        # separate observed-origin equality checks in inspect()/prepare()
+        # bind the task checkout to THIS controller's specific origin, so an
+        # unrelated GitHub repository still cannot be substituted.
+        if _parse_github_repository(remote_url) is not None:
             return True
         return self.allow_local_remote_for_tests
 
@@ -340,10 +349,16 @@ class RealTaskCheckoutManager:
         if status:
             reasons.append("checkout working tree is not clean")
         if not remote_url or not self._remote_allowed(remote_url):
-            reasons.append(f"checkout origin is not an approved remote: {remote_url!r}")
-        if expected_remote and _normalized_remote(remote_url) != _normalized_remote(
-            str(expected_remote)
-        ):
+            reasons.append(
+                f"checkout origin is not an approved remote: {_redact_origin(remote_url)!r}"
+            )
+        if not expected_remote:
+            # The controller/source origin was never actually observed (for
+            # example after an OSError/TimeoutExpired while reading it). The
+            # repository-equality invariant below must never be silently
+            # skipped just because there is nothing to compare against.
+            reasons.append("controller origin remote URL was not observed")
+        elif _normalized_remote(remote_url) != _normalized_remote(str(expected_remote)):
             reasons.append("checkout origin differs from the observed controller origin")
         if origin_main != expected_head:
             reasons.append("checkout origin/main does not match the observed source HEAD")
@@ -396,7 +411,9 @@ class RealTaskCheckoutManager:
         if type(remote_url) is not str or not remote_url:
             reasons.append("controller origin remote URL was not observed")
         elif not self._remote_allowed(remote_url):
-            reasons.append(f"controller origin is not an approved remote: {remote_url!r}")
+            reasons.append(
+                f"controller origin is not an approved remote: {_redact_origin(remote_url)!r}"
+            )
         return reasons
 
     def _validate_new_clone(

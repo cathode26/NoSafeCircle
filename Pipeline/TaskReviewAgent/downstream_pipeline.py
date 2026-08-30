@@ -27,6 +27,7 @@ from .issue_workflow import (
     WorkflowState,
     parse_human_validation_result,
 )
+from .issue_workflow_store import GhIssueBackend, resolve_issue_backend_repository
 from .real_workflow import RealTaskReviewWorkflow
 
 
@@ -847,7 +848,7 @@ class DownstreamTaskController:
             "merge",
             str(number),
             "--repo",
-            "cathode26/NoSafeCircle",
+            self._bound_repository(),
             "--merge",
             "--match-head-commit",
             self.state["evidence_commit"],
@@ -920,7 +921,7 @@ class DownstreamTaskController:
                     "close",
                     str(snapshot.issue_number),
                     "--repo",
-                    "cathode26/NoSafeCircle",
+                    self._bound_repository(),
                     "--reason",
                     "completed",
                 ),
@@ -977,6 +978,35 @@ class DownstreamTaskController:
         )
         if status:
             raise DownstreamPipelineError("downstream pipeline requires a clean checkout")
+
+    def _bound_repository(self) -> str:
+        """The one repository identity every downstream gh PR/Issue command targets.
+
+        Reuses the durable Issue backend's already-resolved repository (bound
+        to the controller source checkout's Git origin -- see
+        issue_workflow_store.resolve_issue_backend_repository) and requires it
+        to match the task checkout's OWN current Git origin before any gh
+        PR/Issue mutation runs. A controller/checkout mismatch fails closed
+        here instead of silently reaching a hardcoded repository, and there is
+        never a second, independently-configurable repository source.
+        """
+
+        service = self.workflow.issue_workflow
+        backend = getattr(service, "backend", None) if service is not None else None
+        if not isinstance(backend, GhIssueBackend):
+            raise DownstreamPipelineError(
+                "downstream GitHub PR/Issue commands require a real GhIssueBackend-bound "
+                "Issue workflow; no repository authority is available"
+            )
+        checkout_repository = resolve_issue_backend_repository(self.checkout)
+        if checkout_repository.casefold() != backend.repository.casefold():
+            raise DownstreamPipelineError(
+                f"task checkout {self.checkout} resolves to repository "
+                f"{checkout_repository!r} but the durable Issue backend is bound to "
+                f"{backend.repository!r}; refusing to run a downstream GitHub PR/Issue "
+                "command against a mismatched repository"
+            )
+        return backend.repository
 
     def _assert_human_tested_head(self, state: Mapping[str, Any]) -> None:
         head = _git_text(self.command_runner, self.checkout, "rev-parse", "HEAD")
@@ -1181,7 +1211,7 @@ class DownstreamTaskController:
                 "pr",
                 "list",
                 "--repo",
-                "cathode26/NoSafeCircle",
+                self._bound_repository(),
                 "--head",
                 branch,
                 "--base",
@@ -1225,7 +1255,7 @@ class DownstreamTaskController:
                     "pr",
                     "create",
                     "--repo",
-                    "cathode26/NoSafeCircle",
+                    self._bound_repository(),
                     "--base",
                     "main",
                     "--head",
@@ -1258,7 +1288,7 @@ class DownstreamTaskController:
                 "view",
                 str(number),
                 "--repo",
-                "cathode26/NoSafeCircle",
+                self._bound_repository(),
                 "--json",
                 "number,url,state,headRefOid,baseRefName,isDraft,mergeable,mergeStateStatus,statusCheckRollup,mergeCommit",
             ),
