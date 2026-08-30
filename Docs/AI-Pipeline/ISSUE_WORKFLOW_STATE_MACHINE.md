@@ -222,7 +222,7 @@ A race between two agents fails closed. Two competing events based on the same s
 The checkout remains:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 For fresh implementation, the checkout starts from current `origin/main` and creates the deterministic task branch.

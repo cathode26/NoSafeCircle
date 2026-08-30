@@ -21,13 +21,13 @@ Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md
 The shared operator checkout is:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+C:\NSC\NSC\NoSafeCircle
 ```
 
 A claimed task checkout is named by the exact hyphenated TaskGraph ID directly under the crew root:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+C:\NSC\NSC\NSC-044
 ```
 
 Do not use `NoSafeCircle-NSC044` as the normal checkout directory name.
@@ -50,8 +50,8 @@ Use the canonical checkout path explicitly:
 
 ```text
 python Pipeline/Supervisor/task_checkout.py show NSC-044
-python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
-python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\NSC\NSC\NSC-044
+python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\NSC\NSC\NSC-044
 ```
 
 ### Checkout behavior

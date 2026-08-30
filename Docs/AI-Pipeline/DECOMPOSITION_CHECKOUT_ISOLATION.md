@@ -23,7 +23,7 @@ Docs/AI-Pipeline/OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md
 The shared repository root:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+C:\NSC\NSC\NoSafeCircle
 ```
 
 may be used to refresh `main`, inspect TaskGraph state, discover candidates, and coordinate/claim GitHub Issues. It must **not** remain the working directory once decomposition work has been selected and claimed.
@@ -40,22 +40,22 @@ After claiming `work_type: decomposition`, and **before any decomposition provid
 For NSC-021, the canonical source checkout and a representative run output are:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+C:\NSC\NSC\NSC-021
 C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\20260825-195246
 ```
 
 The shell prompt for active NSC-021 decomposition should therefore look like:
 
 ```text
-PS C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021>
+PS C:\NSC\NSC\NSC-021>
 ```
 
 and not like any of these:
 
 ```text
-PS C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle>
-PS C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC021-DECOMP>
-PS C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC021-Decomposition-<timestamp>>
+PS C:\NSC\NSC\NoSafeCircle>
+PS C:\NSC\NSC\NoSafeCircle-NSC021-DECOMP>
+PS C:\NSC\NSC\NoSafeCircle-NSC021-Decomposition-<timestamp>>
 ```
 
 The task ID itself is the required human-visible coordination label. `work_type: decomposition`, worker ID, provider, and run ID belong in GitHub/pipeline records rather than the checkout directory name.
@@ -70,7 +70,7 @@ The task ID itself is the required human-visible coordination label. `work_type:
 - Decomposition source work is read-only; no task implementation branch is required merely to run D1B.1.
 - Require a completely clean source checkout before decomposition preflight.
 - Do not overwrite or casually reuse an existing canonical task checkout.
-- If `C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>` already exists, inspect and reconcile it rather than creating a differently named duplicate directory.
+- If `C:\NSC\NSC\<TASK-ID>` already exists, inspect and reconcile it rather than creating a differently named duplicate directory.
 - Never fall back to running decomposition from the shared `NoSafeCircle` root because checkout creation failed.
 - Do not put authoritative decomposition output under the task checkout or elsewhere under the repository tree.
 
@@ -80,7 +80,7 @@ After the parent Issue is claimed:
 
 ```powershell
 $TaskId = "NSC-021"
-$CrewRoot = "C:\UnityProjects\NoSafeCircleAgentCrew"
+$CrewRoot = "C:\NSC\NSC"
 $Checkout = Join-Path $CrewRoot $TaskId
 $Downloads = Join-Path $env:USERPROFILE "Downloads"
 $OutputRoot = Join-Path $Downloads (Join-Path "NoSafeCircleOutput" $TaskId)
@@ -153,7 +153,7 @@ $ProviderExit = $LASTEXITCODE
 
 The Decomposition Closeout must record:
 
-- canonical task source checkout path, e.g. `C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021`;
+- canonical task source checkout path, e.g. `C:\NSC\NSC\NSC-021`;
 - exact external decomposition run path, e.g. `C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\20260825-195246`;
 - parent task ID and source commit;
 - provider, run ID, and existing D1B.1 result identities.

@@ -145,16 +145,16 @@ ExecutionCrew also prints a concise human-readable summary to stderr when it fin
 
 ```text
 RESULT: REVIEW_READY
-ARTIFACT: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch
+ARTIFACT: C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch
 
 FIND PATCH:
-Get-Item -LiteralPath 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch'
+Get-Item -LiteralPath 'C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch'
 
 CHECK PATCH:
-git apply --check 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch'
+git apply --check 'C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch'
 
 APPLY PATCH:
-git apply 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch'
+git apply 'C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch'
 
 VERIFY:
 git status --short
@@ -170,10 +170,10 @@ For a blocked or rejected run with a diagnostic artifact, the footer identifies 
 ```text
 RESULT: BLOCKED
 WHY: The Implementer reported a blocker.
-ARTIFACT: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\workspace_diagnostic.patch
+ARTIFACT: C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\workspace_diagnostic.patch
 
 FIND DIAGNOSTIC PATCH:
-Get-Item -LiteralPath 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\workspace_diagnostic.patch'
+Get-Item -LiteralPath 'C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\workspace_diagnostic.patch'
 
 DO NOT APPLY:
 This is diagnostic work from a non-review-ready run, not an approved candidate.
@@ -188,13 +188,13 @@ When the mandatory pre-Implementer Contract Locality Auditor itself stops the ru
 ```text
 RESULT: CONTRACT_REVIEW_REQUIRED
 WHY: The committed task contract contains one or more AC/VAL items that are not locally implementable/provable under its current scope or dependencies.
-ARTIFACT: C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-012-example\contract_locality_audit.json
+ARTIFACT: C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-012-example\contract_locality_audit.json
 
 FIND AUDIT:
-Get-Item -LiteralPath 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-012-example\contract_locality_audit.json'
+Get-Item -LiteralPath 'C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-012-example\contract_locality_audit.json'
 
 INSPECT AUDIT:
-Get-Content -LiteralPath 'C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-012-example\contract_locality_audit.json'
+Get-Content -LiteralPath 'C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-012-example\contract_locality_audit.json'
 
 NEXT: Review the audit, repair the task contract through normal human-reviewed TaskGraph workflow, validate the graph, and rerun ExecutionCrew.
 ```
@@ -210,7 +210,7 @@ This summary never includes prompts, raw provider output, credentials, hidden re
 Inside Docker, `candidate_patch_path` and `workspace_diagnostic_patch_path` are container paths (for example `/execution-output/<run-id>/candidate.patch`), which is poor UX when the human is on a Windows host. Passing `--host-output-root <WINDOWS_ABSOLUTE_PATH>` (or the `NSC_EXECUTION_HOST_OUTPUT_ROOT` environment variable as a fallback; the CLI flag takes precedence when both are set) adds `candidate_patch_host_path` and `workspace_diagnostic_patch_host_path` with the equivalent full drive-qualified host path, for example:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch
+C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs\nsc-005-example\candidate.patch
 ```
 
 This is a purely lexical, HOST-facing display path (`pathlib.PureWindowsPath`); it is never resolved as a filesystem path inside the Linux container. An empty, relative, traversal-containing, or malformed drive-relative value is rejected before the run starts. `human_result.artifact_path` prefers the host path when one is available, and the stderr footer and `human_result.commands` are built from that exact same path. Omitting `--host-output-root` preserves full backward compatibility: the host-path fields are `null`, `human_result.artifact_path` falls back to the existing container path, and the footer/`commands` use that container path instead of inventing a Windows path.
@@ -228,7 +228,7 @@ docker compose run --rm -T claude-exec python3 Pipeline/ExecutionCrew/run_crew.p
 When it reaches `review_ready`, the human reviews `candidate.patch`. Approval continues through manual integration, required validation, and evidence workflow; ExecutionCrew does not apply or commit anything. On rejection, write the concrete review finding to a feedback file beneath the configured ExecutionCrew output root, then start a retry. Supply `--host-output-root` with the host (for example Windows) path that the mounted output root corresponds to, so `crew_result.json` and the final terminal summary show a full, drive-qualified path the human can open directly:
 
 ```bash
-docker compose run --rm -T claude-exec python3 Pipeline/ExecutionCrew/run_crew.py --retry-run nsc-005-20260823t222010z --review-feedback-file /execution-output/feedback/nsc-005-mana-feedback.txt --host-output-root "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle\Pipeline\ExecutionCrew\outputs"
+docker compose run --rm -T claude-exec python3 Pipeline/ExecutionCrew/run_crew.py --retry-run nsc-005-20260823t222010z --review-feedback-file /execution-output/feedback/nsc-005-mana-feedback.txt --host-output-root "C:\NSC\NSC\NoSafeCircle\Pipeline\ExecutionCrew\outputs"
 ```
 
 The retry inherits `NSC-005`, `claude`, and both prior role scopes, but works from the current clean committed source `HEAD`—which may contain the manually integrated rejected candidate. If the repair cannot be made within inherited authority, do not widen the retry; start a suitably scoped explicit run after human review.

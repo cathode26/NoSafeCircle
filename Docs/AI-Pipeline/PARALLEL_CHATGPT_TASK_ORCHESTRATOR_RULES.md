@@ -29,19 +29,19 @@ A generic human instruction such as **"Go pick a task and start on it"** authori
 The shared operator checkout is:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+C:\NSC\NSC\NoSafeCircle
 ```
 
 Every claimed NSC task uses:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 Example:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+C:\NSC\NSC\NSC-021
 ```
 
 The hyphenated TaskGraph ID is preserved. Do not invent `NoSafeCircle-NSC...`, `-DECOMP`, or timestamped checkout directory variants as the normal task path. The authoritative rule is `Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md`.
@@ -50,7 +50,7 @@ For `work_type: decomposition`, use:
 
 ```text
 source checkout:
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 
 host output root:
 C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\<TASK-ID>
@@ -130,7 +130,7 @@ When an available work unit is chosen:
 Use the Supervisor helper with an explicit canonical path:
 
 ```powershell
-python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+python Pipeline/Supervisor/task_checkout.py checkout NSC-044 --worker-id chatgpt-1 --checkout C:\NSC\NSC\NSC-044
 ```
 
 Do not rely on an older default/example that produces a `NoSafeCircle-NSC...` directory.
@@ -140,7 +140,7 @@ Do not rely on an older default/example that produces a `NoSafeCircle-NSC...` di
 Decomposition uses the same task directory, for example:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\NSC-021
+C:\NSC\NSC\NSC-021
 ```
 
 and the external Downloads output root:
@@ -282,7 +282,7 @@ Do not use Git worktrees for Docker-backed provider execution unless the reposit
 If the canonical task directory already exists:
 
 ```text
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 stop and inspect it.
@@ -317,7 +317,7 @@ Docs/AI-Pipeline/TASK_ITERATION_AND_CLOSEOUT_PLAYBOOK.md
 Generate the closeout draft using the canonical task path:
 
 ```powershell
-python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\UnityProjects\NoSafeCircleAgentCrew\NSC-044
+python Pipeline/Supervisor/task_checkout.py draft-closeout NSC-044 --worker-id chatgpt-1 --checkout C:\NSC\NSC\NSC-044
 ```
 
 The final Issue closeout must explicitly cover:
@@ -357,7 +357,7 @@ A D1B.2 `review_ready` or explicit `needs_human` result is not a retry failure; 
 
 ## Existing task directory rule
 
-Never overwrite, delete, reset, or casually reuse an existing `C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>` directory. Inspect it and reconcile ownership/state. Do not create a differently named duplicate checkout as the normal collision workaround.
+Never overwrite, delete, reset, or casually reuse an existing `C:\NSC\NSC\<TASK-ID>` directory. Inspect it and reconcile ownership/state. Do not create a differently named duplicate checkout as the normal collision workaround.
 
 ## Explicit-task exception
 
@@ -399,7 +399,7 @@ choose viable work
         ↓
 claim Issue + planned approach + work_type + canonical paths
         ↓
-enter C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+enter C:\NSC\NSC\<TASK-ID>
         ↓
 implementation → normal delivery workflow
 OR

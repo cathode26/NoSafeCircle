@@ -33,10 +33,10 @@ The canonical Windows convention is:
 
 ```text
 shared operator checkout:
-C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+C:\NSC\NSC\NoSafeCircle
 
 claimed task checkout:
-C:\UnityProjects\NoSafeCircleAgentCrew\<TASK-ID>
+C:\NSC\NSC\<TASK-ID>
 ```
 
 Preserve the exact hyphenated task ID.

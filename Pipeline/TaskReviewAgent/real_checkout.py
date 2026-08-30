@@ -22,7 +22,7 @@ from .contracts import (
 
 
 CANONICAL_REMOTE = "https://github.com/cathode26/NoSafeCircle.git"
-_WINDOWS_DEFAULT_ROOT = Path(r"C:\UnityProjects\NoSafeCircleAgentCrew")
+_WINDOWS_DEFAULT_ROOT = Path(r"C:\NSC\NSC")
 _BRANCH_TOKEN_RE = re.compile(r"[^a-z0-9]+")
 
 

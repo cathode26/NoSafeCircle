@@ -158,14 +158,14 @@ On this development machine, clone the **GitHub remote**, not the local `NoSafeC
 From the parent directory:
 
 ```powershell
-cd C:\UnityProjects\NoSafeCircleAgentCrew
+cd C:\NSC\NSC
 
 git -C .\NoSafeCircle status --short
 git -C .\NoSafeCircle switch main
 git -C .\NoSafeCircle pull --ff-only origin main
 
-git clone https://github.com/cathode26/NoSafeCircle.git .\NoSafeCircle-NSC###
-cd .\NoSafeCircle-NSC###
+git clone https://github.com/cathode26/NoSafeCircle.git .\NSC-###
+cd .\NSC-###
 git switch -c nsc-###-short-description
 ```
 
@@ -274,7 +274,7 @@ docker compose -p nosafecircle run --rm -T claude-exec python3 Pipeline/Executio
   --implementation-path <tracked-production-path-1> `
   --implementation-path <tracked-production-path-2> `
   --test-path <tracked-test-path-1> `
-  --host-output-root "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC###\Pipeline\ExecutionCrew\outputs"
+  --host-output-root "C:\NSC\NSC\NSC-###\Pipeline\ExecutionCrew\outputs"
 ```
 
 All-new example:
@@ -285,7 +285,7 @@ docker compose -p nosafecircle run --rm -T codex-exec python3 Pipeline/Execution
   --provider codex `
   --new-implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/NewFeature.cs `
   --new-test-path Assets/NoSafeCircle/DoorPrototype/Tests/NewFeatureTests.cs `
-  --host-output-root "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC###\Pipeline\ExecutionCrew\outputs"
+  --host-output-root "C:\NSC\NSC\NSC-###\Pipeline\ExecutionCrew\outputs"
 ```
 
 Mixed example:
@@ -298,7 +298,7 @@ docker compose -p nosafecircle run --rm -T claude-exec python3 Pipeline/Executio
   --new-implementation-path Assets/NoSafeCircle/DoorPrototype/Scripts/NewHelper.cs `
   --test-path Assets/NoSafeCircle/DoorPrototype/Tests/ExistingTests.cs `
   --new-test-path Assets/NoSafeCircle/DoorPrototype/Tests/NewRegressionTests.cs `
-  --host-output-root "C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle-NSC###\Pipeline\ExecutionCrew\outputs"
+  --host-output-root "C:\NSC\NSC\NSC-###\Pipeline\ExecutionCrew\outputs"
 ```
 
 The per-run `crew_result.json` distinguishes `requested_existing_implementation_paths`, `requested_new_implementation_paths`, `requested_existing_test_paths`, `requested_new_test_paths`, and pipeline-owned `pipeline_generated_paths`; the compatibility fields still contain each role's total requested authority.
@@ -578,7 +578,7 @@ Do **not** use `git push origin HEAD:main` as a shortcut.
 Return to the primary repository:
 
 ```powershell
-cd C:\UnityProjects\NoSafeCircleAgentCrew\NoSafeCircle
+cd C:\NSC\NSC\NoSafeCircle
 git status --short
 git switch main
 git pull --ff-only origin main
@@ -616,8 +616,8 @@ python Pipeline/TaskGraph/taskcontrol.py state NSC-### --json
 After `main` is pushed and post-merge conformance is confirmed:
 
 ```powershell
-cd C:\UnityProjects\NoSafeCircleAgentCrew
-Remove-Item -Recurse -Force .\NoSafeCircle-NSC###
+cd C:\NSC\NSC
+Remove-Item -Recurse -Force .\NSC-###
 ```
 
 If Windows reports an open handle, close Unity, terminals, IDEs, and file explorers pointing into that clone, or remove it after reboot. Git history is already safe once the branch is merged and pushed.
