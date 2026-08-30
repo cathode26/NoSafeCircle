@@ -17,6 +17,7 @@ from .claim_refs import (
 from .committed_tasks import CommittedTaskError, load_committed_task
 from .contracts import TaskReviewContractError, semantic_sha256, validate_task_id
 from .coordination import CoordinationObserver
+from .dispatch_policy import dependencies_dispatch_satisfied
 from .issue_workflow_store import (
     GhIssueBackend,
     IssueWorkflowService,
@@ -133,6 +134,13 @@ class RealTaskReviewWorkflow:
         environment: dict[str, Any],
         task: dict[str, Any],
     ) -> bool:
+        # Dependency admission is governed by the committed Stage 2 dispatch
+        # policy (dispatch_policy.json), which also treats a "needs_testing"
+        # dependency as dispatch-satisfied carrying revalidation debt, not by
+        # the stricter current-conformance boolean. Reusing the same shared
+        # predicate here keeps a task Stage 2 already ranked as an eligible
+        # fresh candidate from being wedged before Issue coordination is even
+        # consulted.
         return (
             environment.get("ready") is True
             and environment.get("controller_clean") is True
@@ -142,7 +150,7 @@ class RealTaskReviewWorkflow:
             and task.get("execution_scope") == "single_agent"
             and task.get("decomposition_state") == "concrete"
             and task.get("derived_state") == "not_delivered"
-            and task.get("dependencies_conformant") is True
+            and dependencies_dispatch_satisfied(task.get("dependency_states"))
         )
 
     def observe_goal_state(self) -> dict[str, Any]:

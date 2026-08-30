@@ -380,6 +380,8 @@ def test_main_never_exits_zero_for_unknown_outcome() -> None:
 
     patched = (
         "_managed_issue_phase",
+        "_require_explicit_fresh_admission",
+        "evaluate_committed_fresh_candidate",
         "RealTaskReviewWorkflow",
         "ProductionTaskController",
         "GuardedTaskController",
@@ -388,6 +390,12 @@ def test_main_never_exits_zero_for_unknown_outcome() -> None:
     originals = {name: getattr(run_pipeline_agent, name) for name in patched}
     try:
         run_pipeline_agent._managed_issue_phase = lambda **kwargs: None
+        run_pipeline_agent._require_explicit_fresh_admission = lambda **kwargs: None
+        # This regression exercises the unknown-outcome exit path, not Stage 3
+        # fresh-admission gating, so the Stage 2 kernel is stubbed eligible.
+        run_pipeline_agent.evaluate_committed_fresh_candidate = (
+            lambda **kwargs: SimpleNamespace(eligible=True, reason_codes=())
+        )
         run_pipeline_agent.RealTaskReviewWorkflow = _FakeWorkflow
         run_pipeline_agent.ProductionTaskController = (
             lambda **kwargs: SimpleNamespace(observe=lambda: {})

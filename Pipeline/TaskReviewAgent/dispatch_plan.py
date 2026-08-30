@@ -179,7 +179,14 @@ def evaluate_fresh_candidate(
     if not isinstance(parent, str) or not parent.strip():
         reasons.append("is_root_task")
     kind = task.get("kind")
-    if kind not in ("implementation", "artifact"):
+    if kind != "implementation":
+        # The normal execution pipeline (real_checkout.py, real_workflow.py,
+        # goal_loop.assess_goal_state, durable_checkout.py) only ever admits
+        # kind == "implementation" to an agent lease. Admitting kind ==
+        # "artifact" here would let Stage 2 rank a candidate that a lower
+        # Stage 3 gate always rejects, permanently wedging generic dispatch
+        # on it. Narrow to implementation until artifact contracts are
+        # genuinely supported end-to-end.
         reasons.append("unsupported_kind")
     if task.get("execution_scope") != "single_agent":
         reasons.append("execution_scope_not_single_agent")
@@ -787,6 +794,59 @@ def build_dispatch_plan(
     return plan
 
 
+def evaluate_committed_fresh_candidate(
+    *,
+    source: Path | str,
+    task_id: str,
+    worker_id: str,
+    remote: str = "origin",
+    policy: DispatchPolicy | None = None,
+    claim_policy: ClaimPolicy | None = None,
+) -> FreshCandidateEvaluation:
+    """Evaluate ONE committed task through the same Stage 2 safety kernel used
+    by generic fresh-candidate ranking, independent of resume-first pooling.
+
+    :func:`plan_dispatch` never evaluates the fresh-candidate pool at all once
+    an unrelated agent-ready Issue exists (resume wins outright), so it cannot
+    answer "is THIS one explicit task safe fresh work?" This function exists
+    for that question: Stage 3 explicit-TaskId admission calls it so an
+    explicit ask is judged by the identical :func:`evaluate_fresh_candidate`
+    kernel a generic dispatch would have used, rather than a second
+    eligibility implementation. Read-only; never mutates anything.
+    """
+
+    root = repo_root(Path(source).resolve())
+    issue_workflow = IssueWorkflowService(
+        backend=_PlanScopedIssueBackend(GhIssueBackend(source_root=root)),
+        task_loader=lambda selected: load_committed_task(root, selected),
+        worker_id=worker_id,
+    )
+    claimed_refs, claim_namespace, _claim_observation, _provisional = (
+        _read_only_claim_observation(root=root, remote=remote, claim_policy=claim_policy)
+    )
+    states_snapshot, states_error = _taskcontrol_states_snapshot(root)
+
+    def _state_provider(selected: str) -> dict[str, Any]:
+        entry = states_snapshot.get(selected)
+        if entry is not None:
+            return entry
+        return {
+            "task_id": selected,
+            "state": None,
+            "error": states_error or f"no taskcontrol states entry for {selected}",
+        }
+
+    return evaluate_fresh_candidate(
+        task_id,
+        task_loader=lambda selected: load_committed_task(root, selected),
+        state_provider=_state_provider,
+        issue_workflow=issue_workflow,
+        claimed_refs=claimed_refs,
+        claim_namespace=claim_namespace,
+        policy=policy,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -814,6 +874,7 @@ __all__ = [
     "DispatchPlan",
     "FreshCandidateEvaluation",
     "build_dispatch_plan",
+    "evaluate_committed_fresh_candidate",
     "evaluate_fresh_candidate",
     "list_committed_task_ids",
     "plan_dispatch",
