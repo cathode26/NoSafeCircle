@@ -1,14 +1,29 @@
 name: TaskReviewAgent Deterministic Validation
 
+# CORE suite: contracts, actor/public-trust authorization, committed task
+# loading, completed-Issue protection, GitHub Issue workflow state, exclusive
+# resource reservation, real/durable/resumable checkout, workflow runtime
+# compatibility, real read-only observation, and Git identity safety.
+#
+# Branch protection depends on this exact workflow name and the windows-smoke
+# job id, so the trigger below fires on every PR touching
+# Pipeline/TaskReviewAgent/** (no path is excluded from the trigger itself):
+# an unrecognized future file must still make this legacy check appear.
+#
+# Within the job, "Determine Core suite relevance" decides whether the
+# expensive Core regression steps actually run. When every changed file is
+# Supervisor-owned or Delivery-owned (see that step's file list, which
+# mirrors Supervisor/Delivery workflow ownership), the Core steps are skipped
+# and this check succeeds cheaply -- Supervisor/Delivery Validation cover
+# those files instead.
 on:
   pull_request:
     paths:
       - ".github/workflows/task-review-agent-deterministic.yml"
-      - "compose.override.yaml"
-      - "Pipeline/TaskReviewAgent/**"
       - "Pipeline/TaskGraph/**"
       - "Pipeline/Testing/**"
       - "Tasks/**"
+      - "Pipeline/TaskReviewAgent/**"
   workflow_dispatch:
 
 permissions:
@@ -31,12 +46,86 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Determine Core suite relevance
+        id: scope
+        shell: pwsh
+        run: |
+          # Files owned exclusively by Supervisor or Delivery Validation.
+          # Kept identical to their paths: blocks in
+          # task-review-agent-supervisor.yml / task-review-agent-delivery.yml.
+          # A future/unknown file is never in this list, so it fails safe by
+          # keeping the full Core suite selected.
+          $ownedByOtherSuites = @(
+            "Pipeline/TaskReviewAgent/codex_supervisor.py",
+            "Pipeline/TaskReviewAgent/codex_supervisor_turn.py",
+            "Pipeline/TaskReviewAgent/goal_loop_guard.py",
+            "Pipeline/TaskReviewAgent/operator_logging.py",
+            "Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1",
+            "Pipeline/TaskReviewAgent/NativeCommand.ps1",
+            "Pipeline/TaskReviewAgent/openai_downstream.py",
+            "Pipeline/TaskReviewAgent/openai_pipeline.py",
+            "Pipeline/TaskReviewAgent/delivery_review.py",
+            "Pipeline/TaskReviewAgent/downstream_action_grounding.py",
+            "Pipeline/TaskReviewAgent/downstream_determinism.py",
+            "Pipeline/TaskReviewAgent/downstream_issue.py",
+            "Pipeline/TaskReviewAgent/downstream_pipeline.py",
+            "Pipeline/TaskReviewAgent/downstream_resilience.py",
+            "Pipeline/TaskReviewAgent/downstream_runtime.py",
+            "Pipeline/TaskReviewAgent/mainline_reintegration.py",
+            "Pipeline/TaskReviewAgent/merge_closeout_check_repoll.py",
+            "Pipeline/TaskReviewAgent/production_pipeline.py",
+            "Pipeline/TaskReviewAgent/candidate_integration.py",
+            "Pipeline/TaskReviewAgent/execution_bridge.py",
+            "Pipeline/TaskReviewAgent/pipeline_scope.py",
+            "Pipeline/TaskReviewAgent/pull_request_check_authority.py",
+            "Pipeline/TaskReviewAgent/tests/codex_supervisor_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/codex_supervisor_turn_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/compose_supervisor_volume_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/progress_logging_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/native_command_smoke_test.ps1",
+            "Pipeline/TaskReviewAgent/tests/delivery_review_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/downstream_action_grounding_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/downstream_determinism_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/downstream_issue_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/downstream_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/mainline_reintegration_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/merge_closeout_check_repoll_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/production_controller_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/production_pipeline_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py"
+          )
+
+          $baseSha = "${{ github.event.pull_request.base.sha }}"
+          if ([string]::IsNullOrWhiteSpace($baseSha)) {
+            Write-Host "No PR base SHA (e.g. workflow_dispatch); running the full Core suite."
+            $runFullCore = $true
+          } else {
+            $changed = git diff --name-only "$baseSha...HEAD"
+            $runFullCore = $false
+            foreach ($path in $changed) {
+              if ($ownedByOtherSuites -notcontains $path) {
+                Write-Host "Core-relevant change: $path"
+                $runFullCore = $true
+              }
+            }
+          }
+
+          if ($runFullCore) {
+            Write-Host "Running the full Core regression suite."
+          } else {
+            Write-Host "Every changed file is Supervisor/Delivery-owned; skipping the expensive Core suite cheaply."
+          }
+          "run_full_core=$($runFullCore.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
       - name: Configure deterministic Git fixture identity
         run: |
           git config --global user.name "TaskReviewAgent Tests"
           git config --global user.email "task-review-agent-tests@example.invalid"
 
       - name: Enforce non-attributable automation Git identities
+        if: steps.scope.outputs.run_full_core == 'true'
         shell: pwsh
         run: |
           $test = "Pipeline/TaskReviewAgent/tests/git_identity_guard_smoke_test.py"
@@ -49,74 +138,8 @@ jobs:
             Write-Host "Legacy exact PR head predates the Git-identity guard; existing immutable history is grandfathered."
           }
 
-      - name: Parse Game Task Agent PowerShell launcher
-        shell: pwsh
-        run: |
-          $tokens = $null
-          $errors = $null
-          [void][System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path "Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1").Path,
-            [ref]$tokens,
-            [ref]$errors
-          )
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Error $_.Message }
-            throw "Game Task Agent PowerShell parsing failed."
-          }
-
-      - name: Run Windows PowerShell native stderr smoke test
-        shell: pwsh
-        run: |
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass `
-            -File "Pipeline/TaskReviewAgent/tests/native_command_smoke_test.ps1"
-          if ($LASTEXITCODE -ne 0) {
-            throw "Windows PowerShell native stderr smoke test failed."
-          }
-
-      - name: Verify external Codex credential volume declaration
-        run: python Pipeline/TaskReviewAgent/tests/compose_supervisor_volume_smoke_test.py
-
-      - name: Run API-key-free Codex supervisor smoke tests
-        run: python Pipeline/TaskReviewAgent/tests/codex_supervisor_smoke_test.py
-
-      - name: Run strict Codex supervisor turn smoke tests
-        run: python Pipeline/TaskReviewAgent/tests/codex_supervisor_turn_smoke_test.py
-
-      - name: Run live progress logging smoke tests
-        run: python Pipeline/TaskReviewAgent/tests/progress_logging_smoke_test.py
-
-      - name: Run checkout circuit-breaker smoke tests
-        run: python Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py
-
-      - name: Run mainline reintegration smoke tests
-        run: python Pipeline/TaskReviewAgent/tests/mainline_reintegration_smoke_test.py
-
-      - name: Run canonical scene path and contract migration smoke tests
-        run: python Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py
-
-      - name: Run downstream PASS carry-forward and rejection guard tests
-        run: python Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py
-
-      - name: Run downstream authority and deterministic routing tests
-        run: python Pipeline/TaskReviewAgent/tests/downstream_determinism_smoke_test.py
-
-      - name: Run downstream action grounding tests
-        run: python Pipeline/TaskReviewAgent/tests/downstream_action_grounding_smoke_test.py
-
-      - name: Run merge-closeout check repoll tests
-        shell: pwsh
-        run: |
-          $test = "Pipeline/TaskReviewAgent/tests/merge_closeout_check_repoll_smoke_test.py"
-          if (Test-Path -LiteralPath $test -PathType Leaf) {
-            python $test
-            if ($LASTEXITCODE -ne 0) {
-              throw "Merge-closeout check repoll tests failed."
-            }
-          } else {
-            Write-Host "Legacy exact PR head predates merge-closeout check repolling."
-          }
-
       - name: Run completed Issue duplicate guard tests
+        if: steps.scope.outputs.run_full_core == 'true'
         shell: pwsh
         run: |
           $test = "Pipeline/TaskReviewAgent/tests/completed_issue_guard_smoke_test.py"
@@ -130,6 +153,7 @@ jobs:
           }
 
       - name: Run actor authorization and public-trust boundary tests
+        if: steps.scope.outputs.run_full_core == 'true'
         shell: pwsh
         run: |
           $test = "Pipeline/TaskReviewAgent/tests/actor_authorization_smoke_test.py"
@@ -143,6 +167,7 @@ jobs:
           }
 
       - name: Run committed task contract loader tests
+        if: steps.scope.outputs.run_full_core == 'true'
         shell: pwsh
         run: |
           $test = "Pipeline/TaskReviewAgent/tests/committed_task_loader_smoke_test.py"
@@ -156,6 +181,7 @@ jobs:
           }
 
       - name: Run exclusive resource reservation tests
+        if: steps.scope.outputs.run_full_core == 'true'
         shell: pwsh
         run: |
           $test = "Pipeline/TaskReviewAgent/tests/resource_reservation_smoke_test.py"
@@ -169,6 +195,7 @@ jobs:
           }
 
       - name: Run Unity evidence log hygiene tests
+        if: steps.scope.outputs.run_full_core == 'true'
         shell: pwsh
         run: |
           $test = "Pipeline/Testing/unity_log_hygiene_smoke_test.py"
@@ -182,43 +209,39 @@ jobs:
           }
 
       - name: Run deterministic TaskReviewAgent smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/task_review_agent_smoke_test.py
 
       - name: Run durable Issue workflow smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/issue_workflow_smoke_test.py
 
-      - name: Run downstream Issue transition smoke tests
-        run: python Pipeline/TaskReviewAgent/tests/downstream_issue_smoke_test.py
-
-      - name: Run delivery review proposal smoke tests
-        run: python Pipeline/TaskReviewAgent/tests/delivery_review_smoke_test.py
-
       - name: Run real checkout boundary smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/real_checkout_smoke_test.py
 
       - name: Run durable cross-agent checkout resume test
+        if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/durable_checkout_smoke_test.py
 
       - name: Run resume after unrelated mainline progress test
+        if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/resumable_checkout_smoke_test.py
 
       - name: Run contract migration checkout resume test
+        if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/contract_migration_checkout_smoke_test.py
 
-      - name: Run production scope ExecutionCrew commit push test
-        run: python Pipeline/TaskReviewAgent/tests/production_pipeline_smoke_test.py
-
-      - name: Run connected Issue to human handoff test
-        run: python Pipeline/TaskReviewAgent/tests/production_controller_smoke_test.py
-
-      - name: Run downstream delivery and closeout smoke tests
-        run: python Pipeline/TaskReviewAgent/tests/downstream_smoke_test.py
-
       - name: Run workflow runtime compatibility tests
+        if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/workflow_runtime_smoke_test.py
 
       - name: Run real read-only observation CLI
+        if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/run_agent.py --task-id NSC-050 --mode observe-real --source .
+
+      - name: Run Core/Supervisor/Delivery CI split regression tests
+        run: python Pipeline/TaskReviewAgent/tests/ci_workflow_split_smoke_test.py
 
       - name: Compile TaskReviewAgent
         run: python -m compileall -q Pipeline/TaskReviewAgent

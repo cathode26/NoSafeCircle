@@ -1,0 +1,107 @@
+name: TaskReviewAgent Supervisor Validation
+
+# SUPERVISOR suite: Codex supervisor decisions/turns, Compose supervisor
+# credential/volume configuration, goal-loop/circuit-breaker logic, live
+# progress logging, and Start-GameTaskAgent PowerShell parsing/native command
+# behavior.
+#
+# codex_supervisor.py and goal_loop_guard.py are cross-cutting: Delivery
+# modules (downstream_determinism.py, downstream_action_grounding.py) import
+# from them directly, so they also route to Delivery Validation.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/task-review-agent-supervisor.yml"
+      - "compose.override.yaml"
+      - "Pipeline/TaskReviewAgent/codex_supervisor.py"
+      - "Pipeline/TaskReviewAgent/codex_supervisor_turn.py"
+      - "Pipeline/TaskReviewAgent/goal_loop_guard.py"
+      - "Pipeline/TaskReviewAgent/operator_logging.py"
+      - "Pipeline/TaskReviewAgent/progress.py"
+      - "Pipeline/TaskReviewAgent/openai_downstream.py"
+      - "Pipeline/TaskReviewAgent/openai_pipeline.py"
+      - "Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1"
+      - "Pipeline/TaskReviewAgent/NativeCommand.ps1"
+      - "Pipeline/TaskReviewAgent/tests/codex_supervisor_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/codex_supervisor_turn_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/compose_supervisor_volume_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/progress_logging_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/native_command_smoke_test.ps1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Parse Game Task Agent PowerShell launcher
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1").Path,
+            [ref]$tokens,
+            [ref]$errors
+          )
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw "Game Task Agent PowerShell parsing failed."
+          }
+
+      - name: Run Windows PowerShell native stderr smoke test
+        shell: pwsh
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass `
+            -File "Pipeline/TaskReviewAgent/tests/native_command_smoke_test.ps1"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows PowerShell native stderr smoke test failed."
+          }
+
+      - name: Verify external Codex credential volume declaration
+        run: python Pipeline/TaskReviewAgent/tests/compose_supervisor_volume_smoke_test.py
+
+      - name: Run API-key-free Codex supervisor smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/codex_supervisor_smoke_test.py
+
+      - name: Run strict Codex supervisor turn smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/codex_supervisor_turn_smoke_test.py
+
+      - name: Run live progress logging smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/progress_logging_smoke_test.py
+
+      - name: Run checkout circuit-breaker smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py
+
+      - name: Compile TaskReviewAgent
+        run: python -m compileall -q Pipeline/TaskReviewAgent
+
+      - name: Change whitespace check
+        shell: pwsh
+        run: |
+          $baseSha = "${{ github.event.pull_request.base.sha }}"
+          $evidenceLogExclusion = ":(exclude)Pipeline/TaskGraph/evidence/**/artifacts/*.log"
+          if ([string]::IsNullOrWhiteSpace($baseSha)) {
+            git diff --check HEAD^...HEAD -- . $evidenceLogExclusion
+          } else {
+            git diff --check "$baseSha...HEAD" -- . $evidenceLogExclusion
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw "Whitespace validation failed."
+          }

@@ -1,0 +1,134 @@
+name: TaskReviewAgent Delivery Validation
+
+# DELIVERY suite: downstream planning/routing/action grounding, delivery
+# review, ExecutionCrew production integration, connected Issue -> human
+# handoff, downstream delivery/closeout, and merge-closeout polling.
+#
+# codex_supervisor.py and goal_loop_guard.py are cross-cutting: they are
+# Supervisor-owned but downstream_determinism.py and
+# downstream_action_grounding.py import from them directly, so changes there
+# also need Delivery coverage. pull_request_check_authority.py has its own
+# dedicated workflow (pull-request-check-authority-deterministic.yml) but is
+# also exercised here through merge_closeout_check_repoll.py.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/task-review-agent-delivery.yml"
+      - "Pipeline/TaskGraph/scene_path_policy.py"
+      - "Pipeline/TaskReviewAgent/delivery_review.py"
+      - "Pipeline/TaskReviewAgent/downstream_action_grounding.py"
+      - "Pipeline/TaskReviewAgent/downstream_determinism.py"
+      - "Pipeline/TaskReviewAgent/downstream_issue.py"
+      - "Pipeline/TaskReviewAgent/downstream_pipeline.py"
+      - "Pipeline/TaskReviewAgent/downstream_resilience.py"
+      - "Pipeline/TaskReviewAgent/downstream_runtime.py"
+      - "Pipeline/TaskReviewAgent/mainline_reintegration.py"
+      - "Pipeline/TaskReviewAgent/merge_closeout_check_repoll.py"
+      - "Pipeline/TaskReviewAgent/production_pipeline.py"
+      - "Pipeline/TaskReviewAgent/candidate_integration.py"
+      - "Pipeline/TaskReviewAgent/execution_bridge.py"
+      - "Pipeline/TaskReviewAgent/pipeline_scope.py"
+      - "Pipeline/TaskReviewAgent/pull_request_check_authority.py"
+      - "Pipeline/TaskReviewAgent/codex_supervisor.py"
+      - "Pipeline/TaskReviewAgent/goal_loop_guard.py"
+      - "Pipeline/TaskReviewAgent/progress.py"
+      - "Pipeline/TaskReviewAgent/openai_downstream.py"
+      - "Pipeline/TaskReviewAgent/openai_pipeline.py"
+      - "Pipeline/TaskReviewAgent/tests/delivery_review_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/downstream_action_grounding_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/downstream_determinism_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/downstream_issue_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/downstream_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/mainline_reintegration_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/merge_closeout_check_repoll_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/production_controller_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/production_pipeline_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Configure deterministic Git fixture identity
+        run: |
+          git config --global user.name "TaskReviewAgent Tests"
+          git config --global user.email "task-review-agent-tests@example.invalid"
+
+      - name: Run mainline reintegration smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/mainline_reintegration_smoke_test.py
+
+      - name: Run canonical scene path and contract migration smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py
+
+      - name: Run downstream PASS carry-forward and rejection guard tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_resilience_smoke_test.py
+
+      - name: Run downstream authority and deterministic routing tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_determinism_smoke_test.py
+
+      - name: Run downstream action grounding tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_action_grounding_smoke_test.py
+
+      - name: Run merge-closeout check repoll tests
+        shell: pwsh
+        run: |
+          $test = "Pipeline/TaskReviewAgent/tests/merge_closeout_check_repoll_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Merge-closeout check repoll tests failed."
+            }
+          } else {
+            Write-Host "Legacy exact PR head predates merge-closeout check repolling."
+          }
+
+      - name: Run downstream Issue transition smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_issue_smoke_test.py
+
+      - name: Run delivery review proposal smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/delivery_review_smoke_test.py
+
+      - name: Run production scope ExecutionCrew commit push test
+        run: python Pipeline/TaskReviewAgent/tests/production_pipeline_smoke_test.py
+
+      - name: Run connected Issue to human handoff test
+        run: python Pipeline/TaskReviewAgent/tests/production_controller_smoke_test.py
+
+      - name: Run downstream delivery and closeout smoke tests
+        run: python Pipeline/TaskReviewAgent/tests/downstream_smoke_test.py
+
+      - name: Compile TaskReviewAgent
+        run: python -m compileall -q Pipeline/TaskReviewAgent
+
+      - name: Change whitespace check
+        shell: pwsh
+        run: |
+          $baseSha = "${{ github.event.pull_request.base.sha }}"
+          $evidenceLogExclusion = ":(exclude)Pipeline/TaskGraph/evidence/**/artifacts/*.log"
+          if ([string]::IsNullOrWhiteSpace($baseSha)) {
+            git diff --check HEAD^...HEAD -- . $evidenceLogExclusion
+          } else {
+            git diff --check "$baseSha...HEAD" -- . $evidenceLogExclusion
+          }
+          if ($LASTEXITCODE -ne 0) {
+            throw "Whitespace validation failed."
+          }
