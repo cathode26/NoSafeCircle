@@ -19,11 +19,20 @@ Two layers:
 
 Autonomous dispatch remains disabled: this module only plans, it never
 executes, claims, or hands work to a worker.
+
+Stage 4 (:mod:`fresh_dispatch`'s contention-retry wrapper) reruns this exact
+planner from scratch after ordinary claim contention, passing an
+``excluded_task_ids`` set of tasks this SAME invocation already lost a
+Stage 1 claim race for. That is the only Stage 4 surface here: resume-first
+ordering, the fresh-candidate safety kernel, and deterministic ranking are
+unchanged, so every refreshed plan is full current authority, never a
+patched-up stale one.
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import subprocess
 import sys
@@ -331,6 +340,7 @@ class DispatchPlan:
     agent_ready_count: int
     claim_observation: dict[str, Any]
     reasons: tuple[str, ...] = field(default_factory=tuple)
+    excluded_task_ids: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -346,6 +356,7 @@ class DispatchPlan:
             "agent_ready_count": self.agent_ready_count,
             "claim_observation": self.claim_observation,
             "reasons": list(self.reasons),
+            "excluded_task_ids": list(self.excluded_task_ids),
         }
 
 
@@ -378,6 +389,7 @@ def plan_dispatch(
     claim_observation: Mapping[str, Any] | None = None,
     provisional_reasons: Iterable[str] = (),
     policy: DispatchPolicy | None = None,
+    excluded_task_ids: Iterable[str] | None = None,
 ) -> DispatchPlan:
     """Pure, deterministic Stage 2 planning core: no filesystem/network I/O
     of its own. Every side-effecting input (task/state lookup, Issue
@@ -390,12 +402,26 @@ def plan_dispatch(
     even when the decision is an ordinary ``resume_existing`` or
     ``fresh_candidate``, so a normal-looking plan still says out loud that it
     is provisional.
+
+    ``excluded_task_ids`` (Stage 4) is the ONE narrow extension for
+    per-invocation claim-contention retry: a task this SAME invocation
+    already lost an ordinary Stage 1 claim race for. It never widens or
+    changes :func:`evaluate_fresh_candidate` (the one fresh-candidate safety
+    kernel); an excluded task is evaluated exactly as before and, only if it
+    would otherwise be eligible, is downgraded to skipped with the explicit
+    ``excluded_after_claim_contention`` reason code so the exclusion is
+    visible in diagnostics rather than silently vanishing from the pool.
+    Defaults to empty, so every existing caller (Stage 2 ranking, Stage 3
+    explicit-TaskId admission) is unaffected.
     """
 
     policy = policy or load_dispatch_policy()
     claimed_refs = dict(claimed_refs or {})
     claim_observation = dict(claim_observation or {"status": "not_consulted"})
     provisional = tuple(provisional_reasons)
+    excluded = frozenset(
+        task_id for task_id in (excluded_task_ids or ()) if type(task_id) is str
+    )
 
     try:
         agent_ready = issue_workflow.list_agent_ready()
@@ -430,6 +456,7 @@ def plan_dispatch(
             agent_ready_count=len(agent_ready),
             claim_observation=claim_observation,
             reasons=provisional,
+            excluded_task_ids=tuple(sorted(excluded)),
         )
 
     normalized_ids: list[str] = []
@@ -449,6 +476,19 @@ def plan_dispatch(
         )
         for task_id in normalized_ids
     ]
+
+    def _apply_contention_exclusion(
+        item: FreshCandidateEvaluation,
+    ) -> FreshCandidateEvaluation:
+        if not item.eligible or item.task_id not in excluded:
+            return item
+        return dataclasses.replace(
+            item,
+            eligible=False,
+            reason_codes=item.reason_codes + ("excluded_after_claim_contention",),
+        )
+
+    evaluations = [_apply_contention_exclusion(item) for item in evaluations]
 
     def _rank_key(item: FreshCandidateEvaluation) -> tuple[int, str]:
         return (_numeric_task_id(item.task_id), item.task_id)
@@ -470,6 +510,7 @@ def plan_dispatch(
         agent_ready_count=0,
         claim_observation=claim_observation,
         reasons=provisional,
+        excluded_task_ids=tuple(sorted(excluded)),
     )
 
 
@@ -692,6 +733,7 @@ def build_dispatch_plan(
     remote: str = "origin",
     policy: DispatchPolicy | None = None,
     claim_policy: ClaimPolicy | None = None,
+    excluded_task_ids: Iterable[str] | None = None,
 ) -> DispatchPlan:
     """Production Stage 2 entry point: real committed Git state, the real
     durable GitHub Issue reservation authority, and a best-effort read-only
@@ -706,6 +748,14 @@ def build_dispatch_plan(
     against a final HEAD re-read after every production observation has been
     assembled — a plan must never mix observations from multiple Git
     revisions.
+
+    ``excluded_task_ids`` is forwarded unchanged to :func:`plan_dispatch` --
+    see its docstring. Every existing caller that omits it gets exactly the
+    prior behavior: this call rebuilds the FULL current authority (committed
+    Git state, taskcontrol snapshot, durable Issue state, Stage 1 claim
+    snapshot) from scratch every time it runs, so a caller that supplies a
+    different exclusion set on a later call is, by construction, planning
+    against refreshed authority rather than a cached/stale plan.
     """
 
     try:
@@ -772,6 +822,7 @@ def build_dispatch_plan(
         claim_observation=claim_observation,
         provisional_reasons=provisional_reasons,
         policy=policy,
+        excluded_task_ids=excluded_task_ids,
     )
 
     try:

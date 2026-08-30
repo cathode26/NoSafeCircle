@@ -37,7 +37,7 @@ from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
     ResumableDownstreamTaskController,
 )
 from Pipeline.TaskReviewAgent.fresh_dispatch import (  # noqa: E402
-    resolve_generic_dispatch,
+    resolve_generic_dispatch_with_contention_retry,
 )
 from Pipeline.TaskReviewAgent.generic_selection import (  # noqa: E402
     GenericSelectionError,
@@ -219,10 +219,12 @@ def main(argv: list[str] | None = None) -> int:
                     selected_phase=selected_phase,
                 )
         elif args.mode == "observe":
-            # observe mode must never mutate. resolve_generic_dispatch's
-            # fresh-candidate path crosses a real mutation boundary (Stage 1
-            # claim + durable Issue creation/acquisition), so a no-TaskId
-            # observe run stops at the read-only Stage 2 plan instead.
+            # observe mode must never mutate or retry. Stage 4's
+            # resolve_generic_dispatch_with_contention_retry crosses a real
+            # mutation boundary (Stage 1 claim + durable Issue
+            # creation/acquisition) on every attempt it makes, so a
+            # no-TaskId observe run stops at the read-only Stage 2 plan
+            # instead of calling it at all.
             plan = build_dispatch_plan(source=args.source, worker_id=args.worker_id)
             result = {
                 "schema_version": "1.0",
@@ -238,11 +240,12 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(
                 "[task-agent] Resolving generic dispatch: resume existing durable "
-                "work, otherwise select one Stage 2 fresh candidate...",
+                "work, otherwise select one currently safe Stage 2 fresh candidate "
+                "(retrying another candidate after ordinary claim contention)...",
                 file=sys.stderr,
                 flush=True,
             )
-            dispatch_result = resolve_generic_dispatch(
+            dispatch_result = resolve_generic_dispatch_with_contention_retry(
                 source=args.source,
                 worker_id=args.worker_id,
                 checkout_root=args.checkout_root,
@@ -258,18 +261,21 @@ def main(argv: list[str] | None = None) -> int:
                 selection = {
                     "selection_priority": "stage3_fresh_dispatch",
                     "task_id": dispatch_result.task_id,
+                    "contention_attempt_count": dispatch_result.contention_attempt_count,
                 }
                 request = TaskReviewRequest(dispatch_result.task_id)
                 # A task that was just leased for the first time always
                 # starts at the initial implementation phase.
                 selected_phase = None
             else:
-                # no_safe_work / blocked_invalid_state / claim_conflict /
-                # claim_operational_error / issue_initialization_blocked /
-                # lease_acquired_claim_cleanup_required: report the typed
-                # Stage 3 outcome directly. Never invent or substitute a task,
-                # and never treat no_safe_work as an error requiring the
-                # human to pass an explicit -TaskId.
+                # no_safe_work / blocked_invalid_state / claim_operational_error /
+                # issue_initialization_blocked / lease_acquired_claim_cleanup_required:
+                # report the typed Stage 4 outcome directly. Never invent or
+                # substitute a task, and never treat no_safe_work as an error
+                # requiring the human to pass an explicit -TaskId. Ordinary
+                # claim_conflict never reaches here: Stage 4 already retried
+                # it against another currently-safe candidate, or exhausted
+                # the untried pool into no_safe_work.
                 result = {
                     "schema_version": "1.0",
                     "mode": args.mode,

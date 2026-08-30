@@ -73,16 +73,19 @@ MONOLITH_TEST_COMMANDS = (
     "Pipeline/TaskReviewAgent/run_agent.py",
     "Pipeline/TaskReviewAgent/tests/dispatch_plan_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/fresh_dispatch_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py",
 )
 
-# Stage 2 deterministic dispatch planning and Stage 3 fresh-dispatch mutation
-# boundary tests are Core-owned: they must run inside Core's windows-smoke
-# job, gated exactly like every other Core regression step, so a PR that
-# removes either from Core is caught deterministically even though both also
-# appear in MONOLITH_TEST_COMMANDS above.
+# Stage 2 deterministic dispatch planning, Stage 3 fresh-dispatch mutation
+# boundary, and Stage 4 contention-retry tests are Core-owned: they must run
+# inside Core's windows-smoke job, gated exactly like every other Core
+# regression step, so a PR that removes any of the three from Core is caught
+# deterministically even though all three also appear in
+# MONOLITH_TEST_COMMANDS above.
 CORE_ONLY_STEP_COMMANDS = (
     "Pipeline/TaskReviewAgent/tests/dispatch_plan_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/fresh_dispatch_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py",
 )
 CORE_FULL_SUITE_GATE = "if: steps.scope.outputs.run_full_core == 'true'"
 

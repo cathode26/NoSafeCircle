@@ -43,6 +43,7 @@ from Pipeline.TaskReviewAgent.claim_refs import (  # noqa: E402
     GitRefClaimClient,
     task_claim_ref,
 )
+from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
     build_dispatch_plan,
     evaluate_committed_fresh_candidate,
@@ -51,8 +52,14 @@ from Pipeline.TaskReviewAgent.dispatch_policy import load_dispatch_policy  # noq
 from Pipeline.TaskReviewAgent.fresh_dispatch import (  # noqa: E402
     GENERIC_DISPATCH_DECISIONS,
     resolve_generic_dispatch,
+    resolve_generic_dispatch_with_contention_retry,
 )
-from Pipeline.TaskReviewAgent.issue_workflow_store import MemoryIssueBackend  # noqa: E402
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER,
+    BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT,
+    IssueWorkflowService,
+    MemoryIssueBackend,
+)
 
 NAMESPACE = "refs/nsc/claims"
 SHARED_RESOURCE = "unity-scene:Assets/Scenes/StageThreeFixture.unity"
@@ -706,6 +713,293 @@ def test_shared_resource_claim_conflict_is_typed() -> None:
 
 
 # ---------------------------------------------------------------------------
+# MEDIUM-1: a post-claim durable-authority reread that positively proves
+# another AUTHORIZED worker already holds valid durable ownership -- either
+# the task's own Issue or an overlapping exclusive-resource reservation -- is
+# ordinary claim_conflict too, not the terminal issue_initialization_blocked.
+# ---------------------------------------------------------------------------
+
+
+def test_lease_outcome_decision_classifies_blocked_kinds() -> None:
+    """Pure unit test of the Stage 3 blocked -> decision mapping itself."""
+
+    decision = fresh_dispatch_module._lease_outcome_decision
+
+    require(decision({"status": "acquired"}) == "fresh_started", "acquired must fresh_start")
+    require(decision({"status": "resumed"}) == "fresh_started", "resumed must fresh_start")
+    require(
+        decision({"status": "lease_acquired_claim_cleanup_required"})
+        == "lease_acquired_claim_cleanup_required",
+        "cleanup-required must stay its own terminal decision",
+    )
+    require(
+        decision({"status": "blocked", "ephemeral_claim": {"status": "claim_conflict"}})
+        == "claim_conflict",
+        "an ephemeral Stage 1 claim-ref conflict must retry",
+    )
+    require(
+        decision({"status": "blocked", "blocked_kind": BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER})
+        == "claim_conflict",
+        "the typed benign durable-ownership block must retry as claim_conflict",
+    )
+    require(
+        decision(
+            {"status": "blocked", "blocked_kind": BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT}
+        )
+        == "claim_conflict",
+        "the typed benign resource-reservation block must retry as claim_conflict",
+    )
+    # Every other blocked shape -- invalid/tampered Issue, operational
+    # inspection failure, exact-authority reread failure, an unrecognized
+    # future blocked_kind, or no blocked_kind at all -- stays terminal.
+    require(
+        decision({"status": "blocked", "reasons": ["Issue #1 claims managed workflow state but is invalid"]})
+        == "issue_initialization_blocked",
+        "an invalid/tampered Issue must never retry",
+    )
+    require(
+        decision({"status": "blocked", "reasons": ["workflow Issue #1 could not be inspected: outage"]})
+        == "issue_initialization_blocked",
+        "an operational Issue inspection failure must never retry",
+    )
+    require(
+        decision(
+            {"status": "blocked", "reasons": ["GitHub Issue lease authority could not be re-read"]}
+        )
+        == "issue_initialization_blocked",
+        "an exact-authority verification failure must never retry",
+    )
+    require(
+        decision({"status": "blocked", "blocked_kind": "some_future_unrecognized_kind"})
+        == "issue_initialization_blocked",
+        "an unrecognized blocked_kind must fail closed, never retry",
+    )
+    require(
+        decision({"status": "blocked"}) == "issue_initialization_blocked",
+        "an untyped blocked result must fail closed, never retry",
+    )
+    require(
+        decision({"status": "something_unrecognized"}) == "issue_initialization_blocked",
+        "an unrecognized status must fail closed",
+    )
+
+
+def _foreign_owns_task(
+    *, backend_cls: type, checkout: Path, task_id: str, branch_suffix: str
+) -> None:
+    """Simulate another authorized worker's Issue durably winning ``task_id``.
+
+    Runs INSIDE this worker's OWN ``acquire_agent_lease`` call (see
+    ``_RacingWorkflowFactory``), i.e. strictly after this worker's Stage 1
+    ephemeral claim already won, so the foreign durable Issue becomes valid
+    exactly in the post-claim window Fable's MEDIUM-1 finding describes.
+    """
+
+    foreign = IssueWorkflowService(
+        backend=backend_cls(source_root=checkout),
+        task_loader=lambda tid: load_committed_task(checkout, tid),
+        worker_id="foreign-worker",
+    )
+    result = foreign.acquire_agent_lease(
+        task=load_committed_task(checkout, task_id),
+        source_head=git(checkout, "rev-parse", "HEAD"),
+        branch=f"{task_id.lower()}-{branch_suffix}",
+        checkout_path=rf"C:\NSC\NSC\{task_id}-{branch_suffix}",
+        planned_approach="Foreign worker wins durable ownership first.",
+        expected_validation="Held by foreign-worker.",
+    )
+    require(
+        result["status"] in ("acquired", "resumed"),
+        f"race setup failed to establish foreign durable ownership of {task_id}: {result}",
+    )
+
+
+def test_durable_ownership_toctou_retries_past_and_starts_disjoint_work() -> None:
+    """Item 1: another authorized worker's Issue becomes valid AGENT_WORKING
+    for our selected candidate strictly between Stage 2's plan and Stage 3's
+    own reread -- after this worker already won its Stage 1 ephemeral claim.
+    This must classify as claim_conflict and Stage 4 must retry onto the
+    other disjoint candidate rather than terminating."""
+
+    tasks = {"NSC-619": make_task("NSC-619"), "NSC-620": make_task("NSC-620")}
+    states = {"NSC-619": "not_delivered", "NSC-620": "not_delivered"}
+
+    # Fixture 1: prove the single-attempt Stage 3 typed outcome in isolation.
+    with tempfile.TemporaryDirectory(prefix="nsc-stage3-durable-ownership-toctou-") as tmp:
+        checkout, _remote = create_fixture(Path(tmp), tasks=tasks, states=states)
+        with PatchedGhBackend() as backend_cls:
+            racing = _RacingWorkflowFactory(
+                real_cls=fresh_dispatch_module.RealTaskReviewWorkflow,
+                race=lambda: _foreign_owns_task(
+                    backend_cls=backend_cls, checkout=checkout, task_id="NSC-619", branch_suffix="foreign"
+                ),
+            )
+            original = fresh_dispatch_module.RealTaskReviewWorkflow
+            fresh_dispatch_module.RealTaskReviewWorkflow = racing.cls  # type: ignore[assignment]
+            try:
+                single = resolve_generic_dispatch(source=checkout, worker_id="stage3-toctou-worker")
+            finally:
+                fresh_dispatch_module.RealTaskReviewWorkflow = original  # type: ignore[assignment]
+            require(single.decision == "claim_conflict", f"unexpected decision: {single.decision}")
+            require(single.task_id == "NSC-619", "Stage 2's exact selection was not the one raced")
+            require(
+                (single.lease_result or {}).get("blocked_kind") == BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER,
+                f"expected the typed benign durable-ownership blocked_kind: {single.lease_result}",
+            )
+
+    # Fixture 2: a completely fresh checkout/backend, so Stage 2's OWN
+    # eligibility scan cannot already know about the foreign Issue from
+    # Fixture 1 -- proving Stage 4's retry-past-contention behavior for the
+    # SAME race, from scratch, end to end.
+    with tempfile.TemporaryDirectory(prefix="nsc-stage4-durable-ownership-toctou-") as tmp:
+        checkout, _remote = create_fixture(Path(tmp), tasks=tasks, states=states)
+        with PatchedGhBackend() as backend_cls:
+            store = backend_cls(source_root=checkout)._inner
+            racing = _RacingWorkflowFactory(
+                real_cls=fresh_dispatch_module.RealTaskReviewWorkflow,
+                race=lambda: _foreign_owns_task(
+                    backend_cls=backend_cls, checkout=checkout, task_id="NSC-619", branch_suffix="foreign"
+                ),
+            )
+            original = fresh_dispatch_module.RealTaskReviewWorkflow
+            fresh_dispatch_module.RealTaskReviewWorkflow = racing.cls  # type: ignore[assignment]
+            try:
+                retried = resolve_generic_dispatch_with_contention_retry(
+                    source=checkout, worker_id="stage4-toctou-worker"
+                )
+            finally:
+                fresh_dispatch_module.RealTaskReviewWorkflow = original  # type: ignore[assignment]
+
+            require(
+                retried.decision == "fresh_started",
+                f"Stage 4 did not retry past the durable-ownership race: {retried.decision}; "
+                f"reasons={retried.reasons}",
+            )
+            require(retried.task_id == "NSC-620", f"the wrong disjoint candidate started: {retried.task_id}")
+            require(retried.contended_task_ids == ("NSC-619",), str(retried.contended_task_ids))
+            require(
+                len(retried.contention_history) == 1
+                and retried.contention_history[0].classification == "claim_conflict",
+                str(retried.contention_history),
+            )
+            require(
+                len(store.issues) == 2,
+                "the foreign worker's durable Issue and this worker's own durable Issue must "
+                "both exist, with no duplicate ownership",
+            )
+
+
+def _foreign_reserves_shared_resource(*, backend_cls: type, checkout: Path) -> None:
+    """Simulate another authorized worker durably reserving SHARED_RESOURCE
+    for an UNRELATED task, from inside this worker's own claimed attempt."""
+
+    foreign = IssueWorkflowService(
+        backend=backend_cls(source_root=checkout),
+        task_loader=lambda tid: load_committed_task(checkout, tid),
+        worker_id="foreign-worker",
+    )
+    result = foreign.acquire_agent_lease(
+        task=load_committed_task(checkout, "NSC-623"),
+        source_head=git(checkout, "rev-parse", "HEAD"),
+        branch="nsc-623-foreign",
+        checkout_path=r"C:\NSC\NSC\NSC-623-foreign",
+        planned_approach="Foreign worker reserves the shared resource first.",
+        expected_validation="Held by foreign-worker.",
+    )
+    require(
+        result["status"] in ("acquired", "resumed"),
+        f"race setup failed to establish the foreign reservation: {result}",
+    )
+
+
+def test_resource_reservation_toctou_retries_past_and_starts_disjoint_work() -> None:
+    """Item 2: another authorized worker's Issue reserves an overlapping
+    exclusive resource, becoming valid strictly between Stage 2's plan and
+    Stage 3's own resource scan -- after this worker already won its Stage 1
+    ephemeral claim for its OWN task/resource refs (never the foreign task's
+    ref, so this worker's own claim is never contended at the Git-ref layer).
+    This must classify as claim_conflict and Stage 4 must retry onto the
+    other disjoint candidate rather than terminating."""
+
+    tasks = {
+        "NSC-621": make_task("NSC-621", exclusive_resources=[SHARED_RESOURCE]),
+        "NSC-622": make_task("NSC-622"),
+        "NSC-623": make_task("NSC-623", exclusive_resources=[SHARED_RESOURCE]),
+    }
+    # NSC-623 deliberately carries no taskcontrol state: Stage 2 never
+    # enumerates or ranks it as a fresh candidate. It exists only as a
+    # committed contract the durable resource scan's task_loader can
+    # resolve once the foreign worker's race gives it a real Issue.
+    states = {"NSC-621": "not_delivered", "NSC-622": "not_delivered"}
+
+    # Fixture 1: prove the single-attempt Stage 3 typed outcome in isolation.
+    with tempfile.TemporaryDirectory(prefix="nsc-stage3-resource-toctou-") as tmp:
+        checkout, remote = create_fixture(Path(tmp), tasks=tasks, states=states)
+        with PatchedGhBackend() as backend_cls:
+            racing = _RacingWorkflowFactory(
+                real_cls=fresh_dispatch_module.RealTaskReviewWorkflow,
+                race=lambda: _foreign_reserves_shared_resource(backend_cls=backend_cls, checkout=checkout),
+            )
+            original = fresh_dispatch_module.RealTaskReviewWorkflow
+            fresh_dispatch_module.RealTaskReviewWorkflow = racing.cls  # type: ignore[assignment]
+            try:
+                single = resolve_generic_dispatch(source=checkout, worker_id="stage3-resource-toctou-worker")
+            finally:
+                fresh_dispatch_module.RealTaskReviewWorkflow = original  # type: ignore[assignment]
+            require(single.decision == "claim_conflict", f"unexpected decision: {single.decision}")
+            require(single.task_id == "NSC-621", "Stage 2's exact selection was not the one raced")
+            require(
+                (single.lease_result or {}).get("blocked_kind")
+                == BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT,
+                f"expected the typed benign resource-reservation blocked_kind: {single.lease_result}",
+            )
+            require(
+                remote_claims(remote) == {},
+                "this worker's own Stage 1 claim ref must be released after the ordinary "
+                "resource-reservation block",
+            )
+
+    # Fixture 2: a completely fresh checkout/backend, so Stage 2's OWN
+    # resource-reservation pre-filter cannot already know about the foreign
+    # reservation from Fixture 1 -- proving Stage 4's retry-past-contention
+    # behavior for the SAME race, from scratch, end to end.
+    with tempfile.TemporaryDirectory(prefix="nsc-stage4-resource-toctou-") as tmp:
+        checkout, _remote = create_fixture(Path(tmp), tasks=tasks, states=states)
+        with PatchedGhBackend() as backend_cls:
+            store = backend_cls(source_root=checkout)._inner
+            racing = _RacingWorkflowFactory(
+                real_cls=fresh_dispatch_module.RealTaskReviewWorkflow,
+                race=lambda: _foreign_reserves_shared_resource(backend_cls=backend_cls, checkout=checkout),
+            )
+            original = fresh_dispatch_module.RealTaskReviewWorkflow
+            fresh_dispatch_module.RealTaskReviewWorkflow = racing.cls  # type: ignore[assignment]
+            try:
+                retried = resolve_generic_dispatch_with_contention_retry(
+                    source=checkout, worker_id="stage4-resource-toctou-worker"
+                )
+            finally:
+                fresh_dispatch_module.RealTaskReviewWorkflow = original  # type: ignore[assignment]
+
+            require(
+                retried.decision == "fresh_started",
+                f"Stage 4 did not retry past the resource-reservation race: {retried.decision}; "
+                f"reasons={retried.reasons}",
+            )
+            require(retried.task_id == "NSC-622", f"the wrong disjoint candidate started: {retried.task_id}")
+            require(retried.contended_task_ids == ("NSC-621",), str(retried.contended_task_ids))
+            require(
+                len(retried.contention_history) == 1
+                and retried.contention_history[0].classification == "claim_conflict",
+                str(retried.contention_history),
+            )
+            require(
+                len(store.issues) == 2,
+                "the foreign worker's durable Issue and this worker's own durable Issue must "
+                "both exist, with no duplicate ownership",
+            )
+
+
+# ---------------------------------------------------------------------------
 # 8. Claim operational failure is distinguished from contention.
 # ---------------------------------------------------------------------------
 
@@ -1004,29 +1298,42 @@ def test_explicit_observe_mode_does_not_require_fresh_admission() -> None:
 
 
 def test_main_no_task_id_exit_code_mapping() -> None:
-    from Pipeline.TaskReviewAgent.fresh_dispatch import GenericDispatchResult
+    # run_pipeline_agent.py's generic no-TaskId route calls Stage 4's
+    # resolve_generic_dispatch_with_contention_retry (which itself calls
+    # resolve_generic_dispatch in a loop -- see contention_retry_smoke_test.py
+    # for the retry loop itself). This proves only the outer exit-code
+    # mapping composition; ordinary claim_conflict never reaches main() as a
+    # final decision (Stage 4 retries it), so it is not exercised here.
+    from Pipeline.TaskReviewAgent.fresh_dispatch import GenericDispatchRetryResult
 
-    original = run_pipeline_agent_module.resolve_generic_dispatch
-    stubbed_result: dict[str, GenericDispatchResult] = {}
+    original = run_pipeline_agent_module.resolve_generic_dispatch_with_contention_retry
+    stubbed_result: dict[str, GenericDispatchRetryResult] = {}
 
-    def stub(*, source: Path, worker_id: str, checkout_root: Path | None = None) -> GenericDispatchResult:
+    def stub(
+        *, source: Path, worker_id: str, checkout_root: Path | None = None
+    ) -> GenericDispatchRetryResult:
         return stubbed_result["value"]
 
-    run_pipeline_agent_module.resolve_generic_dispatch = stub  # type: ignore[assignment]
+    run_pipeline_agent_module.resolve_generic_dispatch_with_contention_retry = stub  # type: ignore[assignment]
     try:
-        stubbed_result["value"] = GenericDispatchResult(decision="no_safe_work")
+        stubbed_result["value"] = GenericDispatchRetryResult(decision="no_safe_work")
         exit_code = run_pipeline_agent_module.main(
             ["--source", str(ROOT), "--worker-id", "stage3-main-mapping-worker"]
         )
         require(exit_code == 0, f"no_safe_work must map to a normal exit: {exit_code}")
 
-        stubbed_result["value"] = GenericDispatchResult(decision="claim_conflict", task_id="NSC-999")
+        stubbed_result["value"] = GenericDispatchRetryResult(
+            decision="claim_operational_error", task_id="NSC-999"
+        )
         exit_code = run_pipeline_agent_module.main(
             ["--source", str(ROOT), "--worker-id", "stage3-main-mapping-worker"]
         )
-        require(exit_code == 2, f"claim_conflict must map to a controlled nonzero exit: {exit_code}")
+        require(
+            exit_code == 2,
+            f"claim_operational_error must map to a controlled nonzero exit: {exit_code}",
+        )
 
-        stubbed_result["value"] = GenericDispatchResult(
+        stubbed_result["value"] = GenericDispatchRetryResult(
             decision="blocked_invalid_state", task_id="NSC-999"
         )
         exit_code = run_pipeline_agent_module.main(
@@ -1034,7 +1341,7 @@ def test_main_no_task_id_exit_code_mapping() -> None:
         )
         require(exit_code == 2, f"blocked_invalid_state must map to a controlled nonzero exit: {exit_code}")
     finally:
-        run_pipeline_agent_module.resolve_generic_dispatch = original  # type: ignore[assignment]
+        run_pipeline_agent_module.resolve_generic_dispatch_with_contention_retry = original  # type: ignore[assignment]
 
 
 def main() -> int:
@@ -1050,6 +1357,9 @@ def main() -> int:
         test_head_drift_between_plan_and_mutation_blocks_before_mutation,
         test_same_task_claim_conflict_is_typed_with_no_issue_mutation_and_no_retry,
         test_shared_resource_claim_conflict_is_typed,
+        test_lease_outcome_decision_classifies_blocked_kinds,
+        test_durable_ownership_toctou_retries_past_and_starts_disjoint_work,
+        test_resource_reservation_toctou_retries_past_and_starts_disjoint_work,
         test_claim_operational_failure_is_not_classified_as_contention,
         test_claim_policy_failure_maps_to_claim_operational_error,
         test_issue_initialization_failure_is_reported_and_claim_left_for_inspection,

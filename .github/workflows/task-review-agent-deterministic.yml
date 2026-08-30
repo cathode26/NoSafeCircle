@@ -252,6 +252,10 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/fresh_dispatch_smoke_test.py
 
+      - name: Run Stage 4 contention-retry tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py
+
       - name: Run Core/Supervisor/Delivery CI split regression tests
         run: python Pipeline/TaskReviewAgent/tests/ci_workflow_split_smoke_test.py
 

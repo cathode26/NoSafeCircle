@@ -49,6 +49,16 @@ LABEL_DEFINITIONS = {
     "nsc-state:complete": ("0e8a16", "Workflow and closeout finished"),
 }
 
+# Positive, structurally-proven benign blocked_kind values for
+# acquire_agent_lease()'s "status": "blocked" result. These name ONLY the two
+# post-claim races where another AUTHORIZED worker already holds valid
+# durable authority -- ordinary concurrent ownership, never a symptom of an
+# invalid/tampered Issue, a contract mismatch, or an operational failure.
+# Every other blocked result omits blocked_kind entirely and callers must
+# treat an absent/unrecognized blocked_kind as unsafe to retry.
+BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER = "durable_ownership_by_other"
+BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT = "durable_resource_reservation_conflict"
+
 
 class IssueWorkflowStoreError(TaskReviewContractError):
     """Raised when GitHub Issue workflow state cannot be changed safely."""
@@ -397,6 +407,13 @@ class IssueWorkflowService:
         self,
         task: Mapping[str, Any],
     ) -> tuple[list[str], list[str]]:
+        conflicts, diagnostics, _blocked_kind = self._resource_conflicts_classified(task)
+        return conflicts, diagnostics
+
+    def _resource_conflicts_classified(
+        self,
+        task: Mapping[str, Any],
+    ) -> tuple[list[str], list[str], str | None]:
         """Check every open workflow-claiming Issue for resource reservations.
 
         Every valid open AUTHORIZED managed Issue whose state is not COMPLETE
@@ -411,11 +428,21 @@ class IssueWorkflowService:
         blocks work, because otherwise any public account could deny service
         by pasting state-looking text into an Issue. Such Issues are reported
         in the second returned list as bounded non-authoritative diagnostics.
+
+        The third return value is
+        :data:`BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT` if and only
+        if ``conflicts`` is non-empty and EVERY entry is a proven exclusive-
+        resource overlap against another currently-valid, authorized, managed
+        Issue -- never a loose text match. Any inspection failure, invalid or
+        unparseable Issue, or task-load failure mixed into the same result
+        forces this back to ``None``, so a real repair-worthy failure can
+        never be misclassified as ordinary concurrent ownership.
         """
 
         selected_resources = set(task.get("exclusive_resources") or [])
         conflicts: list[str] = []
         diagnostics: list[str] = []
+        all_benign = True
         # A resource-less candidate still scans every open Issue: an authorized
         # Issue claiming managed workflow state with an invalid event chain has
         # untrustworthy ownership/reservation state and must block coordination
@@ -444,6 +471,7 @@ class IssueWorkflowService:
                 conflicts.append(
                     f"workflow Issue #{number} could not be inspected: {exc}"
                 )
+                all_benign = False
                 continue
             if snapshot.state is not None and snapshot.state.task_id == task.get("id"):
                 continue
@@ -453,6 +481,7 @@ class IssueWorkflowService:
                     f"must be repaired before resource coordination: "
                     + "; ".join(snapshot.reasons)
                 )
+                all_benign = False
                 continue
             if snapshot.state.state is WorkflowState.COMPLETE:
                 continue
@@ -467,6 +496,7 @@ class IssueWorkflowService:
                 conflicts.append(
                     f"could not inspect resources for reserved {snapshot.state.task_id}"
                 )
+                all_benign = False
                 continue
             overlap = sorted(
                 selected_resources & set(other.get("exclusive_resources") or [])
@@ -475,7 +505,12 @@ class IssueWorkflowService:
                 conflicts.append(
                     f"{snapshot.state.task_id} reserves overlapping resources: {overlap}"
                 )
-        return conflicts, diagnostics
+        blocked_kind = (
+            BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT
+            if conflicts and all_benign
+            else None
+        )
+        return conflicts, diagnostics, blocked_kind
 
     def _initialize_issue(
         self,
@@ -531,13 +566,18 @@ class IssueWorkflowService:
         now: str | None = None,
     ) -> dict[str, Any]:
         task_id = validate_task_id(task.get("id"))
-        conflicts, coordination_diagnostics = self._resource_conflicts(task)
+        conflicts, coordination_diagnostics, resource_blocked_kind = (
+            self._resource_conflicts_classified(task)
+        )
         if conflicts:
-            return {
+            blocked: dict[str, Any] = {
                 "status": "blocked",
                 "reasons": conflicts,
                 "coordination_diagnostics": coordination_diagnostics,
             }
+            if resource_blocked_kind is not None:
+                blocked["blocked_kind"] = resource_blocked_kind
+            return blocked
         occurred = now or utc_now()
         snapshot = self.find(task_id)
         if snapshot is None or not snapshot.managed:
@@ -559,12 +599,20 @@ class IssueWorkflowService:
                 **snapshot.to_dict(),
             }
         if state.state is not WorkflowState.AGENT_READY:
-            return {
+            blocked = {
                 "status": "blocked",
                 "reasons": [f"workflow state is {state.state.value}, not agent_ready"],
                 "coordination_diagnostics": coordination_diagnostics,
                 **snapshot.to_dict(),
             }
+            if state.state is WorkflowState.AGENT_WORKING:
+                # The same-worker AGENT_WORKING case already returned
+                # "resumed" above, so reaching here with AGENT_WORKING proves
+                # this is a DIFFERENT, already-authenticated worker's valid
+                # durable lease -- ordinary concurrent ownership, not an
+                # invalid or tampered Issue.
+                blocked["blocked_kind"] = BLOCKED_KIND_DURABLE_OWNERSHIP_BY_OTHER
+            return blocked
         lease_id = semantic_sha256(
             {
                 "task_id": task_id,
