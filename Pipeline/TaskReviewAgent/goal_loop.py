@@ -14,6 +14,11 @@ from .contracts import (
     TaskReviewOutcome,
     TaskReviewRequest,
 )
+from .dispatch_policy import (
+    DispatchPolicy,
+    dependencies_dispatch_satisfied,
+    load_dispatch_policy,
+)
 
 
 class GoalAction(str, Enum):
@@ -139,7 +144,11 @@ def _coordination_assessment(coordination: dict[str, Any]) -> GoalAssessment | N
     )
 
 
-def assess_goal_state(observation: dict[str, Any]) -> GoalAssessment:
+def assess_goal_state(
+    observation: dict[str, Any],
+    *,
+    policy: DispatchPolicy | None = None,
+) -> GoalAssessment:
     environment = observation.get("environment") or {}
     if not environment.get("ready"):
         return GoalAssessment(
@@ -173,16 +182,31 @@ def assess_goal_state(observation: dict[str, Any]) -> GoalAssessment:
         if task.get(field) != expected
     ]
     if task.get("dependencies_conformant") is not True:
+        # ``dependencies_conformant`` reports strict current-conformance
+        # evidence, but dispatch admission is governed by the committed
+        # Stage 2 dispatch policy (dispatch_policy.json), which also treats
+        # a "needs_testing" dependency as dispatch-satisfied (carrying
+        # revalidation debt rather than blocking dispatch outright). Reuse
+        # that exact policy set here instead of a second hardcoded
+        # predicate, so a task Stage 2 already ranked as an eligible fresh
+        # candidate is not deterministically rejected by a stricter Stage 3
+        # gate for the same dependency.
+        policy = policy or load_dispatch_policy()
         dependency_states = task.get("dependency_states") or []
-        summary = ", ".join(
-            f"{item.get('task_id')}={item.get('state')}"
+        unsatisfied = [
+            item
             for item in dependency_states
             if isinstance(item, dict)
-        )
-        failures.append(
-            "one or more declared dependencies are not conformant"
-            + (f": {summary}" if summary else "")
-        )
+            and not dependencies_dispatch_satisfied((item,), policy)
+        ]
+        if unsatisfied:
+            summary = ", ".join(
+                f"{item.get('task_id')}={item.get('state')}" for item in unsatisfied
+            )
+            failures.append(
+                "one or more declared dependencies are not dispatch-satisfied"
+                + (f": {summary}" if summary else "")
+            )
     if failures:
         return GoalAssessment(GoalAction.NEEDS_HUMAN, tuple(failures))
 

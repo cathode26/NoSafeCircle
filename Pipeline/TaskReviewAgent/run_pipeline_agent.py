@@ -28,13 +28,19 @@ from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_pipeline import (  # noqa: E402
     DownstreamPipelineError,
 )
+from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
+    build_dispatch_plan,
+    evaluate_committed_fresh_candidate,
+)
 from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
     DownstreamTaskReviewWorkflow,
     ResumableDownstreamTaskController,
 )
+from Pipeline.TaskReviewAgent.fresh_dispatch import (  # noqa: E402
+    resolve_generic_dispatch,
+)
 from Pipeline.TaskReviewAgent.generic_selection import (  # noqa: E402
     GenericSelectionError,
-    select_agent_ready_task,
 )
 from Pipeline.TaskReviewAgent.goal_loop_guard import (  # noqa: E402
     GuardedTaskController,
@@ -75,8 +81,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--task-id",
         help=(
-            "Explicit NSC-### task. Omit to resume the first fully validated "
-            "nsc-state:agent-ready Issue."
+            "Explicit NSC-### task. Omit to resume existing actionable work "
+            "first; otherwise select and safely start one fresh Stage 2 "
+            "implementation candidate."
         ),
     )
     parser.add_argument("--source", type=Path, default=ROOT)
@@ -139,6 +146,39 @@ def _managed_issue_phase(
     return snapshot.state.phase.value
 
 
+def _require_explicit_fresh_admission(
+    *,
+    source: Path,
+    task_id: str,
+    worker_id: str,
+    selected_phase: str | None,
+) -> None:
+    """Gate an explicit fresh ``-TaskId`` through the same Stage 2 safety
+    kernel generic dispatch uses, so an explicit ask cannot bypass
+    eligibility/dependency/resource checks generic dispatch enforces.
+
+    A ``selected_phase`` that is not ``None`` means a managed Issue already
+    exists for this task: that is a legitimate RESUME and must never be
+    routed through fresh evaluation as though it were new work, so this
+    function returns immediately without consulting the Stage 2 kernel. A
+    blocked explicit task is reported for THIS exact task_id; it is never
+    silently substituted for another candidate.
+    """
+
+    if selected_phase is not None:
+        return
+    evaluation = evaluate_committed_fresh_candidate(
+        source=source,
+        task_id=task_id,
+        worker_id=worker_id,
+    )
+    if not evaluation.eligible:
+        raise GenericSelectionError(
+            f"{task_id} is not safe fresh implementation work: "
+            + "; ".join(evaluation.reason_codes)
+        )
+
+
 def _outcome_status(result: dict[str, Any]) -> str:
     """Report the pipeline outcome literally; never default to success.
 
@@ -166,18 +206,81 @@ def main(argv: list[str] | None = None) -> int:
                 task_id=request.task_id,
                 worker_id=args.worker_id,
             )
+            if args.mode != "observe":
+                # Observe mode is a read-only diagnostic: an operator must be
+                # able to inspect an explicit task's current state even when
+                # it would not be safe/eligible fresh mutation admission.
+                # Only a mutating mode enforces the Stage 2 safety kernel
+                # before continuing.
+                _require_explicit_fresh_admission(
+                    source=args.source,
+                    task_id=request.task_id,
+                    worker_id=args.worker_id,
+                    selected_phase=selected_phase,
+                )
+        elif args.mode == "observe":
+            # observe mode must never mutate. resolve_generic_dispatch's
+            # fresh-candidate path crosses a real mutation boundary (Stage 1
+            # claim + durable Issue creation/acquisition), so a no-TaskId
+            # observe run stops at the read-only Stage 2 plan instead.
+            plan = build_dispatch_plan(source=args.source, worker_id=args.worker_id)
+            result = {
+                "schema_version": "1.0",
+                "mode": args.mode,
+                "selected_pipeline": None,
+                "dispatch_plan": plan.to_dict(),
+                "worker_id": args.worker_id,
+                "runtime": describe_codex_runtime(),
+                "authority": "read_only_dispatch_plan_observation",
+            }
+            print(json.dumps(result, indent=2, sort_keys=True))
+            return 0
         else:
             print(
-                "[task-agent] Reading the durable agent-ready Issue queue...",
+                "[task-agent] Resolving generic dispatch: resume existing durable "
+                "work, otherwise select one Stage 2 fresh candidate...",
                 file=sys.stderr,
                 flush=True,
             )
-            selection = select_agent_ready_task(
+            dispatch_result = resolve_generic_dispatch(
                 source=args.source,
                 worker_id=args.worker_id,
+                checkout_root=args.checkout_root,
             )
-            request = TaskReviewRequest(selection["task_id"])
-            selected_phase = selection.get("phase")
+            if dispatch_result.decision == "resume_existing":
+                selection = dict(dispatch_result.resume or {})
+                selection.setdefault(
+                    "selection_priority", "resume_agent_ready_before_new_task"
+                )
+                request = TaskReviewRequest(dispatch_result.task_id)
+                selected_phase = (dispatch_result.resume or {}).get("phase")
+            elif dispatch_result.decision == "fresh_started":
+                selection = {
+                    "selection_priority": "stage3_fresh_dispatch",
+                    "task_id": dispatch_result.task_id,
+                }
+                request = TaskReviewRequest(dispatch_result.task_id)
+                # A task that was just leased for the first time always
+                # starts at the initial implementation phase.
+                selected_phase = None
+            else:
+                # no_safe_work / blocked_invalid_state / claim_conflict /
+                # claim_operational_error / issue_initialization_blocked /
+                # lease_acquired_claim_cleanup_required: report the typed
+                # Stage 3 outcome directly. Never invent or substitute a task,
+                # and never treat no_safe_work as an error requiring the
+                # human to pass an explicit -TaskId.
+                result = {
+                    "schema_version": "1.0",
+                    "mode": args.mode,
+                    "selected_pipeline": None,
+                    "generic_dispatch": dispatch_result.to_dict(),
+                    "worker_id": args.worker_id,
+                    "runtime": describe_codex_runtime(),
+                    "authority": "generic_dispatch_resolution_only",
+                }
+                print(json.dumps(result, indent=2, sort_keys=True))
+                return 0 if dispatch_result.decision == "no_safe_work" else 2
 
         downstream_selected = selected_phase in _DOWNSTREAM_PHASES
         workflow_type = (

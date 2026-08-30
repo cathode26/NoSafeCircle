@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Iterable, Mapping
 
 from .contracts import TaskReviewContractError
 
@@ -108,10 +109,35 @@ def load_dispatch_policy(path: Path | str | None = None) -> DispatchPolicy:
     )
 
 
+def dependencies_dispatch_satisfied(
+    dependency_states: Iterable[Mapping[str, Any]] | None,
+    policy: DispatchPolicy | None = None,
+) -> bool:
+    """True when every dependency observation is dispatch-satisfied.
+
+    This is the ONE dependency-admission predicate: current strict
+    conformance (``state == "conformant"``) and ``needs_testing`` (carrying
+    revalidation debt) both count as dispatch-satisfied per the committed
+    policy, matching :func:`dispatch_plan.evaluate_fresh_candidate`. Callers
+    gating dispatch/coordination admission (:mod:`goal_loop`,
+    :mod:`real_workflow`) reuse this instead of each hardcoding their own
+    dependency predicate.
+    """
+
+    policy = policy or load_dispatch_policy()
+    return all(
+        isinstance(item, Mapping)
+        and item.get("error") is None
+        and item.get("state") in policy.dependency_dispatch_satisfied_states
+        for item in (dependency_states or ())
+    )
+
+
 __all__ = [
     "DISPATCH_POLICY_PATH",
     "DISPATCH_POLICY_SCHEMA_VERSION",
     "DispatchPolicy",
     "DispatchPolicyError",
+    "dependencies_dispatch_satisfied",
     "load_dispatch_policy",
 ]

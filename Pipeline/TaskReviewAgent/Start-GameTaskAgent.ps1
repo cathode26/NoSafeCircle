@@ -244,7 +244,7 @@ if (-not [string]::IsNullOrWhiteSpace($Model)) {
 
 Write-Host "Worker: $WorkerId"
 if ([string]::IsNullOrWhiteSpace($TaskId)) {
-    Write-Host 'Task: resume first validated agent-ready Issue'
+    Write-Host 'Task: resume existing actionable work, otherwise start one safe fresh implementation task'
 }
 else {
     Write-Host "Task: $TaskId"
