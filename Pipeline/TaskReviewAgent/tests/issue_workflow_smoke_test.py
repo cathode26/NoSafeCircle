@@ -97,6 +97,60 @@ def task(
     }
 
 
+class LaggyMemoryIssueBackend(MemoryIssueBackend):
+    # Writes current state immediately but exposes stale Issue bodies for a
+    # configured number of subsequent list_issues() reads.
+    def __init__(self, *, stale_reads_per_update: int) -> None:
+        super().__init__()
+        self.stale_reads_per_update = stale_reads_per_update
+        self._stale_issue: dict | None = None
+        self._stale_reads_remaining = 0
+        self.add_comment_calls = 0
+        self.update_issue_calls = 0
+
+    def list_issues(self) -> list[dict]:
+        current = super().list_issues()
+        if self._stale_reads_remaining <= 0 or self._stale_issue is None:
+            return current
+
+        self._stale_reads_remaining -= 1
+        stale_number = self._stale_issue["number"]
+        return [
+            json.loads(json.dumps(self._stale_issue))
+            if item["number"] == stale_number
+            else item
+            for item in current
+        ]
+
+    def add_comment(self, issue_number: int, body: str) -> dict:
+        self.add_comment_calls += 1
+        return super().add_comment(issue_number, body)
+
+    def update_issue(
+        self,
+        issue_number: int,
+        *,
+        body: str | None = None,
+        labels: list[str] | None = None,
+        assignees: list[str] | None = None,
+    ) -> dict:
+        stale = json.loads(json.dumps(self.issues[issue_number]))
+        self.update_issue_calls += 1
+        updated = super().update_issue(
+            issue_number,
+            body=body,
+            labels=labels,
+            assignees=assignees,
+        )
+        self._stale_issue = stale
+        self._stale_reads_remaining = self.stale_reads_per_update
+        return updated
+
+    def reveal_current_reads(self) -> None:
+        self._stale_reads_remaining = 0
+        self._stale_issue = None
+
+
 def test_state_event_round_trip_and_chain() -> None:
     state = initial_state(
         task_id=TASK_ID,
@@ -260,6 +314,118 @@ The player crossed the blocker.
         resumed["workflow_state"]["worker_id"] == "agent-b",
         "new agent lease did not record its worker ID",
     )
+
+
+def test_post_mutation_verification_retries_stale_reads_without_repeating_writes() -> None:
+    backend = LaggyMemoryIssueBackend(stale_reads_per_update=2)
+    tasks = {TASK_ID: task(TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+    )
+
+    original_delays = issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS
+    issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = (0.0, 0.0, 0.0)
+    try:
+        acquired = service.acquire_agent_lease(
+            task=tasks[TASK_ID],
+            source_head=SOURCE_HEAD,
+            branch=BRANCH,
+            checkout_path=CHECKOUT,
+            planned_approach="Exercise stale verification after lease mutation.",
+            expected_validation="The read retries without repeating the lease write.",
+            now="2026-08-31T01:00:00Z",
+        )
+        require(acquired["status"] == "acquired", f"laggy lease did not succeed: {acquired}")
+        require(
+            backend.add_comment_calls == 1 and backend.update_issue_calls == 1,
+            "lease verification retried a mutation instead of reads only",
+        )
+
+        handoff = service.publish_human_handoff(
+            task_id=TASK_ID,
+            branch=BRANCH,
+            head_commit=HANDOFF_HEAD,
+            checkout_path=CHECKOUT,
+            implementation_summary="Exercise stale verification after handoff mutation.",
+            completed_checks=("synthetic check",),
+            human_steps=("synthetic step",),
+            expected_result="The read retries without repeating the handoff write.",
+            now="2026-08-31T01:01:00Z",
+        )
+        require(
+            handoff["status"] == "human_action_required",
+            f"laggy handoff did not succeed: {handoff}",
+        )
+        require(
+            backend.add_comment_calls == 2 and backend.update_issue_calls == 2,
+            "handoff verification retried a mutation instead of reads only",
+        )
+
+        failure_result = (
+            "## Human validation result\n\n"
+            "Result: FAIL\n"
+            f"Tested commit: `{HANDOFF_HEAD}`\n\n"
+            "Notes:\n"
+            "Synthetic stale-read verification fixture.\n"
+        )
+        ready = service.apply_human_result(
+            task_id=TASK_ID,
+            result_body=failure_result,
+            actor_id="cathode26",
+            now="2026-08-31T01:02:00Z",
+        )
+        require(ready["status"] == "agent_ready", f"laggy human result failed: {ready}")
+        require(
+            ready["workflow_state"]["phase"] == "repair",
+            "laggy human result did not preserve repair semantics",
+        )
+        require(
+            backend.add_comment_calls == 3 and backend.update_issue_calls == 3,
+            "human-result verification retried a mutation instead of reads only",
+        )
+    finally:
+        issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = original_delays
+
+
+def test_post_mutation_verification_exhaustion_fails_closed_without_repeating_write() -> None:
+    backend = LaggyMemoryIssueBackend(stale_reads_per_update=100)
+    tasks = {TASK_ID: task(TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+    )
+
+    original_delays = issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS
+    issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = (0.0, 0.0, 0.0)
+    try:
+        expect_error(
+            lambda: service.acquire_agent_lease(
+                task=tasks[TASK_ID],
+                source_head=SOURCE_HEAD,
+                branch=BRANCH,
+                checkout_path=CHECKOUT,
+                planned_approach="Exhaust bounded stale verification.",
+                expected_validation="Fail closed without repeating the lease write.",
+                now="2026-08-31T02:00:00Z",
+            ),
+            "after 3 bounded read attempt(s)",
+        )
+        require(
+            backend.add_comment_calls == 1 and backend.update_issue_calls == 1,
+            "exhausted verification repeated the durable lease mutation",
+        )
+
+        backend.reveal_current_reads()
+        observed = service.observe(TASK_ID)
+        require(
+            observed["status"] == "agent_working_by_worker",
+            f"durable lease was not preserved after verification exhaustion: {observed}",
+        )
+    finally:
+        issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = original_delays
 
 
 def test_resource_conflict_and_tampered_history_fail_closed() -> None:
@@ -785,6 +951,8 @@ def main() -> int:
     tests = (
         test_state_event_round_trip_and_chain,
         test_issue_service_handoff_human_result_and_resume,
+        test_post_mutation_verification_retries_stale_reads_without_repeating_writes,
+        test_post_mutation_verification_exhaustion_fails_closed_without_repeating_write,
         test_resource_conflict_and_tampered_history_fail_closed,
         test_durable_ownership_by_other_is_typed_blocked_kind,
         test_operational_resource_inspection_failure_is_not_benign,
