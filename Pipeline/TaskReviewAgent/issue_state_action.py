@@ -114,6 +114,11 @@ def main() -> int:
             task_loader=lambda task_id: load_committed_task(ROOT, task_id),
             worker_id="github-issue-workflow-action",
         )
+        service.verify_post_mutation_state(
+            state.task_id,
+            state,
+            transition_name="human workflow state-label restoration",
+        )
 
         if state.state is WorkflowState.HUMAN_ACTION_REQUIRED:
             if state.last_event_id is None or state.human_handoff_commit is None:

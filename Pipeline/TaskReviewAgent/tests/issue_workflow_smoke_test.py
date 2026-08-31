@@ -428,6 +428,64 @@ def test_post_mutation_verification_exhaustion_fails_closed_without_repeating_wr
         issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = original_delays
 
 
+def test_post_mutation_verification_rejects_visible_same_version_conflict() -> None:
+    backend = LaggyMemoryIssueBackend(stale_reads_per_update=0)
+    tasks = {TASK_ID: task(TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+    )
+    service.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Create exact authority for the conflict test.",
+        expected_validation="A same-version mismatch fails closed.",
+        now="2026-08-31T03:00:00Z",
+    )
+    snapshot = service.find(TASK_ID)
+    assert snapshot is not None and snapshot.state is not None
+    conflicting = replace(
+        snapshot,
+        state=replace(
+            snapshot.state,
+            updated_at_utc="2026-08-31T03:00:01Z",
+        ),
+    )
+    reads = 0
+
+    class ConflictReader:
+        def find(self, _task_id: str):
+            nonlocal reads
+            reads += 1
+            return conflicting
+
+    comments_before = backend.add_comment_calls
+    updates_before = backend.update_issue_calls
+    original_delays = issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS
+    issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = (0.0,) * 3
+    try:
+        expect_error(
+            lambda: issue_workflow_store_module.verify_post_mutation_state(
+                ConflictReader(),
+                TASK_ID,
+                snapshot.state,
+                transition_name="visible conflict",
+            ),
+            "after 1 bounded read attempt(s)",
+        )
+    finally:
+        issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = original_delays
+    require(reads == 1, "same-version conflict was treated as stale and retried")
+    require(
+        backend.add_comment_calls == comments_before
+        and backend.update_issue_calls == updates_before,
+        "visible conflict caused a durable mutation",
+    )
+
+
 def test_resource_conflict_and_tampered_history_fail_closed() -> None:
     backend = MemoryIssueBackend()
     tasks = {TASK_ID: task(TASK_ID), OTHER_TASK_ID: task(OTHER_TASK_ID)}
@@ -953,6 +1011,7 @@ def main() -> int:
         test_issue_service_handoff_human_result_and_resume,
         test_post_mutation_verification_retries_stale_reads_without_repeating_writes,
         test_post_mutation_verification_exhaustion_fails_closed_without_repeating_write,
+        test_post_mutation_verification_rejects_visible_same_version_conflict,
         test_resource_conflict_and_tampered_history_fail_closed,
         test_durable_ownership_by_other_is_typed_blocked_kind,
         test_operational_resource_inspection_failure_is_not_benign,

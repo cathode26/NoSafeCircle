@@ -19,7 +19,6 @@ from .issue_workflow import (
     update_issue_body,
     utc_now,
 )
-from .issue_workflow_store import IssueWorkflowStoreError
 from .real_workflow import RealTaskReviewWorkflow
 from .repository_scope import RepositoryScopeAuthority
 
@@ -318,9 +317,11 @@ class ProductionTaskController:
             labels=labels_for_state(next_state.state, snapshot.labels),
             assignees=[service.assignee],
         )
-        verified = service.find(self.task_id)
-        if verified is None or not verified.valid or verified.state != next_state:
-            raise IssueWorkflowStoreError("pipeline blocker transition could not be verified")
+        verified = service.verify_post_mutation_state(
+            self.task_id,
+            next_state,
+            transition_name="pipeline blocker",
+        )
         return {"status": "blocked", **verified.to_dict()}
 
     def latest_human_feedback(self) -> dict[str, Any] | None:

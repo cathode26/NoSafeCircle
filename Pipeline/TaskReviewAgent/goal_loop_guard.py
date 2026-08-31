@@ -17,7 +17,6 @@ from .issue_workflow import (
     update_issue_body,
     utc_now,
 )
-from .issue_workflow_store import IssueWorkflowStoreError
 from .progress import ProgressLog
 
 
@@ -210,8 +209,8 @@ class GuardedTaskController:
             labels=labels_for_state(next_state.state, snapshot.labels),
             assignees=[service.assignee],
         )
-        verified = service.find(task_id)
-        if verified is None or not verified.valid or verified.state != next_state:
-            raise IssueWorkflowStoreError(
-                "checkout circuit-breaker lease release could not be verified"
-            )
+        service.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="checkout circuit-breaker lease release",
+        )

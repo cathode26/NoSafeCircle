@@ -20,7 +20,7 @@ from .issue_workflow import (
     update_issue_body,
     utc_now,
 )
-from .issue_workflow_store import IssueWorkflowService, IssueWorkflowStoreError
+from .issue_workflow_store import IssueWorkflowService
 
 
 DELIVERY_REVIEW_RE = re.compile(
@@ -195,11 +195,11 @@ class DownstreamIssueCoordinator:
             labels=labels_for_state(next_state.state, snapshot.labels),
             assignees=[self.service.assignee],
         )
-        verified = self.service.find(task_id)
-        if verified is None or not verified.valid or verified.state != next_state:
-            raise IssueWorkflowStoreError(
-                "delivery review handoff could not be verified"
-            )
+        verified = self.service.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="delivery review handoff",
+        )
         return {"status": "human_delivery_review", **verified.to_dict()}
 
     def apply_delivery_review(
@@ -290,11 +290,11 @@ class DownstreamIssueCoordinator:
             labels=labels_for_state(next_state.state, snapshot.labels),
             assignees=[self.service.assignee],
         )
-        verified = self.service.find(task_id)
-        if verified is None or not verified.valid or verified.state != next_state:
-            raise IssueWorkflowStoreError(
-                "delivery review result transition could not be verified"
-            )
+        verified = self.service.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="delivery review result",
+        )
         return {"status": "agent_ready", **verified.to_dict()}
 
     def release_for_pending_checks(
@@ -352,9 +352,11 @@ class DownstreamIssueCoordinator:
             labels=labels_for_state(next_state.state, snapshot.labels),
             assignees=[self.service.assignee],
         )
-        verified = self.service.find(task_id)
-        if verified is None or not verified.valid or verified.state != next_state:
-            raise IssueWorkflowStoreError("lease release could not be verified")
+        verified = self.service.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="pending-check lease release",
+        )
         return {"status": "agent_ready", **verified.to_dict()}
 
     def complete(
@@ -419,7 +421,9 @@ class DownstreamIssueCoordinator:
             labels=labels_for_state(next_state.state, snapshot.labels),
             assignees=[self.service.assignee],
         )
-        verified = self.service.find(task_id)
-        if verified is None or not verified.valid or verified.state != next_state:
-            raise IssueWorkflowStoreError("completion transition could not be verified")
+        verified = self.service.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="completion",
+        )
         return {"status": "complete", **verified.to_dict()}

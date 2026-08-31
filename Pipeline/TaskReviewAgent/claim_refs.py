@@ -68,7 +68,16 @@ from .contracts import (
     validate_task_id,
 )
 from .git_identity_guard import validated_agent_git_identity
-from .issue_workflow import WorkflowState, utc_now
+from .issue_workflow import (
+    IssueWorkflowState,
+    WorkflowContractError,
+    WorkflowState,
+    utc_now,
+)
+from .issue_workflow_store import (
+    IssueWorkflowStoreError,
+    verify_post_mutation_state,
+)
 from .real_checkout import CANONICAL_REMOTE, _normalized_remote
 
 CLAIM_RECEIPT_SCHEMA_VERSION = "1.0"
@@ -834,15 +843,24 @@ def _exact_authority_failures(
         reasons.append("the acquisition result carries no exact last_event_id")
     if reasons:
         return reasons
-    verified = issue_workflow.find(task_id)
-    if verified is None:
-        return ["the managed GitHub Issue could not be re-read after acquisition"]
-    if not verified.valid or verified.state is None:
-        return [
-            "the re-read GitHub Issue is not valid managed workflow state: "
-            + "; ".join(getattr(verified, "reasons", ()) or ("no state",))
-        ]
+    try:
+        expected_state = IssueWorkflowState.from_dict(expected)
+    except WorkflowContractError as exc:
+        return [f"the acquisition result workflow_state is invalid: {exc}"]
+    try:
+        verified = verify_post_mutation_state(
+            issue_workflow,
+            task_id,
+            expected_state,
+            transition_name="exact GitHub Issue lease authority",
+        )
+    except IssueWorkflowStoreError as exc:
+        detail = str(exc)
+        if "lease_id" in detail:
+            detail = "re-read workflow state carries a different lease_id; " + detail
+        return [detail]
     state = verified.state
+    assert state is not None
     if state.state is not WorkflowState.AGENT_WORKING:
         reasons.append(
             f"re-read workflow state is {state.state.value}, not agent_working"

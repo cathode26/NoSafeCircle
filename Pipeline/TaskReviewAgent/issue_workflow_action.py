@@ -225,6 +225,16 @@ def main() -> int:
         # The human just added agent-ready. Restore the still-authoritative current-state
         # label before the service verifies and records the transition.
         backend.restore_state_label(state.state)
+        service = IssueWorkflowService(
+            backend=backend,
+            task_loader=lambda task_id: load_committed_task(ROOT, task_id),
+            worker_id="github-issue-workflow-action",
+        )
+        service.verify_post_mutation_state(
+            state.task_id,
+            state,
+            transition_name="human-validation state-label restoration",
+        )
         human_result, rejections = find_human_validation_result(
             backend.get_comments(issue_number),
             after_event_id=state.last_event_id,
@@ -237,11 +247,6 @@ def main() -> int:
                 "exact Tested commit before changing state."
                 + ("".join(f" {item}" for item in rejections))
             )
-        service = IssueWorkflowService(
-            backend=backend,
-            task_loader=lambda task_id: load_committed_task(ROOT, task_id),
-            worker_id="github-issue-workflow-action",
-        )
         result = service.apply_human_result(
             task_id=state.task_id,
             result_body=human_result.body,

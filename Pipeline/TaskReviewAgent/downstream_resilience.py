@@ -43,7 +43,6 @@ from .issue_workflow import (
     update_issue_body,
     utc_now,
 )
-from .issue_workflow_store import IssueWorkflowStoreError
 
 
 CARRY_FORWARD_SCHEMA_VERSION = "1.0"
@@ -1003,11 +1002,11 @@ def _release_active_lease(
         labels=labels_for_state(next_state.state, snapshot.labels),
         assignees=[service.assignee],
     )
-    verified = service.find(task_id)
-    if verified is None or not verified.valid or verified.state != next_state:
-        raise IssueWorkflowStoreError(
-            "deterministic failure lease release could not be verified"
-        )
+    service.verify_post_mutation_state(
+        task_id,
+        next_state,
+        transition_name="deterministic failure lease release",
+    )
     return True
 
 
