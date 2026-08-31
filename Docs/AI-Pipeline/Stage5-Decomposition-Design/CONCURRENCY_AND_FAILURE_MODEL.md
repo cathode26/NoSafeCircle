@@ -68,11 +68,14 @@ required?**, **Proving test**.
 - **Authority: CORRECTED.** The affected-contract authority set + atomic multi-task claim + durable Issue state
   check described in `ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Protecting existing task contracts D1C rewrites" —
   not, as an earlier draft of this document claimed, "whichever commit lands first" alone.
-- **Fail-closed:** D1C must prove, immediately before mutating, that no affected existing task (parent + every
-  rewritten dependent) is currently `agent_working` for any worker or `human_action_required` in a phase where
-  mutation is unsafe. If worker W already holds a verified `agent_working` durable Issue lease on dependent X
-  when D1C attempts to claim X's contract-mutation authority, D1C's durable-state check finds this and D1C
-  **blocks** — it does not proceed to rewrite X's `depends_on`/`contract_revision` underneath W. Conversely, if
+- **Fail-closed:** D1C must prove, immediately before mutating, exact safe durable authority for the whole
+  affected-contract set. The decomposition parent is expected to be `agent_working` **only for the current D1C
+  worker's exact `decomposition_apply` lease**; a parent lease owned by another worker or in another phase blocks
+  the apply. Every rewritten dependent/other affected existing task must not be `agent_working` for any worker
+  and must not be `human_action_required`/otherwise durably owned in an unsafe mutation phase. If worker W
+  already holds a verified `agent_working` durable Issue lease on dependent X when D1C attempts to claim X's
+  contract-mutation authority, D1C's durable-state check finds this and D1C **blocks** — it does not proceed to
+  rewrite X's `depends_on`/`contract_revision` underneath W. Conversely, if
   D1C's atomic multi-task claim on X is acquired first (and D1C's durable-state check found X safe to mutate at
   that moment), a NEW attempt by any worker to acquire an `agent_working` lease on X loses the ordinary claim
   race on the same `task_claim_ref(namespace, X)` D1C is holding — this is the SAME ref implementation dispatch
@@ -81,9 +84,10 @@ required?**, **Proving test**.
   immediately after acquisition, as an ordinary lease handoff does).
 - **Retry/recovery:** a worker that lost the race to D1C's multi-task claim retries after D1C's commit lands and
   correctly observes the new contract (the existing stale-contract-hash resume defense in `durable_selection.py`
-  still applies to any LATER resume, unchanged). A D1C attempt that found an affected task already
-  `agent_working` reports blocked/retryable and must retry later, once that worker's lease is released, rather
-  than proceeding partially.
+  still applies to any LATER resume, unchanged). A D1C attempt that finds a rewritten dependent/other affected
+  task already `agent_working`, or finds that the parent is not held by the current worker's exact expected
+  `decomposition_apply` lease, reports blocked/retryable and must retry only after durable authority becomes
+  safe rather than proceeding partially.
 - **Serialization required:** **Yes — this is the second race in this document requiring a new mechanism**: an
   atomic multi-task claim extension to `claim_refs.py` (new code — `acquire()` claims exactly one `task_id`
   today) plus a durable-state precondition check, both re-verified immediately before mutation. An earlier draft

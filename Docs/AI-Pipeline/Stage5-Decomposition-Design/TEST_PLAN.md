@@ -73,6 +73,8 @@ missing (to be built per `IMPLEMENTATION_SEQUENCE.md`).
 - **Status: missing entirely.** This capability does not exist in any form today; an earlier draft of this test
   plan incorrectly assumed the existing contract-hash staleness check was sufficient (see
   `CONCURRENCY_AND_FAILURE_MODEL.md` race #4, corrected). New deterministic tests (Slice 6b):
+  - the decomposition parent's exact `agent_working` / `decomposition_apply` lease owned by the current D1C
+    worker is accepted, while a parent lease owned by another worker or in another phase is rejected;
   - a dependent worker's `agent_working` lease acquisition wins the race BEFORE D1C attempts its
     affected-contract claim — assert D1C's durable-state check blocks and mutates nothing;
   - D1C's atomic multi-task claim wins FIRST — assert a subsequent implementation lease attempt on the same

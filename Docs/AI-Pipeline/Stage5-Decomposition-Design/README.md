@@ -49,29 +49,32 @@ See `CURRENT_STATE_AUDIT.md` for the full capability-by-capability inventory wit
 ## Recommended implementation sequence (summary; detail in `IMPLEMENTATION_SEQUENCE.md`)
 
 ```text
-1. D1C deterministic planner/preflight (pure function, reuses graph_delta.py) — CAN start before Gauntlet completes
-2. Local transactional materialization (Tasks/*.yaml + WORK_ID_MAP + RESOURCE_GROUPS) — CAN start before Gauntlet completes
-3. D1C application tests (deterministic, in-memory/synthetic repo) — CAN start before Gauntlet completes
-4. Durable Issue phase additions (work_type, decomposition phases) — WAIT for Gauntlet: depends on durable-Issue behavior under real concurrency
-5. Generic dispatcher/resume integration (decomposition candidates in Stage 2 planner) — WAIT for Gauntlet
-6. Concurrency serialization for graph mutation vs parallel implementation workers — WAIT for Gauntlet
-7. Live single-decomposition proof — WAIT for Gauntlet
-8. Multi-worker proof — WAIT for Gauntlet
-9. Autonomous/background enablement consideration — WAIT indefinitely; separate authorization, out of Stage 5 scope entirely
+CURRENT PROJECT EXECUTION GATE: no Stage 5 code implementation until the live Gauntlet is accepted.
+Design/audit/test specification may proceed while the Gauntlet runs.
+
+1. D1C deterministic planner/preflight — IMPLEMENT AFTER GAUNTLET (design is deterministic and may be finalized now)
+2. Local transactional materialization — IMPLEMENT AFTER GAUNTLET
+3. D1C application tests — IMPLEMENT AFTER GAUNTLET
+4. Durable Issue phase additions — IMPLEMENT AFTER GAUNTLET
+5. Generic dispatcher/resume integration — AFTER GAUNTLET AND AFTER production #104 adoption audit is closed
+6. Concurrency serialization / affected-contract authority — AFTER GAUNTLET; Slice 6b also needs its own proof
+7. Live single-decomposition proof — AFTER Slices 1-6 and required prerequisites
+8. Multi-worker proof — AFTER single-worker proof
+9. Autonomous/background enablement consideration — separate authorization; out of Stage 5 scope
 ```
 
 ## Explicit prerequisites from the live Gauntlet
 
-The Gauntlet is the first real multi-worker proof of `dispatch_plan.py` + `fresh_dispatch.py` + `claim_refs.py` + `issue_workflow.py` under genuine concurrent load (`Docs/AI-Pipeline/Historical-Context-Sessions/CURRENT_CONTEXT.md`: *"the next planned milestone is the dedicated multi-worker Gauntlet... run real simultaneous workers to prove concurrency behavior outside local synthetic fixtures"*). Stage 5 slices 4-8 above **reuse that exact same machinery** for decomposition/application work. Building them on unproven concurrency primitives risks compounding an undiscovered defect into an operation (graph mutation) that is much harder to safely retry than an ordinary implementation claim. Full detail and per-prerequisite reasoning is in `GAUNTLET_PREREQUISITES.md`.
+The Gauntlet is the first real multi-worker proof of `dispatch_plan.py` + `fresh_dispatch.py` + `claim_refs.py` + `issue_workflow.py` under genuine concurrent load (`Docs/AI-Pipeline/Historical-Context-Sessions/CURRENT_CONTEXT.md`: *"the next planned milestone is the dedicated multi-worker Gauntlet... run real simultaneous workers to prove concurrency behavior outside local synthetic fixtures"*). Stage 5's orchestrator-facing slices reuse or extend that machinery, and the current project gate therefore waits for Gauntlet acceptance before **any** Stage 5 code implementation begins. In addition, production issue **#104** must close the remaining direct Issue mutation → immediate-readback adoption gaps before Stage 5 enables Issue-mutating decomposition slices (Slice 5+). Gauntlet acceptance is necessary but does not by itself prove the new Slice 6b atomic multi-task claim extension. Full detail and per-prerequisite reasoning is in `GAUNTLET_PREREQUISITES.md`.
 
 ## GO / WAIT / DO-NOT-DO
 
 | Item | Status | Reason |
 | --- | --- | --- |
-| Design/spec D1C deterministic planner (pure function extension of `graph_delta.py`) | **GO** | No dependency on live concurrency; purely deterministic |
-| Implement + unit-test D1C local transactional materialization against a synthetic repo | **GO** | Same as above; mirrors proven pattern in `work_graph_persist.py` |
-| Implement D1C dry-run/mutation-plan artifact | **GO** | Pure/deterministic |
-| Wire `work_type: decomposition` into `dispatch_plan.py`/`issue_workflow.py` for real multi-worker use | **WAIT** | Depends on Gauntlet proving the exact machinery this would reuse |
+| Continue Stage 5 design/audit/test specification | **GO** | Documentation-only work does not mutate production behavior |
+| Implement D1C planner/materializer/tests (Slices 1-3) | **WAIT** | Technically deterministic, but the current project gate freezes all Stage 5 code until Gauntlet acceptance |
+| Implement D1C dry-run/mutation-plan code | **WAIT** | Same project gate; design may be finalized now |
+| Wire `work_type: decomposition` into `dispatch_plan.py`/`issue_workflow.py` for real multi-worker use | **WAIT** | Requires Gauntlet acceptance; Issue-mutating use also depends on production #104 closure |
 | Enable decomposition candidates in generic resume-first selection | **WAIT** | Same dependency; also depends on serialization design in `CONCURRENCY_AND_FAILURE_MODEL.md` |
 | Run a live single-worker D1C application against a real parent | **WAIT** | Should follow, not precede, deterministic test coverage and Gauntlet acceptance |
 | Run multi-worker D1C application races | **WAIT** | Explicitly the highest-risk untested case; must follow single-worker proof |

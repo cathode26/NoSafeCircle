@@ -235,20 +235,27 @@ before authorizing the real mutation — mirroring the existing Decomposition Cl
 
 ## Atomicity/transaction boundary across multiple files
 
-Covered above: **staged-write + validate-staged + ordered `os.replace`** is the transaction boundary for the
-working tree. It is not a database transaction; it is "no partial state becomes visible to a reader of the real
-`Tasks/` directory until the last `os.replace` in the batch completes," with the *ordering* chosen so that any
-process crash mid-batch leaves the graph in a state `validate_work_graph_plan` /
-`validate_decomposition_graph_semantics` would still reject as inconsistent (parent not yet aggregate while
-children already exist) rather than silently accept as complete. **This is intentional fail-closed
-behavior, not full atomicity** — see next section.
+Covered above: **staged-write + validate-staged + ordered `os.replace`** is the controlled publication
+boundary **inside the isolated D1C-owned checkout**, but it is explicitly **not an atomic multi-file
+transaction**. After the first `os.replace`, partial filesystem state can be visible to another process that
+reads that same disposable checkout, and a process crash can leave only a prefix of the replacements present.
+The ordering reduces the danger of that partial local state, and the orphaned-child validation below makes it
+fail closed; it does not make the replacements atomic as a group.
+
+The authoritative publication guarantee is stronger at the Git boundary: D1C must not commit, push, open/integrate
+a PR, or update durable completion authority until **all** replacements finish and the full materialized graph
+validates. A valid single Git commit then represents the complete semantic unit; shared `main` therefore sees
+either the pre-apply commit or the fully validated post-apply commit, never the checkout's partial replacement
+sequence. See the next section for crash recovery inside the isolated checkout.
 
 ## What happens if filesystem write succeeds partially
 
-**RECOMMENDATION.** If the process crashes between `os.replace` calls in step 6:
+**RECOMMENDATION.** If the process crashes between `os.replace` calls in step 6 **inside the isolated
+D1C-owned checkout**:
 
-- Some child files exist on disk; the parent file may still be the OLD (pre-decomposition) version, or the NEW
-  one, depending on exactly where the crash occurred.
+- Some child files exist in that disposable checkout; the parent file may still be the OLD
+  (pre-decomposition) version, or the NEW one, depending on exactly where the crash occurred. This partial
+  working-tree state must never be committed/pushed/integrated as authoritative graph state.
 - `persistent_work_graph.py::load_persistent_work_graph` re-validates the **entire** graph on every load,
   including `validate_decomposition_graph_semantics`. If the parent is still old but children already exist as
   orphaned schema-valid files with `parent: <parent-id>` pointing at a still-non-aggregate parent, the loader
@@ -325,12 +332,21 @@ strictly local and strictly pre-push, on a disposable checkout D1C itself create
 
 ## Idempotency/replay behavior
 
-**RECOMMENDATION.** Applying the same `plan_id` twice must be a safe no-op, not a duplicate mutation. Before
-mutating, D1C should check whether the parent's *current* committed contract already carries
-`decomposition_children` derived from this exact `plan_id` (readable from any already-applied child's
-`provenance.graph_delta_plan_id`, or by recomputing the plan and finding it produces zero diff against current
-HEAD). If so, report `already_applied` and stop — this also directly defends against the "decomposition applied
-twice" race in `CONCURRENCY_AND_FAILURE_MODEL.md`.
+**RECOMMENDATION.** Applying the same `plan_id` twice must be a safe no-op, not a duplicate mutation.
+Idempotency must be checked **before** the normal fresh-source eligibility/recompute path, because a successfully
+applied parent is now `decomposed` / `execution_scope=not_applicable` and current
+`plan_graph_delta()` deliberately refuses such a parent; therefore "recompute the old plan and observe zero
+diff" is **not a valid idempotency mechanism**.
+
+Instead, use the stored reviewed plan as the identity to inspect the current committed graph. Report
+`already_applied` only when a fresh full graph load/validation succeeds and the committed graph proves this exact
+plan is already represented: every child ID allocated by the stored plan exists with
+`provenance.graph_delta_plan_id == plan_id` and the expected parent identity, the parent is decomposed and its
+`decomposition_children` includes those exact plan children, and current decomposition semantics show no active
+dependent still points at the aggregate parent. If those facts are incomplete or inconsistent, do not guess
+that the plan was applied — fail closed as stale/partial state requiring normal recovery or operator inspection.
+This directly defends against the "decomposition applied twice" race in
+`CONCURRENCY_AND_FAILURE_MODEL.md` without asking `plan_graph_delta()` to accept an already-decomposed parent.
 
 ## No TTL stealing
 

@@ -18,7 +18,10 @@ and normal human-merge authority continue to apply unchanged. No slice enables a
   `fresh | stale_proposal | recompute_mismatch` result.
 - **Rollback/recovery:** trivial — delete the new module; nothing else depends on it yet.
 - **Dependency on prior slice:** none (first slice).
-- **Can happen before Gauntlet completes?** **Yes.** Purely deterministic, no concurrency primitive involved.
+- **Can happen before Gauntlet completes?** **WAIT under the current project execution gate.** This slice is
+  technically deterministic and does not depend on a live concurrency primitive, so its *design* can be
+  finalized now; however, Stage 5 code implementation is intentionally frozen until the live Gauntlet is
+  accepted so newly discovered lifecycle invariants do not invalidate implementation work.
 
 ## Slice 2 — Local transactional materialization
 
@@ -46,7 +49,9 @@ and normal human-merge authority continue to apply unchanged. No slice enables a
   accepted inputs for every case that isn't a half-applied D1C run (verify with the full existing
   `decomposition_graph_semantics_smoke_test.py` suite passing unchanged).
 - **Dependency on prior slice:** Slice 1 (consumes its `fresh` result before materializing).
-- **Can happen before Gauntlet completes?** **Yes.** Still fully deterministic, synthetic-repo-only.
+- **Can happen before Gauntlet completes?** **WAIT under the current project execution gate.** The work is
+  technically deterministic/synthetic-repo-only, but implementation waits for live Gauntlet acceptance; design
+  and test specification may continue in parallel.
 
 ## Slice 3 — D1C application tests (end-to-end, still deterministic)
 
@@ -71,7 +76,8 @@ and normal human-merge authority continue to apply unchanged. No slice enables a
   failed`.
 - **Rollback/recovery:** delete the module; nothing downstream depends on it yet.
 - **Dependency on prior slice:** Slices 1-2.
-- **Can happen before Gauntlet completes?** **Yes.** Still no network/GitHub/concurrency primitive.
+- **Can happen before Gauntlet completes?** **WAIT under the current project execution gate.** It introduces
+  no network/GitHub concurrency primitive, but Stage 5 implementation still waits for Gauntlet acceptance.
 
 ## Slice 4 — Durable Issue phase additions
 
@@ -201,8 +207,11 @@ beyond naming one more ref." That is inaccurate. This slice has two genuinely ne
   to surface and regress-test implementation-side defects).
 - **Tests:** the live races themselves; deterministic regression tests for anything discovered.
 - **Acceptance criteria:** every race in `CONCURRENCY_AND_FAILURE_MODEL.md` marked "new mechanism required"
-  (#2, #10, #15) is observed to fail closed correctly at least once under real concurrent load, not just in a
-  synthetic fixture.
+  is proven at the appropriate boundary: #2 (global D1C serialization), #4 (affected-contract multi-task claim),
+  #10 (partial local publication/orphan detection), and #15 (double-apply idempotency) must each have the
+  deterministic proof required by earlier slices; the concurrency-specific races #2 and #4 must additionally be
+  observed to fail closed correctly under the dedicated live contention proof. Crash/idempotency cases #10/#15
+  need not be manufactured by destructively crashing shared state merely to satisfy this live slice.
 - **Rollback/recovery:** same discipline as Slice 7.
 - **Dependency on prior slice:** Slice 7.
 - **Can happen before Gauntlet completes?** **WAIT.**
@@ -217,7 +226,9 @@ beyond naming one more ref." That is inaccurate. This slice has two genuinely ne
 
 ## Cross-cutting note on test-first ordering
 
-Slices 1-3 are deliberately ordered so that D1C exists as a fully proven, standalone, deterministic tool
-*before* any orchestrator wiring touches it — mirroring exactly how D1A and D1B.1/D1B.2 were each proven
-standalone before being composed. This lets Slices 1-3 proceed in parallel with (not blocked by) the live
-Gauntlet, since they touch none of the machinery the Gauntlet is validating.
+Slices 1-3 are deliberately ordered so D1C can be proven as a standalone deterministic tool before any
+orchestrator wiring touches it — mirroring how D1A and D1B.1/D1B.2 were proven standalone before composition.
+Architecturally, these slices do not depend on the live concurrency machinery. **Operationally, the current
+project gate is stricter:** no Stage 5 code slice is implemented until the live Gauntlet is accepted. While the
+Gauntlet runs, only this design/test-plan work proceeds; after acceptance, implementation begins with Slices 1-3
+and preserves the same test-first order.

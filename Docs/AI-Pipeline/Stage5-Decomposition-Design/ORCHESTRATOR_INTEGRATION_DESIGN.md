@@ -237,16 +237,21 @@ dependent-contract mutation on its own. The required extension:
    its durable-state check through the mutation (see below), not just momentarily.
 3. **Before acquiring the multi-task claim, and again immediately before mutating** (re-verify — do not trust a
    check performed before the claim was held), D1C must read current durable Issue state
-   (`IssueWorkflowService.find`) for every affected existing task ID and confirm none of them is currently
-   `agent_working` for any worker, nor `human_action_required` in a phase where contract mutation would be
-   unsafe. If any affected task is unsafe to mutate, D1C must **block** — report a typed, retryable outcome —
-   and must not mutate any file for this `GraphDeltaPlan` (all-or-nothing across the whole affected set, not a
-   partial apply that mutates only the currently-safe subset).
+   (`IssueWorkflowService.find`) for every affected existing task ID. The decomposition **parent is the one
+   deliberate exception** to a blanket "no `agent_working`" rule: during `decomposition_apply`, the parent must
+   have the exact expected `agent_working` lease owned by the **current D1C worker**, with the expected
+   decomposition work type/phase/lease identity. A parent lease owned by another worker, or in any other phase,
+   fails closed. Every other affected existing task (including every rewritten dependent) must not be
+   `agent_working` for any worker and must not be `human_action_required`/otherwise durably owned in a phase
+   where contract mutation is unsafe. If any affected task violates those rules, D1C must **block** — report a
+   typed, retryable outcome — and must not mutate any file for this `GraphDeltaPlan` (all-or-nothing across the
+   whole affected set, not a partial apply that mutates only the currently-safe subset).
 4. This two-part design (atomic multi-task claim + durable-state check, both re-verified immediately before
    mutation) handles both races Finding 3 identifies: (a) a dependent worker already `agent_working` before D1C
-   attempts anything — durable-state check blocks D1C; (b) the race between "D1C checked no lease exists" and a
-   new worker acquiring one in the gap — closed by D1C holding the atomic multi-task claim across that entire
-   gap, so the new worker's own claim attempt on the same task ref loses.
+   attempts anything — durable-state check blocks D1C while preserving the current worker's exact expected parent
+   `decomposition_apply` lease; (b) the race between "D1C checked no lease exists" and a new worker acquiring one
+   in the gap — closed by D1C holding the atomic multi-task claim across that entire gap, so the new worker's own
+   claim attempt on the same task ref loses.
 5. Claim release follows the exact same no-TTL, exact-SHA-fenced policy as every other claim in this design; no
    TTL stealing, no automatic cleanup, manual exact-SHA repair only for a claim orphaned by a D1C crash.
 
@@ -282,13 +287,18 @@ This is an ordinary string passed through the existing `resource_claim_ref(names
 (`claim_refs.py::canonical_resource_hash` — any non-empty string under the length bound is already accepted;
 nothing distinguishes a "real" Unity-asset resource token from a logical one). Concretely:
 
-1. **(Preferred — reuses the existing primitive, does not require a new claim client method.)** Every D1C apply
-   attempt includes `"logical:taskgraph-decomposition-apply-global"` in the SAME `exclusive_resources` set
-   passed to `acquire()` alongside its other resources (parent + affected children + affected dependents — see
-   above), in one atomic claim set, one atomic push. Two concurrent D1C applications both name this same logical
-   resource, so their acquisitions collide on the resulting shared `resource_claim_ref` exactly as two ordinary
-   tasks sharing a real exclusive resource would — this is the existing conflict semantics, not new conflict
-   logic. A losing worker gets an ordinary `ClaimConflict` and retries later — consistent with "race losers
+1. **(Preferred — the global token itself reuses the existing resource primitive.)** Every D1C apply attempt
+   includes `"logical:taskgraph-decomposition-apply-global"` in its **resource-claim set**. In Slice 6a, before
+   the multi-task extension exists, that token can travel through the existing single-parent `acquire()` call
+   alongside the parent's/proposed children's actual resource strings. In the final safe Slice 6a+6b design, the
+   same logical-resource ref is part of ONE atomic multi-task/resource acquisition: **task refs** cover the
+   decomposition parent plus every affected existing dependent contract, while **resource refs** cover the
+   parent/proposed-child resource strings plus this global logical token. Parent/dependent task IDs are not
+   `exclusive_resources`. Two concurrent D1C applications both name this same logical resource, so their
+   acquisitions collide on the resulting shared `resource_claim_ref` exactly as two ordinary tasks sharing a
+   real exclusive resource would — this is the existing resource-conflict semantics, composed with the new
+   multi-task claim shape from §"Protecting existing task contracts D1C rewrites." A losing worker gets an
+   ordinary `ClaimConflict` and retries later — consistent with "race losers
    recompute" — with the correction from `D1C_GRAPH_APPLICATION_DESIGN.md` that "recompute" almost always means
    **fresh D1B against the new HEAD**, not a silent reallocation of the same reviewed plan (see §"Human
    review/approval boundary" below and `CONCURRENCY_AND_FAILURE_MODEL.md` race #2). This claim is held for the
