@@ -11,7 +11,10 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from Pipeline.TaskGraph.scene_path_policy import validate_scene_path_policy
+from Pipeline.TaskGraph.scene_path_policy import (
+    inspect_scene_path_policy,
+    validate_scene_path_policy,
+)
 from Pipeline.TaskReviewAgent.downstream_pipeline import _default_runner
 from Pipeline.TaskReviewAgent.issue_workflow import (
     WorkflowActor,
@@ -33,6 +36,98 @@ def require(value: bool, message: str) -> None:
 def test_repository_scene_policy() -> None:
     result = validate_scene_path_policy(ROOT)
     require(result["status"] == "pass", "scene path policy did not pass")
+
+
+def test_historical_raw_context_is_not_live_scene_authority() -> None:
+    # Construct the obsolete path at runtime so this live test source does not
+    # itself contain a noncanonical scene reference that the policy must reject.
+    stale_reference = (
+        "Assets/NoSafeCircle/"
+        "DoorPrototype/Scenes/"
+        "DoorPrototype.unity"
+    )
+
+    with tempfile.TemporaryDirectory(prefix="nsc-scene-history-") as temporary:
+        repo = Path(temporary)
+
+        subprocess.run(
+            ["git", "init", "-b", "main"],
+            cwd=repo,
+            check=True,
+            stdout=subprocess.PIPE,
+        )
+
+        raw_path = (
+            repo
+            / "Docs"
+            / "AI-Pipeline"
+            / "Historical-Context-Sessions"
+            / "raw"
+            / "session.txt"
+        )
+
+        raw_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        raw_path.write_text(
+            f"Historical record: {stale_reference}\n",
+            encoding="utf-8",
+        )
+
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=repo,
+            check=True,
+        )
+
+        raw_result = inspect_scene_path_policy(repo)
+
+        require(
+            raw_result["status"] == "pass",
+            "immutable raw historical context was treated as live authority",
+        )
+
+        require(
+            "Docs/AI-Pipeline/Historical-Context-Sessions/raw/"
+            in raw_result["excluded_historical_prefixes"],
+            "raw historical context prefix was not reported as excluded",
+        )
+
+        live_path = (
+            repo
+            / "Docs"
+            / "AI-Pipeline"
+            / "Historical-Context-Sessions"
+            / "CURRENT_CONTEXT.md"
+        )
+
+        live_path.write_text(
+            f"Current operational reference: {stale_reference}\n",
+            encoding="utf-8",
+        )
+
+        subprocess.run(
+            ["git", "add", "."],
+            cwd=repo,
+            check=True,
+        )
+
+        live_result = inspect_scene_path_policy(repo)
+
+        require(
+            live_result["status"] == "fail",
+            "CURRENT_CONTEXT.md escaped live scene-path validation",
+        )
+
+        require(
+            any(
+                "CURRENT_CONTEXT.md" in finding
+                for finding in live_result["findings"]
+            ),
+            "live-context failure did not identify CURRENT_CONTEXT.md",
+        )
 
 
 def test_missing_scene_resource_is_not_a_changed_blob() -> None:
@@ -106,6 +201,7 @@ def test_contract_hash_rollover_is_append_only() -> None:
 def main() -> int:
     tests = (
         test_repository_scene_policy,
+        test_historical_raw_context_is_not_live_scene_authority,
         test_missing_scene_resource_is_not_a_changed_blob,
         test_contract_hash_rollover_is_append_only,
     )
