@@ -21,20 +21,33 @@ required?**, **Proving test**.
 
 ## 2. Two different decomposition applications allocate child IDs concurrently
 
-- **Authority:** the proposed global `refs/nsc/claims/decomposition-apply-global` claim ref
-  (`ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Serialization of graph mutation").
-- **Fail-closed:** the second D1C attempt to acquire the global claim gets `ClaimConflict`; it must not proceed
-  to `os.replace`/commit while holding no global claim.
-- **Retry/recovery:** losing D1C attempt waits (or is reported `blocked`/`retryable`) and re-attempts after the
-  first application's commit is visible; because D1C recomputes its plan from *current* HEAD before mutating
-  (`D1C_GRAPH_APPLICATION_DESIGN.md` §"Deterministic revalidation"), the retried attempt allocates the correctly
-  shifted ID range automatically.
-- **Serialization required:** **Yes — this is the one race in this document that requires a new global
-  serialization point**, not just per-task/per-resource exclusion, because ID allocation
-  (`next_number = max(existing) + 1`) reads global graph state.
+- **Authority:** the logical exclusive-resource token `logical:taskgraph-decomposition-apply-global`
+  (`ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Serialization of graph mutation"), included in the SAME atomic claim
+  set as D1C's parent/affected-dependent/resource claims — not a literal new claim ref (`claim_refs.py`
+  provides no such primitive today).
+- **Fail-closed:** the second D1C attempt to acquire the shared claim set gets `ClaimConflict`; it must not
+  proceed to `os.replace`/commit while holding no claim on the logical resource.
+- **Retry/recovery: CORRECTED.** The losing attempt does not "recompute and correctly shift" the SAME reviewed
+  `GraphDeltaPlan` into a successful apply. Because `source_graph_semantic_hash` is a whole-graph hash
+  (`D1C_GRAPH_APPLICATION_DESIGN.md` §"Deterministic child ID allocation and collision handling"), the winner's
+  commit changes it regardless of which parent the winner decomposed. When the loser retries after the winner's
+  commit is visible, D1C's identity-binding check (re-run against the new HEAD) almost always finds
+  `source_graph_semantic_hash` no longer matches the loser's stored, reviewed plan — the correct, and typical,
+  outcome is `stale_proposal`, not a silently-reallocated successful apply. Recovery is: rerun D1B against the
+  new HEAD, producing a NEW `GraphDeltaPlan`/`plan_id` for the loser's parent (which will correctly allocate
+  `NSC-{N+1}` because it now observes the winner's committed child), then obtain independent human
+  re-authorization for that new `plan_id` before attempting to apply again. The global claim's value is
+  preventing two applications from ever committing at the SAME instant (which would risk a genuine ID collision
+  or a torn intermediate graph state); it does not, and cannot, make a stale reviewed proposal valid.
+- **Serialization required:** **Yes — this is one of the two races in this document requiring a new mechanism**
+  (see also race #4), because ID allocation (`next_number = max(existing) + 1`) reads global graph state and two
+  D1C commits must never land in the same instant.
 - **Proving test:** new deterministic test — two `GraphDeltaPlan`s for two different parents built against the
-  same synthetic source graph, both attempt to acquire the global claim against a shared fake remote; assert
-  exactly one wins and the loser's retried allocation, recomputed after the winner's commit, does not collide.
+  same synthetic source graph, both attempt to acquire the shared logical-resource claim against a shared fake
+  remote; assert exactly one wins; assert the loser's retried apply attempt against the winner's post-commit
+  HEAD is correctly rejected as `stale_proposal` (NOT that it succeeds with a shifted allocation); assert a
+  fresh D1B run against that same post-commit HEAD produces a new plan that DOES correctly allocate the shifted
+  ID range.
 
 ## 3. Decomposition applies while another worker is computing fresh readiness
 
@@ -52,20 +65,35 @@ required?**, **Proving test**.
 
 ## 4. Decomposition rewrites a dependency while dependent implementation is being claimed
 
-- **Authority:** whichever commit lands first on `main` is authoritative; a dependent's implementation claim
-  is only valid against the exact contract hash it observed.
-- **Fail-closed:** if D1C's commit (rewriting dependent X's `depends_on` from parent P to child C, and
-  incrementing X's `contract_revision`) lands *after* worker W already acquired an `agent_working` lease on X
-  under the old contract hash, W's lease remains valid for the work it already started (the contract's
-  *executable content* — AC/VAL, resources — did not change, only `depends_on`), but any *later* resume of W's
-  Issue must re-observe the new contract hash. This is exactly the existing stale-contract-hash defense in
-  `durable_selection.py` (*"Issue contract hash differs from current committed contract"* → excluded from
-  resume). If D1C's commit lands *before* W's claim attempt, W's claim naturally reads the new dependency graph
-  because Stage 3 always re-observes current HEAD (`fresh_dispatch.py`).
-- **Retry/recovery:** normal resume-staleness handling; no new mechanism.
-- **Serialization required:** No — existing contract-hash staleness check is sufficient.
-- **Proving test:** extend `durable_selection.py`'s existing staleness test with a fixture where the dependent's
-  `depends_on` (not just AC/VAL) changed between Issue creation and resume.
+- **Authority: CORRECTED.** The affected-contract authority set + atomic multi-task claim + durable Issue state
+  check described in `ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Protecting existing task contracts D1C rewrites" —
+  not, as an earlier draft of this document claimed, "whichever commit lands first" alone.
+- **Fail-closed:** D1C must prove, immediately before mutating, that no affected existing task (parent + every
+  rewritten dependent) is currently `agent_working` for any worker or `human_action_required` in a phase where
+  mutation is unsafe. If worker W already holds a verified `agent_working` durable Issue lease on dependent X
+  when D1C attempts to claim X's contract-mutation authority, D1C's durable-state check finds this and D1C
+  **blocks** — it does not proceed to rewrite X's `depends_on`/`contract_revision` underneath W. Conversely, if
+  D1C's atomic multi-task claim on X is acquired first (and D1C's durable-state check found X safe to mutate at
+  that moment), a NEW attempt by any worker to acquire an `agent_working` lease on X loses the ordinary claim
+  race on the same `task_claim_ref(namespace, X)` D1C is holding — this is the SAME ref implementation dispatch
+  already claims via `acquire_issue_lease_with_claims`, so no new ref-naming convention is needed, only the
+  ability to hold multiple such refs atomically and for the duration of the whole apply (not release them
+  immediately after acquisition, as an ordinary lease handoff does).
+- **Retry/recovery:** a worker that lost the race to D1C's multi-task claim retries after D1C's commit lands and
+  correctly observes the new contract (the existing stale-contract-hash resume defense in `durable_selection.py`
+  still applies to any LATER resume, unchanged). A D1C attempt that found an affected task already
+  `agent_working` reports blocked/retryable and must retry later, once that worker's lease is released, rather
+  than proceeding partially.
+- **Serialization required:** **Yes — this is the second race in this document requiring a new mechanism**: an
+  atomic multi-task claim extension to `claim_refs.py` (new code — `acquire()` claims exactly one `task_id`
+  today) plus a durable-state precondition check, both re-verified immediately before mutation. An earlier draft
+  of this document incorrectly concluded "No — existing contract-hash staleness check is sufficient"; that check
+  protects a later RESUME, not an ALREADY-ACTIVE worker, which is the actual case this race describes.
+- **Proving test:** new deterministic tests (not yet built) covering: (a) a dependent worker's lease acquisition
+  winning before D1C attempts its claim — D1C blocks and does not mutate; (b) D1C's multi-task claim winning
+  first — a subsequent implementation lease attempt on the same dependent loses the ordinary claim race and
+  correctly resumes/re-derives against the new contract after D1C's commit lands; (c) genuine simultaneous
+  contention resolving to exactly one winner with no double-grant.
 
 ## 5. Task/resource claim succeeds then Issue mutation is stale
 
@@ -207,39 +235,41 @@ required?**, **Proving test**.
   to apply the identical plan again against the resulting HEAD; assert `already_applied` and zero additional
   file changes/commits.
 
-## 16. Two approved graph deltas overlap in affected contracts/resources
+## 16. Two approved graph deltas applied sequentially (overlapping or not)
 
 - **Authority:** D1C's revalidation-from-current-HEAD (`D1C_GRAPH_APPLICATION_DESIGN.md` §"Deterministic
-  revalidation") plus `validate_decomposition_graph_semantics`' existing rule that no active contract may
-  depend on a decomposed aggregate.
-- **Fail-closed:** if plan A (decomposing parent P1) and plan B (decomposing parent P2, where P2 was one of
-  P1's proposed children, or where P1 and P2 shared an inbound dependent) were both authorized before either
-  applied, whichever applies second will recompute its delta against post-A HEAD. If B's proposal's
-  `parent_before_hash` for P2 (or for the shared dependent) no longer matches, B fails closed as `stale_proposal`
-  exactly like race 14 — this is not a new mechanism, it is the same identity-binding check catching a
-  cross-plan overlap rather than a same-plan staleness.
-- **Retry/recovery:** operator re-runs D1B for plan B against the new graph.
-- **Serialization required:** the global apply claim (race 2) again reduces the *frequency* of this outcome
-  (only one D1C apply proceeds at a time) but does not eliminate the *need* for the check, because A and B could
-  be authorized minutes apart with B's proposal simply going stale in the interim — a purely sequential,
-  non-concurrent case that still needs this defense.
-- **Proving test:** new deterministic test with two `GraphDeltaPlan`s whose affected-contract sets overlap
-  (e.g., parent P1's proposed rewrite touches a dependent that P2's proposal also rewrites); apply A, then
-  attempt to apply B, and assert `stale_proposal` with a diagnostic naming the specific overlapping contract.
+  revalidation") — specifically, the whole-graph `source_graph_semantic_hash` comparison.
+- **Fail-closed: CORRECTED and broadened.** Because `source_graph_semantic_hash` is a hash of the entire graph
+  (`id_map` + `tasks` + `resource_groups` + `project_requirements`), applying plan A ALWAYS invalidates every
+  other already-authorized plan B, whether or not A's and B's affected-contract sets literally overlap — an
+  earlier draft of this document scoped this race to only the overlapping case, which understates it. Whichever
+  plan applies second always fails `stale_proposal` against the first plan's post-apply HEAD; this is not a new
+  mechanism, it is the ordinary identity-binding check.
+- **Retry/recovery:** operator/orchestrator re-runs D1B for the second plan against the new graph, producing a
+  new `plan_id`, and obtains independent human re-authorization for it — the previous `APPROVE` named the old
+  `plan_id` and does not carry forward (`ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Human review/approval boundary").
+- **Serialization required:** the global logical-resource claim (race 2) reduces how often two applications race
+  to commit at the SAME instant, but does not eliminate the need for this check — A and B could be authorized
+  minutes apart with B simply going stale in the interim, a purely sequential, non-concurrent case that still
+  needs this defense every time.
+- **Proving test:** new deterministic test applying plan A (any parent), then attempting to apply plan B
+  (authorized against the same pre-A HEAD, for ANY other parent — overlapping affected-contracts not required to
+  reproduce this), and asserting `stale_proposal`; a second test confirms a freshly re-run D1B for B's parent
+  against post-A HEAD produces a new, independently valid `plan_id`.
 
 ## Summary: what genuinely needs new serialization vs. what is already covered
 
 | Race class | New mechanism required? |
 | --- | --- |
 | Same-parent double-selection (#1) | No — reuse existing per-task claim |
-| ID allocation across different concurrent applications (#2) | **Yes — global apply claim** |
+| ID allocation across different concurrent applications (#2) | **Yes — global logical-resource claim, reused via `resource_claim_ref`** |
 | Reader-during-write (#3) | No — atomic commit boundary already sufficient |
-| Dependency rewrite vs. dependent claim (#4) | No — existing contract-hash staleness check |
+| Dependency rewrite vs. active dependent worker (#4) | **Yes — new atomic multi-task claim + durable-state precondition check** (corrected; an earlier "No" was wrong — see race #4) |
 | Claim-then-stale-Issue (#5) | No — already implemented |
-| Read-after-write lag (#6, #12) | No — reuse existing fix pattern |
+| Read-after-write lag (#6, #12) | Reuse existing centralized verifier — but production's own adoption of it is not yet complete; see `GAUNTLET_PREREQUISITES.md` item 5 and `goal_loop_guard.py::_release_active_lease` |
 | Checkout/origin drift (#7, #8) | No — reuse existing checks |
 | Falls behind main (#9) | No — ordinary push rejection + no-force-push discipline |
 | Partial filesystem write (#10) | **Yes — new orphaned-child validation check** (called out as a real gap) |
 | Push failure / crash at any transition (#11, #13) | No — durable-state-only-in-Git/Issue design already sufficient |
-| Stale human approval (#14) / overlapping plans (#16) | No — D1C's own identity-binding check, reused |
+| Stale human approval (#14) / sequential re-apply (#16) | No new mechanism — D1C's own identity-binding check, reused; scope of #16 broadened, see race #16 |
 | Double apply (#15) | **Yes — new idempotency check** (specified in D1C design, not yet built) |

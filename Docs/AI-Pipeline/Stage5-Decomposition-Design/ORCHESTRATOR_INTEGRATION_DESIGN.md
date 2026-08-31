@@ -122,7 +122,10 @@ parent's task ID:
 
 - Acquiring a `decomposition_proposal` lease claims `task_claim_ref(namespace, parent_id)` exactly as
   implementation does — `claim_refs.py` has no notion of "implementation task" vs. "decomposition target"; it
-  claims a task ID. This is a **direct, zero-new-code reuse**.
+  claims a task ID. This proposal-phase claim (one task ID, via the existing `acquire()`) is a **direct,
+  zero-new-code reuse**; the apply-phase claim set is not — see §"Protecting existing task contracts D1C
+  rewrites" and §"Serialization of graph mutation" below for the parts of Stage 5's claim usage that ARE new
+  code.
   the same task ID *cannot* be claimed for parallel proposal work while it's already agent_working for
   implementation, and vice versa — which is correct, because `context_builder.validate_task_selection` already
   refuses to decompose an already-`concrete`/`single_agent` task, and `evaluate_fresh_candidate` already refuses
@@ -152,50 +155,163 @@ again" — no special partial-apply resume logic is needed in the orchestrator l
 **RECOMMENDATION.**
 
 - **Proposal phase (D1B.1/D1B.2):** claim only the parent task ref + the parent's *current*
-  `exclusive_resources`. Proposed children do not exist yet and own no resources yet — nothing to claim for
-  them.
-- **Apply phase (D1C):** claim the parent task ref again (it may have been released after proposal completed;
-  re-claim rather than assume continuity) **plus every resource named in every proposed child's
-  `exclusive_resources`** from the `graph_delta.json` about to be applied. This is the mechanism that prevents
-  the race in `CONCURRENCY_AND_FAILURE_MODEL.md` where an implementation worker starts claiming a
-  soon-to-exist child's resource concurrently with D1C creating that child — impossible in practice today since
-  the child doesn't exist to be claimed, but becomes possible the instant D1C's commit lands and a fast
-  worker's stale claim-namespace enumeration could theoretically overlap a same-tick apply. Claiming the
-  child's resource *before* committing closes this window (a resource claim ref does not require the resource's
-  owning task to exist yet — `claim_refs.py::resource_claim_ref` hashes an arbitrary resource string, not a task
-  ID).
+  `exclusive_resources`, using the existing single-task `acquire()` unchanged. Proposed children do not exist
+  yet and own no resources yet — nothing to claim for them.
+- **Apply phase (D1C):** claim, in ONE atomic acquisition:
+  - the parent task ref (re-claim; it may have been released after proposal completed — do not assume
+    continuity);
+  - the task ref of every existing dependent whose contract the `GraphDeltaPlan` rewrites (see
+    §"Protecting existing task contracts D1C rewrites" below — **new**, not covered by proposal-phase claiming);
+  - every resource named in every proposed child's `exclusive_resources` from the `graph_delta.json` about to be
+    applied (closes the same-tick-apply race described below);
+  - the global logical serialization resource, `logical:taskgraph-decomposition-apply-global`
+    (§"Serialization of graph mutation").
+
+  Claiming the child's resource *before* committing closes the window where an implementation worker's stale
+  claim-namespace enumeration could theoretically overlap a same-tick apply (a resource claim ref does not
+  require the resource's owning task to exist yet — `claim_refs.py::resource_claim_ref` hashes an arbitrary
+  resource string, not a task ID).
 - Release all of these claims only after the D1C commit is verified pushed (or after a clean rollback if D1C
-  aborts before mutating).
+  aborts before mutating). **Unlike an ordinary implementation lease handoff**, D1C holds this claim set for the
+  full apply attempt rather than releasing immediately after acquisition — see §"Protecting existing task
+  contracts D1C rewrites" for why the holding duration matters.
 
-## What resources must be locked during application
+**CORRECTION.** Claiming multiple task refs (parent + every affected dependent) in one atomic acquisition is
+**not** something `GitRefClaimClient.acquire()` supports today — it accepts exactly one `task_id`. This is real
+new Stage 5 claim-layer work (see §"Protecting existing task contracts D1C rewrites" and
+`IMPLEMENTATION_SEQUENCE.md` Slice 6), not a zero-new-code reuse.
 
-Exactly: the parent's exclusive resources (about to be cleared) + the union of every proposed child's
-exclusive resources (about to be created) + the parent task ref itself. Not every dependent's resources — inbound
-dependency rewrites change `depends_on`, not `exclusive_resources`, so no dependent resource claim is required.
+## What resources/tasks must be locked during application
+
+Exactly: the parent task ref + the task ref of every existing dependent whose contract will be rewritten + the
+parent's exclusive resources (about to be cleared) + the union of every proposed child's exclusive resources
+(about to be created) + the global logical serialization resource. **Correction to an earlier draft of this
+document:** a rewritten dependent's `exclusive_resources` value is unchanged by `_rewrite_dependent` (only
+`depends_on`/`contract_revision` change), so no *resource* claim is required for a dependent — but its **task
+claim ref** is required, because D1C is about to mutate that dependent's contract, and contract-mutation
+authority is exactly what a task claim ref represents.
+
+## Protecting existing task contracts D1C rewrites
+
+**RECOMMENDATION — required, corrects an earlier gap.** `graph_delta.py::_rewrite_dependent` changes a
+dependent's `depends_on` and increments its `contract_revision`. Durable stale-contract-hash selection
+(`durable_selection.py`) already protects a *later* resume/fresh-selection attempt against an outdated contract
+— but it does **not** revoke or pause a worker that is **already** `agent_working` on that dependent under the
+old contract, because that worker acquired its durable Issue lease before D1C's mutation, and
+`acquire_issue_lease_with_claims` releases the ephemeral task claim ref immediately after the durable lease is
+verified (`claim_refs.py::acquire_issue_lease_with_claims` — the claim is a brief startup-window guard, not
+persistent authority for the lease's whole lifetime). A D1C application must not mutate a task contract
+underneath an active implementation worker.
+
+**Affected-contract authority set.** For one `GraphDeltaPlan`:
+
+```text
+affected existing task IDs =
+    decomposition parent
+    + every existing dependent named in inbound_dependency_changes
+    + any other existing task contract the exact GraphDeltaPlan changes
+```
+
+D1C must prove safe authority over EVERY ID in this set before mutating any of them.
+
+**Design (minimal extension, direction A from the review — extend the claim contract).** Because
+`GitRefClaimClient.acquire()` claims exactly one task ref plus resources, and current implementation dispatch
+does not claim any logical serialization token, neither the existing single-task claim nor the logical resource
+token from §"Serialization of graph mutation" alone protects a rewritten dependent's contract — an
+implementation worker never claims `logical:taskgraph-decomposition-apply-global`, so that token cannot fence a
+dependent-contract mutation on its own. The required extension:
+
+1. **Extend the claim acquisition contract to atomically claim multiple task refs plus all relevant resources in
+   one Git atomic push.** This reuses the exact same nonexistence-CAS mechanism (`--atomic
+   --force-with-lease=<ref>:` per ref) `acquire()`/`release()` already use, generalized from one `task_id` to a
+   `Sequence[str]` of task IDs. It requires: a new method (e.g. `acquire_multi`) or a widened `acquire()`
+   signature; a widened `ClaimReceipt` schema (`task_id: str` → `task_ids: tuple[str, ...]`, or an additional
+   receipt field) so `inspect_claims`/stale-claim repair can still parse a multi-task claim; `release()`
+   generalized the same way. This is the minimal shape that reuses the proven CAS primitive without inventing a
+   second locking mechanism. **This is new code** — it does not exist in `claim_refs.py` today.
+2. Because the multi-task claim uses the identical `task_claim_ref(namespace, task_id)` ref an ordinary
+   implementation worker's `acquire_issue_lease_with_claims` call would claim for that same task ID, a NEW
+   implementation-lease acquisition attempt on an affected dependent started *after* D1C begins holding its
+   multi-task claim correctly loses the race (`ClaimConflict`) — this closes the "I checked no lease exists,
+   then a new worker acquired one" window, PROVIDED D1C acquires and holds the claim for the entire span from
+   its durable-state check through the mutation (see below), not just momentarily.
+3. **Before acquiring the multi-task claim, and again immediately before mutating** (re-verify — do not trust a
+   check performed before the claim was held), D1C must read current durable Issue state
+   (`IssueWorkflowService.find`) for every affected existing task ID and confirm none of them is currently
+   `agent_working` for any worker, nor `human_action_required` in a phase where contract mutation would be
+   unsafe. If any affected task is unsafe to mutate, D1C must **block** — report a typed, retryable outcome —
+   and must not mutate any file for this `GraphDeltaPlan` (all-or-nothing across the whole affected set, not a
+   partial apply that mutates only the currently-safe subset).
+4. This two-part design (atomic multi-task claim + durable-state check, both re-verified immediately before
+   mutation) handles both races Finding 3 identifies: (a) a dependent worker already `agent_working` before D1C
+   attempts anything — durable-state check blocks D1C; (b) the race between "D1C checked no lease exists" and a
+   new worker acquiring one in the gap — closed by D1C holding the atomic multi-task claim across that entire
+   gap, so the new worker's own claim attempt on the same task ref loses.
+5. Claim release follows the exact same no-TTL, exact-SHA-fenced policy as every other claim in this design; no
+   TTL stealing, no automatic cleanup, manual exact-SHA repair only for a claim orphaned by a D1C crash.
+
+**Concurrency preserved for unrelated work.** This does not serialize D1C against implementation work in
+general — only against workers targeting one of the SAME affected task IDs. An implementation worker on
+`NSC-044` is unaffected by a D1C application whose affected-contract set is `{NSC-021, NSC-030, NSC-031}`.
+
+**Required tests** (see `TEST_PLAN.md` and `CONCURRENCY_AND_FAILURE_MODEL.md` race #4, revised): a dependent
+worker's lease acquisition winning the race before D1C attempts its claim (D1C blocks); D1C's multi-task claim
+winning first (a subsequent implementation lease attempt on the same dependent loses the race and retries after
+D1C's commit lands, observing the new contract); and genuine simultaneous contention resolving to exactly one
+winner with no double-grant.
 
 ## Serialization of graph mutation vs. parallel implementation workers
 
-**RECOMMENDATION — this is the single most important new invariant Stage 5 adds.** D1C application must be
-**serialized globally**, not just per-parent, with respect to any *other* D1C application, because two
-concurrent applications both recompute `next_number = max(existing) + 1` against a `main` that neither has
-observed the other's commit on yet (see `D1C_GRAPH_APPLICATION_DESIGN.md` §"ID allocation"). The existing claim
-mechanism gives per-task/per-resource exclusion, not a global serialization point. Two options:
+**RECOMMENDATION — this is one of the two most important new invariants Stage 5 adds** (the other is
+§"Protecting existing task contracts D1C rewrites" above). D1C application must be **serialized globally**, not
+just per-parent, with respect to any *other* D1C application, because two concurrent applications both recompute
+`next_number = max(existing) + 1` against a `main` that neither has observed the other's commit on yet (see
+`D1C_GRAPH_APPLICATION_DESIGN.md` §"Deterministic child ID allocation and collision handling").
 
-1. **(Preferred, minimal new mechanism.)** Add one more claim ref,
-   `refs/nsc/claims/decomposition-apply-global`, that every D1C application must acquire (in addition to its
-   parent/resource claims) before it may commit, and release immediately after push succeeds or the attempt
-   aborts. This reuses `claim_refs.py`'s exact atomic nonexistence-CAS primitive with zero new code beyond
-   naming one more ref. A losing worker gets an ordinary `ClaimConflict` and retries later — consistent with
-   "race losers recompute."
-2. Rejected alternative: rely on push-time non-fast-forward rejection alone. This works for *detecting* the
-   race but wastes an entire D1B.2 authorization cycle's worth of work on the loser and does not prevent the ID
+**CORRECTION.** `GitRefClaimClient.acquire()` (`claim_refs.py`) constructs exactly one task claim ref from one
+`task_id`, plus zero or more resource claim refs derived from canonical resource strings — it does not expose an
+arbitrary literal ref such as `refs/nsc/claims/decomposition-apply-global`, and adding one would be a new
+primitive shape the client does not support today. The preferred design instead represents the global
+serialization point as **one canonical logical exclusive-resource token**:
+
+```text
+logical:taskgraph-decomposition-apply-global
+```
+
+This is an ordinary string passed through the existing `resource_claim_ref(namespace, resource)` hashing path
+(`claim_refs.py::canonical_resource_hash` — any non-empty string under the length bound is already accepted;
+nothing distinguishes a "real" Unity-asset resource token from a logical one). Concretely:
+
+1. **(Preferred — reuses the existing primitive, does not require a new claim client method.)** Every D1C apply
+   attempt includes `"logical:taskgraph-decomposition-apply-global"` in the SAME `exclusive_resources` set
+   passed to `acquire()` alongside its other resources (parent + affected children + affected dependents — see
+   above), in one atomic claim set, one atomic push. Two concurrent D1C applications both name this same logical
+   resource, so their acquisitions collide on the resulting shared `resource_claim_ref` exactly as two ordinary
+   tasks sharing a real exclusive resource would — this is the existing conflict semantics, not new conflict
+   logic. A losing worker gets an ordinary `ClaimConflict` and retries later — consistent with "race losers
+   recompute" — with the correction from `D1C_GRAPH_APPLICATION_DESIGN.md` that "recompute" almost always means
+   **fresh D1B against the new HEAD**, not a silent reallocation of the same reviewed plan (see §"Human
+   review/approval boundary" below and `CONCURRENCY_AND_FAILURE_MODEL.md` race #2). This claim is held for the
+   full apply attempt, not released immediately after acquisition the way an ordinary implementation
+   lease-handoff claim is — see §"Protecting existing task contracts D1C rewrites" for why the holding duration
+   matters.
+2. **Rejected for now: a literal new `refs/nsc/claims/decomposition-apply-global` ref.** This would work, but it
+   requires extending `claim_refs.py`'s public surface with a bespoke ref outside the `tasks/<id>` /
+   `resources/<hash>` shape `_claim_refs` already builds, and gives no capability the logical resource token does
+   not already provide. It would only be preferable if some future requirement needed to distinguish "the global
+   decomposition lock" from "an ordinary resource claim" in `inspect_claims` output; nothing identified in this
+   audit needs that distinction. Default to the logical-resource design.
+3. Rejected alternative: rely on push-time non-fast-forward rejection alone. This works for *detecting* the race
+   but wastes an entire D1B.2 authorization cycle's worth of work on the loser and does not prevent the ID
    `NSC-{N}` from being *proposed* twice to two different humans for authorization simultaneously, which is
    confusing operationally even though D1C's stale-check would eventually reject the second one. The global
-   claim prevents wasted human authorization cycles, not just wasted compute.
+   claim reduces wasted human authorization cycles, not just wasted compute — though per the correction above,
+   it does not eliminate them, since any unrelated commit landing between authorization and apply still forces a
+   fresh D1B round.
 
 This does **not** need to serialize with *implementation* claims — an implementation worker claiming
-`NSC-044`'s resources is unaffected by a concurrent decomposition-apply global claim for `NSC-021`, since they
-touch disjoint task/resource claim refs. Only D1C-vs-D1C needs the extra global point.
+`NSC-044`'s resources is unaffected by a concurrent decomposition-apply logical-resource claim for `NSC-021`,
+since they touch disjoint task/resource claim refs. Only D1C-vs-D1C needs the extra global point.
 
 ## Preventing an implementation worker from starting from stale TaskGraph authority
 
@@ -217,6 +333,23 @@ no new retry logic required. The one addition needed is in the **candidate-ranki
 equivalent), which today only ranks `fresh_implementation_derived_states` (`not_delivered`). It must gain a
 second candidate-generation path for decomposition parents, feeding into the *same* `excluded_task_ids`
 mechanism.
+
+## Read-after-write verification for new decomposition Issue writes
+
+**RECOMMENDATION, hard prerequisite.** Every new Issue mutation this design introduces (`decomposition_proposal`
+creation, `decomposition_review` posting, `decomposition_apply_authorization` posting, `decomposition_apply`
+closeout) must reuse the SAME bounded read-after-write verification `issue_workflow_store.py` already
+centralizes (`_verify_post_mutation_state`, behind commit `109380b`), not a new, duplicated timing loop. **This
+is not yet true of all EXISTING direct Issue-mutation paths in production**, so it cannot be assumed solved
+merely because the pattern exists somewhere in the codebase — see `CONCURRENCY_AND_FAILURE_MODEL.md` races
+#6/#12 and `GAUNTLET_PREREQUISITES.md` item 5 for the current, incomplete audit state
+(`goal_loop_guard.py::_release_active_lease` is named there as current evidence a direct
+`add_comment`/`update_issue` → immediate `find` path still bypasses the centralized verifier; this audit also
+found the same shape in `downstream_issue.py` and `downstream_runtime.py`). Stage 5 must not add another direct
+mutation-then-immediate-read path of its own; every new decomposition Issue write goes through the central
+verifier, and production's existing direct paths must be audited and closed onto the same verifier (production
+issue #104) before any Stage 5 slice that adds real decomposition Issue mutations (Slice 4+ in
+`IMPLEMENTATION_SEQUENCE.md`) is enabled for live use.
 
 ## Human review/approval boundary
 

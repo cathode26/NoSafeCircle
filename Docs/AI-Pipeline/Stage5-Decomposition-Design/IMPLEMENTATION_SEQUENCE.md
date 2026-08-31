@@ -60,9 +60,12 @@ and normal human-merge authority continue to apply unchanged. No slice enables a
 - **Files that must NOT change:** anything under `Pipeline/TaskReviewAgent/` (no orchestrator wiring yet — this
   slice proves D1C works as a standalone deterministic tool an operator could invoke by hand, matching how
   D1B.1/D1B.2 were originally proven before any orchestrator integration existed).
-- **Tests:** double-apply idempotency; ID-collision-avoidance-by-recomputation (two plans applied sequentially
-  against the same synthetic repo, second correctly shifts allocation); post-commit validation failure triggers
-  local rollback and leaves the disposable repo's branch pointer unchanged.
+- **Tests:** double-apply idempotency; ID-collision avoidance (a plan for parent P1 applied, then a FRESH
+  `plan_graph_delta` run for a different parent P2 against the resulting HEAD correctly allocates the next ID
+  after P1's children — proving D1C's revalidation would have caught a STALE plan B rather than silently
+  reallocating it, per `D1C_GRAPH_APPLICATION_DESIGN.md` §"Deterministic child ID allocation and collision
+  handling"); post-commit validation failure triggers local rollback and leaves the disposable repo's branch
+  pointer unchanged.
 - **Acceptance criteria:** `apply_graph_delta()` is a fully tested, network-free, GitHub-free deterministic tool.
   Exit codes/typed results distinguish `applied`, `already_applied`, `stale_proposal`, `post_commit_validation_
   failed`.
@@ -110,26 +113,63 @@ and normal human-merge authority continue to apply unchanged. No slice enables a
 - **Rollback/recovery:** revert; Slice 4's schema additions remain unused but harmless.
 - **Dependency on prior slice:** Slices 1-4.
 - **Can happen before Gauntlet completes?** **WAIT.** Directly extends the exact dispatch/claim machinery the
-  Gauntlet is proving.
+  Gauntlet is proving. **Additionally WAIT** for closing production issue #104's read-after-write audit
+  (`GAUNTLET_PREREQUISITES.md` item 5): this slice is the first to perform real decomposition Issue mutations
+  (proposal creation, resume), and per `CONCURRENCY_AND_FAILURE_MODEL.md` races #6/#12 it must reuse the central
+  bounded verifier rather than a new timing loop — which requires that verifier's production adoption to already
+  be complete and audited across all direct mutation/immediate-read paths (at minimum
+  `goal_loop_guard.py::_release_active_lease`, `downstream_issue.py`, `downstream_runtime.py`), not just the
+  implementation-Issue paths it covers today.
 
-## Slice 6 — Concurrency serialization (global apply claim)
+## Slice 6 — Concurrency serialization (global logical-resource claim + affected-contract claim)
 
-- **Files to change:** `Pipeline/TaskReviewAgent/claim_refs.py` (add the
-  `refs/nsc/claims/decomposition-apply-global` ref as a named constant/helper — not a new mechanism, per
-  `ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Serialization of graph mutation"), wire acquisition/release into
-  `apply_graph_delta`'s orchestrator-facing wrapper from Slice 5.
-- **Files that must NOT change:** the core atomic-CAS push/release logic in `claim_refs.py` (`acquire`,
-  `release`, `_fenced_atomic_delete`) — reused verbatim, not modified.
+**CORRECTION.** This slice was originally described as adding one literal new claim ref with "zero new code
+beyond naming one more ref." That is inaccurate. This slice has two genuinely new claim-layer sub-parts.
+
+### Slice 6a — Global D1C-vs-D1C serialization (logical resource token)
+
+- **Files to change:** `apply_graph_delta`'s orchestrator-facing wrapper from Slice 5 (add
+  `"logical:taskgraph-decomposition-apply-global"` to the `exclusive_resources` set passed to the existing
+  single-task `acquire()` call for the parent). Per `ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Serialization of
+  graph mutation," this reuses `resource_claim_ref()`/`canonical_resource_hash()` exactly as-is — **no change to
+  `claim_refs.py` itself is required for this sub-part**, since a logical resource token is an ordinary string
+  passed through the existing resource-claim path.
 - **Tests:** new deterministic race test per `CONCURRENCY_AND_FAILURE_MODEL.md` race #2 (two simulated
-  concurrent D1C applications against a shared fake remote; assert exactly one wins, the loser's retry after the
-  winner's commit correctly reallocates IDs).
-- **Acceptance criteria:** race #2's proving test passes; races #10 and #15 proving tests (partial write,
-  double apply) also pass end-to-end through the orchestrator wrapper, not just the standalone Slice 3 tool.
-- **Rollback/recovery:** revert; Slice 5's dispatcher would then be vulnerable to race #2 again — this slice is
-  a hard prerequisite before any live multi-worker decomposition use, called out explicitly.
+  concurrent D1C applications against a shared fake remote; assert exactly one wins; assert the loser's retried
+  apply against the winner's post-commit HEAD is correctly rejected as `stale_proposal`, not silently
+  reallocated; assert a FRESH D1B run against that post-commit HEAD produces a new plan that correctly allocates
+  the shifted ID range).
 - **Dependency on prior slice:** Slice 5.
+
+### Slice 6b — Affected-contract authority (atomic multi-task claim + durable-state check)
+
+- **Files to change:** `Pipeline/TaskReviewAgent/claim_refs.py` — generalize `acquire()`/`release()` (or add
+  sibling `acquire_multi()`/`release_multi()`) to atomically claim a `Sequence[str]` of task refs plus resources
+  in one push, and widen `ClaimReceipt` to carry multiple task IDs; `apply_graph_delta`'s orchestrator wrapper
+  (compute the affected-contract set = parent + every rewritten dependent; read durable Issue state for each via
+  `IssueWorkflowService.find` before AND immediately before mutating; block if any is unsafe to mutate). Per
+  `ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Protecting existing task contracts D1C rewrites."
+- **Files that must NOT change:** the core atomic-CAS push mechanics (`--atomic --force-with-lease=<ref>:` per
+  ref) — the generalization reuses this exact mechanism for N refs instead of 1+resources; it does not invent a
+  second locking primitive.
+- **Tests:** new deterministic tests per `CONCURRENCY_AND_FAILURE_MODEL.md` race #4 (revised): a dependent
+  worker's lease acquisition winning before D1C's claim attempt (D1C blocks, no mutation); D1C's multi-task
+  claim winning first (a subsequent implementation lease attempt on the same dependent loses the ordinary claim
+  race and correctly resumes against the new contract post-apply); genuine simultaneous contention resolving to
+  exactly one winner.
+- **Dependency on prior slice:** Slice 5, and conceptually independent of 6a (may land in either order, but both
+  are required before any live multi-worker decomposition-apply use).
+
+- **Acceptance criteria (both sub-parts):** race #2's and race #4's proving tests pass; races #10 and #15
+  proving tests (partial write, double apply) also pass end-to-end through the orchestrator wrapper, not just
+  the standalone Slice 3 tool.
+- **Rollback/recovery:** revert either sub-part independently; Slice 5's dispatcher would then be vulnerable to
+  the corresponding race again — both sub-parts are hard prerequisites before any live multi-worker
+  decomposition use.
 - **Can happen before Gauntlet completes?** **WAIT.** Depends on the claim-ref activation/policy machinery
-  (`claim_policy.py`) the Gauntlet also exercises under real load.
+  (`claim_policy.py`) the Gauntlet also exercises under real load; 6b additionally introduces a claim-layer
+  primitive change the Gauntlet does not itself exercise (since it doesn't exist yet) and therefore needs its
+  own deterministic proof plus a dedicated live proof before Slice 8, not just Gauntlet acceptance by itself.
 
 ## Slice 7 — Live single-decomposition proof
 

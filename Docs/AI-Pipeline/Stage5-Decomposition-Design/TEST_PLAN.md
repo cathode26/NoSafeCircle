@@ -29,15 +29,19 @@ missing (to be built per `IMPLEMENTATION_SEQUENCE.md`).
 
 - **Status: exists for single-plan collision with existing reconciliation keys** (`graph_delta.py`'s
   `collisions = local_keys.intersection(source.id_map)` path, covered in `graph_delta_smoke_test.py`).
-- **Status: missing for cross-application sequential collision.** New: two plans applied sequentially against
-  the same synthetic repo; assert the second's recomputed allocation shifts correctly and produces no ID
-  collision (Slice 2/3 test suite, also race #2 in `CONCURRENCY_AND_FAILURE_MODEL.md`).
+- **Status: missing for cross-application sequential allocation.** New: apply a plan for parent P1, THEN run a
+  FRESH `plan_graph_delta` for a different parent P2 against the resulting HEAD, and assert the fresh plan
+  correctly allocates the next ID after P1's children (Slice 2/3 test suite). **CORRECTED:** this is not "the
+  same stored plan's recomputed allocation shifts" — a stale stored plan must instead be rejected as
+  `stale_proposal` (see the "Sequential re-apply" test below and race #2 in `CONCURRENCY_AND_FAILURE_MODEL.md`).
 
-## Overlapping graph applications
+## Sequential re-apply after another plan lands (broadened from "overlapping" — race #16, corrected)
 
-- **Status: missing entirely.** New: race #16 fixture — two authorized plans whose affected-contract sets
-  overlap; apply the first, attempt the second, assert `stale_proposal` naming the specific overlapping contract
-  (Slice 3/6 test suite).
+- **Status: missing entirely.** New: race #16 fixture — apply plan A for any parent, then attempt to apply plan
+  B (authorized against the same pre-A HEAD, for ANY other parent, whether or not their affected-contract sets
+  literally overlap — since `source_graph_semantic_hash` covers the whole graph, overlap is not required to
+  reproduce this); assert B fails closed as `stale_proposal`. A second case confirms a freshly re-run D1B for
+  B's parent against post-A HEAD produces a new, independently valid `plan_id` (Slice 3/6 test suite).
 
 ## Parent → aggregate conversion
 
@@ -59,9 +63,23 @@ missing (to be built per `IMPLEMENTATION_SEQUENCE.md`).
 ## Resource locks
 
 - **Status: exists for planning** (`_update_resource_groups` covered in `graph_delta_smoke_test.py`).
-- **Status: missing for the claim-layer interaction.** New: assert D1C's orchestrator wrapper (Slice 5/6)
-  acquires claim refs for every proposed child's `exclusive_resources` before committing, and releases them
-  after (or on abort) (Slice 6 test suite).
+- **Status: missing for the claim-layer interaction.** New: assert D1C's orchestrator wrapper (Slice 6a)
+  acquires the parent claim, every proposed child's `exclusive_resources`, and the global logical resource token
+  (`logical:taskgraph-decomposition-apply-global`) before committing, and releases them after (or on abort)
+  (Slice 6a test suite).
+
+## Affected-contract authority (active-worker protection) — new, corrects an earlier gap
+
+- **Status: missing entirely.** This capability does not exist in any form today; an earlier draft of this test
+  plan incorrectly assumed the existing contract-hash staleness check was sufficient (see
+  `CONCURRENCY_AND_FAILURE_MODEL.md` race #4, corrected). New deterministic tests (Slice 6b):
+  - a dependent worker's `agent_working` lease acquisition wins the race BEFORE D1C attempts its
+    affected-contract claim — assert D1C's durable-state check blocks and mutates nothing;
+  - D1C's atomic multi-task claim wins FIRST — assert a subsequent implementation lease attempt on the same
+    dependent loses the ordinary claim race, and correctly resumes/re-derives against the new contract once
+    D1C's commit lands;
+  - genuine simultaneous contention between a dependent worker's lease attempt and D1C's claim attempt resolves
+    to exactly one winner, never both.
 
 ## `current_conformance` aggregate semantics
 
@@ -102,22 +120,48 @@ missing (to be built per `IMPLEMENTATION_SEQUENCE.md`).
 
 ## Issue read-after-write lag
 
-- **Status: exists for implementation.** `Pipeline/TaskReviewAgent/issue_workflow_store.py` implements
+- **Status: exists for the main Issue workflow path.** `Pipeline/TaskReviewAgent/issue_workflow_store.py`
+  implements `_verify_post_mutation_state` /
   `POST_MUTATION_VERIFICATION_DELAYS_SECONDS = (0.0, 1.0, 2.0, 4.0, 8.0)` with the explicit rule "the mutation
   itself must NEVER be repeated merely because verification lagged; retry only the read side... then fail
   closed." Covered by `Pipeline/TaskReviewAgent/tests/issue_workflow_smoke_test.py` (lines ~328-428, which
   monkeypatch the delay tuple to `(0.0, 0.0, 0.0)` for fast deterministic testing). This corresponds to commit
   `109380b fix: tolerate GitHub read-after-write lag` visible in this repository's recent history.
-- **Status: missing for decomposition Issue paths.** New: extend/reuse whatever fixture backs `109380b` for the
-  new decomposition Issue writes (proposal creation, apply-authorization, closeout) (Slice 4 test suite).
+- **CORRECTED — status is NOT "complete except for timing."** `goal_loop_guard.py::_release_active_lease` still
+  performs a direct `backend.add_comment` → `backend.update_issue` → immediate `service.find(task_id)` → exact
+  compare, bypassing the centralized verifier entirely. This is current, committed production code, not a
+  hypothetical. This audit also found the same direct mutation-then-immediate-read shape in multiple transitions
+  in `downstream_issue.py` and `downstream_runtime.py`. Production issue #104's class is open, not closed.
+- **Status: missing for decomposition Issue paths, AND blocked on closing the production audit first.** New
+  tests (Slice 4/5 test suite) must extend/reuse the `109380b` fixture for the new decomposition Issue writes
+  (proposal creation, apply-authorization, closeout) — but per `GAUNTLET_PREREQUISITES.md` item 5, this is a
+  hard prerequisite, not an optional tuning item: before any Stage 5 slice adds real decomposition Issue
+  mutations, production must complete an audit of every direct Issue mutation/immediate-read path (at minimum
+  `goal_loop_guard.py::_release_active_lease`, `downstream_issue.py`, `downstream_runtime.py`) and route them
+  through the same central verifier Stage 5 will reuse.
 
 ## Claim contention
 
 - **Status: exists for implementation task/resource claims** (`claim_refs_smoke_test.py`,
-  `contention_retry_smoke_test.py`).
-- **Status: missing for decomposition-specific claims** (parent claim during proposal, parent+children claim
-  during apply, global apply claim). New: parametrize existing claim-conflict fixtures with decomposition claim
-  refs (Slice 5/6 test suite).
+  `contention_retry_smoke_test.py`) — single-task `acquire()`/`release()` only.
+- **Status: missing for decomposition-specific claims** (parent claim during proposal; global logical-resource
+  claim during apply, Slice 6a; the NEW atomic multi-task claim over parent + affected dependents during apply,
+  Slice 6b — this primitive does not exist yet and needs its own unit tests analogous to
+  `claim_refs_smoke_test.py`, not just parametrization of the existing single-task fixtures). New: parametrize
+  existing claim-conflict fixtures with decomposition claim refs, and add dedicated multi-task-claim unit tests
+  (Slice 5/6 test suite).
+
+## Global logical-resource D1C-vs-D1C race (race #2, Slice 6a)
+
+- **Status: missing entirely.** New deterministic test (Slice 6a test suite, per
+  `CONCURRENCY_AND_FAILURE_MODEL.md` race #2): two simulated concurrent D1C apply attempts (for two different
+  parents, both planned against the same prior HEAD) both include
+  `"logical:taskgraph-decomposition-apply-global"` in their `exclusive_resources` claim set and both attempt
+  `acquire()` against a shared fake remote; assert **exactly one wins** the claim (no double grant), the loser
+  receives an ordinary `ClaimConflict`, and the loser's retried apply attempt against the winner's post-commit
+  HEAD is correctly rejected as `stale_proposal` rather than silently reallocated. This is distinct from the
+  "ID collision"/"Sequential re-apply" tests above, which prove the *consequence* of losing the race; this test
+  proves the claim-acquisition race itself resolves to one winner.
 
 ## Resume after crash
 
@@ -158,18 +202,20 @@ missing (to be built per `IMPLEMENTATION_SEQUENCE.md`).
 | Contract/schema validation | Complete | None |
 | Stale-source rejection (D1B) | Complete | D1C equivalent |
 | Graph delta revalidation (plan-time) | Complete | D1C apply-time re-derivation |
-| ID collision (single-plan) | Complete | Cross-application sequential |
-| Overlapping applications | None | Full new test |
+| ID collision (single-plan) | Complete | Cross-application sequential allocation (fresh plan only, not shifted reapplication) |
+| Sequential re-apply after another plan lands (#16) | None | Full new test — broadened, overlap not required |
+| Affected-contract authority (active-worker protection, #4) | **None — new capability, not yet designed as of the prior draft** | Full new test (Slice 6b) |
 | Parent→aggregate (read) | Complete | Write-side materialization |
 | Inbound rewrites (plan) | Complete | Materialization + untouched-file proof |
-| Resource locks (plan) | Complete | Claim-layer interaction |
+| Resource locks (plan) | Complete | Claim-layer interaction (parent + children + global logical resource) |
 | Aggregate conformance | Complete, unchanged | Regression against D1C output |
 | `needs_replan` (detection) | Complete | Candidate-selection consequence |
 | Dirty tree (D1B) | Complete | D1C reuse |
 | Wrong origin (implementation) | Complete | D1C checkout |
 | Partial mutation recovery | None | Full new test |
-| Read-after-write lag | Exists (implementation) — confirm exact file | Decomposition paths |
-| Claim contention | Complete (implementation) | Decomposition-specific refs |
+| Read-after-write lag | Exists for the main Issue workflow path; **NOT complete production-wide** (`goal_loop_guard.py`, `downstream_issue.py`, `downstream_runtime.py` bypass the central verifier) | Decomposition paths, gated on closing production #104 first |
+| Claim contention | Complete (implementation, single-task) | Decomposition-specific refs; NEW multi-task claim primitive (Slice 6b) |
+| Global logical-resource D1C-vs-D1C race (#2) | None | Full new test — exactly-one-winner claim race (Slice 6a) |
 | Resume after crash | Partial (implementation) — confirm exact breadth | Decomposition, all phases |
 | Application idempotency | None | Full new test |
 | Live proofs (1-worker, 2-3 worker, larger) | None | Slices 7/8; larger scale deferred |

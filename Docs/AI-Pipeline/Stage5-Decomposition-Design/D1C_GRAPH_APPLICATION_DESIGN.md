@@ -79,20 +79,41 @@ mutation content. Two reasons:
   equality (`recomputed.canonical_json() == stored.canonical_json()`) as a second independent check, and fail
   closed if they differ (this would indicate either a bug or tampering with the stored artifact).
 
+This recompute-and-compare step is a defense against bugs/tampering in the stored artifact, **not** a mechanism
+for reallocating a stale proposal. A `source_graph_semantic_hash` mismatch is caught earlier, by the
+identity-binding check above, and short-circuits to `stale_proposal` before this step ever runs — this step
+only ever runs when the graph is already known to be unchanged.
+
 ## Deterministic child ID allocation and collision handling
 
 **FACT.** `graph_delta.py` already allocates deterministically: `next_number = max(existing_numbers) + 1`,
-contiguous per child in result order. Because D1C recomputes the delta from the *current* graph (previous
-section), ID allocation automatically reflects any children created by unrelated decompositions that landed on
-`main` since the original proposal was generated — no separate allocation step is needed in D1C.
+contiguous per child in result order, and `source_graph_semantic_hash` is the semantic hash of the ENTIRE
+graph (`id_map` + `tasks` + `resource_groups` + `project_requirements` — see `_plan_payload`), not just the
+selected parent. This means `GraphDeltaPlan.plan_id` (§"Source HEAD/tree/task-contract identity binding")
+is bound to the exact whole-graph state at planning time, and any change anywhere in the graph — including an
+unrelated decomposition applying against a different parent — changes `source_graph_semantic_hash` and
+therefore invalidates that binding.
 
-**RECOMMENDATION — the actual collision case D1C must handle:** two *different* proposals for two *different*
-parents, generated concurrently, both computed `next_number = N` because both were planned against the same
-prior `main`. If proposal A applies first, `main` now contains ID `NSC-{N}`. If proposal B is then applied
-without recomputation, it would either collide or (per this design) get correctly recomputed to allocate
-`NSC-{N+1}`... but only if D1C recomputes against A's post-apply `main`, not against B's stale plan. This is
-why §"Deterministic revalidation" above is not optional — it is the actual ID-collision defense. See
-`CONCURRENCY_AND_FAILURE_MODEL.md` for the full race and the required serialization.
+**CORRECTION.** D1C never allocates a *new* ID range for an already-reviewed `GraphDeltaPlan` and silently
+applies it as though the same human authorization still covers the result. A reviewed `GraphDeltaPlan` is
+immutable authority bound to its exact `source_graph_semantic_hash` and `allocated_local_key_to_task_id`
+(§"Source HEAD/tree/task-contract identity binding"; see also `CONCURRENCY_AND_FAILURE_MODEL.md` races #2 and
+#16). D1C's revalidation step recomputes the plan **only to prove byte-for-byte equality with the stored,
+reviewed plan**; it is never used to compute a *different*, silently-substituted allocation under that same
+authorization.
+
+**The actual cross-application collision case:** two *different* proposals for two *different* parents,
+generated concurrently, both computed `next_number = N` because both were planned against the same prior
+`main`. If proposal A applies first, `main` now contains ID `NSC-{N}` and its whole-graph semantic hash has
+changed. If proposal B is then presented to D1C, revalidation (§"Deterministic revalidation") recomputes B's
+plan against the now-current graph and finds it does **not** equal the stored, reviewed `GraphDeltaPlan` B
+(different `source_graph_semantic_hash`, different `plan_id`) — this is `stale_proposal`, not a shifted
+reapplication. Correct recovery is a fresh D1B round against the new `main`, producing a new
+`GraphDeltaPlan`/`plan_id` for parent P2 (which will naturally allocate `NSC-{N+1}`, since it now observes A's
+committed child), followed by independent human re-authorization of that new plan. The global apply-claim
+serialization described in `ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Serialization of graph mutation" reduces *how
+often* two applications actually race to commit at the same instant, but it does not — and cannot — make a
+stale reviewed proposal valid again. See `CONCURRENCY_AND_FAILURE_MODEL.md` race #2 for the full sequencing.
 
 ## Parent contract transition to aggregate/non-executable state
 
@@ -118,6 +139,23 @@ rewritten dependent with its `depends_on` updated and `contract_revision` increm
 (`graph_delta.py::_rewrite_dependent`). D1C does not compute rewrites; it writes whichever task files changed
 between `source.tasks` and `proposed_graph_overlay.tasks` (parent, children, rewritten dependents) and leaves
 every other `Tasks/*.yaml` file byte-identical and untouched.
+
+### Authority over rewritten dependents before mutation (RECOMMENDATION — corrects an earlier gap)
+
+**FACT.** `graph_delta.py::_rewrite_dependent` only changes a dependent's `depends_on` and increments its
+`contract_revision`; it does not touch AC/VAL, resources, or any other executable content. **This does not make
+the mutation safe to perform unconditionally.** A dependent's `contract_revision` and `depends_on` are part of
+the exact contract identity an active implementation worker's durable Issue lease and any in-flight
+evidence/delivery-review binding are built against; D1C changing them underneath an active worker is a contract
+mutation the worker never agreed to, even though its AC/VAL text is untouched.
+
+**RECOMMENDATION — required, not optional.** Before D1C may materialize any rewritten dependent, it must treat
+every affected *existing* task ID exactly like the parent: an ID D1C must hold proven claim/lease authority over
+before mutating its contract. "Affected existing task IDs" = the decomposition parent + every existing
+dependent named in `graph_delta.inbound_dependency_changes` + any other existing task whose contract the exact
+`GraphDeltaPlan` changes. See `ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Protecting existing task contracts D1C
+rewrites" for the full design — this is real new claim-layer work, not a zero-new-code reuse of `claim_refs.py`
+as an earlier draft of this design assumed.
 
 ## Resource lock/resource-group updates
 
@@ -261,14 +299,18 @@ as its new `parent_before` baseline via the same identity-binding mechanism desc
 ## Recovery if commit/push/Issue update fails
 
 - **Commit succeeds, push fails** (network, non-fast-forward because `main` advanced): the local commit is not
-  lost — the disposable D1C checkout still has it. D1C must **not** force-push. On a normal rejected
-  non-fast-forward push, the correct recovery is: fetch, and if `main` advanced with unrelated changes, rebase
-  is unsafe here (a decomposition commit touches specific files with exact hash preconditions) — the safe
-  action is to **discard the local commit and restart D1C from scratch** against the new `main`, because the
-  identity-binding check in §"Source HEAD/tree binding" would fail anyway against the new HEAD. This is
-  idempotent: rerunning D1C from the same `review_ready` `decomposition_result.json` against new HEAD either
-  reproduces an equivalent plan (if nothing relevant changed) or correctly fails closed (if the parent or graph
-  changed in a conflicting way).
+  lost — the disposable D1C checkout still has it. D1C must **not** force-push. If the push failed for a purely
+  transient reason and `main` did not advance, retrying the identical push is safe under the same authorization
+  (identity binding still matches the same HEAD). If `main` did advance — the ordinary non-fast-forward case —
+  rebase is unsafe here (a decomposition commit touches specific files with exact hash preconditions), and the
+  identity-binding check in §"Source HEAD/tree binding" will fail against the new HEAD: **discard the local
+  commit and report `stale_proposal`.** Because `source_graph_semantic_hash` is a whole-graph hash, this is true
+  even when the advancing commits never touched the decomposed parent, its children, or its dependents.
+  Recovery requires the orchestration layer to rerun D1B against the new `main` (producing a new `GraphDeltaPlan`
+  with a new `plan_id`) and obtain **independent human re-authorization** for that new `plan_id` — per
+  `ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Human review/approval boundary," an operator's earlier `APPROVE` names
+  the old `plan_id` and does not carry forward to a new one. D1C must never treat "the decomposition result JSON
+  is unchanged" as license to silently resubmit under a stale authorization.
 - **Push succeeds, Issue/PR update fails:** the graph mutation is now real on `main`. This must be treated the
   same way `109380b fix: tolerate GitHub read-after-write lag` (visible in this repo's recent commit history)
   treats a successful GitHub write with a stale read: retry the Issue/closeout update with bounded
@@ -292,7 +334,11 @@ twice" race in `CONCURRENCY_AND_FAILURE_MODEL.md`.
 
 ## No TTL stealing
 
-Consistent with the existing claim-ref policy (`claim_refs.py`): if D1C needs a claim/lock during application
-(see `ORCHESTRATOR_INTEGRATION_DESIGN.md` — it does, on the parent and every affected resource), that claim
-follows the exact same no-TTL, exact-SHA-fenced, manual-repair-only policy already in production. D1C must not
-invent a second, weaker locking primitive.
+Consistent with the existing claim-ref policy (`claim_refs.py`): D1C needs claim authority during application on
+the parent, every affected existing dependent contract, every affected resource, and the global
+decomposition-apply serialization point (see `ORCHESTRATOR_INTEGRATION_DESIGN.md` §"Serialization of graph
+mutation" and §"Protecting existing task contracts D1C rewrites"). That claim authority follows the exact same
+no-TTL, exact-SHA-fenced, manual-repair-only policy already in production (`claim_refs.py`'s crash policy). D1C
+must not invent a second, weaker locking primitive — but see those two sections for why the *shape* of the
+claim (multiple task refs acquired atomically in one push, and a logical resource token rather than a literal
+new ref) is a real, new, minimal extension of `GitRefClaimClient`, not a zero-code reuse.

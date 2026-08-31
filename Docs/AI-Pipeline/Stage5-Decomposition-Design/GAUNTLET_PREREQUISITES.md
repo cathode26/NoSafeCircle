@@ -49,16 +49,20 @@ are not.
 
 ### 2. Claim contention
 
-- **Why decomposition depends on it:** Slice 6's global apply-claim mechanism is a *direct extension* of
-  `claim_refs.py`'s exact atomic nonexistence-CAS pattern. Its correctness under real network/GitHub timing
-  (not just synthetic bare-repo tests) is exactly what the Gauntlet is built to observe
+- **Why decomposition depends on it:** Slice 6a's global logical-resource claim reuses the existing single-task
+  `acquire()`/`resource_claim_ref()` path *unchanged*, so its correctness under real network/GitHub timing (not
+  just synthetic bare-repo tests) is exactly what the Gauntlet is built to observe
   (`probe_remote_claim_namespace`'s docstring already flags namespace support as "unproven" pending a live
-  capability test).
+  capability test). **Slice 6b's atomic multi-task claim is different: it is new code the Gauntlet does not
+  exercise at all, because it does not exist yet.** Gauntlet acceptance proves the single-task primitive 6b
+  extends; it does not, by itself, prove the extension.
 - **What Gauntlet behavior proves it:** real concurrent claim attempts against the dedicated Gauntlet repository
-  correctly produce exactly one winner (or zero, on transient contention) with no double-grant.
-- **What must remain blocked if it fails:** Slice 6 (concurrency serialization) entirely — a global claim built
-  on an unproven primitive is a false sense of safety for the single highest-risk race in
-  `CONCURRENCY_AND_FAILURE_MODEL.md` (#2, ID collision).
+  correctly produce exactly one winner (or zero, on transient contention) with no double-grant — for the
+  single-task primitive. This is a necessary, not sufficient, precondition for trusting Slice 6b's extension.
+- **What must remain blocked if it fails:** Slice 6a entirely if the underlying single-task primitive fails;
+  Slice 6b regardless, until its own dedicated proof (deterministic + live) is complete — a global/multi-task
+  claim built on an unproven primitive is a false sense of safety for the two highest-risk races in
+  `CONCURRENCY_AND_FAILURE_MODEL.md` (#2 ID collision, #4 active-worker contract protection).
 - **Architectural or operational?** Architectural — the claim primitive itself, not its policy configuration.
 
 ### 3. Exclusive resources
@@ -89,20 +93,34 @@ are not.
 
 ### 5. Bounded read-after-write verification
 
-- **Why decomposition depends on it:** `CONCURRENCY_AND_FAILURE_MODEL.md` races #6/#12 explicitly reuse
-  `Pipeline/TaskReviewAgent/issue_workflow_store.py::POST_MUTATION_VERIFICATION_DELAYS_SECONDS`. Its bounded
-  15-second total retry window was chosen/tuned against whatever lag characteristics prompted commit `109380b`;
-  the Gauntlet's real multi-worker load is the environment where that tuning actually gets stress-tested at
-  higher write volume (proposal creation + apply-authorization + closeout, all additional Issue writes on top of
-  existing implementation writes).
-- **What Gauntlet behavior proves it:** the existing bounded retry window remains sufficient (or is
-  found/fixed to be insufficient) under real concurrent write volume before decomposition adds more writes on
-  top of it.
-- **What must remain blocked if it fails:** nothing structurally new needs to be blocked — this would produce a
-  tuning fix to the existing constant, which Stage 5 should adopt rather than inventing a separate tolerance
-  window.
-- **Architectural or operational?** Operational — the mechanism is architecturally sound (bounded retry,
-  never repeat the mutation); only the specific delay tuning is at risk.
+- **Why decomposition depends on it:** `CONCURRENCY_AND_FAILURE_MODEL.md` races #6/#12 require every new
+  decomposition Issue write (proposal creation, apply-authorization, closeout) to reuse the central bounded
+  verifier `Pipeline/TaskReviewAgent/issue_workflow_store.py::_verify_post_mutation_state`
+  (`POST_MUTATION_VERIFICATION_DELAYS_SECONDS`), not a duplicated timing loop.
+- **CORRECTED — this is not a pure tuning risk; production adoption of the pattern is itself incomplete.**
+  `Pipeline/TaskReviewAgent/goal_loop_guard.py::_release_active_lease` performs a direct
+  `backend.add_comment` → `backend.update_issue` → immediate `service.find(task_id)` → exact compare, with ONE
+  immediate reread and no bounded retry — it does not call `_verify_post_mutation_state` at all. This is
+  current, committed production code (not a hypothetical), and it is exactly the class of defect commit
+  `109380b` fixed elsewhere. A pass over `Pipeline/TaskReviewAgent/downstream_issue.py` and
+  `Pipeline/TaskReviewAgent/downstream_runtime.py` during this revision found the same direct
+  `add_comment`/`update_issue` → immediate `find` shape in multiple additional transitions there, also bypassing
+  the centralized verifier. The production #104 class ("tolerate GitHub read-after-write lag") is therefore
+  open, not closed, even though the fix pattern itself is proven correct where it HAS been applied.
+- **What Gauntlet behavior proves it:** the existing bounded retry window remains sufficient (or is found/fixed
+  to be insufficient) under real concurrent write volume, for the paths that already use it — but the Gauntlet
+  does not, by itself, close the adoption gap above; that requires a dedicated code audit and fix, independent
+  of Gauntlet timing.
+- **What must remain blocked if it fails, or while the adoption gap remains open:** any Stage 5 slice that adds
+  real decomposition Issue mutations (Slice 4's schema-only additions are unaffected; Slice 5+ is blocked). This
+  is a **hard prerequisite**, not an optional tuning item: Stage 5 must not add a new direct
+  mutation-then-immediate-read path of its own, and production's existing direct paths (at minimum
+  `goal_loop_guard.py`, and the additional instances found in `downstream_issue.py`/`downstream_runtime.py`)
+  must be routed through the central verifier and closed as production issue #104 before Stage 5's
+  Issue-mutating slices go live.
+- **Architectural or operational?** Both: the mechanism itself is architecturally sound where applied (bounded
+  read-only retry, never repeat the mutation) — but its incomplete rollout across existing direct
+  mutation/read paths is an open architectural gap in production, not merely a tuning parameter.
 
 ### 6. Checkout/origin binding
 
@@ -195,11 +213,17 @@ are not.
 ## Net position
 
 Every prerequisite above is either (a) code Stage 5 proposes reusing **completely unchanged**, or (b) a design
-pattern Stage 5 proposes extending in a narrow, structurally identical way (exact-identity binding, bounded
-retry, no-TTL claims). None of Stage 5's orchestrator-integration slices (4-8) invent a new concurrency
-primitive that would need independent proving beyond what the Gauntlet already covers — **except** the one
-genuinely new mechanism, the global decomposition-apply claim (Slice 6), which is explicitly still built
-*on top of* the same proven-or-not `claim_refs.py` primitive rather than a separate one. This is why the GO/WAIT
-split in `README.md` draws the line exactly at "touches the reused live-concurrency machinery" vs. "purely
-deterministic, synthetic-repo-only": the former inherits every open question in this document; the latter does
-not.
+pattern Stage 5 proposes extending. That extension is not uniform across Slice 6: **Slice 6a** (the global
+`logical:taskgraph-decomposition-apply-global` resource token) is a design pattern built *on top of* the same
+proven-or-not `claim_refs.py` primitive, unchanged — an ordinary string through the existing
+`resource_claim_ref()` path, no new code in `claim_refs.py` itself. **Slice 6b** (the atomic multi-task claim
+protecting the decomposition parent plus every rewritten dependent's contract) is different in kind: it is
+genuinely new code — a generalized `acquire()`/`release()` (or sibling `acquire_multi()`/`release_multi()`) and
+a widened `ClaimReceipt` schema — that does not exist yet and that the Gauntlet therefore cannot exercise,
+because there is nothing there yet for it to exercise (see item 2 above). Gauntlet acceptance of the existing
+single-task primitive is a necessary precondition for trusting 6b's extension, not proof of 6b itself; 6b needs
+its own dedicated deterministic and live proof (`IMPLEMENTATION_SEQUENCE.md` Slice 6b) in addition to Gauntlet
+acceptance. This is why the GO/WAIT split in `README.md` draws the line exactly at "touches the reused
+live-concurrency machinery" vs. "purely deterministic, synthetic-repo-only": the former inherits every open
+question in this document, and Slice 6b additionally inherits a proof obligation the Gauntlet alone does not
+discharge; the latter (Slices 1-3) inherits neither.
