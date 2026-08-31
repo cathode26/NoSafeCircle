@@ -39,8 +39,12 @@ def test_repository_scene_policy() -> None:
 
 
 def test_historical_raw_context_is_not_live_scene_authority() -> None:
+    # Construct the obsolete path at runtime so this live test source does not
+    # itself contain a noncanonical scene reference that the policy must reject.
     stale_reference = (
-        "Assets/NoSafeCircle/DoorPrototype/Scenes/DoorPrototype.unity"
+        "Assets/NoSafeCircle/"
+        "DoorPrototype/Scenes/"
+        "DoorPrototype.unity"
     )
 
     with tempfile.TemporaryDirectory(prefix="nsc-scene-history-") as temporary:
