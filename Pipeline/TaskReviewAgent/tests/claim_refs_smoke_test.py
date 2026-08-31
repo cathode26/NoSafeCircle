@@ -41,6 +41,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from Pipeline.TaskReviewAgent import claim_refs as claim_refs_module  # noqa: E402
+from Pipeline.TaskReviewAgent import issue_workflow_store as store_module  # noqa: E402
 from Pipeline.TaskReviewAgent import real_workflow as real_workflow_module  # noqa: E402
 from Pipeline.TaskReviewAgent.claim_policy import (  # noqa: E402
     ClaimCoordinationNotActivatedError,
@@ -643,17 +644,22 @@ def test_issue_handoff_failed_verification_is_not_success(root: Path) -> None:
             worker_id="agent-a",
         )
     )
-    result = acquire_issue_lease_with_claims(
-        claim_client=client,
-        issue_workflow=service,
-        task=fixture_task,
-        source_head=fixture.source_head,
-        branch="nsc-910-task",
-        checkout_path=r"C:\NSC\NSC\NSC-910",
-        planned_approach="Verification must fail closed.",
-        expected_validation="The handoff must not pretend success.",
-        now="2026-08-30T10:01:00Z",
-    )
+    original_delays = store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS
+    store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = (0.0,) * 3
+    try:
+        result = acquire_issue_lease_with_claims(
+            claim_client=client,
+            issue_workflow=service,
+            task=fixture_task,
+            source_head=fixture.source_head,
+            branch="nsc-910-task",
+            checkout_path=r"C:\NSC\NSC\NSC-910",
+            planned_approach="Verification must fail closed.",
+            expected_validation="The handoff must not pretend success.",
+            now="2026-08-30T10:01:00Z",
+        )
+    finally:
+        store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = original_delays
     require(
         result["status"] == "blocked",
         f"failed authority verification pretended handoff success: {result}",

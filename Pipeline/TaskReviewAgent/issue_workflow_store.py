@@ -462,6 +462,79 @@ def _snapshot(
     )
 
 
+class IssueWorkflowReader(Protocol):
+    def find(self, task_id: str) -> IssueWorkflowSnapshot | None: ...
+
+
+def verify_post_mutation_state(
+    reader: IssueWorkflowReader,
+    task_id: str,
+    expected_state: IssueWorkflowState,
+    *,
+    transition_name: str,
+) -> IssueWorkflowSnapshot:
+    """Verify one completed mutation with bounded read-only retries."""
+
+    # GitHub Issue body/label/comment reads may become mutually visible at
+    # slightly different times. Only reads are retried here; the mutation that
+    # produced expected_state is NEVER repeated by this helper.
+    attempts = 0
+    last_reason = "no verification read completed"
+
+    for delay_seconds in POST_MUTATION_VERIFICATION_DELAYS_SECONDS:
+        if delay_seconds > 0:
+            time.sleep(delay_seconds)
+
+        attempts += 1
+        try:
+            verified = reader.find(task_id)
+        except IssueWorkflowStoreError as exc:
+            last_reason = f"verification read failed: {exc}"
+            continue
+
+        if verified is None:
+            last_reason = "managed Issue is not visible yet"
+            continue
+
+        if not verified.valid:
+            detail = "; ".join(verified.reasons) or "snapshot marked invalid"
+            last_reason = f"workflow snapshot is not coherent yet: {detail}"
+            continue
+
+        if verified.state == expected_state:
+            return verified
+
+        if verified.state is None:
+            last_reason = "managed workflow state is not visible yet"
+            continue
+
+        observed = verified.state
+        differing_fields = sorted(
+            key
+            for key, value in observed.to_dict().items()
+            if expected_state.to_dict().get(key) != value
+        )
+        last_reason = (
+            f"observed state_version={observed.state_version} "
+            f"state={observed.state.value} phase={observed.phase.value}; "
+            f"expected state_version={expected_state.state_version} "
+            f"state={expected_state.state.value} phase={expected_state.phase.value}; "
+            f"exact fields differ: {differing_fields}"
+        )
+
+        # A valid older state may simply be stale and is safe to reread. A
+        # valid same-version mismatch or a newer state is not a stale
+        # predecessor of our expected transition, so fail closed.
+        if observed.state_version >= expected_state.state_version:
+            break
+
+    raise IssueWorkflowStoreError(
+        f"{transition_name} transition could not be verified after "
+        f"{attempts} bounded read attempt(s): {last_reason}; "
+        "the durable mutation was not repeated"
+    )
+
+
 class IssueWorkflowService:
     """Own the state machine while a backend performs GitHub persistence."""
 
@@ -490,65 +563,18 @@ class IssueWorkflowService:
             )
         return _snapshot(self.backend, candidates[0]) if candidates else None
 
-    def _verify_post_mutation_state(
+    def verify_post_mutation_state(
         self,
         task_id: str,
         expected_state: IssueWorkflowState,
         *,
         transition_name: str,
     ) -> IssueWorkflowSnapshot:
-        # Verify one already-performed mutation with bounded read-only retries.
-        # GitHub Issue body/label/comment reads may become mutually visible at
-        # slightly different times. Only reads are retried here; the mutation
-        # that produced expected_state is NEVER repeated by this helper.
-        attempts = 0
-        last_reason = "no verification read completed"
-
-        for delay_seconds in POST_MUTATION_VERIFICATION_DELAYS_SECONDS:
-            if delay_seconds > 0:
-                time.sleep(delay_seconds)
-
-            attempts += 1
-            try:
-                verified = self.find(task_id)
-            except IssueWorkflowStoreError as exc:
-                last_reason = f"verification read failed: {exc}"
-                continue
-
-            if verified is None:
-                last_reason = "managed Issue is not visible yet"
-                continue
-
-            if not verified.valid:
-                detail = "; ".join(verified.reasons) or "snapshot marked invalid"
-                last_reason = f"workflow snapshot is not coherent yet: {detail}"
-                continue
-
-            if verified.state == expected_state:
-                return verified
-
-            if verified.state is None:
-                last_reason = "managed workflow state is not visible yet"
-                continue
-
-            observed = verified.state
-            last_reason = (
-                f"observed state_version={observed.state_version} "
-                f"state={observed.state.value} phase={observed.phase.value}; "
-                f"expected state_version={expected_state.state_version} "
-                f"state={expected_state.state.value} phase={expected_state.phase.value}"
-            )
-
-            # A valid older state may simply be stale and is safe to reread.
-            # A valid same-version mismatch or a newer state is not a stale
-            # predecessor of our expected transition, so fail closed.
-            if observed.state_version >= expected_state.state_version:
-                break
-
-        raise IssueWorkflowStoreError(
-            f"{transition_name} transition could not be verified after "
-            f"{attempts} bounded read attempt(s): {last_reason}; "
-            "the durable mutation was not repeated"
+        return verify_post_mutation_state(
+            self,
+            task_id,
+            expected_state,
+            transition_name=transition_name,
         )
 
     def observe(self, task_id: str) -> dict[str, Any]:
@@ -878,7 +904,7 @@ class IssueWorkflowService:
             labels=labels_for_state(next_state.state, snapshot.labels),
             assignees=[self.assignee],
         )
-        verified = self._verify_post_mutation_state(
+        verified = self.verify_post_mutation_state(
             task_id,
             next_state,
             transition_name="GitHub Issue lease",
@@ -991,7 +1017,7 @@ class IssueWorkflowService:
             labels=labels_for_state(next_state.state, snapshot.labels),
             assignees=[self.assignee],
         )
-        verified = self._verify_post_mutation_state(
+        verified = self.verify_post_mutation_state(
             task_id,
             next_state,
             transition_name="human handoff",
@@ -1074,7 +1100,7 @@ class IssueWorkflowService:
             labels=labels_for_state(next_state.state, snapshot.labels),
             assignees=[self.assignee],
         )
-        verified = self._verify_post_mutation_state(
+        verified = self.verify_post_mutation_state(
             task_id,
             next_state,
             transition_name="human result",

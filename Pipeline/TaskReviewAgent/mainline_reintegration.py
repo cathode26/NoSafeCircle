@@ -33,7 +33,6 @@ from .issue_workflow import (
     update_issue_body,
     utc_now,
 )
-from .issue_workflow_store import IssueWorkflowStoreError
 
 
 INTEGRATION_RECEIPT_VERSION = "1.0"
@@ -404,11 +403,11 @@ def _block_current_lease(
         labels=labels_for_state(next_state.state, snapshot.labels),
         assignees=[service.assignee],
     )
-    verified = service.find(controller.task_id)
-    if verified is None or not verified.valid or verified.state != next_state:
-        raise IssueWorkflowStoreError(
-            "mainline integration blocker could not be verified"
-        )
+    verified = service.verify_post_mutation_state(
+        controller.task_id,
+        next_state,
+        transition_name="mainline integration blocker",
+    )
     return {"status": "blocked", "reason": reason, **verified.to_dict()}
 
 
@@ -496,11 +495,11 @@ def _advance_automation_only_issue(
         labels=labels_for_state(next_state.state, snapshot.labels),
         assignees=[service.assignee],
     )
-    verified = service.find(controller.task_id)
-    if verified is None or not verified.valid or verified.state != next_state:
-        raise IssueWorkflowStoreError(
-            "automation-only integration state could not be verified"
-        )
+    service.verify_post_mutation_state(
+        controller.task_id,
+        next_state,
+        transition_name="automation-only integration state",
+    )
 
     controller.workflow.observe_goal_state()
     reacquired = controller.workflow.acquire_agent_lease(

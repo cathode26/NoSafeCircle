@@ -41,7 +41,6 @@ from .issue_workflow import (
     update_issue_body,
     utc_now,
 )
-from .issue_workflow_store import IssueWorkflowStoreError
 from .real_workflow import RealTaskReviewWorkflow
 
 
@@ -172,11 +171,11 @@ class ResumableDownstreamIssueCoordinator(DownstreamIssueCoordinator):
             labels=labels_for_state(next_state.state, snapshot.labels),
             assignees=[self.service.assignee],
         )
-        verified = self.service.find(task_id)
-        if verified is None or not verified.valid or verified.state != next_state:
-            raise IssueWorkflowStoreError(
-                "evidence-head lease release could not be verified"
-            )
+        verified = self.service.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="evidence-head lease release",
+        )
         return {"status": "agent_ready", **verified.to_dict()}
 
 
