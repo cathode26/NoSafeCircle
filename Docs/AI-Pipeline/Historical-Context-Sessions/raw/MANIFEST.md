@@ -1,16 +1,17 @@
 # Raw Import Manifest
 
-Imported: 2026-08-30
+Last imported: 2026-08-31
 
-These files are immutable historical transcripts imported during the context-system bootstrap.
+These files are immutable historical transcripts imported for the context system.
 
-Common private-token patterns were scanned before packaging (OpenAI `sk-...`, GitHub classic/fine-grained token prefixes, AWS access-key IDs, private-key headers); no matching credential values were detected. This is a lightweight hygiene check, not a guarantee that every possible sensitive value is absent.
+Common private-token patterns were scanned before packaging (OpenAI `sk-...`, GitHub classic/fine-grained token prefixes, AWS access-key IDs, private-key headers); no matching credential values were detected in the imports listed below. This is a lightweight hygiene check, not a guarantee that every possible sensitive value is absent.
 
 | File | Bytes | SHA-256 |
 |---|---:|---|
 | `imported-2026-08-30-Build-Task-Orchestrator1.txt` | 534253 | `aa4c1134a54f14b9757bdbe8589e37a3202cd899d66b973857505b7dcbd63905` |
 | `imported-2026-08-30-Build-Task-Orchestrator2.txt` | 1221417 | `0e2b5900b82d5b5ef60412534c6d8a8503d36a2271153e35626fc76c30c677ab` |
 | `imported-2026-08-30-Set-Coding-Standards.txt` | 48357 | `6ddc1b6eaf651ac464ba5f918e0ab2dcf7cfd928780be8c4f942f74a535e1b84` |
+| `imported-2026-08-31-Build-Task-Orchestrator3.txt` | 663736 | `b89c55d3ae0d4e8de7afc41e99e700728d4e1c1cd2ab8c442c43ee5bcd100814` |
 
 ## Rules
 
