@@ -44,6 +44,7 @@ _TOP_LEVEL_TEXT_FILES = frozenset(
 )
 _LIVE_ROOTS = ("Assets/", "Docs/", "Packages/", "Pipeline/", "ProjectSettings/")
 _IMMUTABLE_OR_GENERATED_PREFIXES = (
+    "Docs/AI-Pipeline/Historical-Context-Sessions/raw/",
     "Pipeline/ArchitectureReview/outputs/",
     "Pipeline/ExecutionCrew/outputs/",
     "Pipeline/GDDRAG/knowledge_base/",
