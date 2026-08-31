@@ -1,198 +1,339 @@
-# Current Task Orchestrator Context
+# Current Task Orchestrator / Live Gauntlet Context
 
-Last context update: 2026-08-30
+Last context update: 2026-08-31
 
-> **Important:** Dynamic Git/GitHub facts below are the **last session-reported state**, not independent authority. Before any commit, push, PR, merge, claim, checkout mutation, or workflow transition, re-read the current repository and GitHub state.
+> **Important:** Dynamic facts in this file are a continuation checkpoint, not authority by themselves. Before any mutation, re-read current Git, TaskGraph, GitHub Issue/PR, Actions, and remote-ref state. Current deterministic state wins.
 
-## Current objective
+## Immediate objective
 
-Build a generic multi-worker Game Task Agent / TaskReviewAgent that can safely advance useful No Safe Circle work with minimal operator shepherding.
+Finish the first complete live synthetic task lifecycle in the private 85-task Orchestrator Gauntlet before increasing concurrency.
 
-The desired long-term operator experience is one generic “do work” command. Multiple workers should be able to run concurrently, while the system:
+The current task is **NSC-601**. Its implementation, human PASS, synthetic delivery evidence, and durable evidence-head checkpoint have succeeded. It is now parked at `merge_closeout`.
 
-- finishes advanced actionable work before starting new work;
-- respects TaskGraph dependencies;
-- avoids exclusive-resource/write-surface conflicts;
-- uses atomic Git claims to arbitrate concurrent starts;
-- uses GitHub Issues as durable agent/human workflow state;
-- isolates implementation in task checkouts;
-- serializes integration through current `main`;
-- revalidates after integration;
-- stops at genuine human-authority boundaries rather than inventing authority.
+The immediate blocker is **required exact-head CI on private PR #9**, not implementation logic.
 
-## Canonical local layout
+Do not start another worker until that CI authority is resolved.
 
-Controller/main checkout:
+## Canonical repositories / local roots
+
+Production:
 
 ```text
-C:\NSC\NSC\NoSafeCircle
+GitHub: cathode26/NoSafeCircle
+local:  C:\NSC\NSC\NoSafeCircle
 ```
 
-Task checkout root:
+Private live Gauntlet:
 
 ```text
-C:\NSC\NSC
+GitHub: cathode26/TaskOrchestratorGauntletLive-20260831
+local:  C:\NSC\NSC\TaskOrchestratorGauntletLive-20260831
 ```
 
-Canonical task checkout:
+Historical Stage-4 Gauntlet:
 
 ```text
-C:\NSC\NSC\NSC-###
+cathode26/orchestrator-gauntlet-stage4-20260830-060118
 ```
 
-Durable local TaskReviewAgent state/output root:
+Treat the historical Stage-4 repo as read-only evidence.
+
+## Production code checkpoint
+
+Last independently verified production `main` / code checkpoint:
 
 ```text
-C:\NSC\NSC\.task-review-agent
+0596dea8258718208a968cb36c18a552d2366441
 ```
 
-Historical paths under `C:\UnityProjects\...` may legitimately remain inside old evidence/transcripts and must not be rewritten merely to match the new convention.
-
-## Current workstream
-
-### Stage 4.1 — Repository Binding Safety
-
-Purpose: remove implicit/hard-coded repository authority from active TaskReviewAgent Issue, checkout, and downstream PR/Issue paths.
-
-Key decisions already reviewed:
-
-- controller checkout `origin` is production repository authority;
-- an explicit repository argument is an assertion, not an alternate authority source;
-- task checkout origin must match controller origin;
-- downstream GitHub operations use the checkout-bound repository;
-- missing/mismatched repository identity fails closed;
-- credential-bearing rejected URLs are redacted in human-readable rejection paths;
-- Stage 1 claim semantics are unchanged by this patch;
-- autonomous dispatch remains disabled unless explicitly enabled.
-
-Final adversarial review verdict reported:
+This is the merge of production PR #109:
 
 ```text
-STAGE 4 REPOSITORY BINDING READY TO COMMIT
+TaskReviewAgent: complete bounded read-after-write verification
 ```
 
-### Last session-reported Git state
+The repair centralizes bounded post-mutation rereads, never replays a successful mutation, and fails closed on conflicting/sufficiently-new authority.
 
-The most recent continuation discussion reports:
+Production Issue #104 remains open only as a **live acceptance gate**.
+
+### Stage 5
+
+The reviewed Stage 5/D1C design blueprint is merged.
+
+**Stage 5 implementation is NOT STARTED and remains frozen until the live Gauntlet is accepted.**
+
+## Private live Gauntlet checkpoint
+
+Last independently verified private `main`:
 
 ```text
-branch:          stage4-repository-binding-safety
-reviewed base:   fbe193f9578f02110005c78a72f7ef0d6a7fff06
-patch commit:    b6f21afdf87e3c4309f59f832dd19859a3bc7d7c
-branch pushed:   yes
-PR created:      no
-main advanced:   no (as last reported)
+3198c5f2bdd2261a7d3a8842b3e1410c4a1a4ec5
 ```
 
-The important recovery lesson is that the delivery runner originally assumed `HEAD` was still the reviewed base even though the exact reviewed commit had already been created. **Do not create another Stage 4.1 commit if Git confirms `b6f21af...` is already the exact eight-file patch.**
+This includes:
+- production #104 TaskReviewAgent behavior resynced into the private repository;
+- Gauntlet-only synthetic implementation adapter;
+- synthetic DELIVERY evidence / real TaskGraph conformance support;
+- synthetic downstream delivery-review / merge-closeout lifecycle;
+- crash/resume downstream hardening;
+- private CI compatibility guard for production-only `Tasks/NSC-050.yaml`.
 
-Verify all of the above before acting.
+## Current live durable Issues
 
-## Stage 4.1 reviewed patch surface
+There are four managed live Issues.
 
-The reviewed patch was reported as exactly these eight files:
+### #1 — NSC-601
 
 ```text
-Pipeline/TaskReviewAgent/downstream_pipeline.py
-Pipeline/TaskReviewAgent/downstream_runtime.py
-Pipeline/TaskReviewAgent/durable_checkout.py
-Pipeline/TaskReviewAgent/issue_workflow_store.py
-Pipeline/TaskReviewAgent/real_checkout.py
-Pipeline/TaskReviewAgent/tests/downstream_smoke_test.py
-Pipeline/TaskReviewAgent/tests/issue_workflow_smoke_test.py
-Pipeline/TaskReviewAgent/tests/real_checkout_smoke_test.py
+state:                 agent_ready
+phase:                 merge_closeout
+state_version:         13
+branch:                gauntlet/nsc-601-submission-1
+durable head:          33af4366a06e81e9e3c8751cbeb834722ebe183b
+human_handoff_commit:  2cf3759aaccb8a6b9fdc76dccbcefcf13e4e349f
+human_result:          pass
 ```
 
-## Architecture that should survive future refactors
+Meaning:
+
+- `2cf3759a...` is the exact human-tested candidate.
+- `33af4366...` is the exact evidence commit.
+- The tested candidate identity is intentionally preserved separately from the evidence head.
+- The worker reached a deliberate evidence-head checkpoint and released durable ownership.
+- Merge has **not** been attempted.
+
+### #2 — NSC-602
+
+```text
+state:     agent_working
+phase:     implementation
+worker_id: gauntlet-bootstrap
+```
+
+This is the interrupted-work resume fixture.
+
+### #3 — NSC-603
+
+```text
+state: human_action_required
+phase: unity_runtime_validation
+```
+
+This is the human-hold fixture.
+
+### #4 — NSC-604
+
+```text
+state: agent_ready
+phase: repair
+```
+
+This is the repair-priority fixture.
+
+Do not delete/recreate these Issues.
+
+## Private PR #9 — current acceptance boundary
+
+```text
+PR:         #9
+title:      NSC-601: synthetic delivery evidence
+state:      OPEN
+base:       main
+base SHA:   3198c5f2bdd2261a7d3a8842b3e1410c4a1a4ec5
+head branch: gauntlet/nsc-601-submission-1
+head SHA:   33af4366a06e81e9e3c8751cbeb834722ebe183b
+changed files: 4
+```
+
+### Required CI is still red
+
+Latest verified exact-head Actions state on `33af4366...` includes:
+
+```text
+Canonical Checkout Root Policy:           SUCCESS
+D1B.2 Core Deterministic Validation:       SUCCESS
+TaskReviewAgent Deterministic Validation:  FAILURE
+```
+
+Latest failing TaskReviewAgent run:
+
+```text
+run id: 33433789299
+job:    windows-smoke
+```
+
+The failure is the production-only `NSC-050` real-repository smoke fixture.
+
+The private `main` workflow **has already been repaired** to guard that fixture when `Tasks/NSC-050.yaml` is absent. However, after PR #9 was refreshed/reopened, the new exact-head run still executed the old unguarded behavior from the immutable evidence head.
+
+So this already failed:
+
+```text
+repair private main
+→ close/reopen PR #9
+→ expect fresh PR run to use repaired guard
+```
+
+Do not blindly repeat it.
+
+## Next action
+
+Diagnose and prove the correct **exact-head CI/check authority** for PR #9 without changing the evidence SHA.
+
+Before any mutation, re-read:
+1. private PR #9 metadata/head/base;
+2. workflow runs on `33af4366...`;
+3. private `main`;
+4. Issue #1;
+5. live `refs/nsc/claims/*`.
+
+Then determine how the repaired Gauntlet-compatible deterministic policy can validly produce the required green check on the immutable evidence commit.
+
+Until that is solved:
+
+- do not modify `33af4366...`;
+- do not merge PR #9;
+- do not run another worker;
+- do not recreate the Issue/branch;
+- do not launch a contention or 10-worker wave.
+
+Once exact-head CI is legitimately green:
+
+```text
+resume exactly one NSC-601 merge_closeout worker
+→ inspect/merge PR #9
+→ verify main contains exact evidence
+→ verify unmodified TaskGraph says NSC-601 conformant
+→ verify Issue #1 complete
+→ verify dependent work unlocks
+→ verify claims return to zero
+```
+
+Then:
+1. close production #104 as live-proven;
+2. run a small multi-worker contention proof;
+3. launch the 10-worker wave against the 85-task graph;
+4. keep Stage 5 implementation frozen until Gauntlet acceptance.
+
+## Architecture invariants
 
 ```text
 TaskGraph
-    logical readiness / dependencies / contracts
+  logical dependencies/contracts/conformance
 
 Exclusive resources + write boundaries
-    concurrency compatibility
+  concurrency compatibility
 
-Git atomic claim refs
-    short-lived race arbitration only
+Git claim refs
+  short-lived atomic race arbitration only
 
-GitHub Issue workflow
-    durable lease, phase, human/agent ownership, event log, resume token
+GitHub Issue
+  durable workflow/lease/human-agent authority
 
-Task checkout / branch
-    isolated implementation state
+Task checkout + branch
+  isolated task work
 
-ExecutionCrew / providers
-    bounded semantic implementation and repair
+Execution backend
+  production Unity executor OR explicit Gauntlet synthetic executor
 
-Deterministic validation
-    factual authority over scope, Git identity, tests, evidence, conformance
+Delivery evidence
+  legitimate committed TaskGraph evidence, never fake completion
 
 Integration
-    serialized through current main + revalidation
+  serialized through current main and revalidated
 ```
 
-The central rule remains:
+Non-negotiable:
+- Issue workflow state is durable authority.
+- Git claims are not long-lived leases.
+- No TTL claim deletion.
+- Contention loser replans instead of treating contention as catastrophic.
+- Generic workers prefer actionable resume work before fresh work.
+- Repository identity is bound from checkout origin and mismatches fail closed.
+- Synthetic execution must not widen production Unity write authority.
+- Human-tested candidate SHA and later evidence SHA are distinct authorities.
+- Task completion must be derived by real TaskGraph conformance.
+- Model output is proposal/evidence; deterministic project state owns factual authority.
 
-> Model output is evidence or a proposal; deterministic project state owns factual authority.
+## Completed milestones
 
-## Non-negotiable decisions
+- Stage 1 — atomic task/resource claims.
+- Stage 2 — deterministic fresh-work planning.
+- Stage 3 — real generic fresh dispatch.
+- Stage 4 — contention loser retries another candidate.
+- Stage 4.1 — repository binding / cross-repository safety.
+- Live private Gauntlet repository published.
+- Four durable resume fixtures bootstrapped.
+- Production #104 bounded read-after-write repair implemented and merged.
+- Gauntlet-only synthetic execution adapter implemented.
+- Synthetic DELIVERY evidence makes real TaskGraph derive conformant/unlock dependencies.
+- Synthetic downstream lifecycle implemented and independently reviewed.
+- NSC-601 implementation + human PASS + evidence-head checkpoint exercised live.
+- Private PR #10 fixed the production-only NSC-050 CI fixture assumption on private main.
 
-- GitHub Issue workflow state is long-lived operational authority.
-- Git claim refs are short-lived arbitration only.
-- Claim acquisition/release uses exact CAS semantics; no “check then create” race.
-- No TTL-based automatic deletion of stale claims.
-- Stale-claim repair is exact-SHA/manual unless a later reviewed design explicitly changes that.
-- A claim race loser should recompute work; contention is not a catastrophic pipeline failure.
-- Generic scheduling should prefer finishing the most advanced actionable task before starting fresh work.
-- Dependency readiness alone is insufficient for parallel safety; exclusive resources/write surfaces must also be compatible.
-- Integration can be serialized even while implementation is massively parallel.
-- Unknown TaskReviewAgent files should fail safe into Core CI coverage.
-- Autonomous dispatch remains disabled until deliberately enabled and proven.
-- Historical evidence is not rewritten to match current paths/configuration.
-- Canonical Windows controller root is `C:\NSC\NSC\NoSafeCircle`.
+## Known command/runner hazards
 
-## Operational hazards already encountered
+The detailed backlog is production Issue #103 and the operator/prompt standards.
 
-Do not rediscover these from scratch:
+High-value reminders:
+- Windows PowerShell 5.1 compatibility matters.
+- Native stderr is not native failure; exit code is authority.
+- Keep stdout machine data separate from stderr diagnostics.
+- Do not trim whitespace-significant machine formats.
+- Prefer scalar `gh --jq length` for cardinality.
+- Avoid quote-bearing native mini-languages when a quote-free query exists.
+- Allow legitimate empty arrays explicitly in PowerShell parameter contracts.
+- Apply `-split`, `-replace`, etc. to a captured/parenthesized value, not directly after a command invocation.
+- Use `$($Variable):` / `${Variable}:`, not `$Variable:`.
+- Build one semantic native argument into a scalar before inserting it in argv.
+- Verify producer JSON schema instead of guessing nested fields.
+- Generated `.ps1` must pass parser preflight.
+- Mutating runners must observe current state before work and be resume-safe.
+- A stopped runner may have completed an earlier durable mutation; inspect authority before retrying.
 
-- Windows PowerShell 5.1 may turn harmless native stderr into terminating errors.
-- Multi-line PowerShell strings sent into Linux containers need CRLF -> LF normalization.
-- Codex strict structured-output schemas require strict `required` handling, including nullable fields.
-- `gh` JSON should be treated as UTF-8; Windows default code pages caused decoding failures.
-- Task checkouts can have stale `origin/main` after controller main advances.
-- Opening Unity can dirty known `ProjectSettings` files even when gameplay code is unchanged.
-- A blocked/no-progress action must trip a circuit breaker rather than consume dozens of supervisor turns.
-- Windows temporary bare-Git race fixtures can fail with filesystem/permission flakes; production must still classify those as operational errors rather than ordinary claim contention.
-- PowerShell can insert line breaks into captured native error text; normalize whitespace before matching multi-word fixture signatures.
-- Long Windows checkout roots caused path-length failures; the canonical root was shortened to `C:\NSC\NSC`.
-- Docker provider authentication is intentionally persisted in named volumes; do not replace working CLI-volume authentication with unnecessary API-key prompts.
-- Long-running agent commands should stream visible progress/heartbeats to PowerShell.
+## Delegation strategy
 
-## Immediate next action
+Use coding agents for bounded implementation/audit work to conserve supervisor context:
 
-First verify the current Stage 4.1 state from the real repository and GitHub.
+```text
+strict prompt + invariants
+→ disposable clone/branch
+→ Codex or Claude
+→ host deterministic validation
+→ independent review for high-risk changes
+→ merge decision
+```
 
-Minimum verification questions:
+Agents must not receive implicit authority to:
+- mutate live Issues;
+- launch worker waves;
+- force-push;
+- weaken TaskGraph/claims/leases;
+- implement Stage 5;
+- broaden scope simply to make tests pass.
 
-1. Is `stage4-repository-binding-safety` the intended branch?
-2. Does commit `b6f21afdf87e3c4309f59f832dd19859a3bc7d7c` exist locally/remotely?
-3. Is it exactly the reviewed eight-file patch with parent/base `fbe193f...`?
-4. Is the branch already pushed at that exact commit?
-5. Is there already an open PR for that branch?
-6. Has `origin/main` advanced since the reviewed base?
+## Open follow-ups
 
-If the reported state is confirmed, continue from the existing patch commit: **create/reuse the exact PR, run exact-head CI, and merge safely. Do not recommit.**
-
-After Stage 4.1 lands, the next planned milestone is the dedicated multi-worker **Gauntlet**: update the Gauntlet template from the new main, use a dedicated/private GitHub repository with synthetic Issues, and run real simultaneous workers to prove concurrency behavior outside local synthetic fixtures.
+Production:
+- Issue #103 — command-governance follow-up backlog.
+- Issue #104 — keep open until live downstream acceptance completes.
+- Issue #106 — synthetic execution architecture record / Gauntlet blocker history.
+- PR #108 — draft agent prompt/runner construction rules; review/merge separately without disturbing live acceptance sequencing.
 
 ## Read next
 
-For rationale and detailed Stage 4.1 history:
+Focused handoff:
+
+- `2026-08-31-live-gauntlet-evidence-checkpoint.md`
+
+Earlier Stage 4.1 rationale:
 
 - `2026-08-30-stage4-repository-binding.md`
 
-For older/full history only when necessary:
+Raw session archaeology only if needed:
 
-- `raw/imported-2026-08-30-Build-Task-Orchestrator1.txt`
-- `raw/imported-2026-08-30-Build-Task-Orchestrator2.txt`
-- `raw/imported-2026-08-30-Set-Coding-Standards.txt`
+- `raw/imported-2026-08-31-Build-Task-Orchestrator3.txt`
+
+## Authority reminder
+
+This file is working memory. It is not allowed to override current Git/GitHub/TaskGraph state. Verify dynamic facts before mutations.
