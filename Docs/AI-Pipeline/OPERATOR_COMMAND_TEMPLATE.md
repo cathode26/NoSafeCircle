@@ -4,20 +4,20 @@ This file defines the canonical shape for substantial human-run operator command
 
 It is operating guidance, not game-design canon and not evidence of repository state.
 
-The template is intentionally conservative. This project has repeatedly paid for avoidable command failures involving Windows PowerShell 5.1 parsing, native stderr semantics, CRLF crossing into Linux, stale working directories, brittle multiline text replacement, stale SHA assumptions after partial mutation, unexpected changed-file scope, and commands that appeared hung while still running.
+Use it with `Docs/AI-Pipeline/OPERATOR_COMMAND_STANDARDS.md`. The standards define the rules; this file shows the execution skeleton.
 
-This template does not replace task-specific runbooks. It defines the execution skeleton that task-specific commands should instantiate.
+The template is intentionally conservative because this project has repeatedly paid for avoidable failures involving Windows PowerShell 5.1 parsing, execution policy, native stderr semantics, stdout contamination, CRLF crossing into Linux, stale working directories, brittle multiline text edits, stale SHA assumptions after partial mutation, unexpected changed-file scope, and long-running commands that appeared hung.
 
 ## When this template is required
 
 Use this shape for a substantial operator block that can:
 
 - create, modify, move, or delete repository files;
-- create commits, branches, tags, claims, Issues, PRs, or other durable state;
-- push, merge, or otherwise change remote state;
+- create commits, branches, refs, claims, stashes, Issues, PRs, or other durable state;
+- push or merge;
 - create or modify task checkouts;
-- run a multi-step validation/delivery sequence where a prior attempt may have partially succeeded;
-- invoke a long-running provider or external tool whose progress and exit status must be visible.
+- run a multi-step validation/delivery sequence that may need to resume;
+- invoke a long-running provider or external tool.
 
 A one-line read-only command such as `git status --short` does not need the full skeleton.
 
@@ -25,32 +25,43 @@ A one-line read-only command such as `git status --short` does not need the full
 
 Unless the operator explicitly says otherwise, generated commands must be compatible with **Windows PowerShell 5.1**.
 
-Do not use Bash-only syntax, PowerShell-7-only syntax, or shell behavior that depends on a different terminal.
+Do not use Bash-only syntax, PowerShell-7-only syntax, or shell behavior that depends on another terminal.
 
-Avoid backtick line continuation in generated operator commands when a one-line invocation, array, hashtable splat, or natural PowerShell continuation can express the same call. A trailing space after a continuation backtick is invisible and brittle.
+Avoid continuation backticks when arrays, splats, parentheses, or natural PowerShell continuation can express the same call.
 
-If a generated command is saved as a `.ps1` file rather than pasted directly:
+## Execution-policy rule
 
-- keep executable source ASCII-safe when practical, or save it with an encoding Windows PowerShell 5.1 reads correctly;
-- parse the file before execution with `System.Management.Automation.Language.Parser`;
-- treat any parser error as **no execution occurred** and correct the script before retrying.
+A paste-ready `& { ... }` block must be self-contained. It must **not** depend on dot-sourcing a repository `.ps1` helper, because the current interactive PowerShell process may use an execution policy that rejects script loading.
+
+If a checked-in or downloaded trusted `.ps1` runner is the right delivery form, launch it in a bounded child process:
+
+```powershell
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ScriptPath
+if ($LASTEXITCODE -ne 0) {
+    throw "Runner failed with exit code $LASTEXITCODE."
+}
+```
+
+Do not change `CurrentUser` or `LocalMachine` execution policy merely to run repository automation.
+
+`Pipeline/TaskReviewAgent/NativeCommand.ps1` remains the repository helper for checked-in PowerShell scripts that need diagnostic/streaming native behavior. Its `Output` collection combines stdout and stderr and therefore must not be parsed as machine authority.
 
 ## Required command phases
 
-A substantial mutating command should have these conceptual phases:
+A substantial mutating runner uses these conceptual phases:
 
 ```text
 IDENTITY
     define exact repository/work item/base authority
 
 PREFLIGHT
-    prove paths, tools, repository, allowed branch and working-tree assumptions
+    prove paths, tools, repository, branch and working-tree assumptions
 
 OBSERVE CURRENT STATE
-    read current HEAD/refs/Issues/PRs/files and determine whether prior mutations already happened
+    read current HEAD/refs/Issues/PRs/files and determine whether earlier mutations already happened
 
 PLAN NEXT MUTATION
-    choose the next missing authorized step from current state
+    choose the next missing authorized step
 
 WORK
     cross the smallest intended mutation boundary
@@ -59,19 +70,51 @@ VALIDATE
     prove exact scope, tests, identities and remote state
 
 POSTCONDITIONS
-    prove the intended resulting state and a clean/understood tree
+    prove the intended resulting state and clean/understood tree
 
 FINAL REPORT
     state exactly what happened, current authority and the next action
 ```
 
-`OBSERVE CURRENT STATE` is mandatory for a runner that could be rerun after a commit, push, Issue mutation, PR creation, merge, or other durable mutation.
+`OBSERVE CURRENT STATE` is mandatory when a prior attempt could already have created durable state.
 
-A resume-safe runner must **not** blindly require `HEAD == base` before observation. The base SHA is an authority anchor, but current `HEAD` may legitimately be a previously created patch/merge commit from an earlier partial run. Current state must be inspected and classified before deciding whether to continue, reuse, or stop.
+A resume-safe runner must **not** blindly require `HEAD == base` before observation. The base SHA is an authority anchor; current `HEAD` may legitimately be an exact patch/merge created by an earlier partial run.
+
+## Diagnostic native output versus machine data
+
+The canonical block uses two separate native execution paths.
+
+### Diagnostic path
+
+Use when output is for a human and stdout/stderr may safely be combined:
+
+```text
+fetch
+push
+provider progress
+Docker progress
+verbose tests
+```
+
+### Machine-data path
+
+Use when stdout will be parsed as authority:
+
+```text
+filenames
+SHAs
+refs
+JSON
+exact paths
+counts
+branch names
+```
+
+Machine-data capture keeps stdout and stderr separate. Healthy Git warnings must never be interpreted as filenames or other data.
 
 ## Canonical substantial PowerShell block
 
-The following is a **template, not a paste-ready command**. Agents must instantiate it with values derived from current repository reality before giving it to the operator.
+The following is a **template, not a paste-ready command**. Agents must instantiate it from current repository reality before handing it to the operator.
 
 A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `SET_ME`, fake SHAs, or similar sentinel values.
 
@@ -82,7 +125,7 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
     $env:PYTHONDONTWRITEBYTECODE = "1"
 
     # ============================================================
-    # IDENTITY - DEFINE ALL CRITICAL STATE INSIDE THIS BLOCK
+    # IDENTITY
     # ============================================================
 
     $Root = "C:\NSC\NSC\NoSafeCircle"
@@ -90,18 +133,17 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
     $ExpectedBaseHead = "SET_FROM_VERIFIED_CURRENT_STATE"
     $AllowedBranches = @("main", "target-operation-branch")
 
-    # These flags are operator-visible hints only. They are set to $true only
-    # after the corresponding mutation is independently re-observed.
     $MutationState = [ordered]@{
         FilesModified = $false
         CommitCreated = $false
         BranchPushed = $false
+        IssueUpdated = $false
         PullRequestCreated = $false
+        StashCreated = $false
         MergeCompleted = $false
     }
 
     $CurrentPhase = "identity"
-    $NativeHelperLoaded = $false
 
     # ============================================================
     # LOCAL HELPERS
@@ -120,7 +162,28 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
         Write-Host "[$Name] $Message"
     }
 
-    function Invoke-CheckedNative {
+    function Get-NormalizedNativeArguments {
+        param(
+            [Parameter()]
+            [string[]]$ArgumentList = @()
+        )
+
+        $Normalized = New-Object 'System.Collections.Generic.List[string]'
+
+        foreach ($Argument in $ArgumentList) {
+            if ($null -eq $Argument) {
+                throw "Native command arguments must not be null."
+            }
+
+            [void]$Normalized.Add(
+                $Argument.Replace("`r`n", "`n").Replace("`r", "`n")
+            )
+        }
+
+        return $Normalized.ToArray()
+    }
+
+    function Invoke-NativeDiagnostic {
         param(
             [Parameter(Mandatory = $true)]
             [string]$FilePath,
@@ -134,22 +197,57 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
             [switch]$StreamOutput
         )
 
-        $Result = Invoke-NscNativeCommand -FilePath $FilePath -ArgumentList $ArgumentList -StreamOutput:$StreamOutput
+        $NativeArguments = @(
+            Get-NormalizedNativeArguments -ArgumentList $ArgumentList
+        )
 
-        if ($AllowedExitCodes -notcontains $Result.ExitCode) {
+        $PreviousErrorActionPreference = $ErrorActionPreference
+        $Lines = New-Object 'System.Collections.Generic.List[string]'
+        $ExitCode = 1
+
+        try {
+            # Windows PowerShell 5.1 can convert native stderr to ErrorRecord.
+            # Diagnostic mode deliberately merges streams for human display.
+            $ErrorActionPreference = "Continue"
+
+            & $FilePath @NativeArguments 2>&1 |
+                ForEach-Object {
+                    $Text = $_.ToString()
+                    [void]$Lines.Add($Text)
+
+                    if ($StreamOutput) {
+                        Write-Host $Text
+                    }
+                }
+
+            $ExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $PreviousErrorActionPreference
+        }
+
+        if ($AllowedExitCodes -notcontains $ExitCode) {
+            if (-not $StreamOutput) {
+                $Lines | ForEach-Object {
+                    Write-Host $_
+                }
+            }
+
             throw (
-                $FilePath + " " +
-                ($ArgumentList -join " ") +
+                $FilePath +
                 " failed with exit code " +
-                $Result.ExitCode +
+                $ExitCode +
                 "."
             )
         }
 
-        return $Result
+        return [pscustomobject]@{
+            ExitCode = [int]$ExitCode
+            Output = @($Lines)
+        }
     }
 
-    function Get-NativeText {
+    function Invoke-NativeCapture {
         param(
             [Parameter(Mandatory = $true)]
             [string]$FilePath,
@@ -161,8 +259,85 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
             [int[]]$AllowedExitCodes = @(0)
         )
 
-        $Result = Invoke-CheckedNative -FilePath $FilePath -ArgumentList $ArgumentList -AllowedExitCodes $AllowedExitCodes
-        return (($Result.Output -join "`n").Trim())
+        $NativeArguments = @(
+            Get-NormalizedNativeArguments -ArgumentList $ArgumentList
+        )
+
+        $StdOutPath = [System.IO.Path]::GetTempFileName()
+        $StdErrPath = [System.IO.Path]::GetTempFileName()
+        $PreviousErrorActionPreference = $ErrorActionPreference
+        $ExitCode = 1
+
+        try {
+            try {
+                $ErrorActionPreference = "Continue"
+
+                & $FilePath @NativeArguments 1> $StdOutPath 2> $StdErrPath
+                $ExitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $PreviousErrorActionPreference
+            }
+
+            # PowerShell owns the redirected files, so Get-Content can read
+            # the encoding that this host wrote while keeping channels separate.
+            $StdOut = @(
+                Get-Content -LiteralPath $StdOutPath
+            )
+
+            $StdErr = @(
+                Get-Content -LiteralPath $StdErrPath
+            )
+
+            if ($AllowedExitCodes -notcontains $ExitCode) {
+                $StdErr | ForEach-Object {
+                    Write-Host ("[STDERR] " + $_)
+                }
+
+                throw (
+                    $FilePath +
+                    " failed with exit code " +
+                    $ExitCode +
+                    "."
+                )
+            }
+
+            return [pscustomobject]@{
+                ExitCode = [int]$ExitCode
+                StdOut = @($StdOut)
+                StdErr = @($StdErr)
+            }
+        }
+        finally {
+            Remove-Item -LiteralPath $StdOutPath -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $StdErrPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    function Get-NativeMachineText {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$FilePath,
+
+            [Parameter()]
+            [string[]]$ArgumentList = @(),
+
+            [Parameter()]
+            [int[]]$AllowedExitCodes = @(0)
+        )
+
+        $Result = Invoke-NativeCapture `
+            -FilePath $FilePath `
+            -ArgumentList $ArgumentList `
+            -AllowedExitCodes $AllowedExitCodes
+
+        if ($Result.StdErr.Count -gt 0) {
+            $Result.StdErr | ForEach-Object {
+                Write-Host ("[DIAG] " + $_)
+            }
+        }
+
+        return (($Result.StdOut -join "`n").Trim())
     }
 
     function Show-RecoveryState {
@@ -170,49 +345,54 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
         Write-Host "[RECOVERY] Phase: $CurrentPhase"
 
         foreach ($Entry in $MutationState.GetEnumerator()) {
-            Write-Host ("[RECOVERY] " + $Entry.Key + ": " + $Entry.Value)
-        }
-
-        if (-not $NativeHelperLoaded) {
-            Write-Host "[RECOVERY] Native helper was not loaded; Git recovery snapshot skipped."
-            return
+            Write-Host (
+                "[RECOVERY] " +
+                $Entry.Key +
+                ": " +
+                $Entry.Value
+            )
         }
 
         if (-not (Test-Path -LiteralPath $Root -PathType Container)) {
-            Write-Host "[RECOVERY] Repository root is unavailable; Git recovery snapshot skipped."
+            Write-Host "[RECOVERY] Repository root unavailable."
             return
         }
 
         try {
             Set-Location $Root
 
-            $BranchResult = Invoke-NscNativeCommand -FilePath "git" -ArgumentList @("branch", "--show-current")
-            if ($BranchResult.ExitCode -eq 0) {
-                Write-Host ("[RECOVERY] Current branch: " + (($BranchResult.Output -join "`n").Trim()))
+            $Branch = Get-NativeMachineText `
+                -FilePath "git" `
+                -ArgumentList @("branch", "--show-current")
+
+            $Head = Get-NativeMachineText `
+                -FilePath "git" `
+                -ArgumentList @("rev-parse", "HEAD")
+
+            $Status = Get-NativeMachineText `
+                -FilePath "git" `
+                -ArgumentList @(
+                    "status",
+                    "--porcelain=v1",
+                    "--untracked-files=all"
+                )
+
+            Write-Host "[RECOVERY] Branch: $Branch"
+            Write-Host "[RECOVERY] HEAD:   $Head"
+
+            if ([string]::IsNullOrWhiteSpace($Status)) {
+                Write-Host "[RECOVERY] Tree:   CLEAN"
             }
-
-            $HeadResult = Invoke-NscNativeCommand -FilePath "git" -ArgumentList @("rev-parse", "HEAD")
-            if ($HeadResult.ExitCode -eq 0) {
-                Write-Host ("[RECOVERY] Current HEAD: " + (($HeadResult.Output -join "`n").Trim()))
-            }
-
-            $StatusResult = Invoke-NscNativeCommand -FilePath "git" -ArgumentList @("status", "--porcelain=v1", "--untracked-files=all")
-            if ($StatusResult.ExitCode -eq 0) {
-                $StatusText = ($StatusResult.Output -join "`n").Trim()
-
-                if ([string]::IsNullOrWhiteSpace($StatusText)) {
-                    Write-Host "[RECOVERY] Working tree: CLEAN"
-                }
-                else {
-                    Write-Host "[RECOVERY] Working tree: NOT CLEAN"
-                    $StatusResult.Output | ForEach-Object {
-                        Write-Host ("  " + $_)
-                    }
-                }
+            else {
+                Write-Host "[RECOVERY] Tree:   NOT CLEAN"
+                Write-Host $Status
             }
         }
         catch {
-            Write-Host ("[RECOVERY] Recovery inspection itself failed: " + $_.Exception.Message)
+            Write-Host (
+                "[RECOVERY] State inspection failed: " +
+                $_.Exception.Message
+            )
         }
     }
 
@@ -221,14 +401,12 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
         # TEMPLATE INSTANTIATION CHECK
         # ========================================================
 
-        $CurrentPhase = "identity"
-
         if ($ExpectedBaseHead -notmatch "^[0-9a-fA-F]{40}$") {
             throw "Template was not instantiated with a real 40-character base SHA."
         }
 
         if ($AllowedBranches.Count -eq 0) {
-            throw "Template was not instantiated with at least one allowed branch."
+            throw "Template requires at least one allowed branch."
         }
 
         # ========================================================
@@ -244,42 +422,85 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
 
         Set-Location $Root
 
-        $NativeHelper = Join-Path $Root "Pipeline\TaskReviewAgent\NativeCommand.ps1"
-        if (-not (Test-Path -LiteralPath $NativeHelper -PathType Leaf)) {
-            throw "Native command helper is missing: $NativeHelper"
-        }
+        $RepositoryRoot = Get-NativeMachineText `
+            -FilePath "git" `
+            -ArgumentList @("rev-parse", "--show-toplevel")
 
-        . $NativeHelper
-        $NativeHelperLoaded = $true
-
-        $RepositoryRoot = Get-NativeText -FilePath "git" -ArgumentList @("rev-parse", "--show-toplevel")
         $ResolvedExpectedRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd("\")
         $ResolvedActualRoot = [System.IO.Path]::GetFullPath($RepositoryRoot).TrimEnd("\")
 
         if ($ResolvedActualRoot -ne $ResolvedExpectedRoot) {
-            throw ("Wrong repository root. Expected " + $ResolvedExpectedRoot + ", found " + $ResolvedActualRoot + ".")
+            throw (
+                "Wrong repository root. Expected " +
+                $ResolvedExpectedRoot +
+                ", found " +
+                $ResolvedActualRoot +
+                "."
+            )
         }
 
-        $Origin = Get-NativeText -FilePath "git" -ArgumentList @("remote", "get-url", "origin")
-        if ($Origin -ne $ExpectedOrigin) {
-            throw ("Wrong origin. Expected " + $ExpectedOrigin + ", found " + $Origin + ".")
+        $Origin = Get-NativeMachineText `
+            -FilePath "git" `
+            -ArgumentList @("remote", "get-url", "origin")
+
+        $AllowedOrigins = @(
+            $ExpectedOrigin,
+            $ExpectedOrigin.TrimEnd(".git")
+        )
+
+        if ($AllowedOrigins -notcontains $Origin) {
+            throw (
+                "Wrong origin. Expected repository authority " +
+                $ExpectedOrigin +
+                ", found " +
+                $Origin +
+                "."
+            )
         }
 
-        $CurrentBranch = Get-NativeText -FilePath "git" -ArgumentList @("branch", "--show-current")
+        $CurrentBranch = Get-NativeMachineText `
+            -FilePath "git" `
+            -ArgumentList @("branch", "--show-current")
+
         if ($AllowedBranches -notcontains $CurrentBranch) {
-            throw ("Unexpected branch: " + $CurrentBranch)
+            throw "Unexpected branch: $CurrentBranch"
         }
 
-        $StatusText = Get-NativeText -FilePath "git" -ArgumentList @("status", "--porcelain=v1", "--untracked-files=all")
+        $StatusText = Get-NativeMachineText `
+            -FilePath "git" `
+            -ArgumentList @(
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all"
+            )
+
         if (-not [string]::IsNullOrWhiteSpace($StatusText)) {
-            throw ("Working tree is not clean before the operation:`n" + $StatusText)
+            throw (
+                "Working tree is not clean before the operation:`n" +
+                $StatusText
+            )
         }
 
-        $CurrentHead = Get-NativeText -FilePath "git" -ArgumentList @("rev-parse", "HEAD")
+        $CurrentHead = Get-NativeMachineText `
+            -FilePath "git" `
+            -ArgumentList @("rev-parse", "HEAD")
 
-        $BaseAncestor = Invoke-CheckedNative -FilePath "git" -ArgumentList @("merge-base", "--is-ancestor", $ExpectedBaseHead, $CurrentHead) -AllowedExitCodes @(0, 1)
+        $BaseAncestor = Invoke-NativeCapture `
+            -FilePath "git" `
+            -ArgumentList @(
+                "merge-base",
+                "--is-ancestor",
+                $ExpectedBaseHead,
+                $CurrentHead
+            ) `
+            -AllowedExitCodes @(0, 1)
+
         if ($BaseAncestor.ExitCode -ne 0) {
-            throw ("Current HEAD is not descended from expected base " + $ExpectedBaseHead + ".")
+            throw (
+                "Current HEAD is not descended from expected base " +
+                $ExpectedBaseHead +
+                "."
+            )
         }
 
         Write-Host "[PASS] Repository identity verified"
@@ -295,30 +516,14 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
         $CurrentPhase = "observe-current-state"
         Write-Phase -Name "READ" -Message "Current durable state"
 
-        # Task-specific runner code belongs here.
-        #
+        # Task-specific code belongs here.
         # Inspect every durable object an earlier attempt could already have
-        # created: target branch, patch commit, remote ref, Issue, PR, merge,
-        # claim, output file, etc.
+        # created: commit, branch, remote ref, Issue, PR, merge, claim, stash,
+        # checkout, output file, etc.
         #
-        # IMPORTANT: Current HEAD is deliberately NOT required to equal the
-        # base SHA. If it differs, verify whether it is an authorized result of
-        # this operation (for example exact parent/base, exact commit message,
-        # exact changed-file set and exact remote branch) before reusing it.
-        #
-        # Git predicates whose exit code 1 represents FALSE must declare both
-        # codes as accepted data:
-        #
-        # $Exists = Invoke-CheckedNative -FilePath "git" -ArgumentList @(
-        #     "show-ref",
-        #     "--verify",
-        #     "--quiet",
-        #     "refs/heads/example"
-        # ) -AllowedExitCodes @(0, 1)
-        #
-        # if ($Exists.ExitCode -eq 0) {
-        #     Write-Host "[STATE] Existing branch detected"
-        # }
+        # Current HEAD is deliberately NOT required to equal the base SHA.
+        # Verify exact parent/base, changed-file scope, commit identity and
+        # remote state before reusing prior work.
 
         # ========================================================
         # PLAN NEXT MUTATION
@@ -327,34 +532,32 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
         $CurrentPhase = "plan-next-mutation"
         Write-Phase -Name "PLAN" -Message "Resolve next missing authorized step"
 
-        # Decide from CURRENT deterministic state whether the next action is
-        # create, reuse, continue, validate, or stop.
-        #
-        # Never create a duplicate merely because a previous invocation did not
-        # reach its final [DONE] message.
+        # Choose create/reuse/continue/validate/stop from CURRENT state.
+        # Never duplicate work merely because an earlier run missed [DONE].
 
         # ========================================================
-        # WORK - CROSS THE SMALLEST MUTATION BOUNDARY
+        # WORK
         # ========================================================
 
         $CurrentPhase = "work"
         Write-Phase -Name "WORK" -Message "Perform bounded mutation"
 
         # Perform only the next authorized mutation(s).
+        # After every durable mutation, independently re-observe the result
+        # before setting its MutationState field to $true.
+
+        # For human-readable native work:
         #
-        # After every durable mutation, independently re-observe the resulting
-        # Git/GitHub/filesystem state before setting the matching MutationState
-        # flag to $true.
+        # Invoke-NativeDiagnostic `
+        #     -FilePath "git" `
+        #     -ArgumentList @("push", "origin", "HEAD:refs/heads/example") `
+        #     -StreamOutput | Out-Null
         #
-        # Example:
-        #   create commit
-        #   re-read HEAD and verify exact commit identity
-        #   $MutationState.CommitCreated = $true
+        # For machine data:
         #
-        # Example:
-        #   push branch
-        #   re-read remote branch SHA
-        #   $MutationState.BranchPushed = $true
+        # $RemoteHead = Get-NativeMachineText `
+        #     -FilePath "git" `
+        #     -ArgumentList @("rev-parse", "origin/example")
 
         # ========================================================
         # VALIDATE
@@ -363,13 +566,11 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
         $CurrentPhase = "validate"
         Write-Phase -Name "TEST" -Message "Exact resulting state"
 
-        # Validate exact changed-file/staged-file scope against explicit paths.
-        # Do not substitute a file COUNT for path identity.
-        #
-        # Run task-specific deterministic tests and whitespace checks.
-        #
-        # Use exit-code predicates for factual checks instead of parsing stderr
-        # or counting captured output lines.
+        # Compare exact changed/staged path sets to explicit authorized paths.
+        # Do not substitute a file count for path identity.
+        # Run task-specific tests and whitespace checks.
+        # Use stdout-only machine capture for data and exit-code predicates for
+        # factual yes/no checks.
 
         # ========================================================
         # POSTCONDITIONS
@@ -378,21 +579,35 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
         $CurrentPhase = "postconditions"
         Write-Phase -Name "VERIFY" -Message "Postconditions"
 
-        # Re-read resulting branch/HEAD/remote/Issue/PR authority as applicable.
-        # Verify the final working-tree state is exactly what the operation
-        # promises: normally CLEAN, otherwise an explicitly documented bounded
-        # set of paths.
+        $FinalBranch = Get-NativeMachineText `
+            -FilePath "git" `
+            -ArgumentList @("branch", "--show-current")
 
-        $FinalBranch = Get-NativeText -FilePath "git" -ArgumentList @("branch", "--show-current")
-        $FinalHead = Get-NativeText -FilePath "git" -ArgumentList @("rev-parse", "HEAD")
-        $FinalStatus = Get-NativeText -FilePath "git" -ArgumentList @("status", "--porcelain=v1", "--untracked-files=all")
-        $FinalTreeState = if ([string]::IsNullOrWhiteSpace($FinalStatus)) { "CLEAN" } else { "NOT CLEAN" }
+        $FinalHead = Get-NativeMachineText `
+            -FilePath "git" `
+            -ArgumentList @("rev-parse", "HEAD")
+
+        $FinalStatus = Get-NativeMachineText `
+            -FilePath "git" `
+            -ArgumentList @(
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all"
+            )
+
+        $FinalTreeState = if ([string]::IsNullOrWhiteSpace($FinalStatus)) {
+            "CLEAN"
+        }
+        else {
+            "NOT CLEAN"
+        }
 
         # ========================================================
         # FINAL REPORT
         # ========================================================
 
         $CurrentPhase = "done"
+
         Write-Host ""
         Write-Host "============================================================"
         Write-Host "[DONE] OPERATION COMPLETE"
@@ -415,28 +630,42 @@ A paste-ready block must never contain literal `<PLACEHOLDER>`, `REPLACE_ME`, `S
         Show-RecoveryState
 
         Write-Host ""
-        Write-Host "[RECOVERY] Do not assume nothing happened. Inspect current authority before rerunning."
+        Write-Host "[RECOVERY] Do not assume nothing happened. Re-observe authority before rerunning."
         throw
     }
 }
 ```
 
+## Why the template has two native helpers
+
+`Invoke-NativeDiagnostic` deliberately combines stdout/stderr for human visibility. It is useful for progress and errors, but its `Output` is not machine authority.
+
+`Invoke-NativeCapture` keeps `StdOut` and `StdErr` separate. `Get-NativeMachineText` returns only `StdOut` while still printing stderr as `[DIAG]` lines. Use this path for filenames, branch names, SHAs, refs, JSON, exact paths and counts.
+
+This separation prevents harmless diagnostics such as:
+
+```text
+warning: LF will be replaced by CRLF ...
+```
+
+from becoming fake filenames in an exact-scope check.
+
 ## Mutation ledger semantics
 
-The mutation ledger exists because these are different failures:
+The mutation ledger exists because these are different situations:
 
 ```text
 parse failure
     PowerShell never executed the block
 
 precondition failure
-    runner stopped before the intended mutation boundary
+    runner stopped before the intended mutation
 
 expected predicate false
-    an exit code such as 1 represented FALSE, not an operational failure
+    exit 1 represented FALSE, not tool failure
 
 runtime failure before mutation
-    tools ran but durable authority was not changed
+    tools ran but durable state did not change
 
 partial mutation
     one or more durable changes may already exist
@@ -445,36 +674,34 @@ transient operational failure
     retry is allowed only when positively classified as transient
 ```
 
-The ledger is not authority. Current Git, GitHub, TaskGraph, Issues, refs, files and deterministic checks remain authoritative and must be re-read before recovery.
+The ledger itself is not authority. Re-read Git, GitHub, TaskGraph, files and deterministic checks before recovery.
 
 ## Resume-state rule
 
-A substantial runner that can create durable state must be designed around **state observation**, not a linear assumption that every invocation starts from zero.
-
-For example, a commit/push/PR/merge runner should distinguish at least:
+A commit/push/PR/merge runner should distinguish states such as:
 
 ```text
 base exists, patch absent
 patch commit already exists and verifies exactly
-remote branch already points to verified patch
+remote branch already points to patch
 PR already exists for exact head
 PR already merged
-current main already contains the patch/merge
+current main already contains merge
 ```
 
-If current state matches a previously completed authorized step, reuse it. If it is incompatible or cannot be verified exactly, stop.
+If current state matches a previously completed authorized step, reuse it. If it cannot be verified exactly, stop.
 
 ## Text-editing subtemplate
 
-Do not patch repository files with an unchecked newline-sensitive multiline `String.Replace()`.
+Do not patch repository files with unchecked newline-sensitive multiline `.Replace()` logic.
 
-Prefer, in this order:
+Prefer:
 
-1. a structured parser/editor for structured formats;
-2. a line-based edit with an exact anchor count;
-3. normalized text plus an exact-count regex/string edit.
+1. structured parser/editor;
+2. line-based edit with an exact anchor count;
+3. normalized text plus exact-count scripted replacement.
 
-For a normalized text edit:
+Example:
 
 ```powershell
 $Path = "Docs/example.md"
@@ -485,7 +712,13 @@ $Anchor = "exact stable anchor"
 $Matches = [regex]::Matches($Text, [regex]::Escape($Anchor))
 
 if ($Matches.Count -ne 1) {
-    throw ("Expected exactly one edit anchor in " + $Path + "; found " + $Matches.Count + ".")
+    throw (
+        "Expected exactly one edit anchor in " +
+        $Path +
+        "; found " +
+        $Matches.Count +
+        "."
+    )
 }
 
 $Text = $Text.Replace($Anchor, "replacement text")
@@ -497,13 +730,11 @@ $Text = $Text.Replace($Anchor, "replacement text")
 )
 ```
 
-After every automated text mutation, verify the exact changed-file set and run the relevant parser/test before staging.
+After mutation, immediately verify the exact changed-file set and run the relevant parser/test.
 
-If the target is an executable Windows PowerShell `.ps1` file and contains non-ASCII text, use an encoding compatible with Windows PowerShell 5.1 and parser-preflight the resulting file before execution.
+## Generated `.ps1` parser preflight
 
-## PowerShell parser preflight for generated scripts
-
-When the operator command is written to a `.ps1` file, parse it before running it:
+When the operator command is saved to a `.ps1` file, parse it before running:
 
 ```powershell
 $Tokens = $null
@@ -519,83 +750,50 @@ if ($Errors.Count -ne 0) {
         Write-Host ("[PARSE] " + $_.Message)
     }
 
-    throw "Generated PowerShell did not pass parser preflight. No execution should be attempted."
+    throw "Generated PowerShell did not pass parser preflight."
 }
 ```
 
-## Native command rules represented by the template
-
-The repository's canonical native helper is:
-
-```text
-Pipeline/TaskReviewAgent/NativeCommand.ps1
-```
-
-Use it rather than treating native stderr as a PowerShell exception signal. Native success/failure is determined from the process exit code.
-
-Every native predicate must declare exit codes that are valid data. Examples:
-
-```text
-git diff --quiet                  0 = equal, 1 = different
-git show-ref --verify --quiet    0 = exists, 1 = absent
-git merge-base --is-ancestor     0 = yes, 1 = no
-```
-
-Do not merge stderr into an array and then use array length as factual authority about changed files, refs, or repository state.
-
-## Cross-OS multiline arguments
-
-Any multiline textual argument passed from Windows PowerShell to a Linux container/process must be normalized from CRLF/CR to LF before crossing the boundary.
-
-`Invoke-NscNativeCommand` already performs this normalization for its argument list. Do not bypass it with a raw multiline argument unless the caller performs equivalent normalization deliberately.
-
-## Long-running operation variant
-
-Long-running provider execution is normally a separate operator phase from deterministic setup. Follow `Docs/AI-Pipeline/OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md`.
-
-A long-running command must:
-
-- identify the exact checkout/branch/commit before provider invocation;
-- stream human-readable progress when supported;
-- use unbuffered outer Python execution where needed;
-- write a durable readable transcript when output will be needed later;
-- print the authoritative run/output location;
-- check the native exit code explicitly;
-- avoid launching an open-ended interactive shell as the automation target;
-- stop/clean up containers or subprocesses according to their intended lifecycle.
+Then run the bounded trusted file through a child PowerShell with `-ExecutionPolicy Bypass -File` rather than assuming the interactive process can load it.
 
 ## Commands that modify Git state
 
 For bounded reviewed changes:
 
 - stage exact paths only;
-- never use `git add -A` or `git add .` merely for convenience;
-- inspect the exact staged path set before commit;
-- run `git diff --cached --check` with the repository's required whitespace compatibility settings;
-- distinguish base SHA from created patch SHA;
+- do not use `git add .` or `git add -A` merely for convenience;
+- inspect exact staged path identity before commit;
+- run the required whitespace check;
+- distinguish reviewed base from patch commit;
 - verify a push by re-reading the remote ref;
-- distinguish PR head SHA from merge SHA and current `main` SHA;
-- never force-push, reset, clean or rewrite history as an implicit recovery action.
+- distinguish PR head from merge SHA and current `main`;
+- never force-push, reset, clean or rewrite history as implicit recovery.
 
-## Output-volume rule
+## Long-running operation variant
 
-A technically correct command that floods the console with thousands of irrelevant lines is not a good operator command.
+Long-running provider work is normally a separate operator phase from deterministic setup.
 
-Prefer scoped search roots, filenames instead of full matches when enough, counts plus a concise sample, filtered progress, and a durable detailed log when needed.
+A long-running runner must:
 
-The operator should not need to scroll through a giant dump to determine success, failure or the next action.
+- identify exact checkout/branch/commit before invocation;
+- show progress/heartbeat where supported;
+- persist a readable transcript when needed later;
+- print the authoritative output location;
+- check the native exit code;
+- avoid open-ended interactive shells for bounded work;
+- clean up subprocesses/containers according to intended lifecycle.
 
 ## Final-report rule
 
-A successful substantial command must end with enough concrete state that another context can continue without reconstructing the run from terminal history.
+A successful substantial command must leave enough concrete state for another context to continue without reconstructing terminal history.
 
-Print the applicable values from this set:
+Print applicable values from:
 
 ```text
 repository
 branch
 base SHA
-created/patch SHA
+patch/result SHA
 remote branch SHA
 Issue number/state
 PR number/head SHA
@@ -607,15 +805,4 @@ output/log path
 next action
 ```
 
-A failed command that crossed any possible mutation boundary must print a recovery report and explicitly warn against blind rerun.
-
-## Related operating guidance
-
-Read these together when applicable:
-
-- `Docs/AI-Pipeline/OPERATOR_FILE_HANDOFF_AND_DOWNLOADS.md`
-- `Docs/AI-Pipeline/TASK_SELECTION_AND_CHECKOUT.md`
-- `Docs/AI-Pipeline/GAME_TASK_AGENT_RUNBOOK.md`
-- `Pipeline/TaskReviewAgent/NativeCommand.ps1`
-
-This template should remain focused on command construction and recovery semantics. Task-specific authority belongs in the task/runbook that instantiates it.
+A failed command that may have crossed a durable mutation boundary must print recovery state and warn against blind rerun.
