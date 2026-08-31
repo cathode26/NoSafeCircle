@@ -36,6 +36,14 @@ The imported documents are engineering operating guidance, not game-design canon
 
 The primary human reader is a Unity game programmer. Write task titles, task requirements, review findings, implementation summaries, test summaries, validation summaries, issue comments, closeouts, handoffs, and documentation in concrete Unity terms. Keep abstract taxonomy in machine-facing schema fields, and do not invent implementation details merely to make wording more concrete.
 
+## Required operator command standards
+
+@Docs/AI-Pipeline/OPERATOR_COMMAND_STANDARDS.md
+
+@Docs/AI-Pipeline/OPERATOR_COMMAND_TEMPLATE.md
+
+Before producing or executing a substantial human-run operator command, follow the command standards and instantiate the canonical command template. This applies to commands that can mutate repository files, Git/GitHub state, task checkouts, durable external artifacts, or other state that survives the current PowerShell process; to multi-step runners that may resume after partial success; and to long-running provider/external-tool invocations whose progress and exit status must remain visible. A one-line clearly read-only inspection command does not require the full template. Paste-ready operator commands must default to Windows PowerShell 5.1 compatibility unless explicitly scoped otherwise, establish critical state inside the block, use repository-approved native-command handling, observe current durable state before resuming mutations, contain no literal placeholders, and print enough final or recovery state that later contexts can determine what actually happened without guessing.
+
 ## Required task checkout path policy
 
 @Docs/AI-Pipeline/TASK_CHECKOUT_PATH_CONVENTION.md
