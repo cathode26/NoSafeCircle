@@ -91,6 +91,13 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     issue_author_authorized,
 )
 from Pipeline.TaskReviewAgent.real_checkout import default_checkout_root  # noqa: E402
+from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
+    ExecutionRoutingError,
+    ExecutionRoutingPolicy,
+    ResolvedExecutionRoute,
+    load_execution_routing_policy,
+    resolve_execution_route,
+)
 from Pipeline.AgentRuntime.contracts import (  # noqa: E402
     ContractValidationError,
     validate_repository_path,
@@ -970,15 +977,35 @@ def build_worker_command(
     task_id: str,
     worker_id: str,
     checkout_root: Path | str,
-    execution_provider: str,
-    model: str | None,
-    max_turns: int,
+    execution_provider: str | None = None,
+    model: str | None = None,
+    max_turns: int | None = None,
+    route: ResolvedExecutionRoute | None = None,
     compose_project: str = COMPOSE_PROJECT,
 ) -> tuple[str, ...]:
     task_id = validate_task_id(task_id)
-    provider = str(execution_provider).strip().casefold()
+    if route is not None:
+        provider = route.execution_provider
+        supervisor_model = route.supervisor_model
+        supervisor_reasoning_effort = route.supervisor_reasoning_effort
+        execution_model = route.execution_model
+        execution_reasoning_effort = route.execution_reasoning_effort
+        supervisor_turns = route.max_supervisor_turns
+    else:
+        provider = str(execution_provider).strip().casefold()
+        supervisor_model = str(model).strip() if model else None
+        supervisor_reasoning_effort = None
+        execution_model = None
+        execution_reasoning_effort = None
+        supervisor_turns = max_turns
     if provider not in {"claude", "codex"}:
         raise PollingOrchestratorError("execution provider must be claude or codex")
+    if (
+        isinstance(supervisor_turns, bool)
+        or not isinstance(supervisor_turns, int)
+        or supervisor_turns < 1
+    ):
+        raise PollingOrchestratorError("max_turns must be a positive integer")
     service = f"{provider}-exec"
     host_checkout_root = str(Path(checkout_root).resolve())
     command = [
@@ -1008,12 +1035,22 @@ def build_worker_command(
         "--execution-provider",
         provider,
         "--max-turns",
-        str(max_turns),
+        str(supervisor_turns),
         "--output-root",
         f"{CONTAINER_CHECKOUT_ROOT}/.task-review-agent/outputs",
     ]
-    if model:
-        command.extend(("--model", str(model)))
+    if supervisor_model:
+        command.extend(("--model", supervisor_model))
+    if supervisor_reasoning_effort:
+        command.extend(
+            ("--supervisor-reasoning-effort", supervisor_reasoning_effort)
+        )
+    if execution_model:
+        command.extend(("--execution-model", execution_model))
+    if execution_reasoning_effort:
+        command.extend(
+            ("--execution-reasoning-effort", execution_reasoning_effort)
+        )
     return tuple(command)
 
 
@@ -1042,12 +1079,14 @@ class PollingOrchestrator:
         source: Path | str,
         checkout_root: Path | str,
         scheduler_id: str,
-        execution_provider: str,
+        execution_provider: str | None,
         model: str | None,
-        max_turns: int,
+        max_turns: int | None,
         max_workers: int,
         architect_min_confidence: float,
         architect_runner: Callable[..., ArchitectAnalysis],
+        routing_policy: ExecutionRoutingPolicy | None = None,
+        routing_policy_loader: Callable[[], ExecutionRoutingPolicy] | None = None,
         max_architect_invocations_per_poll: int = (
             DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL
         ),
@@ -1073,12 +1112,29 @@ class PollingOrchestrator:
         self.source = Path(source).resolve()
         self.checkout_root = Path(checkout_root)
         self.scheduler_id = str(scheduler_id).strip()
-        self.execution_provider = str(execution_provider).strip().casefold()
+        self.execution_provider = (
+            str(execution_provider).strip().casefold()
+            if execution_provider is not None
+            else None
+        )
         self.model = str(model).strip() if model else None
         self.max_turns = max_turns
         self.max_workers = max_workers
         self.architect_min_confidence = architect_min_confidence
         self.architect_runner = architect_runner
+        if routing_policy is not None and routing_policy_loader is not None:
+            raise PollingOrchestratorError(
+                "supply routing_policy or routing_policy_loader, not both"
+            )
+        self.routing_policy_loader = routing_policy_loader or (
+            (lambda: routing_policy)
+            if routing_policy is not None
+            else lambda: load_execution_routing_policy(
+                default_provider_override=self.execution_provider,
+                supervisor_model_override=self.model,
+                max_turns_override=self.max_turns,
+            )
+        )
         self.max_architect_invocations_per_poll = max_architect_invocations_per_poll
         self.max_architect_invocations_per_session = (
             max_architect_invocations_per_session
@@ -1112,11 +1168,15 @@ class PollingOrchestrator:
         self.failed_child: tuple[str, int | None, int] | None = None
         if not self.scheduler_id:
             raise PollingOrchestratorError("scheduler_id must be non-empty")
-        if self.execution_provider not in {"claude", "codex"}:
+        if self.execution_provider is not None and self.execution_provider not in {"claude", "codex"}:
             raise PollingOrchestratorError("execution provider must be claude or codex")
         if isinstance(max_workers, bool) or not isinstance(max_workers, int) or max_workers < 1:
             raise PollingOrchestratorError("max_workers must be a positive integer")
-        if isinstance(max_turns, bool) or not isinstance(max_turns, int) or max_turns < 1:
+        if max_turns is not None and (
+            isinstance(max_turns, bool)
+            or not isinstance(max_turns, int)
+            or max_turns < 1
+        ):
             raise PollingOrchestratorError("max_turns must be a positive integer")
         if (
             isinstance(max_architect_invocations_per_poll, bool)
@@ -1715,6 +1775,9 @@ class PollingOrchestrator:
                 integration_risk=advisory.integration_risk,
                 parallel_recommendation=advisory.parallel_recommendation,
                 confidence=advisory.confidence,
+                execution_recommendation=(
+                    advisory.execution_recommendation.to_dict()
+                ),
                 design_advice=advisory.design_advice.to_dict(),
             )
 
@@ -1779,14 +1842,40 @@ class PollingOrchestrator:
                     reason="local capacity filled before launch",
                 )
                 return PollCycleResult("capacity_full")
+            try:
+                policy = self.routing_policy_loader()
+                if not isinstance(policy, ExecutionRoutingPolicy):
+                    raise ExecutionRoutingError(
+                        "routing policy loader returned an invalid policy"
+                    )
+                route = resolve_execution_route(
+                    advisory.execution_recommendation,
+                    policy,
+                )
+            except (ExecutionRoutingError, TypeError, ValueError) as exc:
+                self.events.emit(
+                    "execution_route_wait",
+                    task_id=task_id,
+                    reason=(
+                        "deterministic execution routing policy was unusable; "
+                        "no worker was launched"
+                    ),
+                    error=_bounded_error(exc),
+                    capability_tier=(
+                        advisory.execution_recommendation.capability_tier
+                    ),
+                    provider_preference=(
+                        advisory.execution_recommendation.provider_preference
+                    ),
+                )
+                temporary_exclusions.add(task_id)
+                continue
             worker_id = f"polling-worker-{task_id.casefold()}-{uuid.uuid4().hex[:12]}"
             command = build_worker_command(
                 task_id=task_id,
                 worker_id=worker_id,
                 checkout_root=self.checkout_root,
-                execution_provider=self.execution_provider,
-                model=self.model,
-                max_turns=self.max_turns,
+                route=route,
                 compose_project=self.compose_project,
             )
             try:
@@ -1828,6 +1917,7 @@ class PollingOrchestrator:
                 checkout_path=str(assignment.checkout_path),
                 advisory_artifact_path=str(analysis.artifact_path),
                 argv=list(command),
+                **route.to_event_dict(),
             )
             return PollCycleResult("worker_launched", task_id=task_id, worker_id=worker_id)
 
@@ -1992,10 +2082,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-workers", type=_positive_int, default=DEFAULT_MAX_WORKERS
     )
     parser.add_argument(
-        "--execution-provider", choices=("claude", "codex"), default="claude"
+        "--execution-provider",
+        choices=("claude", "codex"),
+        help=(
+            "Optional deterministic default-provider override for every tier; "
+            "architect preferences are still honored when policy-allowed."
+        ),
     )
     parser.add_argument("--model")
-    parser.add_argument("--max-turns", type=_positive_int, default=120)
+    parser.add_argument(
+        "--max-turns",
+        type=_positive_int,
+        help="Optional supervisor-turn override for every routing tier.",
+    )
     parser.add_argument(
         "--architect-provider", choices=("claude", "codex"), default="claude"
     )
@@ -2110,6 +2209,7 @@ def main(argv: list[str] | None = None) -> int:
         ArchitectPreflightError,
         IssueWorkflowStoreError,
         TaskReviewContractError,
+        ExecutionRoutingError,
         OSError,
         ValueError,
     ) as exc:

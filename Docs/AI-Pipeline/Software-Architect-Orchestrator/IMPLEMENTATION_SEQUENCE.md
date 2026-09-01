@@ -19,6 +19,7 @@ decentralized background worker swarm or autonomous decomposition application.
 | Stage-5 Slice 3 — standalone `apply_graph_delta()` | **Planned next.** |
 | Polling Orchestrator + read-only architect v1 | **Implemented now**, uncommitted on `orchestrator/polling-architect-v1`. |
 | Uncertainty ⇒ WAIT admission policy | **Implemented now**, same branch. |
+| Execution capability/provider/model routing v1 | **Implemented for independent review** on `orchestrator/execution-routing-v1`. |
 | 10-worker decentralized self-selection wave | **Retired.** |
 
 ## 2. Reassessment of the old Stage-5 slices
@@ -57,6 +58,30 @@ Each slice is one reviewable change with its own deterministic tests.
   caps; 60-second polling default; bounded transient reservation-observation retry.
 - **Tests:** in the two smoke suites on this branch.
 - **Remaining:** review and merge.
+
+### A1B — Execution capability/provider/model routing v1 (**implemented for review**)
+- The read-only architect recommends only `fast`, `standard`, or `deep`, an `openai`,
+  `claude`, or `no_preference` provider preference, and explanatory rationale. The
+  recommendation remains advisory: it cannot bypass START/WAIT/HUMAN_REVIEW policy.
+- Deterministic, operator-controlled Python routing owns the actual ExecutionCrew
+  provider/model, OpenAI reasoning effort, task-supervisor model/reasoning effort, and
+  supervisor turn budget. Model names are operational configuration; they are never
+  written into TaskGraph contracts and never become game-design or canon authority.
+- The architect's own model remains independently configured by the polling session or
+  operator in v1. Worker routing does not change the architect model and is independent
+  from decomposition proposal, review, or apply work.
+- One route is resolved after deterministic START admission and is held through the worker
+  command and any compatible ExecutionCrew retry. V1 does not automatically escalate or
+  downgrade FAST/STANDARD/DEEP after validation or worker failure and does not spend more
+  by retrying with a stronger route.
+- A future Acceptance Gauntlet must prove the complete identity chain: architect
+  recommendation → deterministic resolved route → exact worker argv →
+  `run_pipeline_agent.py` → production controller → ExecutionCrew command → actual
+  AgentRuntime provider/model result. Scheduler launch evidence alone is insufficient.
+- **Tests:** strict recommendation parsing, policy resolution/fallback, route-blocked
+  no-launch behavior, exact argv/event evidence, worker parsing and propagation,
+  supervisor reasoning propagation, ExecutionCrew model/reasoning configuration, and
+  retry identity mismatch rejection use local fakes only.
 
 ### A2 — Minimal durable decomposition authorization record
 - **Scope:** `work_type` on the managed state block plus the three states from slice 4's

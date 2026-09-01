@@ -298,6 +298,7 @@ def run_openai_production_pipeline(
     controller: ProductionTaskController,
     *,
     model: str | None = None,
+    reasoning_effort: str | None = None,
     max_turns: int = 80,
     decision_provider: DecisionProvider | None = None,
     progress: ProgressSink | None = None,
@@ -315,6 +316,7 @@ def run_openai_production_pipeline(
     provider = decision_provider or CodexDockerDecisionProvider(
         source=controller.workflow.base_observer.root,
         model=model,
+        reasoning_effort=reasoning_effort,
     )
     history: list[dict[str, Any]] = []
 

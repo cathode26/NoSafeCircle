@@ -60,9 +60,16 @@ from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     TaskReviewContractError,
     validate_task_id,
 )
+from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
+    CAPABILITY_TIERS,
+    MAX_RECOMMENDATION_RATIONALE_CHARACTERS,
+    PROVIDER_PREFERENCES,
+    ExecutionRecommendation,
+    ExecutionRoutingError,
+)
 
 
-ARCHITECT_ADVISORY_SCHEMA_VERSION = "1.0"
+ARCHITECT_ADVISORY_SCHEMA_VERSION = "1.1"
 ARCHITECT_PROVIDER_CONFIGURATION_KEYS = {
     "claude": "polling-architect-claude",
     "codex": "polling-architect-codex",
@@ -153,6 +160,23 @@ UNKNOWN_SURFACE_DISJOINTNESS_SCHEMA = _strict_object(
     }
 )
 
+EXECUTION_RECOMMENDATION_SCHEMA = _strict_object(
+    {
+        "capability_tier": {
+            "type": "string",
+            "enum": list(CAPABILITY_TIERS),
+        },
+        "provider_preference": {
+            "type": "string",
+            "enum": list(PROVIDER_PREFERENCES),
+        },
+        # AgentRuntime intentionally supports a small JSON Schema subset.
+        # The non-empty and maximum-length bounds are enforced by the frozen
+        # ExecutionRecommendation record immediately after schema validation.
+        "rationale": _STRING,
+    }
+)
+
 ARCHITECT_ADVISORY_SCHEMA: dict[str, Any] = _strict_object(
     {
         "task_id": _STRING,
@@ -167,6 +191,7 @@ ARCHITECT_ADVISORY_SCHEMA: dict[str, Any] = _strict_object(
             "type": "string",
             "enum": ["start", "wait", "human_review"],
         },
+        "execution_recommendation": EXECUTION_RECOMMENDATION_SCHEMA,
         "conflicting_task_ids": _STRING_ARRAY,
         "conflict_reasons": _STRING_ARRAY,
         "escalation": ESCALATION_SCHEMA,
@@ -389,6 +414,7 @@ class ArchitectAdvisory:
     predicted_change_surface: PredictedChangeSurface
     integration_risk: str
     parallel_recommendation: str
+    execution_recommendation: ExecutionRecommendation
     conflicting_task_ids: tuple[str, ...]
     conflict_reasons: tuple[str, ...]
     escalation: ArchitectEscalation
@@ -440,6 +466,12 @@ class ArchitectAdvisory:
             raise ArchitectPreflightError(
                 "unknown_surface_disjointness contains duplicate task IDs"
             )
+        try:
+            execution_recommendation = ExecutionRecommendation.from_dict(
+                value["execution_recommendation"]
+            )
+        except ExecutionRoutingError as exc:
+            raise ArchitectPreflightError(str(exc)) from exc
         return cls(
             task_id=task_id,
             source_head=source_head,
@@ -449,6 +481,7 @@ class ArchitectAdvisory:
             ),
             integration_risk=value["integration_risk"],
             parallel_recommendation=value["parallel_recommendation"],
+            execution_recommendation=execution_recommendation,
             conflicting_task_ids=_text_tuple(
                 value["conflicting_task_ids"],
                 field="conflicting_task_ids",
@@ -473,6 +506,7 @@ class ArchitectAdvisory:
             "predicted_change_surface": self.predicted_change_surface.to_dict(),
             "integration_risk": self.integration_risk,
             "parallel_recommendation": self.parallel_recommendation,
+            "execution_recommendation": self.execution_recommendation.to_dict(),
             "conflicting_task_ids": list(self.conflicting_task_ids),
             "conflict_reasons": list(self.conflict_reasons),
             "escalation": self.escalation.to_dict(),
@@ -656,6 +690,25 @@ Scheduling policy you must follow:
   cannot touch that work, citing committed resources, an established subsystem boundary,
   observed paths, or the task contract. Omit it when you cannot; omission means wait for
   that pair, and it does not block unrelated repository work.
+
+Execution capability recommendation (advisory only):
+- Always return `execution_recommendation`. It cannot change WAIT or HUMAN_REVIEW into
+  START and cannot bypass any deterministic admission gate.
+- Recommend `fast` for mechanical or local work with a strong established pattern and
+  low uncertainty; `standard` for ordinary gameplay implementation needing moderate
+  reasoning; and `deep` for cross-system architecture, refactors,
+  decomposition-adjacent work, or high uncertainty. These are judgment heuristics, not
+  deterministic eligibility rules.
+- Consider task size and scope, architectural uncertainty, the number and sharedness of
+  systems, Unity serialized-asset risk, subsystem familiarity, the strength of existing
+  patterns and tests, and expected rework cost.
+- `provider_preference` may be `openai`, `claude`, or `no_preference`. This preference is
+  advisory. Deterministic Python maps it to an allowed execution provider, model,
+  reasoning effort, and budget. Never put a model identifier, reasoning effort, turn
+  limit, Docker service/command, or environment variable in this recommendation.
+- Give a non-empty rationale of no more than
+  {MAX_RECOMMENDATION_RATIONALE_CHARACTERS} characters. Model names are operational
+  configuration and never TaskGraph or game-design authority.
 
 Committed task contract:
 ```json
@@ -1460,6 +1513,7 @@ __all__ = [
     "DEFAULT_ARCHITECT_MIN_CONFIDENCE",
     "DEFAULT_ARCHITECT_TIMEOUT_SECONDS",
     "DESIGN_ESCALATION_CATEGORIES",
+    "EXECUTION_RECOMMENDATION_SCHEMA",
     "UNITY_SERIALIZED_SUFFIXES",
     "ArchitectAdvisory",
     "ArchitectAnalysis",
@@ -1470,6 +1524,7 @@ __all__ = [
     "DesignAdvice",
     "DeterministicConflict",
     "EvidenceObservation",
+    "ExecutionRecommendation",
     "PredictedChangeSurface",
     "RuntimeArchitectInvoker",
     "UnknownSurfaceAssessment",

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import inspect
+import json
 import subprocess
 import sys
 import tempfile
@@ -39,6 +40,10 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowService,
     MemoryIssueBackend,
     _snapshot,
+)
+from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
+    ExecutionRoutingError,
+    load_execution_routing_policy,
 )
 from Pipeline.TaskReviewAgent.polling_orchestrator import (  # noqa: E402
     ActiveAssignment,
@@ -386,6 +391,8 @@ def advisory(
     escalation_category: str = "none",
     escalation_question: str = "",
     disjointness: tuple[tuple[str, str], ...] = (),
+    capability_tier: str = "standard",
+    provider_preference: str = "no_preference",
 ) -> ArchitectAdvisory:
     return ArchitectAdvisory.from_dict(
         {
@@ -401,6 +408,11 @@ def advisory(
             },
             "integration_risk": risk,
             "parallel_recommendation": recommendation,
+            "execution_recommendation": {
+                "capability_tier": capability_tier,
+                "provider_preference": provider_preference,
+                "rationale": "Ordinary gameplay implementation with established patterns.",
+            },
             "conflicting_task_ids": [],
             "conflict_reasons": [],
             "escalation": {
@@ -463,6 +475,8 @@ def make_orchestrator(
     architect_min_reanalysis_seconds: float = 300.0,
     max_consecutive_observation_failures: int = 3,
     monotonic_clock: Any = None,
+    routing_policy: Any = None,
+    routing_policy_loader: Any = None,
 ) -> tuple[PollingOrchestrator, io.StringIO]:
     stream = io.StringIO()
     orchestrator = PollingOrchestrator(
@@ -475,6 +489,8 @@ def make_orchestrator(
         max_workers=max_workers,
         architect_min_confidence=0.65,
         architect_runner=architect,
+        routing_policy=routing_policy,
+        routing_policy_loader=routing_policy_loader,
         max_architect_invocations_per_poll=max_architect_invocations_per_poll,
         max_architect_invocations_per_session=max_architect_invocations_per_session,
         architect_min_reanalysis_seconds=architect_min_reanalysis_seconds,
@@ -1901,6 +1917,93 @@ def test_worker_popen_uses_argv_shell_false_and_compose_conventions() -> None:
         require(command[command.index("--task-id") + 1] == TASK_A, str(command))
 
 
+def test_worker_launch_records_and_carries_exact_resolved_route() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        environment = {
+            "NSC_ROUTE_DEEP_DEFAULT_PROVIDER": "claude",
+            "NSC_ROUTE_DEEP_ALLOWED_PROVIDERS": "openai,claude",
+            "NSC_ROUTE_DEEP_CLAUDE_MODEL": "claude-deep-route",
+            "NSC_ROUTE_DEEP_OPENAI_MODEL": "openai-deep-route",
+            "NSC_ROUTE_DEEP_OPENAI_REASONING_EFFORT": "xhigh",
+            "NSC_ROUTE_DEEP_SUPERVISOR_MODEL": "supervisor-deep-route",
+            "NSC_ROUTE_DEEP_SUPERVISOR_REASONING_EFFORT": "xhigh",
+            "NSC_ROUTE_DEEP_MAX_TURNS": "120",
+        }
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_A)]),
+            architect=FakeArchitect(
+                {
+                    TASK_A: advisory(
+                        TASK_A,
+                        head,
+                        capability_tier="deep",
+                        provider_preference="openai",
+                    )
+                }
+            ),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+            routing_policy=load_execution_routing_policy(environment),
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_launched", str(result))
+        command = processes.calls[0][0]
+        exact_argv = {
+            "--execution-provider": "codex",
+            "--execution-model": "openai-deep-route",
+            "--execution-reasoning-effort": "xhigh",
+            "--model": "supervisor-deep-route",
+            "--supervisor-reasoning-effort": "xhigh",
+            "--max-turns": "120",
+        }
+        for option, expected in exact_argv.items():
+            require(command[command.index(option) + 1] == expected, str(command))
+        events = [json.loads(line) for line in stream.getvalue().splitlines()]
+        launched = next(item for item in events if item["event"] == "worker_launched")
+        expected_event = {
+            "task_id": TASK_A,
+            "capability_tier": "deep",
+            "provider_preference": "openai",
+            "preference_honored": True,
+            "execution_provider": "codex",
+            "execution_model": "openai-deep-route",
+            "execution_reasoning_effort": "xhigh",
+            "supervisor_model": "supervisor-deep-route",
+            "supervisor_reasoning_effort": "xhigh",
+            "max_turns": 120,
+        }
+        for field, expected in expected_event.items():
+            require(launched.get(field) == expected, str(launched))
+
+
+def test_malformed_routing_policy_launches_nothing() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        processes = ProcessFactory()
+
+        def malformed_policy() -> Any:
+            raise ExecutionRoutingError("fixture malformed routing configuration")
+
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_A)]),
+            architect=FakeArchitect({TASK_A: advisory(TASK_A, head)}),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+            routing_policy_loader=malformed_policy,
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "idle", str(result))
+        require(not processes.calls, "malformed routing policy launched a worker")
+        events = [json.loads(line) for line in stream.getvalue().splitlines()]
+        blocked = [item for item in events if item["event"] == "execution_route_wait"]
+        require(len(blocked) == 1 and blocked[0]["task_id"] == TASK_A, str(events))
+        require("fixture malformed" in blocked[0]["error"], str(blocked[0]))
+
+
 def test_ctrl_c_does_not_kill_children_or_release_leases() -> None:
     with tempfile.TemporaryDirectory() as text:
         root = Path(text)
@@ -2029,6 +2132,8 @@ def main() -> int:
         test_reservation_observation_failure_threshold_fails_closed,
         test_dry_run_never_invokes_models_or_workers,
         test_worker_popen_uses_argv_shell_false_and_compose_conventions,
+        test_worker_launch_records_and_carries_exact_resolved_route,
+        test_malformed_routing_policy_launches_nothing,
         test_ctrl_c_does_not_kill_children_or_release_leases,
         test_scheduler_source_has_no_issue_or_claim_mutation_calls,
         test_main_handles_bare_task_review_contract_error,

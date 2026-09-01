@@ -47,6 +47,8 @@ class ProductionTaskController:
         *,
         workflow: RealTaskReviewWorkflow,
         execution_provider: str,
+        execution_model: str | None = None,
+        execution_reasoning_effort: str | None = None,
         execution_command_runner=None,
     ) -> None:
         self.workflow = workflow
@@ -54,6 +56,18 @@ class ProductionTaskController:
         self.execution_provider = str(execution_provider).strip().casefold()
         if self.execution_provider not in ("claude", "codex"):
             raise ProductionPipelineError("execution_provider must be claude or codex")
+        self.execution_model = (
+            str(execution_model).strip() if execution_model else None
+        )
+        self.execution_reasoning_effort = (
+            str(execution_reasoning_effort).strip()
+            if execution_reasoning_effort
+            else None
+        )
+        if self.execution_reasoning_effort is not None and self.execution_provider != "codex":
+            raise ProductionPipelineError(
+                "execution_reasoning_effort is supported only for codex"
+            )
         self.execution_command_runner = execution_command_runner
         self.scope: RepositoryScopeAuthority | None = None
         self.execution: ExecutionCrewBridge | None = None
@@ -88,6 +102,8 @@ class ProductionTaskController:
             self.execution = ExecutionCrewBridge(
                 checkout=checkout["path"],
                 scope=self.scope,
+                execution_model=self.execution_model,
+                execution_reasoning_effort=self.execution_reasoning_effort,
                 command_runner=self.execution_command_runner,
             )
             self.integrator = CandidateIntegrator(

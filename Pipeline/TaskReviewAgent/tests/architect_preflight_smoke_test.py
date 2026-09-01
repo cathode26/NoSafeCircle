@@ -84,6 +84,9 @@ def advisory_value(
     escalation_question: str = "",
     disjointness: list[dict[str, str]] | None = None,
     conflicting_task_ids: list[str] | None = None,
+    capability_tier: str = "standard",
+    provider_preference: str = "no_preference",
+    execution_rationale: str = "Ordinary local gameplay work with established tests.",
 ) -> dict[str, Any]:
     return {
         "task_id": TASK_ID,
@@ -98,6 +101,11 @@ def advisory_value(
         },
         "integration_risk": risk,
         "parallel_recommendation": recommendation,
+        "execution_recommendation": {
+            "capability_tier": capability_tier,
+            "provider_preference": provider_preference,
+            "rationale": execution_rationale,
+        },
         "conflicting_task_ids": list(conflicting_task_ids or []),
         "conflict_reasons": [],
         "escalation": {
@@ -204,6 +212,46 @@ def test_malformed_or_missing_fields_fail_closed() -> None:
             require("schema" in str(exc).casefold(), str(exc))
         else:
             raise AssertionError("AgentRuntime schema failure did not stop analysis")
+
+
+def test_execution_recommendation_is_strict_and_advisory() -> None:
+    for tier in ("fast", "standard", "deep"):
+        parsed = ArchitectAdvisory.from_dict(advisory_value(capability_tier=tier))
+        require(parsed.execution_recommendation.capability_tier == tier, tier)
+    for field, value in (
+        ("capability_tier", "ultra"),
+        ("provider_preference", "arbitrary-provider"),
+        ("rationale", ""),
+    ):
+        malformed = advisory_value()
+        malformed["execution_recommendation"][field] = value
+        try:
+            ArchitectAdvisory.from_dict(malformed)
+        except ArchitectPreflightError:
+            pass
+        else:
+            raise AssertionError(f"invalid execution recommendation {field} was accepted")
+    extra = advisory_value()
+    extra["execution_recommendation"]["model"] = "architect-controlled-model"
+    try:
+        ArchitectAdvisory.from_dict(extra)
+    except ArchitectPreflightError:
+        pass
+    else:
+        raise AssertionError("architect was allowed to add an execution model")
+
+    wait_advisory = ArchitectAdvisory.from_dict(
+        advisory_value(
+            recommendation="wait",
+            risk="unknown",
+            capability_tier="deep",
+            provider_preference="openai",
+        )
+    )
+    require(
+        evaluate_architect_policy(wait_advisory).decision == "wait",
+        "execution recommendation changed WAIT into START",
+    )
 
 
 def test_prompt_contains_task_identity_and_reservation_context() -> None:
@@ -716,6 +764,7 @@ def main() -> int:
     tests = (
         test_schema_accepts_complete_advisory,
         test_malformed_or_missing_fields_fail_closed,
+        test_execution_recommendation_is_strict_and_advisory,
         test_prompt_contains_task_identity_and_reservation_context,
         test_real_request_is_read_only_with_empty_write_boundaries,
         test_high_risk_waits,

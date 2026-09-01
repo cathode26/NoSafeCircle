@@ -62,6 +62,9 @@ from Pipeline.TaskReviewAgent.openai_pipeline import (  # noqa: E402
 from Pipeline.TaskReviewAgent.production_pipeline import (  # noqa: E402
     ProductionTaskController,
 )
+from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
+    OPENAI_REASONING_EFFORTS,
+)
 from Pipeline.TaskReviewAgent.progress import ProgressLog  # noqa: E402
 from Pipeline.TaskReviewAgent.real_workflow import RealTaskReviewWorkflow  # noqa: E402
 
@@ -101,6 +104,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--unity-executable")
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--model")
+    parser.add_argument(
+        "--supervisor-reasoning-effort",
+        choices=OPENAI_REASONING_EFFORTS,
+    )
+    parser.add_argument(
+        "--execution-model",
+        help="Explicit ExecutionCrew provider model; independent from --model.",
+    )
+    parser.add_argument(
+        "--execution-reasoning-effort",
+        choices=OPENAI_REASONING_EFFORTS,
+        help="Explicit OpenAI/Codex ExecutionCrew reasoning effort.",
+    )
     parser.add_argument("--max-turns", type=int, default=120)
     parser.add_argument(
         "--mode",
@@ -368,10 +384,20 @@ def main(argv: list[str] | None = None) -> int:
             )
             authority = "read_only_downstream_pipeline_observation"
         else:
-            controller = ProductionTaskController(
-                workflow=workflow,
-                execution_provider=args.execution_provider,
-            )
+            controller_options: dict[str, Any] = {
+                "workflow": workflow,
+                "execution_provider": args.execution_provider,
+            }
+            # Keep the historical manual/default constructor call shape when
+            # no routed values were supplied. Scheduler-launched workers carry
+            # both values explicitly.
+            if args.execution_model is not None:
+                controller_options["execution_model"] = args.execution_model
+            if args.execution_reasoning_effort is not None:
+                controller_options["execution_reasoning_effort"] = (
+                    args.execution_reasoning_effort
+                )
+            controller = ProductionTaskController(**controller_options)
             authority = "read_only_production_pipeline_observation"
 
         if args.mode == "openai":
@@ -407,12 +433,19 @@ def main(argv: list[str] | None = None) -> int:
                 "outcome": outcome,
             }
         else:
+            supervisor_options: dict[str, Any] = {
+                "model": args.model,
+                "max_turns": args.max_turns,
+                "progress": progress,
+            }
+            if args.supervisor_reasoning_effort is not None:
+                supervisor_options["reasoning_effort"] = (
+                    args.supervisor_reasoning_effort
+                )
             outcome = run_openai_production_pipeline(
                 request,
                 controller,
-                model=args.model,
-                max_turns=args.max_turns,
-                progress=progress,
+                **supervisor_options,
             )
             result = {
                 "schema_version": "1.0",
@@ -421,6 +454,10 @@ def main(argv: list[str] | None = None) -> int:
                 "selection": selection,
                 "worker_id": args.worker_id,
                 "execution_provider": args.execution_provider,
+                "execution_model": args.execution_model,
+                "execution_reasoning_effort": args.execution_reasoning_effort,
+                "supervisor_model": args.model,
+                "supervisor_reasoning_effort": args.supervisor_reasoning_effort,
                 "runtime": describe_codex_runtime(),
                 "outcome": outcome,
             }

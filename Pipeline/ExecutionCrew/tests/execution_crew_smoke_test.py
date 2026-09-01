@@ -227,9 +227,9 @@ def factory(state):
         return key,config,{"fake":FakeProvider(state,repo,writable,role)}
     return create
 
-def execute(source,outputs,scenario,index,*,provider="fake",implementation_paths=(IMPL,),test_paths=(TEST,),new_implementation_paths=(),new_test_paths=(),host_output_root=None):
+def execute(source,outputs,scenario,index,*,provider="fake",implementation_paths=(IMPL,),test_paths=(TEST,),new_implementation_paths=(),new_test_paths=(),host_output_root=None,execution_model=None,openai_reasoning_effort=None):
     run_id=f"smoke-{scenario}-{index}"; state=State(scenario,source)
-    result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name=provider,implementation_paths=implementation_paths,test_paths=test_paths,new_implementation_paths=new_implementation_paths,new_test_paths=new_test_paths,run_id=run_id,provider_factory=factory(state),_require_physical_read_only_source=False,host_output_root=host_output_root)
+    result=run_crew(source=source,output_root=outputs,task_id=TASK,provider_name=provider,implementation_paths=implementation_paths,test_paths=test_paths,new_implementation_paths=new_implementation_paths,new_test_paths=new_test_paths,run_id=run_id,provider_factory=factory(state),_require_physical_read_only_source=False,host_output_root=host_output_root,execution_model=execution_model,openai_reasoning_effort=openai_reasoning_effort)
     return result,state,outputs/run_id
 
 def retry_execute(source,outputs,scenario,index,prior_run_id,feedback_path,feedback_text,*,host_output_root=None):
@@ -269,8 +269,14 @@ def main():
     with patch.dict(os.environ,{"NSC_OPENAI_CODEX_MODEL":"codex-override","NSC_CODEX_MODEL":"retired-name"},clear=False):
         _,codex_override=runtime_configuration("codex")
         assert codex_override.provider_configurations["codex-crew"]["models"]["standard"]=="codex-override"
+    claude_route_key,claude_route_config=runtime_configuration("claude","claude-selected-route")
+    codex_route_key,codex_route_config=runtime_configuration("codex","codex-selected-route")
+    assert set(claude_route_config.provider_configurations[claude_route_key]["models"].values())=={"claude-selected-route"}
+    assert set(codex_route_config.provider_configurations[codex_route_key]["models"].values())=={"codex-selected-route"}
     # Construction-only profile coverage: no provider invoke method is called.
     codex_write=construct_real_provider("codex",root,True); codex_validator=construct_real_provider("codex",source,False)
+    codex_routed=construct_real_provider("codex",source,False,"xhigh")
+    assert codex_routed.reasoning_effort=="xhigh"
     assert codex_write.externally_isolated_writable_repository and not codex_write.externally_enforced_read_only_repository
     assert not codex_validator.externally_isolated_writable_repository and codex_validator.externally_enforced_read_only_repository
     claude_write=construct_real_provider("claude",root,True); claude_validator=construct_real_provider("claude",source,False)
@@ -471,12 +477,35 @@ def main():
     # prior markers; both production and regression markers must survive into candidate B.
     seed_prior,seed_prior_state,seed_prior_dir=execute(source,outputs,"seed_preserve",68,provider="claude")
     assert seed_prior["crew_status"]=="review_ready"
+    assert seed_prior["execution_model"]==os.getenv("NSC_CLAUDE_MODEL","claude-sonnet-5")
+    assert seed_prior["execution_reasoning_effort"] is None
     seed_prior_bytes=(seed_prior_dir/"candidate.patch").read_bytes()
     seed_prior_sha=hashlib.sha256(seed_prior_bytes).hexdigest()
     assert seed_prior["candidate_patch_sha256"]==seed_prior_sha
     seed_feedback_dir=outputs/"seed-feedback"; seed_feedback_dir.mkdir(exist_ok=True)
     seed_feedback_text="Human review: correct the newly reported behavior only.\n"
     seed_feedback_path=seed_feedback_dir/"retry.txt"; seed_feedback_path.write_bytes(seed_feedback_text.encode("utf-8"))
+
+    # Routed retries carry expected provider/model identity. A mismatch blocks before any role runs.
+    incompatible_retry_state=State("seed_preserve",source,seed_feedback_text)
+    try:
+        run_crew(source=source,output_root=outputs,run_id="retry-route-mismatch-168",
+                 retry_run_id=seed_prior["run_id"],review_feedback_file=seed_feedback_path,
+                 execution_model="different-claude-model",retry_expected_provider="claude",
+                 provider_factory=factory(incompatible_retry_state),_require_physical_read_only_source=False)
+    except CrewBlocked as exc:
+        assert "retry model differs" in str(exc),str(exc)
+    else:
+        raise AssertionError("retry silently switched execution model")
+    assert not incompatible_retry_state.calls
+
+    codex_routed_result,codex_routed_state,_=execute(
+        source,outputs,"pass",169,provider="codex",
+        execution_model="codex-selected-route",openai_reasoning_effort="xhigh",
+    )
+    assert codex_routed_result["execution_model"]=="codex-selected-route"
+    assert codex_routed_result["execution_reasoning_effort"]=="xhigh"
+    assert codex_routed_state.calls
 
     # Future-format prior artifacts are authenticated: tampering is rejected before any role runs.
     (seed_prior_dir/"candidate.patch").write_bytes(seed_prior_bytes+b"\n# tampered\n")

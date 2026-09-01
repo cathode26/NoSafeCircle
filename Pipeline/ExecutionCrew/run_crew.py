@@ -50,6 +50,7 @@ POLICY_PATH = "Docs/Engineering/UNITY_TESTING_POLICY.md"
 ENGINEERING_STANDARDS_PATH = "Docs/Engineering/ENGINEERING_STANDARDS.md"
 MAX_REVIEW_FEEDBACK_BYTES = 64 * 1024
 MAX_RETRY_CANDIDATE_BYTES = 16 * 1024 * 1024
+OPENAI_REASONING_EFFORTS = ("none","minimal","low","medium","high","xhigh","max")
 
 class CrewBlocked(RuntimeError): pass
 
@@ -71,6 +72,8 @@ class RetryContext:
     prior_contract_identity: TaskContractIdentity
     task_id: str
     provider: str
+    execution_model: str | None
+    execution_reasoning_effort: str | None
     implementation_paths: tuple[str, ...]
     test_paths: tuple[str, ...]
     new_implementation_paths: tuple[str, ...]
@@ -269,12 +272,24 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
         raise CrewBlocked("prior review-ready run must have validator_status pass")
     task_id = prior.get("task_id")
     provider = prior.get("provider")
+    execution_model = prior.get("execution_model")
+    execution_reasoning_effort = prior.get("execution_reasoning_effort")
     source_head = prior.get("source_head")
     source_tree = prior.get("source_tree")
     if not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id):
         raise CrewBlocked("prior crew_result.json has an invalid task_id")
     if provider not in ("claude", "codex"):
         raise CrewBlocked("prior crew_result.json has an invalid provider")
+    if execution_model is not None and (
+            not isinstance(execution_model, str) or not execution_model.strip()
+            or len(execution_model.strip()) > 200 or any(mark in execution_model for mark in ("\r","\n","\x00"))):
+        raise CrewBlocked("prior crew_result.json has an invalid execution_model")
+    if execution_model is not None:
+        execution_model = execution_model.strip()
+    if execution_reasoning_effort is not None and execution_reasoning_effort not in OPENAI_REASONING_EFFORTS:
+        raise CrewBlocked("prior crew_result.json has an invalid execution_reasoning_effort")
+    if provider == "claude" and execution_reasoning_effort is not None:
+        raise CrewBlocked("prior Claude run must not record an execution reasoning effort")
     if not isinstance(source_head, str) or not GIT_OBJECT_RE.fullmatch(source_head):
         raise CrewBlocked("prior crew_result.json has an invalid source_head")
     if not isinstance(source_tree, str) or not GIT_OBJECT_RE.fullmatch(source_tree):
@@ -411,6 +426,8 @@ def load_retry_context(*, source: Path, identity: SourceIdentity, output_root: P
         prior_contract_identity=contract_identity,
         task_id=task_id,
         provider=provider,
+        execution_model=execution_model,
+        execution_reasoning_effort=execution_reasoning_effort,
         implementation_paths=implementation_paths,
         test_paths=test_paths,
         new_implementation_paths=new_implementation_paths,
@@ -465,9 +482,13 @@ def clone_exact(source: Path, head: str, parent: Path, *, _runner: Callable[...,
         raise CrewBlocked("disposable clone is not independent at the exact source HEAD")
     return clone
 
-def runtime_configuration(provider: str):
-    if provider == "claude": key, identifier, model = "claude-crew", "claude-code", os.getenv("NSC_CLAUDE_MODEL", "claude-sonnet-5")
-    elif provider == "codex": key, identifier, model = "codex-crew", "openai-codex", os.getenv("NSC_OPENAI_CODEX_MODEL", "gpt-5.6-sol")
+def runtime_configuration(provider: str, model_override: str|None=None):
+    if model_override is not None and (
+            not isinstance(model_override,str) or not model_override.strip()
+            or len(model_override.strip())>200 or any(mark in model_override for mark in ("\r","\n","\x00"))):
+        raise CrewBlocked("execution model override must be one non-empty safe identifier")
+    if provider == "claude": key, identifier, model = "claude-crew", "claude-code", model_override.strip() if model_override else os.getenv("NSC_CLAUDE_MODEL", "claude-sonnet-5")
+    elif provider == "codex": key, identifier, model = "codex-crew", "openai-codex", model_override.strip() if model_override else os.getenv("NSC_OPENAI_CODEX_MODEL", "gpt-5.6-sol")
     else: raise CrewBlocked("provider must be claude or codex")
     return key, RuntimeConfiguration({key:{"provider":identifier,"models":{"low_cost":model,"standard":model,"high_reasoning":model}}})
 
@@ -897,7 +918,8 @@ def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -
 
 ProviderFactory = Callable[[str, Path, bool, str], tuple[str, RuntimeConfiguration, Mapping[str, Any]]]
 
-def construct_real_provider(provider_name: str, repository_root: Path, writable: bool):
+def construct_real_provider(provider_name: str, repository_root: Path, writable: bool,
+                            openai_reasoning_effort: str|None=None):
     if provider_name == "claude":
         # ExecutionCrew always wants live, human-readable Claude activity on
         # stderr while a real Claude-backed role is running. This is
@@ -907,10 +929,14 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
                                   externally_isolated_writable_repository=writable,
                                   live_observer=ClaudeLiveRenderer().feed)
     if provider_name == "codex":
+        effort = openai_reasoning_effort or "high"
+        if effort not in OPENAI_REASONING_EFFORTS:
+            raise CrewBlocked("OpenAI reasoning effort is unsupported")
         return OpenAICodexProvider(
             repository_root=repository_root,
             externally_isolated_writable_repository=writable,
             externally_enforced_read_only_repository=not writable,
+            reasoning_effort=effort,
         )
     raise CrewBlocked("provider must be claude or codex")
 
@@ -918,6 +944,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
              implementation_paths: tuple[str,...]=(), test_paths: tuple[str,...]=(),
              new_implementation_paths: tuple[str,...]=(), new_test_paths: tuple[str,...]=(), run_id: str|None=None,
              retry_run_id: str|None=None, review_feedback_file: Path|None=None, host_output_root: str|None=None,
+             execution_model: str|None=None, openai_reasoning_effort: str|None=None,
+             retry_expected_provider: str|None=None,
              provider_factory: ProviderFactory|None=None, _require_physical_read_only_source: bool=True,
              _persistent_work_graph_loader: Callable[[Path], PersistentWorkGraph]|None=None):
     started=time.monotonic()
@@ -928,6 +956,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         raise CrewBlocked("retry mode inherits task, provider, and write paths; do not supply them explicitly")
     if not retry_mode and review_feedback_file is not None:
         raise CrewBlocked("--review-feedback-file is valid only with --retry-run")
+    if not retry_mode and retry_expected_provider is not None:
+        raise CrewBlocked("--expected-provider is valid only with --retry-run")
     if retry_mode and review_feedback_file is None:
         raise CrewBlocked("--review-feedback-file is required with --retry-run")
     if not retry_mode and (not isinstance(task_id, str) or not TASK_ID_RE.fullmatch(task_id)):
@@ -951,8 +981,22 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             source=source_root, identity=identity, output_root=output_root,
             prior_run_id=retry_run_id, feedback_file=review_feedback_file
         )
+        if retry_expected_provider is not None and retry_expected_provider != retry_context.provider:
+            raise CrewBlocked("routed retry provider differs from the prior run identity")
+        if execution_model is not None:
+            if retry_context.execution_model is None:
+                raise CrewBlocked("prior run lacks execution model identity; routed retry cannot prove compatibility")
+            if execution_model.strip() != retry_context.execution_model:
+                raise CrewBlocked("routed retry model differs from the prior run identity")
+        if openai_reasoning_effort is not None:
+            if retry_context.execution_reasoning_effort is None:
+                raise CrewBlocked("prior run lacks execution reasoning identity; routed retry cannot prove compatibility")
+            if openai_reasoning_effort != retry_context.execution_reasoning_effort:
+                raise CrewBlocked("routed retry reasoning effort differs from the prior run identity")
         task_id = retry_context.task_id
         provider_name = retry_context.provider
+        execution_model = retry_context.execution_model or execution_model
+        openai_reasoning_effort = retry_context.execution_reasoning_effort or openai_reasoning_effort
         implementation_paths = retry_context.implementation_paths
         test_paths = retry_context.test_paths
         new_implementation_paths = retry_context.new_implementation_paths
@@ -960,6 +1004,22 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     assert task_id is not None
     if not TASK_ID_RE.fullmatch(task_id): raise CrewBlocked("task ID must match NSC-###")
     if not isinstance(provider_name, str): raise CrewBlocked("provider is required")
+    if provider_name in ("claude","codex"):
+        _, route_configuration = runtime_configuration(provider_name, execution_model)
+        route_values = route_configuration.provider_configurations[
+            "claude-crew" if provider_name=="claude" else "codex-crew"
+        ]
+        execution_model = route_values["models"]["standard"]
+        if provider_name == "claude":
+            if openai_reasoning_effort is not None: raise CrewBlocked("Claude execution does not support an explicit reasoning effort")
+            execution_reasoning_effort = None
+        else:
+            execution_reasoning_effort = openai_reasoning_effort or "high"
+            if execution_reasoning_effort not in OPENAI_REASONING_EFFORTS: raise CrewBlocked("OpenAI reasoning effort is unsupported")
+    elif provider_factory is not None:
+        execution_reasoning_effort = openai_reasoning_effort
+    else:
+        raise CrewBlocked("provider must be claude or codex")
     if not implementation_paths and not new_implementation_paths: raise CrewBlocked("at least one implementation path is required")
     if not test_paths and not new_test_paths: raise CrewBlocked("at least one test path is required for Stage 5B")
     interval=heartbeat_interval()
@@ -1027,8 +1087,11 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         caps=("repository_read","repository_search","repository_write") if writable else ("repository_read","repository_search")
         if provider_factory: key,config,registry=provider_factory(provider_name,repo,writable,role)
         else:
-            key,config=runtime_configuration(provider_name)
-            provider=construct_real_provider(provider_name,repo,writable)
+            key,config=runtime_configuration(provider_name,execution_model)
+            provider=construct_real_provider(
+                provider_name,repo,writable,
+                openai_reasoning_effort=execution_reasoning_effort,
+            )
             registry={provider.provider_identifier:provider}
         inv=AgentInvocationRequest(AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,invocation_id,role,prompt,
             tuple(dict.fromkeys((f"Tasks/{task_id}.yaml",GDD_PATH,POLICY_PATH,ENGINEERING_STANDARDS_PATH,*implementation_paths,*test_paths))),caps,boundaries,schema,capability_class,
@@ -1055,6 +1118,10 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             progress.emit("role_completed",f"{display} {attempt} completed: failed ({duration:.1f}s)",role=role,attempt=attempt,status="failed",duration_seconds=duration)
             raise failure
         assert result is not None
+        if provider_factory is None and execution_model is not None and result.model != execution_model:
+            raise CrewBlocked(
+                f"AgentRuntime used model {result.model!r}; expected routed model {execution_model!r}"
+            )
         progress.emit("role_completed",f"{display} {attempt} completed: {result.status} ({duration:.1f}s)",role=role,attempt=attempt,status=result.status,duration_seconds=duration)
         return inv,result
     locality_prompt=contract_locality_auditor_prompt(
@@ -1239,7 +1306,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
         human_commands = patch_commands(human_artifact, applyable=False)
     human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action,"commands":human_commands}
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result
@@ -1293,6 +1360,9 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task-id")
     parser.add_argument("--provider",choices=("claude","codex"))
+    parser.add_argument("--expected-provider",choices=("claude","codex"))
+    parser.add_argument("--model")
+    parser.add_argument("--openai-reasoning-effort",choices=OPENAI_REASONING_EFFORTS)
     parser.add_argument("--implementation-path",action="append")
     parser.add_argument("--test-path",action="append")
     parser.add_argument("--new-implementation-path",action="append")
@@ -1311,6 +1381,8 @@ def main():
         if args.review_feedback_file is None:
             parser.error("--review-feedback-file is required with --retry-run")
     else:
+        if args.expected_provider is not None:
+            parser.error("--expected-provider requires --retry-run")
         missing = [name for name, value in (
             ("--task-id", args.task_id), ("--provider", args.provider),
             ("implementation path", (args.implementation_path or []) + (args.new_implementation_path or [])),
@@ -1320,7 +1392,7 @@ def main():
             parser.error("normal mode requires " + ", ".join(missing))
         if args.review_feedback_file is not None:
             parser.error("--review-feedback-file requires --retry-run")
-    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root)
+    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root,execution_model=args.model,openai_reasoning_effort=args.openai_reasoning_effort,retry_expected_provider=args.expected_provider)
     except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc:
         reason=str(exc)
         print(f"ExecutionCrew blocked: {reason}",file=sys.stderr)

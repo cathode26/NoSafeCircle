@@ -16,6 +16,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from .contracts import TaskReviewContractError, semantic_sha256, validate_task_id
 from .pipeline_scope import AcceptedExecutionScope, RepositoryScopeAuthority
+from .execution_routing import OPENAI_REASONING_EFFORTS
 
 
 EXECUTION_RECEIPT_SCHEMA_VERSION = "1.0"
@@ -142,6 +143,8 @@ class ExecutionCrewReceipt:
     lease_id: str
     plan_id: str
     provider: str
+    execution_model: str | None
+    execution_reasoning_effort: str | None
     source_head: str
     task_contract_sha256: str
     crew_status: str
@@ -161,6 +164,8 @@ class ExecutionCrewReceipt:
             "lease_id": self.lease_id,
             "plan_id": self.plan_id,
             "provider": self.provider,
+            "execution_model": self.execution_model,
+            "execution_reasoning_effort": self.execution_reasoning_effort,
             "source_head": self.source_head,
             "task_contract_sha256": self.task_contract_sha256,
             "crew_status": self.crew_status,
@@ -182,12 +187,28 @@ class ExecutionCrewBridge:
         *,
         checkout: Path | str,
         scope: RepositoryScopeAuthority,
+        execution_model: str | None = None,
+        execution_reasoning_effort: str | None = None,
         command_runner: CommandRunner | None = None,
         timeout_seconds: float | None = None,
         compose_project: str = "nosafecircle",
     ) -> None:
         self.checkout = Path(checkout).resolve()
         self.scope = scope
+        self.execution_model = (
+            str(execution_model).strip() if execution_model else None
+        )
+        self.execution_reasoning_effort = (
+            str(execution_reasoning_effort).strip().casefold()
+            if execution_reasoning_effort
+            else None
+        )
+        if self.execution_reasoning_effort is not None and (
+            self.execution_reasoning_effort not in OPENAI_REASONING_EFFORTS
+        ):
+            raise ExecutionBridgeError(
+                "ExecutionCrew reasoning effort is unsupported"
+            )
         self.command_runner = command_runner or _default_runner
         self.timeout_seconds = float(
             timeout_seconds
@@ -256,8 +277,15 @@ class ExecutionCrewBridge:
             "--host-output-root",
             str(self.output_root),
         ]
+        if self.execution_model is not None:
+            command.extend(("--model", self.execution_model))
+        if self.execution_reasoning_effort is not None:
+            command.extend(
+                ("--openai-reasoning-effort", self.execution_reasoning_effort)
+            )
         if retry_run_id is not None:
             command.extend(("--retry-run", retry_run_id))
+            command.extend(("--expected-provider", provider))
             if feedback_file is None:
                 raise ExecutionBridgeError("ExecutionCrew retry requires a feedback file")
             relative = feedback_file.resolve().relative_to(self.checkout)
@@ -286,6 +314,10 @@ class ExecutionCrewBridge:
         provider = str(provider).strip().casefold()
         if provider not in _PROVIDER:
             raise ExecutionBridgeError("ExecutionCrew provider must be claude or codex")
+        if self.execution_reasoning_effort is not None and provider != "codex":
+            raise ExecutionBridgeError(
+                "ExecutionCrew reasoning effort is supported only for codex"
+            )
         accepted = self.scope.require(plan_id)
         if retry_run_id is not None and not _RUN_ID.fullmatch(str(retry_run_id)):
             raise ExecutionBridgeError("retry_run_id has an invalid identity")
@@ -352,6 +384,16 @@ class ExecutionCrewBridge:
             lease_id=accepted.lease_id,
             plan_id=accepted.plan_id,
             provider=provider,
+            execution_model=(
+                str(persisted["execution_model"])
+                if persisted.get("execution_model") is not None
+                else None
+            ),
+            execution_reasoning_effort=(
+                str(persisted["execution_reasoning_effort"])
+                if persisted.get("execution_reasoning_effort") is not None
+                else None
+            ),
             source_head=accepted.source_head,
             task_contract_sha256=accepted.task_contract_sha256,
             crew_status=str(persisted.get("crew_status") or ""),
@@ -403,6 +445,21 @@ class ExecutionCrewBridge:
                 raise ExecutionBridgeError(
                     f"ExecutionCrew changed {field}: {result.get(field)!r} != {expected!r}"
                 )
+        if (
+            self.execution_model is not None
+            and result.get("execution_model") != self.execution_model
+        ):
+            raise ExecutionBridgeError(
+                "ExecutionCrew used a different execution model"
+            )
+        if (
+            self.execution_reasoning_effort is not None
+            and result.get("execution_reasoning_effort")
+            != self.execution_reasoning_effort
+        ):
+            raise ExecutionBridgeError(
+                "ExecutionCrew used a different execution reasoning effort"
+            )
         identity = result.get("task_contract_identity")
         if not isinstance(identity, Mapping):
             raise ExecutionBridgeError("ExecutionCrew omitted task_contract_identity")
@@ -474,6 +531,10 @@ class ExecutionCrewBridge:
                 lease_id=identity["lease_id"],
                 plan_id=identity["plan_id"],
                 provider=identity["provider"],
+                execution_model=identity.get("execution_model"),
+                execution_reasoning_effort=identity.get(
+                    "execution_reasoning_effort"
+                ),
                 source_head=identity["source_head"],
                 task_contract_sha256=identity["task_contract_sha256"],
                 crew_status=identity["crew_status"],
@@ -498,6 +559,15 @@ class ExecutionCrewBridge:
             or receipt.plan_id != accepted.plan_id
             or receipt.source_head != accepted.source_head
             or receipt.task_contract_sha256 != accepted.task_contract_sha256
+            or (
+                self.execution_model is not None
+                and receipt.execution_model != self.execution_model
+            )
+            or (
+                self.execution_reasoning_effort is not None
+                and receipt.execution_reasoning_effort
+                != self.execution_reasoning_effort
+            )
         ):
             return
         try:
