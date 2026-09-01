@@ -9,6 +9,7 @@ claim refs: every dependency is an in-memory fake, matching the existing
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import os
@@ -38,6 +39,7 @@ from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
     plan_dispatch,
 )
 from Pipeline.TaskReviewAgent.dispatch_policy import (  # noqa: E402
+    DispatchPolicy,
     DispatchPolicyError,
     load_dispatch_policy,
 )
@@ -870,11 +872,17 @@ def create_production_fixture(root: Path, *, tasks: dict[str, dict[str, Any]]) -
     return checkout, remote
 
 
-def _states_fixture(tasks: dict[str, dict[str, Any]], head_commit: str) -> list[dict[str, Any]]:
+def _states_fixture(
+    tasks: dict[str, dict[str, Any]],
+    head_commit: str,
+    *,
+    states: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    states = states or {}
     return [
         {
             "task_id": task_id,
-            "state": "not_delivered",
+            "state": states.get(task_id, "not_delivered"),
             "head_commit": head_commit,
             "head_tree": "0" * 40,
             "selected_record_id": None,
@@ -905,10 +913,12 @@ def _run_build_dispatch_plan(
     states_fixture: Path,
     taskcontrol_log: Path | None = None,
     remote: str = "origin",
+    policy: Any = None,
     claim_policy: Any = None,
+    gh_backend: Any = _FakeGhIssueBackend,
 ) -> DispatchPlan:
     original_gh_backend = dispatch_plan.GhIssueBackend
-    dispatch_plan.GhIssueBackend = _FakeGhIssueBackend  # type: ignore[assignment]
+    dispatch_plan.GhIssueBackend = gh_backend  # type: ignore[assignment]
     env_overrides = {"NSC_DISPATCH_TEST_STATES_FIXTURE": str(states_fixture)}
     if taskcontrol_log is not None:
         env_overrides["NSC_DISPATCH_TEST_TASKCONTROL_LOG"] = str(taskcontrol_log)
@@ -919,6 +929,7 @@ def _run_build_dispatch_plan(
             source=checkout,
             worker_id="dispatch-plan-fixture-worker",
             remote=remote,
+            policy=policy,
             claim_policy=claim_policy,
         )
     finally:
@@ -928,6 +939,85 @@ def _run_build_dispatch_plan(
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+
+
+def _is_bulk_taskcontrol_call(command: Any) -> bool:
+    return (
+        isinstance(command, (tuple, list))
+        and len(command) == 4
+        and Path(str(command[1])).name == "taskcontrol.py"
+        and list(command[2:]) == ["states", "--json"]
+    )
+
+
+def _run_with_taskcontrol_override(
+    checkout: Path,
+    *,
+    states_fixture: Path,
+    override: Any,
+    gh_backend: Any = _FakeGhIssueBackend,
+) -> tuple[DispatchPlan, int]:
+    original_run = subprocess.run
+    calls = 0
+
+    def patched_run(command: Any, *args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        if _is_bulk_taskcontrol_call(command):
+            calls += 1
+            return override(command, kwargs)
+        return original_run(command, *args, **kwargs)
+
+    subprocess.run = patched_run  # type: ignore[assignment]
+    try:
+        plan = _run_build_dispatch_plan(
+            checkout,
+            states_fixture=states_fixture,
+            gh_backend=gh_backend,
+        )
+    finally:
+        subprocess.run = original_run  # type: ignore[assignment]
+    return plan, calls
+
+
+def _observation_failure_fixture(
+    *,
+    payload: Any = None,
+    raw_payload: bytes | None = None,
+    tasks: dict[str, dict[str, Any]] | None = None,
+    override: Any = None,
+) -> DispatchPlan:
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-observation-") as tmp:
+        root = Path(tmp)
+        tasks = tasks or {"NSC-860": make_task("NSC-860")}
+        checkout, _remote = create_production_fixture(root, tasks=tasks)
+        head_commit = _git(checkout, "rev-parse", "HEAD")
+        fixture_states = root / "states.json"
+        if raw_payload is not None:
+            fixture_states.write_bytes(raw_payload)
+        else:
+            selected_payload = payload
+            if callable(selected_payload):
+                selected_payload = selected_payload(tasks, head_commit)
+            if selected_payload is None:
+                selected_payload = _states_fixture(tasks, head_commit)
+            fixture_states.write_text(json.dumps(selected_payload), encoding="utf-8")
+
+        before_status = _git(checkout, "status", "--short")
+        if override is None:
+            plan = _run_build_dispatch_plan(checkout, states_fixture=fixture_states)
+        else:
+            plan, calls = _run_with_taskcontrol_override(
+                checkout,
+                states_fixture=fixture_states,
+                override=override,
+            )
+            require(calls == 1, f"expected one failed bulk observation call, saw {calls}")
+        after_status = _git(checkout, "status", "--short")
+        require(before_status == after_status == "", "blocked observation path mutated the checkout")
+        require(plan.decision == "blocked_invalid_state", f"unexpected decision: {plan.decision}")
+        require(plan.resume is None, "blocked observation path returned resume work")
+        require(plan.selected_fresh_candidate is None, "blocked observation path selected fresh work")
+        return plan
 
 
 def test_production_state_lookup_uses_one_bulk_snapshot_per_plan() -> None:
@@ -952,6 +1042,240 @@ def test_production_state_lookup_uses_one_bulk_snapshot_per_plan() -> None:
         per_task_calls = [call for call in calls if call and call[0] == "state"]
         require(len(states_calls) == 1, f"expected exactly one bulk 'states --json' call, saw: {calls}")
         require(not per_task_calls, f"per-task 'state <id> --json' subprocess calls must not happen: {calls}")
+
+
+def test_production_resume_does_not_invoke_bulk_state_observation() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-resume-") as tmp:
+        root = Path(tmp)
+        tasks = {"NSC-823": make_task("NSC-823")}
+        checkout, _remote = create_production_fixture(root, tasks=tasks)
+        committed_task = dispatch_plan.load_committed_task(checkout, "NSC-823")
+        memory_backend = MemoryIssueBackend()
+        memory_service = IssueWorkflowService(
+            backend=memory_backend,
+            task_loader=lambda _task_id: committed_task,
+            worker_id="resume-fixture-worker",
+        )
+        memory_service.acquire_agent_lease(
+            task=committed_task,
+            source_head=_git(checkout, "rev-parse", "HEAD"),
+            branch="nsc-823-task",
+            checkout_path=r"C:\NSC\NSC\NSC-823",
+            planned_approach="Implement the fixture task.",
+            expected_validation="Review the fixture result.",
+            now="2026-08-31T10:00:00Z",
+        )
+        memory_service.publish_human_handoff(
+            task_id="NSC-823",
+            branch="nsc-823-task",
+            head_commit="2" * 40,
+            checkout_path=r"C:\NSC\NSC\NSC-823",
+            implementation_summary="Fixture implementation complete.",
+            completed_checks=("Fixture checks passed.",),
+            human_steps=("Review the fixture.",),
+            expected_result="Fixture is accepted.",
+            now="2026-08-31T10:01:00Z",
+        )
+        memory_service.apply_human_result(
+            task_id="NSC-823",
+            result_body=(
+                "## Human validation result\n\nResult: PASS\n"
+                f"Tested commit: `{'2' * 40}`\n\nCompleted steps:\n- Reviewed.\n"
+            ),
+            actor_id="cathode26",
+            now="2026-08-31T10:02:00Z",
+        )
+
+        class ResumeGhBackend:
+            def __init__(self, *, source_root: Path) -> None:
+                self.source_root = source_root
+
+            def list_issues(self) -> list[dict[str, Any]]:
+                return memory_backend.list_issues()
+
+            def get_comments(self, issue_number: int) -> list[dict[str, Any]]:
+                return memory_backend.get_comments(issue_number)
+
+        fixture_states = root / "states-must-not-run.json"
+        fixture_states.write_text("this would fail if read", encoding="utf-8")
+        before_issues = json.dumps(memory_backend.issues, sort_keys=True)
+        before_comments = json.dumps(memory_backend.comments, sort_keys=True)
+
+        def forbidden_state_observation(_command: Any, _kwargs: Any) -> Any:
+            raise AssertionError("resume_existing invoked the bulk TaskGraph state subprocess")
+
+        plan, calls = _run_with_taskcontrol_override(
+            checkout,
+            states_fixture=fixture_states,
+            override=forbidden_state_observation,
+            gh_backend=ResumeGhBackend,
+        )
+
+        require(calls == 0, f"resume_existing invoked bulk state {calls} time(s)")
+        require(plan.decision == "resume_existing", f"unexpected decision: {plan.decision}")
+        require(plan.resume is not None and plan.resume["task_id"] == "NSC-823", str(plan.resume))
+        require(json.dumps(memory_backend.issues, sort_keys=True) == before_issues, "resume planning mutated Issues")
+        require(json.dumps(memory_backend.comments, sort_keys=True) == before_comments, "resume planning mutated comments")
+
+
+def test_bulk_state_timeout_returns_blocked_invalid_state() -> None:
+    def timeout(command: Any, kwargs: dict[str, Any]) -> Any:
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    plan = _observation_failure_fixture(override=timeout)
+    require(any("timed out" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_bulk_state_launch_failure_returns_blocked_invalid_state() -> None:
+    def launch_failure(_command: Any, _kwargs: dict[str, Any]) -> Any:
+        raise OSError("synthetic launch failure")
+
+    plan = _observation_failure_fixture(override=launch_failure)
+    require(any("launch failed" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_bulk_state_nonzero_exit_returns_blocked_with_bounded_stderr() -> None:
+    def nonzero(command: Any, _kwargs: dict[str, Any]) -> Any:
+        return subprocess.CompletedProcess(
+            command,
+            17,
+            stdout=b"",
+            stderr=b"synthetic nonzero detail " + (b"x" * 5000),
+        )
+
+    plan = _observation_failure_fixture(override=nonzero)
+    require(any("exited nonzero (17)" in reason for reason in plan.reasons), str(plan.reasons))
+    require(any("synthetic nonzero detail" in reason for reason in plan.reasons), str(plan.reasons))
+    require(max(len(reason) for reason in plan.reasons) < 1200, "nonzero stderr was not bounded")
+
+
+def test_bulk_state_invalid_json_returns_blocked_invalid_state() -> None:
+    plan = _observation_failure_fixture(raw_payload=b"{not-json")
+    require(any("invalid UTF-8/JSON" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_bulk_state_invalid_utf8_returns_blocked_invalid_state() -> None:
+    def invalid_utf8(command: Any, _kwargs: dict[str, Any]) -> Any:
+        return subprocess.CompletedProcess(command, 0, stdout=b"\xff", stderr=b"")
+
+    plan = _observation_failure_fixture(override=invalid_utf8)
+    require(any("invalid UTF-8/JSON" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_bulk_state_non_list_payload_returns_blocked_invalid_state() -> None:
+    plan = _observation_failure_fixture(payload={"task_id": "NSC-860"})
+    require(any("expected a JSON list" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_bulk_state_malformed_entry_returns_blocked_invalid_state() -> None:
+    plan = _observation_failure_fixture(payload=[{"task_id": "NSC-860", "state": 7}])
+    require(any("malformed state entry" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_bulk_state_duplicate_task_id_returns_blocked_invalid_state() -> None:
+    def duplicate(tasks: dict[str, dict[str, Any]], head_commit: str) -> list[dict[str, Any]]:
+        payload = _states_fixture(tasks, head_commit)
+        return payload + [dict(payload[0])]
+
+    plan = _observation_failure_fixture(payload=duplicate)
+    require(any("duplicate task ID" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_bulk_state_missing_expected_task_returns_blocked_invalid_state() -> None:
+    tasks = {
+        "NSC-861": make_task("NSC-861"),
+        "NSC-862": make_task("NSC-862"),
+    }
+
+    def missing(tasks: dict[str, dict[str, Any]], head_commit: str) -> list[dict[str, Any]]:
+        return _states_fixture(tasks, head_commit)[:1]
+
+    plan = _observation_failure_fixture(tasks=tasks, payload=missing)
+    require(any("missing=['NSC-862']" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_bulk_state_unexpected_extra_task_returns_blocked_invalid_state() -> None:
+    def extra(tasks: dict[str, dict[str, Any]], head_commit: str) -> list[dict[str, Any]]:
+        payload = _states_fixture(tasks, head_commit)
+        payload.append(
+            {
+                "task_id": "NSC-999",
+                "state": "not_delivered",
+                "head_commit": head_commit,
+            }
+        )
+        return payload
+
+    plan = _observation_failure_fixture(payload=extra)
+    require(any("unexpected=['NSC-999']" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_bulk_state_missing_head_returns_blocked_invalid_state() -> None:
+    def missing_head(tasks: dict[str, dict[str, Any]], head_commit: str) -> list[dict[str, Any]]:
+        payload = _states_fixture(tasks, head_commit)
+        payload[0].pop("head_commit")
+        return payload
+
+    plan = _observation_failure_fixture(payload=missing_head)
+    require(any("missing/invalid head_commit" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_bulk_state_unrecognized_state_value_returns_blocked_invalid_state() -> None:
+    # Full coverage, correct task ID, correct source HEAD, valid JSON -- the
+    # ONLY defect is a state string the committed dispatch policy does not
+    # recognize. That is a producer regression and must fail the whole
+    # observation as blocked_invalid_state, never degrade into per-task
+    # rejections that end in an ordinary no_safe_work.
+    def unrecognized_state(tasks: dict[str, dict[str, Any]], head_commit: str) -> list[dict[str, Any]]:
+        return _states_fixture(tasks, head_commit, states={"NSC-860": "banana"})
+
+    plan = _observation_failure_fixture(payload=unrecognized_state)
+    require(plan.selected_fresh_candidate is None, "unrecognized snapshot state still selected fresh work")
+    require(
+        any(
+            "unrecognized state" in reason and "'banana'" in reason and "NSC-860" in reason
+            for reason in plan.reasons
+        ),
+        f"missing unrecognized-state observation reason: {plan.reasons}",
+    )
+
+
+def test_complete_bulk_snapshot_with_no_eligible_work_returns_no_safe_work() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-no-safe-") as tmp:
+        root = Path(tmp)
+        tasks = {"NSC-870": make_task("NSC-870")}
+        checkout, _remote = create_production_fixture(root, tasks=tasks)
+        head_commit = _git(checkout, "rev-parse", "HEAD")
+        fixture_states = root / "states.json"
+        fixture_states.write_text(
+            json.dumps(_states_fixture(tasks, head_commit, states={"NSC-870": "conformant"})),
+            encoding="utf-8",
+        )
+        plan = _run_build_dispatch_plan(checkout, states_fixture=fixture_states)
+        require(plan.decision == "no_safe_work", f"unexpected decision: {plan.decision}")
+
+
+def test_complete_bulk_snapshot_preserves_deterministic_fresh_ranking() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-ranking-") as tmp:
+        root = Path(tmp)
+        tasks = {
+            "NSC-899": make_task("NSC-899"),
+            "NSC-871": make_task("NSC-871"),
+            "NSC-880": make_task("NSC-880"),
+        }
+        checkout, _remote = create_production_fixture(root, tasks=tasks)
+        head_commit = _git(checkout, "rev-parse", "HEAD")
+        fixture_states = root / "states.json"
+        fixture_states.write_text(json.dumps(_states_fixture(tasks, head_commit)), encoding="utf-8")
+        plan = _run_build_dispatch_plan(checkout, states_fixture=fixture_states)
+        require(plan.decision == "fresh_candidate", f"unexpected decision: {plan.decision}")
+        require(
+            [item["task_id"] for item in plan.ranked_eligible_candidates]
+            == ["NSC-871", "NSC-880", "NSC-899"],
+            str(plan.ranked_eligible_candidates),
+        )
+        require(plan.selected_fresh_candidate is not None, "fresh ranking selected nothing")
+        require(plan.selected_fresh_candidate["task_id"] == "NSC-871", str(plan.selected_fresh_candidate))
 
 
 def test_transient_claim_read_failure_yields_provisional_plan_not_pretend_observed() -> None:
@@ -1052,6 +1376,249 @@ def test_head_drift_during_planning_returns_blocked_invalid_state() -> None:
         )
 
 
+# --------------------------------------------------------------------------
+# Consensus-repair regressions: policy self-consistency (fresh subset of
+# known, on JSON loading AND direct construction), one effective policy for
+# both snapshot recognition and candidate evaluation, and the guarantee that
+# a normal fresh/no-safe plan actually observed one validated bulk snapshot.
+# --------------------------------------------------------------------------
+
+
+def test_policy_fresh_state_outside_known_set_is_rejected_on_load() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-policy-fresh-") as tmp:
+        inconsistent_path = Path(tmp) / "dispatch_policy.json"
+        raw = json.loads(
+            (ROOT / "Pipeline" / "TaskReviewAgent" / "dispatch_policy.json").read_text("utf-8")
+        )
+        raw["fresh_implementation_derived_states"] = list(
+            raw["fresh_implementation_derived_states"]
+        ) + ["phantom_fresh_state"]
+        inconsistent_path.write_text(json.dumps(raw), encoding="utf-8")
+        try:
+            load_dispatch_policy(inconsistent_path)
+            raise AssertionError(
+                "a policy whose fresh state is unrecognized by known_dependency_states was accepted"
+            )
+        except DispatchPolicyError as exc:
+            require("fresh_implementation_derived_states" in str(exc), str(exc))
+            require("known_dependency_states" in str(exc), str(exc))
+
+
+def test_directly_constructed_policy_enforces_both_subset_invariants() -> None:
+    committed = load_dispatch_policy()
+
+    # Fresh state absent from known: rejected even without the JSON loader.
+    try:
+        dataclasses.replace(
+            committed,
+            fresh_implementation_derived_states=committed.fresh_implementation_derived_states
+            + ("phantom_fresh_state",),
+        )
+        raise AssertionError("a directly constructed fresh-not-known policy was accepted")
+    except DispatchPolicyError as exc:
+        require("fresh_implementation_derived_states" in str(exc), str(exc))
+
+    # The pre-existing dependency-satisfied subset invariant must also hold
+    # for direct construction, not only load_dispatch_policy().
+    try:
+        dataclasses.replace(
+            committed,
+            dependency_dispatch_satisfied_states=committed.dependency_dispatch_satisfied_states
+            + ("phantom_satisfied_state",),
+        )
+        raise AssertionError("a directly constructed satisfied-not-known policy was accepted")
+    except DispatchPolicyError as exc:
+        require("dependency_dispatch_satisfied_states" in str(exc), str(exc))
+
+
+def test_consistent_extended_policy_remains_valid_for_load_and_construction() -> None:
+    committed = load_dispatch_policy()
+
+    # Direct construction: the same new state added to BOTH sets is valid.
+    extended = dataclasses.replace(
+        committed,
+        fresh_implementation_derived_states=committed.fresh_implementation_derived_states
+        + ("fixture_pilot_state",),
+        known_dependency_states=committed.known_dependency_states + ("fixture_pilot_state",),
+    )
+    require(
+        "fixture_pilot_state" in extended.fresh_implementation_derived_states
+        and "fixture_pilot_state" in extended.known_dependency_states,
+        "consistent extended policy construction failed",
+    )
+
+    # JSON loading: the same deliberate extension is also valid.
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-policy-extended-") as tmp:
+        extended_path = Path(tmp) / "dispatch_policy.json"
+        raw = json.loads(
+            (ROOT / "Pipeline" / "TaskReviewAgent" / "dispatch_policy.json").read_text("utf-8")
+        )
+        raw["fresh_implementation_derived_states"] = list(
+            raw["fresh_implementation_derived_states"]
+        ) + ["fixture_pilot_state"]
+        raw["known_dependency_states"] = list(raw["known_dependency_states"]) + [
+            "fixture_pilot_state"
+        ]
+        extended_path.write_text(json.dumps(raw), encoding="utf-8")
+        loaded = load_dispatch_policy(extended_path)
+        require(
+            "fixture_pilot_state" in loaded.fresh_implementation_derived_states,
+            str(loaded.fresh_implementation_derived_states),
+        )
+
+
+def test_one_effective_policy_controls_snapshot_recognition_and_candidate_evaluation() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-one-policy-") as tmp:
+        root = Path(tmp)
+        tasks = {"NSC-881": make_task("NSC-881")}
+        checkout, _remote = create_production_fixture(root, tasks=tasks)
+        head_commit = _git(checkout, "rev-parse", "HEAD")
+        fixture_states = root / "states.json"
+        fixture_states.write_text(
+            json.dumps(_states_fixture(tasks, head_commit, states={"NSC-881": "fixture_pilot_state"})),
+            encoding="utf-8",
+        )
+
+        # Under the committed policy the snapshot state is unrecognized, so
+        # snapshot recognition (not per-candidate evaluation) fails the plan.
+        committed_plan = _run_build_dispatch_plan(checkout, states_fixture=fixture_states)
+        require(
+            committed_plan.decision == "blocked_invalid_state",
+            f"unexpected decision under committed policy: {committed_plan.decision}",
+        )
+        require(
+            any("unrecognized state" in reason for reason in committed_plan.reasons),
+            str(committed_plan.reasons),
+        )
+
+        # The SAME injected extended policy instance must then govern both
+        # authorities at once: the snapshot recognizes the state AND the
+        # candidate kernel admits it as fresh, with no second policy source.
+        extended = dataclasses.replace(
+            load_dispatch_policy(),
+            fresh_implementation_derived_states=load_dispatch_policy().fresh_implementation_derived_states
+            + ("fixture_pilot_state",),
+            known_dependency_states=load_dispatch_policy().known_dependency_states
+            + ("fixture_pilot_state",),
+        )
+        extended_plan = _run_build_dispatch_plan(
+            checkout, states_fixture=fixture_states, policy=extended
+        )
+        require(
+            extended_plan.decision == "fresh_candidate",
+            f"unexpected decision under extended policy: {extended_plan.decision}; "
+            f"reasons={extended_plan.reasons}",
+        )
+        require(
+            extended_plan.selected_fresh_candidate is not None
+            and extended_plan.selected_fresh_candidate["derived_state"] == "fixture_pilot_state",
+            str(extended_plan.selected_fresh_candidate),
+        )
+
+
+def test_invalid_committed_dispatch_policy_returns_blocked_invalid_state() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-bad-policy-") as tmp:
+        root = Path(tmp)
+        tasks = {"NSC-882": make_task("NSC-882")}
+        checkout, _remote = create_production_fixture(root, tasks=tasks)
+        head_commit = _git(checkout, "rev-parse", "HEAD")
+        fixture_states = root / "states.json"
+        fixture_states.write_text(json.dumps(_states_fixture(tasks, head_commit)), encoding="utf-8")
+
+        original_load_dispatch_policy = dispatch_plan.load_dispatch_policy
+
+        def _broken_dispatch_policy(*_args: Any, **_kwargs: Any) -> Any:
+            raise DispatchPolicyError("synthetic inconsistent committed dispatch policy for this test")
+
+        dispatch_plan.load_dispatch_policy = _broken_dispatch_policy  # type: ignore[assignment]
+        try:
+            plan = _run_build_dispatch_plan(checkout, states_fixture=fixture_states)
+        finally:
+            dispatch_plan.load_dispatch_policy = original_load_dispatch_policy  # type: ignore[assignment]
+
+        require(plan.decision == "blocked_invalid_state", f"unexpected decision: {plan.decision}")
+        require(
+            any("dispatch policy is invalid" in reason for reason in plan.reasons),
+            f"missing invalid-committed-dispatch-policy reason: {plan.reasons}",
+        )
+
+
+def test_no_safe_work_requires_one_validated_bulk_snapshot() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-no-safe-snapshot-") as tmp:
+        root = Path(tmp)
+        tasks = {"NSC-883": make_task("NSC-883")}
+        checkout, _remote = create_production_fixture(root, tasks=tasks)
+        head_commit = _git(checkout, "rev-parse", "HEAD")
+        fixture_states = root / "states.json"
+        fixture_states.write_text(
+            json.dumps(_states_fixture(tasks, head_commit, states={"NSC-883": "conformant"})),
+            encoding="utf-8",
+        )
+        log_path = root / "taskcontrol_calls.log"
+
+        plan = _run_build_dispatch_plan(checkout, states_fixture=fixture_states, taskcontrol_log=log_path)
+
+        require(plan.decision == "no_safe_work", f"unexpected decision: {plan.decision}")
+        calls = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        states_calls = [call for call in calls if call == ["states", "--json"]]
+        require(
+            len(states_calls) == 1,
+            f"a normal no_safe_work plan must observe exactly one validated bulk snapshot: {calls}",
+        )
+
+
+def test_all_task_loads_failing_with_failing_snapshot_is_blocked_not_no_safe_work() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-loads-fail-") as tmp:
+        root = Path(tmp)
+        # A committed contract that is not a JSON object fails
+        # load_committed_task BEFORE the candidate's own-state lookup, so
+        # lazy evaluation alone would never touch the state provider.
+        tasks: dict[str, Any] = {"NSC-884": ["deliberately", "not", "a", "contract", "object"]}
+        checkout, _remote = create_production_fixture(root, tasks=tasks)
+        fixture_states = root / "states.json"
+        fixture_states.write_text("[]", encoding="utf-8")
+
+        def timeout(command: Any, kwargs: dict[str, Any]) -> Any:
+            raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+        plan, calls = _run_with_taskcontrol_override(
+            checkout, states_fixture=fixture_states, override=timeout
+        )
+
+        require(calls == 1, f"expected exactly one required-observation attempt, saw {calls}")
+        require(
+            plan.decision == "blocked_invalid_state",
+            "a failed required bulk observation degraded into an ordinary decision: "
+            f"{plan.decision}",
+        )
+        require(any("timed out" in reason for reason in plan.reasons), str(plan.reasons))
+
+
+def test_empty_committed_task_enumeration_without_resume_is_blocked() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-dispatch-empty-tasks-") as tmp:
+        root = Path(tmp)
+        checkout, _remote = create_production_fixture(root, tasks={})
+        fixture_states = root / "states.json"
+        fixture_states.write_text("[]", encoding="utf-8")
+
+        def forbidden(_command: Any, _kwargs: dict[str, Any]) -> Any:
+            raise AssertionError("an empty task universe still forced the bulk state observation")
+
+        plan, calls = _run_with_taskcontrol_override(
+            checkout, states_fixture=fixture_states, override=forbidden
+        )
+
+        require(calls == 0, f"empty enumeration invoked bulk state {calls} time(s)")
+        require(
+            plan.decision == "blocked_invalid_state",
+            f"empty committed task enumeration returned an ordinary decision: {plan.decision}",
+        )
+        require(
+            any("no committed Tasks/NSC-*.yaml contracts" in reason for reason in plan.reasons),
+            str(plan.reasons),
+        )
+
+
 def main() -> int:
     tests = (
         test_resume_beats_every_fresh_candidate,
@@ -1080,10 +1647,33 @@ def main() -> int:
         test_malformed_resource_token_rejects_only_that_candidate,
         test_complete_historical_issue_does_not_block_fresh_candidate,
         test_production_state_lookup_uses_one_bulk_snapshot_per_plan,
+        test_production_resume_does_not_invoke_bulk_state_observation,
+        test_bulk_state_timeout_returns_blocked_invalid_state,
+        test_bulk_state_launch_failure_returns_blocked_invalid_state,
+        test_bulk_state_nonzero_exit_returns_blocked_with_bounded_stderr,
+        test_bulk_state_invalid_json_returns_blocked_invalid_state,
+        test_bulk_state_invalid_utf8_returns_blocked_invalid_state,
+        test_bulk_state_non_list_payload_returns_blocked_invalid_state,
+        test_bulk_state_malformed_entry_returns_blocked_invalid_state,
+        test_bulk_state_duplicate_task_id_returns_blocked_invalid_state,
+        test_bulk_state_missing_expected_task_returns_blocked_invalid_state,
+        test_bulk_state_unexpected_extra_task_returns_blocked_invalid_state,
+        test_bulk_state_missing_head_returns_blocked_invalid_state,
+        test_bulk_state_unrecognized_state_value_returns_blocked_invalid_state,
+        test_complete_bulk_snapshot_with_no_eligible_work_returns_no_safe_work,
+        test_complete_bulk_snapshot_preserves_deterministic_fresh_ranking,
         test_transient_claim_read_failure_yields_provisional_plan_not_pretend_observed,
         test_invalid_committed_claim_policy_returns_blocked_invalid_state,
         test_states_snapshot_head_commit_mismatch_returns_blocked_invalid_state,
         test_head_drift_during_planning_returns_blocked_invalid_state,
+        test_policy_fresh_state_outside_known_set_is_rejected_on_load,
+        test_directly_constructed_policy_enforces_both_subset_invariants,
+        test_consistent_extended_policy_remains_valid_for_load_and_construction,
+        test_one_effective_policy_controls_snapshot_recognition_and_candidate_evaluation,
+        test_invalid_committed_dispatch_policy_returns_blocked_invalid_state,
+        test_no_safe_work_requires_one_validated_bulk_snapshot,
+        test_all_task_loads_failing_with_failing_snapshot_is_blocked_not_no_safe_work,
+        test_empty_committed_task_enumeration_without_resume_is_blocked,
     )
     for test in tests:
         test()

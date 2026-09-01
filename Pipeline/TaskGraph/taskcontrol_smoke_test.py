@@ -77,15 +77,27 @@ def main() -> int:
         assert "dispatch authorization policy is not enabled" in show_output
         assert "State inspection alone never authorizes execution" in show_output
 
-        def fake_evaluate(*, selector: str):
-            task = graph.tasks_by_id[selector]
-            state = "conformant" if selector == "NSC-003" else "not_delivered"
-            return FakeConformanceState(selector, task["title"], state)
+        context_instances = []
+
+        class FakeConformanceContext:
+            def __init__(self):
+                self.evaluated: list[str] = []
+                context_instances.append(self)
+
+            def evaluate(self, selector: str):
+                self.evaluated.append(selector)
+                task = graph.tasks_by_id[selector]
+                state = "conformant" if selector == "NSC-003" else "not_delivered"
+                return FakeConformanceState(selector, task["title"], state)
 
         output = StringIO()
-        with patch("taskcontrol.evaluate_current_conformance", side_effect=fake_evaluate):
+        with patch("taskcontrol.ConformanceEvaluationContext", FakeConformanceContext):
             with redirect_stdout(output):
                 assert command_states(graph) == 0
+        assert len(context_instances) == 1
+        assert context_instances[0].evaluated == [
+            task["id"] for task in sorted(graph.plan.tasks, key=lambda task: int(task["id"].split("-", 1)[1]))
+        ]
         states_output = output.getvalue()
         assert "ID       DERIVED_STATE" in states_output
         assert "NSC-003  conformant" in states_output
@@ -95,18 +107,20 @@ def main() -> int:
         assert "These states do not establish dependency readiness or execution authorization." in states_output
 
         output = StringIO()
-        with patch("taskcontrol.evaluate_current_conformance", side_effect=fake_evaluate):
+        with patch("taskcontrol.ConformanceEvaluationContext", FakeConformanceContext):
             with redirect_stdout(output):
                 assert command_states(graph, state_filter="conformant") == 0
+        assert len(context_instances) == 2
         filtered_output = output.getvalue()
         assert "NSC-003  conformant" in filtered_output
         assert "not_delivered" not in filtered_output
         assert "1 task state(s) shown." in filtered_output
 
         output = StringIO()
-        with patch("taskcontrol.evaluate_current_conformance", side_effect=fake_evaluate):
+        with patch("taskcontrol.ConformanceEvaluationContext", FakeConformanceContext):
             with redirect_stdout(output):
                 assert command_states(graph, as_json=True, state_filter="conformant") == 0
+        assert len(context_instances) == 3
         json_output = json.loads(output.getvalue())
         assert json_output == [
             {

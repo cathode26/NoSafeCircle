@@ -13,7 +13,7 @@ from execution_authority import (
 from persistent_work_graph import PersistentWorkGraphError, load_persistent_work_graph
 from task_contract_schema import TASK_CONTRACT_SCHEMA_VERSION
 from work_graph_validate import WorkGraphValidationError
-from current_conformance import evaluate_current_conformance
+from current_conformance import ConformanceEvaluationContext, evaluate_current_conformance
 from scene_path_policy import validate_scene_path_policy
 
 
@@ -266,9 +266,10 @@ def command_states(graph, as_json: bool = False, state_filter: str | None = None
     if not _is_v2(graph):
         raise ValueError("states requires schema-v2 task contracts.")
 
+    context = ConformanceEvaluationContext()
     results = []
     for task in _sorted_tasks(graph.plan.tasks):
-        result = evaluate_current_conformance(selector=task["id"])
+        result = context.evaluate(task["id"])
         if state_filter and result.state != state_filter:
             continue
         results.append(result)

@@ -48,6 +48,74 @@ class ConformanceState:
         return value
 
 
+class ConformanceEvaluationContext:
+    """One committed-HEAD conformance view for one evaluator invocation."""
+
+    def __init__(self, root: Path | str = ROOT) -> None:
+        self.root = Path(root).resolve()
+        self.repo = GitRepository(self.root)
+        # HistoryAwareGitRepository validated its resolver against this exact
+        # committed HEAD during construction. Reuse that captured identity so
+        # the context does not take a second, potentially different HEAD view.
+        self.head = self.repo.history_identity.head
+        self.head_tree = self.repo.tree(self.head)
+        self.dirty_worktree = self.repo.dirty()
+        self._memo: dict[str, ConformanceState] = {}
+        self._evaluation_stack: list[str] = []
+        self._cycle_messages: dict[str, str] = {}
+
+    def evaluate(self, selector: str) -> ConformanceState:
+        task_path, task = resolve_committed_task(self.repo, self.head, selector)
+        task_id = str(task.get("id") or "")
+        title = str(task.get("title") or "")
+
+        memoized = self._memo.get(task_id)
+        if memoized is not None:
+            return memoized
+
+        if task_id in self._evaluation_stack:
+            cycle_start = self._evaluation_stack.index(task_id)
+            cycle = tuple(self._evaluation_stack[cycle_start:] + [task_id])
+            message = (
+                "Recursive aggregate conformance evaluation cycle detected: "
+                + " -> ".join(cycle)
+                + "."
+            )
+            for cycle_task_id in cycle[:-1]:
+                self._cycle_messages.setdefault(cycle_task_id, message)
+            return self._cycle_state(task_id, title, message)
+
+        self._evaluation_stack.append(task_id)
+        try:
+            result = _evaluate_resolved_conformance(
+                context=self,
+                task_path=task_path,
+                task=task,
+            )
+        finally:
+            popped = self._evaluation_stack.pop()
+            if popped != task_id:  # pragma: no cover - internal invariant
+                raise RuntimeError("Conformance evaluation stack order was corrupted.")
+
+        cycle_message = self._cycle_messages.get(task_id)
+        if cycle_message is not None:
+            result = self._cycle_state(task_id, title, cycle_message)
+        self._memo[task_id] = result
+        return result
+
+    def _cycle_state(self, task_id: str, title: str, message: str) -> ConformanceState:
+        return ConformanceState(
+            task_id,
+            title,
+            "invalid_evidence",
+            self.head,
+            self.head_tree,
+            None,
+            (_finding("conformance_evaluation_cycle", message),),
+            self.dirty_worktree,
+        )
+
+
 def _json(repo: GitRepository, commit: str, path: str, label: str) -> dict[str, Any]:
     try:
         value = json.loads(repo.read(commit, path).decode("utf-8-sig"))
@@ -137,7 +205,7 @@ def _maximal(repo: GitRepository, records: list[CommittedRecord]) -> list[Commit
 
 def _explicit_aggregate_conformance(
     *,
-    root: Path | str,
+    context: ConformanceEvaluationContext,
     task: dict[str, Any],
     head: str,
     head_tree: str,
@@ -176,7 +244,7 @@ def _explicit_aggregate_conformance(
 
     child_states: dict[str, str] = {}
     for child_id in child_ids:
-        child_result = evaluate_current_conformance(root=root, selector=child_id)
+        child_result = context.evaluate(child_id)
         child_states[child_id] = child_result.state
     complete, summary = aggregate_child_state_summary(child_states)
     if complete:
@@ -214,12 +282,16 @@ def _explicit_aggregate_conformance(
     )
 
 
-def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") -> ConformanceState:
-    repo = GitRepository(root)
-    head = repo.head()
-    head_tree = repo.tree(head)
-    dirty = repo.dirty()
-    task_path, task = resolve_committed_task(repo, head, selector)
+def _evaluate_resolved_conformance(
+    *,
+    context: ConformanceEvaluationContext,
+    task_path: str,
+    task: dict[str, Any],
+) -> ConformanceState:
+    repo = context.repo
+    head = context.head
+    head_tree = context.head_tree
+    dirty = context.dirty_worktree
     task_id = str(task.get("id") or "")
     title = str(task.get("title") or "")
 
@@ -232,7 +304,7 @@ def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") ->
             (_finding(f"contract_{disposition}", f"Contract disposition is {disposition}."),), dirty)
 
     aggregate_result = _explicit_aggregate_conformance(
-        root=root,
+        context=context,
         task=task,
         head=head,
         head_tree=head_tree,
@@ -354,3 +426,9 @@ def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") ->
                 selected.record_id if selected else None, (_finding(code, message, selected),), dirty)
     return ConformanceState(task_id, title, "not_delivered", head, head_tree, None,
         (_finding("no_usable_evidence", "No usable committed evidence exists."),), dirty)
+
+
+def evaluate_current_conformance(root: Path | str = ROOT, selector: str = "") -> ConformanceState:
+    """Evaluate one task through a one-shot committed-HEAD context."""
+
+    return ConformanceEvaluationContext(root).evaluate(selector)

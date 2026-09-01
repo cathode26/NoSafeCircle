@@ -5,9 +5,13 @@ import json
 import subprocess
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
+import current_conformance
 from conformance_records import CANON_PATH, GitRepository, canonical_text_sha256, semantic_json_sha256
-from current_conformance import evaluate_current_conformance
+from current_conformance import ConformanceEvaluationContext, evaluate_current_conformance
+from decomposition_graph_semantics import aggregate_requirement_sha256
+from history_aware_repository import HistoryAwareGitRepository
 
 TASK_ID = "NSC-900"
 TASK_PATH = f"Tasks/{TASK_ID}.yaml"
@@ -47,6 +51,30 @@ def task(revision: int = 1, human_gate: bool = False) -> dict:
         "completion_gates": [{"gate_id": "VAL-001", "reference": "test", "requirement": "passes"}],
         "human_gate_for_test": human_gate,
     }
+
+
+def aggregate_task(task_id: str, children: list[str]) -> dict:
+    value = {
+        "schema_version": "2.0",
+        "id": task_id,
+        "contract_revision": 1,
+        "contract_disposition": "active",
+        "title": f"Synthetic aggregate {task_id}",
+        "reconciliation_key": f"synthetic-{task_id.lower()}",
+        "kind": "feature",
+        "execution_scope": "not_applicable",
+        "decomposition_state": "decomposed",
+        "decomposition_children": children,
+        "acceptance_criteria": [
+            {"criterion_id": "AC-001", "reference": "test", "requirement": "complete"}
+        ],
+        "completion_gates": [
+            {"gate_id": "VAL-001", "reference": "test", "requirement": "passes"}
+        ],
+        "downstream_integration_obligations": [],
+    }
+    value["decomposition_requirement_sha256"] = aggregate_requirement_sha256(value)
+    return value
 
 
 def initialize(root: Path) -> tuple[str, str]:
@@ -249,6 +277,59 @@ def scenario_ambiguous(root: Path) -> None:
     expect(root, "ambiguous_evidence")
 
 
+def scenario_context_public_api_and_aggregate_memo(root: Path) -> None:
+    initialize(root)
+    parent_id = "NSC-901"
+    write_json(root, f"Tasks/{parent_id}.yaml", aggregate_task(parent_id, [TASK_ID]))
+    commit(root, "add aggregate parent")
+
+    repository_constructions = 0
+
+    class CountingRepository(HistoryAwareGitRepository):
+        def __init__(self, selected_root: Path | str) -> None:
+            nonlocal repository_constructions
+            repository_constructions += 1
+            super().__init__(selected_root)
+
+    with patch("current_conformance.GitRepository", CountingRepository):
+        context = ConformanceEvaluationContext(root)
+    assert repository_constructions == 1
+
+    expected = evaluate_current_conformance(root, TASK_ID)
+    with patch(
+        "current_conformance._evaluate_resolved_conformance",
+        wraps=current_conformance._evaluate_resolved_conformance,
+    ) as derive:
+        child = context.evaluate(TASK_ID)
+        same_child = context.evaluate("synthetic")
+        parent = context.evaluate(parent_id)
+
+    assert child.to_dict() == expected.to_dict()
+    assert same_child is child
+    assert parent.state == "aggregate"
+    derived_ids = [call.kwargs["task"]["id"] for call in derive.call_args_list]
+    assert derived_ids.count(TASK_ID) == 1, derived_ids
+    assert derived_ids.count(parent_id) == 1, derived_ids
+
+
+def scenario_recursive_aggregate_cycle(root: Path) -> None:
+    initialize(root)
+    first_id = "NSC-901"
+    second_id = "NSC-902"
+    write_json(root, f"Tasks/{first_id}.yaml", aggregate_task(first_id, [second_id]))
+    write_json(root, f"Tasks/{second_id}.yaml", aggregate_task(second_id, [first_id]))
+    commit(root, "add synthetic aggregate cycle")
+
+    context = ConformanceEvaluationContext(root)
+    first = context.evaluate(first_id)
+    second = context.evaluate(second_id)
+    assert first.state == "invalid_evidence", first.to_dict()
+    assert second.state == "invalid_evidence", second.to_dict()
+    assert first.findings[0].code == "conformance_evaluation_cycle"
+    assert second.findings[0].code == "conformance_evaluation_cycle"
+    assert f"{first_id} -> {second_id} -> {first_id}" in first.findings[0].message
+
+
 def fresh(callback, *args) -> None:
     with tempfile.TemporaryDirectory(prefix="phase3a-conformance-") as temp:
         callback(Path(temp), *args)
@@ -267,6 +348,8 @@ def main() -> int:
         fresh(scenario_invalid, corruption)
     fresh(scenario_non_ancestral)
     fresh(scenario_ambiguous)
+    fresh(scenario_context_public_api_and_aggregate_memo)
+    fresh(scenario_recursive_aggregate_cycle)
     print("conformance_evaluator_smoke_test: PASS")
     return 0
 

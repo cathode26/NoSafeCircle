@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from unittest.mock import patch
-
 from current_conformance import ConformanceState, _explicit_aggregate_conformance
 from decomposition_graph_semantics import aggregate_requirement_sha256
 
@@ -44,17 +42,17 @@ def aggregate_task() -> dict:
 
 
 def evaluate_with_states(task: dict, states: dict[str, str]):
-    def fake_evaluate(*, root, selector):
-        return child_state(selector, states[selector])
+    class FakeContext:
+        def evaluate(self, selector: str) -> ConformanceState:
+            return child_state(selector, states[selector])
 
-    with patch("current_conformance.evaluate_current_conformance", side_effect=fake_evaluate):
-        return _explicit_aggregate_conformance(
-            root="synthetic",
-            task=task,
-            head="a" * 40,
-            head_tree="b" * 40,
-            dirty=False,
-        )
+    return _explicit_aggregate_conformance(
+        context=FakeContext(),  # type: ignore[arg-type]
+        task=task,
+        head="a" * 40,
+        head_tree="b" * 40,
+        dirty=False,
+    )
 
 
 def main() -> int:
@@ -87,17 +85,17 @@ def main() -> int:
 
     changed = deepcopy(task)
     changed["acceptance_criteria"][0]["requirement"] = "Changed after the reviewed decomposition."
-    with patch(
-        "current_conformance.evaluate_current_conformance",
-        side_effect=AssertionError("children must not be evaluated when parent requirements changed"),
-    ):
-        replanning = _explicit_aggregate_conformance(
-            root="synthetic",
-            task=changed,
-            head="a" * 40,
-            head_tree="b" * 40,
-            dirty=False,
-        )
+    class ChildrenMustNotRun:
+        def evaluate(self, _selector: str) -> ConformanceState:
+            raise AssertionError("children must not be evaluated when parent requirements changed")
+
+    replanning = _explicit_aggregate_conformance(
+        context=ChildrenMustNotRun(),  # type: ignore[arg-type]
+        task=changed,
+        head="a" * 40,
+        head_tree="b" * 40,
+        dirty=False,
+    )
     assert replanning is not None
     assert replanning.state == "needs_replan"
     assert replanning.findings[0].code == "aggregate_requirements_changed"
@@ -106,7 +104,7 @@ def main() -> int:
     legacy.pop("decomposition_children")
     legacy.pop("decomposition_requirement_sha256")
     assert _explicit_aggregate_conformance(
-        root="synthetic",
+        context=ChildrenMustNotRun(),  # type: ignore[arg-type]
         task=legacy,
         head="a" * 40,
         head_tree="b" * 40,

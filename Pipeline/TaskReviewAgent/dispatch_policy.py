@@ -36,6 +36,24 @@ class DispatchPolicy:
     dependency_dispatch_satisfied_states: tuple[str, ...]
     known_dependency_states: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        # One internal-consistency seam for EVERY effective policy — JSON
+        # loaded or directly constructed/injected. `known_dependency_states`
+        # is the authoritative snapshot-recognition set, so a policy must
+        # never declare a state fresh-eligible or dependency-satisfied while
+        # the authoritative snapshot validation rejects that same state.
+        known = set(self.known_dependency_states)
+        if not set(self.dependency_dispatch_satisfied_states) <= known:
+            raise DispatchPolicyError(
+                "dispatch policy dependency_dispatch_satisfied_states must be a subset of "
+                "known_dependency_states"
+            )
+        if not set(self.fresh_implementation_derived_states) <= known:
+            raise DispatchPolicyError(
+                "dispatch policy fresh_implementation_derived_states must be a subset of "
+                "known_dependency_states"
+            )
+
 
 def _non_empty_string_tuple(value: object, *, field: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not value:
@@ -93,11 +111,9 @@ def load_dispatch_policy(path: Path | str | None = None) -> DispatchPolicy:
     known_states = _non_empty_string_tuple(
         raw["known_dependency_states"], field="known_dependency_states"
     )
-    if not set(satisfied_states) <= set(known_states):
-        raise DispatchPolicyError(
-            "dispatch policy dependency_dispatch_satisfied_states must be a subset of "
-            "known_dependency_states"
-        )
+    # Cross-set consistency (fresh/satisfied subset-of-known) is enforced by
+    # DispatchPolicy.__post_init__ so it also protects directly constructed
+    # policy instances, not only this JSON path.
     return DispatchPolicy(
         schema_version=raw["schema_version"],
         mode=raw["mode"],

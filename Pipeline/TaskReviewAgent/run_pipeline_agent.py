@@ -29,6 +29,7 @@ from Pipeline.TaskReviewAgent.downstream_pipeline import (  # noqa: E402
     DownstreamPipelineError,
 )
 from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
+    TaskcontrolStateObservationError,
     build_dispatch_plan,
     evaluate_committed_fresh_candidate,
 )
@@ -167,11 +168,19 @@ def _require_explicit_fresh_admission(
 
     if selected_phase is not None:
         return
-    evaluation = evaluate_committed_fresh_candidate(
-        source=source,
-        task_id=task_id,
-        worker_id=worker_id,
-    )
+    try:
+        evaluation = evaluate_committed_fresh_candidate(
+            source=source,
+            task_id=task_id,
+            worker_id=worker_id,
+        )
+    except TaskcontrolStateObservationError as exc:
+        # A failed bulk snapshot is a global operational failure, not an
+        # eligibility fact about this task. Surface the bounded concrete
+        # reason instead of a bare per-task state_lookup_failed rejection.
+        raise GenericSelectionError(
+            f"authoritative TaskGraph state observation failed: {exc}"
+        ) from exc
     if not evaluation.eligible:
         raise GenericSelectionError(
             f"{task_id} is not safe fresh implementation work: "

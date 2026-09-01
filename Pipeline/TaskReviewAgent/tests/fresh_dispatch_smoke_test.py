@@ -23,6 +23,8 @@ replaced by an in-memory fake and the remote is a disposable local bare repo.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import subprocess
 import sys
@@ -45,6 +47,7 @@ from Pipeline.TaskReviewAgent.claim_refs import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
+    TaskcontrolStateObservationError,
     build_dispatch_plan,
     evaluate_committed_fresh_candidate,
 )
@@ -926,11 +929,14 @@ def test_resource_reservation_toctou_retries_past_and_starts_disjoint_work() -> 
         "NSC-622": make_task("NSC-622"),
         "NSC-623": make_task("NSC-623", exclusive_resources=[SHARED_RESOURCE]),
     }
-    # NSC-623 deliberately carries no taskcontrol state: Stage 2 never
-    # enumerates or ranks it as a fresh candidate. It exists only as a
-    # committed contract the durable resource scan's task_loader can
+    # NSC-623 is complete snapshot coverage but not fresh work. It exists only
+    # as a committed contract the durable resource scan's task_loader can
     # resolve once the foreign worker's race gives it a real Issue.
-    states = {"NSC-621": "not_delivered", "NSC-622": "not_delivered"}
+    states = {
+        "NSC-621": "not_delivered",
+        "NSC-622": "not_delivered",
+        "NSC-623": "conformant",
+    }
 
     # Fixture 1: prove the single-attempt Stage 3 typed outcome in isolation.
     with tempfile.TemporaryDirectory(prefix="nsc-stage3-resource-toctou-") as tmp:
@@ -1236,6 +1242,138 @@ def test_run_pipeline_agent_explicit_admission_wiring() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Consensus-repair regressions: a GLOBAL failure of the authoritative bulk
+# TaskGraph observation on the explicit -TaskId admission path is a typed
+# operational failure (TaskcontrolStateObservationError), never a bare
+# per-task state_lookup_failed eligibility result, and the operator boundary
+# exits nonzero with the concrete bounded observation-failure reason.
+# ---------------------------------------------------------------------------
+
+
+def _is_bulk_taskcontrol_call(command: Any) -> bool:
+    return (
+        isinstance(command, (tuple, list))
+        and len(command) == 4
+        and Path(str(command[1])).name == "taskcontrol.py"
+        and list(command[2:]) == ["states", "--json"]
+    )
+
+
+def test_explicit_admission_bulk_timeout_is_typed_not_state_lookup_failed() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-stage3-explicit-timeout-") as tmp:
+        root = Path(tmp)
+        tasks = {"NSC-650": make_task("NSC-650")}
+        states = {"NSC-650": "not_delivered"}
+        checkout, _remote = create_fixture(root, tasks=tasks, states=states)
+        with PatchedGhBackend():
+            original_run = subprocess.run
+
+            def timing_out_run(command: Any, *args: Any, **kwargs: Any) -> Any:
+                if _is_bulk_taskcontrol_call(command):
+                    raise subprocess.TimeoutExpired(command, kwargs.get("timeout", 300.0))
+                return original_run(command, *args, **kwargs)
+
+            subprocess.run = timing_out_run  # type: ignore[assignment]
+            try:
+                try:
+                    evaluation = evaluate_committed_fresh_candidate(
+                        source=checkout, task_id="NSC-650", worker_id="stage3-timeout-worker"
+                    )
+                    raise AssertionError(
+                        "a bulk observation timeout degraded into an ordinary evaluation: "
+                        f"{evaluation.reason_codes}"
+                    )
+                except TaskcontrolStateObservationError as exc:
+                    require("timed out" in str(exc), str(exc))
+            finally:
+                subprocess.run = original_run  # type: ignore[assignment]
+
+
+def test_explicit_admission_unknown_own_state_surfaces_observation_failure() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-stage3-explicit-banana-") as tmp:
+        root = Path(tmp)
+        tasks = {"NSC-651": make_task("NSC-651")}
+        states = {"NSC-651": "banana"}
+        checkout, _remote = create_fixture(root, tasks=tasks, states=states)
+        with PatchedGhBackend():
+            try:
+                evaluation = evaluate_committed_fresh_candidate(
+                    source=checkout, task_id="NSC-651", worker_id="stage3-banana-worker"
+                )
+                raise AssertionError(
+                    "an unrecognized snapshot state degraded into an ordinary evaluation: "
+                    f"{evaluation.reason_codes}"
+                )
+            except TaskcontrolStateObservationError as exc:
+                require("'banana'" in str(exc), str(exc))
+                require("NSC-651" in str(exc), str(exc))
+
+
+def test_explicit_admission_unrelated_malformed_snapshot_row_surfaces_observation_failure() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-stage3-explicit-unrelated-") as tmp:
+        root = Path(tmp)
+        tasks = {
+            "NSC-652": make_task("NSC-652"),
+            "NSC-653": make_task("NSC-653"),
+        }
+        # The REQUESTED task NSC-652 is healthy; only the unrelated NSC-653
+        # snapshot row is malformed. The requested task must not silently
+        # look merely ineligible: the global observation failure surfaces.
+        states = {"NSC-652": "not_delivered", "NSC-653": "banana"}
+        checkout, _remote = create_fixture(root, tasks=tasks, states=states)
+        with PatchedGhBackend():
+            try:
+                evaluation = evaluate_committed_fresh_candidate(
+                    source=checkout, task_id="NSC-652", worker_id="stage3-unrelated-worker"
+                )
+                raise AssertionError(
+                    "an unrelated malformed snapshot row made the healthy requested task "
+                    f"look merely ineligible: {evaluation.reason_codes}"
+                )
+            except TaskcontrolStateObservationError as exc:
+                require("'banana'" in str(exc), str(exc))
+                require("NSC-653" in str(exc), str(exc))
+
+
+def test_explicit_admission_observation_failure_exits_nonzero_with_bounded_reason() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-stage3-explicit-boundary-") as tmp:
+        root = Path(tmp)
+        tasks = {"NSC-654": make_task("NSC-654")}
+        states = {"NSC-654": "banana"}
+        checkout, remote = create_fixture(root, tasks=tasks, states=states)
+        with PatchedGhBackend() as backend_cls:
+            store = backend_cls(source_root=checkout)._inner
+            stderr_capture = io.StringIO()
+            with contextlib.redirect_stderr(stderr_capture):
+                exit_code = run_pipeline_agent_module.main(
+                    [
+                        "--source",
+                        str(checkout),
+                        "--worker-id",
+                        "stage3-boundary-worker",
+                        "--task-id",
+                        "NSC-654",
+                    ]
+                )
+            stderr_text = stderr_capture.getvalue()
+            require(
+                exit_code == 2,
+                f"a failed authoritative observation did not exit nonzero: {exit_code}",
+            )
+            require(
+                "authoritative TaskGraph state observation failed:" in stderr_text,
+                f"missing typed observation-failure boundary message: {stderr_text}",
+            )
+            require("'banana'" in stderr_text, f"missing concrete failure reason: {stderr_text}")
+            require(
+                len(stderr_text) < 4000,
+                f"operator boundary message is not bounded ({len(stderr_text)} chars)",
+            )
+            require(store.issues == {}, "a failed explicit admission mutated the durable Issue")
+            require(remote_claims(remote) == {}, "a failed explicit admission created a claim ref")
+
+
+# ---------------------------------------------------------------------------
 # observe mode must never mutate for the generic no-TaskId command.
 # ---------------------------------------------------------------------------
 
@@ -1366,6 +1504,10 @@ def main() -> int:
         test_cleanup_failure_after_verified_lease_is_not_ordinary_success,
         test_explicit_fresh_admission_shares_stage2_kernel_and_never_substitutes,
         test_run_pipeline_agent_explicit_admission_wiring,
+        test_explicit_admission_bulk_timeout_is_typed_not_state_lookup_failed,
+        test_explicit_admission_unknown_own_state_surfaces_observation_failure,
+        test_explicit_admission_unrelated_malformed_snapshot_row_surfaces_observation_failure,
+        test_explicit_admission_observation_failure_exits_nonzero_with_bounded_reason,
         test_generic_observe_mode_never_mutates,
         test_explicit_observe_mode_does_not_require_fresh_admission,
         test_main_no_task_id_exit_code_mapping,
