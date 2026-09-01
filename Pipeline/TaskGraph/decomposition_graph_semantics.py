@@ -48,6 +48,57 @@ def validate_decomposition_graph_semantics(plan: Any) -> None:
     tasks = tuple(plan.tasks)
     tasks_by_id = {task["id"]: task for task in tasks}
 
+    for child in tasks:
+        if child.get("contract_disposition") != "active":
+            continue
+        provenance = child.get("provenance")
+        if not isinstance(provenance, dict):
+            continue
+        plan_id = provenance.get("graph_delta_plan_id")
+        if not isinstance(plan_id, str) or not plan_id.strip():
+            continue
+
+        child_id = child["id"]
+        plan_id = plan_id.strip()
+        direct_parent_id = child.get("parent")
+        recorded_parent_id = provenance.get("parent_task_id")
+        if not isinstance(recorded_parent_id, str) or not recorded_parent_id.strip():
+            raise DecompositionGraphSemanticsError(
+                f"Orphaned active decomposition child {child_id} from graph delta plan "
+                f"{plan_id}: provenance.parent_task_id does not identify its parent "
+                f"(direct parent={direct_parent_id!r})."
+            )
+        recorded_parent_id = recorded_parent_id.strip()
+        if direct_parent_id != recorded_parent_id:
+            raise DecompositionGraphSemanticsError(
+                f"Orphaned active decomposition child {child_id} from graph delta plan "
+                f"{plan_id}: provenance names parent {recorded_parent_id}, but the "
+                f"contract's direct parent is {direct_parent_id!r}."
+            )
+
+        parent = tasks_by_id.get(recorded_parent_id)
+        if parent is None:
+            reason = "that parent contract is missing"
+        elif parent.get("decomposition_state") != "decomposed":
+            reason = (
+                "that parent is not decomposed "
+                f"(decomposition_state={parent.get('decomposition_state')!r})"
+            )
+        else:
+            decomposition_children = parent.get("decomposition_children")
+            if decomposition_children is None:
+                continue
+            if (
+                isinstance(decomposition_children, list)
+                and child_id in decomposition_children
+            ):
+                continue
+            reason = "that parent does not list the child in decomposition_children"
+        raise DecompositionGraphSemanticsError(
+            f"Orphaned active decomposition child {child_id} from graph delta plan "
+            f"{plan_id} under parent {recorded_parent_id}: {reason}."
+        )
+
     for parent in tasks:
         child_ids = parent.get("decomposition_children")
         if child_ids is None:
