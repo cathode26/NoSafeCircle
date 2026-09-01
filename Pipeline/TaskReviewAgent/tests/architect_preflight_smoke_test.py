@@ -1,0 +1,752 @@
+#!/usr/bin/env python3
+"""Read-only architect schema, runtime, persistence, and gate smoke tests.
+
+Classification: pure/component tests with temporary AgentRuntime artifacts.
+These tests prove polling-orchestrator infrastructure invariants; they do not
+claim a Unity task acceptance criterion or touch a canonical Unity asset.
+
+The admission tests below prove the WAIT policy: every form of merge or
+integration uncertainty waits, and only a named design/canon escalation
+produces HUMAN_REVIEW.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from Pipeline.AgentRuntime.agent_runner import AgentRunner  # noqa: E402
+from Pipeline.AgentRuntime.config import RuntimeConfiguration  # noqa: E402
+from Pipeline.AgentRuntime.providers.fake import FakeProvider  # noqa: E402
+from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
+    ARCHITECT_ADVISORY_SCHEMA,
+    ArchitectAdvisory,
+    ArchitectDecisionCache,
+    ArchitectPolicyDecision,
+    ArchitectPreflightError,
+    PredictedChangeSurface,
+    active_surface_fingerprint,
+    analyze_candidate,
+    architect_decision_cache_key,
+    assess_unknown_surface_reservations,
+    build_architect_request,
+    detect_deterministic_conflict,
+    evaluate_architect_policy,
+    persist_architect_advisory,
+    unconfirmed_unknown_surface_task_ids,
+)
+
+
+TASK_ID = "NSC-101"
+SOURCE_HEAD = "1" * 40
+CONTRACT_SHA = "a" * 64
+PROVIDER_KEY = "polling-architect-fake"
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
+def task() -> dict[str, Any]:
+    return {
+        "schema_version": "2.0",
+        "id": TASK_ID,
+        "title": "Player HUD health binding",
+        "kind": "implementation",
+        "execution_scope": "single_agent",
+        "decomposition_state": "concrete",
+        "contract_disposition": "active",
+        "depends_on": [],
+        "exclusive_resources": ["logical:player-hud"],
+        "acceptance_criteria": [],
+        "completion_gates": [],
+        "task_contract_sha256": CONTRACT_SHA,
+    }
+
+
+def advisory_value(
+    *,
+    risk: str = "low",
+    recommendation: str = "start",
+    confidence: float = 0.9,
+    exact_paths: list[str] | None = None,
+    unity_assets: list[str] | None = None,
+    escalation_category: str = "none",
+    escalation_question: str = "",
+    disjointness: list[dict[str, str]] | None = None,
+    conflicting_task_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "task_id": TASK_ID,
+        "source_head": SOURCE_HEAD,
+        "task_contract_sha256": CONTRACT_SHA,
+        "predicted_change_surface": {
+            "exact_paths": exact_paths or ["Assets/NoSafeCircle/UI/PlayerHud.cs"],
+            "path_patterns": ["Assets/NoSafeCircle/UI/*.cs"],
+            "unity_serialized_assets": unity_assets or [],
+            "symbols_or_components": ["PlayerHud"],
+            "shared_systems": ["player health UI"],
+        },
+        "integration_risk": risk,
+        "parallel_recommendation": recommendation,
+        "conflicting_task_ids": list(conflicting_task_ids or []),
+        "conflict_reasons": [],
+        "escalation": {
+            "category": escalation_category,
+            "question": escalation_question,
+        },
+        "unknown_surface_disjointness": list(disjointness or []),
+        "design_advice": {
+            "implementation_summary": (
+                "Bind the HUD through the existing player-health API instead of "
+                "adding health state to a central manager."
+            ),
+            "recommended_interfaces": [
+                "Prefer the existing player-health event boundary over editing GameManager."
+            ],
+            "sequencing_notes": ["Wire the component before touching HUD.prefab."],
+            "suggested_exclusive_resources": ["logical:player-hud"],
+            "suggested_taskgraph_changes": [
+                "Consider a dependency only if the health event does not exist."
+            ],
+            "suggested_decomposition": [
+                "Split prefab assembly only if the task also owns scene-wide HUD setup."
+            ],
+        },
+        "evidence": [
+            {
+                "path": "Assets/NoSafeCircle/UI/PlayerHud.cs",
+                "observation": "The fixture treats this as the likely binding component.",
+            }
+        ],
+        "confidence": confidence,
+        "assumptions": ["The existing health event remains the supported API."],
+    }
+
+
+def fake_analysis(
+    root: Path,
+    value: dict[str, Any],
+    *,
+    reservations: list[dict[str, Any]] | None = None,
+) -> tuple[Any, list[Any]]:
+    configuration = RuntimeConfiguration(
+        {
+            PROVIDER_KEY: {
+                "provider": "fake",
+                "models": {
+                    "low_cost": "fake-model",
+                    "standard": "fake-model",
+                    "high_reasoning": "fake-model",
+                },
+            }
+        }
+    )
+    runner = AgentRunner(
+        root / "agent-runtime",
+        configuration,
+        {"fake": FakeProvider(structured_output=value)},
+    )
+    captured: list[Any] = []
+
+    def invoke(request: Any) -> Any:
+        captured.append(request)
+        return runner.run(request)
+
+    analysis = analyze_candidate(
+        task=task(),
+        source_head=SOURCE_HEAD,
+        reservations=reservations or [],
+        scheduler_id="architect-smoke-scheduler",
+        artifact_root=root / "advisories",
+        invoker=invoke,
+        provider_configuration_key=PROVIDER_KEY,
+        max_turns=7,
+        timeout_seconds=30.0,
+    )
+    return analysis, captured
+
+
+def test_schema_accepts_complete_advisory() -> None:
+    parsed = ArchitectAdvisory.from_dict(advisory_value())
+    require(parsed.task_id == TASK_ID, "valid advisory lost task identity")
+    require(parsed.integration_risk == "low", "valid risk was not retained")
+    require(
+        set(ARCHITECT_ADVISORY_SCHEMA["required"])
+        == set(ARCHITECT_ADVISORY_SCHEMA["properties"]),
+        "schema does not require its entire top-level shape",
+    )
+
+
+def test_malformed_or_missing_fields_fail_closed() -> None:
+    malformed = advisory_value()
+    del malformed["assumptions"]
+    try:
+        ArchitectAdvisory.from_dict(malformed)
+    except ArchitectPreflightError:
+        pass
+    else:
+        raise AssertionError("missing assumptions was accepted")
+
+    with tempfile.TemporaryDirectory() as text:
+        try:
+            fake_analysis(Path(text), malformed)
+        except ArchitectPreflightError as exc:
+            require("schema" in str(exc).casefold(), str(exc))
+        else:
+            raise AssertionError("AgentRuntime schema failure did not stop analysis")
+
+
+def test_prompt_contains_task_identity_and_reservation_context() -> None:
+    reservation = {
+        "task_id": "NSC-202",
+        "workflow_state": "human_action_required",
+        "phase": "unity_runtime_validation",
+        "actual_paths": ["Assets/Scenes/Game.unity"],
+        "predicted_paths": [],
+        "exclusive_resources": [],
+        "unity_serialized_assets": ["Assets/Scenes/Game.unity"],
+        "shared_systems": [],
+        "evidence_type": "durable_branch_actual",
+        "confidence": 1.0,
+        "surface_unknown": False,
+        "local_active": False,
+    }
+    request = build_architect_request(
+        task=task(),
+        source_head=SOURCE_HEAD,
+        reservations=[reservation],
+        provider_configuration_key=PROVIDER_KEY,
+        max_turns=5,
+        timeout_seconds=20.0,
+        run_id="architect-context-fixture",
+    )
+    for expected in (TASK_ID, SOURCE_HEAD, CONTRACT_SHA, "NSC-202", "Game.unity"):
+        require(expected in request.prompt, f"architect prompt omitted {expected}")
+    require("Existing approved GDD and TaskGraph canon are authority" in request.prompt, "canon authority rule missing")
+    require("Do not redesign requirements" in request.prompt, "no-redesign rule missing")
+    require("central managers or registries" in request.prompt, "Unity hot spots missing")
+    require(
+        "clean parallelism, not worker utilization" in request.prompt,
+        "prompt does not state the parallelism objective",
+    )
+    require(
+        "Never ask for a\n  human merely because conflict prediction is uncertain"
+        in request.prompt,
+        "prompt does not narrow human review to design/canon ambiguity",
+    )
+
+
+def test_real_request_is_read_only_with_empty_write_boundaries() -> None:
+    request = build_architect_request(
+        task=task(),
+        source_head=SOURCE_HEAD,
+        reservations=[],
+        provider_configuration_key=PROVIDER_KEY,
+        max_turns=6,
+        timeout_seconds=25.0,
+        run_id="architect-read-only-fixture",
+    )
+    require(
+        request.allowed_capabilities == ("repository_read", "repository_search"),
+        str(request.allowed_capabilities),
+    )
+    require(request.write_boundaries.allowed_paths == (), "architect has allowed writes")
+    require(request.write_boundaries.denied_paths == (), "architect has write paths")
+    require("repository_write" not in request.allowed_capabilities, "write capability leaked")
+    require("approved_command_execution" not in request.allowed_capabilities, "command capability leaked")
+    require(request.budgets.turn_limit == 6, "turn budget changed")
+    require(request.budgets.timeout_seconds == 25.0, "timeout budget changed")
+
+
+def test_high_risk_waits() -> None:
+    decision = evaluate_architect_policy(
+        ArchitectAdvisory.from_dict(advisory_value(risk="high"))
+    )
+    require(decision.decision == "wait", str(decision))
+
+
+def test_medium_risk_waits() -> None:
+    decision = evaluate_architect_policy(
+        ArchitectAdvisory.from_dict(advisory_value(risk="medium"))
+    )
+    require(decision.decision == "wait", str(decision))
+
+
+def test_unknown_risk_waits() -> None:
+    decision = evaluate_architect_policy(
+        ArchitectAdvisory.from_dict(advisory_value(risk="unknown"))
+    )
+    require(decision.decision == "wait", str(decision))
+
+
+def test_architect_wait_recommendation_waits() -> None:
+    decision = evaluate_architect_policy(
+        ArchitectAdvisory.from_dict(advisory_value(recommendation="wait"))
+    )
+    require(decision.decision == "wait", str(decision))
+
+
+def test_low_start_with_confidence_passes() -> None:
+    decision = evaluate_architect_policy(
+        ArchitectAdvisory.from_dict(advisory_value()), min_confidence=0.65
+    )
+    require(decision.decision == "start", str(decision))
+
+
+def test_low_confidence_waits() -> None:
+    decision = evaluate_architect_policy(
+        ArchitectAdvisory.from_dict(advisory_value(confidence=0.64)),
+        min_confidence=0.65,
+    )
+    require(decision.decision == "wait", str(decision))
+    require(
+        any("confidence" in reason for reason in decision.reasons), str(decision)
+    )
+
+
+def test_merge_conflict_uncertainty_never_reaches_a_human() -> None:
+    for value in (
+        advisory_value(risk="unknown", recommendation="human_review"),
+        advisory_value(risk="medium", recommendation="human_review"),
+        advisory_value(confidence=0.10, recommendation="human_review"),
+        advisory_value(recommendation="human_review"),
+    ):
+        decision = evaluate_architect_policy(ArchitectAdvisory.from_dict(value))
+        require(decision.decision == "wait", str(decision))
+
+
+def test_design_or_canon_ambiguity_is_the_only_human_review_basis() -> None:
+    for category in (
+        "design_or_canon_ambiguity",
+        "task_scope_or_contract_change",
+        "decomposition_required",
+    ):
+        decision = evaluate_architect_policy(
+            ArchitectAdvisory.from_dict(
+                advisory_value(
+                    recommendation="human_review",
+                    escalation_category=category,
+                    escalation_question=(
+                        "Should the HUD own health state or read the existing "
+                        "player-health event?"
+                    ),
+                )
+            )
+        )
+        require(decision.decision == "human_review", f"{category}: {decision}")
+        require(
+            any("player-health event" in reason for reason in decision.reasons),
+            str(decision),
+        )
+
+
+def test_escalation_without_a_stated_question_waits() -> None:
+    decision = evaluate_architect_policy(
+        ArchitectAdvisory.from_dict(
+            advisory_value(
+                recommendation="human_review",
+                escalation_category="decomposition_required",
+                escalation_question="   ",
+            )
+        )
+    )
+    require(decision.decision == "wait", str(decision))
+
+
+def test_unknown_surface_blocks_without_disjoint_committed_resources() -> None:
+    assessment = assess_unknown_surface_reservations(
+        candidate_task_id=TASK_ID,
+        candidate_exclusive_resources=(),
+        reservations=[
+            {
+                "task_id": "NSC-202",
+                "exclusive_resources": [],
+                "surface_unknown": True,
+            }
+        ],
+    )
+    require(assessment.blocks_without_architect, str(assessment))
+    require(assessment.blocking_task_ids == ("NSC-202",), str(assessment))
+
+
+def test_unknown_surface_does_not_deadlock_provably_disjoint_work() -> None:
+    reservations = [
+        {
+            "task_id": "NSC-202",
+            "exclusive_resources": ["logical:chapel-blockout"],
+            "surface_unknown": True,
+        }
+    ]
+    assessment = assess_unknown_surface_reservations(
+        candidate_task_id=TASK_ID,
+        candidate_exclusive_resources=("logical:player-hud",),
+        reservations=reservations,
+    )
+    require(not assessment.blocks_without_architect, str(assessment))
+    require(
+        assessment.architect_confirmable_task_ids == ("NSC-202",), str(assessment)
+    )
+    silent = ArchitectAdvisory.from_dict(advisory_value())
+    require(
+        unconfirmed_unknown_surface_task_ids(silent, assessment) == ("NSC-202",),
+        "an unjustified unknown surface was treated as safe",
+    )
+    justified = ArchitectAdvisory.from_dict(
+        advisory_value(
+            disjointness=[
+                {
+                    "task_id": "NSC-202",
+                    "justification": (
+                        "NSC-202 owns Chapel blockout geometry; the HUD binding "
+                        "touches no scene geometry."
+                    ),
+                }
+            ]
+        )
+    )
+    require(
+        unconfirmed_unknown_surface_task_ids(justified, assessment) == (),
+        "a justified disjointness claim was ignored",
+    )
+    contradicted = ArchitectAdvisory.from_dict(
+        advisory_value(
+            conflicting_task_ids=["NSC-202"],
+            disjointness=[
+                {"task_id": "NSC-202", "justification": "claims disjoint anyway"}
+            ],
+        )
+    )
+    require(
+        unconfirmed_unknown_surface_task_ids(contradicted, assessment) == ("NSC-202",),
+        "a self-contradicting advisory was accepted",
+    )
+
+
+def test_wait_cache_key_binds_task_head_and_integration_fingerprint() -> None:
+    base = dict(
+        task_id=TASK_ID,
+        task_contract_sha256=CONTRACT_SHA,
+        source_head=SOURCE_HEAD,
+        integration_fingerprint="d" * 64,
+    )
+    key = architect_decision_cache_key(**base)
+    require(key == architect_decision_cache_key(**base), "cache key is not stable")
+    for field, value in (
+        ("task_id", "NSC-102"),
+        ("task_contract_sha256", "e" * 64),
+        ("source_head", "2" * 40),
+        ("integration_fingerprint", "f" * 64),
+    ):
+        changed = dict(base)
+        changed[field] = value
+        require(
+            architect_decision_cache_key(**changed) != key,
+            f"cache key ignored a change to {field}",
+        )
+
+
+def test_wait_is_reused_but_start_is_never_cached() -> None:
+    cache = ArchitectDecisionCache(max_entries=2)
+    key = architect_decision_cache_key(
+        task_id=TASK_ID,
+        task_contract_sha256=CONTRACT_SHA,
+        source_head=SOURCE_HEAD,
+        integration_fingerprint="d" * 64,
+    )
+    wait = ArchitectPolicyDecision("wait", ("medium integration risk",))
+    cache.remember(key, wait)
+    require(cache.get(key) == wait, "cached wait was not reusable")
+    cache.remember(key, ArchitectPolicyDecision("start", ()))
+    require(cache.get(key) == wait, "start overwrote a cached wait")
+    other = architect_decision_cache_key(
+        task_id=TASK_ID,
+        task_contract_sha256=CONTRACT_SHA,
+        source_head="2" * 40,
+        integration_fingerprint="d" * 64,
+    )
+    require(cache.get(other) is None, "a moved HEAD reused a stale wait")
+    third = architect_decision_cache_key(
+        task_id="NSC-103",
+        task_contract_sha256=CONTRACT_SHA,
+        source_head=SOURCE_HEAD,
+        integration_fingerprint="d" * 64,
+    )
+    cache.remember(other, wait)
+    cache.remember(third, wait)
+    require(len(cache) == 2, f"cache exceeded its bound: {len(cache)}")
+
+
+def test_a_task_never_conflicts_with_its_own_durable_reservation() -> None:
+    resumable = detect_deterministic_conflict(
+        candidate_task_id=TASK_ID,
+        candidate_exclusive_resources=("logical:player-hud",),
+        candidate_surface=ArchitectAdvisory.from_dict(
+            advisory_value()
+        ).predicted_change_surface,
+        reservations=[
+            {
+                "task_id": TASK_ID,
+                "actual_paths": ["Assets/NoSafeCircle/UI/PlayerHud.cs"],
+                "predicted_paths": [],
+                "unity_serialized_assets": [],
+                "exclusive_resources": ["logical:player-hud"],
+                "local_active": False,
+            }
+        ],
+    )
+    require(resumable is None, str(resumable))
+    running = detect_deterministic_conflict(
+        candidate_task_id=TASK_ID,
+        candidate_exclusive_resources=(),
+        candidate_surface=PredictedChangeSurface((), (), (), (), ()),
+        reservations=[
+            {
+                "task_id": TASK_ID,
+                "actual_paths": [],
+                "predicted_paths": [],
+                "unity_serialized_assets": [],
+                "exclusive_resources": [],
+                "local_active": True,
+            }
+        ],
+    )
+    require(running is not None and running.kind == "active_task_id", str(running))
+
+
+def test_design_suggestions_are_persisted_but_not_applied() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        analysis, captured = fake_analysis(root, advisory_value())
+        persisted = json.loads(analysis.artifact_path.read_text(encoding="utf-8"))
+        advice = persisted["structured_architect_output"]["design_advice"]
+        require("logical:player-hud" in advice["suggested_exclusive_resources"], str(advice))
+        require(persisted["authority"] == "advisory_only_not_applied", str(persisted))
+        require(all(persisted["explicitly_not_applied"].values()), str(persisted))
+        require(not (root / "Tasks").exists(), "architect created a TaskGraph path")
+        require(not (root / "Docs").exists(), "architect created a GDD/docs path")
+        require(len(captured) == 1, "fake AgentRuntime was not invoked exactly once")
+
+
+def test_exact_predicted_path_overlap_with_actual_hard_blocks() -> None:
+    advisory = ArchitectAdvisory.from_dict(advisory_value())
+    conflict = detect_deterministic_conflict(
+        candidate_task_id=TASK_ID,
+        candidate_exclusive_resources=(),
+        candidate_surface=advisory.predicted_change_surface,
+        reservations=[
+            {
+                "task_id": "NSC-202",
+                "actual_paths": ["Assets/NoSafeCircle/UI/PlayerHud.cs"],
+                "predicted_paths": [],
+                "unity_serialized_assets": [],
+                "exclusive_resources": [],
+                "local_active": False,
+            }
+        ],
+    )
+    require(conflict is not None and conflict.kind == "exact_path_actual", str(conflict))
+
+
+def test_shared_predicted_unity_asset_hard_blocks() -> None:
+    surface = ArchitectAdvisory.from_dict(
+        advisory_value(
+            exact_paths=[], unity_assets=["Assets/NoSafeCircle/UI/HUD.prefab"]
+        )
+    ).predicted_change_surface
+    conflict = detect_deterministic_conflict(
+        candidate_task_id=TASK_ID,
+        candidate_exclusive_resources=(),
+        candidate_surface=surface,
+        reservations=[
+            {
+                "task_id": "NSC-202",
+                "actual_paths": [],
+                "predicted_paths": [],
+                "unity_serialized_assets": ["Assets/NoSafeCircle/UI/HUD.prefab"],
+                "exclusive_resources": [],
+                "local_active": True,
+            }
+        ],
+    )
+    require(conflict is not None and conflict.kind == "unity_serialized_asset", str(conflict))
+
+
+def test_exact_resource_overlap_blocks_without_llm_judgment() -> None:
+    conflict = detect_deterministic_conflict(
+        candidate_task_id=TASK_ID,
+        candidate_exclusive_resources=("logical:player-hud",),
+        candidate_surface=PredictedChangeSurface((), (), (), (), ()),
+        reservations=[
+            {
+                "task_id": "NSC-202",
+                "actual_paths": [],
+                "predicted_paths": [],
+                "unity_serialized_assets": [],
+                "exclusive_resources": ["logical:player-hud"],
+                "local_active": False,
+            }
+        ],
+    )
+    require(conflict is not None and conflict.kind == "exclusive_resource", str(conflict))
+
+
+def test_meta_companion_paths_conservatively_collide() -> None:
+    conflict = detect_deterministic_conflict(
+        candidate_task_id=TASK_ID,
+        candidate_exclusive_resources=(),
+        candidate_surface=PredictedChangeSurface(
+            ("Assets/NoSafeCircle/UI/HUD.prefab",), (), (), (), ()
+        ),
+        reservations=[
+            {
+                "task_id": "NSC-202",
+                "actual_paths": ["Assets/NoSafeCircle/UI/HUD.prefab.meta"],
+                "predicted_paths": [],
+                "unity_serialized_assets": [],
+                "exclusive_resources": [],
+                "local_active": False,
+            }
+        ],
+    )
+    require(conflict is not None and conflict.kind == "exact_path_actual", str(conflict))
+
+
+def test_stable_surface_fingerprint_ignores_only_actual_path_growth() -> None:
+    reservation = {
+        "task_id": "NSC-202",
+        "workflow_state": "agent_in_progress",
+        "phase": "implementation",
+        "branch": "nsc-202-fixture",
+        "head": "2" * 40,
+        "exclusive_resources": ["logical:fixture"],
+        "predicted_paths": ["Assets/Predicted.cs"],
+        "actual_paths": ["Assets/First.cs"],
+        "unity_serialized_assets": [],
+        "shared_systems": ["fixture system"],
+        "surface_unknown": False,
+        "local_active": True,
+    }
+    first = active_surface_fingerprint([reservation])
+    grown = dict(reservation)
+    grown["actual_paths"] = ["Assets/First.cs", "Assets/Second.cs"]
+    require(
+        active_surface_fingerprint([grown]) == first,
+        "actual path growth churned the stable reservation fingerprint",
+    )
+    changed_membership = dict(reservation)
+    changed_membership["head"] = "3" * 40
+    require(
+        active_surface_fingerprint([changed_membership]) != first,
+        "durable branch/head identity did not invalidate the fingerprint",
+    )
+
+
+def test_advisory_artifact_safe_write() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        advisory = ArchitectAdvisory.from_dict(advisory_value())
+        path = persist_architect_advisory(
+            artifact_root=root,
+            analysis_id="safe-write-fixture",
+            scheduler_id="scheduler-fixture",
+            task=task(),
+            source_head=SOURCE_HEAD,
+            reservations=[],
+            advisory=advisory,
+            invocation_metadata={"provider": "fake", "model": "fake-model"},
+        )
+        require(path.is_file(), "advisory artifact was not published")
+        require(not list(root.glob("*.tmp")), "temporary advisory file leaked")
+        try:
+            persist_architect_advisory(
+                artifact_root=root,
+                analysis_id="safe-write-fixture",
+                scheduler_id="scheduler-fixture",
+                task=task(),
+                source_head=SOURCE_HEAD,
+                reservations=[],
+                advisory=advisory,
+            )
+        except ArchitectPreflightError:
+            pass
+        else:
+            raise AssertionError("safe write overwrote an existing advisory")
+
+
+def test_same_inputs_yield_same_deterministic_enforcement() -> None:
+    advisory = ArchitectAdvisory.from_dict(advisory_value())
+    decisions = [
+        evaluate_architect_policy(advisory, min_confidence=0.65)
+        for _index in range(3)
+    ]
+    require(decisions[0] == decisions[1] == decisions[2], str(decisions))
+    reservations = [
+        {
+            "task_id": "NSC-202",
+            "actual_paths": ["Assets/Other.cs"],
+            "predicted_paths": [],
+            "unity_serialized_assets": [],
+            "exclusive_resources": [],
+            "local_active": False,
+        }
+    ]
+    conflicts = [
+        detect_deterministic_conflict(
+            candidate_task_id=TASK_ID,
+            candidate_exclusive_resources=(),
+            candidate_surface=advisory.predicted_change_surface,
+            reservations=reservations,
+        )
+        for _index in range(3)
+    ]
+    require(conflicts[0] == conflicts[1] == conflicts[2], str(conflicts))
+
+
+def main() -> int:
+    tests = (
+        test_schema_accepts_complete_advisory,
+        test_malformed_or_missing_fields_fail_closed,
+        test_prompt_contains_task_identity_and_reservation_context,
+        test_real_request_is_read_only_with_empty_write_boundaries,
+        test_high_risk_waits,
+        test_medium_risk_waits,
+        test_unknown_risk_waits,
+        test_architect_wait_recommendation_waits,
+        test_low_start_with_confidence_passes,
+        test_low_confidence_waits,
+        test_merge_conflict_uncertainty_never_reaches_a_human,
+        test_design_or_canon_ambiguity_is_the_only_human_review_basis,
+        test_escalation_without_a_stated_question_waits,
+        test_unknown_surface_blocks_without_disjoint_committed_resources,
+        test_unknown_surface_does_not_deadlock_provably_disjoint_work,
+        test_wait_cache_key_binds_task_head_and_integration_fingerprint,
+        test_wait_is_reused_but_start_is_never_cached,
+        test_a_task_never_conflicts_with_its_own_durable_reservation,
+        test_design_suggestions_are_persisted_but_not_applied,
+        test_exact_predicted_path_overlap_with_actual_hard_blocks,
+        test_shared_predicted_unity_asset_hard_blocks,
+        test_exact_resource_overlap_blocks_without_llm_judgment,
+        test_meta_companion_paths_conservatively_collide,
+        test_stable_surface_fingerprint_ignores_only_actual_path_growth,
+        test_advisory_artifact_safe_write,
+        test_same_inputs_yield_same_deterministic_enforcement,
+    )
+    for test in tests:
+        test()
+        print(f"PASS {test.__name__}")
+    print(f"Architect preflight tests: PASS ({len(tests)} tests)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

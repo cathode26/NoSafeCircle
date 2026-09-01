@@ -6,6 +6,63 @@ This is a design/audit deliverable only. Nothing under `Pipeline/`, `Tasks/`, `.
 production path was modified to produce it. See `Docs/AI-Pipeline/Stage5-Decomposition-Design/` for the
 full document set.
 
+## STATUS UPDATE — superseded in part by the Software Architect Orchestrator
+
+**This packet is retained as historical design evidence. Its detailed audit, D1C design, concurrency
+threat model, and test plan remain useful and are unchanged. Its orchestration assumptions are not.**
+
+The project's target operating model is no longer many independent generic workers self-selecting tasks
+and independently entering implementation/decomposition workflows. It is one supervised polling
+**software architect** that observes deterministic TaskGraph/workflow state, reasons about integration
+conflicts, decomposes tasks when needed, and launches workers with exact explicit task IDs. Existing
+Git CAS claims remain as defense in depth rather than as the normal mechanism by which schedulers
+compete for fresh work.
+
+New design packet: [`../Software-Architect-Orchestrator/README.md`](../Software-Architect-Orchestrator/README.md).
+
+What that means for the slices below:
+
+- **Slices 1-3 remain the deterministic D1C foundation** (planner/preflight, local transactional
+  materialization, standalone `apply_graph_delta()` with idempotency, one local Git commit, and
+  post-commit validation/rollback). The redesign keeps them and gives Slice 3 a new architect-facing
+  role.
+- **Slices 4-8 are superseded or reassessed.** Slice 4 is simplified to a minimal durable
+  decomposition authorization record; Slice 5's generic dispatcher/resume integration is deleted;
+  Slice 6a is retained only as defense in depth; Slice 6b's atomic multi-task claim is replaced by a
+  single-architect graph-mutation critical section with affected-contract WAIT; Slice 7 is redesigned
+  as a single-architect end-to-end proof; Slice 8's distributed race proof is replaced. The
+  slice-by-slice verdicts and their reasoning are in
+  [`../Software-Architect-Orchestrator/IMPLEMENTATION_SEQUENCE.md`](../Software-Architect-Orchestrator/IMPLEMENTATION_SEQUENCE.md).
+- The **10-worker decentralized self-selection wave is retired**. The private Gauntlet's Phase A
+  resume/human-hold behavior and Phase B simultaneous fresh-claim race (at most one winner, typed
+  loser, safe replan, no duplicate Issues, no leaked claims) are what make it safe to demote the
+  racing layer to defense in depth rather than delete it.
+
+### A4 contract-hash reconciliation correction
+
+A local D1C commit may legitimately rewrite a parent or dependent task contract while an
+open managed Issue still records the **pre-delta** `task_contract_sha256`. Future A4
+integration must include those Issues in the affected-contract WAIT/reconciliation scope
+and distinguish:
+
+- an old Issue hash that is expected because this exact reviewed, authorized, and applied
+  plan rewrote the contract; from
+- a durable Issue/HEAD disagreement whose cause is unknown.
+
+The first case requires bounded reconciliation and must not hard-stop the scheduler
+immediately after a valid D1C apply solely because the Issue still names the old hash. The
+second case remains fail-closed.
+
+Decomposition proposals should also report two cheap advisory quality counters: the
+number of child pairs with overlapping predicted change surfaces, and the count of
+children predicted to touch each Unity serialized asset. These are HUMAN_REVIEW evidence
+only. They must not weaken deterministic requirement coverage, replace semantic overlap
+explanations, or become graph validity gates.
+
+The GO/WAIT/DO-NOT-DO table and sequencing below describe the pre-redesign plan and are preserved for
+history. Where they disagree with the new packet, the new packet governs orchestration; this packet
+still governs the deterministic D1C design detail.
+
 ## What "Stage 5" actually means in this repository
 
 **FACT.** The repository's own naming already reserves "Stage 5" for exactly one thing. `Pipeline/TaskReviewAgent/fresh_dispatch.py` states explicitly: *"Stage 5 decomposition: a `no_safe_work` plan is reported as-is; this module never routes into the Progressive Decomposer."* `AI_PIPELINE.md` lists **"D1C reusable reviewed graph application"** as a current intentional gap, alongside "Dependency readiness policy" and "Autonomous dispatch."
@@ -60,7 +117,7 @@ Design/audit/test specification may proceed while the Gauntlet runs.
 6. Concurrency serialization / affected-contract authority — AFTER GAUNTLET; Slice 6b also needs its own proof
 7. Live single-decomposition proof — AFTER Slices 1-6 and required prerequisites
 8. Multi-worker proof — AFTER single-worker proof
-9. Autonomous/background enablement consideration — separate authorization; out of Stage 5 scope
+9. Autonomous/background decomposition enablement consideration — separate authorization; out of Stage 5 scope
 ```
 
 ## Explicit prerequisites from the live Gauntlet
@@ -78,7 +135,7 @@ The Gauntlet is the first real multi-worker proof of `dispatch_plan.py` + `fresh
 | Enable decomposition candidates in generic resume-first selection | **WAIT** | Same dependency; also depends on serialization design in `CONCURRENCY_AND_FAILURE_MODEL.md` |
 | Run a live single-worker D1C application against a real parent | **WAIT** | Should follow, not precede, deterministic test coverage and Gauntlet acceptance |
 | Run multi-worker D1C application races | **WAIT** | Explicitly the highest-risk untested case; must follow single-worker proof |
-| Enable autonomous/background dispatch for decomposition | **DO NOT DO** | Out of scope for Stage 5 entirely; requires separate authorization per `AI_PIPELINE.md` |
+| Enable autonomous/background dispatch for decomposition | **DO NOT DO** | ADR-045's explicitly started supervised implementation scheduler does not authorize autonomous decomposition application; that remains out of Stage 5 scope |
 | Speculatively decompose the whole backlog | **DO NOT DO** | Violates ADR-021 (progressive, just-in-time decomposition); unrelated to Stage 5 readiness |
 | Reuse `work_graph_persist.py`'s bootstrap-only functions directly for D1C | **DO NOT DO** | `assert_bootstrap_targets_absent` refuses to run once `Tasks/` is non-empty; it is bootstrap-only by design, not a general apply primitive (see `D1C_GRAPH_APPLICATION_DESIGN.md`) |
 

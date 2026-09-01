@@ -4,7 +4,8 @@
 >
 > This file is a routing/status snapshot, not a substitute for TaskGraph, committed evidence, or the current GDD.
 
-Last updated: 2026-08-26, after D1B.2 round-robin decomposition verification/refinement merged to `main`.
+Last updated: 2026-09-01, including the uncommitted Software Architect polling branch
+status. The merged baseline below remains unchanged.
 
 ## Current merged baseline
 
@@ -43,7 +44,7 @@ Parent hierarchy:       connected + acyclic
 Dependency graph:       acyclic
 ```
 
-Autonomous dispatch remains intentionally disabled:
+At the merged baseline, autonomous dispatch remains intentionally disabled:
 
 ```text
 TASK READINESS: UNAVAILABLE — DISPATCH POLICY NOT ENABLED
@@ -51,6 +52,37 @@ EXECUTION AUTHORIZATION: DENIED
 ```
 
 TaskGraph `state` is current evidence-derived information only. It does not grant dependency readiness, execution authority, graph-application authority, or merge authority.
+
+## Under-review Software Architect polling branch
+
+Branch `orchestrator/polling-architect-v1` at base/HEAD
+`fa5da9f03343e457af042598bfb83526926123e5` contains an **uncommitted, not merged,
+not live-proven** supervised polling implementation and design packet.
+
+It is no longer accurate to describe autonomous dispatch as wholly absent from the
+repository work in progress. This branch implements the ADR-045 model:
+
+```text
+operator explicitly starts one scheduler session
+        ↓
+one poll-scoped deterministic Stage-2 authority snapshot
+        ↓
+resume candidate first, then Stage-2-ranked safe fresh candidates
+        ↓
+read-only architect advice + deterministic conflict/cost gates
+        ↓
+launch at most one exact-task worker per poll
+```
+
+The v1 default is `max_workers=1`. A worker count above 1 remains unauthorized until the
+Software Architect acceptance proof succeeds. The session uses a 60-second default poll
+interval, per-poll and cumulative architect-call caps, and a WAIT/HUMAN_REVIEW
+re-analysis cooldown. No model receives Issue, claim, TaskGraph, GDD/canon, commit, merge,
+or Unity validation authority.
+
+This status is review evidence only. Until the branch is independently accepted,
+committed, and merged, the merged baseline's human-directed task start remains production
+authority.
 
 ## Current development lanes
 
@@ -356,8 +388,9 @@ Not yet production authority:
 D1C reusable graph application
 Artifact Authority implementation
 Artifact generation + Artifact GER production flow
-Dependency readiness policy
-Autonomous dispatch
+Dependency readiness policy beyond committed Stage-2 policy
+Merged/live-accepted supervised autonomous dispatch (implemented only as uncommitted
+  under-review Software Architect polling work)
 Automatic merge authority
 GDDRAG-assisted D1B.2 review
 ```
