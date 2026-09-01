@@ -33,22 +33,22 @@
     },
     "NSC-903": {
       "title": "HUD Health Bar Layout",
-      "summary": "Reposition the health bar view and re-author the HUD prefab hierarchy.",
+      "summary": "Reposition the health bar view and update where GameManager registers it. Touches the health bar script and the shared GameManager script.",
       "exclusive_resources": [],
       "intended_change_surface": {
         "exact_paths": [
-          "SyntheticGame/Prefabs/HUD.prefab",
+          "SyntheticGame/Scripts/Core/GameManager.cs",
           "SyntheticGame/Scripts/UI/HealthBarView.cs"
         ]
       }
     },
     "NSC-904": {
       "title": "HUD Ammo Counter Readout",
-      "summary": "Add an ammo readout to the HUD controller and the HUD prefab. Logically independent of the health bar work, but it needs the same prefab.",
+      "summary": "Add an ammo readout to the HUD controller and update where GameManager registers it. Logically independent of the health bar work, but it needs the same shared GameManager script.",
       "exclusive_resources": [],
       "intended_change_surface": {
         "exact_paths": [
-          "SyntheticGame/Prefabs/HUD.prefab",
+          "SyntheticGame/Scripts/Core/GameManager.cs",
           "SyntheticGame/Scripts/UI/HudController.cs"
         ]
       }
@@ -233,7 +233,7 @@
       "id": "SAA-B-predicted-exact-path-conflict",
       "letter": "B",
       "title": "Predicted exact-path conflict serializes one candidate and Stage 2 offers another",
-      "purpose": "Two logically independent HUD tasks both need SyntheticGame/Prefabs/HUD.prefab. One starts; the other waits; a third unrelated candidate is still allowed to start in the same pass, so a WAIT does not stall the repository.",
+      "purpose": "Two logically independent HUD tasks both need the shared script SyntheticGame/Scripts/Core/GameManager.cs, which is an ordinary C# file and not a Unity serialized asset. One starts; the other waits because its predicted exact path overlaps the active task's predicted exact path; a third unrelated candidate is still allowed to start in the same pass, so a WAIT does not stall the repository.",
       "readiness": "ready_after_architect_merge",
       "required_capabilities": [
         "stage2_candidate_selection",
@@ -252,7 +252,7 @@
           "NSC-903": {
             "predicted_change_surface": {
               "exact_paths": [
-                "SyntheticGame/Prefabs/HUD.prefab",
+                "SyntheticGame/Scripts/Core/GameManager.cs",
                 "SyntheticGame/Scripts/UI/HealthBarView.cs"
               ]
             },
@@ -263,7 +263,7 @@
           "NSC-904": {
             "predicted_change_surface": {
               "exact_paths": [
-                "SyntheticGame/Prefabs/HUD.prefab",
+                "SyntheticGame/Scripts/Core/GameManager.cs",
                 "SyntheticGame/Scripts/UI/HudController.cs"
               ]
             },
@@ -291,7 +291,7 @@
               "NSC-904"
             ],
             "on": [
-              "SyntheticGame/Prefabs/HUD.prefab"
+              "SyntheticGame/Scripts/Core/GameManager.cs"
             ]
           }
         ],
@@ -333,7 +333,7 @@
                 "conflicting_task_id": "NSC-903",
                 "kind": "exact_path_predicted",
                 "on": [
-                  "SyntheticGame/Prefabs/HUD.prefab"
+                  "SyntheticGame/Scripts/Core/GameManager.cs"
                 ]
               }
             ],

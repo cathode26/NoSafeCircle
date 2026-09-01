@@ -18,6 +18,7 @@ did not create.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import re
@@ -34,6 +35,7 @@ if str(HERE.parent) not in sys.path:
 import acceptance_lib
 import manifest as manifest_module
 import scenario_world as sw
+import scheduler_adapter
 import synthetic_repository as sr
 import verify_acceptance
 import verify_live_evidence as live
@@ -1577,26 +1579,943 @@ def test_evidence_fails_closed_on_unknown_or_incomplete_events() -> None:
         require(expected_check in failed, f"{expected_check} did not fail: {failed}")
 
 
-def test_real_adapter_fails_closed_until_it_is_wired() -> None:
-    """ADVERSARIAL 4 of blocker 1: the real adapter stub stays PENDING."""
+def _acceptance_scenario(fixture, scenario_id: str):
+    """Build one scenario's world for a direct real-adapter observation."""
+
+    manifest = manifest_module.load_manifest()
+    scenario = manifest_module.scenario_by_id(manifest, scenario_id)
+    return scenario, sw.build_world(scenario, manifest, fixture)
+
+
+def _argv_binds(argv, flag: str, value: str) -> bool:
+    items = [str(item) for item in argv]
+    return any(
+        items[index] == flag and items[index + 1] == value
+        for index in range(len(items) - 1)
+    )
+
+
+def test_real_adapter_advertises_only_ordinary_cycle_capabilities() -> None:
+    """The wiring blocker is gone for ordinary cycles, and only for those."""
 
     adapter = RealPollingArchitectAdapter()
-    for call in (
-        adapter.capabilities,
-        lambda: adapter.observe_cycle(None),
+    capabilities = adapter.capabilities()
+    require(
+        capabilities == frozenset(CAPABILITIES) - {"scheduler_singleton"},
+        f"the real adapter advertises {sorted(capabilities)}",
+    )
+    require(
+        "scheduler_singleton" not in capabilities,
+        "the real adapter claimed a singleton capability it does not implement",
+    )
+    manifest = manifest_module.load_manifest()
+    for scenario in manifest_module.scenarios(manifest):
+        missing = set(scenario.get("required_capabilities") or ()) - capabilities
+        if scenario["id"] == "SAA-J-scheduler-singleton":
+            require(
+                missing == {"scheduler_singleton"},
+                f"scenario J reported an unexpected capability gap {sorted(missing)}",
+            )
+        else:
+            require(
+                not missing,
+                f"{scenario['id']} still reports a capability gap {sorted(missing)}",
+            )
+
+
+def test_scenario_j_stays_fail_closed_and_pending() -> None:
+    """The singleton contest is out of this slice and must stay unanswered."""
+
+    adapter = RealPollingArchitectAdapter()
+    expect_raises(
+        AdapterNotWired,
         lambda: adapter.observe_singleton_contest(None),
-    ):
-        expect_raises(
-            AdapterNotWired, call, "the real adapter returned a stub answer"
+        "the real adapter answered a singleton contest it cannot run",
+    )
+    results, exit_code = verify_acceptance.run_acceptance(
+        scenario_ids=["SAA-J-scheduler-singleton"]
+    )
+    require(exit_code == 0, "a pending capability must not fail the suite")
+    require(
+        results[0].status == STATUS_PENDING,
+        f"scenario J reported {results[0].status} instead of PENDING_CAPABILITY",
+    )
+
+
+def test_real_adapter_drives_the_production_polling_orchestrator() -> None:
+    """The answer comes from production seams, not from a prearranged reply."""
+
+    production = scheduler_adapter._production()
+    with _Fixture("real-seams") as fixture:
+        _scenario, world = _acceptance_scenario(
+            fixture, "SAA-A-parallel-safe-assignments"
+        )
+        try:
+            adapter = RealPollingArchitectAdapter()
+            observation = adapter.observe_cycle(world)
+            orchestrator = adapter.orchestrator
+            require(
+                type(orchestrator) is production.orchestrator.PollingOrchestrator,
+                "the adapter did not construct the production scheduler",
+            )
+            for name, expected in (
+                ("plan_builder", adapter._build_plan),
+                ("task_loader", adapter._load_task),
+                ("reservation_observer", adapter._observe_reservations),
+                ("architect_runner", adapter._architect_runner),
+                ("process_factory", adapter.process_factory),
+            ):
+                require(
+                    getattr(orchestrator, name) == expected,
+                    f"the scheduler is not using the adapter's {name} seam",
+                )
+            require(
+                type(orchestrator.events)
+                is production.orchestrator.JsonEventEmitter,
+                "the scheduler is not emitting through its own event emitter",
+            )
+            require(
+                observation.outcome == "start" and observation.task_id == "NSC-901",
+                f"production selected {observation.task_id!r} ({observation.outcome})",
+            )
+            names = {str(event.name) for event in observation.events}
+            require(
+                {"poll_started", "worker_launched", "poll_finished"} <= names,
+                f"the observed poll produced only {sorted(names)}",
+            )
+        finally:
+            sw.destroy_world(world)
+
+
+def test_fresh_plan_translation_reaches_production_scheduling() -> None:
+    """Stage-2 fresh ranking is handed over in the manifest's declared order."""
+
+    with _Fixture("fresh-plan") as fixture:
+        _scenario, world = _acceptance_scenario(
+            fixture, "SAA-B-predicted-exact-path-conflict"
+        )
+        try:
+            adapter = RealPollingArchitectAdapter()
+            adapter._ensure_orchestrator(world, scheduler_adapter._production())
+            plan = adapter._build_plan(source=world.source_root, worker_id="w")
+            require(plan.decision == "fresh_candidate", f"decision={plan.decision}")
+            require(plan.resume is None, "a scenario with no resume claim built one")
+            require(
+                [item["task_id"] for item in plan.ranked_eligible_candidates]
+                == list(world.candidate_queue()),
+                "the fresh pool was reordered on the way to the scheduler",
+            )
+            require(
+                plan.source_commit == world.source_head(),
+                "the plan did not carry the fixture's committed source HEAD",
+            )
+            require(
+                all(
+                    item["task_contract_sha256"]
+                    == world.task(item["task_id"])["task_contract_sha256"]
+                    for item in plan.ranked_eligible_candidates
+                ),
+                "a ranked candidate lost its task-contract identity",
+            )
+            excluded = adapter._build_plan(
+                source=world.source_root,
+                worker_id="w",
+                excluded_task_ids={"NSC-903"},
+            )
+            require(
+                "NSC-903"
+                not in [
+                    item["task_id"] for item in excluded.ranked_eligible_candidates
+                ],
+                "a per-poll exclusion was ignored",
+            )
+        finally:
+            sw.destroy_world(world)
+
+
+def test_resume_authority_is_translated_through_dispatch_plan_resume() -> None:
+    """There is no resume_source seam, so resume travels in DispatchPlan.resume."""
+
+    with _Fixture("resume-plan") as fixture:
+        _scenario, world = _acceptance_scenario(
+            fixture, "SAA-I1-resume-outranks-tempting-fresh-work"
+        )
+        try:
+            adapter = RealPollingArchitectAdapter()
+            adapter._ensure_orchestrator(world, scheduler_adapter._production())
+            plan = adapter._build_plan(source=world.source_root, worker_id="w")
+            require(plan.decision == "resume_existing", f"decision={plan.decision}")
+            require(
+                plan.resume is not None and plan.resume["task_id"] == "NSC-906",
+                f"resume authority was not translated: {plan.resume}",
+            )
+            ranked = [item["task_id"] for item in plan.ranked_eligible_candidates]
+            require(
+                "NSC-906" not in ranked,
+                "resume authority was smuggled into fresh queue order",
+            )
+            require(ranked == ["NSC-901"], f"fresh ranking was {ranked}")
+            observation = adapter.observe_cycle(world)
+            require(
+                observation.outcome == "start" and observation.task_id == "NSC-906",
+                f"production started {observation.task_id!r} instead of the resume task",
+            )
+        finally:
+            sw.destroy_world(world)
+
+
+def test_reservations_and_unknown_surface_reach_production_reasoning() -> None:
+    """Reservation identity, resources and UNKNOWN survive the translation."""
+
+    with _Fixture("unknown-surface") as fixture:
+        _scenario, world = _acceptance_scenario(
+            fixture, "SAA-G1-unknown-surface-blocks-unprovable-pair"
+        )
+        try:
+            adapter = RealPollingArchitectAdapter()
+            adapter._ensure_orchestrator(world, scheduler_adapter._production())
+            observed = {
+                reservation.task_id: reservation
+                for reservation in adapter._observe_reservations()
+            }
+            require("NSC-905" in observed, f"observed {sorted(observed)}")
+            unknown = observed["NSC-905"]
+            require(
+                unknown.surface_unknown is True,
+                "surface_unknown was dropped on the way to the scheduler",
+            )
+            require(
+                unknown.actual_paths == (),
+                "an unobservable surface was reported as observed paths",
+            )
+            observation = adapter.observe_cycle(world)
+            require(
+                observation.outcome == "idle"
+                and observation.waited_task_ids == ("NSC-901",),
+                f"unknown surface produced {observation.outcome} "
+                f"{observation.waited_task_ids}",
+            )
+        finally:
+            sw.destroy_world(world)
+
+    with _Fixture("exclusive-resource") as fixture:
+        _scenario, world = _acceptance_scenario(
+            fixture, "SAA-I2-resume-waits-and-steals-nothing"
+        )
+        try:
+            adapter = RealPollingArchitectAdapter()
+            adapter._ensure_orchestrator(world, scheduler_adapter._production())
+            observed = {
+                reservation.task_id: reservation
+                for reservation in adapter._observe_reservations()
+            }
+            other = observed["NSC-916"]
+            require(
+                "logical:enemy-tuning-data" in other.exclusive_resources,
+                f"exclusive resources were lost: {other.exclusive_resources}",
+            )
+            require(
+                "SyntheticGame/Data/EnemyTuning.asset" in other.actual_paths,
+                f"actual Git paths were lost: {other.actual_paths}",
+            )
+        finally:
+            sw.destroy_world(world)
+
+
+def test_architect_unavailable_and_malformed_fail_closed_through_production() -> None:
+    """H1 and H2 exercise the production advisory path, not an adapter shortcut."""
+
+    production = scheduler_adapter._production()
+    with _Fixture("architect-unavailable") as fixture:
+        _scenario, world = _acceptance_scenario(
+            fixture, "SAA-H1-architect-invocation-unavailable"
+        )
+        try:
+            adapter = RealPollingArchitectAdapter()
+            adapter._ensure_orchestrator(world, production)
+            world.apply_transition({"kind": "architect_unavailable"})
+            expect_raises(
+                production.preflight.ArchitectPreflightError,
+                lambda: adapter._architect_runner(
+                    task=world.task("NSC-901"),
+                    source_head=world.source_head(),
+                    reservations=(),
+                    scheduler_id=adapter.scheduler_id,
+                ),
+                "an unavailable advisory did not fail closed",
+            )
+        finally:
+            sw.destroy_world(world)
+
+    with _Fixture("architect-malformed") as fixture:
+        _scenario, world = _acceptance_scenario(
+            fixture, "SAA-H2-architect-output-malformed"
+        )
+        try:
+            adapter = RealPollingArchitectAdapter()
+            adapter._ensure_orchestrator(world, production)
+            task = world.task("NSC-901")
+            payload = scheduler_adapter._production_advisory_payload(
+                world.advisory("NSC-901"),
+                task=task,
+                source_head=world.source_head(),
+            )
+            require(
+                payload["task_id"] == "NSC-999",
+                "the wrong-task-id defect was repaired by the translation",
+            )
+            require(
+                "predicted_change_surface" not in payload,
+                "the missing-surface defect was repaired by the translation",
+            )
+            require(
+                payload.get("scenario_id") == "SAA-not-this-scenario",
+                "the wrong-scenario-binding defect was removed by the translation",
+            )
+            require(
+                "parallel_safe_because" in payload,
+                "the unknown-structured-field defect was removed by the translation",
+            )
+            expect_raises(
+                production.preflight.ArchitectPreflightError,
+                lambda: production.preflight.ArchitectAdvisory.from_dict(payload),
+                "production validation accepted a malformed advisory",
+            )
+            expect_raises(
+                production.preflight.ArchitectPreflightError,
+                lambda: adapter._architect_runner(
+                    task=task,
+                    source_head=world.source_head(),
+                    reservations=(),
+                    scheduler_id=adapter.scheduler_id,
+                ),
+                "a malformed advisory did not fail closed",
+            )
+        finally:
+            sw.destroy_world(world)
+
+
+def test_launch_evidence_uses_captured_production_argv() -> None:
+    """Worker identity and argv are production's, and nothing is started."""
+
+    with _Fixture("captured-argv") as fixture:
+        _scenario, world = _acceptance_scenario(
+            fixture, "SAA-A-parallel-safe-assignments"
+        )
+        try:
+            adapter = RealPollingArchitectAdapter()
+            observation = adapter.observe_cycle(world)
+            worker_id = str(observation.worker_id or "").strip()
+            require(worker_id, "a launch reported no observed worker ID")
+            launches = adapter.process_factory.launches
+            require(len(launches) == 1, f"captured {len(launches)} launches")
+            argv = launches[0]["argv"]
+            require(
+                tuple(observation.launch_argv) == argv,
+                "the reported argv is not the argv production attempted",
+            )
+            require(
+                _argv_binds(argv, "--task-id", "NSC-901")
+                and _argv_binds(argv, "--worker-id", worker_id),
+                f"argv did not bind the exact task and worker IDs: {list(argv)}",
+            )
+            assignment = adapter.orchestrator.active_assignments["NSC-901"]
+            require(
+                type(assignment.process)
+                is scheduler_adapter._PassiveWorkerProcess,
+                "the scheduler was given something other than a passive process",
+            )
+            require(
+                assignment.pid is None and assignment.process.poll() is None,
+                "the acceptance harness reported a live process identity",
+            )
+        finally:
+            sw.destroy_world(world)
+
+
+def test_real_acceptance_needs_no_process_provider_or_network() -> None:
+    """Sockets are refused for this whole run; this pins the remaining paths."""
+
+    with _Fixture("no-provider") as fixture:
+        _scenario, world = _acceptance_scenario(
+            fixture, "SAA-A-parallel-safe-assignments"
+        )
+        try:
+            adapter = RealPollingArchitectAdapter()
+            adapter.observe_cycle(world)
+            require(
+                adapter.orchestrator.process_factory is adapter.process_factory,
+                "the scheduler kept a process factory that could start a worker",
+            )
+            artifact_root = (
+                fixture.path / scheduler_adapter.ADVISORY_ARTIFACT_DIRECTORY
+            )
+            artifacts = sorted(artifact_root.glob("*.json"))
+            require(artifacts, "no production advisory artifact was persisted")
+            payload = json.loads(artifacts[0].read_text(encoding="utf-8"))
+            require(
+                payload["invocation"]["provider"] == "none"
+                and payload["invocation"]["network_access"] is False,
+                f"an advisory recorded a provider invocation: {payload['invocation']}",
+            )
+            parents = set(artifacts[0].parents)
+            require(
+                world.source_root not in parents
+                and world.checkout_root not in parents,
+                "advisory artifacts were written into observed durable state",
+            )
+        finally:
+            sw.destroy_world(world)
+
+
+def test_real_acceptance_answers_ordinary_cycles_and_leaves_j_pending() -> None:
+    """End to end: the real adapter now answers A, and J stays honest."""
+
+    results, _exit_code = verify_acceptance.run_acceptance(
+        scenario_ids=[
+            "SAA-A-parallel-safe-assignments",
+            "SAA-J-scheduler-singleton",
+        ]
+    )
+    by_id = {result.scenario_id: result for result in results}
+    singleton = by_id["SAA-J-scheduler-singleton"]
+    require(
+        singleton.status == STATUS_PENDING,
+        f"scenario J reported {singleton.status}",
+    )
+    ordinary = by_id["SAA-A-parallel-safe-assignments"]
+    require(
+        ordinary.status == acceptance_lib.STATUS_PASS,
+        f"scenario A reported {ordinary.status}: "
+        + "; ".join(check.detail for check in ordinary.failed_checks),
+    )
+    require(
+        ordinary.answered_by == "real_scheduler",
+        f"scenario A was answered by {ordinary.answered_by}",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Real-adapter adversarial evidence
+#
+# Everything below drives the **real** adapter over the committed scheduler and
+# then corrupts exactly one production claim at a time. The point is that the
+# evidence chain - PollCycleResult, the emitted `worker_launched` record, the
+# argv production built, and the argv the passive process factory was actually
+# handed - is cross-bound, so no single tampered source can reach a usable
+# CycleObservation. A positive test pins the same chain agreeing.
+# ---------------------------------------------------------------------------
+
+
+class _EmitterProxy:
+    """Route production's own emitter through a test hook.
+
+    `hook(adapter, inner, event, values)` owns the call to the real
+    `JsonEventEmitter`, so a test can corrupt exactly one field of one record
+    while every other record still reaches the adapter's capture stream exactly
+    as production wrote it.
+    """
+
+    def __init__(self, adapter, inner, hook) -> None:
+        self.adapter = adapter
+        self.inner = inner
+        self.hook = hook
+
+    def emit(self, event: str, **values) -> None:
+        self.hook(self.adapter, self.inner, event, values)
+
+
+class _RealCycle:
+    """One real scenario world plus its real adapter, optionally tampered with.
+
+    The adapter, the orchestrator, the plan, the advisory, the conflict verdict
+    and every event are production's. Only the named corruption is the test's,
+    and it is applied after the orchestrator is constructed so the scheduler
+    itself is never reconfigured.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        scenario_id: str = "SAA-A-parallel-safe-assignments",
+        hook=None,
+        corrupt_result=None,
+    ) -> None:
+        self.fixture = _Fixture(name)
+        self.scenario_id = scenario_id
+        self.hook = hook
+        self.corrupt_result = corrupt_result
+        self.world = None
+        self.adapter = None
+
+    def __enter__(self) -> "_RealCycle":
+        root = self.fixture.__enter__()
+        try:
+            _scenario, self.world = _acceptance_scenario(root, self.scenario_id)
+            self.adapter = RealPollingArchitectAdapter()
+            self.adapter._ensure_orchestrator(
+                self.world, scheduler_adapter._production()
+            )
+            orchestrator = self.adapter.orchestrator
+            if self.hook is not None:
+                orchestrator.events = _EmitterProxy(
+                    self.adapter, orchestrator.events, self.hook
+                )
+            if self.corrupt_result is not None:
+                production_poll = orchestrator.poll_once
+                corrupt = self.corrupt_result
+                orchestrator.poll_once = lambda: corrupt(production_poll())
+        except BaseException:
+            self.__exit__(None, None, None)
+            raise
+        return self
+
+    def observe(self):
+        return self.adapter.observe_cycle(self.world)
+
+    def must_fail_closed(self, message: str) -> str:
+        """Observe, requiring an evidence failure instead of an observation."""
+
+        try:
+            observation = self.observe()
+        except scheduler_adapter.EventEvidenceError as exc:
+            return str(exc)
+        raise AssertionError(
+            f"{message}; the adapter returned {observation.to_dict()}"
         )
 
-    results, exit_code = verify_acceptance.run_acceptance()
-    require(exit_code == 0, "an unwired adapter must not fail the suite")
-    for result in results:
-        require(
-            result.status == STATUS_PENDING,
-            f"{result.scenario_id}: unwired adapter produced {result.status}",
+    def __exit__(self, *exc) -> None:
+        if self.world is not None:
+            sw.destroy_world(self.world)
+            self.world = None
+        self.fixture.__exit__(*exc)
+
+
+def _emit_extra_production_event(name: str, *, after: str = "poll_started"):
+    """Emit one additional production record through production's own emitter."""
+
+    def hook(adapter, inner, event, values) -> None:
+        inner.emit(event, **values)
+        if event == after:
+            inner.emit(
+                name,
+                scheduler_id=adapter.scheduler_id,
+                task_id="NSC-901",
+                reason="an event kind this adapter has never seen",
+            )
+
+    return hook
+
+
+def _corrupt_launch_fields(**replacements):
+    """Replace named fields of the production `worker_launched` record only."""
+
+    def hook(adapter, inner, event, values) -> None:
+        if event == "worker_launched":
+            values = {**values, **replacements}
+        inner.emit(event, **values)
+
+    return hook
+
+
+def _rebind_launch_argv_flag(flag: str, value: str, *, sync_capture: bool):
+    """Rebind one argv flag in the launch record production emits.
+
+    With `sync_capture`, the passive factory's capture is rewritten to the same
+    argv, so the *only* surviving disagreement is between that flag and the
+    identity fields. Without it, the captured argv stays what production really
+    handed the factory and the mismatch is captured-versus-reported.
+    """
+
+    def hook(adapter, inner, event, values) -> None:
+        if event == "worker_launched":
+            argv = [str(item) for item in (values.get("argv") or ())]
+            index = argv.index(flag)
+            argv[index + 1] = value
+            values = {**values, "argv": argv}
+            if sync_capture:
+                adapter.process_factory.launches[-1]["argv"] = tuple(argv)
+        inner.emit(event, **values)
+
+    return hook
+
+
+def _append_launch_argv_token(token: str):
+    """Report an argv production never handed the process factory."""
+
+    def hook(adapter, inner, event, values) -> None:
+        if event == "worker_launched":
+            argv = [str(item) for item in (values.get("argv") or ())]
+            values = {**values, "argv": argv + [token]}
+        inner.emit(event, **values)
+
+    return hook
+
+
+def _sole_argv_value(argv, flag: str) -> str:
+    values = scheduler_adapter._argv_flag_values(argv, flag)
+    require(len(values) == 1, f"argv bound {flag} {len(values)} times: {list(argv)}")
+    return values[0]
+
+
+def test_unknown_production_event_kinds_fail_closed() -> None:
+    """A production event kind nobody named cannot vanish from the evidence."""
+
+    unknown = "scheduler_content_safety_halt"
+    require(
+        unknown not in scheduler_adapter.PRODUCTION_DIAGNOSTIC_EVENTS,
+        f"{unknown} is already allow-listed, so this test would prove nothing",
+    )
+    with _RealCycle(
+        "unknown-event", hook=_emit_extra_production_event(unknown)
+    ) as cycle:
+        detail = cycle.must_fail_closed(
+            "an unrecognized production event did not fail closed"
         )
+        require(
+            unknown in detail,
+            f"the failure did not name the offending event: {detail}",
+        )
+        require(
+            not cycle.adapter.event_log(),
+            "an unrecognized production event still left canonical evidence "
+            f"behind: {cycle.adapter.event_log()}",
+        )
+        require(
+            any(
+                str(record.get("event")) == unknown
+                for record in cycle.adapter.production_event_log()
+            ),
+            "the offending production record was discarded instead of retained",
+        )
+
+
+def test_explicitly_ignored_diagnostic_events_stay_permitted() -> None:
+    """A harmless diagnostic is ignored, and only because it is allow-listed."""
+
+    ignored = "architect_started"
+    require(
+        ignored in scheduler_adapter.PRODUCTION_DIAGNOSTIC_EVENTS,
+        f"{ignored} is not an intentionally ignored production event",
+    )
+    with _RealCycle(
+        "ignored-diagnostic", hook=_emit_extra_production_event(ignored)
+    ) as cycle:
+        observation = cycle.observe()
+        require(
+            observation.outcome == "start" and observation.task_id == "NSC-901",
+            f"the cycle reported {observation.task_id!r} ({observation.outcome})",
+        )
+        names = [str(event.name) for event in observation.events]
+        require(
+            {"poll_started", "worker_launched", "poll_finished"} <= set(names),
+            f"ordinary evidence did not survive the diagnostic: {names}",
+        )
+        require(
+            ignored not in names,
+            f"an ignored diagnostic became canonical evidence: {names}",
+        )
+        require(
+            str(observation.worker_id or "").strip()
+            and tuple(observation.launch_argv),
+            "the launch evidence did not survive an ignored diagnostic",
+        )
+
+    original = scheduler_adapter.PRODUCTION_DIAGNOSTIC_EVENTS
+    scheduler_adapter.PRODUCTION_DIAGNOSTIC_EVENTS = original - {ignored}
+    try:
+        with _RealCycle(
+            "unlisted-diagnostic", hook=_emit_extra_production_event(ignored)
+        ) as cycle:
+            detail = cycle.must_fail_closed(
+                f"{ignored} was tolerated for a reason other than the allow-list"
+            )
+            require(
+                ignored in detail,
+                f"the failure did not name the de-listed event: {detail}",
+            )
+    finally:
+        scheduler_adapter.PRODUCTION_DIAGNOSTIC_EVENTS = original
+
+
+def test_result_worker_id_must_match_the_launch_record() -> None:
+    """`PollCycleResult.worker_id` is one claim, not the authority."""
+
+    with _RealCycle(
+        "result-worker-mismatch",
+        corrupt_result=lambda result: dataclasses.replace(
+            result, worker_id=f"{result.worker_id}-tampered"
+        ),
+    ) as cycle:
+        detail = cycle.must_fail_closed(
+            "a PollCycleResult worker ID that contradicts the launch record was "
+            "accepted"
+        )
+        require(
+            "worker identity disagrees" in detail
+            and "PollCycleResult.worker_id" in detail,
+            f"the failure did not identify the contradicting claim: {detail}",
+        )
+
+
+def test_launch_record_worker_id_must_match_argv() -> None:
+    """The worker ID production encoded in argv is an independent claim."""
+
+    with _RealCycle(
+        "argv-worker-mismatch",
+        hook=_rebind_launch_argv_flag(
+            "--worker-id", "polling-worker-tampered", sync_capture=True
+        ),
+    ) as cycle:
+        detail = cycle.must_fail_closed(
+            "an argv --worker-id that contradicts the launch record was accepted"
+        )
+        require(
+            "worker identity disagrees" in detail and "--worker-id" in detail,
+            f"the failure did not identify the contradicting claim: {detail}",
+        )
+
+
+def test_captured_process_argv_must_match_the_reported_argv() -> None:
+    """What production handed the process factory is part of the chain."""
+
+    with _RealCycle(
+        "captured-argv-mismatch",
+        hook=_append_launch_argv_token("--acceptance-tampered"),
+    ) as cycle:
+        detail = cycle.must_fail_closed(
+            "a launch argv the process factory never received was accepted"
+        )
+        require(
+            "actually tried to launch" in detail,
+            f"the failure did not name the captured-argv contradiction: {detail}",
+        )
+        require(
+            "--acceptance-tampered" in detail,
+            f"the failure did not show the reported argv: {detail}",
+        )
+
+
+def test_task_identity_must_agree_across_every_production_source() -> None:
+    """Corrupting the result's task ID, or argv's, is rejected either way."""
+
+    with _RealCycle(
+        "result-task-mismatch",
+        corrupt_result=lambda result: dataclasses.replace(
+            result, task_id="NSC-902"
+        ),
+    ) as cycle:
+        detail = cycle.must_fail_closed(
+            "a PollCycleResult task ID that contradicts the launch record was "
+            "accepted"
+        )
+        require(
+            "task identity disagrees" in detail
+            and "PollCycleResult.task_id" in detail,
+            f"the failure did not identify the contradicting claim: {detail}",
+        )
+
+    with _RealCycle(
+        "argv-task-mismatch",
+        hook=_rebind_launch_argv_flag("--task-id", "NSC-902", sync_capture=True),
+    ) as cycle:
+        detail = cycle.must_fail_closed(
+            "an argv --task-id that contradicts the launch record was accepted"
+        )
+        require(
+            "task identity disagrees" in detail and "--task-id" in detail,
+            f"the failure did not identify the contradicting claim: {detail}",
+        )
+
+
+def test_event_only_launch_identity_mismatch_fails_closed() -> None:
+    """A tampered `worker_launched` record is still a contradiction, alone.
+
+    `_corrupt_launch_fields` only reaches the raw/canonical `worker_launched`
+    event: `PollCycleResult.worker_id`/`task_id`, the argv flags production
+    bound, and the passive process factory's captured argv are left exactly as
+    production emitted them. Without an independent claim standing against the
+    event, this is the one place the cross-binding could have missed a
+    corrupted identity; it must still fail closed.
+    """
+
+    with _RealCycle(
+        "event-only-worker-mismatch",
+        hook=_corrupt_launch_fields(worker_id="event-only-tampered-worker"),
+    ) as cycle:
+        detail = cycle.must_fail_closed(
+            "a worker_launched record whose own worker_id disagreed with the "
+            "result and argv was accepted"
+        )
+        require(
+            "worker identity disagrees" in detail,
+            f"the failure did not identify the contradicting claim: {detail}",
+        )
+
+    with _RealCycle(
+        "event-only-task-mismatch",
+        hook=_corrupt_launch_fields(task_id="NSC-902"),
+    ) as cycle:
+        detail = cycle.must_fail_closed(
+            "a worker_launched record whose own task_id disagreed with the "
+            "result and argv was accepted"
+        )
+        require(
+            "task identity disagrees" in detail,
+            f"the failure did not identify the contradicting claim: {detail}",
+        )
+
+
+def test_launch_cross_binding_agrees_on_a_real_production_launch() -> None:
+    """The untampered chain agrees, so the adversarial tests are not vacuous."""
+
+    with _RealCycle("cross-binding") as cycle:
+        observation = cycle.observe()
+        adapter = cycle.adapter
+        require(
+            observation.outcome == "start" and observation.task_id == "NSC-901",
+            f"production reported {observation.task_id!r} ({observation.outcome})",
+        )
+        canonical = [
+            event for event in observation.events if event.name == "worker_launched"
+        ]
+        production = [
+            record
+            for record in adapter.production_event_log()
+            if str(record.get("event")) == "worker_launched"
+        ]
+        captured = adapter.process_factory.launches
+        require(
+            len(canonical) == 1 and len(production) == 1 and len(captured) == 1,
+            f"the poll produced {len(canonical)} canonical, {len(production)} "
+            f"production and {len(captured)} captured launch records",
+        )
+        worker_id = str(observation.worker_id or "").strip()
+        task_id = str(observation.task_id)
+        argv = tuple(str(item) for item in canonical[0]["argv"])
+        require(
+            {
+                str(canonical[0]["worker_id"]),
+                str(production[0]["worker_id"]),
+                worker_id,
+                _sole_argv_value(argv, "--worker-id"),
+            }
+            == {worker_id},
+            "the launch worker identity is not the same in every production "
+            f"record: {worker_id!r}, argv {list(argv)}",
+        )
+        require(
+            {
+                str(canonical[0]["task_id"]),
+                str(production[0]["task_id"]),
+                task_id,
+                _sole_argv_value(argv, "--task-id"),
+            }
+            == {task_id},
+            "the launch task identity is not the same in every production "
+            f"record: {task_id!r}, argv {list(argv)}",
+        )
+        require(
+            tuple(captured[0]["argv"]) == argv
+            and tuple(observation.launch_argv) == argv,
+            "the captured, reported and observed argv are not the same argv",
+        )
+        require(
+            adapter._launch_task_by_worker == {worker_id: task_id}
+            and adapter._launch_argv_by_worker == {worker_id: argv},
+            "the adapter retained a different launch binding than it observed",
+        )
+
+
+def test_scenario_b_proves_a_real_predicted_exact_path_conflict() -> None:
+    """Scenario B's WAIT is production's, on a shared ordinary C# script."""
+
+    shared = "SyntheticGame/Scripts/Core/GameManager.cs"
+    require(
+        not acceptance_lib.is_unity_serialized_asset(shared),
+        f"{shared} is a Unity serialized asset, so scenario B would be "
+        "measuring Unity asset identity instead of exact-path prediction",
+    )
+    with _RealCycle(
+        "scenario-b-exact-path",
+        scenario_id="SAA-B-predicted-exact-path-conflict",
+    ) as cycle:
+        first = cycle.observe()
+        require(
+            first.outcome == "start" and first.task_id == "NSC-903",
+            f"step 1 reported {first.task_id!r} ({first.outcome})",
+        )
+        second = cycle.observe()
+        require(
+            second.outcome == "start" and second.task_id == "NSC-901",
+            f"step 2 reported {second.task_id!r} ({second.outcome})",
+        )
+        require(
+            second.waited_task_ids == ("NSC-904",),
+            f"step 2 waited {list(second.waited_task_ids)}",
+        )
+        require(
+            len(second.conflicts) == 1,
+            f"step 2 reported {len(second.conflicts)} conflicts",
+        )
+        conflict = second.conflicts[0]
+        require(
+            conflict.kind == "exact_path_predicted",
+            f"production's conflict mapped to {conflict.kind!r}",
+        )
+        require(
+            conflict.candidate_task_id == "NSC-904"
+            and conflict.conflicting_task_id == "NSC-903",
+            f"the conflict named {conflict.candidate_task_id}/"
+            f"{conflict.conflicting_task_id}",
+        )
+        require(
+            tuple(conflict.overlapping_values) == (shared,),
+            f"the overlap was {list(conflict.overlapping_values)}",
+        )
+        production_kinds = {
+            str(record.get("conflict_kind"))
+            for record in cycle.adapter.production_event_log()
+            if str(record.get("event")) in scheduler_adapter.PRODUCTION_WAIT_EVENTS
+        }
+        require(
+            production_kinds == {"active_predicted_exact_path"},
+            f"production reported conflict kinds {sorted(production_kinds)}",
+        )
+        for task_id in ("NSC-903", "NSC-904"):
+            advisory = cycle.adapter._validated_advisories[task_id]
+            surface = advisory.predicted_change_surface
+            require(
+                shared in surface.exact_paths,
+                f"{task_id} did not predict {shared}: {list(surface.exact_paths)}",
+            )
+            require(
+                not surface.unity_serialized_assets,
+                f"{task_id} declared Unity serialized assets "
+                f"{list(surface.unity_serialized_assets)}",
+            )
+        assignment = cycle.adapter.orchestrator.active_assignments["NSC-903"]
+        require(
+            not assignment.architect_surface.unity_serialized_assets,
+            "the active NSC-903 assignment carried a Unity serialized asset "
+            "identity, so the overlap is not a plain exact-path conflict",
+        )
+
+    results, exit_code = verify_acceptance.run_acceptance(
+        scenario_ids=["SAA-B-predicted-exact-path-conflict"]
+    )
+    require(exit_code == 0, f"the acceptance path exited {exit_code}")
+    result = results[0]
+    require(
+        result.status == acceptance_lib.STATUS_PASS,
+        f"scenario B reported {result.status}: "
+        + "; ".join(check.detail for check in result.failed_checks),
+    )
+    require(
+        result.answered_by == "real_scheduler",
+        f"scenario B was answered by {result.answered_by}",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2731,7 +3650,27 @@ TESTS = (
     test_two_correct_steps_prove_their_own_events,
     test_a_contradictory_launch_fails_a_non_launch_step,
     test_evidence_fails_closed_on_unknown_or_incomplete_events,
-    test_real_adapter_fails_closed_until_it_is_wired,
+    # Real adapter integration
+    test_real_adapter_advertises_only_ordinary_cycle_capabilities,
+    test_scenario_j_stays_fail_closed_and_pending,
+    test_real_adapter_drives_the_production_polling_orchestrator,
+    test_fresh_plan_translation_reaches_production_scheduling,
+    test_resume_authority_is_translated_through_dispatch_plan_resume,
+    test_reservations_and_unknown_surface_reach_production_reasoning,
+    test_architect_unavailable_and_malformed_fail_closed_through_production,
+    test_launch_evidence_uses_captured_production_argv,
+    test_real_acceptance_needs_no_process_provider_or_network,
+    test_real_acceptance_answers_ordinary_cycles_and_leaves_j_pending,
+    # Real-adapter adversarial evidence
+    test_unknown_production_event_kinds_fail_closed,
+    test_explicitly_ignored_diagnostic_events_stay_permitted,
+    test_result_worker_id_must_match_the_launch_record,
+    test_launch_record_worker_id_must_match_argv,
+    test_captured_process_argv_must_match_the_reported_argv,
+    test_task_identity_must_agree_across_every_production_source,
+    test_event_only_launch_identity_mismatch_fails_closed,
+    test_launch_cross_binding_agrees_on_a_real_production_launch,
+    test_scenario_b_proves_a_real_predicted_exact_path_conflict,
     # Live evidence
     test_live_evidence_accepts_a_complete_bound_run,
     test_live_evidence_accepts_minimal_a_and_d_shapes,
