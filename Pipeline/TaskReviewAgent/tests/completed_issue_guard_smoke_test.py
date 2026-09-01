@@ -213,6 +213,65 @@ def test_closed_incomplete_duplicate_is_ignored_by_find_and_queue() -> None:
     require(service.list_agent_ready() == [], "closed duplicate leaked into generic agent queue")
 
 
+def test_github_backend_decodes_utf8_issue_json_without_windows_locale_loss() -> None:
+    """Machine JSON from gh is UTF-8 even when the host Windows locale is not."""
+
+    backend = object.__new__(GhIssueBackend)
+    backend.source_root = ROOT
+    backend.repository = "cathode26/NoSafeCircle"
+    observed: dict[str, object] = {}
+
+    issue = {
+        "number": 120,
+        "state": "open",
+        "title": "UTF-8 boundary \u201d survives",
+        "user": {"login": "cathode26"},
+        "url": "https://api.github.com/repos/cathode26/NoSafeCircle/issues/120",
+        "html_url": "https://github.com/cathode26/NoSafeCircle/issues/120",
+    }
+    stdout = (json.dumps([issue], ensure_ascii=False) + "\n").encode("utf-8")
+    require(
+        b"\x9d" in stdout,
+        "fixture does not contain the live cp1252-breaking 0x9d byte",
+    )
+
+    original_run = store.subprocess.run
+
+    def fake_subprocess_run(args, **kwargs):
+        observed["args"] = tuple(args)
+        observed["kwargs"] = dict(kwargs)
+        return SimpleNamespace(
+            returncode=0,
+            stdout=stdout,
+            stderr=b"diagnostic-invalid-byte:\x9d",
+        )
+
+    store.subprocess.run = fake_subprocess_run
+    try:
+        result = backend._list_issues_via_api("all")
+    finally:
+        store.subprocess.run = original_run
+
+    kwargs = observed.get("kwargs")
+    require(isinstance(kwargs, dict), "subprocess invocation was not observed")
+    require(
+        kwargs.get("text") is False,
+        "GitHub backend must capture stdout/stderr as bytes, not locale-decoded text",
+    )
+    require(
+        len(result) == 1,
+        f"UTF-8 Issue listing returned the wrong size: {len(result)}",
+    )
+    require(
+        result[0].get("title") == issue["title"],
+        "UTF-8 GitHub Issue text was not preserved exactly",
+    )
+    require(
+        result[0].get("url") == issue["html_url"],
+        "Issue browser URL normalization regressed",
+    )
+
+
 def test_github_backend_paginates_all_issues_completely() -> None:
     """The listing must never truncate: an old completed Issue past the first
     result page has to stay discoverable so it remains terminal authority."""
@@ -319,6 +378,7 @@ def main() -> int:
         test_guard_is_installed_on_live_issue_store,
         test_closed_complete_issue_remains_terminal_and_cannot_duplicate,
         test_closed_incomplete_duplicate_is_ignored_by_find_and_queue,
+        test_github_backend_decodes_utf8_issue_json_without_windows_locale_loss,
         test_github_backend_paginates_all_issues_completely,
         test_completed_issue_beyond_first_page_prevents_redispatch,
     )

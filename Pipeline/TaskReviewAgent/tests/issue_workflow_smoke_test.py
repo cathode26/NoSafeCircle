@@ -978,7 +978,7 @@ def test_production_composition_binds_to_checkout_origin_not_default() -> None:
         args_tuple = tuple(args)
         if args_tuple[:1] == ("gh",):
             if args_tuple[:3] == ("gh", "auth", "status"):
-                return SimpleNamespace(returncode=0, stdout="", stderr="")
+                return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
             raise AssertionError(f"unexpected 'gh' invocation in a network-free test: {args}")
         return original_run(args, **kwargs)
 

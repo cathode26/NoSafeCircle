@@ -513,7 +513,7 @@ def _fake_gh_environment() -> tuple[Any, Any]:
         values = tuple(args)
         if values[:1] == ("gh",):
             if values[:3] == ("gh", "auth", "status"):
-                return SimpleNamespace(returncode=0, stdout="", stderr="")
+                return SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
             raise AssertionError(f"unexpected 'gh' invocation in a network-free test: {values}")
         return original_run(args, **kwargs)
 

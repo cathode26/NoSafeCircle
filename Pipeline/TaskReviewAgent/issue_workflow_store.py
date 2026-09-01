@@ -1247,15 +1247,32 @@ class GhIssueBackend:
         environment = os.environ.copy()
         environment["GH_PAGER"] = "cat"
         environment["NO_COLOR"] = "1"
-        result = subprocess.run(
+        raw = subprocess.run(
             tuple(args),
             cwd=str(self.source_root),
             env=environment,
-            text=True,
+            text=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
             timeout=180.0,
+        )
+        if not isinstance(raw.stdout, bytes) or not isinstance(raw.stderr, bytes):
+            raise IssueWorkflowStoreError(
+                "GitHub CLI did not return byte streams for stdout/stderr"
+            )
+        try:
+            stdout = raw.stdout.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise IssueWorkflowStoreError(
+                "GitHub CLI stdout was not valid UTF-8"
+            ) from exc
+        stderr = raw.stderr.decode("utf-8", errors="replace")
+        result = subprocess.CompletedProcess(
+            args=tuple(args),
+            returncode=raw.returncode,
+            stdout=stdout,
+            stderr=stderr,
         )
         if check and result.returncode != 0:
             raise IssueWorkflowStoreError(
