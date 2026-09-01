@@ -16,6 +16,7 @@ if str(TASKGRAPH) not in sys.path:
     sys.path.insert(0, str(TASKGRAPH))
 
 from conformance_records import ConformanceRecordError  # noqa: E402
+from current_conformance import ConformanceEvaluationContext  # noqa: E402
 from history_aware_repository import HistoryAwareGitRepository  # noqa: E402
 
 
@@ -198,6 +199,18 @@ def test_false_tree_mapping_fails_closed() -> None:
             )
         else:
             raise AssertionError("false history migration tree proof was accepted")
+
+        try:
+            ConformanceEvaluationContext(root)
+        except ConformanceRecordError as exc:
+            require(
+                "translated commit tree differs" in str(exc),
+                f"context reuse weakened migration validation: {exc}",
+            )
+        else:
+            raise AssertionError(
+                "conformance evaluation context accepted a false history migration tree proof"
+            )
 
 
 def main() -> int:

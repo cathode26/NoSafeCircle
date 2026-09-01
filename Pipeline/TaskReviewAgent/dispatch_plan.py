@@ -54,7 +54,11 @@ from .claim_refs import (
 )
 from .committed_tasks import CommittedTaskError, load_committed_task
 from .contracts import TASK_ID_RE, TaskReviewContractError, validate_task_id
-from .dispatch_policy import DispatchPolicy, load_dispatch_policy
+from .dispatch_policy import (
+    DispatchPolicy,
+    DispatchPolicyError,
+    load_dispatch_policy,
+)
 from .issue_queue import repo_root
 from .issue_workflow import WorkflowState
 from .issue_workflow_store import (
@@ -553,22 +557,43 @@ def list_committed_task_ids(root: Path) -> list[str]:
     return sorted(task_ids)
 
 
-def _taskcontrol_states_snapshot(root: Path) -> tuple[dict[str, dict[str, Any]], str | None]:
-    """One bulk ``taskcontrol.py states --json`` call for the whole plan.
+class TaskcontrolStateObservationError(RuntimeError):
+    """The authoritative bulk TaskGraph state snapshot was not complete.
 
-    Delegates current-conformance evaluation to the same committed authority
-    :mod:`real_observation` uses, but as ONE subprocess for every task
-    instead of one ``taskcontrol.py state <id> --json`` subprocess per
-    candidate/dependency edge -- on the committed 60-task/106-edge graph that
-    per-task shape cost roughly 166 redundant subprocess launches per plan.
-
-    Returns ``(task_id -> {"task_id", "state", "error", "head_commit"},
-    bulk_error)``. A bulk failure never crashes the whole plan: it is
-    surfaced as a per-task ``state_lookup_failed`` reason by the returned
-    state-provider closure, exactly as an individual lookup failure already
-    was.
+    This is a GLOBAL operational failure of the one authoritative
+    ``taskcontrol.py states --json`` observation (timeout, launch failure,
+    nonzero exit, invalid JSON, malformed entry, unrecognized state,
+    coverage/HEAD mismatch). It is deliberately public: explicit Stage 3
+    ``-TaskId`` admission must surface it as a typed operational failure
+    rather than degrading it into a per-task ``state_lookup_failed``
+    eligibility result (:mod:`run_pipeline_agent`), while
+    :func:`build_dispatch_plan` maps it to ``blocked_invalid_state``.
     """
 
+
+def _bounded_subprocess_detail(raw: bytes, limit: int = 1000) -> str:
+    detail = raw.decode("utf-8", errors="replace").strip()
+    if len(detail) <= limit:
+        return detail
+    return detail[:limit] + "... [truncated]"
+
+
+def _taskcontrol_states_snapshot(
+    root: Path,
+    *,
+    expected_task_ids: Iterable[str],
+    source_commit: str,
+    recognized_states: Iterable[str],
+) -> dict[str, dict[str, Any]]:
+    """Load and fully validate one authoritative bulk TaskGraph snapshot.
+
+    ``recognized_states`` is the committed dispatch-policy authority
+    (:attr:`DispatchPolicy.known_dependency_states`): a snapshot entry whose
+    ``state`` falls outside it is a producer regression and must fail the
+    WHOLE observation, never degrade into ordinary per-task rejections.
+    """
+
+    recognized = frozenset(recognized_states)
     taskcontrol_path = root / "Pipeline" / "TaskGraph" / "taskcontrol.py"
     try:
         result = subprocess.run(
@@ -579,34 +604,140 @@ def _taskcontrol_states_snapshot(root: Path) -> tuple[dict[str, dict[str, Any]],
             check=False,
             timeout=300.0,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return {}, f"taskcontrol states could not run: {exc}"
+    except subprocess.TimeoutExpired as exc:
+        raise TaskcontrolStateObservationError(
+            f"taskcontrol states observation timed out after {exc.timeout} seconds"
+        ) from exc
+    except OSError as exc:
+        raise TaskcontrolStateObservationError(
+            f"taskcontrol states launch failed: {exc}"
+        ) from exc
     if result.returncode != 0:
-        detail = result.stderr.decode("utf-8", errors="replace").strip()
-        return {}, f"taskcontrol states failed ({result.returncode}): {detail}"
+        detail = _bounded_subprocess_detail(result.stderr)
+        suffix = f": {detail}" if detail else ""
+        raise TaskcontrolStateObservationError(
+            f"taskcontrol states exited nonzero ({result.returncode}){suffix}"
+        )
     try:
         payload = json.loads(result.stdout.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        return {}, f"taskcontrol states returned invalid JSON: {exc}"
+        raise TaskcontrolStateObservationError(
+            f"taskcontrol states returned invalid UTF-8/JSON payload: {exc}"
+        ) from exc
     if not isinstance(payload, list):
-        return {}, "taskcontrol states payload malformed: expected a JSON array"
+        raise TaskcontrolStateObservationError(
+            "taskcontrol states returned invalid JSON/payload: expected a JSON list"
+        )
 
     snapshot: dict[str, dict[str, Any]] = {}
-    for entry in payload:
+    for index, entry in enumerate(payload):
         if not isinstance(entry, dict):
-            continue
+            raise TaskcontrolStateObservationError(
+                f"taskcontrol states returned invalid JSON/payload: malformed state entry at index {index}"
+            )
         task_id = entry.get("task_id")
         state = entry.get("state")
-        if type(task_id) is not str or type(state) is not str:
-            continue
+        if (
+            type(task_id) is not str
+            or TASK_ID_RE.fullmatch(task_id) is None
+            or type(state) is not str
+            or not state
+        ):
+            raise TaskcontrolStateObservationError(
+                f"taskcontrol states returned invalid JSON/payload: malformed state entry at index {index}"
+            )
+        if state not in recognized:
+            raise TaskcontrolStateObservationError(
+                f"taskcontrol states returned unrecognized state {state!r} for "
+                f"{task_id}; states recognized by the committed dispatch policy: "
+                f"{sorted(recognized)}"
+            )
+        if task_id in snapshot:
+            raise TaskcontrolStateObservationError(
+                f"taskcontrol states coverage/HEAD failure: duplicate task ID {task_id}"
+            )
         head_commit = entry.get("head_commit")
+        if (
+            type(head_commit) is not str
+            or len(head_commit) != 40
+            or any(character not in "0123456789abcdef" for character in head_commit)
+        ):
+            raise TaskcontrolStateObservationError(
+                f"taskcontrol states coverage/HEAD failure: {task_id} has missing/invalid head_commit"
+            )
+        if head_commit != source_commit:
+            raise TaskcontrolStateObservationError(
+                "taskcontrol states coverage/HEAD failure: snapshot entry "
+                f"{task_id} reports HEAD {head_commit} different from the captured "
+                f"source_commit {source_commit}"
+            )
         snapshot[task_id] = {
             "task_id": task_id,
             "state": state,
             "error": None,
-            "head_commit": head_commit if isinstance(head_commit, str) else None,
+            "head_commit": head_commit,
         }
-    return snapshot, None
+
+    expected = set(expected_task_ids)
+    observed = set(snapshot)
+    missing = sorted(expected - observed)
+    unexpected = sorted(observed - expected)
+    if missing or unexpected:
+        raise TaskcontrolStateObservationError(
+            "taskcontrol states coverage/HEAD failure: committed task coverage differs "
+            f"(missing={missing}, unexpected={unexpected})"
+        )
+    return snapshot
+
+
+class _LazyTaskcontrolStateProvider:
+    """Load one complete bulk snapshot only when fresh planning asks for state."""
+
+    def __init__(
+        self,
+        *,
+        root: Path,
+        expected_task_ids: Iterable[str],
+        source_commit: str,
+        recognized_states: Iterable[str],
+    ) -> None:
+        self._root = root
+        self._expected_task_ids = tuple(expected_task_ids)
+        self._source_commit = source_commit
+        self._recognized_states = frozenset(recognized_states)
+        self._snapshot: dict[str, dict[str, Any]] | None = None
+
+    def ensure_snapshot(self) -> dict[str, dict[str, Any]]:
+        """Idempotently load and fully validate the one bulk snapshot.
+
+        Lazy evaluation means a plan can otherwise reach a normal
+        ``fresh_candidate``/``no_safe_work`` answer without the state
+        provider ever running (for example when every committed task fails
+        to load before its own-state lookup). :func:`build_dispatch_plan`
+        calls this before returning such a normal fresh/no-safe plan so the
+        answer is always backed by exactly one successfully validated
+        authoritative observation. A snapshot already loaded by candidate
+        evaluation is reused unchanged — never a second bulk call.
+        """
+
+        if self._snapshot is None:
+            self._snapshot = _taskcontrol_states_snapshot(
+                self._root,
+                expected_task_ids=self._expected_task_ids,
+                source_commit=self._source_commit,
+                recognized_states=self._recognized_states,
+            )
+        return self._snapshot
+
+    def __call__(self, task_id: str) -> Mapping[str, Any]:
+        entry = self.ensure_snapshot().get(task_id)
+        if entry is None:  # pragma: no cover - graph validation should prevent this
+            return {
+                "task_id": task_id,
+                "state": None,
+                "error": f"no taskcontrol states entry for {task_id}",
+            }
+        return entry
 
 
 class _PlanScopedIssueBackend:
@@ -739,15 +870,17 @@ def build_dispatch_plan(
     durable GitHub Issue reservation authority, and a best-effort read-only
     Stage 1 claim-ref snapshot. Performs no mutation of any kind.
 
-    Uses one bulk ``taskcontrol.py states --json`` subprocess and one
-    plan-scoped GitHub Issue-listing snapshot (see
-    :func:`_taskcontrol_states_snapshot` and :class:`_PlanScopedIssueBackend`)
-    instead of repeating either lookup per candidate/dependency. Captures
-    ``source_commit`` at the start and re-verifies committed HEAD has not
-    moved, both against each state observation's own ``head_commit`` and
-    against a final HEAD re-read after every production observation has been
-    assembled — a plan must never mix observations from multiple Git
-    revisions.
+    Uses one lazy bulk ``taskcontrol.py states --json`` subprocess and one
+    plan-scoped GitHub Issue-listing snapshot. Resume selection happens in
+    :func:`plan_dispatch` before the state provider is called, so a valid
+    agent-ready Issue never pays for or depends on a fresh-work TaskGraph
+    scan. Fresh planning validates complete task-ID and HEAD coverage before
+    using any state, and a normal ``fresh_candidate``/``no_safe_work`` plan
+    is returned only after that bulk snapshot was successfully validated
+    exactly once (a failed observation, or an empty committed task
+    enumeration with no valid resume, is ``blocked_invalid_state``).
+    Committed HEAD is re-read after planning so a plan never mixes
+    observations from multiple Git revisions.
 
     ``excluded_task_ids`` is forwarded unchanged to :func:`plan_dispatch` --
     see its docstring. Every existing caller that omits it gets exactly the
@@ -757,6 +890,19 @@ def build_dispatch_plan(
     different exclusion set on a later call is, by construction, planning
     against refreshed authority rather than a cached/stale plan.
     """
+
+    # Resolve ONE effective dispatch policy here so the bulk-snapshot state
+    # validation and plan_dispatch's candidate semantics can never silently
+    # use two different policy objects. A malformed/inconsistent committed
+    # policy is the same class of corrupt committed coordination authority as
+    # an invalid claim policy: a typed blocked plan, never a traceback.
+    try:
+        policy = policy or load_dispatch_policy()
+    except DispatchPolicyError as exc:
+        return _blocked_plan(
+            source_commit="unknown",
+            reasons=(f"committed Stage 2 dispatch policy is invalid: {exc}",),
+        )
 
     try:
         root = repo_root(Path(source).resolve())
@@ -783,47 +929,50 @@ def build_dispatch_plan(
             reasons=(f"committed Stage 1 claim policy is invalid: {exc}",),
         )
 
-    states_snapshot, states_error = _taskcontrol_states_snapshot(root)
-    drifted_commits = sorted(
-        {
-            entry["head_commit"]
-            for entry in states_snapshot.values()
-            if entry.get("head_commit") not in (None, source_commit)
-        }
-    )
-    if drifted_commits:
-        return _blocked_plan(
-            source_commit=source_commit,
-            reasons=(
-                "taskcontrol states snapshot reports committed HEAD "
-                f"{drifted_commits} different from the captured source_commit "
-                f"{source_commit}; Git HEAD moved during dispatch planning",
-            ),
-        )
-
-    def _snapshot_state_provider(task_id: str) -> dict[str, Any]:
-        entry = states_snapshot.get(task_id)
-        if entry is not None:
-            return entry
-        return {
-            "task_id": task_id,
-            "state": None,
-            "error": states_error or f"no taskcontrol states entry for {task_id}",
-        }
-
-    plan = plan_dispatch(
+    state_provider = _LazyTaskcontrolStateProvider(
+        root=root,
+        expected_task_ids=task_ids,
         source_commit=source_commit,
-        task_ids=task_ids,
-        task_loader=lambda task_id: load_committed_task(root, task_id),
-        state_provider=_snapshot_state_provider,
-        issue_workflow=issue_workflow,
-        claimed_refs=claimed_refs,
-        claim_namespace=claim_namespace,
-        claim_observation=claim_observation,
-        provisional_reasons=provisional_reasons,
-        policy=policy,
-        excluded_task_ids=excluded_task_ids,
+        recognized_states=policy.known_dependency_states,
     )
+    try:
+        plan = plan_dispatch(
+            source_commit=source_commit,
+            task_ids=task_ids,
+            task_loader=lambda task_id: load_committed_task(root, task_id),
+            state_provider=state_provider,
+            issue_workflow=issue_workflow,
+            claimed_refs=claimed_refs,
+            claim_namespace=claim_namespace,
+            claim_observation=claim_observation,
+            provisional_reasons=provisional_reasons,
+            policy=policy,
+            excluded_task_ids=excluded_task_ids,
+        )
+        if plan.decision in ("fresh_candidate", "no_safe_work"):
+            # A normal fresh/no-safe answer asserts facts about the whole
+            # fresh-work universe, so it must be backed by one successfully
+            # validated bulk snapshot even when lazy candidate evaluation
+            # never reached the state provider. Resume-first behavior is
+            # untouched: resume_existing and independently blocked plans
+            # never force the scan.
+            if not task_ids:
+                plan = _blocked_plan(
+                    source_commit=source_commit,
+                    reasons=(
+                        "no committed Tasks/NSC-*.yaml contracts exist at HEAD "
+                        "and no valid resume work exists; refusing to report "
+                        "ordinary no_safe_work without a fresh-work universe "
+                        "to observe",
+                    ),
+                )
+            else:
+                state_provider.ensure_snapshot()
+    except TaskcontrolStateObservationError as exc:
+        plan = _blocked_plan(
+            source_commit=source_commit,
+            reasons=(f"authoritative TaskGraph state observation failed: {exc}",),
+        )
 
     try:
         final_head = _git_head(root)
@@ -864,8 +1013,18 @@ def evaluate_committed_fresh_candidate(
     explicit ask is judged by the identical :func:`evaluate_fresh_candidate`
     kernel a generic dispatch would have used, rather than a second
     eligibility implementation. Read-only; never mutates anything.
+
+    Raises :class:`TaskcontrolStateObservationError` when the authoritative
+    bulk TaskGraph snapshot itself fails (timeout, launch/exit failure,
+    invalid payload, unrecognized state anywhere in the snapshot, or
+    coverage/HEAD mismatch). That is a global operational failure of the
+    observation, not an eligibility fact about the requested task, so it
+    must never degrade into an ordinary ``state_lookup_failed`` rejection.
     """
 
+    # Same one-effective-policy rule as build_dispatch_plan: snapshot
+    # validation and candidate evaluation must share this exact instance.
+    policy = policy or load_dispatch_policy()
     root = repo_root(Path(source).resolve())
     issue_workflow = IssueWorkflowService(
         backend=_PlanScopedIssueBackend(GhIssueBackend(source_root=root)),
@@ -875,7 +1034,20 @@ def evaluate_committed_fresh_candidate(
     claimed_refs, claim_namespace, _claim_observation, _provisional = (
         _read_only_claim_observation(root=root, remote=remote, claim_policy=claim_policy)
     )
-    states_snapshot, states_error = _taskcontrol_states_snapshot(root)
+    source_commit = _git_head(root)
+    task_ids = list_committed_task_ids(root)
+    # A global observation failure propagates as the typed
+    # TaskcontrolStateObservationError instead of being flattened into an
+    # empty snapshot: substituting per-task "state_lookup_failed" here would
+    # recreate the undiagnosable incident shape on the explicit-admission
+    # path and make a healthy requested task look merely ineligible because
+    # an unrelated snapshot row was malformed.
+    states_snapshot = _taskcontrol_states_snapshot(
+        root,
+        expected_task_ids=task_ids,
+        source_commit=source_commit,
+        recognized_states=policy.known_dependency_states,
+    )
 
     def _state_provider(selected: str) -> dict[str, Any]:
         entry = states_snapshot.get(selected)
@@ -884,7 +1056,7 @@ def evaluate_committed_fresh_candidate(
         return {
             "task_id": selected,
             "state": None,
-            "error": states_error or f"no taskcontrol states entry for {selected}",
+            "error": f"no taskcontrol states entry for {selected}",
         }
 
     return evaluate_fresh_candidate(
@@ -924,6 +1096,7 @@ __all__ = [
     "DependencyObservation",
     "DispatchPlan",
     "FreshCandidateEvaluation",
+    "TaskcontrolStateObservationError",
     "build_dispatch_plan",
     "evaluate_committed_fresh_candidate",
     "evaluate_fresh_candidate",
