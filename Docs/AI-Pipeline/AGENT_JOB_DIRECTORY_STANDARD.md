@@ -131,6 +131,8 @@ repository/pipeline authority -> its required canonical location
 
 ## 6. Docker mount construction
 
+For `docker compose run`, use Compose's supported `-v` / `--volume` option. Do not use the `docker run --mount` form with `docker compose run`; Compose's `run` command does not expose `--mount`.
+
 For a Claude job, a runner may construct a mount equivalent to:
 
 ```powershell
@@ -146,8 +148,8 @@ $DockerArgs = @(
     "run",
     "--rm",
     "-T",
-    "--mount",
-    ("type=bind,source=" + $ClaudeJobs + ",target=/agent-jobs")
+    "-v",
+    ($ClaudeJobs + ":/agent-jobs:rw")
 )
 ```
 
@@ -221,6 +223,7 @@ Provider-created reports under `/agent-jobs` are diagnostic inputs to that valid
 Claude scratch root  = C:\NSC\NSC\.claude-jobs
 Codex scratch root   = C:\NSC\NSC\.codex-jobs
 container mount      = /agent-jobs
+compose run mount    = -v <host-root>:/agent-jobs:rw
 one substantial run  = one dedicated job subdirectory
 read-only review     = /workspace:ro + /agent-jobs:rw
 implementation       = exact source-write boundary + /agent-jobs:rw
