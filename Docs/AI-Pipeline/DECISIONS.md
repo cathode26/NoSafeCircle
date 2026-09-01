@@ -112,6 +112,11 @@ Stage 5A implementation note (2026-08-23): the already-modeled `repository_write
 
 **Reason:** Unity scenes, prefabs, `.meta` files, and shared systems can create expensive merge conflicts.
 
+**2026-09-01 clarification:** Proposed ADR-045 keeps decentralized continuous workers
+deferred and selects one explicitly operator-started supervised polling session instead.
+Its v1 default remains one worker; increasing above one requires the Software Architect
+acceptance proof.
+
 ---
 
 ## ADR-014 — Every autonomous loop has budgets/circuit breakers
@@ -332,3 +337,35 @@ The independent Validator is a second safety boundary. Every AC/VAL result carri
 **Relationship to progressive decomposition:** D1B.2 remains the planned upstream verifier/refiner for decomposition proposals. D1B.2 asks whether proposed child contracts are semantically sound before graph application; the Contract Locality Auditor asks whether an already-approved concrete task is actually locally executable/provable immediately before writers run. Neither replaces the other.
 
 **Authority:** Task selection remains human-directed. TaskGraph, committed evidence, deterministic Git/Unity validation, and human approval retain their existing authority. This decision does not enable dependency readiness, autonomous dispatch, automatic contract repair, automatic patch application, commits, merges, or conformance claims.
+
+---
+
+## ADR-045 — One supervised polling architect owns bounded autonomous dispatch
+
+**Status:** Proposed on the uncommitted `orchestrator/polling-architect-v1` branch as of
+2026-09-01. It is under independent review and is not merged or production authority.
+
+**Decision:** The old decentralized model of continuously running generic workers that
+self-select and race for tasks remains retired/deferred. The chosen bounded-autonomy model
+is one supervised Software Architect polling session that the operator explicitly starts
+and stops. Deterministic Stage 2 remains the eligibility, resume-first, and fresh-task
+ranking authority; durable Issue state, Git claim/lease rules, committed TaskGraph
+contracts, and Git evidence remain authoritative. The architect receives exact candidates,
+advises on likely integration surfaces, and the scheduler launches workers with exact task
+IDs only after deterministic conflict gates pass.
+
+**Parallelism policy:** Parallel admission is conservative and conflict-gated. The first
+live acceptance proof must run with `max_workers=1`, which is the v1 default. Raising the
+worker count above 1 requires the Software Architect acceptance proof; an idle slot is
+preferred to an unresolved Unity scene, prefab, ScriptableObject, or shared-system
+conflict.
+
+**Bounds:** Each operator-started session has a realistic polling interval, a per-poll
+architect-call cap, a per-task WAIT/HUMAN_REVIEW re-analysis cooldown, and a cumulative
+architect-call cap. Reaching the cumulative cap stops new admissions with a non-success
+result. Starting another session is an explicit operator decision, not an automatic cost
+reset.
+
+**Authority unchanged:** This decision does not grant the model TaskGraph, GDD/canon,
+Issue, claim, commit, merge, Unity validation, or decomposition-application authority. It
+also does not authorize Stage-5 Slice 3 or autonomous decomposition application.
