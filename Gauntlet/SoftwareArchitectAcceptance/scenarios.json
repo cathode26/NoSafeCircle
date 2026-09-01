@@ -1,0 +1,1251 @@
+{
+  "schema_version": "2.0",
+  "name": "Software Architect Acceptance Gauntlet",
+  "purpose": "Deterministic acceptance scenarios for the supervised polling Software Architect scheduler. Test fixture only: never No Safe Circle game-design canon, never TaskGraph authority, never completion evidence for a real task.",
+  "task_id_range": "NSC-901..NSC-998 (reserved synthetic range; the production graph and the retired Orchestrator Gauntlet both stop below NSC-900). NSC-999 is reserved as a never-declared ID so evidence naming it is provably fabricated.",
+  "source_identity": {
+    "acceptance_branch": "test/software-architect-gauntlet-v1",
+    "acceptance_base_commit": "fa5da9f03343e457af042598bfb83526926123e5",
+    "architect_reference_branch": "orchestrator/polling-architect-v1",
+    "architect_reference_state": "uncommitted working-tree files on that branch; read-only reference only",
+    "note": "Expectations below were derived from the Software-Architect-Orchestrator design packet, not from any executed scheduler run. No scenario in this manifest has been proven against the real scheduler. Decomposition and graph-delta scenarios are deliberately absent; see LIVE_PROOF_CHECKLIST.md for their future specifications."
+  },
+  "tasks": {
+    "NSC-901": {
+      "title": "Enemy Pursuit Movement Speed Tuning",
+      "summary": "Adjust the pursuit MonoBehaviour's movement speed handling. Touches one script and nothing else.",
+      "exclusive_resources": [],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Scripts/Enemy/EnemyPursuit.cs"
+        ]
+      }
+    },
+    "NSC-902": {
+      "title": "Audio Router Volume Curve",
+      "summary": "Change the audio router's volume curve evaluation. One isolated script.",
+      "exclusive_resources": [],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Scripts/Audio/AudioRouter.cs"
+        ]
+      }
+    },
+    "NSC-903": {
+      "title": "HUD Health Bar Layout",
+      "summary": "Reposition the health bar view and re-author the HUD prefab hierarchy.",
+      "exclusive_resources": [],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Prefabs/HUD.prefab",
+          "SyntheticGame/Scripts/UI/HealthBarView.cs"
+        ]
+      }
+    },
+    "NSC-904": {
+      "title": "HUD Ammo Counter Readout",
+      "summary": "Add an ammo readout to the HUD controller and the HUD prefab. Logically independent of the health bar work, but it needs the same prefab.",
+      "exclusive_resources": [],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Prefabs/HUD.prefab",
+          "SyntheticGame/Scripts/UI/HudController.cs"
+        ]
+      }
+    },
+    "NSC-905": {
+      "title": "Game Scene Lighting Pass",
+      "summary": "Re-light the Game scene. Scene-only authoring work.",
+      "exclusive_resources": [],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Scenes/Game.unity"
+        ]
+      }
+    },
+    "NSC-906": {
+      "title": "Enemy Tuning Data Rebalance",
+      "summary": "Rebalance the enemy tuning ScriptableObject values.",
+      "exclusive_resources": [
+        "logical:enemy-tuning-data"
+      ],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Data/EnemyTuning.asset"
+        ]
+      }
+    },
+    "NSC-907": {
+      "title": "Ranged Enemy Attack Wind-Up",
+      "summary": "Implement the ranged attack wind-up timer and read its duration from the tuning asset.",
+      "exclusive_resources": [],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Data/EnemyTuning.asset",
+          "SyntheticGame/Scripts/Enemy/RangedEnemyAttack.cs"
+        ]
+      }
+    },
+    "NSC-908": {
+      "title": "Enemy Projectile Collision and Reset",
+      "summary": "Implement projectile collision plus a reset method, and re-import the tuning asset so its .meta companion is rewritten. Its script is disjoint from the wind-up work; its serialized asset identity is not.",
+      "exclusive_resources": [],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Data/EnemyTuning.asset.meta",
+          "SyntheticGame/Scripts/Enemy/EnemyProjectile.cs"
+        ]
+      }
+    },
+    "NSC-910": {
+      "title": "Audio Catalog Entries",
+      "summary": "Add entries to the audio catalog ScriptableObject.",
+      "exclusive_resources": [
+        "logical:audio-catalog"
+      ],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Data/AudioCatalog.asset"
+        ]
+      }
+    },
+    "NSC-911": {
+      "title": "Enemy Targeting Component Refactor",
+      "summary": "Refactor the targeting component behind an interface. Declares its own exclusive resource.",
+      "exclusive_resources": [
+        "logical:enemy-targeting"
+      ],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Scripts/Enemy/EnemyTargeting.cs"
+        ]
+      }
+    },
+    "NSC-914": {
+      "title": "Game Scene Spawn Point Pass",
+      "summary": "Place spawn points in the Game scene. Needs the same scene as the lighting pass.",
+      "exclusive_resources": [],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Scenes/Game.unity"
+        ]
+      }
+    },
+    "NSC-916": {
+      "title": "Enemy Tuning Curve Import",
+      "summary": "Import new curves into the enemy tuning asset. Declares the same exclusive resource as the rebalance work.",
+      "exclusive_resources": [
+        "logical:enemy-tuning-data"
+      ],
+      "intended_change_surface": {
+        "exact_paths": [
+          "SyntheticGame/Data/EnemyTuning.asset"
+        ]
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "id": "SAA-A-parallel-safe-assignments",
+      "letter": "A",
+      "title": "Parallel-safe assignments start on successive polls",
+      "purpose": "Two tasks with disjoint scripts, serialized assets and resources can both run. The second starts on a later poll while the first is still active. Each launch must carry a real observed worker ID: an acceptance claim about distinct assignments is worthless if a missing worker ID can be filled in by the harness.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "stage2_candidate_selection",
+        "integration_reservation_observation",
+        "deterministic_conflict_detection",
+        "wait_admission_policy",
+        "exact_task_id_launch"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-901",
+          "NSC-902"
+        ],
+        "reservations": [],
+        "advisories": {
+          "NSC-901": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scripts/Enemy/EnemyPursuit.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.92
+          },
+          "NSC-902": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scripts/Audio/AudioRouter.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.9
+          }
+        }
+      },
+      "fixture_facts": {
+        "disjoint_pairs": [
+          [
+            "NSC-901",
+            "NSC-902"
+          ]
+        ]
+      },
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "start",
+            "task_id": "NSC-901",
+            "require_worker_id": true,
+            "waited_task_ids": [],
+            "no_human_escalation": true
+          }
+        },
+        {
+          "step": 2,
+          "transition": null,
+          "expected": {
+            "outcome": "start",
+            "task_id": "NSC-902",
+            "require_worker_id": true,
+            "waited_task_ids": [],
+            "distinct_assignment": true,
+            "no_human_escalation": true
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "exact_task_id_launch",
+          "unique_worker_ids",
+          "launch_argv_binding",
+          "human_review_is_narrow"
+        ]
+      }
+    },
+    {
+      "id": "SAA-B-predicted-exact-path-conflict",
+      "letter": "B",
+      "title": "Predicted exact-path conflict serializes one candidate and Stage 2 offers another",
+      "purpose": "Two logically independent HUD tasks both need SyntheticGame/Prefabs/HUD.prefab. One starts; the other waits; a third unrelated candidate is still allowed to start in the same pass, so a WAIT does not stall the repository.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "stage2_candidate_selection",
+        "deterministic_conflict_detection",
+        "wait_admission_policy",
+        "exact_task_id_launch"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-903",
+          "NSC-904",
+          "NSC-901"
+        ],
+        "reservations": [],
+        "advisories": {
+          "NSC-903": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Prefabs/HUD.prefab",
+                "SyntheticGame/Scripts/UI/HealthBarView.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.88
+          },
+          "NSC-904": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Prefabs/HUD.prefab",
+                "SyntheticGame/Scripts/UI/HudController.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.88
+          },
+          "NSC-901": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scripts/Enemy/EnemyPursuit.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.92
+          }
+        }
+      },
+      "fixture_facts": {
+        "overlapping_pairs": [
+          {
+            "tasks": [
+              "NSC-903",
+              "NSC-904"
+            ],
+            "on": [
+              "SyntheticGame/Prefabs/HUD.prefab"
+            ]
+          }
+        ],
+        "disjoint_pairs": [
+          [
+            "NSC-903",
+            "NSC-901"
+          ],
+          [
+            "NSC-904",
+            "NSC-901"
+          ]
+        ]
+      },
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "start",
+            "task_id": "NSC-903",
+            "require_worker_id": true,
+            "waited_task_ids": []
+          }
+        },
+        {
+          "step": 2,
+          "transition": null,
+          "expected": {
+            "outcome": "start",
+            "task_id": "NSC-901",
+            "require_worker_id": true,
+            "waited_task_ids": [
+              "NSC-904"
+            ],
+            "conflicts": [
+              {
+                "candidate_task_id": "NSC-904",
+                "conflicting_task_id": "NSC-903",
+                "kind": "exact_path_predicted",
+                "on": [
+                  "SyntheticGame/Prefabs/HUD.prefab"
+                ]
+              }
+            ],
+            "no_human_escalation": true
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "exact_task_id_launch",
+          "launch_argv_binding",
+          "structured_wait_evidence",
+          "human_review_is_narrow"
+        ]
+      }
+    },
+    {
+      "id": "SAA-C-unity-asset-identity-conflict",
+      "letter": "C",
+      "title": "Separate scripts but one shared serialized asset identity must serialize",
+      "purpose": "The wind-up task edits SyntheticGame/Data/EnemyTuning.asset; the projectile task edits its .meta companion. The two C# files are disjoint, so a script-only comparison would call them parallel-safe, and a path-string comparison would too because the two paths are not equal. They are the same non-merge-safe Unity asset identity, so the second must wait.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "stage2_candidate_selection",
+        "deterministic_conflict_detection",
+        "unity_serialized_asset_conflict",
+        "wait_admission_policy"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-907",
+          "NSC-908"
+        ],
+        "reservations": [],
+        "advisories": {
+          "NSC-907": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Data/EnemyTuning.asset",
+                "SyntheticGame/Scripts/Enemy/RangedEnemyAttack.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.85
+          },
+          "NSC-908": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Data/EnemyTuning.asset.meta",
+                "SyntheticGame/Scripts/Enemy/EnemyProjectile.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.85
+          }
+        }
+      },
+      "fixture_facts": {
+        "overlapping_pairs": [
+          {
+            "tasks": [
+              "NSC-907",
+              "NSC-908"
+            ],
+            "on": [
+              "SyntheticGame/Data/EnemyTuning.asset"
+            ]
+          }
+        ],
+        "unity_meta_companion_pairs": [
+          {
+            "asset": "SyntheticGame/Data/EnemyTuning.asset",
+            "meta": "SyntheticGame/Data/EnemyTuning.asset.meta"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "start",
+            "task_id": "NSC-907",
+            "require_worker_id": true
+          }
+        },
+        {
+          "step": 2,
+          "transition": null,
+          "expected": {
+            "outcome": "idle",
+            "waited_task_ids": [
+              "NSC-908"
+            ],
+            "conflicts": [
+              {
+                "candidate_task_id": "NSC-908",
+                "conflicting_task_id": "NSC-907",
+                "kind": "unity_asset_identity",
+                "on": [
+                  "SyntheticGame/Data/EnemyTuning.asset"
+                ]
+              }
+            ],
+            "forbid_launch": true
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "exact_task_id_launch",
+          "launch_argv_binding",
+          "structured_wait_evidence",
+          "human_review_is_narrow"
+        ]
+      }
+    },
+    {
+      "id": "SAA-D-human-held-unmerged-reservation",
+      "letter": "D",
+      "title": "A human-held unmerged branch still reserves its scene",
+      "purpose": "NSC-905 is parked at human_action_required with an unmerged branch that changes SyntheticGame/Scenes/Game.unity. There is no live worker, so a capacity-only scheduler would happily launch NSC-914 into the same scene. It must wait.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "integration_reservation_observation",
+        "deterministic_conflict_detection",
+        "wait_admission_policy"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-914"
+        ],
+        "reservations": [
+          {
+            "task_id": "NSC-905",
+            "reservation_kind": "human_hold_branch",
+            "workflow_state": "human_action_required",
+            "phase": "unity_runtime_validation",
+            "branch_paths": [
+              "SyntheticGame/Scenes/Game.unity"
+            ],
+            "confidence": 1.0
+          }
+        ],
+        "advisories": {
+          "NSC-914": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scenes/Game.unity"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.9
+          }
+        }
+      },
+      "fixture_facts": {
+        "reservation_actual_paths": {
+          "NSC-905": [
+            "SyntheticGame/Scenes/Game.unity"
+          ]
+        },
+        "candidate_reservation_overlap": [
+          {
+            "candidate": "NSC-914",
+            "reservation": "NSC-905",
+            "on": [
+              "SyntheticGame/Scenes/Game.unity"
+            ]
+          }
+        ]
+      },
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "idle",
+            "waited_task_ids": [
+              "NSC-914"
+            ],
+            "conflicts": [
+              {
+                "candidate_task_id": "NSC-914",
+                "conflicting_task_id": "NSC-905",
+                "kind": "exact_path_actual",
+                "on": [
+                  "SyntheticGame/Scenes/Game.unity"
+                ]
+              }
+            ],
+            "forbid_launch": true,
+            "forbid_durable_mutation": true,
+            "no_human_escalation": true
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "structured_wait_evidence",
+          "human_review_is_narrow",
+          "no_launch_recorded"
+        ]
+      }
+    },
+    {
+      "id": "SAA-E-actual-change-overrides-prediction",
+      "letter": "E",
+      "title": "Actual Git evidence overrides a stale prediction",
+      "purpose": "NSC-901 was admitted on a prediction naming only one script. Its running checkout then actually modifies SyntheticGame/Prefabs/HUD.prefab. NSC-903 needs that prefab, so current actual evidence must beat the stale prediction and NSC-903 waits.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "integration_reservation_observation",
+        "deterministic_conflict_detection",
+        "wait_admission_policy"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-901",
+          "NSC-903"
+        ],
+        "reservations": [],
+        "advisories": {
+          "NSC-901": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scripts/Enemy/EnemyPursuit.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.92
+          },
+          "NSC-903": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Prefabs/HUD.prefab",
+                "SyntheticGame/Scripts/UI/HealthBarView.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.88
+          }
+        }
+      },
+      "fixture_facts": {
+        "disjoint_pairs": [
+          [
+            "NSC-901",
+            "NSC-903"
+          ]
+        ]
+      },
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "start",
+            "task_id": "NSC-901",
+            "require_worker_id": true
+          }
+        },
+        {
+          "step": 2,
+          "transition": {
+            "kind": "worker_actual_change",
+            "task_id": "NSC-901",
+            "tracked_modified": [
+              "SyntheticGame/Prefabs/HUD.prefab"
+            ]
+          },
+          "expected": {
+            "outcome": "idle",
+            "waited_task_ids": [
+              "NSC-903"
+            ],
+            "conflicts": [
+              {
+                "candidate_task_id": "NSC-903",
+                "conflicting_task_id": "NSC-901",
+                "kind": "exact_path_actual",
+                "on": [
+                  "SyntheticGame/Prefabs/HUD.prefab"
+                ]
+              }
+            ],
+            "fingerprint_changed": true,
+            "forbid_launch": true
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "exact_task_id_launch",
+          "launch_argv_binding",
+          "structured_wait_evidence"
+        ]
+      }
+    },
+    {
+      "id": "SAA-F-wait-becomes-start-after-integration",
+      "letter": "F",
+      "title": "A WAIT becomes a START once the conflicting work is integrated",
+      "purpose": "NSC-914 waits because an unmerged branch owns the Game scene. After that branch is merged the reservation is genuinely released, the in-flight fingerprint changes, and the same candidate is reconsidered and started. Proves a WAIT is never a blacklist, and binds the before and after state to the same task.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "integration_reservation_observation",
+        "deterministic_conflict_detection",
+        "wait_admission_policy",
+        "exact_task_id_launch"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-914"
+        ],
+        "reservations": [
+          {
+            "task_id": "NSC-905",
+            "reservation_kind": "durable_unmerged_branch",
+            "workflow_state": "agent_ready",
+            "phase": "implementation",
+            "branch_paths": [
+              "SyntheticGame/Scenes/Game.unity"
+            ],
+            "confidence": 1.0
+          }
+        ],
+        "advisories": {
+          "NSC-914": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scenes/Game.unity"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.9
+          }
+        }
+      },
+      "fixture_facts": {
+        "reservation_actual_paths": {
+          "NSC-905": [
+            "SyntheticGame/Scenes/Game.unity"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "idle",
+            "waited_task_ids": [
+              "NSC-914"
+            ],
+            "forbid_launch": true,
+            "forbid_durable_mutation": true,
+            "fingerprint_changed": false
+          }
+        },
+        {
+          "step": 2,
+          "transition": {
+            "kind": "integrate_reservation",
+            "task_id": "NSC-905"
+          },
+          "expected": {
+            "outcome": "start",
+            "task_id": "NSC-914",
+            "require_worker_id": true,
+            "fingerprint_changed": true
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "wait_then_start_transition",
+          "structured_wait_evidence",
+          "exact_task_id_launch",
+          "launch_argv_binding"
+        ],
+        "optional_checks": [
+          "unique_worker_ids"
+        ],
+        "wait_then_start_task_ids": [
+          "NSC-914"
+        ]
+      }
+    },
+    {
+      "id": "SAA-G1-unknown-surface-blocks-unprovable-pair",
+      "letter": "G",
+      "title": "An unobservable surface waits when disjointness cannot be established",
+      "purpose": "NSC-905's checkout cannot be read. Neither it nor the candidate declares a committed exclusive resource, so nothing structured can positively establish disjointness and the candidate waits. An unreadable surface must be recorded as UNKNOWN, never as 'no paths'.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "integration_reservation_observation",
+        "unknown_surface_policy",
+        "wait_admission_policy"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-901"
+        ],
+        "reservations": [
+          {
+            "task_id": "NSC-905",
+            "reservation_kind": "unobservable_surface",
+            "workflow_state": "agent_working",
+            "phase": "implementation",
+            "checkout": {
+              "tracked_modified": [
+                "SyntheticGame/Scenes/Game.unity"
+              ]
+            },
+            "confidence": 0.0
+          }
+        ],
+        "advisories": {
+          "NSC-901": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scripts/Enemy/EnemyPursuit.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.92
+          }
+        }
+      },
+      "fixture_facts": {
+        "reservation_surface_unknown": [
+          "NSC-905"
+        ],
+        "reservation_actual_paths": {
+          "NSC-905": []
+        },
+        "disjointness_evidence": [
+          {
+            "candidate_task_id": "NSC-901",
+            "reservation_task_id": "NSC-905",
+            "verdict": "not_provably_disjoint"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "idle",
+            "waited_task_ids": [
+              "NSC-901"
+            ],
+            "forbid_launch": true,
+            "forbid_durable_mutation": true,
+            "no_human_escalation": true
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "structured_wait_evidence",
+          "no_launch_recorded",
+          "human_review_is_narrow"
+        ]
+      }
+    },
+    {
+      "id": "SAA-G2-unknown-surface-provably-disjoint",
+      "letter": "G",
+      "title": "An unobservable surface does not freeze provably disjoint work",
+      "purpose": "The same unreadable-surface shape, but both sides declare committed exclusive resources and those declarations are disjoint. Eligibility to start comes from the structured disjointness verdict computed from the committed resource tokens and contract identities, never from an architect's prose justification. Proves the conservative rule does not become a global deadlock.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "integration_reservation_observation",
+        "unknown_surface_policy",
+        "wait_admission_policy",
+        "exact_task_id_launch"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-911"
+        ],
+        "reservations": [
+          {
+            "task_id": "NSC-910",
+            "reservation_kind": "unobservable_surface",
+            "workflow_state": "agent_working",
+            "phase": "implementation",
+            "checkout": {
+              "tracked_modified": [
+                "SyntheticGame/Data/AudioCatalog.asset"
+              ]
+            },
+            "confidence": 0.0
+          }
+        ],
+        "advisories": {
+          "NSC-911": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scripts/Enemy/EnemyTargeting.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.9,
+            "disjointness_claims": [
+              "NSC-910"
+            ]
+          }
+        }
+      },
+      "fixture_facts": {
+        "reservation_surface_unknown": [
+          "NSC-910"
+        ],
+        "reservation_actual_paths": {
+          "NSC-910": []
+        },
+        "disjointness_evidence": [
+          {
+            "candidate_task_id": "NSC-911",
+            "reservation_task_id": "NSC-910",
+            "verdict": "provably_disjoint"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "start",
+            "task_id": "NSC-911",
+            "require_worker_id": true,
+            "waited_task_ids": [],
+            "no_human_escalation": true
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "exact_task_id_launch",
+          "launch_argv_binding",
+          "human_review_is_narrow"
+        ]
+      }
+    },
+    {
+      "id": "SAA-H1-architect-invocation-unavailable",
+      "letter": "H",
+      "title": "An unavailable architect advisory waits and never escalates",
+      "purpose": "The advisory invocation fails outright. Nothing may launch from it, the candidate waits, merge uncertainty must not be routed to a human, and the failed advisory must not be cached so a recovered provider is retried on the next poll.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "wait_admission_policy",
+        "architect_failure_tolerance",
+        "exact_task_id_launch"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-901"
+        ],
+        "reservations": [],
+        "advisories": {
+          "NSC-901": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scripts/Enemy/EnemyPursuit.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.92
+          }
+        }
+      },
+      "fixture_facts": {},
+      "steps": [
+        {
+          "step": 1,
+          "transition": {
+            "kind": "architect_unavailable"
+          },
+          "expected": {
+            "outcome": "idle",
+            "waited_task_ids": [
+              "NSC-901"
+            ],
+            "forbid_launch": true,
+            "forbid_durable_mutation": true,
+            "no_human_escalation": true
+          }
+        },
+        {
+          "step": 2,
+          "transition": {
+            "kind": "architect_restored"
+          },
+          "expected": {
+            "outcome": "start",
+            "task_id": "NSC-901",
+            "require_worker_id": true,
+            "note": "A failed advisory is never cached, so a recovered provider is retried on the next poll."
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "structured_wait_evidence",
+          "human_review_is_narrow",
+          "exact_task_id_launch",
+          "launch_argv_binding"
+        ]
+      }
+    },
+    {
+      "id": "SAA-H2-architect-output-malformed",
+      "letter": "H",
+      "title": "A structurally malformed architect response waits and never escalates",
+      "purpose": "The advisory returns, and it looks plausible. It names a valid-looking but wrong task ID, binds itself to the wrong scenario, omits the predicted change surface entirely, and carries an unknown structured field. A scheduler that parses loosely would launch on it. It must be rejected as unusable, produce a WAIT with no launch, and never become a human escalation, because a malformed provider response is merge uncertainty, not a design question.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "wait_admission_policy",
+        "architect_failure_tolerance"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-901"
+        ],
+        "reservations": [],
+        "advisories": {},
+        "malformed_advisories": {
+          "NSC-901": {
+            "defects": [
+              "wrong_task_id",
+              "wrong_scenario_binding",
+              "missing_predicted_change_surface",
+              "unknown_structured_field"
+            ]
+          }
+        }
+      },
+      "fixture_facts": {},
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "idle",
+            "waited_task_ids": [
+              "NSC-901"
+            ],
+            "forbid_launch": true,
+            "forbid_durable_mutation": true,
+            "no_human_escalation": true
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "structured_wait_evidence",
+          "human_review_is_narrow",
+          "no_launch_recorded"
+        ]
+      }
+    },
+    {
+      "id": "SAA-I1-resume-outranks-tempting-fresh-work",
+      "letter": "I",
+      "title": "Durable resume authority outranks a higher-ranked fresh candidate",
+      "purpose": "NSC-906 has a durable unmerged branch and is the resume claim. It does not appear in the fresh Stage-2 ranking at all, so the scheduler cannot get this right by taking the head of a queue. The fresh ranking offers NSC-901, which is genuinely launchable and carries higher advisory confidence. The scheduler must still select the resume task first, and must not treat NSC-906's own reservation as a competitor.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "resume_priority",
+        "stage2_candidate_selection",
+        "deterministic_conflict_detection",
+        "exact_task_id_launch"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-901"
+        ],
+        "resume_authority": {
+          "task_id": "NSC-906",
+          "workflow_state": "agent_ready",
+          "phase": "repair"
+        },
+        "reservations": [
+          {
+            "task_id": "NSC-906",
+            "reservation_kind": "durable_unmerged_branch",
+            "workflow_state": "agent_ready",
+            "phase": "repair",
+            "branch_paths": [
+              "SyntheticGame/Data/EnemyTuning.asset"
+            ],
+            "confidence": 1.0
+          }
+        ],
+        "advisories": {
+          "NSC-906": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Data/EnemyTuning.asset"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.81
+          },
+          "NSC-901": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scripts/Enemy/EnemyPursuit.cs"
+              ]
+            },
+            "integration_risk": "none",
+            "parallel_recommendation": "start",
+            "confidence": 0.97
+          }
+        }
+      },
+      "fixture_facts": {
+        "reservation_actual_paths": {
+          "NSC-906": [
+            "SyntheticGame/Data/EnemyTuning.asset"
+          ]
+        },
+        "resume_is_not_queue_order": {
+          "resume_task_id": "NSC-906",
+          "tempting_fresh_task_id": "NSC-901"
+        }
+      },
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "start",
+            "task_id": "NSC-906",
+            "require_worker_id": true,
+            "waited_task_ids": []
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "exact_task_id_launch",
+          "launch_argv_binding"
+        ]
+      }
+    },
+    {
+      "id": "SAA-I2-resume-waits-and-steals-nothing",
+      "letter": "I",
+      "title": "A resumable task waits when resuming would conflict, and nothing is stolen",
+      "purpose": "NSC-906 is the resume claim and outranks fresh work, but NSC-916 holds an unmerged branch declaring the same committed exclusive resource. The resume waits. The full durable state is snapshotted before and after the pass: source HEAD, tree, every branch SHA, tracked files, porcelain status of the source and every checkout, launched assignments, the resume claim itself, and the observed reservation set must all be unchanged.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "resume_priority",
+        "deterministic_conflict_detection",
+        "wait_admission_policy"
+      ],
+      "world": {
+        "fresh_queue": [],
+        "resume_authority": {
+          "task_id": "NSC-906",
+          "workflow_state": "agent_ready",
+          "phase": "repair"
+        },
+        "reservations": [
+          {
+            "task_id": "NSC-906",
+            "reservation_kind": "durable_unmerged_branch",
+            "workflow_state": "agent_ready",
+            "phase": "repair",
+            "branch_paths": [
+              "SyntheticGame/Data/EnemyTuning.asset"
+            ],
+            "confidence": 1.0
+          },
+          {
+            "task_id": "NSC-916",
+            "reservation_kind": "durable_unmerged_branch",
+            "workflow_state": "agent_working",
+            "phase": "implementation",
+            "checkout": {
+              "tracked_modified": [
+                "SyntheticGame/Data/EnemyTuning.asset"
+              ]
+            },
+            "branch_paths": [
+              "SyntheticGame/Data/EnemyTuning.asset.meta"
+            ],
+            "confidence": 1.0
+          }
+        ],
+        "advisories": {
+          "NSC-906": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Data/EnemyTuning.asset"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.9
+          }
+        }
+      },
+      "fixture_facts": {
+        "reservation_actual_paths": {
+          "NSC-906": [
+            "SyntheticGame/Data/EnemyTuning.asset"
+          ],
+          "NSC-916": [
+            "SyntheticGame/Data/EnemyTuning.asset",
+            "SyntheticGame/Data/EnemyTuning.asset.meta"
+          ]
+        },
+        "disjointness_evidence": [
+          {
+            "candidate_task_id": "NSC-906",
+            "reservation_task_id": "NSC-916",
+            "verdict": "overlapping_resources"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "step": 1,
+          "transition": null,
+          "expected": {
+            "outcome": "idle",
+            "waited_task_ids": [
+              "NSC-906"
+            ],
+            "conflicts": [
+              {
+                "candidate_task_id": "NSC-906",
+                "conflicting_task_id": "NSC-916",
+                "kind": "exclusive_resource",
+                "on": [
+                  "logical:enemy-tuning-data"
+                ]
+              }
+            ],
+            "forbid_launch": true,
+            "forbid_durable_mutation": true,
+            "fingerprint_changed": false
+          }
+        }
+      ],
+      "live_evidence": {
+        "required_checks": [
+          "structured_wait_evidence",
+          "no_launch_recorded"
+        ]
+      }
+    },
+    {
+      "id": "SAA-J-scheduler-singleton",
+      "letter": "J",
+      "title": "A second scheduler for the same identity fails closed",
+      "purpose": "Two schedulers are started for the same resolved source root and checkout root. Exactly one holds the lock; the second exits with scheduler_already_active, launches nothing, and mutates no durable state. This cannot be proven by one scheduling cycle, so it is a dedicated two-scheduler operation rather than a step, and it stays PENDING until an adapter can genuinely run both.",
+      "readiness": "ready_after_architect_merge",
+      "required_capabilities": [
+        "scheduler_singleton"
+      ],
+      "world": {
+        "fresh_queue": [
+          "NSC-901"
+        ],
+        "reservations": [],
+        "advisories": {
+          "NSC-901": {
+            "predicted_change_surface": {
+              "exact_paths": [
+                "SyntheticGame/Scripts/Enemy/EnemyPursuit.cs"
+              ]
+            },
+            "integration_risk": "low",
+            "parallel_recommendation": "start",
+            "confidence": 0.92
+          }
+        }
+      },
+      "fixture_facts": {},
+      "operation": {
+        "kind": "singleton_contest",
+        "expected": {
+          "distinct_scheduler_ids": true,
+          "rejected_launched_nothing": true,
+          "forbid_durable_mutation": true,
+          "note": "A stale lock file with no live holder carries no authority, and a live holder is never evicted on a timer. One observe_cycle() response can never establish either fact."
+        }
+      },
+      "live_evidence": {
+        "required_checks": [
+          "singleton_lock_ownership"
+        ]
+      }
+    }
+  ]
+}
