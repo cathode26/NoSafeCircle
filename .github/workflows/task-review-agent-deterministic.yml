@@ -256,6 +256,20 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py
 
+      - name: Run decomposition authorization binder tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        shell: pwsh
+        run: |
+          $test = "Pipeline/TaskReviewAgent/tests/decomposition_authorization_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Decomposition authorization binder tests failed."
+            }
+          } else {
+            Write-Host "Legacy exact PR head predates the decomposition authorization binder."
+          }
+
       - name: Run Core/Supervisor/Delivery CI split regression tests
         run: python Pipeline/TaskReviewAgent/tests/ci_workflow_split_smoke_test.py
 

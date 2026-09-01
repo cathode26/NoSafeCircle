@@ -92,6 +92,32 @@ Each slice is one reviewable change with its own deterministic tests.
   implementation-Issue fixture still validates byte-identically; hash-chain verification
   unchanged.
 
+#### A2 authorization binder (**implemented locally**, branch `orchestrator/decomposition-authorization-v1`)
+
+`Pipeline/TaskReviewAgent/decomposition_authorization.py` is the first A2 slice: one pure
+deterministic function, `validate_decomposition_authorization()`, plus its frozen
+`DecompositionAuthorizationRecord` / `DecompositionAuthorizationDecision` types. It is not
+merged and is not production-authoritative.
+
+- **Boundary:** pure. It writes no file, runs no Git, touches no GitHub Issue, calls no
+  provider, and never invokes the decomposer, D1C, or the scheduler. Persistence and the
+  authoritative human login stay with the caller.
+- **Binding:** a decomposition reaches `authorized` only when one record binds all of the
+  exact D1B.2 independently reviewed candidate (recomputed `candidate_sha256`), the exact
+  task-contract bytes from `task_execution_contract_identity.sha256`, the exact source
+  HEAD and run ID, the exact `GraphDeltaPlan.plan_id`, the canonical SHA-256 of the
+  complete plan JSON, the reviewer/evidence identity, and an allow-listed human authorizer
+  in the `authorized` state. `artifact_locator` is operational only and grants nothing.
+- **D1B.1:** a single-provider D1B.1 proposal is never independently reviewed and returns
+  `review_invalid` even when a record claims authorization.
+- **Statuses:** `authorized`, `not_authorized`, `stale_binding`, `review_invalid`,
+  `artifact_mismatch`; malformed inputs raise `DecompositionAuthorizationContractError`.
+- **Tests:** `Pipeline/TaskReviewAgent/tests/decomposition_authorization_smoke_test.py`,
+  wired into the Core deterministic workflow.
+- **Next slice:** durable Issue persistence and readback of this record. No D1C scheduler
+  apply path may be wired until an authorization can survive a restart and be re-observed
+  from durable state.
+
 ### A3 — Architect decomposition proposal path
 - **Scope:** the architect may emit a decomposition proposal for a candidate it judges too
   broad; the proposal carries the per-child parallelism evidence from
