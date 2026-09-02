@@ -19,6 +19,7 @@ from .contracts import TaskReviewContractError, semantic_sha256, validate_task_i
 from .coordination import CoordinationObserver
 from .dispatch_policy import dependencies_dispatch_satisfied
 from .issue_workflow_store import (
+    VINCENT_INBOX_TITLE,
     GhIssueBackend,
     IssueWorkflowService,
     IssueWorkflowStoreError,
@@ -72,6 +73,7 @@ class RealTaskReviewWorkflow:
                 backend=GhIssueBackend(source_root=self.base_observer.root),
                 task_loader=self._load_committed_task,
                 worker_id=self.worker_id,
+                vincent_inbox_title=VINCENT_INBOX_TITLE,
             )
             self.claim_coordination_required = claim_client is None
         else:

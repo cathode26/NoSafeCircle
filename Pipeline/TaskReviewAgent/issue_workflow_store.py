@@ -62,6 +62,9 @@ _OWNER_OR_REPO_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 # GitHub remote (see _parse_github_repository).
 _CREDENTIAL_PREFIX_RE = re.compile(r"^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]+@")
 DEFAULT_ASSIGNEE = "cathode26"
+VINCENT_INBOX_TITLE = "NSC-Vincent"
+VINCENT_INBOX_MARKER = "<!-- nsc-vincent-inbox -->"
+VINCENT_NOTIFICATION_MARKER_PREFIX = "<!-- nsc-vincent-notification:"
 LABEL_DEFINITIONS = {
     "nsc-state:agent-ready": ("1d76db", "Ready for a generic agent to resume"),
     "nsc-state:agent-working": ("5319e7", "Currently leased by an agent"),
@@ -545,6 +548,7 @@ class IssueWorkflowService:
         task_loader: TaskLoader,
         worker_id: str,
         assignee: str = DEFAULT_ASSIGNEE,
+        vincent_inbox_title: str | None = None,
     ) -> None:
         self.backend = backend
         self.task_loader = task_loader
@@ -552,6 +556,12 @@ class IssueWorkflowService:
         self.assignee = str(assignee).strip()
         if not self.worker_id or not self.assignee:
             raise IssueWorkflowStoreError("worker_id and assignee must be non-empty")
+        self.vincent_inbox_title = None
+        if vincent_inbox_title is not None:
+            normalized_inbox_title = str(vincent_inbox_title).strip()
+            if not normalized_inbox_title:
+                raise IssueWorkflowStoreError("vincent_inbox_title must be non-empty when configured")
+            self.vincent_inbox_title = normalized_inbox_title
 
     def find(self, task_id: str) -> IssueWorkflowSnapshot | None:
         task_id = validate_task_id(task_id)
@@ -915,6 +925,180 @@ class IssueWorkflowService:
             **verified.to_dict(),
         }
 
+
+    def _find_vincent_inbox(self) -> dict[str, Any] | None:
+        # Resolve the configured human-action inbox before any handoff mutation.
+        if self.vincent_inbox_title is None:
+            return None
+
+        matches = [
+            issue
+            for issue in self.backend.list_issues()
+            if str(issue.get("state") or "").upper() != "CLOSED"
+            and issue.get("title") == self.vincent_inbox_title
+        ]
+        if len(matches) != 1:
+            raise IssueWorkflowStoreError(
+                f"configured Vincent inbox {self.vincent_inbox_title!r} must resolve to "
+                f"exactly one open Issue; found {len(matches)}"
+            )
+
+        inbox = matches[0]
+        if VINCENT_INBOX_MARKER not in str(inbox.get("body") or ""):
+            raise IssueWorkflowStoreError(
+                f"configured Vincent inbox {self.vincent_inbox_title!r} is missing "
+                f"the required marker {VINCENT_INBOX_MARKER!r}"
+            )
+        if not issue_author_authorized(inbox):
+            raise IssueWorkflowStoreError(
+                f"configured Vincent inbox {self.vincent_inbox_title!r} is not authored "
+                "by an authorized workflow actor"
+            )
+        if type(inbox.get("number")) is not int:
+            raise IssueWorkflowStoreError("configured Vincent inbox has no integer Issue number")
+        return inbox
+
+    @staticmethod
+    def _vincent_notification_marker(
+        *,
+        task_id: str,
+        source_issue_number: int,
+        head_commit: str,
+    ) -> str:
+        digest = semantic_sha256(
+            {
+                "schema_version": "1.0",
+                "task_id": validate_task_id(task_id),
+                "source_issue_number": source_issue_number,
+                "head_commit": head_commit,
+            }
+        )
+        return f"{VINCENT_NOTIFICATION_MARKER_PREFIX}{digest} -->"
+
+    def _matching_vincent_notifications(
+        self,
+        *,
+        issue_number: int,
+        marker: str,
+    ) -> list[dict[str, Any]]:
+        matches = []
+        for comment in self.backend.get_comments(issue_number):
+            if marker not in str(comment.get("body") or ""):
+                continue
+            login = actor_login(comment)
+            if login is not None and default_actor_policy().is_authorized_actor(login):
+                matches.append(comment)
+        return matches
+
+    def _ensure_vincent_notification(
+        self,
+        *,
+        inbox: Mapping[str, Any] | None,
+        source_issue: IssueWorkflowSnapshot,
+        task_id: str,
+        branch: str,
+        head_commit: str,
+        checkout_path: str,
+    ) -> str:
+        # The source Issue is already authoritative before this method runs.
+        # An uncertain notification write is followed only by bounded reads.
+        if inbox is None:
+            return "disabled"
+
+        inbox_number = inbox.get("number")
+        if type(inbox_number) is not int:
+            raise IssueWorkflowStoreError("configured Vincent inbox has no integer Issue number")
+
+        marker = self._vincent_notification_marker(
+            task_id=task_id,
+            source_issue_number=source_issue.issue_number,
+            head_commit=head_commit,
+        )
+        existing = self._matching_vincent_notifications(
+            issue_number=inbox_number,
+            marker=marker,
+        )
+        if len(existing) > 1:
+            raise IssueWorkflowStoreError(
+                "multiple authorized NSC-Vincent notifications already match this handoff"
+            )
+        if existing:
+            return "existing"
+
+        notification = "\n".join(
+            (
+                "## Vincent attention required",
+                "",
+                f"Source Issue: #{source_issue.issue_number} — {source_issue.title}",
+                f"Why: `{task_id}` is waiting for your Unity/runtime validation.",
+                "Action: Open the source Issue and follow its current human checklist.",
+                "Report result: Comment on the source Issue, not here.",
+                "Afterward: Delete this NSC-Vincent notification comment.",
+                "",
+                f"- **Branch:** `{branch}`",
+                f"- **Commit to test:** `{head_commit}`",
+                f"- **Checkout:** `{checkout_path}`",
+                "",
+                marker,
+            )
+        )
+
+        uncertain_error_types = (
+            IssueWorkflowStoreError,
+            OSError,
+            subprocess.TimeoutExpired,
+        )
+        mutation_error: Exception | None = None
+        try:
+            self.backend.add_comment(inbox_number, notification)
+        except uncertain_error_types as exc:
+            # The remote comment may have been accepted even when the local
+            # process reports a timeout/transport failure. Never repeat this
+            # write based on the exception alone.
+            mutation_error = exc
+
+        attempts = 0
+        last_reason = "notification was not visible"
+        for delay_seconds in POST_MUTATION_VERIFICATION_DELAYS_SECONDS:
+            if delay_seconds > 0:
+                time.sleep(delay_seconds)
+            attempts += 1
+            try:
+                matches = self._matching_vincent_notifications(
+                    issue_number=inbox_number,
+                    marker=marker,
+                )
+            except uncertain_error_types as exc:
+                # Verification is read-only. Transient GitHub/process errors
+                # remain inside the bounded retry loop and never authorize a
+                # second add_comment call.
+                last_reason = (
+                    f"verification read attempt {attempts} failed transiently: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                continue
+
+            if len(matches) == 1:
+                return "created"
+            if len(matches) > 1:
+                raise IssueWorkflowStoreError(
+                    "multiple authorized NSC-Vincent notifications were observed after "
+                    "one handoff notification mutation"
+                )
+            last_reason = "no authorized matching notification is visible yet"
+
+        suffix = (
+            f"; add_comment reported uncertain outcome: "
+            f"{type(mutation_error).__name__}: {mutation_error}"
+            if mutation_error is not None
+            else ""
+        )
+        raise IssueWorkflowStoreError(
+            f"NSC-Vincent notification could not be verified after {attempts} bounded "
+            f"read attempt(s): {last_reason}; the notification mutation was not repeated"
+            f"{suffix}"
+        )
+
     def publish_human_handoff(
         self,
         *,
@@ -932,10 +1116,41 @@ class IssueWorkflowService:
         if snapshot is None or not snapshot.valid or snapshot.state is None:
             raise IssueWorkflowStoreError("human handoff requires a valid managed Issue")
         state = snapshot.state
+
+        if state.state is WorkflowState.HUMAN_ACTION_REQUIRED:
+            exact_retry = (
+                state.phase is WorkflowPhase.UNITY_RUNTIME_VALIDATION
+                and state.branch == branch
+                and state.head_commit == head_commit
+                and state.human_handoff_commit == head_commit
+                and state.checkout_path == checkout_path
+            )
+            if not exact_retry:
+                raise IssueWorkflowStoreError(
+                    "human handoff retry does not match the durable human-owned handoff"
+                )
+            vincent_inbox = self._find_vincent_inbox()
+            notification_status = self._ensure_vincent_notification(
+                inbox=vincent_inbox,
+                source_issue=snapshot,
+                task_id=task_id,
+                branch=branch,
+                head_commit=head_commit,
+                checkout_path=checkout_path,
+            )
+            return {
+                "status": "human_action_required",
+                "vincent_notification": notification_status,
+                **snapshot.to_dict(),
+            }
+
         if state.state is not WorkflowState.AGENT_WORKING or state.worker_id != self.worker_id:
             raise IssueWorkflowStoreError(
                 "human handoff requires this worker's active lease"
             )
+
+        # Resolve/validate the human inbox BEFORE mutating the source task Issue.
+        vincent_inbox = self._find_vincent_inbox()
         occurred = now or utc_now()
         next_state, event = transition(
             state,
@@ -1022,7 +1237,19 @@ class IssueWorkflowService:
             next_state,
             transition_name="human handoff",
         )
-        return {"status": "human_action_required", **verified.to_dict()}
+        notification_status = self._ensure_vincent_notification(
+            inbox=vincent_inbox,
+            source_issue=verified,
+            task_id=task_id,
+            branch=branch,
+            head_commit=head_commit,
+            checkout_path=checkout_path,
+        )
+        return {
+            "status": "human_action_required",
+            "vincent_notification": notification_status,
+            **verified.to_dict(),
+        }
 
     def apply_human_result(
         self,

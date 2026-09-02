@@ -97,6 +97,64 @@ def task(
     }
 
 
+
+def create_vincent_inbox(backend: MemoryIssueBackend) -> int:
+    issue = backend.create_issue(
+        title=issue_workflow_store_module.VINCENT_INBOX_TITLE,
+        body=(
+            "# NSC-Vincent\n\n"
+            "Human-action routing inbox.\n\n"
+            f"{issue_workflow_store_module.VINCENT_INBOX_MARKER}\n"
+        ),
+        labels=[],
+        assignees=["cathode26"],
+    )
+    return int(issue["number"])
+
+
+class AcceptedWriteTimeoutVincentBackend(MemoryIssueBackend):
+    # Accept one Vincent comment, then simulate uncertain transport/read state.
+    def __init__(self) -> None:
+        super().__init__()
+        self.vincent_issue_number: int | None = None
+        self.add_comment_calls = 0
+        self._post_write_reads = 0
+        self._simulate_after_accept = False
+
+    def arm_for_vincent_notification(self, issue_number: int) -> None:
+        self.vincent_issue_number = issue_number
+        self._simulate_after_accept = True
+        self._post_write_reads = 0
+
+    def add_comment(self, issue_number: int, body: str) -> dict:
+        if (
+            self._simulate_after_accept
+            and issue_number == self.vincent_issue_number
+            and issue_workflow_store_module.VINCENT_NOTIFICATION_MARKER_PREFIX in body
+        ):
+            self.add_comment_calls += 1
+            super().add_comment(issue_number, body)
+            self._simulate_after_accept = False
+            raise subprocess.TimeoutExpired(
+                cmd=("gh", "issue", "comment"),
+                timeout=180,
+            )
+        return super().add_comment(issue_number, body)
+
+    def get_comments(self, issue_number: int) -> list[dict]:
+        if (
+            issue_number == self.vincent_issue_number
+            and self.add_comment_calls == 1
+            and self._post_write_reads < 2
+        ):
+            self._post_write_reads += 1
+            if self._post_write_reads == 1:
+                raise OSError("synthetic transient verification read failure")
+            # Second read is stale: the accepted comment is temporarily hidden.
+            return []
+        return super().get_comments(issue_number)
+
+
 class LaggyMemoryIssueBackend(MemoryIssueBackend):
     # Writes current state immediately but exposes stale Issue bodies for a
     # configured number of subsequent list_issues() reads.
@@ -314,6 +372,190 @@ The player crossed the blocker.
         resumed["workflow_state"]["worker_id"] == "agent-b",
         "new agent lease did not record its worker ID",
     )
+
+
+
+def test_human_handoff_notifies_vincent_once_and_exact_retry_is_notification_only() -> None:
+    backend = MemoryIssueBackend()
+    vincent_issue = create_vincent_inbox(backend)
+    tasks = {TASK_ID: task(TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+        vincent_inbox_title=issue_workflow_store_module.VINCENT_INBOX_TITLE,
+    )
+    acquired = service.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Implement, commit, and hand validation to Vincent.",
+        expected_validation="Vincent follows the source Issue checklist.",
+        now="2026-09-01T20:00:00Z",
+    )
+    require(acquired["status"] == "acquired", f"lease failed: {acquired}")
+
+    handoff = service.publish_human_handoff(
+        task_id=TASK_ID,
+        branch=BRANCH,
+        head_commit=HANDOFF_HEAD,
+        checkout_path=CHECKOUT,
+        implementation_summary="Implemented the synthetic behavior.",
+        completed_checks=("deterministic checks passed",),
+        human_steps=("Open Unity.", "Verify the behavior."),
+        expected_result="The behavior is correct.",
+        now="2026-09-01T20:01:00Z",
+    )
+    require(handoff["status"] == "human_action_required", str(handoff))
+    require(handoff["vincent_notification"] == "created", str(handoff))
+
+    task_issue = int(handoff["issue_number"])
+    source_comments_before_retry = len(backend.get_comments(task_issue))
+    vincent_comments = backend.get_comments(vincent_issue)
+    require(len(vincent_comments) == 1, f"Vincent inbox comments wrong: {vincent_comments}")
+    body = str(vincent_comments[0]["body"])
+    require(f"Source Issue: #{task_issue}" in body, body)
+    require(HANDOFF_HEAD in body, body)
+    require("Report result: Comment on the source Issue, not here." in body, body)
+    require("Delete this NSC-Vincent notification comment." in body, body)
+    require(issue_workflow_store_module.VINCENT_NOTIFICATION_MARKER_PREFIX in body, body)
+
+    retry = service.publish_human_handoff(
+        task_id=TASK_ID,
+        branch=BRANCH,
+        head_commit=HANDOFF_HEAD,
+        checkout_path=CHECKOUT,
+        implementation_summary="Ignored on notification-only retry.",
+        completed_checks=(),
+        human_steps=(),
+        expected_result="Ignored on notification-only retry.",
+        now="2026-09-01T20:02:00Z",
+    )
+    require(retry["vincent_notification"] == "existing", str(retry))
+    require(len(backend.get_comments(task_issue)) == source_comments_before_retry, "exact handoff retry repeated a source Issue mutation")
+    require(len(backend.get_comments(vincent_issue)) == 1, "exact handoff retry duplicated the NSC-Vincent notification")
+
+
+def test_configured_vincent_inbox_is_preflighted_before_source_handoff_mutation() -> None:
+    backend = MemoryIssueBackend()
+    tasks = {TASK_ID: task(TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+        vincent_inbox_title=issue_workflow_store_module.VINCENT_INBOX_TITLE,
+    )
+    acquired = service.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Prepare a human handoff.",
+        expected_validation="The handoff must not mutate without NSC-Vincent.",
+        now="2026-09-01T21:00:00Z",
+    )
+    task_issue = int(acquired["issue_number"])
+    source_comments_before = len(backend.get_comments(task_issue))
+
+    expect_error(
+        lambda: service.publish_human_handoff(
+            task_id=TASK_ID,
+            branch=BRANCH,
+            head_commit=HANDOFF_HEAD,
+            checkout_path=CHECKOUT,
+            implementation_summary="Should not become human-owned.",
+            completed_checks=(),
+            human_steps=("Synthetic step.",),
+            expected_result="Synthetic result.",
+            now="2026-09-01T21:01:00Z",
+        ),
+        "configured Vincent inbox",
+    )
+    require(service.observe(TASK_ID)["status"] == "agent_working_by_worker", "missing NSC-Vincent allowed the source Issue to enter human_action_required")
+    require(len(backend.get_comments(task_issue)) == source_comments_before, "missing NSC-Vincent mutated the source Issue before failing")
+
+
+
+def test_vincent_notification_accepted_write_timeout_and_stale_reads_never_rewrite() -> None:
+    backend = AcceptedWriteTimeoutVincentBackend()
+    vincent_issue = create_vincent_inbox(backend)
+    backend.arm_for_vincent_notification(vincent_issue)
+    tasks = {TASK_ID: task(TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+        vincent_inbox_title=issue_workflow_store_module.VINCENT_INBOX_TITLE,
+    )
+
+    original_delays = issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS
+    issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = (
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    )
+    try:
+        acquired = service.acquire_agent_lease(
+            task=tasks[TASK_ID],
+            source_head=SOURCE_HEAD,
+            branch=BRANCH,
+            checkout_path=CHECKOUT,
+            planned_approach="Exercise uncertain Vincent notification transport.",
+            expected_validation="Accepted remote write is verified without rewriting.",
+            now="2026-09-01T22:00:00Z",
+        )
+        require(acquired["status"] == "acquired", f"lease failed: {acquired}")
+
+        handoff = service.publish_human_handoff(
+            task_id=TASK_ID,
+            branch=BRANCH,
+            head_commit=HANDOFF_HEAD,
+            checkout_path=CHECKOUT,
+            implementation_summary="Synthetic uncertain-write fixture.",
+            completed_checks=("deterministic checks passed",),
+            human_steps=("Open Unity.",),
+            expected_result="Human checklist is routed exactly once.",
+            now="2026-09-01T22:01:00Z",
+        )
+        require(handoff["status"] == "human_action_required", str(handoff))
+        require(handoff["vincent_notification"] == "created", str(handoff))
+        require(
+            backend.add_comment_calls == 1,
+            f"uncertain notification path rewrote add_comment: {backend.add_comment_calls}",
+        )
+
+        comments = backend.get_comments(vincent_issue)
+        matching = [
+            comment
+            for comment in comments
+            if issue_workflow_store_module.VINCENT_NOTIFICATION_MARKER_PREFIX
+            in str(comment.get("body") or "")
+        ]
+        require(
+            len(matching) == 1,
+            f"accepted timeout produced duplicate notification comments: {matching}",
+        )
+
+        retry = service.publish_human_handoff(
+            task_id=TASK_ID,
+            branch=BRANCH,
+            head_commit=HANDOFF_HEAD,
+            checkout_path=CHECKOUT,
+            implementation_summary="Ignored on exact retry.",
+            completed_checks=(),
+            human_steps=(),
+            expected_result="Ignored on exact retry.",
+            now="2026-09-01T22:02:00Z",
+        )
+        require(retry["vincent_notification"] == "existing", str(retry))
+        require(
+            backend.add_comment_calls == 1,
+            "exact retry repeated the uncertain Vincent notification write",
+        )
+    finally:
+        issue_workflow_store_module.POST_MUTATION_VERIFICATION_DELAYS_SECONDS = original_delays
 
 
 def test_post_mutation_verification_retries_stale_reads_without_repeating_writes() -> None:
@@ -951,6 +1193,12 @@ def test_production_composition_binds_to_checkout_origin_not_default() -> None:
     status' is faked, and every other subprocess call (git) runs for real
     against the local throwaway repository."""
 
+    real_workflow_source = Path(real_workflow_module.__file__).read_text(encoding="utf-8")
+    require(
+        "vincent_inbox_title=VINCENT_INBOX_TITLE" in real_workflow_source,
+        "real production workflow does not enable the configured NSC-Vincent inbox",
+    )
+
     production_modules = (
         dispatch_plan_module,
         durable_selection_module,
@@ -1009,6 +1257,9 @@ def main() -> int:
     tests = (
         test_state_event_round_trip_and_chain,
         test_issue_service_handoff_human_result_and_resume,
+        test_human_handoff_notifies_vincent_once_and_exact_retry_is_notification_only,
+        test_configured_vincent_inbox_is_preflighted_before_source_handoff_mutation,
+        test_vincent_notification_accepted_write_timeout_and_stale_reads_never_rewrite,
         test_post_mutation_verification_retries_stale_reads_without_repeating_writes,
         test_post_mutation_verification_exhaustion_fails_closed_without_repeating_write,
         test_post_mutation_verification_rejects_visible_same_version_conflict,
