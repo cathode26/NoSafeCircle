@@ -1614,6 +1614,211 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     $"Expected independently sortable wall segment at {cell}.");
             }
         }
+
+        // NSC-042 AC-001: human runtime validation observed repeated wall segments visibly
+        // restarting their brick pattern at each sorting-segment boundary. Every wall segment
+        // renders the exact same unshifted WallTile texture side by side (PaintWallRun), so for
+        // that repetition to look seamless rather than resetting, the mortar-joint spacing must
+        // evenly divide the texture width - otherwise a brick is cut short at the tile's own
+        // right edge and the next identical segment restarts a fresh, differently-sized brick
+        // instead of continuing it. This proves that directly from the actual produced wall
+        // texture pixels (not by re-deriving the algorithm) by treating the texture as tiled
+        // end-to-end and confirming every brick run between mortar joints on a representative
+        // unstaggered course row has equal length; an unequal run at the wrap boundary is
+        // exactly that cut-off-brick / pattern-phase-reset seam.
+        [Test]
+        public void Build_WallTileTexture_HasUniformBrickRunsSoAdjacentSegmentsTileWithoutASeam()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var wallTilemap = GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
+            Assert.IsNotNull(wallTilemap);
+
+            var wallTile = wallTilemap.GetTile<Tile>(Vector3Int.zero);
+            Assert.IsNotNull(wallTile, "Expected a Tile at wall cell (0,0,0).");
+            var texture = wallTile.sprite != null ? wallTile.sprite.texture : null;
+            Assert.IsNotNull(texture, "Expected the wall Tile's sprite to reference a texture.");
+
+            var width = texture.width;
+            var pixels = texture.GetPixels32();
+
+            // Course 0 (rows below the courseHeight boundary) is unstaggered, so its brick
+            // pattern in X directly reflects the mortar spacing. Row 10 sits inside course 0
+            // and below its 2px horizontal mortar band.
+            const int representativeRow = 10;
+            Assert.Less(representativeRow * width, pixels.Length,
+                "Representative row must be within the actual wall texture height.");
+
+            var rowPixels = new Color32[width];
+            for (var x = 0; x < width; x++)
+            {
+                rowPixels[x] = pixels[representativeRow * width + x];
+            }
+
+            // Identify the mortar color as the darkest color present in this row rather than
+            // hardcoding its authored RGB value, since mortar is always the darkest tone by
+            // design; this keeps the test grounded in actual output instead of duplicating
+            // implementation constants.
+            var mortarColor = rowPixels[0];
+            var mortarBrightness = mortarColor.r + mortarColor.g + mortarColor.b;
+            foreach (var candidate in rowPixels)
+            {
+                var brightness = candidate.r + candidate.g + candidate.b;
+                if (brightness < mortarBrightness)
+                {
+                    mortarColor = candidate;
+                    mortarBrightness = brightness;
+                }
+            }
+
+            var isMortar = new bool[width];
+            for (var x = 0; x < width; x++)
+            {
+                isMortar[x] = rowPixels[x].Equals(mortarColor);
+            }
+
+            var firstNonMortar = -1;
+            for (var x = 0; x < width; x++)
+            {
+                if (!isMortar[x])
+                {
+                    firstNonMortar = x;
+                    break;
+                }
+            }
+
+            Assert.GreaterOrEqual(firstNonMortar, 0,
+                "Expected at least one non-mortar brick pixel on the representative wall course row.");
+
+            var runLengths = new List<int>();
+            var currentRunLength = 0;
+            for (var step = 0; step < width; step++)
+            {
+                var x = (firstNonMortar + step) % width;
+                if (!isMortar[x])
+                {
+                    currentRunLength++;
+                }
+                else if (currentRunLength > 0)
+                {
+                    runLengths.Add(currentRunLength);
+                    currentRunLength = 0;
+                }
+            }
+            if (currentRunLength > 0) runLengths.Add(currentRunLength);
+
+            Assert.GreaterOrEqual(runLengths.Count, 2,
+                "Expected multiple brick runs on the representative wall course row to meaningfully compare " +
+                "their lengths.");
+
+            for (var i = 1; i < runLengths.Count; i++)
+            {
+                Assert.AreEqual(runLengths[0], runLengths[i],
+                    "AC-001: every brick run between mortar joints on this wall course must have equal length " +
+                    "when the texture is tiled end-to-end, exactly as PaintWallRun repeats this same unshifted " +
+                    "wall texture across adjacent one-cell segments; an unequal run at the wrap boundary is the " +
+                    "cut-off-brick / pattern-phase-reset seam human runtime validation observed.");
+            }
+        }
+
+        // NSC-042 AC-003 / VAL-001: a wall of approximately 100 cells must not require ~100
+        // uniquely authored Tile assets and must repeat continuously without gaps. This drives
+        // the actual reusable PaintWallRun helper directly at representative wall lengths (the
+        // completion gate's stated 3/10/100-cell cases) against an in-memory Tilemap/Tile,
+        // proving every segment of even a ~100-cell run reuses one shared Tile asset instance
+        // and that the run contains no missing cells.
+        [TestCase(3)]
+        [TestCase(10)]
+        [TestCase(100)]
+        public void PaintWallRun_PaintsExactCellCountReusingOneSharedTileAssetRegardlessOfWallLength(int cellCount)
+        {
+            var gridObject = new GameObject("NSC042_TestWallGrid");
+            var tile = ScriptableObject.CreateInstance<Tile>();
+            try
+            {
+                var grid = gridObject.AddComponent<Grid>();
+                grid.cellLayout = GridLayout.CellLayout.IsometricZAsY;
+
+                var tilemapObject = new GameObject("TestWallTilemap");
+                tilemapObject.transform.SetParent(gridObject.transform, false);
+                var tilemap = tilemapObject.AddComponent<Tilemap>();
+                tilemapObject.AddComponent<TilemapRenderer>();
+
+                var method = typeof(DoorPrototypeSceneBuilder).GetMethod(
+                    "PaintWallRun", BindingFlags.NonPublic | BindingFlags.Static);
+                Assert.IsNotNull(method,
+                    "Expected a private static PaintWallRun(Tilemap, Vector3Int, int, TileBase) helper.");
+
+                method.Invoke(null, new object[] { tilemap, new Vector3Int(0, 0, 0), cellCount, tile });
+
+                var paintedCellCount = 0;
+                foreach (var cell in tilemap.cellBounds.allPositionsWithin)
+                {
+                    if (tilemap.HasTile(cell)) paintedCellCount++;
+                }
+
+                Assert.AreEqual(cellCount, paintedCellCount,
+                    $"AC-003/VAL-001: a {cellCount}-cell wall run must produce exactly {cellCount} visual " +
+                    "segments with no gaps.");
+
+                for (var i = 0; i < cellCount; i++)
+                {
+                    var expectedCell = new Vector3Int(i, -i, 0);
+                    Assert.IsTrue(tilemap.HasTile(expectedCell),
+                        $"Expected a continuous segment {i} of the {cellCount}-cell run at {expectedCell}.");
+                    Assert.AreSame(tile, tilemap.GetTile(expectedCell),
+                        "AC-003: every segment of a wall run - including a ~100-cell wall - must reuse the " +
+                        "exact same reusable Tile asset instead of a uniquely authored Tile per cell, so asset " +
+                        "count does not grow proportionally to wall length.");
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(tile);
+                Object.DestroyImmediate(gridObject);
+            }
+        }
+
+        // NSC-042: ArchitecturalTileVisualMatches now compares actual pixel content, not just
+        // structural metadata (dimensions/pivot/PPU), so a previously-persisted Tile asset whose
+        // pixel content predates a procedural-art revision (such as this task's brick-repeat
+        // fix) is reconciled on rebuild instead of silently left stale on disk
+        // (ENGINEERING_STANDARDS.md 12). Uses the persistence-aware temporary-folder seam so the
+        // canonical WallTile.asset is never touched.
+        [Test]
+        public void Build_ExistingArchitecturalTileWithStalePixelContent_IsRegeneratedToMatchCurrentProceduralArt()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var wallTilePath = temporaryArchitecturalTileAssetFolder + "/WallTile.asset";
+            var wallTile = AssetDatabase.LoadAssetAtPath<Tile>(wallTilePath);
+            Assert.IsNotNull(wallTile, "Expected a persisted WallTile.asset after the first build.");
+
+            var texture = wallTile.sprite.texture;
+            var freshPixels = texture.GetPixels32();
+
+            // Simulate a previously-persisted tile whose pixel content predates a procedural-art
+            // revision even though its structural dimensions/pivot/PPU still match the currently
+            // expected values, so only the new pixel-content comparison can detect the drift.
+            var stalePixels = new Color32[freshPixels.Length];
+            for (var i = 0; i < stalePixels.Length; i++) stalePixels[i] = new Color32(1, 2, 3, 255);
+            texture.SetPixels32(stalePixels);
+            texture.Apply(false, false);
+            EditorUtility.SetDirty(texture);
+            AssetDatabase.SaveAssetIfDirty(texture);
+
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
+
+            var rebuiltWallTile = AssetDatabase.LoadAssetAtPath<Tile>(wallTilePath);
+            Assert.IsNotNull(rebuiltWallTile);
+            var rebuiltPixels = rebuiltWallTile.sprite.texture.GetPixels32();
+
+            CollectionAssert.AreEqual(freshPixels, rebuiltPixels,
+                "A previously-persisted architectural Tile whose pixel content no longer matches the current " +
+                "procedural art (with unchanged structural metadata) must be regenerated on rebuild rather than " +
+                "left stale on disk.");
+        }
+
         [Test]
         public void Build_DoorwayBlocker_IsSeparateBoxColliderWiredToDoorInteractable()
         {

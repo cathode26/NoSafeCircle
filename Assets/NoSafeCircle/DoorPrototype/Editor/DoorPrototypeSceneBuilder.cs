@@ -364,21 +364,16 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 doorPosition + new Vector3(-2.5f, 0f, WallVisualOffset),
                 Quaternion.identity,
                 WorldSpriteSortingOrder);
-        // Each gameplay wall spans three world units. Split it into three one-cell
-        // visual segments so Individual Tilemap sorting has multiple ground-contact
-        // sort positions instead of treating the whole long wall as one renderer.
-        for (var wallOffset = -1; wallOffset <= 1; wallOffset++)
-        {
-            wallTilemap.SetTile(
-                new Vector3Int(wallOffset, -wallOffset, 0),
-                tiles.Wall);
-
-            var rightWallCell = 5 + wallOffset;
-
-            wallTilemap.SetTile(
-                new Vector3Int(rightWallCell, -rightWallCell, 0),
-                tiles.Wall);
-        }
+            // NSC-042 AC-001/AC-002/AC-003: each gameplay wall is painted as a run of one-cell
+            // visual segments through the shared PaintWallRun helper below. Individual Tilemap
+            // sorting still gets multiple ground-contact sort positions along the wall
+            // (NSC-039), and every segment reuses the same tiles.Wall asset - the two
+            // three-cell runs here and a future much longer wall both scale without authoring
+            // additional Sprite/Tile assets. CreateWallPixels' brick pattern repeats on a
+            // period that evenly divides the tile texture's width, so adjacent segments join
+            // without a visible seam or pattern restart.
+            PaintWallRun(wallTilemap, new Vector3Int(-1, 1, 0), 3, tiles.Wall);
+            PaintWallRun(wallTilemap, new Vector3Int(4, -4, 0), 3, tiles.Wall);
 
             var architecturalTilemap = CreateVisualOnlyTilemap(
                 gridObject.transform,
@@ -415,6 +410,21 @@ namespace NoSafeCircle.DoorPrototype.Editor
             renderer.sortingOrder = sortingOrder;
 
             return tilemap;
+        }
+
+        // NSC-042 AC-001/AC-002/AC-003: reusable convention for painting a straight run of
+        // one-cell wall visual segments. Every cell reuses the same wallTile asset instead of
+        // authoring a unique Sprite/Tile per cell, so a run scales from a few cells to
+        // approximately one hundred without asset-count growth, while each cell remains an
+        // independently sortable Individual Tilemap tile per NSC-039's positional sorting
+        // convention. Cells step diagonally (+1 X, -1 Y per segment) to trace a straight
+        // world-space wall under this Grid's IsometricZAsY cell swizzle.
+        private static void PaintWallRun(Tilemap wallTilemap, Vector3Int startCell, int cellCount, TileBase wallTile)
+        {
+            for (var i = 0; i < cellCount; i++)
+            {
+                wallTilemap.SetTile(new Vector3Int(startCell.x + i, startCell.y - i, 0), wallTile);
+            }
         }
 
         private static void PaintFloorTiles(Tilemap tilemap, TileBase floorTile)
@@ -534,7 +544,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
                             textureWidth,
                             textureHeight,
                             pixelsPerUnit,
-                            spritePivot))
+                            spritePivot,
+                            pixels))
                     {
                         ReplaceArchitecturalTileVisual(
                             existing,
@@ -631,7 +642,8 @@ namespace NoSafeCircle.DoorPrototype.Editor
             int textureWidth,
             int textureHeight,
             float pixelsPerUnit,
-            Vector2 spritePivot)
+            Vector2 spritePivot,
+            Color32[] expectedPixels)
         {
             var sprite = tile.sprite;
 
@@ -644,7 +656,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 textureWidth * spritePivot.x,
                 textureHeight * spritePivot.y);
 
-            return
+            var structuralMatch =
                 sprite.texture.width == textureWidth &&
                 sprite.texture.height == textureHeight &&
                 Mathf.Approximately(sprite.rect.width, textureWidth) &&
@@ -653,6 +665,33 @@ namespace NoSafeCircle.DoorPrototype.Editor
                 Vector2.Distance(
                     sprite.pivot,
                     expectedPivotPixels) < 0.01f;
+
+            if (!structuralMatch)
+            {
+                return false;
+            }
+
+            // NSC-042: two tiles can share dimensions/pivot but carry stale pixel content once
+            // procedural art (e.g. CreateWallPixels) is revised - such as fixing a brick repeat
+            // that did not tile seamlessly. Comparing actual pixel content, not just structural
+            // metadata, is what lets re-running Build() reconcile stale visual output instead of
+            // silently leaving outdated art on disk (ENGINEERING_STANDARDS.md 12: avoid stale
+            // editor-tool output).
+            var actualPixels = sprite.texture.GetPixels32();
+            if (actualPixels.Length != expectedPixels.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < actualPixels.Length; i++)
+            {
+                if (!actualPixels[i].Equals(expectedPixels[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void ReplaceArchitecturalTileVisual(
@@ -751,7 +790,14 @@ namespace NoSafeCircle.DoorPrototype.Editor
             var alternateStone = new Color32(86, 82, 77, 255);
             var mortar = new Color32(39, 37, 36, 255);
             const int courseHeight = 32;
-            const int blockWidth = 48;
+            // NSC-042 AC-001: must evenly divide width (64) so the brick pattern has the same
+            // period as the tile texture itself. PaintWallRun repeats this exact texture across
+            // adjacent one-cell segments (see BuildIsometricVisualLayer); a block width that
+            // does not divide the texture width evenly cuts a block off mid-pattern at the tile
+            // edge, and because every segment restarts from the same texture, the next segment
+            // begins a fresh block instead of continuing it - the "pattern-phase reset" seam
+            // human runtime validation observed. The previous value (48) did not divide 64.
+            const int blockWidth = 32;
 
             for (var y = 0; y < height; y++)
             {
