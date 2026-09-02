@@ -6,7 +6,7 @@ import argparse, hashlib, json, math, os, re, stat, subprocess, sys, tempfile, t
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parents[2]
 for module_root in (ROOT, ROOT / "Pipeline/TaskGraph"):
@@ -918,6 +918,34 @@ def seed_retry_candidate(clone: Path, baseline: Snapshot, retry: RetryContext) -
 
 ProviderFactory = Callable[[str, Path, bool, str], tuple[str, RuntimeConfiguration, Mapping[str, Any]]]
 
+
+def aggregate_token_usage(invocations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Sum normalized AgentRuntime usage without inferring any missing values."""
+
+    available = [item["usage"] for item in invocations if item.get("usage") is not None]
+    reported = {
+        field: sum(getattr(usage, field) for usage in available)
+        for field in ("input_tokens", "output_tokens", "total_tokens")
+    }
+    missing = len(invocations) - len(available)
+    complete = missing == 0
+    return {
+        "schema_version": "1.0",
+        "status": "complete" if complete else "incomplete",
+        "complete": complete,
+        **{
+            field: reported[field] if complete else None
+            for field in ("input_tokens", "output_tokens", "total_tokens")
+        },
+        **{
+            f"reported_{field}": reported[field]
+            for field in ("input_tokens", "output_tokens", "total_tokens")
+        },
+        "invocation_count": len(invocations),
+        "usage_available_invocation_count": len(available),
+        "missing_usage_invocation_count": missing,
+    }
+
 def construct_real_provider(provider_name: str, repository_root: Path, writable: bool,
                             openai_reasoning_effort: str|None=None):
     if provider_name == "claude":
@@ -1076,6 +1104,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     impl_bounds = WriteBoundaries(implementation_paths, test_paths)
     test_bounds = WriteBoundaries(test_paths, implementation_paths)
     role_records=[]; reasons=[]; impl_actual=set(); test_actual=set(); pipeline_generated=set(); validator_status=None; attempts=0
+    usage_invocations: list[dict[str, Any]] = []
     latest_impl={}; latest_test={}; candidate_path=None; diagnostic_path=None; accepted_candidate=None
     contract_locality_status=None; contract_locality_audit_path=None; contract_locality_audit_host_path=None
     crew_status=None; final_paths: list[str]=[]
@@ -1122,6 +1151,14 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             raise CrewBlocked(
                 f"AgentRuntime used model {result.model!r}; expected routed model {execution_model!r}"
             )
+        usage_invocations.append(
+            {
+                "role": role,
+                "attempt": attempt,
+                "run_id": result.run_id,
+                "usage": result.usage,
+            }
+        )
         progress.emit("role_completed",f"{display} {attempt} completed: {result.status} ({duration:.1f}s)",role=role,attempt=attempt,status=result.status,duration_seconds=duration)
         return inv,result
     locality_prompt=contract_locality_auditor_prompt(
@@ -1136,7 +1173,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     audit_output=thaw_json(audit_res.structured_output) if audit_res.status=="succeeded" else {}
     if audit_res.status!="succeeded": audit_scope.append(f"AgentResult failed: {audit_res.failure_classification}")
     else: audit_scope += validate_locality_audit_output(audit_output,task=task,valid_task_ids=valid_task_ids)
-    audit_record={"role":"contract_locality_auditor","attempt":1,"agent_status":audit_res.status,"failure_classification":audit_res.failure_classification,"structured_output":audit_output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(audit_res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":audit_scope,"duration_seconds":audit_res.duration_seconds,"model":audit_res.model,"provider":audit_res.provider}
+    audit_record={"role":"contract_locality_auditor","attempt":1,"agent_status":audit_res.status,"failure_classification":audit_res.failure_classification,"structured_output":audit_output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(audit_res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":audit_scope,"duration_seconds":audit_res.duration_seconds,"model":audit_res.model,"provider":audit_res.provider,"usage":None if audit_res.usage is None else audit_res.usage.to_dict()}
     (run_dir/"role_results/contract_locality_auditor_1.json").write_text(json.dumps(audit_record,indent=2,sort_keys=True)+"\n")
     role_records.append("role_results/contract_locality_auditor_1.json")
     progress.emit("contract_locality_audit_completed",f"Contract Locality Auditor completed: {audit_output.get('status') if audit_res.status=='succeeded' else audit_res.status}",role="contract_locality_auditor",attempt=1,status=audit_output.get("status") if audit_res.status=="succeeded" else audit_res.status)
@@ -1184,7 +1221,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     for new_path, sidecar in zip(impl_plan.new_paths, (_sidecar(path) for path in impl_plan.new_paths)):
                         if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
                             (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
-                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
+                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict()}
                 (run_dir/f"role_results/implementer_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
                 progress.emit("scope_check_completed",f"Implementer {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="implementer",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
@@ -1200,7 +1237,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     for new_path, sidecar in zip(test_plan.new_paths, (_sidecar(path) for path in test_plan.new_paths)):
                         if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
                             (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
-                record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
+                record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict()}
                 (run_dir/f"role_results/test_author_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/test_author_{attempt}.json"); test_actual.update(actual); latest_test=output
                 progress.emit("scope_check_completed",f"Test Author {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="test_author",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
@@ -1217,7 +1254,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 scope=source_revalidation(source_root,identity); output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; validator_status=output.get("status")
                 if res.status!="succeeded": scope.append(f"AgentResult failed: {res.failure_classification}")
                 else: scope += validator_semantic_reasons(output, expected_requirement_ids)
-                record={"role":"validator","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider}
+                record={"role":"validator","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict()}
                 (run_dir/f"role_results/validator_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/validator_{attempt}.json"); latest_validator=output
                 progress.emit("validator_completed",f"Validator {attempt} completed: {validator_status or res.status}",role="validator",attempt=attempt,status=validator_status or res.status)
                 if scope: reasons+=scope; crew_status="rejected"; stop=True; break
@@ -1306,7 +1343,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
         human_commands = patch_commands(human_artifact, applyable=False)
     human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action,"commands":human_commands}
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"token_usage":aggregate_token_usage(usage_invocations),"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result

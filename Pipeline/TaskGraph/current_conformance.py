@@ -3,7 +3,7 @@ from __future__ import annotations
 """Deterministic current-conformance evaluation against committed HEAD."""
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +20,7 @@ from decomposition_graph_semantics import (
     aggregate_child_state_summary,
     aggregate_requirement_sha256,
 )
+from token_usage_metrics import committed_token_usage_fields
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -41,6 +42,10 @@ class ConformanceState:
     selected_record_id: str | None
     findings: tuple[Finding, ...]
     dirty_worktree: bool
+    total_tokens_used: int | None = None
+    token_usage_complete: bool | None = None
+    token_usage_status: str = "unavailable"
+    token_usage_scope: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
@@ -91,6 +96,10 @@ class ConformanceEvaluationContext:
                 context=self,
                 task_path=task_path,
                 task=task,
+            )
+            result = replace(
+                result,
+                **committed_token_usage_fields(self.repo, self.head, task_id),
             )
         finally:
             popped = self._evaluation_stack.pop()

@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 from conformance_records import CANON_PATH, GitRepository
 from current_conformance import evaluate_current_conformance
@@ -18,6 +19,8 @@ from record_delivery import (
     hash_object_raw,
     print_human_report,
 )
+from taskcontrol import command_state
+from validate_draft_evidence import validate_draft_evidence
 
 TASK_ID = "NSC-900"
 TASK_PATH = f"Tasks/{TASK_ID}.yaml"
@@ -159,6 +162,88 @@ def expect_error(callback, message_fragment: str | None = None) -> None:
 def fresh(callback, *args) -> None:
     with tempfile.TemporaryDirectory(prefix="record-delivery-test-") as temp:
         callback(Path(temp), *args)
+
+
+def token_usage_metric(*, total_tokens: int = 30) -> dict:
+    supervisor_total = 20
+    crew_total = total_tokens - supervisor_total
+
+    def source(run_id: str, source_path: str, input_tokens: int, output_tokens: int, total: int) -> dict:
+        return {
+            "run_id": run_id,
+            "source": source_path,
+            "complete": True,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": total,
+            "reported_input_tokens": input_tokens,
+            "reported_output_tokens": output_tokens,
+            "reported_total_tokens": total,
+            "invocation_count": 1,
+            "usage_available_invocation_count": 1,
+            "missing_usage_invocation_count": 0,
+            "errors": [],
+        }
+
+    supervisor_run = source(
+        "supervisor-run",
+        f"{TASK_ID}/supervisor-run/progress.jsonl",
+        10,
+        5,
+        supervisor_total,
+    )
+    crew_run = source(
+        "crew-run",
+        "Pipeline/ExecutionCrew/outputs/crew-run/crew_result.json",
+        3,
+        4,
+        crew_total,
+    )
+
+    def breakdown(run: dict) -> dict:
+        return {
+            "status": "complete",
+            "complete": True,
+            "input_tokens": run["input_tokens"],
+            "output_tokens": run["output_tokens"],
+            "total_tokens": run["total_tokens"],
+            "reported_input_tokens": run["input_tokens"],
+            "reported_output_tokens": run["output_tokens"],
+            "reported_total_tokens": run["total_tokens"],
+            "run_count": 1,
+            "invocation_count": 1,
+            "usage_available_invocation_count": 1,
+            "missing_usage_invocation_count": 0,
+            "runs": [run],
+            "errors": [],
+        }
+
+    return {
+        "schema_version": "1.0",
+        "task_id": TASK_ID,
+        "scope": "through_delivery_evidence",
+        "status": "complete",
+        "complete": True,
+        "input_tokens": 13,
+        "output_tokens": 9,
+        "total_tokens": total_tokens,
+        "reported_input_tokens": 13,
+        "reported_output_tokens": 9,
+        "reported_total_tokens": total_tokens,
+        "breakdown": {
+            "supervisor": breakdown(supervisor_run),
+            "execution_crew": breakdown(crew_run),
+        },
+    }
+
+
+def write_token_usage(path: Path, *, total_tokens: int = 30) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(token_usage_metric(total_tokens=total_tokens), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return path
 
 
 # 1/2/3/4/5/6/7/8: happy path, computed hashes, blob shas, validated commit/tree,
@@ -524,6 +609,9 @@ def scenario_end_to_end_conformant(root: Path) -> None:
     state = evaluate_current_conformance(root, TASK_ID)
     assert state.state == "conformant", state.to_dict()
     assert state.selected_record_id == result.record_id
+    assert state.total_tokens_used is None
+    assert state.token_usage_complete is None
+    assert state.token_usage_status == "unavailable"
 
 
 # 30: synthetic Git clean-filter/EOL normalization regression. Proves the recorded
@@ -619,6 +707,92 @@ def scenario_prints_validate_draft_between_stage_and_commit(root: Path) -> None:
     assert expected_validate_line in report, report
 
 
+def scenario_optional_token_usage_is_packaged_and_displayed(root: Path) -> None:
+    validated = init_repo(root)
+    external = root.parent / "external-sources"
+    sources = write_external_sources(external)
+    metric_path = write_token_usage(external / "token-usage.json")
+    spec = base_spec(validated)
+    wire_sources(spec, sources)
+    spec_path = write_spec(root, spec)
+
+    result = create_delivery_package(spec_path, root, metric_path)
+    sidecar = f"Pipeline/TaskGraph/evidence/{TASK_ID}/metrics/token-usage.json"
+    assert sidecar in result.created_paths
+    assert json.loads((root / sidecar).read_text(encoding="utf-8")) == token_usage_metric()
+
+    run(root, *result.stage_command)
+    draft = validate_draft_evidence(result.record_path, root)
+    assert draft.status == "valid", draft.findings
+    commit(root, f"Record {TASK_ID} delivery evidence with token usage")
+    state = evaluate_current_conformance(root, TASK_ID)
+    assert state.state == "conformant", state.to_dict()
+    assert state.total_tokens_used == 30
+    assert state.token_usage_complete is True
+    assert state.token_usage_status == "complete"
+    assert state.token_usage_scope == "through_delivery_evidence"
+
+    output = io.StringIO()
+    with patch("taskcontrol.evaluate_current_conformance", return_value=state):
+        with redirect_stdout(output):
+            assert command_state(TASK_ID, as_json=True) == 0
+    rendered = json.loads(output.getvalue())
+    assert rendered["total_tokens_used"] == 30
+    assert rendered["token_usage_complete"] is True
+    assert rendered["token_usage_status"] == "complete"
+
+    output = io.StringIO()
+    with patch("taskcontrol.evaluate_current_conformance", return_value=state):
+        with redirect_stdout(output):
+            assert command_state(TASK_ID) == 0
+    assert "total_tokens_used: 30" in output.getvalue()
+
+
+def scenario_conflicting_token_usage_is_not_overwritten(root: Path) -> None:
+    init_repo(root)
+    existing = write_token_usage(
+        root / f"Pipeline/TaskGraph/evidence/{TASK_ID}/metrics/token-usage.json",
+        total_tokens=31,
+    )
+    validated = commit(root, "Commit existing immutable token usage")
+    external = root.parent / "external-sources"
+    sources = write_external_sources(external)
+    candidate = write_token_usage(external / "token-usage.json", total_tokens=30)
+    spec = base_spec(validated)
+    wire_sources(spec, sources)
+    spec_path = write_spec(root, spec)
+
+    before = existing.read_bytes()
+    expect_error(
+        lambda: create_delivery_package(spec_path, root, candidate),
+        "different identity",
+    )
+    assert existing.read_bytes() == before
+
+
+def scenario_malformed_token_usage_is_non_authoritative(root: Path) -> None:
+    validated = init_repo(root)
+    external = root.parent / "external-sources"
+    sources = write_external_sources(external)
+    spec = base_spec(validated)
+    wire_sources(spec, sources)
+    spec_path = write_spec(root, spec)
+    result = create_delivery_package(spec_path, root)
+    run(root, *result.stage_command)
+    commit(root, f"Record {TASK_ID} delivery evidence")
+
+    malformed = root / f"Pipeline/TaskGraph/evidence/{TASK_ID}/metrics/token-usage.json"
+    malformed.parent.mkdir(parents=True, exist_ok=True)
+    malformed.write_text('{"task_id":"NSC-999","total_tokens":NaN}\n', encoding="utf-8")
+    commit(root, "Commit malformed non-authoritative telemetry fixture")
+
+    state = evaluate_current_conformance(root, TASK_ID)
+    assert state.state == "conformant", state.to_dict()
+    assert state.total_tokens_used is None
+    assert state.token_usage_complete is False
+    assert state.token_usage_status == "invalid"
+
+
 def main() -> int:
     fresh(scenario_happy_path)
     fresh(scenario_failed_unity_xml)
@@ -644,6 +818,9 @@ def main() -> int:
     fresh(scenario_filtered_hash_matches_committed_blob)
     fresh(scenario_directory_surface_rejected)
     fresh(scenario_prints_validate_draft_between_stage_and_commit)
+    fresh(scenario_optional_token_usage_is_packaged_and_displayed)
+    fresh(scenario_conflicting_token_usage_is_not_overwritten)
+    fresh(scenario_malformed_token_usage_is_non_authoritative)
     print("record_delivery_smoke_test: PASS")
     return 0
 

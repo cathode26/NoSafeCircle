@@ -217,7 +217,9 @@ class FakeProvider:
             elif not (s.scenario=="no_op_repair" and attempt==2): write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {}"+(" public void HumanReviewRegression() {}" if s.feedback else "")+(" public void RepairTest() {}" if attempt==2 else "")+" }\n")
             test_blockers=[f"test author blocked, quoting reviewer verbatim: {s.feedback}"] if s.scenario=="test_blocker_leak" else []
             output={"summary":"tests","claimed_changed_paths":["claim-test.cs"],"test_cases_added_or_updated":["ManaTest"],"blockers":test_blockers,"known_limitations":["not run"],"proposed_unity_test_scope":"Play Mode"}
-        return ProviderInvocationResponse(output,"fake log\n",("runtime-claim.cs",),Usage(1,1,2),True,())
+        if s.scenario=="provider_failure_usage" and self.role=="implementer": output={}
+        usage=None if s.scenario=="missing_usage" and self.role=="test_author" else Usage(attempt,attempt+1,attempt+10)
+        return ProviderInvocationResponse(output,"fake log\n",("runtime-claim.cs",),usage,True,())
 
 def factory(state):
     def create(provider,repo,writable,role):
@@ -447,6 +449,8 @@ def main():
     assert len({x[1].run_id for x in state.calls})==4; assert not state.clone.exists(); assert passed["implementation_actual_changed_paths"]==[IMPL] and passed["test_actual_changed_paths"]==[TEST]
     assert len(list((d/"task_execution").glob("*/task_request.json")))==4 and len(list((d/"agent_runtime").glob("*/result.json")))==4
     impl_record=json.loads((d/"role_results/implementer_1.json").read_text()); assert impl_record["role_claimed_paths"]==["claim-impl.cs"] and impl_record["agent_runtime_claimed_paths"]==["runtime-claim.cs"] and impl_record["deterministic_incremental_actual_changed_paths"]==[IMPL]
+    assert impl_record["usage"]=={"estimated_cost_usd":None,"input_tokens":1,"output_tokens":2,"total_tokens":11}
+    assert passed["token_usage"]=={"schema_version":"1.0","status":"complete","complete":True,"input_tokens":4,"output_tokens":8,"total_tokens":44,"reported_input_tokens":4,"reported_output_tokens":8,"reported_total_tokens":44,"invocation_count":4,"usage_available_invocation_count":4,"missing_usage_invocation_count":0}
     with patch.dict(os.environ,{"NSC_EXECUTION_HEARTBEAT_SECONDS":"0.01"},clear=False), redirect_stderr(io.StringIO()): slow,state,d=execute(source,outputs,"slow",61)
     slow_events=[json.loads(line) for line in (d/"progress.jsonl").read_text().splitlines()]; heartbeats=[i for i,event in enumerate(slow_events) if event["event"]=="role_heartbeat"]
     assert slow["crew_status"]=="review_ready" and heartbeats
@@ -455,6 +459,17 @@ def main():
         completed=next(i for i,event in enumerate(slow_events) if event["event"]=="role_completed" and event["role"]==role and event["attempt"]==attempt)
         assert index < completed and not any(event["event"]=="role_heartbeat" and event["role"]==role and event["attempt"]==attempt for event in slow_events[completed+1:])
     repaired,state,d=execute(source,outputs,"repair",2); assert repaired["crew_status"]=="review_ready" and repaired["attempts_used"]==2; assert [x[0] for x in state.calls]==["contract_locality_auditor"]+["implementer","test_author","validator"]*2
+    assert repaired["token_usage"]["invocation_count"]==7 and repaired["token_usage"]["input_tokens"]==10 and repaired["token_usage"]["output_tokens"]==17 and repaired["token_usage"]["total_tokens"]==80
+    failed_usage,failed_usage_state,failed_usage_dir=execute(source,outputs,"provider_failure_usage",153)
+    assert failed_usage["crew_status"]=="rejected" and [role for role,_,_ in failed_usage_state.calls]==["contract_locality_auditor","implementer"]
+    assert json.loads((failed_usage_dir/"role_results/implementer_1.json").read_text())["agent_status"]=="failed"
+    assert failed_usage["token_usage"]["complete"] is True and failed_usage["token_usage"]["total_tokens"]==22
+    missing_usage,missing_usage_state,missing_usage_dir=execute(source,outputs,"missing_usage",154)
+    assert missing_usage["crew_status"]=="review_ready" and len(missing_usage_state.calls)==4
+    assert json.loads((missing_usage_dir/"role_results/test_author_1.json").read_text())["usage"] is None
+    assert missing_usage["token_usage"]["status"]=="incomplete" and missing_usage["token_usage"]["complete"] is False
+    assert missing_usage["token_usage"]["total_tokens"] is None and missing_usage["token_usage"]["reported_total_tokens"]==33
+    assert missing_usage["token_usage"]["missing_usage_invocation_count"]==1
     no_op,state,d=execute(source,outputs,"no_op_repair",6); assert no_op["crew_status"]=="needs_human" and [x[0] for x in state.calls]==["contract_locality_auditor","implementer","test_author","validator","implementer","test_author"]
     assert "repair cycle made no deterministic changes" in no_op["rejection_reasons"] and not (d/"candidate.patch").exists()
     twice,state,d=execute(source,outputs,"needs_twice",3); assert twice["crew_status"]=="needs_human" and not (d/"candidate.patch").exists() and (d/"workspace_diagnostic.patch").is_file(); assert len(state.calls)==7

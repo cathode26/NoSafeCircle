@@ -39,6 +39,7 @@ from conformance_records import (
     semantic_json_sha256,
     validate_record_shape,
 )
+from token_usage_metrics import TokenUsageMetricError, load_token_usage_bytes
 
 ROOT = Path(__file__).resolve().parents[2]
 TESTING_ROOT = ROOT / "Pipeline" / "Testing"
@@ -502,14 +503,22 @@ class DeliveryResult:
 # --------------------------------------------------------------------------
 
 
-def create_delivery_package(spec_path: Path, root: Path = ROOT) -> DeliveryResult:
+def create_delivery_package(
+    spec_path: Path,
+    root: Path = ROOT,
+    token_usage_path: Path | None = None,
+) -> DeliveryResult:
     try:
-        return _create_delivery_package(spec_path, root)
+        return _create_delivery_package(spec_path, root, token_usage_path)
     except ConformanceRecordError as exc:
         raise RecordDeliveryError(str(exc)) from exc
 
 
-def _create_delivery_package(spec_path: Path, root: Path) -> DeliveryResult:
+def _create_delivery_package(
+    spec_path: Path,
+    root: Path,
+    token_usage_path: Path | None,
+) -> DeliveryResult:
     repo = GitRepository(root)
     try:
         head = repo.head()
@@ -581,6 +590,23 @@ def _create_delivery_package(spec_path: Path, root: Path) -> DeliveryResult:
                 f"Artifact {artifact.id!r} source_path refers to the destination evidence directory: {artifact.source_path}"
             )
 
+    token_usage_data: bytes | None = None
+    if token_usage_path is not None:
+        source = Path(token_usage_path)
+        if not source.is_file():
+            raise RecordDeliveryError(f"Token-usage artifact is not a regular file: {source}")
+        if _is_within(source.resolve(), evidence_dir):
+            raise RecordDeliveryError(
+                f"Token-usage artifact refers to the destination evidence directory: {source}"
+            )
+        try:
+            metric = load_token_usage_bytes(source.read_bytes(), expected_task_id=spec.task_id)
+        except (OSError, TokenUsageMetricError) as exc:
+            raise RecordDeliveryError(f"Token-usage artifact is invalid: {exc}") from exc
+        token_usage_data = (
+            json.dumps(metric, indent=2, sort_keys=True, allow_nan=False) + "\n"
+        ).encode("utf-8")
+
     current_gate_order = _task_gate_ids(task_contract)
     spec_gate_ids = {gate.gate_id for gate in spec.gates}
     if spec_gate_ids != set(current_gate_order):
@@ -611,6 +637,7 @@ def _create_delivery_package(spec_path: Path, root: Path) -> DeliveryResult:
     short_sha = validated_commit[:12]
     artifacts_dir_repo = f"{EVIDENCE_ROOT}/{spec.task_id}/artifacts"
     records_dir_repo = f"{EVIDENCE_ROOT}/{spec.task_id}/records"
+    token_usage_repo_path = f"{EVIDENCE_ROOT}/{spec.task_id}/metrics/token-usage.json"
 
     with tempfile.TemporaryDirectory(prefix="taskgraph-delivery-") as temp_dir_name:
         temp_dir = Path(temp_dir_name)
@@ -705,20 +732,40 @@ def _create_delivery_package(spec_path: Path, root: Path) -> DeliveryResult:
                 raise RecordDeliveryError(f"Refusing to overwrite existing evidence artifact: {final_path}")
         if final_record_path.exists():
             raise RecordDeliveryError(f"Refusing to overwrite existing delivery record: {final_record_path}")
+        final_token_usage_path = root / token_usage_repo_path
+        reuse_token_usage = False
+        if token_usage_data is not None and final_token_usage_path.exists():
+            if not final_token_usage_path.is_file() or final_token_usage_path.read_bytes() != token_usage_data:
+                raise RecordDeliveryError(
+                    "Refusing to overwrite existing token-usage sidecar with a different identity: "
+                    f"{final_token_usage_path}"
+                )
+            reuse_token_usage = True
 
         published: list[str] = []
+        package_paths: list[str] = []
         try:
             (root / artifacts_dir_repo).mkdir(parents=True, exist_ok=True)
             for final_path, entry in final_artifact_paths:
                 shutil.copyfile(entry["temp_path"], final_path)
-                published.append(str(final_path.relative_to(root)).replace("\\", "/"))
+                path = str(final_path.relative_to(root)).replace("\\", "/")
+                published.append(path)
+                package_paths.append(path)
+            if token_usage_data is not None:
+                if not reuse_token_usage:
+                    final_token_usage_path.parent.mkdir(parents=True, exist_ok=True)
+                    final_token_usage_path.write_bytes(token_usage_data)
+                    published.append(token_usage_repo_path)
+                    package_paths.append(token_usage_repo_path)
             (root / records_dir_repo).mkdir(parents=True, exist_ok=True)
             final_record_path.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            published.append(str(final_record_path.relative_to(root)).replace("\\", "/"))
+            path = str(final_record_path.relative_to(root)).replace("\\", "/")
+            published.append(path)
+            package_paths.append(path)
         except Exception as exc:  # noqa: BLE001 - report exactly what was published, then stop.
             raise PublicationFailure(published, exc) from exc
 
-    stage_command = ("git", "add", "-f", "--", *published)
+    stage_command = ("git", "add", "-f", "--", *package_paths)
     validate_command = (
         "python", "Pipeline/TaskGraph/validate_draft_evidence.py", "--record", record_path_repo,
     )
@@ -730,7 +777,7 @@ def _create_delivery_package(spec_path: Path, root: Path) -> DeliveryResult:
         candidate_commit=candidate_commit,
         record_id=record_id,
         record_path=record_path_repo,
-        created_paths=tuple(published),
+        created_paths=tuple(package_paths),
         unity_reports=tuple(unity_reports),
         stage_command=stage_command,
         validate_command=validate_command,
@@ -792,6 +839,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Deterministic delivery-evidence packager for TaskGraph.")
     parser.add_argument("spec", help="Path to the delivery-spec JSON file.")
     parser.add_argument("--root", default=None, help="Repository root (defaults to this checkout's root).")
+    parser.add_argument(
+        "--token-usage",
+        default=None,
+        help="Optional strict task token-usage aggregate to package as non-authoritative telemetry.",
+    )
     parser.add_argument("--json", action="store_true", help="Print a machine-readable JSON summary instead of the human report.")
     return parser
 
@@ -801,7 +853,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     root = Path(args.root).resolve() if args.root else ROOT
     try:
-        result = create_delivery_package(Path(args.spec), root)
+        result = create_delivery_package(
+            Path(args.spec),
+            root,
+            Path(args.token_usage) if args.token_usage else None,
+        )
     except PublicationFailure as exc:
         print("DELIVERY EVIDENCE: PARTIAL PUBLICATION - DO NOT TRUST OR STAGE", file=sys.stderr)
         print("The following paths were written before the failure and were left in place for inspection:", file=sys.stderr)

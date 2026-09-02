@@ -29,6 +29,7 @@ from .issue_workflow import (
 )
 from .issue_workflow_store import GhIssueBackend, resolve_issue_backend_repository
 from .real_workflow import RealTaskReviewWorkflow
+from .token_usage import build_task_token_usage, write_task_token_usage
 
 
 DOWNSTREAM_SCHEMA_VERSION = "1.0"
@@ -703,6 +704,15 @@ class DownstreamTaskController:
         self.state["delivery_spec_sha256"] = file_sha256(spec_path)
 
         if not self.state.get("evidence_commit"):
+            token_usage_path = output_root / "token-usage.json"
+            token_usage = build_task_token_usage(
+                task_id=self.task_id,
+                supervisor_output_root=self._task_agent_output_root(),
+                checkout_root=self.checkout,
+            )
+            write_task_token_usage(token_usage_path, token_usage)
+            self.state["token_usage_path"] = str(token_usage_path)
+            self.state["token_usage_sha256"] = file_sha256(token_usage_path)
             record_script = self.checkout / "Pipeline" / "TaskGraph" / "record_delivery.py"
             package = _run(
                 self.command_runner,
@@ -712,6 +722,8 @@ class DownstreamTaskController:
                     str(spec_path),
                     "--root",
                     str(self.checkout),
+                    "--token-usage",
+                    str(token_usage_path),
                     "--json",
                 ),
                 cwd=self.checkout,
@@ -1324,6 +1336,15 @@ class DownstreamTaskController:
 
     def _output_root(self, commit: str) -> Path:
         return _external_root(self.task_id, commit, self.explicit_output_root)
+
+    def _task_agent_output_root(self) -> Path:
+        explicit = getattr(self, "explicit_output_root", None)
+        if explicit is not None:
+            return Path(explicit).expanduser().resolve()
+        configured = os.getenv("NSC_TASK_AGENT_OUTPUT_ROOT")
+        if configured:
+            return Path(configured).expanduser().resolve()
+        return (self.checkout.parent / ".task-review-agent" / "outputs").resolve()
 
     def _load_state(self) -> dict[str, Any]:
         if not self.state_path.is_file():

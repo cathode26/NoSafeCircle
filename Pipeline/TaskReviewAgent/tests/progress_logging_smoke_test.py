@@ -22,6 +22,7 @@ from Pipeline.TaskReviewAgent.operator_logging import (  # noqa: E402
     remember_supervisor_decision_for_logging,
 )
 from Pipeline.TaskReviewAgent.progress import ProgressLog, summarize_result  # noqa: E402
+from Pipeline.TaskReviewAgent.token_usage import build_task_token_usage  # noqa: E402
 
 
 def require(condition: bool, message: str) -> None:
@@ -251,10 +252,176 @@ def test_result_summary_is_bounded() -> None:
     require("file_contents" not in summary, "file contents leaked into summary")
 
 
+def _write_crew_run(
+    checkout: Path,
+    *,
+    run_id: str,
+    usages: list[dict[str, int] | None],
+) -> None:
+    run_dir = checkout / "Pipeline" / "ExecutionCrew" / "outputs" / run_id
+    role_dir = run_dir / "role_results"
+    role_dir.mkdir(parents=True)
+    role_paths: list[str] = []
+    for index, usage in enumerate(usages, 1):
+        relative = f"role_results/role_{index}.json"
+        role_paths.append(relative)
+        (run_dir / relative).write_text(
+            json.dumps(
+                {
+                    "role": f"role_{index}",
+                    "attempt": 1,
+                    "usage": usage,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    present = [usage for usage in usages if usage is not None]
+    reported = {
+        field: sum(usage[field] for usage in present)
+        for field in ("input_tokens", "output_tokens", "total_tokens")
+    }
+    complete = len(present) == len(usages)
+    token_usage = {
+        "schema_version": "1.0",
+        "status": "complete" if complete else "incomplete",
+        "complete": complete,
+        **{
+            field: reported[field] if complete else None
+            for field in ("input_tokens", "output_tokens", "total_tokens")
+        },
+        **{
+            f"reported_{field}": reported[field]
+            for field in ("input_tokens", "output_tokens", "total_tokens")
+        },
+        "invocation_count": len(usages),
+        "usage_available_invocation_count": len(present),
+        "missing_usage_invocation_count": len(usages) - len(present),
+    }
+    (run_dir / "crew_result.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "run_id": run_id,
+                "task_id": "NSC-020",
+                "role_results": role_paths,
+                "token_usage": token_usage,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_task_usage_aggregates_multiple_supervisor_and_crew_runs() -> None:
+    with TemporaryDirectory(prefix="task-agent-token-usage-") as text:
+        root = Path(text)
+        supervisor_root = root / "outputs"
+        checkout = root / "checkout"
+        for run_id, turn, usage in (
+            (
+                "implementation-run",
+                1,
+                {"input_tokens": 10, "output_tokens": 5, "total_tokens": 20},
+            ),
+            (
+                "delivery-run",
+                2,
+                {"input_tokens": 7, "output_tokens": 3, "total_tokens": 15},
+            ),
+        ):
+            progress = ProgressLog(
+                output_root=supervisor_root,
+                task_id="NSC-020",
+                worker_id="token-usage-test",
+                pipeline="downstream",
+                heartbeat_seconds=1,
+                run_id=run_id,
+            )
+            decision = SupervisorDecision(
+                "NSC-020",
+                "search_repository",
+                {"query": "usage", "prefixes": ["Pipeline/"]},
+                "Inspect the bounded source.",
+            )
+            remember_supervisor_decision_for_logging(decision, usage=usage)
+            progress.emit(
+                "supervisor_decision",
+                "Codex selected search_repository",
+                turn=turn,
+                action=decision.action,
+            )
+            with progress.heartbeat(
+                "pipeline_action",
+                "Executing search_repository",
+                turn=turn,
+                action=decision.action,
+            ):
+                pass
+            progress.emit(
+                "action_completed",
+                "search_repository completed",
+                turn=turn,
+                action=decision.action,
+            )
+            progress.finish("complete")
+
+        _write_crew_run(
+            checkout,
+            run_id="crew-one",
+            usages=[
+                {"input_tokens": 1, "output_tokens": 2, "total_tokens": 5},
+                {"input_tokens": 3, "output_tokens": 4, "total_tokens": 9},
+            ],
+        )
+        _write_crew_run(
+            checkout,
+            run_id="crew-two",
+            usages=[{"input_tokens": 2, "output_tokens": 1, "total_tokens": 6}],
+        )
+
+        metric = build_task_token_usage(
+            task_id="NSC-020",
+            supervisor_output_root=supervisor_root,
+            checkout_root=checkout,
+        )
+        require(metric["complete"] is True, f"combined metric was incomplete: {metric}")
+        require(
+            (metric["input_tokens"], metric["output_tokens"], metric["total_tokens"])
+            == (23, 15, 55),
+            f"combined totals are wrong: {metric}",
+        )
+        supervisor = metric["breakdown"]["supervisor"]
+        crew = metric["breakdown"]["execution_crew"]
+        require(
+            supervisor["run_count"] == 2 and supervisor["invocation_count"] == 2,
+            "supervisor action-event usage was double-counted",
+        )
+        require(
+            (supervisor["input_tokens"], supervisor["output_tokens"], supervisor["total_tokens"])
+            == (17, 8, 35),
+            f"supervisor totals are wrong: {supervisor}",
+        )
+        require(
+            crew["run_count"] == 2 and crew["invocation_count"] == 3,
+            f"ExecutionCrew provenance is wrong: {crew}",
+        )
+        require(
+            (crew["input_tokens"], crew["output_tokens"], crew["total_tokens"])
+            == (6, 7, 20),
+            f"ExecutionCrew totals are wrong: {crew}",
+        )
+
+
 def main() -> int:
     tests = (
         test_operator_log_is_unity_friendly_and_diagnostic,
         test_result_summary_is_bounded,
+        test_task_usage_aggregates_multiple_supervisor_and_crew_runs,
     )
     for test in tests:
         test()

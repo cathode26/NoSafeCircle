@@ -252,6 +252,13 @@ def command_state(selector: str, as_json: bool = False) -> int:
     print(f"HEAD commit:      {result.head_commit}")
     print(f"HEAD tree:        {result.head_tree}")
     print(f"selected_record:  {result.selected_record_id or '(none)'}")
+    print(f"token_usage:      {result.token_usage_status}")
+    if result.token_usage_scope:
+        print(f"token_scope:      {result.token_usage_scope}")
+    print(
+        "total_tokens_used: "
+        + (str(result.total_tokens_used) if result.total_tokens_used is not None else "(unavailable)")
+    )
     print("findings:")
     for finding in result.findings:
         suffix = f" [{finding.record_id}]" if finding.record_id else ""
