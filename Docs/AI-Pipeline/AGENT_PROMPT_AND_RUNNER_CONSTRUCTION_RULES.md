@@ -338,6 +338,37 @@ rerun bootstrap
 
 Those destroy evidence and can convert a recoverable partial mutation into data loss.
 
+### 10.1 Two-strike runner escalation
+
+When an assistant-authored runner, validation harness, recovery script, or operator wrapper fails twice before successfully exercising the intended system behavior, stop generating incremental runner variants.
+
+After the second wrapper/harness failure:
+
+1. preserve the current repository, Git/GitHub, checkout, provider-job, and external-artifact state;
+2. determine whether either attempt crossed a durable mutation boundary;
+3. do not generate or recommend a third incremental variant by guesswork;
+4. launch one bounded read-only engineering agent to inspect the failed runners, current repository authority, relevant standards, and underlying task;
+5. require the agent to classify the failures and recommend the smallest correct path forward;
+6. resume mutation only after that independent diagnosis is reviewed against current authority.
+
+This rule applies to failures in the **assistant-authored wrapper or proof mechanism**. It does not count a successful runner that reaches the intended system and reveals a genuine product, pipeline, test, or repository defect; investigate that real defect normally.
+
+The escalation shape is:
+
+```text
+Attempt 1 wrapper/proof failure
+    -> inspect evidence
+    -> make one targeted correction
+
+Attempt 2 wrapper/proof failure
+    -> STOP generating variants
+    -> preserve state
+    -> read-only engineering agent investigation
+    -> agent-supported correction or existing approved mechanism
+```
+
+Do not use the escalation agent as permission to mutate. Its default role is diagnosis and recommendation unless a later, separately authorized step grants write authority.
+
 ## 11. Separate deterministic setup from provider execution
 
 For substantial operator jobs, keep these phases distinct:

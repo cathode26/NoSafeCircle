@@ -35,6 +35,8 @@ does not need the full template.
 
 A substantial command **must** follow `OPERATOR_COMMAND_TEMPLATE.md` when it can:
 
+**REQUIRED: apply the two-strike runner escalation rule.** If an assistant-authored runner, validation harness, recovery script, or operator wrapper fails twice before successfully exercising its intended system behavior, stop producing incremental variants and follow `Docs/AI-Pipeline/AGENT_PROMPT_AND_RUNNER_CONSTRUCTION_RULES.md` section 10.1. Preserve state, distinguish wrapper failure from a real system defect, and use a bounded read-only engineering agent before another mutation attempt.
+
 - edit, create, move, or delete files;
 - stage or commit Git changes;
 - create, move, or delete branches, refs, tags, claims, or stashes;
