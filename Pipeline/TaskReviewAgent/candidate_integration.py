@@ -11,7 +11,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from .contracts import TaskReviewContractError, semantic_sha256
 from .execution_bridge import ExecutionCrewBridge, ExecutionCrewReceipt
@@ -20,6 +20,20 @@ from .pipeline_scope import RepositoryScopeAuthority
 
 INTEGRATION_SCHEMA_VERSION = "1.0"
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
+_UNITY_VERSION = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]*$")
+_DOOR_PROTOTYPE_BUILDER = (
+    "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs"
+)
+_DOOR_PROTOTYPE_ROOT = "Assets/NoSafeCircle/DoorPrototype/"
+_DOOR_PROTOTYPE_SCENE = "Assets/Scenes/DoorPrototype.unity"
+_DOOR_PROTOTYPE_BUILD_METHOD = (
+    "NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.Build"
+)
+
+
+UnityCommandRunner = Callable[
+    [Sequence[str], Path, float], subprocess.CompletedProcess[bytes]
+]
 
 
 class CandidateIntegrationError(TaskReviewContractError):
@@ -76,12 +90,22 @@ def _git_text(root: Path, *args: str, check: bool = True) -> str:
     return _decode(_git(root, *args, check=check).stdout, label="git stdout").strip()
 
 
+def _tracked_changed_paths(root: Path) -> tuple[str, ...]:
+    output = _git_text(root, "diff", "--name-only", "HEAD", "--")
+    return tuple(sorted((line for line in output.splitlines() if line), key=str.casefold))
+
+
+def _untracked_paths(root: Path) -> tuple[str, ...]:
+    output = _git_text(root, "ls-files", "--others", "--exclude-standard")
+    return tuple(sorted((line for line in output.splitlines() if line), key=str.casefold))
+
+
 def _changed_paths(root: Path, *, base: str | None = None) -> tuple[str, ...]:
     tracked = _git_text(
         root,
         "diff",
         "--name-only",
-        *((f"{base}..HEAD",) if base is not None else ()),
+        f"{base}..HEAD" if base is not None else "HEAD",
         "--",
     )
     untracked = "" if base is not None else _git_text(
@@ -92,6 +116,10 @@ def _changed_paths(root: Path, *, base: str | None = None) -> tuple[str, ...]:
     )
     values = {line for line in (*tracked.splitlines(), *untracked.splitlines()) if line}
     return tuple(sorted(values, key=str.casefold))
+
+
+def _is_door_prototype_builder_output(path: str) -> bool:
+    return path.startswith(_DOOR_PROTOTYPE_ROOT) or path == _DOOR_PROTOTYPE_SCENE
 
 
 def _remote_head(root: Path, branch: str) -> str | None:
@@ -153,14 +181,24 @@ class CandidateIntegrator:
         task_title: str,
         scope: RepositoryScopeAuthority,
         execution: ExecutionCrewBridge,
+        unity_command_runner: UnityCommandRunner | None = None,
+        unity_executable: Path | str | None = None,
+        unity_timeout_seconds: float = 1800.0,
     ) -> None:
         self.checkout = Path(checkout).resolve()
         self.branch = str(branch).strip()
         self.task_title = str(task_title).strip()
         self.scope = scope
         self.execution = execution
+        self.unity_command_runner = unity_command_runner or self._default_unity_command_runner
+        self.unity_executable = (
+            Path(unity_executable).resolve() if unity_executable is not None else None
+        )
+        self.unity_timeout_seconds = float(unity_timeout_seconds)
         if not self.branch or not self.task_title:
             raise CandidateIntegrationError("integration requires branch and task title")
+        if self.unity_timeout_seconds <= 0:
+            raise CandidateIntegrationError("Unity builder timeout must be positive")
         self.state_root = self.checkout.parent / ".task-review-agent"
         self.state_path = self.state_root / f"{self.scope.task_id}.integration.json"
         self._receipt: CandidateIntegrationReceipt | None = None
@@ -199,7 +237,10 @@ class CandidateIntegrator:
         _git(self.checkout, "apply", "--", str(candidate))
         try:
             self._verify_applied_state(self.checkout, execution)
-            _git(self.checkout, "add", "--", *execution.final_actual_changed_paths)
+            final_changed_paths = execution.final_actual_changed_paths
+            if self._requires_door_prototype_builder(execution):
+                final_changed_paths = self._run_door_prototype_builder(execution)
+            _git(self.checkout, "add", "--", *final_changed_paths)
             staged_lines = _git_text(
                 self.checkout,
                 "diff",
@@ -208,10 +249,10 @@ class CandidateIntegrator:
                 "--",
             ).splitlines()
             staged = tuple(sorted((line for line in staged_lines if line), key=str.casefold))
-            if staged != execution.final_actual_changed_paths:
+            if staged != final_changed_paths:
                 raise CandidateIntegrationError(
-                    f"staged paths differ from verified candidate: {staged} != "
-                    f"{execution.final_actual_changed_paths}"
+                    f"staged paths differ from verified integration paths: {staged} != "
+                    f"{final_changed_paths}"
                 )
             if _git_text(self.checkout, "diff", "--name-only", "--"):
                 raise CandidateIntegrationError("candidate left unstaged tracked changes")
@@ -244,7 +285,7 @@ class CandidateIntegrator:
         parent = _git_text(self.checkout, "rev-parse", "HEAD^")
         if parent != execution.source_head:
             raise CandidateIntegrationError("candidate commit parent is not ExecutionCrew source HEAD")
-        if _changed_paths(self.checkout, base=execution.source_head) != execution.final_actual_changed_paths:
+        if _changed_paths(self.checkout, base=execution.source_head) != final_changed_paths:
             raise CandidateIntegrationError("candidate commit changed an unexpected path set")
         self._push_exact(commit, execution.source_head)
         receipt = self._create_receipt(commit, execution)
@@ -294,9 +335,173 @@ class CandidateIntegrator:
         parent = _git_text(self.checkout, "rev-parse", "HEAD^", check=False)
         if parent != execution.source_head:
             raise CandidateIntegrationError("existing integration commit has the wrong parent")
-        if _changed_paths(self.checkout, base=execution.source_head) != execution.final_actual_changed_paths:
+        changed_paths = _changed_paths(self.checkout, base=execution.source_head)
+        if not self._paths_match_execution(changed_paths, execution):
             raise CandidateIntegrationError("existing integration commit has the wrong path set")
         return head
+
+    @staticmethod
+    def _requires_door_prototype_builder(execution: ExecutionCrewReceipt) -> bool:
+        return _DOOR_PROTOTYPE_BUILDER in execution.final_actual_changed_paths
+
+    def _paths_match_execution(
+        self,
+        changed_paths: tuple[str, ...],
+        execution: ExecutionCrewReceipt,
+    ) -> bool:
+        candidate_paths = execution.final_actual_changed_paths
+        if not self._requires_door_prototype_builder(execution):
+            return changed_paths == candidate_paths
+        if tuple(sorted(set(changed_paths), key=str.casefold)) != changed_paths:
+            return False
+        candidate_set = set(candidate_paths)
+        changed_set = set(changed_paths)
+        return candidate_set.issubset(changed_set) and all(
+            path in candidate_set or _is_door_prototype_builder_output(path)
+            for path in changed_paths
+        )
+
+    def _run_door_prototype_builder(
+        self,
+        execution: ExecutionCrewReceipt,
+    ) -> tuple[str, ...]:
+        executable = self._resolve_unity_executable()
+        self.state_root.mkdir(parents=True, exist_ok=True)
+        log_directory = Path(
+            tempfile.mkdtemp(
+                prefix=f"{self.scope.task_id.casefold()}-unity-builder-",
+                dir=self.state_root,
+            )
+        )
+        log_path = log_directory / "unity.log"
+        candidate_paths = _changed_paths(self.checkout)
+        if candidate_paths != execution.final_actual_changed_paths:
+            raise CandidateIntegrationError(
+                "canonical checkout changed after candidate verification and before the "
+                "DoorPrototype builder"
+            )
+        command = (
+            str(executable),
+            "-batchmode",
+            "-quit",
+            "-projectPath",
+            str(self.checkout),
+            "-executeMethod",
+            _DOOR_PROTOTYPE_BUILD_METHOD,
+            "-logFile",
+            str(log_path),
+        )
+        try:
+            result = self.unity_command_runner(
+                command,
+                self.checkout,
+                self.unity_timeout_seconds,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise CandidateIntegrationError(
+                f"DoorPrototype builder could not run; Unity log: {log_path}"
+            ) from exc
+        if result.returncode != 0:
+            stdout = _decode(result.stdout or b"", label="Unity stdout").strip()
+            stderr = _decode(result.stderr or b"", label="Unity stderr").strip()
+            detail = "\n".join(item for item in (stdout, stderr) if item)
+            raise CandidateIntegrationError(
+                f"DoorPrototype builder failed ({result.returncode}); Unity log: {log_path}"
+                + (f"\n{detail}" if detail else "")
+            )
+
+        tracked_paths = _tracked_changed_paths(self.checkout)
+        untracked_paths = _untracked_paths(self.checkout)
+        candidate_set = set(candidate_paths)
+        incidental_tracked = tuple(
+            path
+            for path in tracked_paths
+            if path not in candidate_set and not _is_door_prototype_builder_output(path)
+        )
+        if incidental_tracked:
+            _git(
+                self.checkout,
+                "restore",
+                "--source=HEAD",
+                "--staged",
+                "--worktree",
+                "--",
+                *incidental_tracked,
+            )
+
+        incidental_untracked = tuple(
+            path
+            for path in untracked_paths
+            if path not in candidate_set and not _is_door_prototype_builder_output(path)
+        )
+        if incidental_untracked:
+            raise CandidateIntegrationError(
+                "Unity created untracked paths outside the DoorPrototype builder-owned "
+                f"boundary: {incidental_untracked}"
+            )
+
+        post_unity_paths = set(tracked_paths).union(untracked_paths)
+        builder_paths = {
+            path
+            for path in post_unity_paths.difference(candidate_set)
+            if _is_door_prototype_builder_output(path)
+        }
+        expected_paths = tuple(sorted(candidate_set.union(builder_paths), key=str.casefold))
+        remaining_paths = _changed_paths(self.checkout)
+        if remaining_paths != expected_paths:
+            raise CandidateIntegrationError(
+                "dirty paths after Unity cleanup differ from candidate plus DoorPrototype "
+                f"builder output: {remaining_paths} != {expected_paths}"
+            )
+        return expected_paths
+
+    def _resolve_unity_executable(self) -> Path:
+        if self.unity_executable is not None:
+            executable = self.unity_executable
+        else:
+            version_path = self.checkout / "ProjectSettings" / "ProjectVersion.txt"
+            try:
+                version_text = version_path.read_text(encoding="utf-8-sig")
+            except (OSError, UnicodeError) as exc:
+                raise CandidateIntegrationError(
+                    f"could not read Unity version from {version_path}"
+                ) from exc
+            match = re.search(r"^m_EditorVersion:\s*(\S.*?)\s*$", version_text, re.MULTILINE)
+            version = match.group(1) if match else ""
+            if not _UNITY_VERSION.fullmatch(version):
+                raise CandidateIntegrationError(
+                    f"ProjectVersion.txt has an invalid m_EditorVersion value: {version!r}"
+                )
+            program_files = os.getenv("ProgramFiles")
+            if not program_files:
+                raise CandidateIntegrationError(
+                    "ProgramFiles is unavailable for Unity Hub executable discovery"
+                )
+            executable = (
+                Path(program_files)
+                / "Unity"
+                / "Hub"
+                / "Editor"
+                / version
+                / "Editor"
+                / "Unity.exe"
+            )
+        if not executable.is_file():
+            raise CandidateIntegrationError(f"Unity executable does not exist: {executable}")
+        return executable
+
+    @staticmethod
+    def _default_unity_command_runner(
+        args: Sequence[str],
+        cwd: Path,
+        timeout_seconds: float,
+    ) -> subprocess.CompletedProcess[bytes]:
+        return _run(
+            args,
+            cwd=cwd,
+            check=False,
+            timeout_seconds=timeout_seconds,
+        )
 
     def _validate_in_disposable_clone(
         self,
@@ -401,15 +606,26 @@ class CandidateIntegrator:
         execution: ExecutionCrewReceipt,
     ) -> CandidateIntegrationReceipt:
         tree = _git_text(self.checkout, "rev-parse", f"{commit}^{{tree}}")
-        checks = (
+        changed_paths = _changed_paths(self.checkout, base=execution.source_head)
+        if not self._paths_match_execution(changed_paths, execution):
+            raise CandidateIntegrationError("integrated commit has an unauthorized path set")
+        checks = [
             "ExecutionCrew contract-locality audit and semantic validator completed.",
             "candidate.patch SHA-256 matched crew_result.json.",
             "candidate.patch applied cleanly in a disposable clone.",
             "Applied path set exactly matched ExecutionCrew final_actual_changed_paths.",
             "git diff --check passed.",
             "TaskGraph validation passed after candidate application.",
-            "Implementation and tests were committed on the canonical task branch.",
-            "The exact commit was pushed as the remote task branch.",
+        ]
+        if self._requires_door_prototype_builder(execution):
+            checks.append(
+                "DoorPrototype builder output was limited to its owned asset and scene paths."
+            )
+        checks.extend(
+            (
+                "Implementation and tests were committed on the canonical task branch.",
+                "The exact commit was pushed as the remote task branch.",
+            )
         )
         return CandidateIntegrationReceipt(
             task_id=execution.task_id,
@@ -423,8 +639,8 @@ class CandidateIntegrator:
             commit_tree=tree,
             task_contract_sha256=execution.task_contract_sha256,
             candidate_sha256=str(execution.candidate_sha256),
-            changed_paths=execution.final_actual_changed_paths,
-            completed_checks=checks,
+            changed_paths=changed_paths,
+            completed_checks=tuple(checks),
         )
 
     def _verify_receipt(
@@ -440,6 +656,8 @@ class CandidateIntegrator:
             or receipt.candidate_sha256 != execution.candidate_sha256
         ):
             raise CandidateIntegrationError("integration receipt does not match ExecutionCrew run")
+        if not self._paths_match_execution(receipt.changed_paths, execution):
+            raise CandidateIntegrationError("integration receipt has an unauthorized path set")
         head = _git_text(self.checkout, "rev-parse", "HEAD", check=False)
         branch = _git_text(self.checkout, "branch", "--show-current", check=False)
         status = _git_text(
