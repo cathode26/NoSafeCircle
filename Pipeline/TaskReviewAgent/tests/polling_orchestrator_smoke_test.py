@@ -628,6 +628,7 @@ def test_every_worker_command_has_exact_task_and_unique_worker_id() -> None:
     first = build_worker_command(
         task_id=TASK_A,
         worker_id="worker-one",
+        source=Path("/tmp/polling-source"),
         checkout_root=Path("/tmp/polling-checkouts"),
         execution_provider="claude",
         model=None,
@@ -636,6 +637,7 @@ def test_every_worker_command_has_exact_task_and_unique_worker_id() -> None:
     second = build_worker_command(
         task_id=TASK_B,
         worker_id="worker-two",
+        source=Path("/tmp/polling-source"),
         checkout_root=Path("/tmp/polling-checkouts"),
         execution_provider="codex",
         model="fixture-model",
@@ -1893,7 +1895,7 @@ def test_dry_run_never_invokes_models_or_workers() -> None:
         require(not architect.calls and not processes.calls, "dry-run invoked model/worker")
 
 
-def test_worker_popen_uses_argv_shell_false_and_compose_conventions() -> None:
+def test_worker_popen_uses_host_controller_boundary_and_shell_false() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
         processes = ProcessFactory()
@@ -1908,13 +1910,21 @@ def test_worker_popen_uses_argv_shell_false_and_compose_conventions() -> None:
         command, kwargs = processes.calls[0]
         require(isinstance(command, tuple), f"worker command was not argv: {command!r}")
         require(kwargs.get("shell") is False, str(kwargs))
-        require(command[:4] == ("docker", "compose", "-p", "nosafecircle"), str(command))
-        require("claude-exec" in command, str(command))
+        require(command[0] == sys.executable, str(command))
+        require(command[1] == "-u", str(command))
+        require(Path(command[2]).name == "host_worker_launcher.py", str(command))
+        require("docker" not in command, str(command))
+        require("claude-exec" not in command and "codex-exec" not in command, str(command))
+        require(command[command.index("--task-id") + 1] == TASK_A, str(command))
         require(
-            any(item.endswith("/run_pipeline_agent.py") for item in command),
+            command[command.index("--source") + 1] == str(source.resolve()),
             str(command),
         )
-        require(command[command.index("--task-id") + 1] == TASK_A, str(command))
+        require(
+            command[command.index("--checkout-root") + 1]
+            == str(orchestrator.checkout_root.resolve()),
+            str(command),
+        )
 
 
 def test_worker_launch_records_and_carries_exact_resolved_route() -> None:
@@ -2131,7 +2141,7 @@ def main() -> int:
         test_one_transient_reservation_observation_failure_then_recovers,
         test_reservation_observation_failure_threshold_fails_closed,
         test_dry_run_never_invokes_models_or_workers,
-        test_worker_popen_uses_argv_shell_false_and_compose_conventions,
+        test_worker_popen_uses_host_controller_boundary_and_shell_false,
         test_worker_launch_records_and_carries_exact_resolved_route,
         test_malformed_routing_policy_launches_nothing,
         test_ctrl_c_does_not_kill_children_or_release_leases,

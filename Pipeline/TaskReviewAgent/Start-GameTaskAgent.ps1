@@ -19,9 +19,17 @@ param(
 
     [string]$Model,
 
+    [ValidateSet('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max')]
+    [string]$SupervisorReasoningEffort,
+
+    [string]$ExecutionModel,
+
+    [ValidateSet('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max')]
+    [string]$ExecutionReasoningEffort,
+
     [string]$Source,
 
-    [ValidateRange(12, 160)]
+    [ValidateRange(4, 160)]
     [int]$MaxTurns = 120
 )
 
@@ -240,6 +248,15 @@ if (-not [string]::IsNullOrWhiteSpace($UnityExecutable)) {
 }
 if (-not [string]::IsNullOrWhiteSpace($Model)) {
     $Arguments += @('--model', $Model)
+}
+if (-not [string]::IsNullOrWhiteSpace($SupervisorReasoningEffort)) {
+    $Arguments += @('--supervisor-reasoning-effort', $SupervisorReasoningEffort)
+}
+if (-not [string]::IsNullOrWhiteSpace($ExecutionModel)) {
+    $Arguments += @('--execution-model', $ExecutionModel)
+}
+if (-not [string]::IsNullOrWhiteSpace($ExecutionReasoningEffort)) {
+    $Arguments += @('--execution-reasoning-effort', $ExecutionReasoningEffort)
 }
 
 Write-Host "Worker: $WorkerId"

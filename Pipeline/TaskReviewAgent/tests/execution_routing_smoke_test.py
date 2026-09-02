@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -24,6 +25,8 @@ from Pipeline.ExecutionCrew.run_crew import (  # noqa: E402
 from Pipeline.TaskReviewAgent.contracts import TaskReviewRequest  # noqa: E402
 from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     CAPABILITY_TIERS,
+    MAX_SUPERVISOR_TURNS,
+    MIN_SUPERVISOR_TURNS,
     ExecutionRecommendation,
     ExecutionRoutingError,
     load_execution_routing_policy,
@@ -32,6 +35,10 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
 from Pipeline.TaskReviewAgent.execution_bridge import ExecutionCrewBridge  # noqa: E402
 from Pipeline.TaskReviewAgent.polling_orchestrator import (  # noqa: E402
     build_worker_command,
+)
+from Pipeline.TaskReviewAgent.host_worker_launcher import (  # noqa: E402
+    build_parser as build_host_worker_parser,
+    build_powershell_command,
 )
 from Pipeline.TaskReviewAgent.progress import NullProgress  # noqa: E402
 from Pipeline.TaskReviewAgent.run_pipeline_agent import build_parser  # noqa: E402
@@ -160,6 +167,19 @@ def test_malformed_policy_fails_closed() -> None:
         raise AssertionError("malformed routing turn budget was accepted")
 
 
+def test_host_launcher_turn_range_matches_routing_contract() -> None:
+    script = (
+        ROOT / "Pipeline" / "TaskReviewAgent" / "Start-GameTaskAgent.ps1"
+    ).read_text(encoding="utf-8")
+    match = re.search(
+        r"\[ValidateRange\((\d+),\s*(\d+)\)\]\s*\[int\]\$MaxTurns\b",
+        script,
+    )
+    require(match is not None, "Start-GameTaskAgent.ps1 MaxTurns range was not found")
+    observed = (int(match.group(1)), int(match.group(2)))
+    expected = (MIN_SUPERVISOR_TURNS, MAX_SUPERVISOR_TURNS)
+    require(observed == expected, f"host MaxTurns range {observed} != routing contract {expected}")
+
 def test_worker_argv_contains_exact_resolved_route() -> None:
     route = resolve_execution_route(
         recommendation("deep", "openai"),
@@ -168,9 +188,13 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
     command = build_worker_command(
         task_id="NSC-101",
         worker_id="routing-smoke-worker",
+        source=Path("/tmp/routing-smoke-source"),
         checkout_root=Path("/tmp/routing-smoke-checkouts"),
         route=route,
     )
+    require(command[0] == sys.executable and command[1] == "-u", str(command))
+    require(Path(command[2]).name == "host_worker_launcher.py", str(command))
+    require("docker" not in command, str(command))
     expected = {
         "--execution-provider": "codex",
         "--execution-model": "openai-deep-policy",
@@ -181,6 +205,39 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
     }
     for option, value in expected.items():
         require(command[command.index(option) + 1] == value, str(command))
+
+    host_args = build_host_worker_parser().parse_args(list(command[3:]))
+    powershell = build_powershell_command(host_args)
+    require(powershell[0] == "powershell.exe", str(powershell))
+    require(
+        any(item.endswith("Start-GameTaskAgent.ps1") for item in powershell),
+        str(powershell),
+    )
+    powershell_expected = {
+        "-TaskId": "NSC-101",
+        "-WorkerId": "routing-smoke-worker",
+        "-ExecutionProvider": "codex",
+        "-ExecutionModel": "openai-deep-policy",
+        "-ExecutionReasoningEffort": "xhigh",
+        "-Model": "supervisor-deep-policy",
+        "-SupervisorReasoningEffort": "xhigh",
+        "-MaxTurns": "120",
+    }
+    for option, value in powershell_expected.items():
+        require(powershell[powershell.index(option) + 1] == value, str(powershell))
+
+    starter_text = (
+        ROOT / "Pipeline" / "TaskReviewAgent" / "Start-GameTaskAgent.ps1"
+    ).read_text(encoding="utf-8-sig")
+    for token in (
+        "$SupervisorReasoningEffort",
+        "$ExecutionModel",
+        "$ExecutionReasoningEffort",
+        "'--supervisor-reasoning-effort'",
+        "'--execution-model'",
+        "'--execution-reasoning-effort'",
+    ):
+        require(token in starter_text, f"host starter does not propagate {token}")
 
 
 def test_worker_parser_preserves_manual_defaults_and_accepts_route() -> None:
@@ -379,6 +436,7 @@ def main() -> int:
         test_tier_strength_and_budget_are_policy_owned,
         test_architect_text_cannot_supply_a_model_identifier,
         test_malformed_policy_fails_closed,
+        test_host_launcher_turn_range_matches_routing_contract,
         test_worker_argv_contains_exact_resolved_route,
         test_worker_parser_preserves_manual_defaults_and_accepts_route,
         test_worker_entrypoint_propagates_routed_values_without_changing_defaults,

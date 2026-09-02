@@ -113,7 +113,6 @@ DEFAULT_ARCHITECT_MIN_REANALYSIS_SECONDS = 300.0
 DEFAULT_MAX_CONSECUTIVE_OBSERVATION_FAILURES = 3
 COMPOSE_PROJECT = "nosafecircle"
 CONTAINER_SOURCE = "/workspace"
-CONTAINER_CHECKOUT_ROOT = "/task-checkouts"
 ARCHITECT_CONTAINER_ARTIFACT_ROOT = (
     "/workspace/Pipeline/ArchitectureReview/outputs/orchestrator/architect"
 )
@@ -976,14 +975,20 @@ def build_worker_command(
     *,
     task_id: str,
     worker_id: str,
+    source: Path | str,
     checkout_root: Path | str,
     execution_provider: str | None = None,
     model: str | None = None,
     max_turns: int | None = None,
     route: ResolvedExecutionRoute | None = None,
-    compose_project: str = COMPOSE_PROJECT,
 ) -> tuple[str, ...]:
+    # The Game Task Agent controller owns Git/GitHub/claim/Issue/checkout
+    # authority and therefore runs on the Windows host. Claude/Codex remain
+    # subordinate provider sandboxes launched by that host controller. The
+    # outer argv keeps exact --task-id / --worker-id bindings for acceptance.
     task_id = validate_task_id(task_id)
+    if type(worker_id) is not str or not worker_id.strip():
+        raise PollingOrchestratorError("worker_id must be a non-empty string")
     if route is not None:
         provider = route.execution_provider
         supervisor_model = route.supervisor_model
@@ -1006,30 +1011,24 @@ def build_worker_command(
         or supervisor_turns < 1
     ):
         raise PollingOrchestratorError("max_turns must be a positive integer")
-    service = f"{provider}-exec"
-    host_checkout_root = str(Path(checkout_root).resolve())
+
+    host_source = Path(source).resolve()
+    host_checkout_root = Path(checkout_root).resolve()
+    launcher = host_source / "Pipeline" / "TaskReviewAgent" / "host_worker_launcher.py"
+    host_output_root = host_checkout_root / ".task-review-agent" / "outputs"
+
     command = [
-        "docker",
-        "compose",
-        "-p",
-        compose_project,
-        "run",
-        "--rm",
-        "-T",
-        "--volume",
-        f"{host_checkout_root}:{CONTAINER_CHECKOUT_ROOT}",
-        "-e",
-        "PYTHONUNBUFFERED=1",
-        service,
-        "python3",
+        sys.executable,
         "-u",
-        "Pipeline/TaskReviewAgent/run_pipeline_agent.py",
+        str(launcher),
         "--task-id",
         task_id,
+        "--mode",
+        "openai",
         "--source",
-        CONTAINER_SOURCE,
+        str(host_source),
         "--checkout-root",
-        CONTAINER_CHECKOUT_ROOT,
+        str(host_checkout_root),
         "--worker-id",
         worker_id,
         "--execution-provider",
@@ -1037,7 +1036,7 @@ def build_worker_command(
         "--max-turns",
         str(supervisor_turns),
         "--output-root",
-        f"{CONTAINER_CHECKOUT_ROOT}/.task-review-agent/outputs",
+        str(host_output_root),
     ]
     if supervisor_model:
         command.extend(("--model", supervisor_model))
@@ -1874,9 +1873,9 @@ class PollingOrchestrator:
             command = build_worker_command(
                 task_id=task_id,
                 worker_id=worker_id,
+                source=self.source,
                 checkout_root=self.checkout_root,
                 route=route,
-                compose_project=self.compose_project,
             )
             try:
                 process = self.process_factory(
