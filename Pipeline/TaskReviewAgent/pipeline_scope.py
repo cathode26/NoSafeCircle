@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -183,6 +184,7 @@ class RepositoryScopeAuthority:
         lease_id: str,
         expected_branch: str,
         state_root: Path | str | None = None,
+        allow_completed_integration_resume: bool = False,
     ) -> None:
         self.checkout = Path(checkout).resolve()
         self.task_id = validate_task_id(task.get("task_id") or task.get("id"))
@@ -196,6 +198,10 @@ class RepositoryScopeAuthority:
             raise RepositoryScopeError("scope authority requires task-contract SHA-256")
         self.state_root = Path(state_root or (self.checkout.parent / ".task-review-agent"))
         self.state_path = self.state_root / f"{self.task_id}.scope.json"
+        self.allow_completed_integration_resume = bool(
+            allow_completed_integration_resume
+        )
+        self.resuming_completed_integration = False
         self.source_head = ""
         self._tracked_paths: tuple[str, ...] | None = None
         self._accepted: AcceptedExecutionScope | None = None
@@ -225,15 +231,52 @@ class RepositoryScopeAuthority:
         )
         if status:
             raise RepositoryScopeError("scope planning requires a clean task checkout")
-        self.source_head = _git_text(self.checkout, "rev-parse", "--verify", "HEAD")
+        checkout_head = _git_text(self.checkout, "rev-parse", "--verify", "HEAD")
+        self.source_head = self._resume_source_head(checkout_head) or checkout_head
         contract_path = str(self.task.get("contract_path") or f"Tasks/{self.task_id}.yaml")
         contract = _git(self.checkout, "show", f"HEAD:{contract_path}", check=False)
         if contract.returncode != 0:
             raise RepositoryScopeError("task contract is absent from task checkout HEAD")
-        import hashlib
-
         if hashlib.sha256(contract.stdout).hexdigest() != self.task_contract_sha256:
             raise RepositoryScopeError("task checkout contract hash differs from workflow task")
+
+    def _resume_source_head(self, checkout_head: str) -> str | None:
+        if not self.allow_completed_integration_resume or not self.state_path.is_file():
+            return None
+        try:
+            raw = json.loads(self.state_path.read_text(encoding="utf-8"))
+            source_head = raw["source_head"]
+        except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError):
+            return None
+        if (
+            raw.get("schema_version") != SCOPE_SCHEMA_VERSION
+            or raw.get("task_id") != self.task_id
+            or raw.get("lease_id") != self.lease_id
+            or raw.get("task_contract_sha256") != self.task_contract_sha256
+            or type(source_head) is not str
+            or len(source_head) != 40
+            or source_head == checkout_head
+        ):
+            return None
+        parent = _git_text(self.checkout, "rev-parse", "HEAD^", check=False)
+        if parent != source_head:
+            raise RepositoryScopeError(
+                "completed-integration resume requires checkout HEAD directly above the accepted source"
+            )
+        contract_path = str(
+            self.task.get("contract_path") or f"Tasks/{self.task_id}.yaml"
+        )
+        contract = _git(self.checkout, "show", f"{source_head}:{contract_path}", check=False)
+        if (
+            contract.returncode != 0
+            or hashlib.sha256(contract.stdout).hexdigest()
+            != self.task_contract_sha256
+        ):
+            raise RepositoryScopeError(
+                "completed-integration resume source changed task-contract identity"
+            )
+        self.resuming_completed_integration = True
+        return source_head
 
     def _tracked(self) -> tuple[str, ...]:
         if self._tracked_paths is None:
@@ -548,7 +591,11 @@ class RepositoryScopeAuthority:
     def require(self, plan_id: str) -> AcceptedExecutionScope:
         if self._accepted is None or self._accepted.plan_id != plan_id:
             raise RepositoryScopeError("ExecutionCrew requires the current accepted plan_id")
-        reasons = self._validate_plan(self._accepted.plan)
+        reasons = (
+            ()
+            if self.resuming_completed_integration
+            else self._validate_plan(self._accepted.plan)
+        )
         if reasons:
             raise RepositoryScopeError(
                 "previously accepted scope is no longer valid: " + "; ".join(reasons)
@@ -589,6 +636,9 @@ class RepositoryScopeAuthority:
                 "plan": plan.to_dict(),
             }
         )
-        if accepted.plan_id != expected_id or self._validate_plan(plan):
+        plan_reasons = (
+            () if self.resuming_completed_integration else self._validate_plan(plan)
+        )
+        if accepted.plan_id != expected_id or plan_reasons:
             return
         self._accepted = accepted

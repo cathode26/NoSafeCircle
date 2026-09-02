@@ -88,6 +88,10 @@ CORE_ONLY_STEP_COMMANDS = (
     "Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py",
 )
 CORE_FULL_SUITE_GATE = "if: steps.scope.outputs.run_full_core == 'true'"
+DELIVERY_REQUIRED_STEP_COMMANDS = (
+    "Pipeline/Testing/unity_workspace_hygiene_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/pre_handoff_unity_generation_smoke_test.py",
+)
 
 REPRESENTATIVE_SUPERVISOR_ONLY_PATHS = (
     "Pipeline/TaskReviewAgent/codex_supervisor_turn.py",
@@ -95,7 +99,9 @@ REPRESENTATIVE_SUPERVISOR_ONLY_PATHS = (
 )
 REPRESENTATIVE_DELIVERY_ONLY_PATHS = (
     "Pipeline/TaskReviewAgent/downstream_pipeline.py",
+    "Pipeline/TaskReviewAgent/pre_handoff_unity_generation.py",
     "Pipeline/TaskReviewAgent/tests/delivery_review_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/pre_handoff_unity_generation_smoke_test.py",
 )
 UNKNOWN_FUTURE_PATH = "Pipeline/TaskReviewAgent/claim_refs.py"
 
@@ -272,6 +278,14 @@ def _core_steps(core_workflow_text: str) -> list[str]:
     return ["\n".join(lines[starts[i] : starts[i + 1]]) for i in range(len(starts) - 1)]
 
 
+def _delivery_steps(delivery_workflow_text: str) -> list[str]:
+    lines = delivery_workflow_text.splitlines()
+    starts = [i for i, line in enumerate(lines) if re.match(r"^\s{6}- name:", line)]
+    require(bool(starts), "Delivery workflow must define at least one step")
+    starts.append(len(lines))
+    return ["\n".join(lines[starts[i] : starts[i + 1]]) for i in range(len(starts) - 1)]
+
+
 def test_core_owned_tests_run_in_core_gated_like_other_core_tests() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
     for command in CORE_ONLY_STEP_COMMANDS:
@@ -286,6 +300,16 @@ def test_core_owned_tests_run_in_core_gated_like_other_core_tests() -> None:
                 f"{command} must be gated exactly like the other Core "
                 f"regression tests ('{CORE_FULL_SUITE_GATE}'): {step}",
             )
+
+
+def test_pre_handoff_generation_regressions_run_in_delivery() -> None:
+    delivery_text = DELIVERY_WORKFLOW.read_text(encoding="utf-8")
+    steps = _delivery_steps(delivery_text)
+    for command in DELIVERY_REQUIRED_STEP_COMMANDS:
+        require(
+            any(command in step for step in steps),
+            f"Delivery workflow must run {command}: removing pre-handoff generation coverage must be caught",
+        )
 
 
 def test_unknown_task_review_agent_file_routes_to_core() -> None:
@@ -321,6 +345,7 @@ def main() -> int:
     test_delivery_only_change_keeps_legacy_check_but_skips_full_core()
     test_core_owned_change_selects_full_core()
     test_core_owned_tests_run_in_core_gated_like_other_core_tests()
+    test_pre_handoff_generation_regressions_run_in_delivery()
     test_unknown_task_review_agent_file_routes_to_core()
     print("ci_workflow_split_smoke_test: PASS")
     return 0

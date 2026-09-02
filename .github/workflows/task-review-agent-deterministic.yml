@@ -75,6 +75,7 @@ jobs:
             "Pipeline/TaskReviewAgent/merge_closeout_check_repoll.py",
             "Pipeline/TaskReviewAgent/production_pipeline.py",
             "Pipeline/TaskReviewAgent/candidate_integration.py",
+            "Pipeline/TaskReviewAgent/pre_handoff_unity_generation.py",
             "Pipeline/TaskReviewAgent/execution_bridge.py",
             "Pipeline/TaskReviewAgent/pipeline_scope.py",
             "Pipeline/TaskReviewAgent/pull_request_check_authority.py",
@@ -94,6 +95,7 @@ jobs:
             "Pipeline/TaskReviewAgent/tests/merge_closeout_check_repoll_smoke_test.py",
             "Pipeline/TaskReviewAgent/tests/production_controller_smoke_test.py",
             "Pipeline/TaskReviewAgent/tests/production_pipeline_smoke_test.py",
+            "Pipeline/TaskReviewAgent/tests/pre_handoff_unity_generation_smoke_test.py",
             "Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py"
           )
 

@@ -72,6 +72,8 @@ OPERATING RULES
   identity rather than inventing a candidate.
 - Integrate only a returned review_ready run_id. Human steps must identify the checkout/scene,
   numbered Play Mode actions, and observable PASS behavior derived from completion gates.
+- For DoorPrototype builder tasks, validate the generated scene/tile state already committed by
+  the production pipeline; never ask Vincent to rebuild the scene merely to materialize it.
 - Stop at the human Issue boundary. Do not run downstream delivery or merge work.
 """
 

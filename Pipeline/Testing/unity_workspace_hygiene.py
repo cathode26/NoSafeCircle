@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import stat
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -33,6 +34,7 @@ KNOWN_GENERATED_UNTRACKED_PREFIXES = (
 )
 
 RESOURCE_PREFIXES = ("repo-file:", "unity-scene:")
+PRESERVED_UNITY_TEXT_SUFFIXES = {".asset", ".unity"}
 
 
 class HygieneError(RuntimeError):
@@ -230,8 +232,10 @@ def classify(root: Path, snapshot: dict) -> dict[str, list[str]]:
         "unexpected_staged": [],
     }
 
+    seen_paths: set[str] = set()
     for entry in parse_status(root):
         path = entry.path
+        seen_paths.add(path)
         if path in baseline_paths:
             before_hash = baseline[path].get("sha256")
             after_hash = sha256_file(root / path)
@@ -241,12 +245,12 @@ def classify(root: Path, snapshot: dict) -> dict[str, list[str]]:
                 categories["baseline_preserved"].append(path)
             continue
 
-        if path in preserve_paths:
-            categories["task_preserved"].append(path)
-            continue
-
         if entry.index_changed:
             categories["unexpected_staged"].append(path)
+            continue
+
+        if path in preserve_paths:
+            categories["task_preserved"].append(path)
             continue
 
         if entry.untracked:
@@ -264,6 +268,17 @@ def classify(root: Path, snapshot: dict) -> dict[str, list[str]]:
             categories["known_unity_churn"].append(path)
         else:
             categories["unexpected_tracked"].append(path)
+
+    # A Unity process can erase a captured candidate change by restoring the
+    # path to HEAD. Such a path disappears from porcelain status entirely, so
+    # compare every missing baseline entry by content identity as well.
+    for path in sorted(baseline_paths - seen_paths):
+        before_hash = baseline[path].get("sha256")
+        after_hash = sha256_file(root / path)
+        if before_hash != after_hash:
+            categories["baseline_changed_since_snapshot"].append(path)
+        else:
+            categories["baseline_preserved"].append(path)
 
     for values in categories.values():
         values.sort()
@@ -307,6 +322,95 @@ def restore_paths(root: Path, paths: Iterable[str]) -> None:
         if result.returncode != 0:
             raise HygieneError(f"git restore failed for {path}: {result.stderr.strip()}")
         print(f"restored: {path}")
+
+
+def _head_blob(root: Path, path: str) -> bytes | None:
+    result = subprocess.run(
+        ("git", "-C", str(root), "show", f"HEAD:{path}"),
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode == 0:
+        return result.stdout
+    missing = run_git(root, "cat-file", "-e", f"HEAD:{path}", check=False)
+    if missing.returncode != 0:
+        return None
+    raise HygieneError(f"could not read committed HEAD content for {path}")
+
+
+def _consistent_eol(data: bytes, *, path: str) -> bytes:
+    if b"\x00" in data:
+        raise HygieneError(f"refusing preserved-resource EOL normalization for binary path: {path}")
+    without_crlf = data.replace(b"\r\n", b"")
+    if b"\r" in without_crlf:
+        raise HygieneError(f"preserved Unity resource contains ambiguous lone CR bytes: {path}")
+    crlf_count = data.count(b"\r\n")
+    lf_count = data.count(b"\n") - crlf_count
+    if crlf_count and lf_count:
+        raise HygieneError(f"committed Unity resource has mixed line endings: {path}")
+    if crlf_count:
+        return b"\r\n"
+    if lf_count:
+        return b"\n"
+    raise HygieneError(f"committed Unity resource has no unambiguous line-ending convention: {path}")
+
+
+def _canonical_line_content(data: bytes, *, path: str) -> bytes:
+    if b"\x00" in data:
+        raise HygieneError(f"refusing preserved-resource EOL normalization for binary path: {path}")
+    canonical = data.replace(b"\r\n", b"\n")
+    if b"\r" in canonical:
+        raise HygieneError(f"preserved Unity resource contains ambiguous lone CR bytes: {path}")
+    return canonical
+
+
+def normalize_preserved_unity_eol(root: Path, snapshot: dict) -> list[str]:
+    """Normalize explicit task resources to their exact HEAD EOL convention.
+
+    Candidate paths captured in ``baseline_status`` are never touched. Only an
+    existing committed ``.unity`` or ``.asset`` resource named by the task (or
+    an explicit preserve argument) is eligible. The byte stream with CRLF
+    folded to LF is asserted unchanged before the atomic replacement.
+    """
+
+    baseline_paths = set(snapshot["baseline_status"])
+    preserve_paths = set(snapshot["preserve_paths"])
+    changed_paths = {entry.path for entry in parse_status(root)}
+    normalized_paths: list[str] = []
+    for path in sorted((preserve_paths & changed_paths) - baseline_paths):
+        if Path(path).suffix.casefold() not in PRESERVED_UNITY_TEXT_SUFFIXES:
+            continue
+        target = root / path
+        if not target.exists():
+            continue
+        if not target.is_file() or target.is_symlink():
+            raise HygieneError(f"preserved Unity resource is not a regular file: {path}")
+        baseline = _head_blob(root, path)
+        if baseline is None:
+            print(f"EOL normalization skipped (no committed HEAD convention): {path}")
+            continue
+        convention = _consistent_eol(baseline, path=path)
+        current = target.read_bytes()
+        canonical = _canonical_line_content(current, path=path)
+        normalized = canonical if convention == b"\n" else canonical.replace(b"\n", b"\r\n")
+        if _canonical_line_content(normalized, path=path) != canonical:
+            raise HygieneError(f"preserved-resource normalization changed non-EOL content: {path}")
+        if normalized == current:
+            continue
+        temporary = target.with_name(target.name + ".unity-eol.tmp")
+        if temporary.exists():
+            raise HygieneError(f"refusing to overwrite EOL-normalization temporary file: {temporary}")
+        try:
+            temporary.write_bytes(normalized)
+            os.chmod(temporary, stat.S_IMODE(target.stat().st_mode))
+            os.replace(temporary, target)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+        normalized_paths.append(path)
+        print(f"normalized preserved Unity resource EOL: {path}")
+    return normalized_paths
 
 
 def remove_generated_untracked(root: Path, paths: Iterable[str]) -> None:
@@ -369,6 +473,15 @@ def cmd_clean(args: argparse.Namespace) -> int:
         print("\nCLEANUP REFUSED: unexpected or mutated task state requires review.")
         return 2
 
+    if args.normalize_preserved_unity_eol:
+        normalize_preserved_unity_eol(root, snapshot)
+        categories = classify(root, snapshot)
+        blocked = blockers(categories)
+        if blocked:
+            print_categories(categories)
+            print("\nCLEANUP REFUSED: EOL normalization exposed blocking state.")
+            return 2
+
     restore_paths(
         root,
         categories["safe_stat_only"]
@@ -413,6 +526,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--remove-new-untracked",
         action="store_true",
         help="also delete new untracked files under approved generated roots; use for rejected/retry cleanup",
+    )
+    clean.add_argument(
+        "--normalize-preserved-unity-eol",
+        action="store_true",
+        help=(
+            "normalize explicit preserved .unity/.asset resources to the exact committed HEAD "
+            "line-ending convention before safe cleanup"
+        ),
     )
     clean.set_defaults(func=cmd_clean)
     return parser

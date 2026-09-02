@@ -422,6 +422,8 @@ def main(argv: list[str] | None = None) -> int:
             controller_options: dict[str, Any] = {
                 "workflow": workflow,
                 "execution_provider": args.execution_provider,
+                "unity_executable": args.unity_executable,
+                "unity_output_root": args.output_root,
             }
             # Keep the historical manual/default constructor call shape when
             # no routed values were supplied. Scheduler-launched workers carry

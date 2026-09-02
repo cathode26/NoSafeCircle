@@ -26,8 +26,11 @@ on:
       - "Pipeline/TaskReviewAgent/merge_closeout_check_repoll.py"
       - "Pipeline/TaskReviewAgent/production_pipeline.py"
       - "Pipeline/TaskReviewAgent/candidate_integration.py"
+      - "Pipeline/TaskReviewAgent/pre_handoff_unity_generation.py"
       - "Pipeline/TaskReviewAgent/execution_bridge.py"
       - "Pipeline/TaskReviewAgent/pipeline_scope.py"
+      - "Pipeline/Testing/unity_workspace_hygiene.py"
+      - "Pipeline/Testing/unity_workspace_hygiene_smoke_test.py"
       - "Pipeline/TaskReviewAgent/pull_request_check_authority.py"
       - "Pipeline/TaskReviewAgent/codex_supervisor.py"
       - "Pipeline/TaskReviewAgent/goal_loop_guard.py"
@@ -44,6 +47,7 @@ on:
       - "Pipeline/TaskReviewAgent/tests/merge_closeout_check_repoll_smoke_test.py"
       - "Pipeline/TaskReviewAgent/tests/production_controller_smoke_test.py"
       - "Pipeline/TaskReviewAgent/tests/production_pipeline_smoke_test.py"
+      - "Pipeline/TaskReviewAgent/tests/pre_handoff_unity_generation_smoke_test.py"
       - "Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py"
       - "Pipeline/TaskReviewAgent/tests/goal_loop_guard_smoke_test.py"
   workflow_dispatch:
@@ -112,6 +116,11 @@ jobs:
 
       - name: Run connected Issue to human handoff test
         run: python Pipeline/TaskReviewAgent/tests/production_controller_smoke_test.py
+
+      - name: Run pre-handoff Unity generation and workspace hygiene tests
+        run: |
+          python Pipeline/Testing/unity_workspace_hygiene_smoke_test.py
+          python Pipeline/TaskReviewAgent/tests/pre_handoff_unity_generation_smoke_test.py
 
       - name: Run downstream delivery and closeout smoke tests
         run: python Pipeline/TaskReviewAgent/tests/downstream_smoke_test.py
