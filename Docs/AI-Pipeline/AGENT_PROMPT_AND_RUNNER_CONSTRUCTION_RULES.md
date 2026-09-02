@@ -366,6 +366,30 @@ host creates disposable clone and branch
 
 This keeps Git/GitHub mutation authority out of the model's implementation turn unless there is a specific reason to grant it.
 
+### 11.1 Reuse canonical mutation APIs before generating new mutation code
+
+Before generating a commit, push, pull-request, merge, or closeout runner, inspect the current repository for an existing production API or approved runner that already owns that lifecycle operation. Reuse that mechanism when the current lifecycle satisfies its preconditions.
+
+The precedence is:
+
+```text
+existing production API
+    >
+existing approved runner
+    >
+small wrapper around an existing API
+    >
+new bespoke mutation runner
+```
+
+For a normal Game Task Agent implementation candidate, the canonical implementation commit/push path is `Pipeline/TaskReviewAgent/candidate_integration.py` through `CandidateIntegrator.integrate()`, normally invoked by `ProductionTaskController.integrate_commit_push_and_handoff()` in `Pipeline/TaskReviewAgent/production_pipeline.py`. That path already verifies the `review_ready` ExecutionCrew receipt and candidate identity, validates the patch in a disposable clone, proves the exact changed-path set, runs `git diff --check` and TaskGraph validation, stages only the verified paths, configures the guarded automation identity, creates the implementation commit, verifies its parent/path set, performs a guarded exact push, verifies the remote commit, persists the integration receipt, and binds the human handoff to the committed SHA. Do not replace this path with a bespoke implementation commit/push runner.
+
+For delivery evidence, pull-request creation, merge closeout, and post-merge conformance, use the existing downstream TaskReviewAgent lifecycle (`DownstreamTaskController` and the production downstream actions) rather than constructing parallel Git/GitHub mutation code.
+
+These APIs are lifecycle-bound. Do **not** fabricate a task lease, ExecutionCrew receipt, delivery approval, or other authority merely to force unrelated infrastructure/repository maintenance through a task-specific API. Infrastructure or review work outside those lifecycles remains host-owned exact-path mutation: validate the bounded diff, use the repository's guarded automation identity (`Pipeline/TaskReviewAgent/git_identity_guard.py`), stage only the exact validated paths, recheck the base/ref before publication, then commit/push only within the explicitly authorized infrastructure boundary.
+
+When in doubt, stop and document the missing reusable capability rather than silently creating a second production mutation path.
+
 ## 12. Write-boundary enforcement must happen twice
 
 A prompt-level write boundary is necessary but not sufficient.
