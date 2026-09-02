@@ -1445,7 +1445,14 @@ def test_main_no_task_id_exit_code_mapping() -> None:
     from Pipeline.TaskReviewAgent.fresh_dispatch import GenericDispatchRetryResult
 
     original = run_pipeline_agent_module.resolve_generic_dispatch_with_contention_retry
+    original_materialize = run_pipeline_agent_module._materialize_generic_review_work
     stubbed_result: dict[str, GenericDispatchRetryResult] = {}
+
+    class EmptyReviewMaterialization:
+        source_commit = "a" * 40
+        created_task_ids: tuple[str, ...] = ()
+        updated_task_ids: tuple[str, ...] = ()
+        already_current_task_ids: tuple[str, ...] = ()
 
     def stub(
         *, source: Path, worker_id: str, checkout_root: Path | None = None
@@ -1453,6 +1460,9 @@ def test_main_no_task_id_exit_code_mapping() -> None:
         return stubbed_result["value"]
 
     run_pipeline_agent_module.resolve_generic_dispatch_with_contention_retry = stub  # type: ignore[assignment]
+    run_pipeline_agent_module._materialize_generic_review_work = (  # type: ignore[assignment]
+        lambda **_kwargs: EmptyReviewMaterialization()
+    )
     try:
         stubbed_result["value"] = GenericDispatchRetryResult(decision="no_safe_work")
         exit_code = run_pipeline_agent_module.main(
@@ -1480,6 +1490,7 @@ def test_main_no_task_id_exit_code_mapping() -> None:
         require(exit_code == 2, f"blocked_invalid_state must map to a controlled nonzero exit: {exit_code}")
     finally:
         run_pipeline_agent_module.resolve_generic_dispatch_with_contention_retry = original  # type: ignore[assignment]
+        run_pipeline_agent_module._materialize_generic_review_work = original_materialize  # type: ignore[assignment]
 
 
 def main() -> int:

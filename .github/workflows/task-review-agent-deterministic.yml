@@ -166,6 +166,10 @@ jobs:
             Write-Host "Legacy exact PR head predates the committed actor authorization policy."
           }
 
+      - name: Run TaskGraph review Issue materialization tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/taskgraph_review_issue_materialization_smoke_test.py
+
       - name: Run committed task contract loader tests
         if: steps.scope.outputs.run_full_core == 'true'
         shell: pwsh

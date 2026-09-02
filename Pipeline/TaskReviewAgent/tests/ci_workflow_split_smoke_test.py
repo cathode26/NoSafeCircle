@@ -76,13 +76,13 @@ MONOLITH_TEST_COMMANDS = (
     "Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py",
 )
 
-# Stage 2 deterministic dispatch planning, Stage 3 fresh-dispatch mutation
-# boundary, and Stage 4 contention-retry tests are Core-owned: they must run
-# inside Core's windows-smoke job, gated exactly like every other Core
-# regression step, so a PR that removes any of the three from Core is caught
-# deterministically even though all three also appear in
+# TaskGraph review Issue materialization and the Stage 2-4 dispatch tests are
+# Core-owned: they must run inside Core's windows-smoke job, gated exactly like
+# every other Core regression step, so removal from Core is caught
+# deterministically. The three dispatch tests also appear in
 # MONOLITH_TEST_COMMANDS above.
 CORE_ONLY_STEP_COMMANDS = (
+    "Pipeline/TaskReviewAgent/tests/taskgraph_review_issue_materialization_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/dispatch_plan_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/fresh_dispatch_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py",
@@ -272,7 +272,7 @@ def _core_steps(core_workflow_text: str) -> list[str]:
     return ["\n".join(lines[starts[i] : starts[i + 1]]) for i in range(len(starts) - 1)]
 
 
-def test_dispatch_plan_tests_run_in_core_gated_like_other_core_tests() -> None:
+def test_core_owned_tests_run_in_core_gated_like_other_core_tests() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
     for command in CORE_ONLY_STEP_COMMANDS:
         steps = [step for step in _core_steps(core_text) if command in step]
@@ -320,7 +320,7 @@ def main() -> int:
     test_supervisor_only_change_keeps_legacy_check_but_skips_full_core()
     test_delivery_only_change_keeps_legacy_check_but_skips_full_core()
     test_core_owned_change_selects_full_core()
-    test_dispatch_plan_tests_run_in_core_gated_like_other_core_tests()
+    test_core_owned_tests_run_in_core_gated_like_other_core_tests()
     test_unknown_task_review_agent_file_routes_to_core()
     print("ci_workflow_split_smoke_test: PASS")
     return 0

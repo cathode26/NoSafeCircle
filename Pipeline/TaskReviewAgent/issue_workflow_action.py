@@ -116,11 +116,14 @@ class GitHubRestBackend:
         self,
         issue_number: int,
         *,
+        title: str | None = None,
         body: str | None = None,
         labels: list[str] | None = None,
         assignees: list[str] | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {}
+        if title is not None:
+            payload["title"] = title
         if body is not None:
             payload["body"] = body
         if labels is not None:

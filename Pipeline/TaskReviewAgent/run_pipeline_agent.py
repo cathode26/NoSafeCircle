@@ -67,6 +67,11 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.progress import ProgressLog  # noqa: E402
 from Pipeline.TaskReviewAgent.real_workflow import RealTaskReviewWorkflow  # noqa: E402
+from Pipeline.TaskReviewAgent.taskgraph_review_issues import (  # noqa: E402
+    ReviewIssueMaterializationResult,
+    materialize_taskgraph_review_issues,
+    observe_taskgraph_review_snapshot,
+)
 
 
 _DOWNSTREAM_PHASES = {"delivery_evidence", "merge_closeout"}
@@ -161,6 +166,26 @@ def _managed_issue_phase(
     if not snapshot.managed or snapshot.state is None:
         return None
     return snapshot.state.phase.value
+
+
+def _materialize_generic_review_work(
+    *,
+    source: Path,
+) -> ReviewIssueMaterializationResult:
+    """Materialize current review debt before generic mutating dispatch.
+
+    Keeping backend construction in this entrypoint preserves the same
+    repository binding and in-memory test seam used by fresh dispatch.
+    """
+
+    root = repo_root(source.resolve())
+    snapshot = observe_taskgraph_review_snapshot(root)
+    return materialize_taskgraph_review_issues(
+        source_commit=snapshot.source_commit,
+        states=snapshot.states,
+        tasks=snapshot.tasks,
+        backend=GhIssueBackend(source_root=root),
+    )
 
 
 def _require_explicit_fresh_admission(
@@ -263,6 +288,16 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, indent=2, sort_keys=True))
             return 0
         else:
+            review_result = _materialize_generic_review_work(source=args.source)
+            print(
+                "[task-agent] TaskGraph review work materialized from "
+                f"{review_result.source_commit}: "
+                f"created={len(review_result.created_task_ids)}, "
+                f"updated={len(review_result.updated_task_ids)}, "
+                f"already_current={len(review_result.already_current_task_ids)}.",
+                file=sys.stderr,
+                flush=True,
+            )
             print(
                 "[task-agent] Resolving generic dispatch: resume existing durable "
                 "work, otherwise select one currently safe Stage 2 fresh candidate "
@@ -480,6 +515,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except (
         TaskReviewContractError,
+        TaskcontrolStateObservationError,
         DownstreamPipelineError,
         GenericSelectionError,
         IssueWorkflowStoreError,

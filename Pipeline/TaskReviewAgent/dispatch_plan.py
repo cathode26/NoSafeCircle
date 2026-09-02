@@ -671,12 +671,20 @@ def _taskcontrol_states_snapshot(
                 f"{task_id} reports HEAD {head_commit} different from the captured "
                 f"source_commit {source_commit}"
             )
-        snapshot[task_id] = {
-            "task_id": task_id,
-            "state": state,
-            "error": None,
-            "head_commit": head_commit,
-        }
+        selected_record_id = entry.get("selected_record_id")
+        if selected_record_id is not None and (
+            type(selected_record_id) is not str or not selected_record_id.strip()
+        ):
+            raise TaskcontrolStateObservationError(
+                "taskcontrol states returned invalid JSON/payload: snapshot entry "
+                f"{task_id} has malformed selected_record_id"
+            )
+        # Preserve the complete evaluator row. Fresh-dispatch callers use only
+        # task_id/state/error/head_commit, while review-work materialization
+        # also binds the selected committed evidence record from this SAME
+        # authoritative bulk observation. Never run a per-task state command
+        # to recover fields already supplied by ``states --json``.
+        snapshot[task_id] = {**entry, "error": None}
 
     expected = set(expected_task_ids)
     observed = set(snapshot)

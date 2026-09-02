@@ -226,6 +226,7 @@ class IssueBackend(Protocol):
         self,
         issue_number: int,
         *,
+        title: str | None = None,
         body: str | None = None,
         labels: list[str] | None = None,
         assignees: list[str] | None = None,
@@ -1410,11 +1411,14 @@ class MemoryIssueBackend:
         self,
         issue_number: int,
         *,
+        title: str | None = None,
         body: str | None = None,
         labels: list[str] | None = None,
         assignees: list[str] | None = None,
     ) -> dict[str, Any]:
         issue = self.issues[issue_number]
+        if title is not None:
+            issue["title"] = title
         if body is not None:
             issue["body"] = body
         if labels is not None:
@@ -1644,6 +1648,7 @@ class GhIssueBackend:
         self,
         issue_number: int,
         *,
+        title: str | None = None,
         body: str | None = None,
         labels: list[str] | None = None,
         assignees: list[str] | None = None,
@@ -1657,7 +1662,9 @@ class GhIssueBackend:
             self.repository,
         ]
         current = self._view_issue(issue_number)
-        if body is not None:
+        if title is not None and title != current.get("title"):
+            args.extend(("--title", title))
+        if body is not None and body != current.get("body"):
             args.extend(("--body", body))
         if labels is not None:
             current_labels = set(_issue_labels(current))
