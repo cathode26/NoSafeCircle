@@ -366,14 +366,14 @@ def assert_builder_command(
     checkout: Path,
     executable: Path,
 ) -> None:
-    require(args[0] == str(executable), "wrong Unity executable")
+    require(Path(args[0]).resolve() == executable.resolve(), "wrong Unity executable")
     require(
         tuple(args[1:-1])
         == (
             "-batchmode",
             "-quit",
             "-projectPath",
-            str(checkout),
+            str(checkout.resolve()),
             "-executeMethod",
             DOOR_BUILD_METHOD,
             "-logFile",
@@ -565,7 +565,7 @@ def test_door_builder_outputs_and_incidental_cleanup() -> None:
 
         def fake_unity_runner(args, cwd, timeout):
             _ = timeout
-            require(cwd == checkout, "Unity did not run in the canonical checkout")
+            require(cwd.resolve() == checkout.resolve(), "Unity did not run in the canonical checkout")
             assert_builder_command(args, checkout=checkout, executable=executable)
             require(
                 tuple(
