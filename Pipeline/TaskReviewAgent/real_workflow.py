@@ -26,12 +26,14 @@ from .issue_workflow_store import (
 )
 from .real_checkout import (
     RealTaskCheckoutManager,
+    _decode,
     _git,
     _git_text,
     _normalized_remote,
 )
 from .real_observation import RealTaskObserver
 from .resumable_checkout import ResumableTaskCheckoutManager
+from .safe_unity_churn import classify_safe_post_unity_churn
 
 
 class RealTaskReviewWorkflow:
@@ -316,13 +318,6 @@ class RealTaskReviewWorkflow:
             raise TaskReviewContractError("human handoff path is not the canonical Git root")
         actual_branch = _git_text(checkout, "branch", "--show-current", check=False)
         actual_head = _git_text(checkout, "rev-parse", "--verify", "HEAD", check=False)
-        status = _git_text(
-            checkout,
-            "status",
-            "--porcelain=v1",
-            "--untracked-files=all",
-            check=False,
-        )
         if actual_branch != branch:
             raise TaskReviewContractError(
                 f"human handoff branch {branch!r} is not checked out: {actual_branch!r}"
@@ -331,10 +326,45 @@ class RealTaskReviewWorkflow:
             raise TaskReviewContractError(
                 f"human handoff commit {head_commit!r} is not checkout HEAD {actual_head!r}"
             )
-        if status:
-            raise TaskReviewContractError(
-                "human handoff requires a completely clean committed checkout"
+
+        status_result = _git(
+            checkout,
+            "-c",
+            "core.quotepath=false",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        )
+        raw_status = _decode(status_result.stdout, label="git status stdout")
+        if raw_status:
+            recoverable_paths = classify_safe_post_unity_churn(raw_status)
+            if not recoverable_paths:
+                raise TaskReviewContractError(
+                    "human handoff requires a completely clean committed checkout"
+                )
+            _git(
+                checkout,
+                "restore",
+                f"--source={head_commit}",
+                "--worktree",
+                "--",
+                *recoverable_paths,
             )
+            verified_status = _decode(
+                _git(
+                    checkout,
+                    "-c",
+                    "core.quotepath=false",
+                    "status",
+                    "--porcelain=v1",
+                    "--untracked-files=all",
+                ).stdout,
+                label="git status stdout",
+            )
+            if verified_status:
+                raise TaskReviewContractError(
+                    "human handoff requires a completely clean committed checkout"
+                )
         expected_branch = self.checkout_manager.expected_branch(self.last_observation)
         if branch != expected_branch:
             raise TaskReviewContractError(

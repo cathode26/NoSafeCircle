@@ -25,7 +25,6 @@ _ACTIONS = {
         "Reserve the managed Issue for this worker. Arguments: planned_approach, "
         "expected_validation."
     ),
-    "prepare_task_checkout": "Create or resume the canonical isolated task checkout. No arguments.",
     "repository_facts": "Read task-owned resource hints and suggested implementation/test files. No arguments.",
     "list_repository_files": "List committed files. Arguments: prefix; optional limit.",
     "search_repository": "Search committed text. Arguments: query, prefixes; optional limit.",
@@ -346,6 +345,58 @@ def run_openai_production_pipeline(
                 if owns_progress:
                     active_progress.finish(str(terminal.get("status") or "complete"))
                 return terminal
+            if observed.get("next_action") == "prepare_task_checkout":
+                action = "prepare_task_checkout"
+                rationale = (
+                    "Deterministic host selection followed production_pipeline.next_action "
+                    "for the exact no-argument checkout preparation."
+                )
+                try:
+                    with active_progress.heartbeat(
+                        "pipeline_action",
+                        f"Turn {turn}: executing deterministic {action}",
+                        turn=turn,
+                        action=action,
+                        selection="deterministic_host",
+                    ):
+                        result = controller.prepare_task_checkout()
+                    active_progress.emit(
+                        "action_completed",
+                        f"Turn {turn}: {action} completed",
+                        turn=turn,
+                        action=action,
+                        selection="deterministic_host",
+                        result_summary=summarize_result(result),
+                    )
+                    history.append(
+                        {
+                            "turn": turn,
+                            "action": action,
+                            "selection": "deterministic_host",
+                            "rationale": rationale,
+                            "result": summarize_result(result),
+                        }
+                    )
+                except TaskReviewContractError as exc:
+                    active_progress.emit(
+                        "action_rejected",
+                        f"Turn {turn}: {action} was rejected by deterministic validation",
+                        turn=turn,
+                        action=action,
+                        selection="deterministic_host",
+                        error_type=type(exc).__name__,
+                        error=" ".join(str(exc).split())[:700],
+                    )
+                    history.append(
+                        {
+                            "turn": turn,
+                            "action": action,
+                            "selection": "deterministic_host",
+                            "rationale": rationale,
+                            "tool_error": " ".join(str(exc).split())[:700],
+                        }
+                    )
+                continue
             prompt = render_supervisor_prompt(
                 task_id=request.task_id,
                 goal_and_rules=_GOAL_AND_RULES,

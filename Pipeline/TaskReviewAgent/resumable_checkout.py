@@ -7,6 +7,7 @@ from typing import Any
 
 from .durable_checkout import DurableTaskCheckoutManager
 from .real_checkout import _decode, _git, _git_text, _normalized_remote
+from .safe_unity_churn import classify_safe_post_unity_churn
 
 
 _STALE_MAIN_REASON = "checkout origin/main does not match current controller main"
@@ -14,15 +15,6 @@ _DIRTY_WORKTREE_REASON = "checkout working tree is not clean"
 _CONTRACT_HASH_REASON = "checkout task contract hash does not match current task authority"
 _MANIFEST_REASON = "external durable checkout manifest conflicts with task identity"
 _REMOTE_HEAD_REASON = "recorded handoff commit is not the pushed remote task branch"
-_SAFE_POST_HANDOFF_UNITY_CHURN = frozenset(
-    {
-        "ProjectSettings/EditorBuildSettings.asset",
-        "ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json",
-        "ProjectSettings/ProjectSettings.asset",
-    }
-)
-
-
 class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
     """Resume exact durable task branches across safe editor and contract migrations.
 
@@ -225,17 +217,5 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
             "--untracked-files=all",
         )
         raw = _decode(result.stdout, label="git status stdout")
-        if not raw:
-            return []
-        paths: list[str] = []
-        for line in raw.splitlines():
-            if len(line) < 4:
-                return None
-            code = line[:2]
-            path = line[3:].replace("\\", "/")
-            if " -> " in path:
-                return None
-            if code != " M" or path not in _SAFE_POST_HANDOFF_UNITY_CHURN:
-                return None
-            paths.append(path)
-        return sorted(set(paths), key=str.casefold)
+        classified = classify_safe_post_unity_churn(raw)
+        return list(classified) if classified is not None else None

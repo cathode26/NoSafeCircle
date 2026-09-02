@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import subprocess
@@ -16,6 +17,10 @@ from .contracts import TaskReviewContractError, validate_task_id
 SUPERVISOR_DECISION_SCHEMA_VERSION = "1.0"
 SUPERVISOR_TURN_SCHEMA_VERSION = "1.0"
 DEFAULT_SUPERVISOR_MODEL = "gpt-5.6-sol"
+DEFAULT_SUPERVISOR_TIMEOUT_SECONDS = 240.0
+MAX_SUPERVISOR_TIMEOUT_SECONDS = 240.0
+SUPERVISOR_PROVIDER_TURN_LIMIT = 8
+SUPERVISOR_DOCKER_TIMEOUT_ALLOWANCE_SECONDS = 30.0
 _RUN_ID = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
 
 
@@ -227,18 +232,36 @@ class CodexDockerDecisionProvider:
             if reasoning_effort
             else os.getenv("NSC_TASK_SUPERVISOR_REASONING_EFFORT", "high")
         )
-        self.timeout_seconds = float(
+        raw_timeout = (
             timeout_seconds
             if timeout_seconds is not None
-            else os.getenv("NSC_TASK_SUPERVISOR_TIMEOUT_SECONDS", "1500")
+            else os.getenv(
+                "NSC_TASK_SUPERVISOR_TIMEOUT_SECONDS",
+                str(DEFAULT_SUPERVISOR_TIMEOUT_SECONDS),
+            )
         )
+        if isinstance(raw_timeout, bool):
+            raise CodexSupervisorError("Codex supervisor timeout must be a finite number")
+        try:
+            self.timeout_seconds = float(raw_timeout)
+        except (TypeError, ValueError) as exc:
+            raise CodexSupervisorError(
+                "Codex supervisor timeout must be a finite number"
+            ) from exc
         self.command_runner = command_runner or self._default_runner
         if not self.source.is_dir() or not (self.source / "compose.yaml").is_file():
             raise CodexSupervisorError("Codex supervisor source must contain compose.yaml")
         if not self.model or not self.compose_project or not self.service:
             raise CodexSupervisorError("Codex supervisor configuration is incomplete")
-        if not self.timeout_seconds > 0:
+        if not math.isfinite(self.timeout_seconds):
+            raise CodexSupervisorError("Codex supervisor timeout must be a finite number")
+        if self.timeout_seconds <= 0:
             raise CodexSupervisorError("Codex supervisor timeout must be positive")
+        if self.timeout_seconds > MAX_SUPERVISOR_TIMEOUT_SECONDS:
+            raise CodexSupervisorError(
+                "Codex supervisor timeout may not exceed "
+                f"{MAX_SUPERVISOR_TIMEOUT_SECONDS:g} seconds"
+            )
         self.last_usage: dict[str, Any] | None = None
 
     @staticmethod
@@ -286,7 +309,7 @@ class CodexDockerDecisionProvider:
             "output_schema": decision_schema(allowed_actions),
             "model": self.model,
             "reasoning_effort": self.reasoning_effort,
-            "provider_turn_limit": 40,
+            "provider_turn_limit": SUPERVISOR_PROVIDER_TURN_LIMIT,
             "timeout_seconds": self.timeout_seconds,
         }
         command = (
@@ -314,7 +337,9 @@ class CodexDockerDecisionProvider:
                 )
                 + "\n"
             ).encode("utf-8"),
-            timeout_seconds=self.timeout_seconds + 120.0,
+            timeout_seconds=(
+                self.timeout_seconds + SUPERVISOR_DOCKER_TIMEOUT_ALLOWANCE_SECONDS
+            ),
         )
         if completed.returncode != 0:
             stderr = completed.stderr.decode("utf-8", errors="replace").strip()

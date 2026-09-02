@@ -19,8 +19,12 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowService,
     MemoryIssueBackend,
 )
+from Pipeline.TaskReviewAgent.contracts import TaskReviewContractError  # noqa: E402
 from Pipeline.TaskReviewAgent.production_pipeline import ProductionTaskController  # noqa: E402
 from Pipeline.TaskReviewAgent.real_workflow import RealTaskReviewWorkflow  # noqa: E402
+from Pipeline.TaskReviewAgent.safe_unity_churn import (  # noqa: E402
+    classify_safe_post_unity_churn,
+)
 from Pipeline.TaskReviewAgent.tests.real_checkout_smoke_test import (  # noqa: E402
     TASK_ID,
     create_fixture,
@@ -31,6 +35,11 @@ WORKER = "task-review-agent-production-controller"
 IMPLEMENTATION = "Assets/NoSafeCircle/Synthetic/Scripts/Feature.cs"
 NEW_TEST = "Assets/NoSafeCircle/Synthetic/Tests/FeaturePlayModeTests.cs"
 NEW_META = NEW_TEST + ".meta"
+EDITOR_BUILD_SETTINGS = "ProjectSettings/EditorBuildSettings.asset"
+COVERAGE_SETTINGS = (
+    "ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json"
+)
+SAFE_HANDOFF_CHURN = (EDITOR_BUILD_SETTINGS, COVERAGE_SETTINGS)
 RUN_ID = "nsc-777-controller-smoke"
 
 
@@ -89,7 +98,17 @@ def add_game_surface(controller: Path) -> None:
     (controller / ".gitignore").write_text(
         "Pipeline/ExecutionCrew/outputs/\n", encoding="utf-8", newline="\n"
     )
-    git(controller, "add", ".gitignore", "Assets/NoSafeCircle/Synthetic")
+    for relative in SAFE_HANDOFF_CHURN:
+        path = controller / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"baseline:{relative}\n", encoding="utf-8", newline="\n")
+    git(
+        controller,
+        "add",
+        ".gitignore",
+        "Assets/NoSafeCircle/Synthetic",
+        *SAFE_HANDOFF_CHURN,
+    )
     git(controller, "commit", "-m", "Add synthetic game surface")
     git(controller, "push", "origin", "main")
 
@@ -230,6 +249,19 @@ def test_controller_reaches_human_issue_handoff() -> None:
         require(scope_result["accepted"], f"scope rejected: {scope_result}")
         crew = controller.run_execution_crew(plan_id=scope_result["plan_id"])
         require(crew["crew_status"] == "review_ready", "crew did not reach review_ready")
+
+        publish_human_handoff = workflow.publish_human_handoff
+
+        def publish_with_post_commit_unity_churn(**values):
+            for relative in SAFE_HANDOFF_CHURN:
+                (checkout / relative).write_text(
+                    f"post-commit-unity-churn:{relative}\n",
+                    encoding="utf-8",
+                    newline="\n",
+                )
+            return publish_human_handoff(**values)
+
+        workflow.publish_human_handoff = publish_with_post_commit_unity_churn
         handoff = controller.integrate_commit_push_and_handoff(
             run_id=RUN_ID,
             implementation_summary=(
@@ -247,8 +279,112 @@ def test_controller_reaches_human_issue_handoff() -> None:
         require(state["state"] == "human_action_required", "Issue did not become human-owned")
         require(state["head_commit"] == git(checkout, "rev-parse", "HEAD"), "Issue commit is wrong")
         require(git(checkout, "status", "--porcelain=v1", "--untracked-files=all") == "", "handoff checkout dirty")
+        for relative in SAFE_HANDOFF_CHURN:
+            require(
+                (checkout / relative).read_text(encoding="utf-8")
+                == f"baseline:{relative}\n",
+                f"final handoff did not restore {relative} from pushed HEAD",
+            )
         comments = backend.get_comments(final["coordination"]["issue_number"])
         require(any("Steps for Vincent" in item["body"] for item in comments), "human checklist missing")
+
+        head_commit = state["head_commit"]
+
+        def expect_handoff_rejection(label: str) -> None:
+            try:
+                workflow._verify_pushed_handoff(state["branch"], head_commit)
+            except TaskReviewContractError as exc:
+                require("completely clean" in str(exc), f"{label} had wrong failure: {exc}")
+            else:
+                raise AssertionError(f"{label} was auto-recovered")
+
+        workflow._verify_pushed_handoff(state["branch"], head_commit)
+
+        unsafe_path = checkout / IMPLEMENTATION
+        unsafe_value = "unsafe tracked handoff change\n"
+        unsafe_path.write_text(unsafe_value, encoding="utf-8", newline="\n")
+        expect_handoff_rejection("unknown tracked path")
+        require(unsafe_path.read_text(encoding="utf-8") == unsafe_value, "unknown dirt was changed")
+        git(checkout, "restore", f"--source={head_commit}", "--worktree", "--", IMPLEMENTATION)
+
+        staged_value = "staged safe-path handoff change\n"
+        (checkout / EDITOR_BUILD_SETTINGS).write_text(
+            staged_value, encoding="utf-8", newline="\n"
+        )
+        git(checkout, "add", "--", EDITOR_BUILD_SETTINGS)
+        expect_handoff_rejection("staged safe path")
+        require(
+            (checkout / EDITOR_BUILD_SETTINGS).read_text(encoding="utf-8") == staged_value,
+            "staged safe-path dirt was changed",
+        )
+        require(
+            git(checkout, "diff", "--cached", "--name-only", "--")
+            == EDITOR_BUILD_SETTINGS,
+            "staged safe-path dirt was unstaged",
+        )
+        git(
+            checkout,
+            "restore",
+            f"--source={head_commit}",
+            "--staged",
+            "--worktree",
+            "--",
+            EDITOR_BUILD_SETTINGS,
+        )
+
+        untracked_relative = EDITOR_BUILD_SETTINGS + ".tmp"
+        untracked_path = checkout / untracked_relative
+        untracked_path.write_text("safe-looking untracked path\n", encoding="utf-8", newline="\n")
+        expect_handoff_rejection("untracked safe-looking path")
+        require(untracked_path.is_file(), "untracked safe-looking path was deleted")
+        untracked_path.unlink()
+
+        safe_value = "mixed safe change\n"
+        mixed_unsafe_value = "mixed unsafe change\n"
+        (checkout / COVERAGE_SETTINGS).write_text(safe_value, encoding="utf-8", newline="\n")
+        unsafe_path.write_text(mixed_unsafe_value, encoding="utf-8", newline="\n")
+        expect_handoff_rejection("mixed safe and unsafe paths")
+        require(
+            (checkout / COVERAGE_SETTINGS).read_text(encoding="utf-8") == safe_value,
+            "safe half of mixed dirt was changed",
+        )
+        require(
+            unsafe_path.read_text(encoding="utf-8") == mixed_unsafe_value,
+            "unsafe half of mixed dirt was changed",
+        )
+        git(
+            checkout,
+            "restore",
+            f"--source={head_commit}",
+            "--worktree",
+            "--",
+            COVERAGE_SETTINGS,
+            IMPLEMENTATION,
+        )
+
+        renamed_relative = COVERAGE_SETTINGS + ".renamed"
+        git(checkout, "mv", "--", COVERAGE_SETTINGS, renamed_relative)
+        expect_handoff_rejection("renamed safe path")
+        require((checkout / renamed_relative).is_file(), "renamed safe path was changed")
+        require(not (checkout / COVERAGE_SETTINGS).exists(), "renamed source was restored")
+        require(
+            classify_safe_post_unity_churn(
+                f"R  {COVERAGE_SETTINGS} -> {renamed_relative}\n"
+            )
+            is None,
+            "rename status was classified as safe",
+        )
+        require(
+            classify_safe_post_unity_churn(
+                f"C  {COVERAGE_SETTINGS} -> {renamed_relative}\n"
+            )
+            is None,
+            "copy status was classified as safe",
+        )
+        require(
+            classify_safe_post_unity_churn(" M\n") is None,
+            "malformed porcelain was classified as safe",
+        )
 
 
 def main() -> int:
