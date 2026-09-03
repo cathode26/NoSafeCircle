@@ -374,9 +374,8 @@ class _FakeWorkflow:
         return {}
 
 
-def test_main_never_exits_zero_for_unknown_outcome() -> None:
-    """Entry-point regression: run_pipeline_agent.main must terminate with a
-    failure exit when an openai-mode run has a missing or malformed outcome."""
+def test_main_never_exits_zero_for_non_success_outcome() -> None:
+    """The worker entry point exits zero only for known successful terminals."""
 
     patched = (
         "_managed_issue_phase",
@@ -424,20 +423,39 @@ def test_main_never_exits_zero_for_unknown_outcome() -> None:
                     )
                 return code, stdout.getvalue(), stderr.getvalue()
 
-            for outcome in (None, "malformed", {}, {"status": 7}):
+            for outcome in (
+                None,
+                "malformed",
+                {},
+                {"status": 7},
+                {"status": "blocked"},
+                {"status": "needs_human"},
+                {"status": "unexpected_future_status"},
+            ):
                 code, _, stderr_text = run_main(outcome)
                 require(
                     code != 0,
-                    f"main returned 0 for missing/malformed outcome {outcome!r}",
+                    f"main returned 0 for non-success outcome {outcome!r}",
                 )
                 require(
-                    "cannot be treated as successful" in stderr_text,
+                    "cannot be treated as a successful worker process" in stderr_text,
                     f"missing failure message for outcome {outcome!r}: {stderr_text}",
                 )
-            # Control: an explicit outcome status still exits successfully.
-            code, stdout_text, _ = run_main({"status": "succeeded"})
-            require(code == 0, "a well-formed successful outcome no longer exits 0")
-            require('"status": "succeeded"' in stdout_text, "result JSON was not printed")
+            for successful_status in (
+                "human_action_required",
+                "human_delivery_review",
+                "checks_pending",
+                "complete",
+            ):
+                code, stdout_text, _ = run_main({"status": successful_status})
+                require(
+                    code == 0,
+                    f"successful terminal {successful_status!r} no longer exits 0",
+                )
+                require(
+                    f'"status": "{successful_status}"' in stdout_text,
+                    "result JSON was not printed",
+                )
     finally:
         for name, value in originals.items():
             setattr(run_pipeline_agent, name, value)
@@ -466,7 +484,7 @@ def main() -> int:
         test_invalid_workflow_issue_surfaces_as_conflict,
         test_invalid_workflow_issue_blocks_resource_less_task,
         test_unauthorized_issue_never_reserves_or_blocks,
-        test_main_never_exits_zero_for_unknown_outcome,
+        test_main_never_exits_zero_for_non_success_outcome,
         test_missing_outcome_is_not_reported_as_success,
     )
     for test in tests:

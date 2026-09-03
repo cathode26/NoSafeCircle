@@ -244,6 +244,16 @@ def _outcome_status(result: dict[str, Any]) -> str:
     return "unknown_outcome"
 
 
+_SUCCESSFUL_OPENAI_OUTCOME_STATUSES = frozenset(
+    {
+        "human_action_required",
+        "human_delivery_review",
+        "checks_pending",
+        "complete",
+    }
+)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     progress: ProgressLog | None = None
@@ -500,14 +510,19 @@ def main(argv: list[str] | None = None) -> int:
         if progress is not None:
             progress.finish(status)
         print(json.dumps(result, indent=2, sort_keys=True))
-        if args.mode == "openai" and status == "unknown_outcome":
-            # A run whose outcome is missing or malformed proved nothing.
-            # It must terminate as a failure, never as successful work.
+        if (
+            args.mode == "openai"
+            and status not in _SUCCESSFUL_OPENAI_OUTCOME_STATUSES
+        ):
+            # The entry point is also the worker-process contract used by the
+            # polling scheduler. Only known successful handoff/closeout states
+            # may exit zero; blocked, needs-human, malformed, and future unknown
+            # outcomes must stop new admissions in the parent process.
             print(
                 "GAME TASK AGENT: STOP\n"
-                "The pipeline finished without a usable outcome status; the run "
-                "result is recorded above but cannot be treated as successful "
-                "work.",
+                f"The pipeline finished with non-success outcome {status!r}. "
+                "The run result is recorded above and cannot be treated as a "
+                "successful worker process.",
                 file=sys.stderr,
                 flush=True,
             )
