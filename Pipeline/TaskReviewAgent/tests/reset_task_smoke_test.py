@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import json
 import stat
 import subprocess
 import sys
@@ -24,7 +25,9 @@ from Pipeline.TaskReviewAgent.reset_task import (  # noqa: E402
     _require_task_paths_unchanged_since_merge,
     _transitive_active_dependents,
     _tree_entry,
+    _validate_branchless_checkout_manifest,
 )
+from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
 
 
 def run(*args: str, cwd: Path) -> str:
@@ -131,6 +134,57 @@ def test_readonly_tree_removal(root: Path) -> None:
     expect(not target.exists(), "read-only checkout tree was not removed")
 
 
+def test_branchless_checkout_manifest_guard(root: Path) -> None:
+    checkout = root / "NSC-901"
+    checkout.mkdir()
+    task = {
+        "id": "NSC-901",
+        "contract_revision": 1,
+        "task_contract_sha256": "a" * 64,
+    }
+    payload = {
+        "schema_version": "2.0",
+        "task_id": "NSC-901",
+        "checkout_path": str(checkout),
+        "branch": "nsc-901-smoke",
+        "remote_url": "https://github.com/example/rehearsal.git",
+        "initial_source_head": "1" * 40,
+        "initial_source_tree": "2" * 40,
+        "task_contract_path": "Tasks/NSC-901.yaml",
+        "task_contract_revision": 1,
+        "task_contract_sha256": "a" * 64,
+        "authority": "durable_checkout_identity",
+    }
+    manifest = {"manifest_sha256": semantic_sha256(payload), **payload}
+    path = root / "NSC-901.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    _validate_branchless_checkout_manifest(
+        path,
+        task=task,
+        checkout=checkout,
+        branch="nsc-901-smoke",
+        source_head="1" * 40,
+        source_tree="2" * 40,
+        origin="https://github.com/example/rehearsal.git",
+    )
+    manifest["initial_source_head"] = "3" * 40
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    try:
+        _validate_branchless_checkout_manifest(
+            path,
+            task=task,
+            checkout=checkout,
+            branch="nsc-901-smoke",
+            source_head="1" * 40,
+            source_tree="2" * 40,
+            origin="https://github.com/example/rehearsal.git",
+        )
+    except TaskResetError as exc:
+        expect("manifest hash" in str(exc), "tampered manifest failure was unclear")
+    else:
+        raise AssertionError("tampered branchless checkout manifest was accepted")
+
+
 def main() -> int:
     test_dependency_walk()
     preferred = Path(os.environ.get("NSC_TEST_TEMP_ROOT", ""))
@@ -144,6 +198,7 @@ def main() -> int:
         root = Path(directory)
         test_path_guard(root / "repo")
         test_readonly_tree_removal(root)
+        test_branchless_checkout_manifest_guard(root)
     print("reset_task_smoke_test: PASS")
     return 0
 

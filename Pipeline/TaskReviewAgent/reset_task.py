@@ -18,7 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
-from Pipeline.TaskReviewAgent.contracts import validate_task_id  # noqa: E402
+from Pipeline.TaskReviewAgent.contracts import semantic_sha256, validate_task_id  # noqa: E402
 from Pipeline.TaskReviewAgent.git_identity_guard import (  # noqa: E402
     validated_agent_git_identity,
 )
@@ -198,7 +198,7 @@ def _validated_incomplete_issue(
     *,
     task_id: str,
     branch: str,
-) -> tuple[Any, str | None]:
+) -> tuple[Any, str | None, dict[str, Any] | None]:
     number = issue.get("number")
     body = issue.get("body")
     if type(number) is not int or not isinstance(body, str):
@@ -230,6 +230,12 @@ def _validated_incomplete_issue(
     events = parse_events(comments)
     validate_event_chain(state, events)
     task_head = str(state.head_commit) if state.head_commit is not None else None
+    lease_events = [
+        event
+        for event in events
+        if event.event_type.value == "agent_lease_acquired"
+    ]
+    latest_lease = dict(lease_events[-1].details) if lease_events else None
     if task_head is None:
         # A run may be abandoned after its lease is released or blocked but before
         # prepare_task_checkout creates a branch.  In that state the projected
@@ -239,8 +245,7 @@ def _validated_incomplete_issue(
         # Issue and has no run-owned Git object to remove.
         leased_branches = {
             event.details.get("branch")
-            for event in events
-            if event.event_type.value == "agent_lease_acquired"
+            for event in lease_events
         }
         if leased_branches and leased_branches != {branch}:
             raise TaskResetError(
@@ -258,7 +263,64 @@ def _validated_incomplete_issue(
             raise TaskResetError(
                 "branchless abandoned Issue retains partial Git identity"
             )
-    return state, task_head
+    return state, task_head, latest_lease
+
+
+def _validate_branchless_checkout_manifest(
+    path: Path,
+    *,
+    task: dict[str, Any],
+    checkout: Path,
+    branch: str,
+    source_head: str,
+    source_tree: str,
+    origin: str,
+) -> dict[str, Any]:
+    """Validate the durable identity of a pre-candidate checkout.
+
+    A released implementation lease deliberately projects branch/head/checkout
+    as null in the live Issue. The standalone checkout may nevertheless exist
+    at the exact clean base recorded by the final acquired lease. Only its
+    hash-bound durable manifest can authorize removing that otherwise
+    branchless local state.
+    """
+
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise TaskResetError("branchless checkout manifest is not valid UTF-8 JSON") from exc
+    if not isinstance(value, dict):
+        raise TaskResetError("branchless checkout manifest must be a JSON object")
+    manifest_hash = value.get("manifest_sha256")
+    payload = {key: item for key, item in value.items() if key != "manifest_sha256"}
+    if manifest_hash != semantic_sha256(payload):
+        raise TaskResetError("branchless checkout manifest hash is invalid")
+    expected = {
+        "schema_version": "2.0",
+        "task_id": task.get("id"),
+        "checkout_path": str(checkout),
+        "branch": branch,
+        "initial_source_head": source_head,
+        "initial_source_tree": source_tree,
+        "task_contract_path": f"Tasks/{task.get('id')}.yaml",
+        "task_contract_revision": task.get("contract_revision"),
+        "task_contract_sha256": task.get("task_contract_sha256"),
+        "authority": "durable_checkout_identity",
+    }
+    mismatched = [
+        key for key, expected_value in expected.items()
+        if value.get(key) != expected_value
+    ]
+    if mismatched:
+        raise TaskResetError(
+            "branchless checkout manifest differs from the exact abandoned lease: "
+            + ", ".join(mismatched)
+        )
+    if _repository_from_origin(str(value.get("remote_url") or "")).casefold() != (
+        _repository_from_origin(origin).casefold()
+    ):
+        raise TaskResetError("branchless checkout manifest origin differs from controller origin")
+    return value
 
 
 class AbandonedRehearsalTaskReset(RehearsalTaskReset):
@@ -302,7 +364,7 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
                 "exactly one open managed Issue must identify the abandoned rehearsal run"
             )
         issue = issues[0]
-        workflow_state, task_head = _validated_incomplete_issue(
+        workflow_state, task_head, latest_lease = _validated_incomplete_issue(
             self.runner,
             self.source,
             self.repository,
@@ -356,20 +418,66 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
             raise TaskResetError("task-specific linked worktree exists; reset is refused")
 
         checkout_facts = None
+        checkout_head = task_head
         if self.checkout.exists():
             if task_head is None:
-                raise TaskResetError(
-                    "branchless abandoned Issue unexpectedly has a canonical checkout"
-                )
+                if not isinstance(latest_lease, dict):
+                    raise TaskResetError(
+                        "branchless abandoned Issue has a checkout but no acquired lease"
+                    )
+                lease_branch = latest_lease.get("branch")
+                lease_path = latest_lease.get("checkout_path")
+                lease_head = latest_lease.get("source_head")
+                if lease_branch != self.branch:
+                    raise TaskResetError("latest abandoned lease branch differs from task branch")
+                try:
+                    lease_checkout = Path(str(lease_path)).resolve()
+                except (OSError, ValueError) as exc:
+                    raise TaskResetError("latest abandoned lease checkout path is invalid") from exc
+                if lease_checkout != self.checkout.resolve():
+                    raise TaskResetError("latest abandoned lease checkout differs from canonical path")
+                if (
+                    not isinstance(lease_head, str)
+                    or re.fullmatch(r"[0-9a-f]{40}", lease_head) is None
+                ):
+                    raise TaskResetError("latest abandoned lease source head is invalid")
+                if (
+                    _git(
+                        self.runner,
+                        self.source,
+                        "merge-base",
+                        "--is-ancestor",
+                        lease_head,
+                        head,
+                        check=False,
+                    ).returncode
+                    != 0
+                ):
+                    raise TaskResetError("latest abandoned lease source is not in current main history")
+                checkout_head = lease_head
             if not self.checkout.is_dir():
                 raise TaskResetError("canonical task checkout is not a directory")
+            assert checkout_head is not None
+            checkout_tree = _git_text(
+                self.runner, self.source, "rev-parse", f"{checkout_head}^{{tree}}"
+            )
+            if task_head is None:
+                _validate_branchless_checkout_manifest(
+                    self.state_root / f"{self.task_id}.json",
+                    task=self.task,
+                    checkout=self.checkout,
+                    branch=self.branch,
+                    source_head=checkout_head,
+                    source_tree=checkout_tree,
+                    origin=self.origin,
+                )
             checkout_facts = _inspect_checkout(
                 self.runner,
                 self.checkout,
                 expected_root=self.checkout_root,
                 expected_origin=self.origin,
                 expected_branch=self.branch,
-                expected_head=task_head,
+                expected_head=checkout_head,
                 remote_branch_oid=remote_branch_oid,
             )
             processes = _processes_using_checkout(self.runner, self.source, self.checkout)
@@ -391,7 +499,7 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
             f"refs/heads/{self.branch}",
             check=False,
         ) or None
-        if local_branch_oid is not None and local_branch_oid != task_head:
+        if local_branch_oid is not None and local_branch_oid != checkout_head:
             raise TaskResetError("controller local task branch differs from the managed Issue head")
         active_state_files = [
             str(path) for path in _state_paths(self.state_root, self.task_id) if path.is_file()
@@ -405,6 +513,7 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
             "taskgraph_state": "not_delivered",
             "task_branch": self.branch,
             "task_head": task_head,
+            "checkout_head": checkout_head,
             "issue": {"number": issue["number"], "url": issue["url"]},
             "pull_request": (
                 {
@@ -564,23 +673,33 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
         main_head = str(report.get("main_head") or "")
         raw_task_head = report.get("task_head")
         task_head = str(raw_task_head) if raw_task_head is not None else None
+        raw_checkout_head = report.get("checkout_head")
+        checkout_head = (
+            str(raw_checkout_head)
+            if raw_checkout_head is not None
+            else task_head
+        )
         issue = report.get("issue")
         checkout_facts = report.get("checkout")
         if (
             not re.fullmatch(r"[0-9a-f]{40}", main_head)
             or (task_head is not None and not re.fullmatch(r"[0-9a-f]{40}", task_head))
+            or (
+                checkout_head is not None
+                and not re.fullmatch(r"[0-9a-f]{40}", checkout_head)
+            )
             or not isinstance(issue, dict)
             or type(issue.get("number")) is not int
             or (
-                task_head is not None
+                checkout_facts is not None
                 and (
-                    not isinstance(checkout_facts, dict)
+                    checkout_head is None
+                    or not isinstance(checkout_facts, dict)
                     or checkout_facts.get("path") != str(self.checkout)
-                    or checkout_facts.get("head") != task_head
+                    or checkout_facts.get("head") != checkout_head
                     or checkout_facts.get("branch") != self.branch
                 )
             )
-            or (task_head is None and checkout_facts is not None)
         ):
             raise TaskResetError("resume receipt omitted exact preflight identities")
         if _git_text(self.runner, self.source, "rev-parse", "HEAD") != main_head:
@@ -609,12 +728,23 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
         if not isinstance(issue_value, dict) or issue_value.get("state") != "CLOSED":
             raise TaskResetError("abandoned Issue is not closed during resume")
         if self.checkout.exists():
+            if checkout_head is None or not isinstance(checkout_facts, dict):
+                raise TaskResetError("resume receipt does not authorize checkout removal")
             if (
                 self.checkout.resolve() != (self.checkout_root / self.task_id).resolve()
                 or self.checkout.parent.resolve() != self.checkout_root
                 or _path_is_reparse_point(self.checkout)
             ):
                 raise TaskResetError("partial checkout path no longer matches the exact target")
+            _inspect_checkout(
+                self.runner,
+                self.checkout,
+                expected_root=self.checkout_root,
+                expected_origin=self.origin,
+                expected_branch=self.branch,
+                expected_head=checkout_head,
+                remote_branch_oid=None,
+            )
             processes = _processes_using_checkout(self.runner, self.source, self.checkout)
             containers = _containers_using_checkout(self.runner, self.source, self.checkout)
             if processes or containers:

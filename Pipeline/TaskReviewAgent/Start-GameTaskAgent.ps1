@@ -64,7 +64,7 @@ if (-not (Test-Path -LiteralPath $OutputRoot -PathType Container)) {
 }
 $OutputRoot = (Resolve-Path -LiteralPath $OutputRoot).Path
 
-foreach ($CommandName in @('git', 'gh', 'docker', 'python')) {
+foreach ($CommandName in @('git', 'gh', 'python')) {
     if ($null -eq (Get-Command $CommandName -ErrorAction SilentlyContinue)) {
         if ($CommandName -eq 'gh') {
             throw 'GitHub CLI is required but is not installed. Install it with: winget install --id GitHub.cli'
@@ -79,6 +79,28 @@ $GitHubAuth = Invoke-NscNativeCommand `
 if ($GitHubAuth.ExitCode -ne 0) {
     $GitHubAuth.Output | ForEach-Object { Write-Host $_ }
     throw 'GitHub CLI must be authenticated. Run: gh auth login'
+}
+
+if (
+    $Mode -eq 'openai' -and
+    -not [string]::IsNullOrWhiteSpace($TaskId)
+) {
+    $Admission = Invoke-NscNativeCommand `
+        -FilePath 'python' `
+        -ArgumentList @(
+            'Pipeline/TaskReviewAgent/launcher_preflight.py',
+            '--task-id', $TaskId,
+            '--source', $Source,
+            '--worker-id', $WorkerId
+        )
+    if ($Admission.ExitCode -ne 0) {
+        $Admission.Output | ForEach-Object { Write-Host $_ }
+        throw "Task $TaskId failed deterministic admission before Docker startup."
+    }
+}
+
+if ($null -eq (Get-Command 'docker' -ErrorAction SilentlyContinue)) {
+    throw 'Required command is not installed or not on PATH: docker'
 }
 
 $ComposeVersion = Invoke-NscNativeCommand `

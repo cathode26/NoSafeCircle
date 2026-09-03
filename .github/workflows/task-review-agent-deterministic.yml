@@ -260,6 +260,12 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py
 
+      - name: Run launcher admission and guarded reset tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: |
+          python Pipeline/TaskReviewAgent/tests/launcher_preflight_smoke_test.py
+          python Pipeline/TaskReviewAgent/tests/reset_task_smoke_test.py
+
       - name: Run decomposition authorization binder tests
         if: steps.scope.outputs.run_full_core == 'true'
         shell: pwsh

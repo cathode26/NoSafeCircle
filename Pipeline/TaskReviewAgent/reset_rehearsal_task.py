@@ -1077,10 +1077,11 @@ class RehearsalTaskReset:
 
     def _delete_task_branch(self, plan: dict[str, Any]) -> None:
         ref = f"refs/heads/{self.branch}"
-        expected = str(plan["task_head"])
+        raw_expected = plan.get("task_head")
+        expected = str(raw_expected) if raw_expected is not None else None
         current = _remote_ref_oid(self.runner, self.source, "origin", ref)
         if current is not None:
-            if current != expected:
+            if expected is None or current != expected:
                 raise RehearsalResetError("remote task branch moved before exact deletion")
             _git(
                 self.runner,
@@ -1095,6 +1096,7 @@ class RehearsalTaskReset:
                 raise RehearsalResetError("remote task branch deletion was not verified")
 
     def _remove_checkout_and_local_branch(self, plan: dict[str, Any]) -> None:
+        expected_checkout_head = str(plan.get("checkout_head") or plan["task_head"])
         if self.checkout.exists():
             remote_oid = _remote_ref_oid(
                 self.runner,
@@ -1108,7 +1110,7 @@ class RehearsalTaskReset:
                 expected_root=self.checkout_root,
                 expected_origin=self.origin,
                 expected_branch=self.branch,
-                expected_head=str(plan["task_head"]),
+                expected_head=expected_checkout_head,
                 remote_branch_oid=remote_oid,
             )
             processes = _processes_using_checkout(self.runner, self.source, self.checkout)
@@ -1127,7 +1129,7 @@ class RehearsalTaskReset:
             check=False,
         )
         if local:
-            if local != plan["task_head"]:
+            if local != expected_checkout_head:
                 raise RehearsalResetError("controller local task branch moved before deletion")
             _git(self.runner, self.source, "branch", "-d", self.branch)
 
