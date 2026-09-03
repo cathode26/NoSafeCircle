@@ -1278,7 +1278,7 @@ class DownstreamTaskController:
                 "--base",
                 "main",
                 "--state",
-                "all",
+                "open",
                 "--json",
                 "number,url,state,headRefOid,isDraft,mergeable,statusCheckRollup,mergeCommit",
             ),
@@ -1290,7 +1290,7 @@ class DownstreamTaskController:
             raise DownstreamPipelineError("gh pr list did not return an array")
         matches = [item for item in values if isinstance(item, Mapping)]
         if len(matches) > 1:
-            raise DownstreamPipelineError("multiple pull requests use the task branch")
+            raise DownstreamPipelineError("multiple open pull requests use the task branch")
         if matches:
             pull_request = dict(matches[0])
         else:

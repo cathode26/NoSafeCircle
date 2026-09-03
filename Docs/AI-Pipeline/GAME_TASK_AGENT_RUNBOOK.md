@@ -176,6 +176,21 @@ nsc-state:agent-ready
 
 The GitHub Action validates the managed state, event chain, exact tested commit, and PASS/FAIL format before changing the phase.
 
+For a confirmed PASS, the normal one-command handoff is:
+
+```powershell
+python Pipeline\TaskReviewAgent\pass_and_resume_task.py NSC-### --source . --checkout-root C:\NSC\NSC --execution-provider claude --tested-commit <exact-40-character-SHA> --apply
+```
+
+Run this only after completing the managed Issue's Unity checklist. The helper
+fails closed unless the supplied SHA equals the clean local checkout, its
+remote-tracking task branch, and both exact commit fields in the current human
+handoff. It posts the canonical PASS comment, replaces the human-action state
+label with `nsc-state:agent-ready`, and waits for GitHub to publish a valid,
+event-count-consistent `agent_ready / delivery_evidence` state before invoking
+`Start-GameTaskAgent.ps1`. This wait prevents a fast restart from observing a
+partially updated Issue dashboard/event chain.
+
 ## Resume behavior after human work
 
 The Issue workflow records:

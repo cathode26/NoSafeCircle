@@ -725,6 +725,74 @@ def test_downstream_repository_mismatch_fails_before_any_gh_command() -> None:
         _restore_gh_environment(original_shutil, original_run)
 
 
+def test_pull_request_reuse_ignores_historical_runs() -> None:
+    """A reused task branch must not bind closeout to an old merged PR."""
+
+    calls: list[tuple[str, ...]] = []
+
+    def runner(
+        args: Sequence[str],
+        cwd: Path,
+        timeout_seconds: float,
+    ) -> subprocess.CompletedProcess[bytes]:
+        del cwd, timeout_seconds
+        command = tuple(args)
+        calls.append(command)
+        if command[:3] == ("gh", "pr", "list"):
+            state = command[command.index("--state") + 1]
+            if state == "open":
+                body = b"[]"
+            else:
+                body = json.dumps(
+                    [
+                        {
+                            "number": 10,
+                            "url": "https://github.com/cathode26/NoSafeCircle/pull/10",
+                            "state": "MERGED",
+                            "headRefOid": "9" * 40,
+                        }
+                    ]
+                ).encode("utf-8")
+            return subprocess.CompletedProcess(command, 0, body, b"")
+        if command[:3] == ("gh", "pr", "create"):
+            return subprocess.CompletedProcess(
+                command,
+                0,
+                b"https://github.com/cathode26/NoSafeCircle/pull/11\n",
+                b"",
+            )
+        raise AssertionError(f"unexpected command: {command}")
+
+    controller = object.__new__(ResumableDownstreamTaskController)
+    controller.task_id = TASK_ID
+    controller.checkout = Path(".")
+    controller.command_runner = runner
+    controller.state = {
+        "implementation_commit": IMPLEMENTATION_HEAD,
+        "evidence_commit": EVIDENCE_HEAD,
+        "record_path": "Pipeline/TaskGraph/evidence/NSC-777/records/record.json",
+    }
+    controller._bound_repository = lambda: "cathode26/NoSafeCircle"
+    controller._view_pr = lambda number: {
+        "number": number,
+        "url": f"https://github.com/cathode26/NoSafeCircle/pull/{number}",
+        "state": "OPEN",
+        "headRefOid": EVIDENCE_HEAD,
+    }
+    result = controller._ensure_pull_request(
+        {
+            "coordination": {"workflow_state": {"branch": BRANCH}},
+            "task": {"title": "Synthetic Downstream Task"},
+        }
+    )
+    require(result["number"] == 11, "current run did not create a fresh PR")
+    list_call = next(command for command in calls if command[:3] == ("gh", "pr", "list"))
+    require(
+        list_call[list_call.index("--state") + 1] == "open",
+        "historical closed or merged PRs were included in current-run lookup",
+    )
+
+
 def main() -> int:
     tests = (
         test_issue_lifecycle_resumes_evidence_head,
@@ -733,6 +801,7 @@ def main() -> int:
         test_bound_repository_resolves_to_checkout_origin_never_the_other,
         test_downstream_gh_pr_view_uses_bound_repository_not_hardcode,
         test_downstream_repository_mismatch_fails_before_any_gh_command,
+        test_pull_request_reuse_ignores_historical_runs,
         test_post_merge_accepts_newer_main,
         test_delivery_review_materializes_exact_proposal,
         test_manifest_rejects_zero_discovered_tests,

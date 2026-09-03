@@ -26,6 +26,12 @@ GitHub Action validates the result and changes the phase
 any later generic agent resumes the same Issue
 ```
 
+After Vincent actually completes the Issue checklist and chooses PASS,
+`pass_and_resume_task.py` is the standard combined PASS/label/wait/resume entry
+point. It binds the PASS to the exact clean handoff commit and waits for the
+GitHub workflow state and hashed event count to agree before it launches the
+agent. See `Docs/AI-Pipeline/GAME_TASK_AGENT_RUNBOOK.md` for the command.
+
 ## Durable Issue controller
 
 The task Issue now carries three operational layers.
