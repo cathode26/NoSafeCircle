@@ -22,6 +22,7 @@ from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.reset_task import (  # noqa: E402
     TaskResetError,
+    _fetch_exact_remote_commit_object,
     _require_task_paths_unchanged_since_merge,
     _transitive_active_dependents,
     _tree_entry,
@@ -185,6 +186,56 @@ def test_branchless_checkout_manifest_guard(root: Path) -> None:
         raise AssertionError("tampered branchless checkout manifest was accepted")
 
 
+def test_exact_remote_branch_object_is_fetched_without_local_ref(root: Path) -> None:
+    remote = root / "remote.git"
+    producer = root / "producer"
+    consumer = root / "consumer"
+    run("git", "init", "--bare", str(remote), cwd=root)
+    run("git", "clone", str(remote), str(producer), cwd=root)
+    run("git", "config", "user.name", "Smoke Test", cwd=producer)
+    run("git", "config", "user.email", "smoke@example.invalid", cwd=producer)
+    run("git", "switch", "-c", "main", cwd=producer)
+    (producer / "base.txt").write_text("base\n", encoding="utf-8")
+    run("git", "add", "base.txt", cwd=producer)
+    run("git", "commit", "-m", "base", cwd=producer)
+    run("git", "push", "-u", "origin", "main", cwd=producer)
+    run("git", "symbolic-ref", "HEAD", "refs/heads/main", cwd=remote)
+    run("git", "clone", "--branch", "main", str(remote), str(consumer), cwd=root)
+
+    run("git", "switch", "-c", "task-branch", cwd=producer)
+    (producer / "task.txt").write_text("task\n", encoding="utf-8")
+    run("git", "add", "task.txt", cwd=producer)
+    run("git", "commit", "-m", "task", cwd=producer)
+    task_head = run("git", "rev-parse", "HEAD", cwd=producer)
+    run("git", "push", "origin", "HEAD:refs/heads/task-branch", cwd=producer)
+    missing = subprocess.run(
+        ("git", "cat-file", "-e", f"{task_head}^{{commit}}"),
+        cwd=str(consumer),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    expect(missing.returncode != 0, "consumer unexpectedly had remote task object")
+
+    _fetch_exact_remote_commit_object(
+        CommandRunner(),
+        consumer,
+        remote="origin",
+        ref="refs/heads/task-branch",
+        expected_oid=task_head,
+    )
+    expect(
+        run("git", "cat-file", "-t", task_head, cwd=consumer) == "commit",
+        "exact remote task object was not fetched",
+    )
+    local_ref = subprocess.run(
+        ("git", "show-ref", "--verify", "--quiet", "refs/heads/task-branch"),
+        cwd=str(consumer),
+        check=False,
+    )
+    expect(local_ref.returncode != 0, "preflight fetch created a local task branch")
+
+
 def main() -> int:
     test_dependency_walk()
     preferred = Path(os.environ.get("NSC_TEST_TEMP_ROOT", ""))
@@ -199,6 +250,7 @@ def main() -> int:
         test_path_guard(root / "repo")
         test_readonly_tree_removal(root)
         test_branchless_checkout_manifest_guard(root)
+        test_exact_remote_branch_object_is_fetched_without_local_ref(root)
     print("reset_task_smoke_test: PASS")
     return 0
 

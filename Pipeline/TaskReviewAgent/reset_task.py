@@ -190,6 +190,41 @@ def _wait_for_managed_issue_close(
     )
 
 
+def _fetch_exact_remote_commit_object(
+    runner: CommandRunner,
+    source: Path,
+    *,
+    remote: str,
+    ref: str,
+    expected_oid: str,
+) -> None:
+    """Fetch one observed remote ref without creating or moving a local ref."""
+
+    if re.fullmatch(r"[0-9a-f]{40}", expected_oid) is None:
+        raise TaskResetError("remote task branch OID is invalid")
+    _git(
+        runner,
+        source,
+        "fetch",
+        "--no-tags",
+        "--no-write-fetch-head",
+        remote,
+        ref,
+    )
+    object_type = _git_text(
+        runner,
+        source,
+        "cat-file",
+        "-t",
+        expected_oid,
+        check=False,
+    )
+    if object_type != "commit":
+        raise TaskResetError(
+            "the exact observed remote task-branch commit was not fetched"
+        )
+
+
 def _validated_incomplete_issue(
     runner: CommandRunner,
     source: Path,
@@ -374,6 +409,23 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
         )
         if workflow_state.task_contract_sha256 != self.task.get("task_contract_sha256"):
             raise TaskResetError("managed Issue task-contract identity changed")
+        remote_ref = f"refs/heads/{self.branch}"
+        remote_branch_oid = _remote_ref_oid(
+            self.runner,
+            self.source,
+            "origin",
+            remote_ref,
+        )
+        if remote_branch_oid != task_head:
+            raise TaskResetError("remote task branch differs from the managed Issue head")
+        if remote_branch_oid is not None:
+            _fetch_exact_remote_commit_object(
+                self.runner,
+                self.source,
+                remote="origin",
+                ref=remote_ref,
+                expected_oid=remote_branch_oid,
+            )
         if task_head is not None and (
             _git(
                 self.runner,
@@ -397,14 +449,6 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
             task_head is None or pull_requests[0].get("headRefOid") != task_head
         ):
             raise TaskResetError("open pull-request head differs from the managed Issue head")
-        remote_branch_oid = _remote_ref_oid(
-            self.runner,
-            self.source,
-            "origin",
-            f"refs/heads/{self.branch}",
-        )
-        if remote_branch_oid != task_head:
-            raise TaskResetError("remote task branch differs from the managed Issue head")
         claims = _relevant_claims(self.source, self.task)
         if claims:
             raise TaskResetError(
