@@ -159,6 +159,33 @@ Use this procedure only when Vincent explicitly requests another end-to-end run
 of the same task in the same disposable private rehearsal repository. It is not
 a recovery path for a merged production task.
 
+The checked-in helper performs this procedure with exact-ref and repository
+guards. It is read-only unless `--apply` is supplied:
+
+```powershell
+python Pipeline/TaskReviewAgent/reset_rehearsal_task.py NSC-901 --source . --checkout-root C:\NSC\Rehearsal
+```
+
+After reviewing the dry-run inventory, the complete one-command reset is:
+
+```powershell
+python Pipeline/TaskReviewAgent/reset_rehearsal_task.py NSC-901 --source . --checkout-root C:\NSC\Rehearsal --apply --confirm-repository cathode26/NoSafeCircle-Homework-Rehearsal
+```
+
+The helper derives the default private Issue archive as
+`<owner>/<source-repository>-Archive`; pass `--archive-repository owner/name`
+when a different private archive is intended. The confirmation value is checked
+against the source checkout's actual `origin`, not trusted as repository
+authority. The helper refuses repositories that are public, archived, do not
+contain `rehearsal` in their GitHub name, or whose exact merge/Issue/PR/checkout
+identities cannot be proven.
+
+“Uncommit” in this procedure always means a new additive revert commit. The
+helper never resets, rebases, force-pushes, or deletes the original merge from
+history. Its no-overwrite JSON receipt is retained under
+`.task-review-agent/reset-runs/<TASK-ID>/`, so a partial external failure has an
+exact recovery record.
+
 1. Record the rehearsal repository, task ID, merged PR, merge commit, first
    parent, task branch/head, completed Issue, checkout, active manifest, claims,
    and immutable output directories.
