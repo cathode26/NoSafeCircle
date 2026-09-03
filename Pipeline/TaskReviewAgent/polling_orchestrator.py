@@ -1502,6 +1502,8 @@ class PollingOrchestrator:
             task_id_raw = candidate.get("task_id")
             if type(task_id_raw) is not str or task_id_raw in by_id:
                 continue
+            if task_id_raw in plan.excluded_task_ids:
+                continue
             reasons = tuple(candidate.get("reason_codes") or ())
             if not reasons or any(
                 type(reason) is not str
@@ -2184,11 +2186,15 @@ class PollingOrchestrator:
                 )
                 route_event = {"work_type": "implementation", **route.to_event_dict()}
             try:
-                process = self.process_factory(
-                    command,
-                    cwd=str(self.source),
-                    shell=False,
-                )
+                process_kwargs: dict[str, Any] = {
+                    "cwd": str(self.source),
+                    "shell": False,
+                }
+                if os.name == "nt":
+                    process_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+                else:
+                    process_kwargs["start_new_session"] = True
+                process = self.process_factory(command, **process_kwargs)
             except Exception as exc:
                 self.events.emit(
                     "worker_failed",

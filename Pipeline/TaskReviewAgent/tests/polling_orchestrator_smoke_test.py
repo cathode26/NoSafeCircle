@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 from contextlib import ExitStack, redirect_stdout
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Mapping
 from unittest.mock import patch
@@ -933,6 +934,28 @@ def test_architect_can_choose_decomposition_while_implementation_exists() -> Non
         require("host_decomposition_launcher.py" in " ".join(command), str(command))
         require("host_worker_launcher.py" not in " ".join(command), str(command))
         require('"work_type": "decomposition"' in stream.getvalue(), stream.getvalue())
+
+
+def test_excluded_skipped_decomposition_never_enters_architect_portfolio() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        plan = replace(
+            mixed_work_plan(head, TASK_A, TASK_B),
+            excluded_task_ids=(TASK_B,),
+        )
+        architect = FakeArchitect({TASK_A: advisory(TASK_A, head)})
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([plan]),
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: task(TASK_A), TASK_B: decomposition_task(TASK_B)},
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_launched" and result.task_id == TASK_A, str(result))
+        require(architect.calls == [TASK_A], str(architect.calls))
+        require(f'"task_id": "{TASK_B}"' not in stream.getvalue(), stream.getvalue())
 
 
 def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> None:
@@ -2154,6 +2177,13 @@ def test_worker_popen_uses_host_controller_boundary_and_shell_false() -> None:
         command, kwargs = processes.calls[0]
         require(isinstance(command, tuple), f"worker command was not argv: {command!r}")
         require(kwargs.get("shell") is False, str(kwargs))
+        if scheduler_module.os.name == "nt":
+            require(
+                kwargs.get("creationflags") == subprocess.CREATE_NEW_PROCESS_GROUP,
+                str(kwargs),
+            )
+        else:
+            require(kwargs.get("start_new_session") is True, str(kwargs))
         require(command[0] == sys.executable, str(command))
         require(command[1] == "-u", str(command))
         require(Path(command[2]).name == "host_worker_launcher.py", str(command))
@@ -2403,6 +2433,7 @@ def main() -> int:
         test_architect_portfolio_selects_disjoint_candidate_in_one_call,
         test_ineligible_decomposition_pair_is_not_selected_or_launched,
         test_architect_can_choose_decomposition_while_implementation_exists,
+        test_excluded_skipped_decomposition_never_enters_architect_portfolio,
         test_decomposition_worker_command_binds_exact_task_and_output_policy,
         test_approved_decomposition_resume_cannot_route_to_implementation,
         test_resume_wait_does_not_starve_stage2_ranked_fresh_work,
