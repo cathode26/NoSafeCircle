@@ -103,6 +103,36 @@ TaskGraph to return to `not_delivered`, and preserves later unrelated production
 commits. The archive repository must already exist and be private. No production
 reset, rebase, or force-push is permitted.
 
+### Undo an unconsumed decomposition
+
+Stage D1C decomposition has a narrower reversible boundary. It may be undone
+only while the exact `taskgraph: apply <TASK-ID> decomposition <PLAN-ID>` commit
+is still the clean local `HEAD`. Any later commit is treated as possible child
+or dependent work and automatic undo is refused.
+
+First inspect the exact independently reviewed `graph_delta.json` without
+mutation:
+
+```powershell
+python Pipeline/TaskGraph/undo_graph_delta.py C:\path\to\graph_delta.json --source C:\path\to\clean\repository --expected-head <exact-D1C-commit>
+```
+
+After checking the reported parent, plan ID, source commit, and changed paths,
+create one additive inverse commit:
+
+```powershell
+python Pipeline/TaskGraph/undo_graph_delta.py C:\path\to\graph_delta.json --source C:\path\to\clean\repository --expected-head <exact-D1C-commit> --confirm-plan-id <exact-GDP-plan-id> --apply
+```
+
+The tool proves that the current whole graph equals the reviewed proposed graph,
+the D1C parent equals the reviewed source graph, and the staged inverse restores
+the exact source tree. It then validates the restored persistent graph and
+commits the inverse. It does not push, remove GitHub Issues, or delete child
+checkouts; those external cleanup steps require their own exact-state reset
+preflight. If any child was already claimed or any later history exists, stop
+and handle the dependency explicitly rather than trying to erase the
+decomposition.
+
 ### 1. Close the abandoned pull request
 
 Close the open PR with a comment that identifies:

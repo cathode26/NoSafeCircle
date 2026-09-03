@@ -61,6 +61,20 @@ jobs:
       - name: Graph delta
         run: python Pipeline/TaskGraph/graph_delta_smoke_test.py
 
+      - name: Graph apply planning
+        run: python Pipeline/TaskGraph/graph_apply_plan_smoke_test.py
+
+      - name: Graph apply materialization
+        run: python Pipeline/TaskGraph/graph_apply_materialize_smoke_test.py
+
+      - name: Graph apply and undo
+        shell: pwsh
+        run: |
+          python Pipeline/TaskGraph/graph_apply_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Graph apply tests failed." }
+          python Pipeline/TaskGraph/graph_undo_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Graph undo tests failed." }
+
       - name: Aggregate decomposition semantics
         run: python Pipeline/TaskGraph/decomposition_graph_semantics_smoke_test.py
 
