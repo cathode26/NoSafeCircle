@@ -9,6 +9,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 from pathlib import Path
 
 
@@ -24,12 +25,15 @@ from Pipeline.TaskReviewAgent.reset_task import (  # noqa: E402
     TaskResetError,
     _abandoned_rehearsal_state_is_undelivered,
     _fetch_exact_remote_commit_object,
+    _is_unpushed_decomposition_baseline,
     _require_task_paths_unchanged_since_merge,
     _transitive_active_dependents,
     _tree_entry,
     _validate_branchless_checkout_manifest,
+    _validate_branchless_checkout_source,
 )
 from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
+from Pipeline.TaskReviewAgent.issue_workflow import WorkflowPhase  # noqa: E402
 
 
 def run(*args: str, cwd: Path) -> str:
@@ -92,6 +96,36 @@ def test_undecomposed_aggregate_is_safe_abandoned_rehearsal_state() -> None:
     expect(
         not _abandoned_rehearsal_state_is_undelivered(task, "aggregate"),
         "applied decomposition was accepted as an abandoned undecomposed parent",
+    )
+
+
+def test_unpushed_decomposition_baseline_is_safe() -> None:
+    head = "1" * 40
+    state = SimpleNamespace(
+        phase=WorkflowPhase.DECOMPOSITION,
+        human_handoff_commit=head,
+    )
+    task = {
+        "execution_scope": "needs_execution_decomposition",
+        "decomposition_state": "concrete",
+    }
+    expect(
+        _is_unpushed_decomposition_baseline(
+            state,
+            task,
+            task_head=head,
+            remote_branch_oid=None,
+        ),
+        "plan-only decomposition baseline was not recognized",
+    )
+    expect(
+        not _is_unpushed_decomposition_baseline(
+            state,
+            task,
+            task_head=head,
+            remote_branch_oid=head,
+        ),
+        "pushed decomposition branch was mistaken for a plan-only baseline",
     )
 
 
@@ -186,6 +220,19 @@ def test_branchless_checkout_manifest_guard(root: Path) -> None:
         source_tree="2" * 40,
         origin="https://github.com/example/rehearsal.git",
     )
+    observed = _validate_branchless_checkout_manifest(
+        path,
+        task=task,
+        checkout=checkout,
+        branch="nsc-901-smoke",
+        source_head=None,
+        source_tree=None,
+        origin="https://github.com/example/rehearsal.git",
+    )
+    expect(
+        observed["initial_source_head"] == "1" * 40,
+        "hash-bound manifest source identity was not returned",
+    )
     manifest["initial_source_head"] = "3" * 40
     path.write_text(json.dumps(manifest), encoding="utf-8")
     try:
@@ -202,6 +249,60 @@ def test_branchless_checkout_manifest_guard(root: Path) -> None:
         expect("manifest hash" in str(exc), "tampered manifest failure was unclear")
     else:
         raise AssertionError("tampered branchless checkout manifest was accepted")
+
+
+def test_branchless_checkout_source_may_advance_on_main(root: Path) -> None:
+    repository = root / "source-advance"
+    repository.mkdir()
+    run("git", "init", "-b", "main", cwd=repository)
+    run("git", "config", "user.name", "Smoke Test", cwd=repository)
+    run("git", "config", "user.email", "smoke@example.invalid", cwd=repository)
+    (repository / "value.txt").write_text("lease\n", encoding="utf-8")
+    run("git", "add", "value.txt", cwd=repository)
+    run("git", "commit", "-m", "lease", cwd=repository)
+    acquired = run("git", "rev-parse", "HEAD", cwd=repository)
+    (repository / "value.txt").write_text("checkout\n", encoding="utf-8")
+    run("git", "commit", "-am", "checkout", cwd=repository)
+    checkout = run("git", "rev-parse", "HEAD", cwd=repository)
+    checkout_tree = run("git", "rev-parse", "HEAD^{tree}", cwd=repository)
+    (repository / "value.txt").write_text("current\n", encoding="utf-8")
+    run("git", "commit", "-am", "current", cwd=repository)
+    current = run("git", "rev-parse", "HEAD", cwd=repository)
+    expect(
+        _validate_branchless_checkout_source(
+            CommandRunner(),
+            repository,
+            acquired_source_head=acquired,
+            manifest={
+                "initial_source_head": checkout,
+                "initial_source_tree": checkout_tree,
+            },
+            current_main=current,
+        )
+        == checkout,
+        "mainline checkout refresh after lease acquisition was rejected",
+    )
+    run("git", "switch", "-c", "divergent", acquired, cwd=repository)
+    (repository / "divergent.txt").write_text("divergent\n", encoding="utf-8")
+    run("git", "add", "divergent.txt", cwd=repository)
+    run("git", "commit", "-m", "divergent", cwd=repository)
+    divergent = run("git", "rev-parse", "HEAD", cwd=repository)
+    divergent_tree = run("git", "rev-parse", "HEAD^{tree}", cwd=repository)
+    try:
+        _validate_branchless_checkout_source(
+            CommandRunner(),
+            repository,
+            acquired_source_head=acquired,
+            manifest={
+                "initial_source_head": divergent,
+                "initial_source_tree": divergent_tree,
+            },
+            current_main=current,
+        )
+    except TaskResetError as exc:
+        expect("ancestry" in str(exc), "divergent source failure was unclear")
+    else:
+        raise AssertionError("divergent checkout source was accepted")
 
 
 def test_exact_remote_branch_object_is_fetched_without_local_ref(root: Path) -> None:
@@ -257,6 +358,7 @@ def test_exact_remote_branch_object_is_fetched_without_local_ref(root: Path) -> 
 def main() -> int:
     test_dependency_walk()
     test_undecomposed_aggregate_is_safe_abandoned_rehearsal_state()
+    test_unpushed_decomposition_baseline_is_safe()
     preferred = Path(os.environ.get("NSC_TEST_TEMP_ROOT", ""))
     temporary_parent = preferred if str(preferred) else None
     if temporary_parent:
@@ -269,6 +371,7 @@ def main() -> int:
         test_path_guard(root / "repo")
         test_readonly_tree_removal(root)
         test_branchless_checkout_manifest_guard(root)
+        test_branchless_checkout_source_may_advance_on_main(root)
         test_exact_remote_branch_object_is_fetched_without_local_ref(root)
     print("reset_task_smoke_test: PASS")
     return 0

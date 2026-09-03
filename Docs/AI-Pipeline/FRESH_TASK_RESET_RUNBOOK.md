@@ -244,6 +244,22 @@ This mode refuses a completed Issue, a task already contained in `main`, a
 dirty/unpushed checkout, a changed remote branch, live claims, or any repository
 that cannot be proven to be private and explicitly named as rehearsal.
 
+Two exact pre-candidate states are also supported because concurrent scheduler
+refreshes can produce them without creating task code:
+
+- an undecomposed aggregate may retain a clean, plan-only decomposition checkout
+  at a historical `main` commit with no remote task branch; and
+- a branchless implementation checkout may start from a newer `main` commit than
+  the lease-acquisition event when `main` advanced between acquisition and
+  checkout creation.
+
+The helper accepts the first case only for decomposition phases whose handoff
+commit is the clean baseline and whose TaskGraph aggregate is still undecomposed.
+It accepts the second only when the hash-bound checkout manifest proves that its
+base is a descendant of the acquired source and an ancestor of current `main`,
+and the recorded tree matches that commit. Divergent history remains a hard
+failure.
+
 If Windows interrupts checkout removal on a read-only Git object, do not delete
 the remainder manually. Resume the exact no-overwrite stopped receipt; the
 helper revalidates main, the closed Issue, the absent remote branch, and the

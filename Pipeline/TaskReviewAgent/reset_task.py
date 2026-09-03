@@ -23,6 +23,7 @@ from Pipeline.TaskReviewAgent.git_identity_guard import (  # noqa: E402
     validated_agent_git_identity,
 )
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    WorkflowPhase,
     WorkflowState,
     parse_events,
     parse_state,
@@ -307,8 +308,8 @@ def _validate_branchless_checkout_manifest(
     task: dict[str, Any],
     checkout: Path,
     branch: str,
-    source_head: str,
-    source_tree: str,
+    source_head: str | None,
+    source_tree: str | None,
     origin: str,
 ) -> dict[str, Any]:
     """Validate the durable identity of a pre-candidate checkout.
@@ -335,13 +336,15 @@ def _validate_branchless_checkout_manifest(
         "task_id": task.get("id"),
         "checkout_path": str(checkout),
         "branch": branch,
-        "initial_source_head": source_head,
-        "initial_source_tree": source_tree,
         "task_contract_path": f"Tasks/{task.get('id')}.yaml",
         "task_contract_revision": task.get("contract_revision"),
         "task_contract_sha256": task.get("task_contract_sha256"),
         "authority": "durable_checkout_identity",
     }
+    if source_head is not None:
+        expected["initial_source_head"] = source_head
+    if source_tree is not None:
+        expected["initial_source_tree"] = source_tree
     mismatched = [
         key for key, expected_value in expected.items()
         if value.get(key) != expected_value
@@ -356,6 +359,85 @@ def _validate_branchless_checkout_manifest(
     ):
         raise TaskResetError("branchless checkout manifest origin differs from controller origin")
     return value
+
+
+def _validate_branchless_checkout_source(
+    runner: CommandRunner,
+    source: Path,
+    *,
+    acquired_source_head: str,
+    manifest: dict[str, Any],
+    current_main: str,
+) -> str:
+    """Return a checkout base proven to be a mainline refresh after acquisition."""
+
+    manifest_head = manifest.get("initial_source_head")
+    manifest_tree = manifest.get("initial_source_tree")
+    if (
+        not isinstance(manifest_head, str)
+        or re.fullmatch(r"[0-9a-f]{40}", manifest_head) is None
+        or not isinstance(manifest_tree, str)
+        or re.fullmatch(r"[0-9a-f]{40}", manifest_tree) is None
+    ):
+        raise TaskResetError("branchless checkout manifest source identity is invalid")
+    if (
+        _git(
+            runner,
+            source,
+            "merge-base",
+            "--is-ancestor",
+            acquired_source_head,
+            manifest_head,
+            check=False,
+        ).returncode
+        != 0
+        or _git(
+            runner,
+            source,
+            "merge-base",
+            "--is-ancestor",
+            manifest_head,
+            current_main,
+            check=False,
+        ).returncode
+        != 0
+    ):
+        raise TaskResetError(
+            "branchless checkout manifest source is outside the acquired-to-current main ancestry"
+        )
+    if (
+        _git_text(runner, source, "rev-parse", f"{manifest_head}^{{tree}}")
+        != manifest_tree
+    ):
+        raise TaskResetError(
+            "branchless checkout manifest source tree differs from its commit"
+        )
+    return manifest_head
+
+
+def _is_unpushed_decomposition_baseline(
+    workflow_state: Any,
+    task: Mapping[str, Any],
+    *,
+    task_head: str | None,
+    remote_branch_oid: str | None,
+) -> bool:
+    """Recognize a plan-only decomposition checkout that has no pushed code."""
+
+    return bool(
+        task_head is not None
+        and remote_branch_oid is None
+        and workflow_state.phase
+        in {
+            WorkflowPhase.DECOMPOSITION,
+            WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION,
+            WorkflowPhase.DECOMPOSITION_APPLY,
+        }
+        and workflow_state.human_handoff_commit == task_head
+        and task.get("execution_scope") == "needs_execution_decomposition"
+        and task.get("decomposition_state") != "decomposed"
+        and not task.get("decomposition_children")
+    )
 
 
 def _abandoned_rehearsal_state_is_undelivered(
@@ -431,7 +513,13 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
             "origin",
             remote_ref,
         )
-        if remote_branch_oid != task_head:
+        unpushed_decomposition_baseline = _is_unpushed_decomposition_baseline(
+            workflow_state,
+            self.task,
+            task_head=task_head,
+            remote_branch_oid=remote_branch_oid,
+        )
+        if remote_branch_oid != task_head and not unpushed_decomposition_baseline:
             raise TaskResetError("remote task branch differs from the managed Issue head")
         if remote_branch_oid is not None:
             _fetch_exact_remote_commit_object(
@@ -441,8 +529,9 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
                 ref=remote_ref,
                 expected_oid=remote_branch_oid,
             )
-        if task_head is not None and (
-            _git(
+        task_head_is_in_main = bool(
+            task_head is not None
+            and _git(
                 self.runner,
                 self.source,
                 "merge-base",
@@ -452,7 +541,8 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
                 check=False,
             ).returncode
             == 0
-        ):
+        )
+        if task_head_is_in_main and not unpushed_decomposition_baseline:
             raise TaskResetError("abandoned task head is already contained in main")
 
         pull_requests = _task_pull_requests(
@@ -516,20 +606,24 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
                 checkout_head = lease_head
             if not self.checkout.is_dir():
                 raise TaskResetError("canonical task checkout is not a directory")
-            assert checkout_head is not None
-            checkout_tree = _git_text(
-                self.runner, self.source, "rev-parse", f"{checkout_head}^{{tree}}"
-            )
             if task_head is None:
-                _validate_branchless_checkout_manifest(
+                manifest = _validate_branchless_checkout_manifest(
                     self.state_root / f"{self.task_id}.json",
                     task=self.task,
                     checkout=self.checkout,
                     branch=self.branch,
-                    source_head=checkout_head,
-                    source_tree=checkout_tree,
+                    source_head=None,
+                    source_tree=None,
                     origin=self.origin,
                 )
+                checkout_head = _validate_branchless_checkout_source(
+                    self.runner,
+                    self.source,
+                    acquired_source_head=checkout_head,
+                    manifest=manifest,
+                    current_main=head,
+                )
+            assert checkout_head is not None
             checkout_facts = _inspect_checkout(
                 self.runner,
                 self.checkout,
@@ -631,7 +725,7 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
                 raise TaskResetError("controller main moved after preflight")
             if _remote_ref_oid(
                 self.runner, self.source, "origin", f"refs/heads/{self.branch}"
-            ) != plan["task_head"]:
+            ) != plan["remote_branch_oid"]:
                 raise TaskResetError("remote task branch moved after preflight")
             self._close_abandoned_github_objects(plan)
             report["status"] = "github_objects_closed"
