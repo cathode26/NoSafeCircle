@@ -792,6 +792,32 @@ def safe_human_reason(reasons: list[str]) -> str | None:
         return "The Test Author reported a blocker."
     return first
 
+
+_EMPTY_BLOCKER_SENTINELS = frozenset(
+    {"none", "(none)", "no blocker", "no blockers", "(no blocker)", "(no blockers)"}
+)
+
+
+def normalized_agent_blockers(value: Any) -> list[str]:
+    """Return substantive agent blockers, ignoring explicit no-blocker sentinels.
+
+    Providers occasionally serialize an empty semantic answer as ``["(none)"]``
+    even though the schema asks for an empty array.  Treat only a small exact set
+    of unambiguous sentinels as empty; preserve every other string verbatim so a
+    genuine blocker cannot be silently discarded.
+    """
+    if not isinstance(value, list):
+        return []
+    blockers: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        text = item.strip()
+        if not text or text.casefold() in _EMPTY_BLOCKER_SENTINELS:
+            continue
+        blockers.append(text)
+    return blockers
+
 def source_revalidation(source: Path, identity: SourceIdentity):
     reasons=[]
     try:
@@ -1215,7 +1241,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 before=snapshot(clone)
                 inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=impl_plan.existing_paths,new_implementation_paths=impl_plan.new_paths,pipeline_sidecars=impl_plan.pipeline_generated_sidecars,other_role_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
                 after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
-                output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
+                output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
                 generated=[]
                 if not scope and not blockers:
                     for new_path, sidecar in zip(impl_plan.new_paths, (_sidecar(path) for path in impl_plan.new_paths)):
@@ -1244,7 +1270,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                         and bool(test_plan.new_paths)
                     ),
                 ); scope+=source_revalidation(source_root,identity)
-                output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
+                output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
                 generated=[]
                 if not scope and not blockers:
                     for new_path, sidecar in zip(test_plan.new_paths, (_sidecar(path) for path in test_plan.new_paths)):

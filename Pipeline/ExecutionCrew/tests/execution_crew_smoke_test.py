@@ -14,7 +14,7 @@ from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import Usage
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse
 from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider, ClaudeLiveRenderer
-from Pipeline.ExecutionCrew.run_crew import CrewBlocked, EntryState, Snapshot, audit_commands, changed_paths, clone_exact, construct_real_provider, full_patch, main as crew_main, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, unity_meta_bytes, validate_host_output_root
+from Pipeline.ExecutionCrew.run_crew import CrewBlocked, EntryState, Snapshot, audit_commands, changed_paths, clone_exact, construct_real_provider, full_patch, main as crew_main, normalized_agent_blockers, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, unity_meta_bytes, validate_host_output_root
 
 TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; NEW_IMPL="Assets/Scripts/EnemyHealth.cs"; NEW_TEST="Assets/Tests/EnemyHealthPlayModeTests.cs"; OUTSIDE_NEW="Docs/NewBehavior.md"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
 RELATED_TASK="NSC-010"
@@ -722,6 +722,8 @@ def main():
     assert safe_human_reason(["implementer blocker: leak this text"])=="The Implementer reported a blocker."
     assert safe_human_reason(["test author blocker: leak this text"])=="The Test Author reported a blocker."
     assert safe_human_reason(["validator blocked_by_design"])=="validator blocked_by_design"
+    assert normalized_agent_blockers(["(none)", " no blockers ", ""])==[]
+    assert normalized_agent_blockers(["Cannot compile", "(none)"])==["Cannot compile"]
     impl_leak_retry,impl_leak_state,impl_leak_dir=retry_execute(source,outputs,"blocker_leak",77,prior["run_id"],feedback_path,feedback_text)
     assert impl_leak_retry["crew_status"]=="blocked"
     assert [role for role,_,_ in impl_leak_state.calls]==["contract_locality_auditor","implementer"]
