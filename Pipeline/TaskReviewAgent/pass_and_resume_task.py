@@ -29,6 +29,9 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowSnapshot,
     IssueWorkflowStoreError,
 )
+from Pipeline.TaskReviewAgent.safe_unity_churn import (  # noqa: E402
+    classify_safe_post_unity_churn,
+)
 
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 
@@ -65,6 +68,73 @@ def _repo_root(source: Path) -> Path:
     if not (root / "Pipeline" / "TaskReviewAgent" / "Start-GameTaskAgent.ps1").is_file():
         raise PassAndResumeError("source does not contain the canonical Game Task Agent launcher")
     return root
+
+
+def _stable_status(checkout: Path) -> str:
+    """Read raw porcelain after a bounded filesystem settling window."""
+
+    previous: str | None = None
+    stable = 0
+    for _ in range(20):
+        result = subprocess.run(
+            (
+                "git",
+                "-C",
+                str(checkout),
+                "-c",
+                "core.quotepath=false",
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+            ),
+            cwd=str(checkout),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=60.0,
+        )
+        if result.returncode != 0:
+            raise PassAndResumeError(
+                "could not read checkout status: "
+                + result.stderr.decode("utf-8", errors="replace").strip()
+            )
+        current = result.stdout.decode("utf-8", errors="strict").rstrip("\r\n")
+        if previous is not None and current == previous:
+            stable += 1
+        else:
+            previous = current
+            stable = 1
+        if stable >= 4:
+            return current
+        time.sleep(0.5)
+    raise PassAndResumeError("checkout status did not become stable after Unity exited")
+
+
+def _recover_safe_unity_churn(checkout: Path, tested_commit: str) -> tuple[str, ...]:
+    raw_status = _stable_status(checkout)
+    if not raw_status:
+        return ()
+    paths = classify_safe_post_unity_churn(raw_status, checkout)
+    if paths is None or not paths:
+        raise PassAndResumeError("checkout has uncommitted or untracked changes")
+    _run_text(
+        (
+            "git",
+            "-C",
+            str(checkout),
+            "restore",
+            f"--source={tested_commit}",
+            "--worktree",
+            "--",
+            *paths,
+        ),
+        cwd=checkout,
+    )
+    if _stable_status(checkout):
+        raise PassAndResumeError(
+            "checkout remained dirty after exact safe Unity churn recovery"
+        )
+    return paths
 
 
 def _validate_handoff(
@@ -109,8 +179,7 @@ def _validate_handoff(
         raise PassAndResumeError(
             f"checkout HEAD {local_head!r} differs from tested commit {tested_commit!r}"
         )
-    if _run_text(("git", "-C", str(checkout), "status", "--porcelain"), cwd=checkout):
-        raise PassAndResumeError("checkout has uncommitted or untracked changes")
+    _recover_safe_unity_churn(checkout, tested_commit)
     remote_head = _run_text(
         ("git", "-C", str(checkout), "rev-parse", "@{upstream}"), cwd=checkout
     )

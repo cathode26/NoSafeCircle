@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import sys
+import subprocess
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,7 +20,9 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     parse_human_validation_result,
 )
 from Pipeline.TaskReviewAgent.pass_and_resume_task import (  # noqa: E402
+    PassAndResumeError,
     _pass_comment,
+    _recover_safe_unity_churn,
     _ready_for_delivery,
 )
 
@@ -63,6 +67,50 @@ def test_ready_requires_consistent_event_count_and_commit() -> None:
         not _ready_for_delivery(snapshot(version=2), COMMIT),
         "state/event race was accepted",
     )
+
+
+def _git(root: Path, *arguments: str) -> str:
+    result = subprocess.run(
+        ("git", "-C", str(root), *arguments),
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+    )
+    return result.stdout.strip()
+
+
+def test_safe_unity_churn_is_restored_but_other_edits_are_refused() -> None:
+    with tempfile.TemporaryDirectory(prefix="pass-and-resume-") as directory:
+        root = Path(directory)
+        _git(root, "init", "-b", "main")
+        _git(root, "config", "user.name", "Smoke Test")
+        _git(root, "config", "user.email", "smoke@example.invalid")
+        safe = root / "ProjectSettings" / "EditorBuildSettings.asset"
+        safe.parent.mkdir(parents=True)
+        safe.write_text("baseline\n", encoding="utf-8")
+        unsafe = root / "unsafe.txt"
+        unsafe.write_text("baseline\n", encoding="utf-8")
+        _git(root, "add", ".")
+        _git(root, "commit", "-m", "baseline")
+        commit = _git(root, "rev-parse", "HEAD")
+
+        safe.write_text("Unity rewrite\n", encoding="utf-8")
+        recovered = _recover_safe_unity_churn(root, commit)
+        require(
+            recovered == ("ProjectSettings/EditorBuildSettings.asset",),
+            f"safe Unity path was not recovered exactly: {recovered}",
+        )
+        require(not _git(root, "status", "--porcelain"), "safe checkout stayed dirty")
+
+        unsafe.write_text("operator edit\n", encoding="utf-8")
+        try:
+            _recover_safe_unity_churn(root, commit)
+        except PassAndResumeError:
+            pass
+        else:
+            raise AssertionError("non-Unity edit was restored or accepted")
     require(
         not _ready_for_delivery(snapshot(commit="b" * 40), COMMIT),
         "different tested commit was accepted",
@@ -73,6 +121,7 @@ def main() -> int:
     tests = (
         test_comment_has_canonical_exact_commit_result,
         test_ready_requires_consistent_event_count_and_commit,
+        test_safe_unity_churn_is_restored_but_other_edits_are_refused,
     )
     for test in tests:
         test()
