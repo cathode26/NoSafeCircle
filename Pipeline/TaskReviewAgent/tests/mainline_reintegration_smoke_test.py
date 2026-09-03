@@ -607,6 +607,7 @@ def test_partial_evidence_closeout_integrates_new_main_before_pr() -> None:
                     "status": "recovered",
                     "implementation_commit": implementation,
                     "evidence_commit": evidence,
+                    "created_paths": [evidence_path],
                 },
             },
         }
@@ -635,6 +636,11 @@ def test_partial_evidence_closeout_integrates_new_main_before_pr() -> None:
             "integration did not preserve evidence head and current main as ordered parents",
         )
         require(captured.get("head_commit") == integrated, "new handoff used the wrong commit")
+        require(not target.exists(), "invalidated evidence remained in integrated commit")
+        require(
+            result["receipt"]["invalidated_evidence_paths"] == [evidence_path],
+            "integration receipt omitted invalidated evidence paths",
+        )
         require("evidence_commit" not in controller.state, "stale evidence receipt survived")
         require(controller.state["validation_manifests"] == [], "stale tests survived")
 

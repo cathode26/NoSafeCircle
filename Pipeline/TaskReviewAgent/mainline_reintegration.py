@@ -541,6 +541,67 @@ def _automation_receipt_for(
     return dict(receipt)
 
 
+def _invalidated_evidence_paths_for_integration(
+    controller: Any,
+    *,
+    task_head: str,
+    recovery: Mapping[str, Any] | None,
+) -> list[str]:
+    """Return only exact task evidence made stale by this reintegration."""
+
+    candidates: list[Any] = []
+    if isinstance(recovery, Mapping) and recovery.get("status") == "recovered":
+        candidates = list(recovery.get("created_paths") or [])
+    else:
+        receipt = _automation_receipt_for(controller, task_head)
+        if receipt is not None:
+            human_commit = receipt.get("human_tested_commit")
+            evidence_commit = receipt.get("prior_task_head")
+            if (
+                isinstance(human_commit, str)
+                and _SHA40.fullmatch(human_commit)
+                and isinstance(evidence_commit, str)
+                and _SHA40.fullmatch(evidence_commit)
+                and _git(
+                    controller.command_runner,
+                    controller.checkout,
+                    "merge-base",
+                    "--is-ancestor",
+                    human_commit,
+                    evidence_commit,
+                    check=False,
+                ).returncode
+                == 0
+                and _git(
+                    controller.command_runner,
+                    controller.checkout,
+                    "merge-base",
+                    "--is-ancestor",
+                    evidence_commit,
+                    task_head,
+                    check=False,
+                ).returncode
+                == 0
+            ):
+                candidates = _diff_paths(
+                    controller,
+                    human_commit,
+                    evidence_commit,
+                    label="invalidated evidence diff",
+                )
+
+    normalized = _normalized_paths(candidates)
+    evidence_root = f"Pipeline/TaskGraph/evidence/{controller.task_id}/".casefold()
+    if (
+        not normalized
+        or len(normalized) != len(candidates)
+        or any(not path.casefold().startswith(evidence_root) for path in normalized)
+        or any(_object_id_at(controller, task_head, path) is None for path in normalized)
+    ):
+        return []
+    return normalized
+
+
 def _patched_next_action(
     self: Any,
     observation: Mapping[str, Any],
@@ -795,6 +856,11 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
             task.get("contract_path") or f"Tasks/{self.task_id}.yaml"
         ),
     )
+    invalidated_evidence_paths = _invalidated_evidence_paths_for_integration(
+        self,
+        task_head=task_head,
+        recovery=recovery if isinstance(recovery, Mapping) else None,
+    )
 
     self._ensure_git_identity()
     merge_result = _git(
@@ -829,6 +895,39 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
         "rev-parse",
         "HEAD",
     )
+    if invalidated_evidence_paths:
+        removal = _git(
+            self.command_runner,
+            self.checkout,
+            "rm",
+            "--",
+            *invalidated_evidence_paths,
+            check=False,
+        )
+        if removal.returncode != 0:
+            _restore_unpushed_head(self, task_head)
+            return _block_current_lease(
+                self,
+                reason="invalidated evidence could not be removed exactly",
+                details={
+                    "task_head": task_head,
+                    "main_head": main_head,
+                    "invalidated_evidence_paths": invalidated_evidence_paths,
+                },
+            )
+        _git(
+            self.command_runner,
+            self.checkout,
+            "commit",
+            "--amend",
+            "--no-edit",
+        )
+        integrated_commit = _git_text(
+            self.command_runner,
+            self.checkout,
+            "rev-parse",
+            "HEAD",
+        )
     parents = _git_text(
         self.command_runner,
         self.checkout,
@@ -962,6 +1061,7 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
         ],
         "non_automation_paths": classification["non_automation_paths"],
         "task_blob_changes_after_merge": blob_changed,
+        "invalidated_evidence_paths": invalidated_evidence_paths,
         "created_at_utc": utc_now(),
         "authority": "deterministic_mainline_reintegration",
     }
