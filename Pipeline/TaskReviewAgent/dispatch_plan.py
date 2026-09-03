@@ -772,6 +772,17 @@ class _PlanScopedIssueBackend:
             self._issues = self._backend.list_issues()
         return self._issues
 
+    def get_issue(self, issue_number: int) -> dict[str, Any] | None:
+        issue = self._backend.get_issue(issue_number)
+        self._comments.pop(issue_number, None)
+        if self._issues is not None:
+            self._issues = [
+                item for item in self._issues if item.get("number") != issue_number
+            ]
+            if issue is not None and str(issue.get("state") or "").upper() != "CLOSED":
+                self._issues.append(issue)
+        return issue
+
     def get_comments(self, issue_number: int) -> list[dict[str, Any]]:
         if issue_number not in self._comments:
             self._comments[issue_number] = self._backend.get_comments(issue_number)

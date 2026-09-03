@@ -119,6 +119,7 @@ DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL = 3
 DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_SESSION = 12
 DEFAULT_ARCHITECT_MIN_REANALYSIS_SECONDS = 300.0
 DEFAULT_MAX_CONSECUTIVE_OBSERVATION_FAILURES = 3
+DEFAULT_FATAL_DRAIN_SECONDS = 1800.0
 COMPOSE_PROJECT = "nosafecircle"
 CONTAINER_SOURCE = "/workspace"
 ARCHITECT_CONTAINER_ARTIFACT_ROOT = (
@@ -315,8 +316,18 @@ class ActiveAssignment:
 
 
 class JsonEventEmitter:
-    def __init__(self, stream: Any = None) -> None:
+    def __init__(
+        self,
+        stream: Any = None,
+        *,
+        journal_path: Path | str | None = None,
+    ) -> None:
         self.stream = sys.stdout if stream is None else stream
+        self.journal_path = (
+            Path(journal_path).resolve() if journal_path is not None else None
+        )
+        if self.journal_path is not None:
+            self.journal_path.parent.mkdir(parents=True, exist_ok=True)
 
     def emit(self, event: str, **values: Any) -> None:
         payload = {
@@ -325,11 +336,18 @@ class JsonEventEmitter:
             "timestamp_utc": utc_now(),
             **values,
         }
-        self.stream.write(
-            json.dumps(payload, ensure_ascii=False, allow_nan=False, sort_keys=True)
-            + "\n"
-        )
+        line = json.dumps(
+            payload,
+            ensure_ascii=False,
+            allow_nan=False,
+            sort_keys=True,
+        ) + "\n"
+        self.stream.write(line)
         self.stream.flush()
+        if self.journal_path is not None:
+            with self.journal_path.open("a", encoding="utf-8", newline="\n") as handle:
+                handle.write(line)
+                handle.flush()
 
 
 class SchedulerLock:
@@ -1217,6 +1235,7 @@ class PollingOrchestrator:
         max_consecutive_observation_failures: int = (
             DEFAULT_MAX_CONSECUTIVE_OBSERVATION_FAILURES
         ),
+        fatal_drain_seconds: float = DEFAULT_FATAL_DRAIN_SECONDS,
         decision_cache: ArchitectDecisionCache | None = None,
         plan_builder: PlanBuilder = build_poll_dispatch_plan,
         task_loader: Callable[[str], Mapping[str, Any]] | None = None,
@@ -1263,6 +1282,7 @@ class PollingOrchestrator:
         self.max_consecutive_observation_failures = (
             max_consecutive_observation_failures
         )
+        self.fatal_drain_seconds = fatal_drain_seconds
         self.decision_cache = decision_cache or ArchitectDecisionCache()
         self.architect_invocations_this_poll = 0
         self.architect_invocations_this_session = 0
@@ -1328,6 +1348,15 @@ class PollingOrchestrator:
                 "max_consecutive_observation_failures must be a positive integer"
             )
         if (
+            isinstance(fatal_drain_seconds, bool)
+            or not isinstance(fatal_drain_seconds, (int, float))
+            or not math.isfinite(fatal_drain_seconds)
+            or fatal_drain_seconds < 0
+        ):
+            raise PollingOrchestratorError(
+                "fatal_drain_seconds must be a non-negative finite number"
+            )
+        if (
             isinstance(architect_min_reanalysis_seconds, bool)
             or not isinstance(architect_min_reanalysis_seconds, (int, float))
             or not math.isfinite(architect_min_reanalysis_seconds)
@@ -1356,8 +1385,21 @@ class PollingOrchestrator:
             try:
                 returncode = assignment.process.poll()
             except Exception as exc:
-                returncode = -1
                 assignment.observation_error = _bounded_error(exc)
+                failed = True
+                self.events.emit(
+                    "worker_poll_failed",
+                    task_id=task_id,
+                    worker_id=assignment.worker_id,
+                    pid=assignment.pid,
+                    checkout_path=str(assignment.checkout_path),
+                    reason=(
+                        "worker liveness could not be observed; assignment remains "
+                        "supervised and no new admission is allowed"
+                    ),
+                    error=assignment.observation_error,
+                )
+                continue
             if returncode is None:
                 continue
             del self.active_assignments[task_id]
@@ -1382,6 +1424,42 @@ class PollingOrchestrator:
                 returncode=returncode,
             )
         return failed
+
+    def _drain_active_workers(self, *, poll_seconds: float) -> bool:
+        """Supervise existing children for a bounded interval after fatal stop."""
+
+        deadline = self.monotonic_clock() + self.fatal_drain_seconds
+        self.events.emit(
+            "scheduler_draining",
+            reason=(
+                "new admissions stopped after a fatal cycle; existing children "
+                "remain supervised for a bounded interval"
+            ),
+            fatal_drain_seconds=self.fatal_drain_seconds,
+            active_children=self.active_child_summary(),
+        )
+        while self.active_assignments:
+            self._reap_workers()
+            if not self.active_assignments:
+                return True
+            remaining = deadline - self.monotonic_clock()
+            if remaining <= 0:
+                self.events.emit(
+                    "scheduler_drain_timeout",
+                    reason=(
+                        "fatal drain deadline expired; scheduler did not terminate "
+                        "or release any remaining worker"
+                    ),
+                    active_children=self.active_child_summary(),
+                )
+                return False
+            self.events.emit(
+                "scheduler_drain_wait",
+                remaining_seconds=remaining,
+                active_children=self.active_child_summary(),
+            )
+            time.sleep(min(poll_seconds, remaining))
+        return True
 
     def _refresh_active_reservations(self) -> tuple[IntegrationReservation, ...]:
         reservations: list[IntegrationReservation] = []
@@ -1724,6 +1802,7 @@ class PollingOrchestrator:
                 max_consecutive_observation_failures=(
                     self.max_consecutive_observation_failures
                 ),
+                fatal_drain_seconds=self.fatal_drain_seconds,
                 error=_bounded_error(exc),
             )
             return PollCycleResult("reservation_observation_wait")
@@ -2285,6 +2364,11 @@ class PollingOrchestrator:
             max_workers=self.max_workers,
             poll_seconds=poll_seconds,
             dry_run=self.dry_run,
+            event_journal_path=(
+                str(self.events.journal_path)
+                if self.events.journal_path is not None
+                else None
+            ),
             architect_max_invocations_per_poll=(
                 self.max_architect_invocations_per_poll
             ),
@@ -2311,25 +2395,20 @@ class PollingOrchestrator:
                     exit_code = 2
                     stop_reason = cycle.status
                     if self.active_assignments:
-                        self.events.emit(
-                            "scheduler_draining",
-                            reason=(
-                                "new admissions stopped after a fatal cycle; existing "
-                                "children remain supervised until they exit"
-                            ),
-                            active_children=self.active_child_summary(),
-                        )
-                        while self.active_assignments:
-                            time.sleep(poll_seconds)
-                            self._reap_workers()
+                        drained = self._drain_active_workers(poll_seconds=poll_seconds)
+                        if not drained:
+                            stop_reason = f"{cycle.status}_drain_timeout"
                     break
                 if once:
                     stop_reason = cycle.status
                     break
                 time.sleep(poll_seconds)
         except KeyboardInterrupt:
-            stop_reason = "keyboard_interrupt"
-            exit_code = 0
+            if exit_code:
+                stop_reason = f"{stop_reason}_drain_interrupted"
+            else:
+                stop_reason = "keyboard_interrupt"
+                exit_code = 0
         finally:
             children = self.active_child_summary()
             self.events.emit(
@@ -2338,8 +2417,9 @@ class PollingOrchestrator:
                 reason=stop_reason,
                 active_children=children,
                 child_policy=(
-                    "children were not killed and durable leases were not released; "
-                    "v1 restart does not adopt prior scheduler processes"
+                    "the scheduler issued no termination request and released no "
+                    "durable lease; operating-system child survival is not guaranteed, "
+                    "and restart does not adopt prior worker processes"
                 ),
             )
             lock.release()
@@ -2478,6 +2558,15 @@ def build_parser() -> argparse.ArgumentParser:
             "scheduler fails closed."
         ),
     )
+    parser.add_argument(
+        "--fatal-drain-seconds",
+        type=_non_negative_float,
+        default=DEFAULT_FATAL_DRAIN_SECONDS,
+        help=(
+            "Maximum time to supervise already-running children after a fatal cycle; "
+            "the scheduler never terminates children or releases their leases."
+        ),
+    )
     return parser
 
 
@@ -2496,6 +2585,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         artifact_root = operational_root / "architect"
         scheduler_id = default_scheduler_id()
+        events = JsonEventEmitter(
+            journal_path=operational_root / "events" / f"{scheduler_id}.jsonl"
+        )
         architect_runner = DockerArchitectRunner(
             source=source,
             artifact_root=artifact_root,
@@ -2523,6 +2615,7 @@ def main(argv: list[str] | None = None) -> int:
             max_consecutive_observation_failures=(
                 args.max_consecutive_observation_failures
             ),
+            fatal_drain_seconds=args.fatal_drain_seconds,
             event_emitter=events,
             excluded_task_ids=args.exclude_task_id,
             dry_run=args.dry_run,

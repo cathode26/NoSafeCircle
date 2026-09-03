@@ -99,6 +99,24 @@ implementation and decomposition provider runs from its own canonical
 standalone task checkout, so this refresh cannot move the repository beneath an
 active worker.
 
+Each scheduler session also appends its exact JSON event stream to
+`Pipeline/ArchitectureReview/outputs/orchestrator/events/<scheduler-id>.jsonl`.
+Use that journal to diagnose admission delays, worker parentage, drain behavior,
+and process failures; console output alone is not durable evidence.
+
+GitHub can briefly expose an updated managed-Issue body before its matching
+event comment. Queue and reservation reads retry that narrowly recognized skew
+through exact single-Issue reads under one bounded scan deadline. A missing
+exact read is not treated as closure: only a positive `CLOSED` Issue releases
+the reservation, while persistent incoherence remains fail-closed.
+
+If one scheduler-owned worker fails, new admissions stop and the scheduler
+supervises already-running workers for the configured bounded fatal-drain
+interval (30 minutes by default). It does not terminate those workers or
+release their leases. Ctrl+C during a fatal drain preserves the failure exit
+code, and the final event reports any worker whose operating-system survival
+cannot be guaranteed.
+
 For a bounded rehearsal that must leave a legitimate task untouched, pass a
 repeatable session exclusion such as `--exclude-task-id NSC-042` to
 `polling_orchestrator.py`. The scheduler supplies that ID to Stage 2 on every

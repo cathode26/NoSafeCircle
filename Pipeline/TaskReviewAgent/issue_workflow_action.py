@@ -88,6 +88,11 @@ class GitHubRestBackend:
     def list_issues(self) -> list[dict[str, Any]]:
         return [self._issue()]
 
+    def get_issue(self, issue_number: int) -> dict[str, Any] | None:
+        if issue_number != self.issue_number:
+            return None
+        return self._issue()
+
     def get_comments(self, issue_number: int) -> list[dict[str, Any]]:
         comments: list[dict[str, Any]] = []
         page = 1

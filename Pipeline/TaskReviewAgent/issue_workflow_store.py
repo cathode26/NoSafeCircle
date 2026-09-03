@@ -27,7 +27,6 @@ from .issue_workflow import (
     WorkflowPhase,
     WorkflowState,
     initial_state,
-    issue_is_agent_ready,
     labels_for_state,
     parse_events,
     parse_decomposition_application_result,
@@ -101,6 +100,7 @@ _TRANSIENT_RESERVATION_SNAPSHOT_REASONS = frozenset(
         "state_version does not match workflow event count",
         "issue state does not point to the final workflow event",
         "issue state does not match final workflow event",
+        "Issue state does not use the final migrated contract hash",
     }
 )
 
@@ -228,6 +228,7 @@ def resolve_issue_backend_repository(
 
 class IssueBackend(Protocol):
     def list_issues(self) -> list[dict[str, Any]]: ...
+    def get_issue(self, issue_number: int) -> dict[str, Any] | None: ...
     def get_comments(self, issue_number: int) -> list[dict[str, Any]]: ...
     def create_issue(
         self,
@@ -481,16 +482,22 @@ def _snapshot(
     )
 
 
-def _reservation_snapshot(
+def _consistency_deadline() -> float:
+    return time.monotonic() + sum(RESERVATION_CONSISTENCY_DELAYS_SECONDS)
+
+
+def _consistent_snapshot(
     backend: IssueBackend,
     issue: Mapping[str, Any],
+    *,
+    deadline: float | None = None,
 ) -> IssueWorkflowSnapshot | None:
     """Read a reservation snapshot through bounded GitHub consistency skew.
 
-    ``None`` means the Issue disappeared from the open-Issue listing during
-    the retry window (normally because another worker completed and closed
-    it), so it no longer reserves a resource.  This helper never mutates or
-    repairs an Issue.
+    ``None`` is returned only after an exact Issue read positively proves the
+    Issue is closed. A missing exact read is an inspection failure, never
+    evidence that an open reservation disappeared. This helper never mutates
+    or repairs an Issue.
     """
 
     snapshot = _snapshot(backend, issue)
@@ -500,18 +507,19 @@ def _reservation_snapshot(
         return snapshot
 
     number = snapshot.issue_number
+    deadline = _consistency_deadline() if deadline is None else deadline
     for delay_seconds in RESERVATION_CONSISTENCY_DELAYS_SECONDS:
         if delay_seconds > 0:
-            time.sleep(delay_seconds)
-        current = next(
-            (
-                item
-                for item in backend.list_issues()
-                if item.get("number") == number
-            ),
-            None,
-        )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(delay_seconds, remaining))
+        current = backend.get_issue(number)
         if current is None:
+            raise IssueWorkflowStoreError(
+                f"exact read could not find Issue #{number}; closure was not proven"
+            )
+        if str(current.get("state") or "").upper() == "CLOSED":
             return None
         snapshot = _snapshot(backend, current)
         if snapshot.valid or not (
@@ -627,7 +635,11 @@ class IssueWorkflowService:
                 f"multiple open GitHub Issues match {task_id}: "
                 + ", ".join(str(item.get("number")) for item in candidates)
             )
-        return _snapshot(self.backend, candidates[0]) if candidates else None
+        return (
+            _consistent_snapshot(self.backend, candidates[0])
+            if candidates
+            else None
+        )
 
     def verify_post_mutation_state(
         self,
@@ -740,6 +752,7 @@ class IssueWorkflowService:
         conflicts: list[str] = []
         diagnostics: list[str] = []
         all_benign = True
+        consistency_deadline = _consistency_deadline()
         # A resource-less candidate still scans every open Issue: an authorized
         # Issue claiming managed workflow state with an invalid event chain has
         # untrustworthy ownership/reservation state and must block coordination
@@ -763,7 +776,11 @@ class IssueWorkflowService:
                     )
                 continue
             try:
-                snapshot = _reservation_snapshot(self.backend, issue)
+                snapshot = _consistent_snapshot(
+                    self.backend,
+                    issue,
+                    deadline=consistency_deadline,
+                )
             except IssueWorkflowStoreError as exc:
                 conflicts.append(
                     f"workflow Issue #{number} could not be inspected: {exc}"
@@ -1740,15 +1757,23 @@ class IssueWorkflowService:
 
     def list_agent_ready(self) -> list[dict[str, Any]]:
         ready = []
+        consistency_deadline = _consistency_deadline()
         for issue in self.backend.list_issues():
-            snapshot = _snapshot(self.backend, issue)
-            if not snapshot.valid or not snapshot.managed or snapshot.state is None:
+            if str(issue.get("state") or "").upper() == "CLOSED":
                 continue
-            if issue_is_agent_ready(
-                snapshot.body,
-                snapshot.labels,
-                self.backend.get_comments(snapshot.issue_number),
-            ):
+            snapshot = _consistent_snapshot(
+                self.backend,
+                issue,
+                deadline=consistency_deadline,
+            )
+            if snapshot is None or not snapshot.managed:
+                continue
+            if not snapshot.valid or snapshot.state is None:
+                raise IssueWorkflowStoreError(
+                    f"managed Issue #{snapshot.issue_number} is invalid: "
+                    + "; ".join(snapshot.reasons)
+                )
+            if snapshot.state.state is WorkflowState.AGENT_READY:
                 ready.append(snapshot.to_dict())
         return sorted(ready, key=lambda item: (item["issue_number"], item["title"]))
 
@@ -1756,13 +1781,20 @@ class IssueWorkflowService:
         """Return coherent open human-owned workflows, failing on managed corruption."""
 
         waiting: list[dict[str, Any]] = []
+        consistency_deadline = _consistency_deadline()
         for issue in self.backend.list_issues():
             if str(issue.get("state") or "").upper() == "CLOSED":
                 continue
             body = str(issue.get("body") or "")
             if STATE_RE.search(body) is None or not issue_author_authorized(issue):
                 continue
-            snapshot = _snapshot(self.backend, issue)
+            snapshot = _consistent_snapshot(
+                self.backend,
+                issue,
+                deadline=consistency_deadline,
+            )
+            if snapshot is None:
+                continue
             if not snapshot.managed:
                 continue
             if not snapshot.valid or snapshot.state is None:
@@ -1790,6 +1822,10 @@ class MemoryIssueBackend:
 
     def list_issues(self) -> list[dict[str, Any]]:
         return [json.loads(json.dumps(item)) for _, item in sorted(self.issues.items())]
+
+    def get_issue(self, issue_number: int) -> dict[str, Any] | None:
+        issue = self.issues.get(issue_number)
+        return json.loads(json.dumps(issue)) if issue is not None else None
 
     def get_comments(self, issue_number: int) -> list[dict[str, Any]]:
         return json.loads(json.dumps(self.comments.get(issue_number, [])))
@@ -1987,6 +2023,23 @@ class GhIssueBackend:
 
     def list_issues(self) -> list[dict[str, Any]]:
         return self._list_issues_via_api("open")
+
+    def get_issue(self, issue_number: int) -> dict[str, Any] | None:
+        value = self._json(
+            (
+                "gh",
+                "issue",
+                "view",
+                str(issue_number),
+                "--repo",
+                self.repository,
+                "--json",
+                "number,title,body,state,url,author,labels,assignees",
+            )
+        )
+        if not isinstance(value, dict):
+            raise IssueWorkflowStoreError("gh issue view did not return an Issue object")
+        return value
 
     def get_comments(self, issue_number: int) -> list[dict[str, Any]]:
         value = self._json(

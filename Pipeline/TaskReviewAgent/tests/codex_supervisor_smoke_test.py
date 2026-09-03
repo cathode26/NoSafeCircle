@@ -338,9 +338,12 @@ def test_docker_provider_envelope() -> None:
             "structured_output": {
                 "schema_version": "1.0",
                 "task_id": TASK_ID,
-                "action": "prepare_task_checkout",
-                "arguments": {},
-                "rationale": "The deterministic state requires checkout preparation.",
+                "action": "acquire_agent_lease",
+                "arguments": {
+                    "planned_approach": "Exercise the real provider envelope.",
+                    "expected_validation": "The injected command runner receives the request.",
+                },
+                "rationale": "Lease acquisition requires a provider-authored plan.",
             },
             "usage": None,
         }
@@ -357,13 +360,13 @@ def test_docker_provider_envelope() -> None:
         result = provider.decide(
             task_id=TASK_ID,
             turn=1,
-            prompt="Choose checkout preparation from deterministic state.",
-            allowed_actions=("prepare_task_checkout",),
+            prompt="Choose a concrete lease plan.",
+            allowed_actions=("acquire_agent_lease",),
         )
     finally:
         if prior_timeout is not None:
             os.environ["NSC_TASK_SUPERVISOR_TIMEOUT_SECONDS"] = prior_timeout
-    require(result.action == "prepare_task_checkout", "provider changed action")
+    require(result.action == "acquire_agent_lease", "provider changed action")
     require("codex-supervisor" in captured["command"], "wrong Docker service")
     require(captured["request"]["model"], "model was not supplied")
     require("api_key" not in json.dumps(captured["request"]).casefold(), "request exposed an API key")

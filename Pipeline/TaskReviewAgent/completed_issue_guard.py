@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping
 
 from . import issue_workflow_store as store
-from .issue_workflow import WorkflowContractError, WorkflowState, issue_is_agent_ready, parse_state
+from .issue_workflow import WorkflowContractError, WorkflowState, parse_state
 
 
 _INSTALLED = False
@@ -84,20 +84,10 @@ def _gh_list_all_issues(self: Any) -> list[dict[str, Any]]:
 
 
 def _open_agent_ready_only(self: Any) -> list[dict[str, Any]]:
-    ready: list[dict[str, Any]] = []
-    for issue in self.backend.list_issues():
-        if _issue_closed(issue):
-            continue
-        snapshot = store._snapshot(self.backend, issue)
-        if not snapshot.valid or not snapshot.managed or snapshot.state is None:
-            continue
-        if issue_is_agent_ready(
-            snapshot.body,
-            snapshot.labels,
-            self.backend.get_comments(snapshot.issue_number),
-        ):
-            ready.append(snapshot.to_dict())
-    return sorted(ready, key=lambda item: (item["issue_number"], item["title"]))
+    # The base implementation owns coherence retries and fail-closed invalid
+    # state handling. It also ignores closed Issues; this wrapper remains only
+    # as the composition seam paired with completed-aware Issue discovery.
+    return _ORIGINALS["list_agent_ready"](self)
 
 
 def install_completed_issue_guard() -> None:

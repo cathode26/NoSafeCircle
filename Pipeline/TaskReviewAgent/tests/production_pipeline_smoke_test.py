@@ -488,7 +488,12 @@ def test_scope_execution_commit_push() -> None:
             root,
             authoritative_validation=True,
         )
-        task["title"] = "Door Prototype"
+        task["completion_gates"] = [
+            {
+                "gate_id": "VAL-001",
+                "requirement": f"The committed {DOOR_TEST} suite passes.",
+            }
+        ]
         scope = RepositoryScopeAuthority(
             checkout=checkout,
             task=task,
@@ -498,8 +503,24 @@ def test_scope_execution_commit_push() -> None:
         facts = scope.facts()
         require(IMPLEMENTATION in facts["existing_resource_paths"], "resource fact missing")
         require(
-            DOOR_TEST in facts["suggested_test_paths"],
-            "task-title substring did not expose the matching committed test",
+            facts["suggested_test_paths"] == [DOOR_TEST],
+            f"scope facts did not expose exactly the contract-referenced C# test: {facts['suggested_test_paths']}",
+        )
+        scene_task = {
+            **task,
+            "exclusive_resources": [f"unity-scene:{DOOR_SCENE}"],
+            "acceptance_criteria": [],
+            "completion_gates": [],
+        }
+        scene_facts = RepositoryScopeAuthority(
+            checkout=checkout,
+            task=scene_task,
+            lease_id=LEASE_ID,
+            expected_branch=BRANCH,
+        ).facts()
+        require(
+            scene_facts["suggested_test_paths"] == [],
+            "a scene resource stem pulled unrelated tests from its directory path",
         )
         require(
             IMPLEMENTATION in scope.list_files(prefix=".")["paths"],

@@ -548,6 +548,7 @@ def make_orchestrator(
     max_architect_invocations_per_session: int = 20,
     architect_min_reanalysis_seconds: float = 300.0,
     max_consecutive_observation_failures: int = 3,
+    fatal_drain_seconds: float = scheduler_module.DEFAULT_FATAL_DRAIN_SECONDS,
     monotonic_clock: Any = None,
     routing_policy: Any = None,
     routing_policy_loader: Any = None,
@@ -570,6 +571,7 @@ def make_orchestrator(
         max_architect_invocations_per_session=max_architect_invocations_per_session,
         architect_min_reanalysis_seconds=architect_min_reanalysis_seconds,
         max_consecutive_observation_failures=max_consecutive_observation_failures,
+        fatal_drain_seconds=fatal_drain_seconds,
         plan_builder=planner,
         task_loader=lambda task_id: tasks[task_id],
         reservation_observer=lambda: reservations,
@@ -622,6 +624,22 @@ def test_singleton_second_scheduler_fails_immediately() -> None:
                 raise AssertionError("second scheduler acquired the OS lock")
         finally:
             first.release()
+
+
+def test_event_emitter_persists_exact_stdout_journal() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        journal = Path(text) / "scheduler" / "events.jsonl"
+        stream = io.StringIO()
+        emitter = JsonEventEmitter(stream, journal_path=journal)
+        emitter.emit("fixture_event", task_id=TASK_A, detail="persist me")
+        require(journal.is_file(), "scheduler journal was not created")
+        require(
+            journal.read_text(encoding="utf-8") == stream.getvalue(),
+            "scheduler journal differs from emitted stdout event",
+        )
+        payload = json.loads(stream.getvalue())
+        require(payload["event"] == "fixture_event", str(payload))
+        require(payload["task_id"] == TASK_A, str(payload))
 
 
 def test_shared_checkout_root_lock_collides_across_source_clones() -> None:
@@ -2103,6 +2121,122 @@ def test_fatal_child_exit_drains_other_workers_before_scheduler_stops() -> None:
         require('"event": "scheduler_draining"' in events, events)
         require('"event": "worker_finished"' in events, events)
         require('"active_children": []' in events, events)
+        draining = next(
+            item
+            for item in map(json.loads, events.splitlines())
+            if item["event"] == "scheduler_draining"
+        )
+        require(
+            [item["task_id"] for item in draining["active_children"]] == [TASK_B],
+            str(draining),
+        )
+
+
+def test_ctrl_c_during_fatal_drain_preserves_failure_exit() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_C)]),
+            architect=FakeArchitect({TASK_C: advisory(TASK_C, head)}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B), TASK_C: task(TASK_C)},
+        )
+        add_active(orchestrator, task_id=TASK_A, process=FakeProcess(returncode=7))
+        survivor = FakeProcess()
+        add_active(orchestrator, task_id=TASK_B, process=survivor)
+
+        with patch.object(
+            scheduler_module.time,
+            "sleep",
+            side_effect=KeyboardInterrupt(),
+        ):
+            exit_code = orchestrator.run(
+                lock=SchedulerLock(root / "drain-interrupt.lock"),
+                poll_seconds=0.01,
+                once=False,
+            )
+
+        require(exit_code == 2, f"Ctrl+C masked fatal exit as {exit_code}")
+        require(TASK_B in orchestrator.active_assignments, "interrupt lost live child")
+        stopped = [
+            item
+            for item in map(json.loads, stream.getvalue().splitlines())
+            if item["event"] == "scheduler_stopped"
+        ][-1]
+        require(stopped["reason"] == "worker_failed_drain_interrupted", str(stopped))
+
+
+def test_fatal_drain_timeout_is_bounded_and_preserves_child() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        clock = MutableClock()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_C)]),
+            architect=FakeArchitect({TASK_C: advisory(TASK_C, head)}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B), TASK_C: task(TASK_C)},
+            fatal_drain_seconds=0.05,
+            monotonic_clock=clock,
+        )
+        add_active(orchestrator, task_id=TASK_A, process=FakeProcess(returncode=7))
+        survivor = FakeProcess()
+        add_active(orchestrator, task_id=TASK_B, process=survivor)
+
+        def advance(seconds: float) -> None:
+            clock.advance(seconds)
+
+        with patch.object(scheduler_module.time, "sleep", side_effect=advance):
+            exit_code = orchestrator.run(
+                lock=SchedulerLock(root / "drain-timeout.lock"),
+                poll_seconds=0.05,
+                once=False,
+            )
+
+        require(exit_code == 2, f"drain timeout returned {exit_code}")
+        require(TASK_B in orchestrator.active_assignments, "timeout lost live child")
+        require('"event": "scheduler_drain_timeout"' in stream.getvalue(), stream.getvalue())
+        require("worker_failed_drain_timeout" in stream.getvalue(), stream.getvalue())
+
+
+def test_poll_exception_keeps_worker_supervised_until_observable() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_B)]),
+            architect=FakeArchitect({TASK_B: advisory(TASK_B, head)}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
+        )
+
+        class PollRaisesOnce(FakeProcess):
+            def __init__(self) -> None:
+                super().__init__()
+                self.polls = 0
+
+            def poll(self) -> int | None:
+                self.polls += 1
+                if self.polls == 1:
+                    raise OSError("temporary process observation failure")
+                return 0
+
+        child = PollRaisesOnce()
+        add_active(orchestrator, task_id=TASK_A, process=child)
+        with patch.object(scheduler_module.time, "sleep", return_value=None):
+            exit_code = orchestrator.run(
+                lock=SchedulerLock(root / "poll-error.lock"),
+                poll_seconds=0.01,
+                once=False,
+            )
+        require(exit_code == 2, f"poll failure returned {exit_code}")
+        require(not orchestrator.active_assignments, "recovered child was not reaped")
+        require('"event": "worker_poll_failed"' in stream.getvalue(), stream.getvalue())
+        require('"event": "worker_finished"' in stream.getvalue(), stream.getvalue())
 
 
 def test_one_transient_reservation_observation_failure_then_recovers() -> None:
@@ -2366,7 +2500,8 @@ def test_ctrl_c_does_not_kill_children_or_release_leases() -> None:
         require(exit_code == 0, f"Ctrl+C returned {exit_code}")
         require(child.kill_calls == 0 and child.terminate_calls == 0, "child was killed")
         require(TASK_A in orchestrator.active_assignments, "local child record was mutated")
-        require("durable leases were not released" in stream.getvalue(), stream.getvalue())
+        require("released no durable lease" in stream.getvalue(), stream.getvalue())
+        require("operating-system child survival is not guaranteed" in stream.getvalue(), stream.getvalue())
 
 
 def test_scheduler_source_has_no_issue_or_claim_mutation_calls() -> None:
@@ -2466,6 +2601,7 @@ def test_source_refresh_refuses_dirty_controller_without_overwrite() -> None:
 def main() -> int:
     tests = (
         test_singleton_second_scheduler_fails_immediately,
+        test_event_emitter_persists_exact_stdout_journal,
         test_shared_checkout_root_lock_collides_across_source_clones,
         test_no_safe_work_launches_nothing,
         test_blocked_invalid_state_fails_closed,
@@ -2511,6 +2647,9 @@ def main() -> int:
         test_successful_child_exit_frees_local_capacity,
         test_nonzero_child_exit_stops_new_admissions,
         test_fatal_child_exit_drains_other_workers_before_scheduler_stops,
+        test_ctrl_c_during_fatal_drain_preserves_failure_exit,
+        test_fatal_drain_timeout_is_bounded_and_preserves_child,
+        test_poll_exception_keeps_worker_supervised_until_observable,
         test_one_transient_reservation_observation_failure_then_recovers,
         test_reservation_observation_failure_threshold_fails_closed,
         test_dry_run_never_invokes_models_or_workers,

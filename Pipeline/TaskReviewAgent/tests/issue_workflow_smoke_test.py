@@ -180,6 +180,18 @@ class LaggyMemoryIssueBackend(MemoryIssueBackend):
             for item in current
         ]
 
+    def get_issue(self, issue_number: int) -> dict | None:
+        current = super().get_issue(issue_number)
+        if (
+            current is None
+            or self._stale_reads_remaining <= 0
+            or self._stale_issue is None
+            or self._stale_issue.get("number") != issue_number
+        ):
+            return current
+        self._stale_reads_remaining -= 1
+        return json.loads(json.dumps(self._stale_issue))
+
     def add_comment(self, issue_number: int, body: str) -> dict:
         self.add_comment_calls += 1
         return super().add_comment(issue_number, body)
@@ -224,6 +236,30 @@ class BodyBeforeCommentMemoryBackend(MemoryIssueBackend):
             self.hidden_comment_reads -= 1
             return comments[:-1]
         return comments
+
+
+class MissingExactReadMemoryBackend(BodyBeforeCommentMemoryBackend):
+    def __init__(self) -> None:
+        super().__init__()
+        self.hide_exact_issue_once = False
+
+    def get_issue(self, issue_number: int) -> dict | None:
+        if self.hide_exact_issue_once:
+            self.hide_exact_issue_once = False
+            return None
+        return super().get_issue(issue_number)
+
+
+class ClosingExactReadMemoryBackend(BodyBeforeCommentMemoryBackend):
+    def __init__(self) -> None:
+        super().__init__()
+        self.close_on_exact_read = False
+
+    def get_issue(self, issue_number: int) -> dict | None:
+        if self.close_on_exact_read:
+            self.close_on_exact_read = False
+            self.issues[issue_number]["state"] = "CLOSED"
+        return super().get_issue(issue_number)
 
 
 def test_state_event_round_trip_and_chain() -> None:
@@ -946,6 +982,118 @@ def test_resource_scan_retries_body_before_comment_visibility_skew() -> None:
     )
 
 
+def test_resource_scan_never_treats_missing_exact_read_as_closed() -> None:
+    backend = MissingExactReadMemoryBackend()
+    tasks = {TASK_ID: task(TASK_ID), OTHER_TASK_ID: task(OTHER_TASK_ID)}
+    owner = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+    )
+    owner.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Reserve the shared scene.",
+        expected_validation="A missing read must remain fail-closed.",
+        now="2026-09-03T21:10:00Z",
+    )
+    backend.hidden_comment_reads = 1
+    backend.hide_exact_issue_once = True
+    checker = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-b",
+    )
+    conflicts, _diagnostics = checker.resource_conflicts(tasks[OTHER_TASK_ID])
+    require(len(conflicts) == 1, str(conflicts))
+    require("closure was not proven" in conflicts[0], str(conflicts))
+    issue_number = next(iter(backend.issues))
+    require(backend.issues[issue_number]["state"] == "OPEN", "fixture Issue closed")
+
+
+def test_resource_scan_skips_only_positively_closed_exact_issue() -> None:
+    backend = ClosingExactReadMemoryBackend()
+    tasks = {TASK_ID: task(TASK_ID), OTHER_TASK_ID: task(OTHER_TASK_ID)}
+    owner = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+    )
+    owner.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Reserve then close the shared scene.",
+        expected_validation="A positive closed read releases the reservation.",
+        now="2026-09-03T21:15:00Z",
+    )
+    backend.hidden_comment_reads = 1
+    backend.close_on_exact_read = True
+    checker = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-b",
+    )
+    conflicts, diagnostics = checker.resource_conflicts(tasks[OTHER_TASK_ID])
+    require(conflicts == [] and diagnostics == [], str((conflicts, diagnostics)))
+    issue_number = next(iter(backend.issues))
+    require(backend.issues[issue_number]["state"] == "CLOSED", "closure was not positive")
+
+
+def test_queue_reads_retry_body_before_comment_visibility_skew() -> None:
+    backend = BodyBeforeCommentMemoryBackend()
+    tasks = {TASK_ID: task(TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+    )
+    service.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Reach human review.",
+        expected_validation="Queue reads remain coherent.",
+        now="2026-09-03T21:20:00Z",
+    )
+    service.publish_human_handoff(
+        task_id=TASK_ID,
+        branch=BRANCH,
+        head_commit=HANDOFF_HEAD,
+        checkout_path=CHECKOUT,
+        implementation_summary="Synthetic handoff.",
+        completed_checks=("synthetic check",),
+        human_steps=("Inspect the fixture.",),
+        expected_result="The fixture passes.",
+        now="2026-09-03T21:21:00Z",
+    )
+    backend.hidden_comment_reads = 1
+    waiting = service.list_human_action_required()
+    require(len(waiting) == 1, str(waiting))
+
+    result_body = (
+        "## Human validation result\n\n"
+        "Result: PASS\n"
+        f"Tested commit: `{HANDOFF_HEAD}`\n"
+    )
+    service.apply_human_result(
+        task_id=TASK_ID,
+        result_body=result_body,
+        actor_id="cathode26",
+        now="2026-09-03T21:22:00Z",
+    )
+    backend.hidden_comment_reads = 1
+    ready = service.list_agent_ready()
+    require(len(ready) == 1, str(ready))
+    backend.hidden_comment_reads = 1
+    snapshot = service.find(TASK_ID)
+    require(snapshot is not None and snapshot.valid, str(snapshot))
+
+
 def test_durable_ownership_by_other_is_typed_blocked_kind() -> None:
     """MEDIUM-1: another authorized worker's valid agent_working Issue for
     the SAME task, with no exclusive-resource overlap involved, must block
@@ -1423,6 +1571,9 @@ def main() -> int:
         test_post_mutation_verification_rejects_visible_same_version_conflict,
         test_resource_conflict_and_tampered_history_fail_closed,
         test_resource_scan_retries_body_before_comment_visibility_skew,
+        test_resource_scan_never_treats_missing_exact_read_as_closed,
+        test_resource_scan_skips_only_positively_closed_exact_issue,
+        test_queue_reads_retry_body_before_comment_visibility_skew,
         test_durable_ownership_by_other_is_typed_blocked_kind,
         test_operational_resource_inspection_failure_is_not_benign,
         test_untyped_blocked_state_carries_no_blocked_kind,

@@ -276,11 +276,14 @@ class RepositoryScopeAuthority:
         existing_resources = [path for path in resource_paths if path in tracked]
         absent_resources = [path for path in resource_paths if path not in tracked]
 
-        title_tokens = {
-            token.casefold()
-            for token in str(self.task.get("title") or "").replace("-", " ").split()
-            if len(token) >= 4
-        }
+        validation_contract_text = json.dumps(
+            {
+                "acceptance_criteria": self.task.get("acceptance_criteria") or [],
+                "completion_gates": self.task.get("completion_gates") or [],
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        ).casefold()
         resource_stems = {
             PurePosixPath(path).stem.casefold()
             for path in resource_paths
@@ -291,8 +294,10 @@ class RepositoryScopeAuthority:
         for path in tracked:
             folded = path.casefold()
             if _is_test_path(path):
-                if any(token in folded for token in title_tokens) or any(
-                    stem in folded for stem in resource_stems
+                test_stem = PurePosixPath(path).stem.casefold()
+                if PurePosixPath(path).suffix.casefold() == ".cs" and (
+                    test_stem in validation_contract_text
+                    or test_stem in resource_stems
                 ):
                     tests.append(path)
                 continue
