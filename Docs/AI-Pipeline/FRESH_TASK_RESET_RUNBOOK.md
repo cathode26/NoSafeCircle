@@ -163,13 +163,13 @@ The checked-in helper performs this procedure with exact-ref and repository
 guards. It is read-only unless `--apply` is supplied:
 
 ```powershell
-python Pipeline/TaskReviewAgent/reset_rehearsal_task.py NSC-901 --source . --checkout-root C:\NSC\Rehearsal
+python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_rehearsal_task.py NSC-901 --source C:\NSC\Rehearsal\NoSafeCircle-Homework-Rehearsal --checkout-root C:\NSC\Rehearsal
 ```
 
 After reviewing the dry-run inventory, the complete one-command reset is:
 
 ```powershell
-python Pipeline/TaskReviewAgent/reset_rehearsal_task.py NSC-901 --source . --checkout-root C:\NSC\Rehearsal --apply --confirm-repository cathode26/NoSafeCircle-Homework-Rehearsal
+python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_rehearsal_task.py NSC-901 --source C:\NSC\Rehearsal\NoSafeCircle-Homework-Rehearsal --checkout-root C:\NSC\Rehearsal --apply --confirm-repository cathode26/NoSafeCircle-Homework-Rehearsal
 ```
 
 The helper derives the default private Issue archive as
