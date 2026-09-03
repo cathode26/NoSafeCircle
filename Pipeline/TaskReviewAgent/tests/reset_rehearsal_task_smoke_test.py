@@ -24,9 +24,11 @@ from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
     _commit_tree,
     _create_report,
     _repository_from_origin,
+    _require_task_paths_unchanged_since_merge,
     _require_private_rehearsal_repository,
     _resolve_main_state,
     _state_paths,
+    _validate_additive_revert_commit,
 )
 
 
@@ -161,6 +163,72 @@ def test_additive_revert_identity(root: Path) -> None:
     )
 
 
+def test_additive_revert_preserves_later_unrelated_history(root: Path) -> None:
+    repository = root / "repo-with-later-history"
+    repository.mkdir()
+    run("git", "init", "-b", "main", cwd=repository)
+    run("git", "config", "user.name", "Smoke Test", cwd=repository)
+    run("git", "config", "user.email", "smoke@example.invalid", cwd=repository)
+    (repository / "task.txt").write_text("base\n", encoding="utf-8")
+    (repository / "later.txt").write_text("base\n", encoding="utf-8")
+    run("git", "add", "task.txt", "later.txt", cwd=repository)
+    run("git", "commit", "-m", "base", cwd=repository)
+    base = run("git", "rev-parse", "HEAD", cwd=repository)
+    run("git", "switch", "-c", "nsc-907-smoke", cwd=repository)
+    (repository / "task.txt").write_text("delivered\n", encoding="utf-8")
+    run("git", "commit", "-am", "task", cwd=repository)
+    run("git", "switch", "main", cwd=repository)
+    run("git", "merge", "--no-ff", "nsc-907-smoke", "-m", "merge task", cwd=repository)
+    merge = run("git", "rev-parse", "HEAD", cwd=repository)
+    (repository / "later.txt").write_text("later pipeline fix\n", encoding="utf-8")
+    run("git", "commit", "-am", "later unrelated fix", cwd=repository)
+    previous_main = run("git", "rev-parse", "HEAD", cwd=repository)
+    runner = CommandRunner()
+    _require_task_paths_unchanged_since_merge(
+        runner,
+        repository,
+        merge_commit=merge,
+        current_main=previous_main,
+        paths=("task.txt",),
+    )
+
+    run("git", "switch", "-c", "later-task-edit", cwd=repository)
+    (repository / "task.txt").write_text("later dependent edit\n", encoding="utf-8")
+    run("git", "commit", "-am", "later task-owned edit", cwd=repository)
+    changed_main = run("git", "rev-parse", "HEAD", cwd=repository)
+    expect_error(
+        lambda: _require_task_paths_unchanged_since_merge(
+            runner,
+            repository,
+            merge_commit=merge,
+            current_main=changed_main,
+            paths=("task.txt",),
+        ),
+        "task.txt",
+    )
+    run("git", "switch", "main", cwd=repository)
+
+    run("git", "revert", "-m", "1", "--no-commit", merge, cwd=repository)
+    run("git", "commit", "-m", "revert old task merge", cwd=repository)
+    revert = run("git", "rev-parse", "HEAD", cwd=repository)
+    _validate_additive_revert_commit(
+        runner,
+        repository,
+        previous_main=previous_main,
+        revert_commit=revert,
+        merge_parent=base,
+        expected_paths=("task.txt",),
+    )
+    expect(
+        (repository / "later.txt").read_text(encoding="utf-8")
+        == "later pipeline fix\n",
+        "later unrelated history was not preserved",
+    )
+    expect(
+        (repository / "task.txt").read_text(encoding="utf-8") == "base\n",
+        "task path was not restored to the merge parent",
+    )
+
 def main() -> int:
     test_repository_guard()
     preferred = Path(os.environ.get("NSC_TEST_TEMP_ROOT", ""))
@@ -173,6 +241,7 @@ def main() -> int:
         root = Path(directory)
         test_exact_state_archive(root / "state")
         test_additive_revert_identity(root)
+        test_additive_revert_preserves_later_unrelated_history(root)
     print("reset_rehearsal_task_smoke_test: PASS")
     return 0
 

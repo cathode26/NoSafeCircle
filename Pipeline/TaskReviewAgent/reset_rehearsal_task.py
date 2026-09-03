@@ -314,6 +314,68 @@ def _changed_paths(runner: CommandRunner, root: Path, old: str, new: str) -> tup
     return paths
 
 
+def _tree_entry(
+    runner: CommandRunner, root: Path, commit: str, path: str
+) -> tuple[str, str, str] | None:
+    value = _git_text(runner, root, "ls-tree", commit, "--", path)
+    if not value:
+        return None
+    lines = value.splitlines()
+    if len(lines) != 1:
+        raise RehearsalResetError(f"tree lookup returned multiple entries for {path}")
+    metadata, separator, returned_path = lines[0].partition("\t")
+    fields = metadata.split()
+    if not separator or returned_path != path or len(fields) != 3:
+        raise RehearsalResetError(f"tree lookup returned an invalid entry for {path}")
+    return fields[0], fields[1], fields[2]
+
+
+def _require_task_paths_unchanged_since_merge(
+    runner: CommandRunner,
+    root: Path,
+    *,
+    merge_commit: str,
+    current_main: str,
+    paths: Sequence[str],
+) -> None:
+    changed = [
+        path
+        for path in paths
+        if _tree_entry(runner, root, merge_commit, path)
+        != _tree_entry(runner, root, current_main, path)
+    ]
+    if changed:
+        raise RehearsalResetError(
+            "later commits changed task-owned paths; rehearsal reset is refused: "
+            + ", ".join(changed)
+        )
+
+
+def _validate_additive_revert_commit(
+    runner: CommandRunner,
+    root: Path,
+    *,
+    previous_main: str,
+    revert_commit: str,
+    merge_parent: str,
+    expected_paths: Sequence[str],
+) -> None:
+    if _commit_parents(runner, root, revert_commit) != (previous_main,):
+        raise RehearsalResetError(
+            "rehearsal revert is not additive on the verified current main"
+        )
+    committed_paths = _changed_paths(runner, root, previous_main, revert_commit)
+    if tuple(sorted(committed_paths)) != tuple(sorted(expected_paths)):
+        raise RehearsalResetError("rehearsal revert commit changed an unexpected path")
+    for path in expected_paths:
+        if _tree_entry(runner, root, revert_commit, path) != _tree_entry(
+            runner, root, merge_parent, path
+        ):
+            raise RehearsalResetError(
+                f"rehearsal revert did not restore the pre-delivery tree entry: {path}"
+            )
+
+
 def _find_pull_request(
     runner: CommandRunner,
     root: Path,
@@ -532,6 +594,117 @@ def _find_complete_issue(
         require_state_label=require_state_label,
     )
     return matches[0]
+
+
+def _find_unique_source_complete_issue(
+    runner: CommandRunner,
+    root: Path,
+    repository: str,
+    task_id: str,
+    branch: str,
+) -> dict[str, Any]:
+    listing = _json_command(
+        runner,
+        (
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            repository,
+            "--state",
+            "closed",
+            "--search",
+            f"{task_id} in:title",
+            "--limit",
+            "100",
+            "--json",
+            "number,title,state,url,body,labels",
+        ),
+        cwd=root,
+    )
+    if not isinstance(listing, list):
+        raise RehearsalResetError("GitHub Issue listing was invalid")
+    matches: list[dict[str, Any]] = []
+    for issue in listing:
+        if not isinstance(issue, dict) or not isinstance(issue.get("body"), str):
+            continue
+        try:
+            state = parse_state(issue["body"])
+        except ValueError:
+            continue
+        if (
+            state is not None
+            and state.task_id == task_id
+            and state.state is WorkflowState.COMPLETE
+            and state.branch == branch
+            and state.head_commit is not None
+        ):
+            matches.append({**issue, "workflow_state": state})
+    if len(matches) != 1:
+        raise RehearsalResetError(
+            "exactly one closed completed source Issue must identify the delivered run"
+        )
+    _validate_complete_issue(
+        runner,
+        root,
+        repository,
+        matches[0],
+        require_state_label=True,
+    )
+    return matches[0]
+
+
+def _find_pull_request_for_task_head(
+    runner: CommandRunner,
+    root: Path,
+    repository: str,
+    branch: str,
+    task_head: str,
+) -> tuple[dict[str, Any], str]:
+    listing = _json_command(
+        runner,
+        (
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repository,
+            "--state",
+            "merged",
+            "--head",
+            branch,
+            "--limit",
+            "100",
+            "--json",
+            "number,headRefOid,mergeCommit",
+        ),
+        cwd=root,
+    )
+    if not isinstance(listing, list):
+        raise RehearsalResetError("GitHub pull-request listing was invalid")
+    matches = [
+        item
+        for item in listing
+        if isinstance(item, dict)
+        and item.get("headRefOid") == task_head
+        and isinstance(item.get("mergeCommit"), dict)
+        and isinstance(item["mergeCommit"].get("oid"), str)
+    ]
+    if len(matches) != 1:
+        raise RehearsalResetError(
+            "exactly one merged pull request must match the completed Issue head"
+        )
+    merge_commit = str(matches[0]["mergeCommit"]["oid"])
+    return (
+        _find_pull_request(
+            runner,
+            root,
+            repository,
+            branch,
+            merge_commit,
+        ),
+        merge_commit,
+    )
 
 
 def _relevant_claims(root: Path, task: dict[str, Any]) -> list[dict[str, Any]]:
@@ -787,16 +960,53 @@ class RehearsalTaskReset:
         origin_main = _git_text(self.runner, self.source, "rev-parse", "origin/main")
         if head != origin_main:
             raise RehearsalResetError("controller HEAD must exactly equal fetched origin/main")
-        merge_commit, already_reverted = _resolve_main_state(
-            self.runner, self.source, self.task_id, head
-        )
-        pull_request = _find_pull_request(
-            self.runner,
-            self.source,
-            self.repository,
-            self.branch,
-            merge_commit,
-        )
+        task_state = _task_state(self.runner, self.source, self.task_id)
+        source_issue = None
+        try:
+            merge_commit, already_reverted = _resolve_main_state(
+                self.runner, self.source, self.task_id, head
+            )
+            pull_request = _find_pull_request(
+                self.runner,
+                self.source,
+                self.repository,
+                self.branch,
+                merge_commit,
+            )
+        except RehearsalResetError:
+            if task_state.get("state") != "conformant":
+                raise
+            source_issue = _find_unique_source_complete_issue(
+                self.runner,
+                self.source,
+                self.repository,
+                self.task_id,
+                self.branch,
+            )
+            task_head = str(source_issue["workflow_state"].head_commit)
+            pull_request, merge_commit = _find_pull_request_for_task_head(
+                self.runner,
+                self.source,
+                self.repository,
+                self.branch,
+                task_head,
+            )
+            if (
+                _git(
+                    self.runner,
+                    self.source,
+                    "merge-base",
+                    "--is-ancestor",
+                    merge_commit,
+                    head,
+                    check=False,
+                ).returncode
+                != 0
+            ):
+                raise RehearsalResetError(
+                    "task merge commit is not an ancestor of current rehearsal main"
+                )
+            already_reverted = False
         merge_parent, changed_paths = _validate_pull_request(
             self.runner,
             self.source,
@@ -805,16 +1015,25 @@ class RehearsalTaskReset:
             merge_commit=merge_commit,
         )
         task_head = str(pull_request["headRefOid"])
+        if not already_reverted and head != merge_commit:
+            _require_task_paths_unchanged_since_merge(
+                self.runner,
+                self.source,
+                merge_commit=merge_commit,
+                current_main=head,
+                paths=changed_paths,
+            )
 
-        source_issue = _find_complete_issue(
-            self.runner,
-            self.source,
-            self.repository,
-            self.task_id,
-            self.branch,
-            task_head,
-            require_state_label=True,
-        )
+        if source_issue is None:
+            source_issue = _find_complete_issue(
+                self.runner,
+                self.source,
+                self.repository,
+                self.task_id,
+                self.branch,
+                task_head,
+                require_state_label=True,
+            )
         archived_issue = _find_complete_issue(
             self.runner,
             self.source,
@@ -900,7 +1119,6 @@ class RehearsalTaskReset:
         if local_branch_oid is not None and local_branch_oid != task_head:
             raise RehearsalResetError("controller local task branch moved from the completed head")
 
-        task_state = _task_state(self.runner, self.source, self.task_id)
         expected_state = "not_delivered" if already_reverted else "conformant"
         if task_state.get("state") != expected_state:
             raise RehearsalResetError(
@@ -946,10 +1164,21 @@ class RehearsalTaskReset:
         }
 
     def _create_and_push_revert(self, plan: dict[str, Any]) -> str:
+        previous_main = str(plan["main_head"])
         merge_commit = str(plan["merge_commit"])
         merge_parent = str(plan["merge_first_parent"])
-        if _remote_ref_oid(self.runner, self.source, "origin", "refs/heads/main") != merge_commit:
+        if (
+            _remote_ref_oid(self.runner, self.source, "origin", "refs/heads/main")
+            != previous_main
+        ):
             raise RehearsalResetError("origin/main moved after preflight; no revert was created")
+        _require_task_paths_unchanged_since_merge(
+            self.runner,
+            self.source,
+            merge_commit=merge_commit,
+            current_main=previous_main,
+            paths=plan["changed_paths"],
+        )
         _git(self.runner, self.source, "revert", "-m", "1", "--no-commit", merge_commit)
         staged = tuple(
             line
@@ -990,12 +1219,19 @@ class RehearsalTaskReset:
             f"{RESET_TASK_TRAILER}: {self.task_id}\n{RESET_MERGE_TRAILER}: {merge_commit}",
         )
         revert_commit = _git_text(self.runner, self.source, "rev-parse", "HEAD")
-        if _commit_parents(self.runner, self.source, revert_commit) != (merge_commit,):
-            raise RehearsalResetError("revert commit parent is not the verified task merge")
-        if _commit_tree(self.runner, self.source, revert_commit) != _commit_tree(
-            self.runner, self.source, merge_parent
-        ):
-            raise RehearsalResetError("revert tree does not equal the task merge first parent")
+        _validate_additive_revert_commit(
+            self.runner,
+            self.source,
+            previous_main=previous_main,
+            revert_commit=revert_commit,
+            merge_parent=merge_parent,
+            expected_paths=plan["changed_paths"],
+        )
+        if _task_state(self.runner, self.source, self.task_id).get("state") != "not_delivered":
+            raise RehearsalResetError(
+                "additive rehearsal revert did not restore not_delivered"
+            )
+        _validate_taskgraph(self.runner, self.source)
         _git(self.runner, self.source, "diff", "--check", f"{revert_commit}^")
         _git(
             self.runner,
