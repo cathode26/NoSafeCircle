@@ -69,7 +69,7 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
 )
 
 
-ARCHITECT_ADVISORY_SCHEMA_VERSION = "1.1"
+ARCHITECT_ADVISORY_SCHEMA_VERSION = "1.2"
 ARCHITECT_PROVIDER_CONFIGURATION_KEYS = {
     "claude": "polling-architect-claude",
     "codex": "polling-architect-codex",
@@ -190,6 +190,10 @@ ARCHITECT_ADVISORY_SCHEMA: dict[str, Any] = _strict_object(
         "parallel_recommendation": {
             "type": "string",
             "enum": ["start", "wait", "human_review"],
+        },
+        "work_type_recommendation": {
+            "type": "string",
+            "enum": ["implementation", "decomposition"],
         },
         "execution_recommendation": EXECUTION_RECOMMENDATION_SCHEMA,
         "conflicting_task_ids": _STRING_ARRAY,
@@ -414,6 +418,7 @@ class ArchitectAdvisory:
     predicted_change_surface: PredictedChangeSurface
     integration_risk: str
     parallel_recommendation: str
+    work_type_recommendation: str
     execution_recommendation: ExecutionRecommendation
     conflicting_task_ids: tuple[str, ...]
     conflict_reasons: tuple[str, ...]
@@ -481,6 +486,7 @@ class ArchitectAdvisory:
             ),
             integration_risk=value["integration_risk"],
             parallel_recommendation=value["parallel_recommendation"],
+            work_type_recommendation=value["work_type_recommendation"],
             execution_recommendation=execution_recommendation,
             conflicting_task_ids=_text_tuple(
                 value["conflicting_task_ids"],
@@ -506,6 +512,7 @@ class ArchitectAdvisory:
             "predicted_change_surface": self.predicted_change_surface.to_dict(),
             "integration_risk": self.integration_risk,
             "parallel_recommendation": self.parallel_recommendation,
+            "work_type_recommendation": self.work_type_recommendation,
             "execution_recommendation": self.execution_recommendation.to_dict(),
             "conflicting_task_ids": list(self.conflicting_task_ids),
             "conflict_reasons": list(self.conflict_reasons),
@@ -664,6 +671,16 @@ Authority and safety rules:
   applied by this run.
 - Return the ENTIRE strict output schema, including every list even when it is empty.
 - Echo task_id, source_head, and task_contract_sha256 exactly as supplied.
+
+Work-type recommendation:
+- Always return `work_type_recommendation` as either `implementation` or
+  `decomposition`. This is advisory and cannot bypass deterministic eligibility.
+- Choose `decomposition` when this parent should be split now to unlock useful
+  near-frontier work, even when other implementation tasks are available. Do not defer
+  decomposition merely because the implementation pool is non-empty.
+- Choose `implementation` when the task is already a coherent bounded unit. The
+  scheduler will reject a recommendation that is not in the candidate's independently
+  validated work-type pool; do not use this field to rewrite the task contract.
 
 Scheduling policy you must follow:
 - This scheduler optimizes for clean parallelism, not worker utilization. Waiting is

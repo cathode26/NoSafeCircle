@@ -1773,12 +1773,34 @@ class PollingOrchestrator:
                 advisory_artifact_path=str(analysis.artifact_path),
                 integration_risk=advisory.integration_risk,
                 parallel_recommendation=advisory.parallel_recommendation,
+                work_type_recommendation=advisory.work_type_recommendation,
                 confidence=advisory.confidence,
                 execution_recommendation=(
                     advisory.execution_recommendation.to_dict()
                 ),
                 design_advice=advisory.design_advice.to_dict(),
             )
+
+            # Stage 2 currently supplied this entry from its implementation
+            # pool. Never silently turn an architect's decomposition decision
+            # into an implementation launch; the combined work-type pool will
+            # route this recommendation through the decomposition worker.
+            if advisory.work_type_recommendation != "implementation":
+                self._record_gate(
+                    task_id=task_id,
+                    cache_key=cache_key,
+                    cooldown_key=cooldown_key,
+                    decision=ArchitectPolicyDecision(
+                        "wait",
+                        (
+                            "architect selected decomposition, but this Stage-2 "
+                            "candidate currently carries implementation authority only",
+                        ),
+                    ),
+                    analysis=analysis,
+                )
+                temporary_exclusions.add(task_id)
+                continue
 
             effective_surface = effective_candidate_surface(
                 candidate_task_id=task_id,

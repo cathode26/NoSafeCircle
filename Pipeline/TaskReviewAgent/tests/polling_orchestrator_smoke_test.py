@@ -393,6 +393,7 @@ def advisory(
     disjointness: tuple[tuple[str, str], ...] = (),
     capability_tier: str = "standard",
     provider_preference: str = "no_preference",
+    work_type: str = "implementation",
 ) -> ArchitectAdvisory:
     return ArchitectAdvisory.from_dict(
         {
@@ -408,6 +409,7 @@ def advisory(
             },
             "integration_risk": risk,
             "parallel_recommendation": recommendation,
+            "work_type_recommendation": work_type,
             "execution_recommendation": {
                 "capability_tier": capability_tier,
                 "provider_preference": provider_preference,
@@ -743,6 +745,37 @@ def test_architect_wait_excludes_and_next_disjoint_candidate_launches() -> None:
         require(result.status == "worker_launched" and result.task_id == TASK_B, str(result))
         require(planner.calls == [set()], str(planner.calls))
         require('"event": "architect_wait"' in stream.getvalue(), stream.getvalue())
+
+
+def test_decomposition_recommendation_never_launches_implementation() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner([candidate_plan(head, TASK_A, TASK_B)])
+        architect = FakeArchitect(
+            {
+                TASK_A: advisory(TASK_A, head, work_type="decomposition"),
+                TASK_B: advisory(
+                    TASK_B,
+                    head,
+                    exact_paths=("Assets/NoSafeCircle/Gameplay/Disjoint.cs",),
+                ),
+            }
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_launched" and result.task_id == TASK_B, str(result))
+        require(len(processes.calls) == 1, str(processes.calls))
+        require(
+            "architect selected decomposition" in stream.getvalue(),
+            stream.getvalue(),
+        )
 
 
 def test_resume_wait_does_not_starve_stage2_ranked_fresh_work() -> None:
@@ -2111,6 +2144,7 @@ def main() -> int:
         test_at_most_one_new_worker_per_poll,
         test_active_task_ids_feed_stage2_exclusions,
         test_architect_wait_excludes_and_next_disjoint_candidate_launches,
+        test_decomposition_recommendation_never_launches_implementation,
         test_resume_wait_does_not_starve_stage2_ranked_fresh_work,
         test_resume_survives_typed_taskgraph_observation_failure,
         test_fresh_only_typed_taskgraph_observation_failure_remains_blocked,

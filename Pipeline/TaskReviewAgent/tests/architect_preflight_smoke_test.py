@@ -101,6 +101,7 @@ def advisory_value(
         },
         "integration_risk": risk,
         "parallel_recommendation": recommendation,
+        "work_type_recommendation": "implementation",
         "execution_recommendation": {
             "capability_tier": capability_tier,
             "provider_preference": provider_preference,
