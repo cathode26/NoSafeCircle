@@ -39,9 +39,13 @@ _ACTIONS = {
         "Create a hash-bound proposal without approving it. Arguments: selected_surfaces, "
         "gate_mappings, approval_notes."
     ),
-    "publish_delivery_review": "Publish the proposal and transfer the Issue to Vincent. No arguments.",
+    "publish_delivery_review": (
+        "Apply the existing exact-commit human PASS to the delivery proposal and continue "
+        "without a second approval. The host rejects dirty or changed checkouts. No arguments."
+    ),
     "finalize_delivery_evidence_and_open_pr": (
-        "After exact human approval, package evidence, prove conformance, push, and open PR. No arguments."
+        "After the unchanged exact-commit PASS is carried forward, package evidence, prove "
+        "conformance, push, and open PR. No arguments."
     ),
     "inspect_or_merge_pull_request": (
         "Inspect checks; release if pending, block on failure, or merge exact passing head. No arguments."
@@ -54,7 +58,7 @@ _ACTIONS = {
 _GOAL_AND_RULES = """
 GOAL
 Resume the durable Issue after Vincent's Unity PASS and move it through authoritative Unity
-validation, hash-bound human delivery review, TaskDelivery evidence, TaskGraph conformance, pull
+validation, hash-bound delivery evidence, TaskGraph conformance, pull
 request checks, exact merge, fresh-main verification, and Issue completion.
 
 AUTHORITY
@@ -70,9 +74,10 @@ OPERATING RULES
 - After drafting, inspect every surface candidate, evidence artifact, and completion gate.
 - Select only truthful committed conformance surfaces, give each a concrete semantic role, and map
   each gate to specific evidence with a gate-specific explanation.
-- You may propose delivery mappings but never approve them. Publish the proposal and stop at the
-  human review boundary. A rejected proposal cannot be reused.
-- After exact approval, finalization must establish TaskGraph conformant before PR creation.
+- A PASS for the exact unchanged commit carries forward as delivery authorization. After creating
+  the hash-bound proposal, advance automatically only while the canonical checkout remains clean.
+- If any new or uncommitted repository change appears after PASS, stop for human reconciliation.
+- Finalization must establish TaskGraph conformant before PR creation.
 - Pending checks release the lease for a later generic run. Merge only the exact recorded head with
   history preserved. If main advanced beyond the validated integration, stop rather than merge.
 - Complete only after fresh origin/main validates and still derives the task as conformant.
@@ -151,7 +156,10 @@ def _terminal_outcome(
             "blockers": [],
         }
 
-    if state.get("state") == "blocked":
+    if state.get("state") == "blocked" and not (
+        state.get("phase") == "delivery_evidence"
+        and next_action == "publish_delivery_review"
+    ):
         return {
             **fixed,
             "status": "blocked",

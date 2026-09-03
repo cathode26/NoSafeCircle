@@ -335,6 +335,13 @@ PASS -> agent_ready / delivery_evidence
 FAIL -> agent_ready / repair
 ```
 
+The PASS is also conditional delivery authorization for the exact tested
+commit. After authoritative validation and proposal generation, the agent may
+advance directly to `merge_closeout` without a second human approval only when
+the canonical checkout is clean and its commit identity is unchanged. New or
+uncommitted changes invalidate that automatic continuation and require human
+reconciliation.
+
 If validation fails, the Action restores `nsc-state:human-action`, comments the reason, and leaves the task human-owned.
 
 ## Later generic-agent behavior

@@ -32,6 +32,7 @@ from Pipeline.TaskReviewAgent.codex_supervisor import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.contracts import TaskReviewRequest  # noqa: E402
 from Pipeline.TaskReviewAgent.openai_downstream import (  # noqa: E402
+    _terminal_outcome,
     run_openai_downstream_pipeline,
 )
 from Pipeline.TaskReviewAgent.openai_pipeline import (  # noqa: E402
@@ -540,6 +541,16 @@ def test_downstream_terminal_without_model() -> None:
     require(outcome["blockers"] == [], "human review returned blockers")
 
 
+def test_legacy_delivery_review_is_not_terminal_when_pass_can_carry_forward() -> None:
+    observation = FakeDownstreamController().observe()
+    observation["coordination"]["workflow_state"]["human_result"] = "pass"
+    observation["downstream"]["next_action"] = "publish_delivery_review"
+    require(
+        _terminal_outcome(TaskReviewRequest(TASK_ID), observation) is None,
+        "legacy delivery-review blocker prevented automatic PASS continuation",
+    )
+
+
 def main() -> int:
     tests = (
         test_decision_contract,
@@ -548,6 +559,7 @@ def main() -> int:
         test_production_goal_loop,
         test_conflicted_checkout_preparation_bypasses_supervisor,
         test_downstream_terminal_without_model,
+        test_legacy_delivery_review_is_not_terminal_when_pass_can_carry_forward,
     )
     for test in tests:
         test()

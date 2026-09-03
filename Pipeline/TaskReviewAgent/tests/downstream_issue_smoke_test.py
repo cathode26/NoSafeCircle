@@ -202,6 +202,68 @@ def test_delivery_approval_and_evidence_head_resume() -> None:
     )
 
 
+def accept_unchanged_pass(
+    service: IssueWorkflowService,
+    *,
+    now: str,
+) -> dict:
+    return DownstreamIssueCoordinator(service).accept_unchanged_delivery_after_human_pass(
+        task_id=TASK_ID,
+        branch=BRANCH,
+        head_commit=HANDOFF_HEAD,
+        checkout_path=CHECKOUT,
+        draft_path=r"C:\Temp\delivery-draft.json",
+        draft_sha256=DRAFT_SHA,
+        proposal_path=r"C:\Temp\delivery-proposal.json",
+        proposal_sha256=PROPOSAL_SHA,
+        now=now,
+    )
+
+
+def test_unchanged_human_pass_skips_second_approval() -> None:
+    _, _, service = ready_delivery_service(worker="agent-auto-closeout")
+    accepted = accept_unchanged_pass(service, now="2026-08-27T16:04:00Z")
+    state = accepted["workflow_state"]
+    require(state["state"] == "agent_ready", "automatic acceptance did not release the lease")
+    require(state["phase"] == "merge_closeout", "automatic acceptance did not select closeout")
+    require(state["human_result"] == "pass", "human PASS was not preserved")
+    event = service.find(TASK_ID).events[-1]
+    require(
+        event.details.get("approval_basis") == "unchanged_human_validated_commit",
+        "automatic acceptance did not record its authority basis",
+    )
+    require(
+        event.details.get("authorized_by") == "cathode26",
+        "automatic acceptance did not preserve the human authority identity",
+    )
+
+
+def test_legacy_delivery_review_blocker_is_automatically_recovered() -> None:
+    _, _, service = ready_delivery_service(worker="agent-legacy-recovery")
+    request_review(service)
+    accepted = accept_unchanged_pass(service, now="2026-08-27T16:05:00Z")
+    state = accepted["workflow_state"]
+    require(state["state"] == "agent_ready", "legacy blocker was not released")
+    require(state["phase"] == "merge_closeout", "legacy blocker did not enter closeout")
+
+
+def test_changed_commit_cannot_reuse_human_pass() -> None:
+    _, _, service = ready_delivery_service(worker="agent-drift")
+    expect_error(
+        lambda: DownstreamIssueCoordinator(service).accept_unchanged_delivery_after_human_pass(
+            task_id=TASK_ID,
+            branch=BRANCH,
+            head_commit=EVIDENCE_HEAD,
+            checkout_path=CHECKOUT,
+            draft_path=r"C:\Temp\delivery-draft.json",
+            draft_sha256=DRAFT_SHA,
+            proposal_path=r"C:\Temp\delivery-proposal.json",
+            proposal_sha256=PROPOSAL_SHA,
+        ),
+        "unchanged human-tested commit",
+    )
+
+
 def test_delivery_changes_return_to_delivery_evidence() -> None:
     _, _, service = ready_delivery_service(worker="agent-revise")
     request_review(service)
@@ -229,6 +291,9 @@ def test_delivery_changes_return_to_delivery_evidence() -> None:
 def main() -> int:
     tests = (
         test_delivery_approval_and_evidence_head_resume,
+        test_unchanged_human_pass_skips_second_approval,
+        test_legacy_delivery_review_blocker_is_automatically_recovered,
+        test_changed_commit_cannot_reuse_human_pass,
         test_delivery_changes_return_to_delivery_evidence,
     )
     for test in tests:
