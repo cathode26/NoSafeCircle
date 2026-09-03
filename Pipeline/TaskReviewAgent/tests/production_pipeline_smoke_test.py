@@ -396,7 +396,15 @@ def test_scope_execution_commit_push() -> None:
         )
         facts = scope.facts()
         require(IMPLEMENTATION in facts["existing_resource_paths"], "resource fact missing")
+        require(
+            IMPLEMENTATION in scope.list_files(prefix=".")["paths"],
+            "approved-root file listing omitted the implementation",
+        )
         require(scope.search(query="Value", prefixes=["Assets/"])["count"] == 1, "search failed")
+        require(
+            scope.search(query="Value", prefixes=["."])["count"] == 1,
+            "approved-root search failed",
+        )
         require("Value = 1" in scope.read_file(path=IMPLEMENTATION)["content"], "read failed")
 
         wrong = ExecutionScopePlan(

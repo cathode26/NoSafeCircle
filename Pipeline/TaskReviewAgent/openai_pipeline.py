@@ -26,8 +26,15 @@ _ACTIONS = {
         "expected_validation."
     ),
     "repository_facts": "Read task-owned resource hints and suggested implementation/test files. No arguments.",
-    "list_repository_files": "List committed files. Arguments: prefix; optional limit.",
-    "search_repository": "Search committed text. Arguments: query, prefixes; optional limit.",
+    "list_repository_files": (
+        "List committed files. Arguments: prefix; optional limit. Use '.' for all approved "
+        "read roots, or a repository-relative approved prefix such as 'Assets/' or "
+        "'Docs/Engineering/'."
+    ),
+    "search_repository": (
+        "Search committed text. Arguments: query, prefixes; optional limit. Use ['.'] for "
+        "all approved read roots; never use an empty prefix list."
+    ),
     "read_repository_file": "Read one committed file range. Arguments: path; optional start_line, end_line.",
     "latest_human_feedback": "Read the latest validated human PASS/FAIL feedback. No arguments.",
     "validate_execution_scope": (

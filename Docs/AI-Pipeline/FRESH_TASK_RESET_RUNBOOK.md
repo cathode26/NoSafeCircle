@@ -12,6 +12,11 @@ A reset is destructive and requires explicit human authorization naming the task
 
 If the task implementation or delivery evidence is already merged into `main`, stop. That is not a fresh-task reset; use a separately reviewed revert or follow-up task.
 
+The only exception is a repository that Vincent explicitly identifies as a
+disposable private rehearsal repository. Use the separate procedure below; do
+not apply it to production `main` or disguise it as an ordinary abandoned-task
+reset.
+
 ## Fresh-state definition
 
 An implementation task is operationally fresh when all of the following are true:
@@ -139,6 +144,52 @@ Only after all checks pass may the task be launched fresh:
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude
 ```
+
+## Repeat a merged task in a disposable rehearsal repository
+
+Use this procedure only when Vincent explicitly requests another end-to-end run
+of the same task in the same disposable private rehearsal repository. It is not
+a recovery path for a merged production task.
+
+1. Record the rehearsal repository, task ID, merged PR, merge commit, first
+   parent, task branch/head, completed Issue, checkout, active manifest, claims,
+   and immutable output directories.
+2. Verify that the merge commit is current `origin/main`, has the expected first
+   parent, and contains only the rehearsal task implementation and its delivery
+   evidence relative to that parent.
+3. Fast-forward the clean rehearsal controller to that exact merge commit. Create
+   a normal `git revert -m 1` commit with the guarded automation identity. Do not
+   reset, rebase, force-push, delete, or otherwise rewrite `main` history.
+4. Before pushing, prove the revert commit's tree equals the merge commit's first
+   parent tree. Push the revert by exact SHA-to-`refs/heads/main` refspec, then
+   re-fetch and verify `main == origin/main` at the revert.
+5. Preserve the closed `complete` Issue outside the active rehearsal repository,
+   for example by transferring it to a private rehearsal-Issue archive owned by
+   the same account. Do not delete its discussion or edit its hashed workflow
+   history. Verify the active repository's complete issue listing no longer
+   returns it for the task ID.
+6. Preserve the merged PR and its checks. Delete only the exact old remote task
+   branch, after re-reading its head and using
+   `--force-with-lease=<full-ref>:<expected-oid>`.
+7. Verify the standalone task checkout's resolved path, origin, branch, HEAD,
+   upstream, and clean status; verify no Unity, IDE, terminal, provider process,
+   or container uses it; then remove only that literal task directory.
+8. Move the exact active checkout manifest to a no-overwrite timestamped archive
+   under `.task-review-agent/archive/<TASK-ID>/<UTC-TIMESTAMP>/`. Retain every
+   immutable output/run directory.
+9. Re-fetch with pruning and prove: clean synchronized rehearsal `main`,
+   TaskGraph state `not_delivered`, TaskGraph validation PASS, no active matching
+   Issue, no task branch, no claim ref, no task checkout, and no active manifest.
+10. Commit and validate any pipeline fixes on rehearsal `main` before starting the
+    next task run. Launch the same task ID explicitly only after all fresh-state
+    checks pass.
+
+The required report includes both the original merge and the additive revert,
+the archived Issue URL, preserved PR URL, deleted task branch/head, removed
+checkout, archived manifest, retained logs, new rehearsal-main commit, and final
+TaskGraph state. The original merge remains in history as proof of run 1; the
+revert makes the current tree eligible for run 2 without claiming run 1 never
+happened.
 
 ## Required reset report
 

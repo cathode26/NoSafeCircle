@@ -352,7 +352,7 @@ def test_action_narrowing_and_host_validation_are_strict() -> None:
         "missing main object did not route to checkout preparation",
     )
 
-    for prefixes in ([], [""], ["Assets/", "  "]):
+    for prefixes in ([],):
         decision = SupervisorDecision(
             TASK_ID,
             "search_repository",
@@ -367,6 +367,33 @@ def test_action_narrowing_and_host_validation_are_strict() -> None:
             raise AssertionError(
                 f"unsafe search prefixes passed host validation: {prefixes!r}"
             )
+
+    for root_prefix in ("", ".", "./"):
+        list_decision = SupervisorDecision(
+            TASK_ID,
+            "list_repository_files",
+            {"prefix": root_prefix},
+            "List approved repository files.",
+        )
+        list_values = list_decision.validate_arguments(
+            required=("prefix",),
+            optional=("limit",),
+        )
+        require(list_values["prefix"] == ".", "root file-list prefix was not normalized")
+
+        search_decision = SupervisorDecision(
+            TASK_ID,
+            "search_repository",
+            {"query": "door", "prefixes": [root_prefix]},
+            "Search approved repository files.",
+        )
+        search_values = search_decision.validate_arguments(
+            required=("query", "prefixes")
+        )
+        require(
+            search_values["prefixes"] == ["."],
+            "root search prefix was not normalized",
+        )
 
 
 def test_controller_rejects_empty_prefixes() -> None:

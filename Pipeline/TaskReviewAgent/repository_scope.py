@@ -20,6 +20,25 @@ from .pipeline_scope import (
 class RepositoryScopeAuthority(_RepositoryScopeAuthority):
     """Repository scope authority with correct `git grep HEAD` result parsing."""
 
+    def list_files(
+        self,
+        *,
+        prefix: str = "Assets/",
+        limit: int = 200,
+    ) -> dict[str, Any]:
+        if not isinstance(prefix, str) or prefix.strip() not in (".", "./"):
+            return super().list_files(prefix=prefix, limit=limit)
+        self._assert_checkout()
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise RepositoryScopeError("file-list limit must be from 1 through 1000")
+        paths = [path for path in self._tracked() if _under(path, _READ_PREFIXES)]
+        return {
+            "prefix": ".",
+            "count": min(len(paths), limit),
+            "truncated": len(paths) > limit,
+            "paths": paths[:limit],
+        }
+
     def search(
         self,
         *,
@@ -36,11 +55,15 @@ class RepositoryScopeAuthority(_RepositoryScopeAuthority):
             raise RepositoryScopeError("search limit must be from 1 through 300")
         normalized_prefixes: list[str] = []
         for item in prefixes:
+            if isinstance(item, str) and item.strip() in (".", "./"):
+                normalized_prefixes.extend(_READ_PREFIXES)
+                continue
             path = _repo_path(item, field="search prefix")
             check_path = path if path.endswith("/") else path + "/"
             if not _under(check_path, _READ_PREFIXES):
                 raise RepositoryScopeError(f"search prefix is outside approved roots: {path}")
             normalized_prefixes.append(path)
+        normalized_prefixes = list(dict.fromkeys(normalized_prefixes))
         result = _git(
             self.checkout,
             "grep",
@@ -84,6 +107,7 @@ class RepositoryScopeAuthority(_RepositoryScopeAuthority):
 # TaskReviewAgent modules created before this facade imported the original class directly.
 # Install the corrected method on that class so all existing call sites receive the same
 # deterministic search behavior without widening the read authority.
+_RepositoryScopeAuthority.list_files = RepositoryScopeAuthority.list_files
 _RepositoryScopeAuthority.search = RepositoryScopeAuthority.search
 
 

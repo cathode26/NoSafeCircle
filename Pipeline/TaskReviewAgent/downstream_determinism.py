@@ -205,6 +205,19 @@ def _patched_validate_arguments(
         required=required,
         optional=optional,
     )
+    if self.action == "list_repository_files":
+        prefix = values.get("prefix")
+        if isinstance(prefix, str) and prefix.strip() in ("", ".", "./"):
+            values["prefix"] = "."
+    if self.action == "search_repository":
+        prefixes = values.get("prefixes")
+        if isinstance(prefixes, (list, tuple)):
+            values["prefixes"] = [
+                "."
+                if isinstance(item, str) and item.strip() in ("", ".", "./")
+                else item
+                for item in prefixes
+            ]
     for key, value in values.items():
         if isinstance(value, str) and not value.strip():
             raise CodexSupervisorError(
