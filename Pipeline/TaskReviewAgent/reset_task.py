@@ -8,6 +8,7 @@ import datetime as dt
 import json
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -141,6 +142,54 @@ def _task_pull_requests(
     return [item for item in value if isinstance(item, dict)]
 
 
+def _wait_for_managed_issue_close(
+    runner: CommandRunner,
+    source: Path,
+    repository: str,
+    task_id: str,
+    issue_number: int,
+) -> None:
+    """Wait for GitHub's exact Issue view and search indexes to agree."""
+
+    for attempt in range(8):
+        exact = _json_command(
+            runner,
+            (
+                "gh",
+                "issue",
+                "view",
+                str(issue_number),
+                "--repo",
+                repository,
+                "--json",
+                "number,state",
+            ),
+            cwd=source,
+        )
+        open_issues = _managed_task_issues(
+            runner, source, repository, task_id, "open"
+        )
+        closed_numbers = {
+            item.get("number")
+            for item in _managed_task_issues(
+                runner, source, repository, task_id, "closed"
+            )
+        }
+        if (
+            isinstance(exact, dict)
+            and exact.get("number") == issue_number
+            and exact.get("state") == "CLOSED"
+            and not open_issues
+            and issue_number in closed_numbers
+        ):
+            return
+        if attempt < 7:
+            time.sleep(min(1 + attempt, 4))
+    raise TaskResetError(
+        "GitHub Issue close did not become consistent across exact view and search"
+    )
+
+
 def _validated_incomplete_issue(
     runner: CommandRunner,
     source: Path,
@@ -149,7 +198,7 @@ def _validated_incomplete_issue(
     *,
     task_id: str,
     branch: str,
-) -> tuple[Any, str]:
+) -> tuple[Any, str | None]:
     number = issue.get("number")
     body = issue.get("body")
     if type(number) is not int or not isinstance(body, str):
@@ -159,8 +208,8 @@ def _validated_incomplete_issue(
         raise TaskResetError("open Issue does not contain the exact managed task state")
     if state.state is WorkflowState.COMPLETE:
         raise TaskResetError("completed rehearsal work requires merged-rehearsal reset mode")
-    if state.branch != branch or state.head_commit is None:
-        raise TaskResetError("open Issue branch/head does not identify the abandoned run")
+    if state.branch not in (None, branch):
+        raise TaskResetError("open Issue branch differs from the abandoned task branch")
     comments_value = _json_command(
         runner,
         (
@@ -178,8 +227,38 @@ def _validated_incomplete_issue(
     comments = comments_value.get("comments") if isinstance(comments_value, dict) else None
     if not isinstance(comments, list):
         raise TaskResetError("managed Issue comments were not readable")
-    validate_event_chain(state, parse_events(comments))
-    return state, str(state.head_commit)
+    events = parse_events(comments)
+    validate_event_chain(state, events)
+    task_head = str(state.head_commit) if state.head_commit is not None else None
+    if task_head is None:
+        # A run may be abandoned after its lease is released or blocked but before
+        # prepare_task_checkout creates a branch.  In that state the projected
+        # workflow deliberately clears branch/head/checkout identity.  The
+        # append-only lease event must still name this contract's exact branch if
+        # a lease was ever acquired; otherwise this is the pristine initialized
+        # Issue and has no run-owned Git object to remove.
+        leased_branches = {
+            event.details.get("branch")
+            for event in events
+            if event.event_type.value == "agent_lease_acquired"
+        }
+        if leased_branches and leased_branches != {branch}:
+            raise TaskResetError(
+                "managed Issue lease history differs from the abandoned task branch"
+            )
+        if any(
+            value is not None
+            for value in (
+                state.branch,
+                state.checkout_path,
+                state.head_commit,
+                state.human_handoff_commit,
+            )
+        ):
+            raise TaskResetError(
+                "branchless abandoned Issue retains partial Git identity"
+            )
+    return state, task_head
 
 
 class AbandonedRehearsalTaskReset(RehearsalTaskReset):
@@ -233,7 +312,7 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
         )
         if workflow_state.task_contract_sha256 != self.task.get("task_contract_sha256"):
             raise TaskResetError("managed Issue task-contract identity changed")
-        if (
+        if task_head is not None and (
             _git(
                 self.runner,
                 self.source,
@@ -252,7 +331,9 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
         )
         if len(pull_requests) > 1:
             raise TaskResetError("multiple open pull requests use the abandoned task branch")
-        if pull_requests and pull_requests[0].get("headRefOid") != task_head:
+        if pull_requests and (
+            task_head is None or pull_requests[0].get("headRefOid") != task_head
+        ):
             raise TaskResetError("open pull-request head differs from the managed Issue head")
         remote_branch_oid = _remote_ref_oid(
             self.runner,
@@ -276,6 +357,10 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
 
         checkout_facts = None
         if self.checkout.exists():
+            if task_head is None:
+                raise TaskResetError(
+                    "branchless abandoned Issue unexpectedly has a canonical checkout"
+                )
             if not self.checkout.is_dir():
                 raise TaskResetError("canonical task checkout is not a directory")
             checkout_facts = _inspect_checkout(
@@ -337,12 +422,13 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
         }
 
     def _close_abandoned_github_objects(self, plan: dict[str, Any]) -> None:
+        task_head = plan.get("task_head") or "not created"
         body = (
             "## Abandoned rehearsal run reset\n\n"
             f"Vincent explicitly requested a fresh `{self.task_id}` rehearsal run. "
             "This incomplete run was not merged and no completion was fabricated.\n\n"
             f"- Task branch: `{plan['task_branch']}`\n"
-            f"- Abandoned head: `{plan['task_head']}`\n"
+            f"- Abandoned head: `{task_head}`\n"
             f"- Replacement base: current `main` at `{plan['main_head']}`\n\n"
             "The Issue/PR discussion and immutable run outputs remain as audit history."
         )
@@ -413,22 +499,17 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
                 "--untracked-files=all",
             ):
                 raise TaskResetError("controller is dirty after reset")
-            if _managed_task_issues(
-                self.runner, self.source, self.repository, self.task_id, "open"
-            ):
-                raise TaskResetError("managed Issue is still open after reset")
+            _wait_for_managed_issue_close(
+                self.runner,
+                self.source,
+                self.repository,
+                self.task_id,
+                int(plan["issue"]["number"]),
+            )
             if _task_pull_requests(
                 self.runner, self.source, self.repository, self.branch, "open"
             ):
                 raise TaskResetError("task pull request is still open after reset")
-            closed_numbers = {
-                item.get("number")
-                for item in _managed_task_issues(
-                    self.runner, self.source, self.repository, self.task_id, "closed"
-                )
-            }
-            if plan["issue"]["number"] not in closed_numbers:
-                raise TaskResetError("closed abandoned Issue could not be verified")
             if _remote_ref_oid(
                 self.runner, self.source, "origin", f"refs/heads/{self.branch}"
             ) is not None:
@@ -465,7 +546,6 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
             "operation": "abandon_incomplete_task_in_private_rehearsal",
             "task_id": self.task_id,
             "repository": self.repository,
-            "status": "stopped",
             "report_path": str(report_path),
         }
         for field, expected in fixed.items():
@@ -473,19 +553,34 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
                 raise TaskResetError(
                     f"resume receipt {field} differs from the requested reset"
                 )
+        if report.get("status") not in {
+            "stopped",
+            "github_objects_closed",
+            "remote_branch_removed",
+            "checkout_removed",
+            "state_archived",
+        }:
+            raise TaskResetError("resume receipt status is not safely resumable")
         main_head = str(report.get("main_head") or "")
-        task_head = str(report.get("task_head") or "")
+        raw_task_head = report.get("task_head")
+        task_head = str(raw_task_head) if raw_task_head is not None else None
         issue = report.get("issue")
         checkout_facts = report.get("checkout")
         if (
             not re.fullmatch(r"[0-9a-f]{40}", main_head)
-            or not re.fullmatch(r"[0-9a-f]{40}", task_head)
+            or (task_head is not None and not re.fullmatch(r"[0-9a-f]{40}", task_head))
             or not isinstance(issue, dict)
             or type(issue.get("number")) is not int
-            or not isinstance(checkout_facts, dict)
-            or checkout_facts.get("path") != str(self.checkout)
-            or checkout_facts.get("head") != task_head
-            or checkout_facts.get("branch") != self.branch
+            or (
+                task_head is not None
+                and (
+                    not isinstance(checkout_facts, dict)
+                    or checkout_facts.get("path") != str(self.checkout)
+                    or checkout_facts.get("head") != task_head
+                    or checkout_facts.get("branch") != self.branch
+                )
+            )
+            or (task_head is None and checkout_facts is not None)
         ):
             raise TaskResetError("resume receipt omitted exact preflight identities")
         if _git_text(self.runner, self.source, "rev-parse", "HEAD") != main_head:

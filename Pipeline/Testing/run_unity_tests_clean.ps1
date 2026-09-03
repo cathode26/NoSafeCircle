@@ -148,6 +148,39 @@ function ConvertTo-WindowsCommandLineArgument {
     return $quoted.ToString()
 }
 
+function Wait-ForRepositoryQuiescence {
+    param(
+        [string]$RepositoryRoot,
+        [int]$RequiredStableSamples = 4,
+        [int]$SampleDelayMilliseconds = 500
+    )
+
+    # Unity can finish its test process before a package/settings writer has
+    # released its final filesystem update.  A single immediate status read can
+    # therefore produce a false-clean result.  Require the raw porcelain state
+    # to remain identical across a bounded settling window before the
+    # authoritative post-run checks are captured.
+    $previous = $null
+    $stable = 0
+    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+        $current = Invoke-Git $RepositoryRoot @(
+            "status", "--porcelain=v1", "--untracked-files=all"
+        )
+        if ($null -ne $previous -and $current -eq $previous) {
+            $stable++
+        }
+        else {
+            $stable = 1
+            $previous = $current
+        }
+        if ($stable -ge $RequiredStableSamples) {
+            return
+        }
+        Start-Sleep -Milliseconds $SampleDelayMilliseconds
+    }
+    throw "Repository did not reach a stable post-Unity filesystem state."
+}
+
 function Invoke-PythonCapture {
     param([string[]]$Arguments)
 
@@ -249,6 +282,7 @@ try {
     finally {
         $postCheckFailure = $null
         try {
+            Wait-ForRepositoryQuiescence $repositoryRoot
             $postHead = Invoke-Git $repositoryRoot @("rev-parse", "HEAD")
             $postTree = Invoke-Git $repositoryRoot @("rev-parse", "HEAD^{tree}")
             $postStatus = Get-WorkingTreeStatus $repositoryRoot
