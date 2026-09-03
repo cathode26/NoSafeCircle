@@ -215,9 +215,13 @@ def _mainline_status(
     observation: Mapping[str, Any],
     state: Mapping[str, Any],
 ) -> dict[str, Any]:
+    phase = state.get("phase")
     if (
         state.get("state") != WorkflowState.AGENT_WORKING.value
-        or state.get("phase") != WorkflowPhase.DELIVERY_EVIDENCE.value
+        or phase not in (
+            WorkflowPhase.DELIVERY_EVIDENCE.value,
+            WorkflowPhase.MERGE_CLOSEOUT.value,
+        )
         or state.get("worker_id") != controller.workflow.worker_id
     ):
         return {"status": "not_applicable"}
@@ -225,6 +229,9 @@ def _mainline_status(
     if not isinstance(checkout, Mapping) or checkout.get("status") != "ready":
         return {"status": "checkout_not_ready"}
     task_head = state.get("head_commit")
+    recovery = checkout.get("persisted_evidence_recovery")
+    if phase == WorkflowPhase.MERGE_CLOSEOUT.value and isinstance(recovery, Mapping):
+        task_head = recovery.get("evidence_commit")
     environment = observation.get("environment")
     main_head = (
         environment.get("source_head")
@@ -631,9 +638,23 @@ def _patched_human_validation_artifact(
 
 
 def _integrate_current_main(self: Any) -> dict[str, Any]:
-    observation, workflow_state = self._require_lease(
-        WorkflowPhase.DELIVERY_EVIDENCE
-    )
+    observation = self.observe()
+    workflow_state = _workflow_state(observation)
+    phase = workflow_state.get("phase")
+    if (
+        workflow_state.get("state") != WorkflowState.AGENT_WORKING.value
+        or workflow_state.get("worker_id") != self.workflow.worker_id
+        or phase not in (
+            WorkflowPhase.DELIVERY_EVIDENCE.value,
+            WorkflowPhase.MERGE_CLOSEOUT.value,
+        )
+    ):
+        raise DownstreamPipelineError(
+            "mainline integration requires this worker's active downstream lease"
+        )
+    checkout_state = observation.get("checkout")
+    if not isinstance(checkout_state, Mapping) or checkout_state.get("status") != "ready":
+        raise DownstreamPipelineError("mainline integration requires a ready checkout")
     self._assert_checkout()
     task_head = _git_text(
         self.command_runner,
@@ -647,15 +668,29 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
         "branch",
         "--show-current",
     )
+    recovery = checkout_state.get("persisted_evidence_recovery")
+    recovered_evidence = (
+        phase == WorkflowPhase.MERGE_CLOSEOUT.value
+        and isinstance(recovery, Mapping)
+        and recovery.get("status") == "recovered"
+        and recovery.get("evidence_commit") == task_head
+        and recovery.get("implementation_commit") == workflow_state.get("head_commit")
+        and self.state.get("evidence_commit") == task_head
+        and self.state.get("implementation_commit") == workflow_state.get("head_commit")
+    )
     if (
-        task_head != workflow_state.get("head_commit")
+        (task_head != workflow_state.get("head_commit") and not recovered_evidence)
         or branch != workflow_state.get("branch")
     ):
         raise DownstreamPipelineError(
             "integration requires the exact Issue branch and head"
         )
     human = self._latest_human_validation()
-    expected_human_commit = task_head
+    expected_human_commit = (
+        str(self.state.get("implementation_commit"))
+        if recovered_evidence
+        else task_head
+    )
     if (
         human is None
         or human.get("result") != "pass"

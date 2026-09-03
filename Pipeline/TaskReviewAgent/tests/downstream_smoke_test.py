@@ -23,6 +23,7 @@ from Pipeline.TaskReviewAgent.delivery_review import (  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_issue import DownstreamIssueCoordinator  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_pipeline import (  # noqa: E402
     DownstreamPipelineError,
+    _default_runner,
     _manifest,
 )
 from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
@@ -793,6 +794,73 @@ def test_pull_request_reuse_ignores_historical_runs() -> None:
     )
 
 
+def test_interrupted_pr_open_recovers_exact_persisted_evidence_head() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-evidence-resume-") as temporary:
+        root = Path(temporary)
+        remote = root / "remote.git"
+        checkout = root / "checkout"
+        run("git", "init", "--bare", str(remote), cwd=root)
+        init_repo(checkout)
+        git(checkout, "config", "user.name", "Evidence Resume Test")
+        git(checkout, "config", "user.email", "evidence-resume@example.invalid")
+        (checkout / "implementation.txt").write_text("implemented\n", encoding="utf-8")
+        implementation = commit_all(checkout, "Implement task")
+        git(checkout, "switch", "-c", BRANCH)
+        git(checkout, "remote", "add", "origin", str(remote))
+        git(checkout, "push", "-u", "origin", BRANCH)
+        evidence_path = "Pipeline/TaskGraph/evidence/NSC-777/record.json"
+        target = checkout / evidence_path
+        target.parent.mkdir(parents=True)
+        target.write_text("{}\n", encoding="utf-8")
+        evidence = commit_all(checkout, "Record delivery evidence")
+        evidence_tree = git(checkout, "rev-parse", "HEAD^{tree}")
+        git(checkout, "push", "origin", BRANCH)
+
+        reasons = [
+            f"checkout HEAD '{evidence}' does not match workflow head '{implementation}'",
+            "recorded handoff commit is not the pushed remote task branch",
+        ]
+        controller = object.__new__(ResumableDownstreamTaskController)
+        controller.checkout = checkout
+        controller.command_runner = _default_runner
+        controller.state = {
+            "implementation_commit": implementation,
+            "evidence_commit": evidence,
+            "evidence_tree": evidence_tree,
+            "created_paths": [evidence_path],
+        }
+        recovered = controller._recover_persisted_evidence_checkout(
+            {
+                "coordination": {
+                    "workflow_state": {
+                        "phase": "merge_closeout",
+                        "head_commit": implementation,
+                        "branch": BRANCH,
+                    }
+                },
+                "checkout": {
+                    "status": "conflict",
+                    "head_commit": evidence,
+                    "branch": BRANCH,
+                    "clean": True,
+                    "reasons": reasons,
+                },
+                "environment": {
+                    "ready": False,
+                    "controller_clean": True,
+                    "taskgraph_valid": True,
+                    "errors": reasons,
+                },
+            }
+        )
+        require(recovered["checkout"]["status"] == "ready", "evidence head was not recovered")
+        require(
+            recovered["checkout"]["expected_head"] == evidence,
+            "recovered checkout used the wrong head",
+        )
+        require(recovered["environment"]["ready"] is True, "environment stayed blocked")
+
+
 def main() -> int:
     tests = (
         test_issue_lifecycle_resumes_evidence_head,
@@ -802,6 +870,7 @@ def main() -> int:
         test_downstream_gh_pr_view_uses_bound_repository_not_hardcode,
         test_downstream_repository_mismatch_fails_before_any_gh_command,
         test_pull_request_reuse_ignores_historical_runs,
+        test_interrupted_pr_open_recovers_exact_persisted_evidence_head,
         test_post_merge_accepts_newer_main,
         test_delivery_review_materializes_exact_proposal,
         test_manifest_rejects_zero_discovered_tests,

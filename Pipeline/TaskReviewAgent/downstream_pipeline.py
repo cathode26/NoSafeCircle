@@ -298,6 +298,7 @@ class DownstreamTaskController:
 
     def observe(self) -> dict[str, Any]:
         observation = self.workflow.observe_goal_state()
+        observation = self._recover_persisted_evidence_checkout(observation)
         state = _workflow_state(observation)
         observation["downstream"] = {
             "schema_version": DOWNSTREAM_SCHEMA_VERSION,
@@ -308,6 +309,124 @@ class DownstreamTaskController:
         }
         self.last_observation = _copy(observation)
         return _copy(observation)
+
+    def _recover_persisted_evidence_checkout(
+        self,
+        observation: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Recognize an exact evidence commit left by an interrupted PR-open step."""
+
+        value = _copy(observation)
+        workflow_state = _workflow_state(value)
+        checkout = value.get("checkout")
+        evidence_commit = self.state.get("evidence_commit")
+        implementation_commit = self.state.get("implementation_commit")
+        evidence_tree = self.state.get("evidence_tree")
+        created_paths = self.state.get("created_paths")
+        if (
+            workflow_state is None
+            or workflow_state.get("phase") != WorkflowPhase.MERGE_CLOSEOUT.value
+            or not isinstance(checkout, Mapping)
+            or checkout.get("status") == "ready"
+            or not isinstance(evidence_commit, str)
+            or not _SHA40.fullmatch(evidence_commit)
+            or not isinstance(implementation_commit, str)
+            or not _SHA40.fullmatch(implementation_commit)
+            or workflow_state.get("head_commit") != implementation_commit
+            or checkout.get("head_commit") != evidence_commit
+            or checkout.get("branch") != workflow_state.get("branch")
+            or checkout.get("clean") is not True
+            or not isinstance(evidence_tree, str)
+            or not _SHA40.fullmatch(evidence_tree)
+            or not isinstance(created_paths, list)
+            or not created_paths
+            or any(not isinstance(path, str) or not path for path in created_paths)
+        ):
+            return value
+        if not self.checkout.is_dir():
+            return value
+        if (
+            _git(
+                self.command_runner,
+                self.checkout,
+                "merge-base",
+                "--is-ancestor",
+                implementation_commit,
+                evidence_commit,
+                check=False,
+            ).returncode
+            != 0
+        ):
+            return value
+        actual_tree = _git_text(
+            self.command_runner,
+            self.checkout,
+            "rev-parse",
+            f"{evidence_commit}^{{tree}}",
+            check=False,
+        )
+        if actual_tree != evidence_tree:
+            return value
+        actual_paths = _git_text(
+            self.command_runner,
+            self.checkout,
+            "diff",
+            "--name-only",
+            implementation_commit,
+            evidence_commit,
+            "--",
+            check=False,
+        ).splitlines()
+        if sorted(actual_paths, key=str.casefold) != sorted(created_paths, key=str.casefold):
+            return value
+        remote = _git_text(
+            self.command_runner,
+            self.checkout,
+            "ls-remote",
+            "--heads",
+            "origin",
+            f"refs/heads/{workflow_state.get('branch')}",
+            check=False,
+        ).split()
+        if not remote or remote[0] != evidence_commit:
+            return value
+
+        original_reasons = list(checkout.get("reasons") or [])
+        recovered = dict(checkout)
+        recovered.update(
+            {
+                "status": "ready",
+                "managed": True,
+                "expected_head": evidence_commit,
+                "reasons": [],
+                "persisted_evidence_recovery": {
+                    "status": "recovered",
+                    "implementation_commit": implementation_commit,
+                    "evidence_commit": evidence_commit,
+                    "evidence_tree": evidence_tree,
+                    "created_paths": list(created_paths),
+                    "authority": "persisted_downstream_receipt_and_exact_git_identity",
+                },
+            }
+        )
+        value["checkout"] = recovered
+        environment = value.get("environment")
+        if isinstance(environment, Mapping):
+            normalized_environment = dict(environment)
+            errors = [
+                item
+                for item in list(normalized_environment.get("errors") or [])
+                if item not in original_reasons
+            ]
+            normalized_environment["errors"] = errors
+            if (
+                not errors
+                and normalized_environment.get("controller_clean") is True
+                and normalized_environment.get("taskgraph_valid") is True
+            ):
+                normalized_environment["ready"] = True
+            value["environment"] = normalized_environment
+        return value
 
     def _next_action(
         self,

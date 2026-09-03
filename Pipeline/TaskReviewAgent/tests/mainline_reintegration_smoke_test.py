@@ -556,12 +556,96 @@ def test_runtime_sensitive_integration_creates_new_handoff() -> None:
         )
 
 
+def test_partial_evidence_closeout_integrates_new_main_before_pr() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-mainline-partial-evidence-") as temporary:
+        checkout, _base, implementation, main_head = create_fixture(
+            Path(temporary),
+            sensitive=False,
+        )
+        evidence_path = "Pipeline/TaskGraph/evidence/NSC-777/record.json"
+        target = checkout / evidence_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("{}\n", encoding="utf-8")
+        evidence = commit_all(checkout, "Record delivery evidence")
+        git(checkout, "push", "origin", BRANCH)
+        captured: dict[str, Any] = {}
+
+        controller = object.__new__(ResumableDownstreamTaskController)
+        controller.task_id = TASK_ID
+        controller.checkout = checkout
+        controller.command_runner = _default_runner
+        controller.workflow = SimpleNamespace(
+            worker_id="worker-a",
+            publish_human_handoff=lambda **values: captured.update(values) or values,
+        )
+        controller.state = {
+            "implementation_commit": implementation,
+            "evidence_commit": evidence,
+            "evidence_tree": git(checkout, "rev-parse", "HEAD^{tree}"),
+            "created_paths": [evidence_path],
+            "validation_manifests": [{"stale": True}],
+        }
+        observation = {
+            "task": {"task_id": TASK_ID, **task()},
+            "environment": {"source_head": main_head},
+            "coordination": {
+                "workflow_state": {
+                    "state": "agent_working",
+                    "phase": "merge_closeout",
+                    "worker_id": "worker-a",
+                    "head_commit": implementation,
+                    "human_handoff_commit": implementation,
+                    "branch": BRANCH,
+                }
+            },
+            "checkout": {
+                "status": "ready",
+                "head_commit": evidence,
+                "branch": BRANCH,
+                "clean": True,
+                "persisted_evidence_recovery": {
+                    "status": "recovered",
+                    "implementation_commit": implementation,
+                    "evidence_commit": evidence,
+                },
+            },
+        }
+        controller.observe = lambda: observation
+        controller._assert_checkout = lambda: require(
+            not bool(git(checkout, "status", "--porcelain=v1")),
+            "checkout is dirty",
+        )
+        controller._latest_human_validation = lambda: {
+            "result": "pass",
+            "tested_commit": implementation,
+            "body": "synthetic PASS",
+        }
+        controller._ensure_git_identity = lambda: None
+        controller._persist = lambda: None
+
+        result = controller.integrate_current_main()
+        require(
+            result["status"] == "human_revalidation_required",
+            f"unexpected partial-evidence integration result: {result}",
+        )
+        integrated = git(checkout, "rev-parse", "HEAD")
+        parents = git(checkout, "rev-list", "--parents", "-n", "1", integrated).split()
+        require(
+            parents == [integrated, evidence, main_head],
+            "integration did not preserve evidence head and current main as ordered parents",
+        )
+        require(captured.get("head_commit") == integrated, "new handoff used the wrong commit")
+        require("evidence_commit" not in controller.state, "stale evidence receipt survived")
+        require(controller.state["validation_manifests"] == [], "stale tests survived")
+
+
 def main() -> int:
     tests = (
         test_classifier_is_narrow,
         test_action_and_terminal_contract_installed,
         test_automation_only_integration_creates_new_handoff,
         test_runtime_sensitive_integration_creates_new_handoff,
+        test_partial_evidence_closeout_integrates_new_main_before_pr,
     )
     for test in tests:
         test()

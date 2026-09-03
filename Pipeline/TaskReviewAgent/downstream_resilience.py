@@ -707,9 +707,23 @@ def _prepare_contract_migration_mainline_bridge(
 
 
 def _patched_integrate_current_main(self: Any) -> dict[str, Any]:
-    _observation, state = self._require_lease(
-        WorkflowPhase.DELIVERY_EVIDENCE
-    )
+    observation = self.observe()
+    state = _workflow_state(observation)
+    phase = state.get("phase")
+    if (
+        state.get("state") != WorkflowState.AGENT_WORKING.value
+        or state.get("worker_id") != self.workflow.worker_id
+        or phase not in (
+            WorkflowPhase.DELIVERY_EVIDENCE.value,
+            WorkflowPhase.MERGE_CLOSEOUT.value,
+        )
+    ):
+        raise DownstreamPipelineError(
+            "mainline integration requires this worker's active downstream lease"
+        )
+    checkout = observation.get("checkout")
+    if not isinstance(checkout, Mapping) or checkout.get("status") != "ready":
+        raise DownstreamPipelineError("mainline integration requires a ready checkout")
     head = _git_text(
         self.command_runner,
         self.checkout,
@@ -718,7 +732,8 @@ def _patched_integrate_current_main(self: Any) -> dict[str, Any]:
     )
     human = self._latest_human_validation()
     if (
-        isinstance(human, Mapping)
+        phase == WorkflowPhase.DELIVERY_EVIDENCE.value
+        and isinstance(human, Mapping)
         and human.get("result") == "pass"
         and human.get("tested_commit") != head
     ):
