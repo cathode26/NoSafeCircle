@@ -105,6 +105,64 @@ def advance_main(controller: Path) -> tuple[str, str]:
     return git(controller, "rev-parse", "HEAD"), git(controller, "rev-parse", "HEAD^{tree}")
 
 
+def test_active_implementation_defers_main_advance_to_candidate_integration() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-active-main-progress-") as temporary:
+        root = Path(temporary)
+        controller, remote, initial_main = create_fixture(root)
+        contract, contract_hash, initial_tree = contract_facts(controller)
+        checkout_root = root / "operator"
+        checkout = checkout_root / TASK_ID
+        state = initial_state(
+            task_id=TASK_ID,
+            task_contract_sha256=contract_hash,
+            now="2026-08-27T13:00:00Z",
+        )
+        state = lease(
+            state,
+            worker=WORKER_A,
+            source_head=initial_main,
+            checkout=checkout,
+            now="2026-08-27T13:01:00Z",
+        )
+        initial_observation = observation(
+            controller=controller,
+            remote=remote,
+            contract=contract,
+            contract_hash=contract_hash,
+            source_head=initial_main,
+            source_tree=initial_tree,
+            state=state,
+            worker=WORKER_A,
+        )
+        manager = ResumableTaskCheckoutManager(
+            source_root=controller,
+            task_id=TASK_ID,
+            checkout_root=checkout_root,
+            worker_id=WORKER_A,
+            allow_local_remote_for_tests=True,
+        )
+        require(manager.prepare(initial_observation)["status"] == "ready", "create failed")
+        current_main, current_tree = advance_main(controller)
+        advanced_observation = observation(
+            controller=controller,
+            remote=remote,
+            contract=contract,
+            contract_hash=contract_hash,
+            source_head=current_main,
+            source_tree=current_tree,
+            state=state,
+            worker=WORKER_A,
+        )
+        inspected = manager.inspect(advanced_observation)
+        require(inspected["status"] == "ready", f"active checkout was stranded: {inspected}")
+        require(inspected.get("base_main_advanced") is True, "main advance was not reported")
+        require(
+            inspected.get("current_main_integration_deferred_to") == "candidate_integration",
+            "main integration was deferred to the wrong boundary",
+        )
+        require(git(checkout, "rev-parse", "HEAD") == initial_main, "stable base was rewritten")
+
+
 def test_resume_ignores_only_stale_origin_main() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-resume-main-progress-") as temporary:
         root = Path(temporary)
@@ -295,6 +353,7 @@ def test_resume_recovers_exact_unity_churn_and_refreshes_main() -> None:
 
 def main() -> int:
     tests = (
+        test_active_implementation_defers_main_advance_to_candidate_integration,
         test_resume_ignores_only_stale_origin_main,
         test_resume_recovers_exact_unity_churn_and_refreshes_main,
     )

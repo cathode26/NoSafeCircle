@@ -39,6 +39,12 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
 
     def inspect(self, observation: dict[str, Any]) -> dict[str, Any]:
         result = super().inspect(observation)
+        if not self.is_resume(observation) and result.get("status") == "conflict":
+            deferred = self._defer_active_implementation_main_advance(
+                observation, result
+            )
+            if deferred:
+                return deferred
         if not self.is_resume(observation) or result.get("status") != "conflict":
             return result
         reasons = list(result.get("reasons") or [])
@@ -56,6 +62,87 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
         }
         result["status"] = "ready" if managed else "unmanaged_exact"
         return result
+
+    def _defer_active_implementation_main_advance(
+        self,
+        observation: dict[str, Any],
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Keep a proven implementation base stable until candidate integration.
+
+        Current main is intentionally integrated by CandidateIntegrator after the
+        execution crew returns and immediately before the initial handoff commit.
+        Refreshing a clean in-progress checkout sooner discards its stable input
+        identity and used to strand concurrent runs whenever another task advanced
+        main.
+        """
+
+        workflow = (observation.get("coordination") or {}).get("workflow_state") or {}
+        if (
+            workflow.get("state") != "agent_working"
+            or workflow.get("phase") != "implementation"
+        ):
+            return {}
+        reasons = set(result.get("reasons") or [])
+        head_reason = next(
+            (
+                reason
+                for reason in reasons
+                if reason.startswith("checkout HEAD ")
+                and " does not match workflow head " in reason
+            ),
+            None,
+        )
+        tree_reason = next(
+            (
+                reason
+                for reason in reasons
+                if reason == "fresh checkout tree does not match observed source tree"
+            ),
+            None,
+        )
+        permitted = {_STALE_MAIN_REASON}
+        if head_reason:
+            permitted.add(head_reason)
+        if tree_reason:
+            permitted.add(tree_reason)
+        if not reasons or not reasons.issubset(permitted):
+            return {}
+
+        manifest = self._read_manifest()
+        remote_url = str(result.get("remote_url") or "")
+        current_main = str((observation.get("environment") or {}).get("source_head") or "")
+        base_head = str((manifest or {}).get("initial_source_head") or "")
+        base_tree = str((manifest or {}).get("initial_source_tree") or "")
+        if (
+            manifest is None
+            or not self._manifest_matches(observation, remote_url)
+            or result.get("head_commit") != base_head
+            or result.get("head_tree") != base_tree
+            or result.get("clean") is not True
+            or not base_head
+            or not current_main
+            or _git(
+                self.source_root,
+                "merge-base",
+                "--is-ancestor",
+                base_head,
+                current_main,
+                check=False,
+            ).returncode
+            != 0
+        ):
+            return {}
+        return {
+            **result,
+            "status": "ready",
+            "reasons": [],
+            "managed": True,
+            "base_main_advanced": True,
+            "implementation_base_head": base_head,
+            "deferred_current_main_head": current_main,
+            "current_main_integration_deferred_to": "candidate_integration",
+        }
 
     def prepare(self, observation: dict[str, Any]) -> dict[str, Any]:
         recovery = self._recover_safe_resume_state(observation)
