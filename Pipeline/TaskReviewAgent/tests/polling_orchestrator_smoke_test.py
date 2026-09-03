@@ -29,6 +29,7 @@ from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ArchitectAdvisory,
     ArchitectAnalysis,
     PredictedChangeSurface,
+    evaluate_architect_policy,
 )
 from Pipeline.TaskReviewAgent.contracts import TaskReviewContractError  # noqa: E402
 from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
@@ -55,6 +56,7 @@ from Pipeline.TaskReviewAgent.polling_orchestrator import (  # noqa: E402
     PollingOrchestrator,
     SchedulerAlreadyActive,
     SchedulerLock,
+    build_decomposition_worker_command,
     build_worker_command,
     observe_durable_integration_reservations,
     read_branch_changed_paths,
@@ -129,6 +131,18 @@ def task(task_id: str, *, resources: tuple[str, ...] = ()) -> dict[str, Any]:
     }
 
 
+def decomposition_task(task_id: str) -> dict[str, Any]:
+    value = task(task_id)
+    value.update(
+        {
+            "parent": "NSC-001",
+            "execution_scope": "needs_execution_decomposition",
+            "decomposition_state": "atomicity_unknown",
+        }
+    )
+    return value
+
+
 def _candidate(task_id: str) -> dict[str, Any]:
     return {
         "task_id": task_id,
@@ -149,6 +163,35 @@ def candidate_plan(head: str, task_id: str, *other_task_ids: str) -> DispatchPla
         selected_fresh_candidate=candidates[0],
         ranked_eligible_candidates=candidates,
         skipped_candidates=(),
+        agent_ready_count=0,
+        claim_observation={"status": "fixture"},
+    )
+
+
+def mixed_work_plan(
+    head: str,
+    implementation_task_id: str,
+    decomposition_task_id: str,
+) -> DispatchPlan:
+    implementation = _candidate(implementation_task_id)
+    decomposition = {
+        **_candidate(decomposition_task_id),
+        "eligible": False,
+        "reason_codes": [
+            "execution_scope_not_single_agent",
+            "decomposition_state_not_concrete",
+        ],
+    }
+    return DispatchPlan(
+        schema_version="1.0",
+        source_commit=head,
+        mode="read_only_plan",
+        autonomous_dispatch=False,
+        decision="fresh_candidate",
+        resume=None,
+        selected_fresh_candidate=implementation,
+        ranked_eligible_candidates=(implementation,),
+        skipped_candidates=(decomposition,),
         agent_ready_count=0,
         claim_observation={"status": "fixture"},
     )
@@ -448,7 +491,33 @@ class FakeArchitect:
         self.calls: list[str] = []
 
     def __call__(self, **values: Any) -> ArchitectAnalysis:
-        task_id = values["task"]["id"]
+        if "candidates" in values:
+            ids = [item["task"]["id"] for item in values["candidates"]]
+            work_types = {
+                item["task"]["id"]: set(item["eligible_work_types"])
+                for item in values["candidates"]
+            }
+            usable = [
+                task_id
+                for task_id in ids
+                if task_id in self.values
+                and not isinstance(self.values[task_id], Exception)
+                and self.values[task_id].work_type_recommendation
+                in work_types[task_id]
+            ]
+            starts = [
+                task_id
+                for task_id in usable
+                if evaluate_architect_policy(self.values[task_id]).decision == "start"
+            ]
+            if starts:
+                task_id = starts[0]
+            elif usable:
+                task_id = usable[0]
+            else:
+                task_id = ids[0]
+        else:
+            task_id = values["task"]["id"]
         self.calls.append(task_id)
         selected = self.values[task_id]
         if isinstance(selected, Exception):
@@ -719,7 +788,7 @@ def test_active_task_ids_feed_stage2_exclusions() -> None:
         require(planner.calls == [{TASK_A}], str(planner.calls))
 
 
-def test_architect_wait_excludes_and_next_disjoint_candidate_launches() -> None:
+def test_architect_portfolio_selects_disjoint_candidate_in_one_call() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
         planner = SequencePlanner([candidate_plan(head, TASK_A, TASK_B)])
@@ -744,10 +813,11 @@ def test_architect_wait_excludes_and_next_disjoint_candidate_launches() -> None:
         result = orchestrator.poll_once()
         require(result.status == "worker_launched" and result.task_id == TASK_B, str(result))
         require(planner.calls == [set()], str(planner.calls))
-        require('"event": "architect_wait"' in stream.getvalue(), stream.getvalue())
+        require(architect.calls == [TASK_B], str(architect.calls))
+        require('"portfolio_size": 2' in stream.getvalue(), stream.getvalue())
 
 
-def test_decomposition_recommendation_never_launches_implementation() -> None:
+def test_ineligible_decomposition_pair_is_not_selected_or_launched() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
         planner = SequencePlanner([candidate_plan(head, TASK_A, TASK_B)])
@@ -772,10 +842,52 @@ def test_decomposition_recommendation_never_launches_implementation() -> None:
         result = orchestrator.poll_once()
         require(result.status == "worker_launched" and result.task_id == TASK_B, str(result))
         require(len(processes.calls) == 1, str(processes.calls))
-        require(
-            "architect selected decomposition" in stream.getvalue(),
-            stream.getvalue(),
+        require(architect.calls == [TASK_B], str(architect.calls))
+        require('"work_types": ["implementation"]' in stream.getvalue(), stream.getvalue())
+
+
+def test_architect_can_choose_decomposition_while_implementation_exists() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner([mixed_work_plan(head, TASK_A, TASK_B)])
+        architect = FakeArchitect(
+            {
+                TASK_A: advisory(TASK_A, head, risk="high"),
+                TASK_B: advisory(TASK_B, head, work_type="decomposition"),
+            }
         )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: task(TASK_A), TASK_B: decomposition_task(TASK_B)},
+        )
+        result = orchestrator.poll_once()
+        require(
+            result.status == "worker_launched" and result.task_id == TASK_B,
+            str(result),
+        )
+        require(architect.calls == [TASK_B], str(architect.calls))
+        command = processes.calls[0][0]
+        require("host_decomposition_launcher.py" in " ".join(command), str(command))
+        require("host_worker_launcher.py" not in " ".join(command), str(command))
+        require('"work_type": "decomposition"' in stream.getvalue(), stream.getvalue())
+
+
+def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> None:
+    command = build_decomposition_worker_command(
+        task_id=TASK_B,
+        source=Path("C:/fixture/source"),
+        output_root=Path("C:/fixture/outputs/NSC-102"),
+    )
+    require(command[command.index("--task-id") + 1] == TASK_B, str(command))
+    require(
+        command[command.index("--output-root") + 1].replace("\\", "/")
+        == "C:/fixture/outputs/NSC-102",
+        str(command),
+    )
 
 
 def test_resume_wait_does_not_starve_stage2_ranked_fresh_work() -> None:
@@ -810,7 +922,7 @@ def test_resume_wait_does_not_starve_stage2_ranked_fresh_work() -> None:
             str(result),
         )
         require(planner.calls == [set()], f"Stage 2 ran more than once: {planner.calls}")
-        require(architect.calls == [TASK_A, TASK_B], str(architect.calls))
+        require(architect.calls == [TASK_B], str(architect.calls))
 
 
 def test_resume_survives_typed_taskgraph_observation_failure() -> None:
@@ -1012,7 +1124,7 @@ def test_merge_uncertainty_waits_and_never_asks_a_human() -> None:
         require('"event": "architect_human_review"' not in events, events)
 
 
-def test_architect_failure_waits_and_the_next_candidate_still_launches() -> None:
+def test_portfolio_architect_can_select_usable_candidate() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
         planner = SequencePlanner([candidate_plan(head, TASK_A, TASK_B)])
@@ -1039,8 +1151,9 @@ def test_architect_failure_waits_and_the_next_candidate_still_launches() -> None
         require(
             result.status == "worker_launched" and result.task_id == TASK_B, str(result)
         )
-        require(not result.fatal, "architect failure was treated as fatal")
-        require("architect invocation failed or returned unusable output" in events, events)
+        require(not result.fatal, "portfolio selection was treated as fatal")
+        require(architect.calls == [TASK_B], str(architect.calls))
+        require('"portfolio_size": 2' in events, events)
         require(planner.calls == [set()], str(planner.calls))
         require(
             [command[command.index("--task-id") + 1] for command, _ in processes.calls]
@@ -1347,7 +1460,7 @@ def test_wait_is_reconsidered_when_head_or_in_flight_state_changes() -> None:
         require(architect.calls == [TASK_A, TASK_A], str(architect.calls))
 
 
-def test_architect_invocation_budget_bounds_paid_calls_per_poll() -> None:
+def test_mixed_portfolio_uses_one_paid_call_per_poll() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
         planner = SequencePlanner([candidate_plan(head, TASK_A, TASK_B, TASK_C)])
@@ -1369,13 +1482,13 @@ def test_architect_invocation_budget_bounds_paid_calls_per_poll() -> None:
                 TASK_B: task(TASK_B),
                 TASK_C: task(TASK_C),
             },
-            max_architect_invocations_per_poll=2,
+            max_architect_invocations_per_poll=1,
         )
         result = orchestrator.poll_once()
-        require(result.status == "architect_budget_exhausted", str(result))
-        require(not result.fatal, "an exhausted budget was treated as fatal")
-        require(architect.calls == [TASK_A, TASK_B], str(architect.calls))
-        require(not processes.calls, "budget-exhausted poll launched a worker")
+        require(result.status == "idle", str(result))
+        require(not result.fatal, "a portfolio WAIT was treated as fatal")
+        require(architect.calls == [TASK_A], str(architect.calls))
+        require(not processes.calls, "portfolio WAIT launched a worker")
 
 
 def test_cumulative_architect_session_cap_stops_new_admissions() -> None:
@@ -2143,15 +2256,17 @@ def main() -> int:
         test_max_workers_blocks_launch,
         test_at_most_one_new_worker_per_poll,
         test_active_task_ids_feed_stage2_exclusions,
-        test_architect_wait_excludes_and_next_disjoint_candidate_launches,
-        test_decomposition_recommendation_never_launches_implementation,
+        test_architect_portfolio_selects_disjoint_candidate_in_one_call,
+        test_ineligible_decomposition_pair_is_not_selected_or_launched,
+        test_architect_can_choose_decomposition_while_implementation_exists,
+        test_decomposition_worker_command_binds_exact_task_and_output_policy,
         test_resume_wait_does_not_starve_stage2_ranked_fresh_work,
         test_resume_survives_typed_taskgraph_observation_failure,
         test_fresh_only_typed_taskgraph_observation_failure_remains_blocked,
         test_resume_waits_safely_when_fresh_pool_observation_is_unavailable,
         test_design_escalation_reaches_human_review_and_launches_nothing,
         test_merge_uncertainty_waits_and_never_asks_a_human,
-        test_architect_failure_waits_and_the_next_candidate_still_launches,
+        test_portfolio_architect_can_select_usable_candidate,
         test_unknown_in_flight_surface_waits_before_paying_for_the_architect,
         test_unknown_surface_does_not_deadlock_provably_disjoint_work,
         test_unjustified_unknown_surface_waits_after_the_architect_answers,
@@ -2159,7 +2274,7 @@ def main() -> int:
         test_actual_path_growth_does_not_repurchase_wait_and_new_overlap_blocks,
         test_wait_reanalysis_cooldown_survives_unrelated_membership_change,
         test_wait_is_reconsidered_when_head_or_in_flight_state_changes,
-        test_architect_invocation_budget_bounds_paid_calls_per_poll,
+        test_mixed_portfolio_uses_one_paid_call_per_poll,
         test_cumulative_architect_session_cap_stops_new_admissions,
         test_resume_is_not_blocked_by_its_own_durable_reservation,
         test_resume_waits_when_other_active_work_overlaps,

@@ -41,6 +41,9 @@ from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+PIPELINE_ROOT = ROOT / "Pipeline"
+if str(PIPELINE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PIPELINE_ROOT))
 
 from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ARCHITECT_ADVISORY_SCHEMA_VERSION,
@@ -98,6 +101,10 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     load_execution_routing_policy,
     resolve_execution_route,
 )
+from Pipeline.TaskDecomposition.context_builder import (  # noqa: E402
+    DecompositionPreflightError,
+    validate_task_selection as validate_decomposition_selection,
+)
 from Pipeline.AgentRuntime.contracts import (  # noqa: E402
     ContractValidationError,
     validate_repository_path,
@@ -119,6 +126,14 @@ ARCHITECT_CONTAINER_ARTIFACT_ROOT = (
 MAX_CANDIDATES_PER_POLL = 1000
 FRESH_POOL_UNAVAILABLE_REASON = (
     "fresh_pool_unavailable_taskgraph_observation_failed_resume_only"
+)
+
+_DECOMPOSITION_COMPATIBLE_STAGE2_REASONS = frozenset(
+    {
+        "unsupported_kind",
+        "execution_scope_not_single_agent",
+        "decomposition_state_not_concrete",
+    }
 )
 
 
@@ -897,16 +912,24 @@ class DockerArchitectRunner:
     def __call__(
         self,
         *,
-        task: Mapping[str, Any],
+        task: Mapping[str, Any] | None = None,
+        candidates: Sequence[Mapping[str, Any]] | None = None,
         source_head: str,
         reservations: Sequence[IntegrationReservation],
         scheduler_id: str,
     ) -> ArchitectAnalysis:
+        if (task is None) == (candidates is None):
+            raise ArchitectPreflightError(
+                "architect runner requires exactly one task or candidate portfolio"
+            )
         request = {
             "source_head": source_head,
-            "task": dict(task),
             "reservations": [item.to_dict() for item in reservations],
         }
+        if task is not None:
+            request["task"] = dict(task)
+        else:
+            request["candidates"] = [dict(item) for item in candidates or ()]
         completed = self.command_runner(
             self.command(scheduler_id=scheduler_id),
             cwd=self.source,
@@ -1051,6 +1074,40 @@ def build_worker_command(
             ("--execution-reasoning-effort", execution_reasoning_effort)
         )
     return tuple(command)
+
+
+def build_decomposition_worker_command(
+    *,
+    task_id: str,
+    source: Path | str,
+    output_root: Path | str | None = None,
+) -> tuple[str, ...]:
+    """Build the distinct host boundary for review-only decomposition work."""
+
+    task_id = validate_task_id(task_id)
+    root = Path(source).resolve()
+    if output_root is None:
+        profile = os.environ.get("USERPROFILE")
+        if not profile:
+            raise PollingOrchestratorError(
+                "USERPROFILE is required for decomposition output policy"
+            )
+        selected_output = (
+            Path(profile) / "Downloads" / "NoSafeCircleOutput" / task_id
+        )
+    else:
+        selected_output = Path(output_root).resolve()
+    return (
+        sys.executable,
+        "-u",
+        str(root / "Pipeline" / "TaskReviewAgent" / "host_decomposition_launcher.py"),
+        "--task-id",
+        task_id,
+        "--source",
+        str(root),
+        "--output-root",
+        str(selected_output),
+    )
 
 
 @dataclass(frozen=True)
@@ -1333,6 +1390,65 @@ class PollingOrchestrator:
             )
         return tuple(ordered)
 
+    def _mixed_portfolio(
+        self,
+        plan: DispatchPlan,
+        ordered: Sequence[tuple[dict[str, Any], str | None]],
+    ) -> tuple[tuple[dict[str, Any], str | None, dict[str, Any]], ...]:
+        """Bind Stage-2 implementation authority and safe decomposition options.
+
+        A skipped Stage-2 entry may enter the decomposition pool only when all
+        rejection reasons are intrinsic implementation-shape/dependency reasons.
+        Issue ownership, claims, resources, malformed state, disposition, and
+        delivery-state rejection therefore remain hard exclusions.
+        """
+
+        by_id: dict[str, tuple[dict[str, Any], str | None, dict[str, Any]]] = {}
+        for candidate, resume_phase in ordered:
+            task_id = validate_task_id(candidate.get("task_id"))
+            task = self._load_candidate(plan, candidate, task_id)
+            work_types = ["implementation"]
+            if resume_phase is None:
+                try:
+                    validate_decomposition_selection(task_id, task)
+                except DecompositionPreflightError:
+                    pass
+                else:
+                    work_types.append("decomposition")
+            by_id[task_id] = (
+                dict(candidate),
+                resume_phase,
+                {"task": task, "eligible_work_types": sorted(work_types)},
+            )
+
+        for candidate in plan.skipped_candidates:
+            task_id_raw = candidate.get("task_id")
+            if type(task_id_raw) is not str or task_id_raw in by_id:
+                continue
+            reasons = tuple(candidate.get("reason_codes") or ())
+            if not reasons or any(
+                type(reason) is not str
+                or (
+                    reason not in _DECOMPOSITION_COMPATIBLE_STAGE2_REASONS
+                    and not reason.startswith("dependency_blocked:")
+                )
+                for reason in reasons
+            ):
+                continue
+            task_id = validate_task_id(task_id_raw)
+            task = self._load_candidate(plan, candidate, task_id)
+            try:
+                validate_decomposition_selection(task_id, task)
+            except DecompositionPreflightError:
+                continue
+            by_id[task_id] = (
+                dict(candidate),
+                None,
+                {"task": task, "eligible_work_types": ["decomposition"]},
+            )
+
+        return tuple(by_id[task_id] for task_id in sorted(by_id))
+
     def _load_candidate(
         self,
         plan: DispatchPlan,
@@ -1552,6 +1668,184 @@ class PollingOrchestrator:
             )
             return PollCycleResult("missing_candidate", fatal=True)
 
+        try:
+            mixed_portfolio = self._mixed_portfolio(plan, candidates)
+        except (PollingOrchestratorError, CommittedTaskError, OSError) as exc:
+            self.events.emit(
+                "scheduler_blocked",
+                reason="mixed architect portfolio could not be identity-verified",
+                error=_bounded_error(exc),
+            )
+            return PollCycleResult("candidate_verification_failed", fatal=True)
+        if not mixed_portfolio:
+            self.events.emit(
+                "scheduler_blocked",
+                reason="mixed architect portfolio contained no safe work type",
+            )
+            return PollCycleResult("missing_candidate", fatal=True)
+        prefiltered_portfolio = []
+        for entry in mixed_portfolio:
+            task = entry[2]["task"]
+            task_id = task["id"]
+            empty_surface = effective_candidate_surface(
+                candidate_task_id=task_id,
+                predicted_surface=PredictedChangeSurface((), (), (), (), ()),
+                reservations=reservations,
+            )
+            conflict = detect_deterministic_conflict(
+                candidate_task_id=task_id,
+                candidate_exclusive_resources=task.get("exclusive_resources") or (),
+                candidate_surface=empty_surface,
+                reservations=reservations,
+            )
+            if conflict is not None:
+                self._emit_conflict(task_id, conflict)
+                continue
+            unknown = assess_unknown_surface_reservations(
+                candidate_task_id=task_id,
+                candidate_exclusive_resources=task.get("exclusive_resources") or (),
+                reservations=reservations,
+            )
+            if unknown.blocks_without_architect:
+                self.events.emit(
+                    "candidate_wait_unknown_surface",
+                    task_id=task_id,
+                    blocking_task_ids=list(unknown.blocking_task_ids),
+                    reasons=list(unknown.reasons),
+                    scope="excluded before mixed-portfolio architect selection",
+                )
+                continue
+            cache_key = architect_decision_cache_key(
+                task_id=task_id,
+                task_contract_sha256=str(task["task_contract_sha256"]),
+                source_head=plan.source_commit,
+                integration_fingerprint=integration_fingerprint,
+            )
+            cooldown_key = self._cooldown_key(
+                task_id=task_id,
+                task_contract_sha256=str(task["task_contract_sha256"]),
+                source_head=plan.source_commit,
+            )
+            cached_decision = self.decision_cache.get(cache_key)
+            if cached_decision is not None:
+                self._record_gate(
+                    task_id=task_id,
+                    cache_key=cache_key,
+                    cooldown_key=cooldown_key,
+                    decision=cached_decision,
+                    cached=True,
+                )
+                continue
+            cooldown = self.architect_cooldowns.get(cooldown_key)
+            now = self.monotonic_clock()
+            if cooldown is not None and now < cooldown.not_before:
+                self.events.emit(
+                    "architect_wait",
+                    task_id=task_id,
+                    analysis_id=None,
+                    advisory_artifact_path=None,
+                    reasons=[
+                        *cooldown.decision.reasons,
+                        (
+                            "minimum architect re-analysis interval remains active "
+                            f"for {cooldown.not_before - now:.3f} seconds"
+                        ),
+                    ],
+                    cached=False,
+                    cooldown=True,
+                    scope="excluded before mixed-portfolio architect selection",
+                )
+                continue
+            prefiltered_portfolio.append(entry)
+        mixed_portfolio = tuple(prefiltered_portfolio)
+        if not mixed_portfolio:
+            self.events.emit(
+                "plan_idle",
+                decision="all_mixed_portfolio_candidates_deterministically_waited",
+            )
+            return PollCycleResult("idle")
+        if self.dry_run:
+            selected_id = mixed_portfolio[0][2]["task"]["id"]
+            self.events.emit(
+                "scheduler_blocked",
+                task_id=selected_id,
+                reason=(
+                    "dry-run observed the mixed portfolio; architect model and worker "
+                    "launch are disabled"
+                ),
+                portfolio_size=len(mixed_portfolio),
+            )
+            return PollCycleResult("dry_run_candidate", task_id=selected_id)
+        if (
+            self.architect_invocations_this_session
+            >= self.max_architect_invocations_per_session
+        ):
+            self.events.emit(
+                "scheduler_blocked",
+                reason="cumulative architect session invocation cap is exhausted",
+            )
+            return PollCycleResult("architect_session_budget_exhausted", fatal=True)
+        if (
+            self.architect_invocations_this_poll
+            >= self.max_architect_invocations_per_poll
+        ):
+            self.events.emit(
+                "scheduler_blocked",
+                reason="per-poll architect invocation budget is exhausted",
+            )
+            return PollCycleResult("architect_budget_exhausted")
+        portfolio_request = [item[2] for item in mixed_portfolio]
+        self.events.emit(
+            "architect_started",
+            source_head=plan.source_commit,
+            portfolio_size=len(portfolio_request),
+            eligible_pairs=[
+                {
+                    "task_id": item["task"]["id"],
+                    "work_types": item["eligible_work_types"],
+                }
+                for item in portfolio_request
+            ],
+        )
+        self.architect_invocations_this_poll += 1
+        self.architect_invocations_this_session += 1
+        try:
+            portfolio_analysis = self.architect_runner(
+                candidates=portfolio_request,
+                source_head=plan.source_commit,
+                reservations=reservations,
+                scheduler_id=self.scheduler_id,
+            )
+            selected_advisory = portfolio_analysis.advisory
+            selected_key = (
+                selected_advisory.task_id,
+                selected_advisory.work_type_recommendation,
+            )
+            selected_entry = next(
+                (
+                    item
+                    for item in mixed_portfolio
+                    if item[2]["task"]["id"] == selected_key[0]
+                    and selected_key[1] in item[2]["eligible_work_types"]
+                ),
+                None,
+            )
+            if selected_entry is None:
+                raise ArchitectPreflightError(
+                    "architect selected a pair outside the revalidated mixed portfolio"
+                )
+        except Exception as exc:
+            self.events.emit(
+                "architect_wait",
+                analysis_id=None,
+                advisory_artifact_path=None,
+                reasons=["mixed-portfolio architect invocation failed or was unusable"],
+                error=_bounded_error(exc),
+                cached=False,
+            )
+            return PollCycleResult("idle")
+        candidates = ((selected_entry[0], selected_entry[1]),)
+
         considered: set[str] = set()
         for candidate, resume_phase in candidates[:MAX_CANDIDATES_PER_POLL]:
             task_id_raw = candidate.get("task_id")
@@ -1637,135 +1931,15 @@ class PollingOrchestrator:
                 temporary_exclusions.add(task_id)
                 continue
 
-            if self.dry_run:
+            analysis = portfolio_analysis
+            advisory = selected_advisory
+            if advisory.task_id != task_id:
                 self.events.emit(
                     "scheduler_blocked",
                     task_id=task_id,
-                    reason=(
-                        "dry-run observed the candidate; architect model and worker launch "
-                        "are disabled"
-                    ),
-                    decision=plan.decision,
+                    reason="portfolio advisory identity changed after selection",
                 )
-                return PollCycleResult("dry_run_candidate", task_id=task_id)
-
-            cached_decision = self.decision_cache.get(cache_key)
-            if cached_decision is not None:
-                self._record_gate(
-                    task_id=task_id,
-                    cache_key=cache_key,
-                    cooldown_key=cooldown_key,
-                    decision=cached_decision,
-                    cached=True,
-                )
-                temporary_exclusions.add(task_id)
-                continue
-
-            cooldown = self.architect_cooldowns.get(cooldown_key)
-            now = self.monotonic_clock()
-            if cooldown is not None and now < cooldown.not_before:
-                remaining = cooldown.not_before - now
-                self.events.emit(
-                    "architect_wait",
-                    task_id=task_id,
-                    analysis_id=None,
-                    advisory_artifact_path=None,
-                    reasons=[
-                        *cooldown.decision.reasons,
-                        (
-                            "minimum architect re-analysis interval remains active "
-                            f"for {remaining:.3f} seconds"
-                        ),
-                    ],
-                    cached=False,
-                    cooldown=True,
-                    scope=(
-                        "excluded for this scheduling pass only; deterministic current "
-                        "path conflicts were checked before this cooldown"
-                    ),
-                )
-                temporary_exclusions.add(task_id)
-                continue
-
-            if (
-                self.architect_invocations_this_session
-                >= self.max_architect_invocations_per_session
-            ):
-                self.events.emit(
-                    "scheduler_blocked",
-                    task_id=task_id,
-                    reason=(
-                        "cumulative architect session invocation cap is exhausted; "
-                        "no new analysis or admission is allowed"
-                    ),
-                    architect_invocations_this_session=(
-                        self.architect_invocations_this_session
-                    ),
-                    max_architect_invocations_per_session=(
-                        self.max_architect_invocations_per_session
-                    ),
-                )
-                return PollCycleResult(
-                    "architect_session_budget_exhausted",
-                    task_id=task_id,
-                    fatal=True,
-                )
-
-            if (
-                self.architect_invocations_this_poll
-                >= self.max_architect_invocations_per_poll
-            ):
-                self.events.emit(
-                    "scheduler_blocked",
-                    task_id=task_id,
-                    reason=(
-                        "per-poll architect invocation budget is exhausted; remaining "
-                        "candidates wait for the next poll"
-                    ),
-                    architect_invocations=self.architect_invocations_this_poll,
-                )
-                return PollCycleResult("architect_budget_exhausted", task_id=task_id)
-
-            self.events.emit(
-                "architect_started",
-                task_id=task_id,
-                source_head=plan.source_commit,
-            )
-            self.architect_invocations_this_poll += 1
-            self.architect_invocations_this_session += 1
-            try:
-                analysis = self.architect_runner(
-                    task=task,
-                    source_head=plan.source_commit,
-                    reservations=reservations,
-                    scheduler_id=self.scheduler_id,
-                )
-                advisory = analysis.advisory
-                if advisory.task_id != task_id:
-                    raise ArchitectPreflightError(
-                        "architect advisory identity does not match the candidate"
-                    )
-            except Exception as exc:
-                # An unusable or failed advisory is uncertainty about parallel
-                # safety, so it waits. It is not cached: a later poll should be
-                # able to retry once the environment or provider recovers.
-                self.events.emit(
-                    "architect_wait",
-                    task_id=task_id,
-                    analysis_id=None,
-                    advisory_artifact_path=None,
-                    reasons=[
-                        "architect invocation failed or returned unusable output"
-                    ],
-                    error=_bounded_error(exc),
-                    cached=False,
-                    scope=(
-                        "excluded for this scheduling pass only; no worker was launched "
-                        "and no durable state was mutated"
-                    ),
-                )
-                temporary_exclusions.add(task_id)
-                continue
+                return PollCycleResult("candidate_verification_failed", fatal=True)
             self.events.emit(
                 "architect_completed",
                 task_id=task_id,
@@ -1780,27 +1954,6 @@ class PollingOrchestrator:
                 ),
                 design_advice=advisory.design_advice.to_dict(),
             )
-
-            # Stage 2 currently supplied this entry from its implementation
-            # pool. Never silently turn an architect's decomposition decision
-            # into an implementation launch; the combined work-type pool will
-            # route this recommendation through the decomposition worker.
-            if advisory.work_type_recommendation != "implementation":
-                self._record_gate(
-                    task_id=task_id,
-                    cache_key=cache_key,
-                    cooldown_key=cooldown_key,
-                    decision=ArchitectPolicyDecision(
-                        "wait",
-                        (
-                            "architect selected decomposition, but this Stage-2 "
-                            "candidate currently carries implementation authority only",
-                        ),
-                    ),
-                    analysis=analysis,
-                )
-                temporary_exclusions.add(task_id)
-                continue
 
             effective_surface = effective_candidate_surface(
                 candidate_task_id=task_id,
@@ -1863,42 +2016,55 @@ class PollingOrchestrator:
                     reason="local capacity filled before launch",
                 )
                 return PollCycleResult("capacity_full")
-            try:
-                policy = self.routing_policy_loader()
-                if not isinstance(policy, ExecutionRoutingPolicy):
-                    raise ExecutionRoutingError(
-                        "routing policy loader returned an invalid policy"
-                    )
-                route = resolve_execution_route(
-                    advisory.execution_recommendation,
-                    policy,
-                )
-            except (ExecutionRoutingError, TypeError, ValueError) as exc:
-                self.events.emit(
-                    "execution_route_wait",
-                    task_id=task_id,
-                    reason=(
-                        "deterministic execution routing policy was unusable; "
-                        "no worker was launched"
-                    ),
-                    error=_bounded_error(exc),
-                    capability_tier=(
-                        advisory.execution_recommendation.capability_tier
-                    ),
-                    provider_preference=(
-                        advisory.execution_recommendation.provider_preference
-                    ),
-                )
-                temporary_exclusions.add(task_id)
-                continue
             worker_id = f"polling-worker-{task_id.casefold()}-{uuid.uuid4().hex[:12]}"
-            command = build_worker_command(
-                task_id=task_id,
-                worker_id=worker_id,
-                source=self.source,
-                checkout_root=self.checkout_root,
-                route=route,
-            )
+            if advisory.work_type_recommendation == "decomposition":
+                command = build_decomposition_worker_command(
+                    task_id=task_id,
+                    source=self.source,
+                )
+                route_event = {
+                    "work_type": "decomposition",
+                    "execution_provider": "round_robin_codex_claude",
+                    "capability_tier": "deep",
+                    "route_reason": "architect_selected_eligible_decomposition",
+                }
+            else:
+                try:
+                    policy = self.routing_policy_loader()
+                    if not isinstance(policy, ExecutionRoutingPolicy):
+                        raise ExecutionRoutingError(
+                            "routing policy loader returned an invalid policy"
+                        )
+                    route = resolve_execution_route(
+                        advisory.execution_recommendation,
+                        policy,
+                    )
+                except (ExecutionRoutingError, TypeError, ValueError) as exc:
+                    self.events.emit(
+                        "execution_route_wait",
+                        task_id=task_id,
+                        reason=(
+                            "deterministic execution routing policy was unusable; "
+                            "no worker was launched"
+                        ),
+                        error=_bounded_error(exc),
+                        capability_tier=(
+                            advisory.execution_recommendation.capability_tier
+                        ),
+                        provider_preference=(
+                            advisory.execution_recommendation.provider_preference
+                        ),
+                    )
+                    temporary_exclusions.add(task_id)
+                    continue
+                command = build_worker_command(
+                    task_id=task_id,
+                    worker_id=worker_id,
+                    source=self.source,
+                    checkout_root=self.checkout_root,
+                    route=route,
+                )
+                route_event = {"work_type": "implementation", **route.to_event_dict()}
             try:
                 process = self.process_factory(
                     command,
@@ -1938,7 +2104,7 @@ class PollingOrchestrator:
                 checkout_path=str(assignment.checkout_path),
                 advisory_artifact_path=str(analysis.artifact_path),
                 argv=list(command),
-                **route.to_event_dict(),
+                **route_event,
             )
             return PollCycleResult("worker_launched", task_id=task_id, worker_id=worker_id)
 

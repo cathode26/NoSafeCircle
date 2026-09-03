@@ -781,6 +781,147 @@ def build_architect_request(
     )
 
 
+def _portfolio_candidates(
+    candidates: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return one strict, deterministic mixed-work candidate portfolio."""
+
+    if not candidates:
+        raise ArchitectPreflightError("architect portfolio must not be empty")
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, candidate in enumerate(candidates):
+        if not isinstance(candidate, Mapping) or set(candidate) != {
+            "task",
+            "eligible_work_types",
+        }:
+            raise ArchitectPreflightError(
+                f"portfolio candidate {index} must contain exactly task and "
+                "eligible_work_types"
+            )
+        task = candidate["task"]
+        work_types = candidate["eligible_work_types"]
+        if not isinstance(task, Mapping) or not isinstance(work_types, list):
+            raise ArchitectPreflightError(
+                f"portfolio candidate {index} has invalid task/work-type values"
+            )
+        task_id = validate_task_id(task.get("id"))
+        if task_id in seen:
+            raise ArchitectPreflightError(
+                f"architect portfolio contains duplicate task {task_id}"
+            )
+        seen.add(task_id)
+        contract_hash = _nonempty_text(
+            task.get("task_contract_sha256"),
+            field=f"portfolio[{task_id}].task_contract_sha256",
+        )
+        if SHA256_RE.fullmatch(contract_hash) is None:
+            raise ArchitectPreflightError(
+                f"portfolio task {task_id} has an invalid contract SHA-256"
+            )
+        if (
+            not work_types
+            or len(set(work_types)) != len(work_types)
+            or any(
+                type(work_type) is not str
+                or work_type not in {"implementation", "decomposition"}
+                for work_type in work_types
+            )
+        ):
+            raise ArchitectPreflightError(
+                f"portfolio task {task_id} has invalid eligible_work_types"
+            )
+        normalized.append(
+            {
+                "task": _json_safe(task),
+                "eligible_work_types": sorted(work_types),
+            }
+        )
+    return sorted(normalized, key=lambda item: item["task"]["id"])
+
+
+def build_portfolio_prompt(
+    *,
+    candidates: Sequence[Mapping[str, Any]],
+    source_head: str,
+    reservations: Sequence[Any],
+) -> str:
+    """Ask for one exact task/work-type choice from a mixed safe pool."""
+
+    if GIT_SHA_RE.fullmatch(str(source_head)) is None:
+        raise ArchitectPreflightError("source_head must be a 40-character Git SHA")
+    portfolio = _portfolio_candidates(candidates)
+    reservations_value = _reservation_dicts(reservations)
+    return f"""# Polling orchestrator mixed-work portfolio selection
+
+You are the read-only software architect selecting exactly one next work item at
+committed source HEAD `{source_head}`. Deterministic Python has already computed the
+eligible work types for every candidate. You may choose implementation or decomposition
+even while both kinds are available; do not treat decomposition as a fallback.
+
+Authority and safety rules:
+- Select exactly one supplied candidate and one value from that candidate's
+  `eligible_work_types`. Never invent or alter a task, work type, identity, dependency,
+  resource, TaskGraph contract, or repository file.
+- Return the existing complete strict architect advisory schema for the selected task.
+  Echo its task ID, task-contract SHA-256, and source HEAD exactly. Put the selected work
+  type in `work_type_recommendation`.
+- Prefer useful near-frontier decomposition when it unlocks safe parallel work or makes
+  an oversized/uncertain parent executable. Prefer implementation when it is the most
+  useful coherent ready unit. The presence of implementation work does not disqualify
+  decomposition.
+- Apply the same conservative parallel-integration policy as ordinary architect
+  preflight: uncertainty is WAIT, design/canon ambiguity alone is HUMAN_REVIEW, and
+  START requires positive evidence of disjointness from every supplied reservation.
+- `execution_recommendation` is advisory only. Inspect repository evidence as needed,
+  but use read/search capability only and claim no commands, tests, or changes.
+- Return every schema field and every list, including empty lists. Evidence paths must
+  be paths you actually observed.
+
+Mixed eligible portfolio:
+```json
+{json.dumps(portfolio, indent=2, ensure_ascii=False, sort_keys=True)}
+```
+
+In-flight integration reservations:
+```json
+{json.dumps(reservations_value, indent=2, ensure_ascii=False, sort_keys=True)}
+```
+"""
+
+
+def build_portfolio_request(
+    *,
+    candidates: Sequence[Mapping[str, Any]],
+    source_head: str,
+    reservations: Sequence[Any],
+    provider_configuration_key: str,
+    max_turns: int = DEFAULT_ARCHITECT_MAX_TURNS,
+    timeout_seconds: float = DEFAULT_ARCHITECT_TIMEOUT_SECONDS,
+    run_id: str | None = None,
+) -> AgentInvocationRequest:
+    portfolio = _portfolio_candidates(candidates)
+    generated_run_id = run_id or f"architect-portfolio-{uuid.uuid4().hex[:16]}"
+    task_paths = tuple(f"Tasks/{item['task']['id']}.yaml" for item in portfolio)
+    return AgentInvocationRequest(
+        schema_version=AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
+        run_id=generated_run_id,
+        role="polling_architect",
+        prompt=build_portfolio_prompt(
+            candidates=portfolio,
+            source_head=source_head,
+            reservations=reservations,
+        ),
+        context_paths=(*task_paths, "Assets", "Packages", "ProjectSettings"),
+        allowed_capabilities=("repository_read", "repository_search"),
+        write_boundaries=WriteBoundaries((), ()),
+        output_schema=ARCHITECT_ADVISORY_SCHEMA,
+        model_capability_class="high_reasoning",
+        budgets=Budgets(max_turns, timeout_seconds, None),
+        provider_configuration_key=provider_configuration_key,
+    )
+
+
 def _safe_write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
@@ -925,6 +1066,112 @@ def analyze_candidate(
         reservations=reservations,
         advisory=advisory,
         invocation_metadata=invocation_metadata,
+    )
+    return ArchitectAnalysis(
+        analysis_id=analysis_id,
+        advisory=advisory,
+        artifact_path=artifact_path,
+        active_surface_fingerprint=active_surface_fingerprint(reservations),
+        invocation_metadata=invocation_metadata,
+    )
+
+
+def analyze_portfolio(
+    *,
+    candidates: Sequence[Mapping[str, Any]],
+    source_head: str,
+    reservations: Sequence[Any],
+    scheduler_id: str,
+    artifact_root: Path | str,
+    invoker: ArchitectInvoker,
+    provider_configuration_key: str,
+    max_turns: int = DEFAULT_ARCHITECT_MAX_TURNS,
+    timeout_seconds: float = DEFAULT_ARCHITECT_TIMEOUT_SECONDS,
+) -> ArchitectAnalysis:
+    """Select and bind one exact candidate/work-type pair from a mixed pool."""
+
+    portfolio = _portfolio_candidates(candidates)
+    allowed = {
+        (item["task"]["id"], work_type): item["task"]
+        for item in portfolio
+        for work_type in item["eligible_work_types"]
+    }
+    request = build_portfolio_request(
+        candidates=portfolio,
+        source_head=source_head,
+        reservations=reservations,
+        provider_configuration_key=provider_configuration_key,
+        max_turns=max_turns,
+        timeout_seconds=timeout_seconds,
+    )
+    try:
+        result = invoker(request)
+    except Exception as exc:
+        raise ArchitectPreflightError(
+            f"architect AgentRuntime invocation failed: {type(exc).__name__}: {exc}"
+        ) from exc
+    if type(result) is not AgentResult:
+        raise ArchitectPreflightError("architect invoker returned an invalid result container")
+    if result.status != "succeeded":
+        raise ArchitectPreflightError(
+            "architect AgentRuntime failed "
+            f"({result.failure_classification}): {result.failure_message}"
+        )
+    if (
+        result.claimed_changed_paths
+        or result.claims_execution_occurred
+        or result.claimed_test_commands
+    ):
+        raise ArchitectPreflightError(
+            "read-only architect claimed repository changes, command execution, or tests"
+        )
+    advisory = ArchitectAdvisory.from_dict(thaw_json(result.structured_output))
+    pair = (advisory.task_id, advisory.work_type_recommendation)
+    selected = allowed.get(pair)
+    if selected is None:
+        raise ArchitectPreflightError(
+            "architect selected a task/work-type pair outside the deterministic portfolio"
+        )
+    if advisory.source_head != source_head:
+        raise ArchitectPreflightError("architect changed source HEAD identity")
+    if advisory.task_contract_sha256 != selected["task_contract_sha256"]:
+        raise ArchitectPreflightError("architect changed task-contract hash identity")
+
+    analysis_id = (
+        f"architect-portfolio-{advisory.task_id.casefold()}-"
+        f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-"
+        f"{uuid.uuid4().hex[:12]}"
+    )
+    artifact_path = Path(artifact_root) / f"{analysis_id}.json"
+    result_dict = result.to_dict()
+    invocation_metadata = {
+        "agent_runtime_run_id": result.run_id,
+        "provider": result.provider,
+        "model": result.model,
+        "duration_seconds": result.duration_seconds,
+        "usage": result_dict.get("usage"),
+        "agent_runtime_artifacts": f"agent_runtime/{result.run_id}",
+    }
+    _safe_write_json(
+        artifact_path,
+        {
+            "schema_version": ARCHITECT_ADVISORY_SCHEMA_VERSION,
+            "analysis_id": analysis_id,
+            "created_at_utc": datetime.now(timezone.utc).isoformat(),
+            "scheduler": {
+                "scheduler_id": _nonempty_text(scheduler_id, field="scheduler_id"),
+                "selected_task_id": advisory.task_id,
+                "selected_work_type": advisory.work_type_recommendation,
+            },
+            "source_head": source_head,
+            "eligible_portfolio": portfolio,
+            "active_integration_surface_fingerprint": active_surface_fingerprint(
+                reservations
+            ),
+            "structured_architect_output": advisory.to_dict(),
+            "invocation": invocation_metadata,
+            "authority": "advisory_selection_only_not_applied",
+        },
     )
     return ArchitectAnalysis(
         analysis_id=analysis_id,
@@ -1461,35 +1708,58 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         payload = _strict_json(sys.stdin.read())
-        if not isinstance(payload, Mapping) or set(payload) != {
+        if not isinstance(payload, Mapping) or set(payload) not in ({
             "source_head",
             "task",
             "reservations",
-        }:
+        }, {
+            "source_head",
+            "candidates",
+            "reservations",
+        }):
             raise ArchitectPreflightError(
-                "stdin must contain exactly source_head, task, and reservations"
+                "stdin must contain source_head/reservations and exactly one of task "
+                "or candidates"
             )
-        task = payload["task"]
         reservations = payload["reservations"]
-        if not isinstance(task, Mapping) or not isinstance(reservations, list):
-            raise ArchitectPreflightError("stdin task/reservations types are invalid")
+        if not isinstance(reservations, list):
+            raise ArchitectPreflightError("stdin reservations type is invalid")
         invoker = RuntimeArchitectInvoker(
             source=args.source,
             artifact_root=args.artifact_root,
             provider=args.provider,
             model=args.model,
         )
-        analysis = analyze_candidate(
-            task=task,
-            source_head=payload["source_head"],
-            reservations=reservations,
-            scheduler_id=args.scheduler_id,
-            artifact_root=args.artifact_root,
-            invoker=invoker,
-            provider_configuration_key=invoker.configuration_key,
-            max_turns=args.max_turns,
-            timeout_seconds=args.timeout_seconds,
-        )
+        if "task" in payload:
+            task = payload["task"]
+            if not isinstance(task, Mapping):
+                raise ArchitectPreflightError("stdin task type is invalid")
+            analysis = analyze_candidate(
+                task=task,
+                source_head=payload["source_head"],
+                reservations=reservations,
+                scheduler_id=args.scheduler_id,
+                artifact_root=args.artifact_root,
+                invoker=invoker,
+                provider_configuration_key=invoker.configuration_key,
+                max_turns=args.max_turns,
+                timeout_seconds=args.timeout_seconds,
+            )
+        else:
+            candidates = payload["candidates"]
+            if not isinstance(candidates, list):
+                raise ArchitectPreflightError("stdin candidates type is invalid")
+            analysis = analyze_portfolio(
+                candidates=candidates,
+                source_head=payload["source_head"],
+                reservations=reservations,
+                scheduler_id=args.scheduler_id,
+                artifact_root=args.artifact_root,
+                invoker=invoker,
+                provider_configuration_key=invoker.configuration_key,
+                max_turns=args.max_turns,
+                timeout_seconds=args.timeout_seconds,
+            )
         print(
             json.dumps(
                 analysis.to_transport_dict(),
@@ -1548,10 +1818,13 @@ __all__ = [
     "UnknownSurfaceDisjointness",
     "active_surface_fingerprint",
     "analyze_candidate",
+    "analyze_portfolio",
     "architect_decision_cache_key",
     "assess_unknown_surface_reservations",
     "build_architect_prompt",
     "build_architect_request",
+    "build_portfolio_prompt",
+    "build_portfolio_request",
     "detect_deterministic_conflict",
     "effective_candidate_surface",
     "evaluate_architect_policy",

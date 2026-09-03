@@ -35,9 +35,11 @@ from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     PredictedChangeSurface,
     active_surface_fingerprint,
     analyze_candidate,
+    analyze_portfolio,
     architect_decision_cache_key,
     assess_unknown_surface_reservations,
     build_architect_request,
+    build_portfolio_request,
     detect_deterministic_conflict,
     evaluate_architect_policy,
     persist_architect_advisory,
@@ -176,6 +178,73 @@ def fake_analysis(
         source_head=SOURCE_HEAD,
         reservations=reservations or [],
         scheduler_id="architect-smoke-scheduler",
+        artifact_root=root / "advisories",
+        invoker=invoke,
+        provider_configuration_key=PROVIDER_KEY,
+        max_turns=7,
+        timeout_seconds=30.0,
+    )
+    return analysis, captured
+
+
+def portfolio() -> list[dict[str, Any]]:
+    second = dict(task())
+    second.update(
+        {
+            "id": "NSC-102",
+            "title": "Split a broad encounter task",
+            "execution_scope": "needs_execution_decomposition",
+            "decomposition_state": "atomicity_unknown",
+            "task_contract_sha256": "b" * 64,
+        }
+    )
+    return [
+        {"task": task(), "eligible_work_types": ["implementation"]},
+        {"task": second, "eligible_work_types": ["implementation", "decomposition"]},
+    ]
+
+
+def portfolio_result_value(*, work_type: str = "decomposition") -> dict[str, Any]:
+    value = advisory_value()
+    value.update(
+        {
+            "task_id": "NSC-102",
+            "task_contract_sha256": "b" * 64,
+            "work_type_recommendation": work_type,
+        }
+    )
+    return value
+
+
+def portfolio_analysis(root: Path, value: dict[str, Any]) -> tuple[Any, list[Any]]:
+    configuration = RuntimeConfiguration(
+        {
+            PROVIDER_KEY: {
+                "provider": "fake",
+                "models": {
+                    "low_cost": "fake-model",
+                    "standard": "fake-model",
+                    "high_reasoning": "fake-model",
+                },
+            }
+        }
+    )
+    runner = AgentRunner(
+        root / "agent-runtime",
+        configuration,
+        {"fake": FakeProvider(structured_output=value)},
+    )
+    captured: list[Any] = []
+
+    def invoke(request: Any) -> Any:
+        captured.append(request)
+        return runner.run(request)
+
+    analysis = analyze_portfolio(
+        candidates=portfolio(),
+        source_head=SOURCE_HEAD,
+        reservations=[],
+        scheduler_id="portfolio-smoke-scheduler",
         artifact_root=root / "advisories",
         invoker=invoke,
         provider_configuration_key=PROVIDER_KEY,
@@ -761,6 +830,52 @@ def test_same_inputs_yield_same_deterministic_enforcement() -> None:
     require(conflicts[0] == conflicts[1] == conflicts[2], str(conflicts))
 
 
+def test_mixed_portfolio_request_exposes_both_work_types_read_only() -> None:
+    request = build_portfolio_request(
+        candidates=portfolio(),
+        source_head=SOURCE_HEAD,
+        reservations=[],
+        provider_configuration_key=PROVIDER_KEY,
+        run_id="architect-portfolio-fixture",
+    )
+    require(request.write_boundaries.allowed_paths == (), str(request.write_boundaries))
+    require(request.write_boundaries.denied_paths == (), str(request.write_boundaries))
+    require("decomposition as a fallback" in request.prompt, request.prompt)
+    require('"decomposition"' in request.prompt, request.prompt)
+    require("NSC-101" in request.prompt and "NSC-102" in request.prompt, request.prompt)
+
+
+def test_portfolio_selects_exact_eligible_task_work_type_pair() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        analysis, captured = portfolio_analysis(
+            Path(text), portfolio_result_value(work_type="decomposition")
+        )
+        require(analysis.advisory.task_id == "NSC-102", str(analysis.advisory))
+        require(
+            analysis.advisory.work_type_recommendation == "decomposition",
+            str(analysis.advisory),
+        )
+        artifact = json.loads(analysis.artifact_path.read_text(encoding="utf-8"))
+        require(len(artifact["eligible_portfolio"]) == 2, str(artifact))
+        require(
+            artifact["scheduler"]["selected_work_type"] == "decomposition",
+            str(artifact),
+        )
+        require(len(captured) == 1, str(captured))
+
+
+def test_portfolio_rejects_pair_outside_deterministic_eligibility() -> None:
+    value = advisory_value()
+    value["work_type_recommendation"] = "decomposition"
+    with tempfile.TemporaryDirectory() as text:
+        try:
+            portfolio_analysis(Path(text), value)
+        except ArchitectPreflightError as exc:
+            require("outside the deterministic portfolio" in str(exc), str(exc))
+        else:
+            raise AssertionError("portfolio accepted an ineligible task/work-type pair")
+
+
 def main() -> int:
     tests = (
         test_schema_accepts_complete_advisory,
@@ -790,6 +905,9 @@ def main() -> int:
         test_stable_surface_fingerprint_ignores_only_actual_path_growth,
         test_advisory_artifact_safe_write,
         test_same_inputs_yield_same_deterministic_enforcement,
+        test_mixed_portfolio_request_exposes_both_work_types_read_only,
+        test_portfolio_selects_exact_eligible_task_work_type_pair,
+        test_portfolio_rejects_pair_outside_deterministic_eligibility,
     )
     for test in tests:
         test()
