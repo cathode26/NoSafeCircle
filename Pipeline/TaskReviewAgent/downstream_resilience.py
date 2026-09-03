@@ -1139,15 +1139,20 @@ def _wrap_run(original: Any, module: Any, *, pipeline_name: str):
                 )
             raise
         except Exception as exc:
-            if "exhausted" not in str(exc).casefold():
-                raise
+            exhausted = "exhausted" in str(exc).casefold()
             releaser = getattr(controller, "release_for_pipeline_failure", None)
             if callable(releaser):
                 releaser(
-                    reason="turn_budget_exhausted",
+                    reason=(
+                        "turn_budget_exhausted"
+                        if exhausted
+                        else "pipeline_failed"
+                    ),
                     action=f"{pipeline_name}_supervisor",
                     error=exc,
                 )
+            if not exhausted:
+                raise
             observation = controller.observe()
             terminal = module._terminal_outcome(request, observation)
             if terminal is not None:

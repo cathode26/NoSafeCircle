@@ -23,6 +23,7 @@ from Pipeline.TaskReviewAgent.downstream_pipeline import (  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
     _build_contract_migration_receipt,
     _prepare_contract_migration_mainline_bridge,
+    _wrap_run,
     validation_plan_for,
 )
 from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
@@ -552,6 +553,28 @@ def test_second_identical_rejection_releases_lease() -> None:
     )
 
 
+def test_fatal_pipeline_error_releases_exact_active_lease() -> None:
+    service, controller = guard_fixture("progress")
+
+    def fail(_request: Any, _controller: Any, **_values: Any) -> Any:
+        raise DownstreamPipelineError("synthetic fatal pipeline failure")
+
+    wrapped = _wrap_run(fail, SimpleNamespace(), pipeline_name="downstream")
+    try:
+        wrapped(SimpleNamespace(), controller)
+    except DownstreamPipelineError as exc:
+        require("synthetic fatal" in str(exc), f"unexpected error: {exc}")
+    else:
+        raise AssertionError("fatal pipeline failure did not propagate")
+    snapshot = service.find("NSC-020")
+    assert snapshot is not None and snapshot.state is not None
+    require(snapshot.state.state is WorkflowState.AGENT_READY, "lease remains active")
+    require(
+        snapshot.events[-1].details.get("reason") == "pipeline_failed",
+        "release event has the wrong reason",
+    )
+
+
 def main() -> int:
     tests = (
         test_verified_contract_migration_carries_original_pass,
@@ -560,6 +583,7 @@ def main() -> int:
         test_task_owned_blob_change_is_rejected,
         test_nsc020_validation_policy_is_playmode_only,
         test_second_identical_rejection_releases_lease,
+        test_fatal_pipeline_error_releases_exact_active_lease,
     )
     for test in tests:
         test()
