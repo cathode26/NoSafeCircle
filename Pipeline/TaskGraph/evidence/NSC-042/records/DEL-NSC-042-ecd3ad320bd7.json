@@ -1,0 +1,131 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "c26d5077ccdc2e8408129fef2d3571758777b29f99241d8aed1b39d73ea3e1a6"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "91fc6391841068753225a7c3eed94d0f292fa2bb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "Builds representative straight walls from independently sortable reusable visual cells, including long-wall validation layouts."
+    },
+    {
+      "blob_sha": "8f5708411c97e7ef0a90d0b680c450af0e78cc70",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ArchitecturalBorderTile.asset",
+      "role": "Provides the reusable architectural border tile used by the continuous wall presentation convention."
+    },
+    {
+      "blob_sha": "c13612df94eb65b0ec3eb2c1630c63c5ff783539",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset",
+      "role": "Provides the reusable floor tile aligned with the architectural tile convention used by the representative validation scene."
+    },
+    {
+      "blob_sha": "86575497d1a1ef99f3fdeb5eb4f05887a054e510",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
+      "role": "Defines the bounded reusable wall-tile asset repeated across short and approximately 100-cell walls without per-cell asset growth."
+    },
+    {
+      "blob_sha": "5deccb2aa24c54b0f59fc922ad2053c40b28f2b1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "role": "Exercises wall construction, reusable asset bounds, independent cell renderers, and positional sorting conformance."
+    },
+    {
+      "blob_sha": "e1f5f431b3ea5b41f108ae5b0506992bd16c41dc",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "Commits the representative Unity scene used to validate continuous long-wall presentation and wizard front/behind traversal."
+    }
+  ],
+  "delivery": {
+    "base_commit": "8b82db66c3ffe5f73b6f7f2640fa54723e859e0d",
+    "candidate_commit": "ecd3ad320bd756ac7105c34fc4fdc06ee4d13919",
+    "integrated_commit": "ecd3ad320bd756ac7105c34fc4fdc06ee4d13919",
+    "integrated_tree": "3df8d80748dda984bd5dd28f22744bfb8028ee3d"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "b09aff3bff7e3df688e568a729989cab01eab64f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/Unity-EditMode-01-ecd3ad320bd7.xml"
+        },
+        {
+          "blob_sha": "65f8a668f3ed61ae3ab9ab8efaa6e01327936f08",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/Unity-EditMode-01-ecd3ad320bd7.log"
+        },
+        {
+          "blob_sha": "80b844d629485a1ae16d8953556c005c70fcb89c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/Unity-PlayMode-02-ecd3ad320bd7.xml"
+        },
+        {
+          "blob_sha": "2a04397d656f5d18f4ea847311ec1bdb9e836ba8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/Unity-PlayMode-02-ecd3ad320bd7.log"
+        },
+        {
+          "blob_sha": "0add5996be4fecc9f44680670e1044b5ead3de87",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/HumanValidation-01-ecd3ad320bd7.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "The passed Unity results and logs cover construction and validation of representative reusable wall configurations, while the hash-bound human observation supports continuity at gameplay camera distance.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "b09aff3bff7e3df688e568a729989cab01eab64f",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/Unity-EditMode-01-ecd3ad320bd7.xml"
+        },
+        {
+          "blob_sha": "65f8a668f3ed61ae3ab9ab8efaa6e01327936f08",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/Unity-EditMode-01-ecd3ad320bd7.log"
+        },
+        {
+          "blob_sha": "80b844d629485a1ae16d8953556c005c70fcb89c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/Unity-PlayMode-02-ecd3ad320bd7.xml"
+        },
+        {
+          "blob_sha": "2a04397d656f5d18f4ea847311ec1bdb9e836ba8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/Unity-PlayMode-02-ecd3ad320bd7.log"
+        },
+        {
+          "blob_sha": "0add5996be4fecc9f44680670e1044b5ead3de87",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/HumanValidation-01-ecd3ad320bd7.txt"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "The passed Unity results and logs validate preservation of the NSC-039 positional sorting setup, and the hash-bound human runtime observation covers movement on both sides of and across the long wall with correct front/behind ordering.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "0add5996be4fecc9f44680670e1044b5ead3de87",
+          "path": "Pipeline/TaskGraph/evidence/NSC-042/artifacts/HumanValidation-01-ecd3ad320bd7.txt"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "The hash-bound human validation directly records the required normal-gameplay-camera judgment that repeated cells read as one continuous wall without visibly restarting pieces.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "cathode26",
+    "decision": "approved",
+    "notes": "Hash-bound delivery proposal for validated commit ecd3ad320bd756ac7105c34fc4fdc06ee4d13919 and tree 3df8d80748dda984bd5dd28f22744bfb8028ee3d. This proposal does not itself grant approval. Automated claims rely on the passed EditMode and PlayMode validation artifacts; human evidence is used for the required runtime visual observations.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-042-ecd3ad320bd7",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-03T04:39:20Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-042.yaml",
+    "revision": 1,
+    "sha256": "c3bf34ab8de54676a43335f47fbcb8cddf4abaea039ba784c210442e6add241f"
+  },
+  "task_id": "NSC-042",
+  "validated_state": {
+    "commit": "ecd3ad320bd756ac7105c34fc4fdc06ee4d13919",
+    "tree": "3df8d80748dda984bd5dd28f22744bfb8028ee3d"
+  }
+}

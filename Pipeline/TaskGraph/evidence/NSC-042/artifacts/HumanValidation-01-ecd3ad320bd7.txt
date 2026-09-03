@@ -1,0 +1,12 @@
+Task: NSC-042
+Issue: https://github.com/cathode26/NoSafeCircle/issues/120
+Tested commit: ecd3ad320bd756ac7105c34fc4fdc06ee4d13919
+Result: PASS
+
+## Human validation result
+
+Result: PASS
+Tested commit: ecd3ad320bd756ac7105c34fc4fdc06ee4d13919
+
+Completed steps:
+- retested
