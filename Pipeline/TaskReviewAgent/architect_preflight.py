@@ -875,8 +875,13 @@ Authority and safety rules:
   START requires positive evidence of disjointness from every supplied reservation.
 - `execution_recommendation` is advisory only. Inspect repository evidence as needed,
   but use read/search capability only and claim no commands, tests, or changes.
-- Return every schema field and every list, including empty lists. Evidence paths must
-  be paths you actually observed.
+- Return every schema field and every list, including empty lists. Every
+  `evidence[].path` must be one exact repository-relative file path you actually
+  observed, using `/` separators. Never put a glob or wildcard (`*` or `?`), an
+  absolute path, parentheses, prose, multiple paths, or a `repo-file:` resource
+  identifier in that field. If an observation comes from the supplied in-flight
+  reservation data rather than one repository file, explain it in `assumptions`,
+  `conflict_reasons`, or `unknown_surface_disjointness`; do not invent an evidence path.
 
 Mixed eligible portfolio:
 ```json

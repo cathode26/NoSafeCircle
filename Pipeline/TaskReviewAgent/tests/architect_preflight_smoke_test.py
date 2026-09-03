@@ -843,6 +843,8 @@ def test_mixed_portfolio_request_exposes_both_work_types_read_only() -> None:
     require("decomposition as a fallback" in request.prompt, request.prompt)
     require('"decomposition"' in request.prompt, request.prompt)
     require("NSC-101" in request.prompt and "NSC-102" in request.prompt, request.prompt)
+    require("`evidence[].path` must be one exact" in request.prompt, request.prompt)
+    require("glob or wildcard (`*` or `?`)" in request.prompt, request.prompt)
 
 
 def test_portfolio_selects_exact_eligible_task_work_type_pair() -> None:
