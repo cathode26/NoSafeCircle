@@ -362,8 +362,6 @@ class DurableTaskCheckoutManager:
         else:
             if task.get("execution_scope") != "needs_execution_decomposition":
                 reasons.append("task does not require execution decomposition")
-            if task.get("decomposition_state") == "concrete":
-                reasons.append("concrete task cannot use a decomposition checkout")
         if task.get("derived_state") != "not_delivered":
             reasons.append("task is not in not_delivered state")
         if (

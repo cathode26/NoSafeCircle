@@ -339,7 +339,7 @@ def test_decomposition_uses_exact_canonical_durable_checkout() -> None:
         )
         observed["task"].update(
             execution_scope="needs_execution_decomposition",
-            decomposition_state="atomicity_unknown",
+            decomposition_state="concrete",
             dependencies_conformant=False,
         )
         implementation = DurableTaskCheckoutManager(
