@@ -1230,7 +1230,20 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 impl_patch=paths_patch(clone,identity.head,implementation_paths,impl_new_surface).decode("utf-8","replace")
                 before=snapshot(clone)
                 inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_plan.existing_paths,new_test_paths=test_plan.new_paths,pipeline_sidecars=test_plan.pipeline_generated_sidecars,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
-                after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
+                # An existing authoritative test may already prove the new production
+                # behavior.  The independent Test Author must inspect it, but should
+                # not be forced to churn that file merely to satisfy a non-empty diff.
+                # New test paths remain an explicit creation obligation.
+                after=snapshot(clone); actual,scope=incremental_check(
+                    before,
+                    after,
+                    inv,
+                    require_change=(
+                        attempt == 1
+                        and retry_context is None
+                        and bool(test_plan.new_paths)
+                    ),
+                ); scope+=source_revalidation(source_root,identity)
                 output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=list(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
                 generated=[]
                 if not scope and not blockers:
@@ -1275,7 +1288,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     and not (set(final_paths)&set(implementation_paths))):
                 final_reasons.append("final candidate has no implementation change")
             if (crew_status=="review_ready" and retry_context is None
-                    and not (set(final_paths)&set(test_paths))):
+                    and test_plan.new_paths
+                    and not (set(final_paths)&set(test_plan.new_paths))):
                 final_reasons.append("final candidate has no test change")
             if crew_status=="review_ready" and retry_context is not None and not final_paths:
                 final_reasons.append("final retry candidate has no change relative to current source HEAD")

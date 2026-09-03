@@ -205,7 +205,7 @@ class FakeProvider:
                 current=(self.repo/TEST).read_text()
                 assert "PriorCandidateRegression" in current
                 write(self.repo/TEST,"public class PlayerManaTests { public void ManaTest() {} public void PriorCandidateRegression() {} public void HumanReviewRegression() {} }\n")
-            elif s.scenario in ("retry_impl_only","retry_noop"):
+            elif s.scenario in ("existing_test_adequate","retry_impl_only","retry_noop"):
                 pass
             elif s.scenario=="retry_revert_on_repair":
                 current=(self.repo/TEST).read_text()
@@ -447,6 +447,13 @@ def main():
     assert json.loads((d/"role_results/validator_1.json").read_text())["structured_output"]["criteria_results"][1]["status"]=="not_proven"
     assert json.loads((d/"role_results/validator_1.json").read_text())["structured_output"]["criteria_results"][1]["reason_code"]=="runtime_not_executed"
     assert len({x[1].run_id for x in state.calls})==4; assert not state.clone.exists(); assert passed["implementation_actual_changed_paths"]==[IMPL] and passed["test_actual_changed_paths"]==[TEST]
+    existing_test_adequate,existing_test_state,existing_test_dir=execute(source,outputs,"existing_test_adequate",155)
+    assert existing_test_adequate["crew_status"]=="review_ready"
+    assert [x[0] for x in existing_test_state.calls]==["contract_locality_auditor","implementer","test_author","validator"]
+    assert existing_test_adequate["implementation_actual_changed_paths"]==[IMPL]
+    assert existing_test_adequate["test_actual_changed_paths"]==[]
+    assert existing_test_adequate["final_actual_changed_paths"]==[IMPL]
+    assert (existing_test_dir/"candidate.patch").is_file()
     assert len(list((d/"task_execution").glob("*/task_request.json")))==4 and len(list((d/"agent_runtime").glob("*/result.json")))==4
     impl_record=json.loads((d/"role_results/implementer_1.json").read_text()); assert impl_record["role_claimed_paths"]==["claim-impl.cs"] and impl_record["agent_runtime_claimed_paths"]==["runtime-claim.cs"] and impl_record["deterministic_incremental_actual_changed_paths"]==[IMPL]
     assert impl_record["usage"]=={"estimated_cost_usd":None,"input_tokens":1,"output_tokens":2,"total_tokens":11}
