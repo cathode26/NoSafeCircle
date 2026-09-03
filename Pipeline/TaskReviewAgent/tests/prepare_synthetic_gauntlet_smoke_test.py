@@ -23,8 +23,10 @@ from Pipeline.TaskReviewAgent.prepare_synthetic_gauntlet import (  # noqa: E402
     POLICY_RELATIVE,
     ROOT_TASK_ID,
     TEST_FILTER,
+    _test_filter,
     apply_bundle,
     build_bundle,
+    build_validation_repair_bundle,
 )
 from persistent_work_graph import load_persistent_work_graph  # noqa: E402
 from graph_delta import semantic_json_sha256  # noqa: E402
@@ -84,7 +86,14 @@ def test_validation_policy_binds_every_concrete_initial_contract() -> None:
     for task_id, entry in policy["tasks"].items():
         data = bundle[Path("Tasks") / f"{task_id}.yaml"]
         require(entry["task_contract_sha256"] == hashlib.sha256(data).hexdigest(), task_id)
-        require(entry["test_filters"]["EditMode"] == TEST_FILTER, task_id)
+        if task_id == PRESERVED_TASK_ID:
+            require(entry["test_filters"]["EditMode"] != TEST_FILTER, task_id)
+        else:
+            require(
+                entry["test_filters"]["EditMode"]
+                == _test_filter(int(task_id.split("-")[1])),
+                task_id,
+            )
     require(
         set(policy["decomposition_child_templates"]) == decomposition,
         str(set(policy["decomposition_child_templates"]) ^ decomposition),
@@ -95,7 +104,24 @@ def test_validation_policy_binds_every_concrete_initial_contract() -> None:
             == semantic_json_sha256(task(bundle, task_id)),
             task_id,
         )
-        require(entry["test_filters"]["EditMode"] == TEST_FILTER, task_id)
+        number = int(task_id.split("-")[1])
+        variants = entry["validation_variants"]
+        require(len(variants) == 2, task_id)
+        require(
+            {item["test_filters"]["EditMode"] for item in variants}
+            == {_test_filter(number, "Alpha"), _test_filter(number, "Beta")},
+            task_id,
+        )
+
+
+def test_test_source_has_one_exact_method_per_implementation_child() -> None:
+    bundle, _ = build_bundle(ROOT)
+    source = bundle[gauntlet.TEST_RELATIVE].decode("utf-8")
+    require(source.count("        [Test]") == 88, "expected 88 exact test methods")
+    require(_test_filter(912).split(".")[-1] in source, "NSC-912 test missing")
+    require(_test_filter(911, "Alpha").split(".")[-1] in source, "Alpha test missing")
+    require(_test_filter(911, "Beta").split(".")[-1] in source, "Beta test missing")
+    require("EveryPublishedGauntletClass" not in source, "fleet-wide test remains")
 
 
 def test_every_concrete_task_owns_a_disjoint_source_and_meta_pair() -> None:
@@ -142,6 +168,14 @@ def test_materialization_validates_and_failure_rolls_back() -> None:
             }
             require(ROOT_TASK_ID in active and PRESERVED_TASK_ID in active, str(active))
             require("NSC-911" in active and "NSC-990" in active, str(active))
+
+            repair, summary = build_validation_repair_bundle(target)
+            require(summary["repaired_task_contracts"] == 80, str(summary))
+            require(summary["test_methods"] == 88, str(summary))
+            apply_bundle(target, repair)
+            repaired = json.loads((target / "Tasks" / "NSC-912.yaml").read_text())
+            require(repaired["contract_revision"] == 2, str(repaired))
+            require(_test_filter(912) in repaired["completion_gates"][0]["requirement"], str(repaired))
 
             root_path = target / "Tasks" / "NSC-001.yaml"
             before = root_path.read_bytes()
@@ -217,6 +251,7 @@ def main() -> int:
         test_bundle_has_eight_dependency_waves_and_mixed_work,
         test_old_active_work_is_cancelled_but_root_and_42_remain_active,
         test_validation_policy_binds_every_concrete_initial_contract,
+        test_test_source_has_one_exact_method_per_implementation_child,
         test_every_concrete_task_owns_a_disjoint_source_and_meta_pair,
         test_materialization_validates_and_failure_rolls_back,
         test_public_or_production_repository_is_refused_before_mutation,

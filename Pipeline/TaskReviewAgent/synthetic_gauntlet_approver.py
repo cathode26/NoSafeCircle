@@ -42,8 +42,8 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
 from Pipeline.TaskReviewAgent.prepare_synthetic_gauntlet import (  # noqa: E402
     GAUNTLET_ID,
     PRESERVED_TASK_ID,
-    TEST_FILTER,
     _repository_from_origin,
+    _test_filter,
 )
 from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
 from graph_apply_plan import plan_graph_apply  # noqa: E402
@@ -172,6 +172,31 @@ def _require_gauntlet_task(source: Path, task_id: str) -> dict[str, Any]:
     return task
 
 
+def _expected_implementation_filter(source: Path, task: Mapping[str, Any]) -> str:
+    provenance = task.get("provenance")
+    if _direct_gauntlet_task(task):
+        value = provenance.get("expected_value") if isinstance(provenance, Mapping) else None
+        if type(value) is not int or task.get("execution_scope") != "single_agent":
+            raise SyntheticApprovalError("direct synthetic task has no exact expected value")
+        return _test_filter(value)
+    if not isinstance(provenance, Mapping):
+        raise SyntheticApprovalError("synthetic child omitted decomposition provenance")
+    parent_id = provenance.get("parent_task_id")
+    if not isinstance(parent_id, str):
+        raise SyntheticApprovalError("synthetic child omitted its parent task ID")
+    parent = load_committed_task(source, parent_id)
+    number = int(parent_id.split("-")[1])
+    expected_paths = (parent.get("provenance") or {}).get("expected_paths")
+    resources = set(task.get("exclusive_resources") or ())
+    if not isinstance(expected_paths, list) or len(expected_paths) != 4:
+        raise SyntheticApprovalError("synthetic parent has no exact expected child paths")
+    if resources == {f"repo-file:{path}" for path in expected_paths[:2]}:
+        return _test_filter(number, "Alpha")
+    if resources == {f"repo-file:{path}" for path in expected_paths[2:]}:
+        return _test_filter(number, "Beta")
+    raise SyntheticApprovalError("synthetic child resources do not select one exact test")
+
+
 def _last_decomposition_handoff(snapshot: IssueWorkflowSnapshot):
     handoffs = [
         event
@@ -250,6 +275,7 @@ def review_decomposition_plan(
             "synthetic decomposition parent does not own its exact four expected paths"
         )
     owned: set[str] = set()
+    number = int(str(task["id"]).split("-")[1])
     for child in contracts:
         resources = set(child.get("exclusive_resources") or ())
         if (
@@ -270,12 +296,20 @@ def review_decomposition_plan(
             or provenance.get("graph_delta_plan_id") != plan_id
         ):
             raise SyntheticApprovalError("synthetic child provenance is not exact")
+        if resources == {f"repo-file:{path}" for path in expected_paths[:2]}:
+            expected_filter = _test_filter(number, "Alpha")
+        elif resources == {f"repo-file:{path}" for path in expected_paths[2:]}:
+            expected_filter = _test_filter(number, "Beta")
+        else:
+            raise SyntheticApprovalError(
+                "synthetic child does not own one exact Alpha or Beta resource pair"
+            )
         gate_text = "\n".join(
             str(item.get("requirement") or "")
             for item in child.get("completion_gates") or ()
             if isinstance(item, Mapping)
         )
-        if TEST_FILTER not in gate_text:
+        if expected_filter not in gate_text:
             raise SyntheticApprovalError(
                 "synthetic child omitted the exact Unity EditMode filter"
             )
@@ -305,10 +339,11 @@ def _run_unity_validation(
             "implementation handoff is not the exact canonical task checkout"
         )
     plan = validation_plan_for(checkout, task)
+    expected_filter = _expected_implementation_filter(source, task)
     if (
         plan is None
         or plan.get("required_test_platforms") != ["EditMode"]
-        or plan.get("test_filters", {}).get("EditMode") != TEST_FILTER
+        or plan.get("test_filters", {}).get("EditMode") != expected_filter
     ):
         raise SyntheticApprovalError(
             "synthetic task has no exact committed EditMode validation plan"
@@ -324,7 +359,7 @@ def _run_unity_validation(
         "-TestPlatform",
         "EditMode",
         "-TestFilter",
-        TEST_FILTER,
+        expected_filter,
         "-ProjectPath",
         str(checkout),
     )
@@ -338,7 +373,7 @@ def _run_unity_validation(
         "commit": snapshot.state.head_commit,
         "checkout": str(checkout),
         "test_platform": "EditMode",
-        "test_filter": TEST_FILTER,
+        "test_filter": expected_filter,
         "status": "exact_synthetic_unity_validation_passed",
     }
 

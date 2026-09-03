@@ -84,6 +84,14 @@ def _value_paths(number: int, suffix: str = "") -> tuple[str, str]:
     return source, source + ".meta"
 
 
+def _test_method(number: int, suffix: str = "") -> str:
+    return f"MuffcabbageGauntlet{number:03d}{suffix}HasExpectedValue"
+
+
+def _test_filter(number: int, suffix: str = "") -> str:
+    return f"{TEST_FILTER}.{_test_method(number, suffix)}"
+
+
 def _dependency_ids(index: int) -> list[str]:
     if index < GAUNTLET_WAVE_SIZE:
         return []
@@ -159,8 +167,8 @@ def _concrete_task(number: int, index: int) -> dict[str, Any]:
         "completion_gates": [
             _gate(
                 "VAL-001",
-                f"Unity EditMode filter {TEST_FILTER} discovers at least one test and passes "
-                f"for the exact commit, including Value == {number} for "
+                f"Unity EditMode filter {_test_filter(number)} passes for the exact commit "
+                f"and proves Value == {number} for "
                 f"MuffcabbageGauntlet{number:03d}.",
             )
         ],
@@ -234,12 +242,12 @@ def _decomposition_task(number: int, index: int) -> dict[str, Any]:
         "completion_gates": [
             _gate(
                 "VAL-001",
-                f"Unity EditMode filter {TEST_FILTER} passes for the exact Alpha child commit and "
+                f"Unity EditMode filter {_test_filter(number, 'Alpha')} passes for the exact Alpha child commit and "
                 f"proves MuffcabbageGauntlet{number:03d}Alpha.Value == {number}.",
             ),
             _gate(
                 "VAL-002",
-                f"Unity EditMode filter {TEST_FILTER} passes for the exact Beta child commit and "
+                f"Unity EditMode filter {_test_filter(number, 'Beta')} passes for the exact Beta child commit and "
                 f"proves MuffcabbageGauntlet{number:03d}Beta.Value == {number}.",
             ),
         ],
@@ -301,8 +309,25 @@ def _preserve_42(task: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _test_source() -> bytes:
+    methods: list[str] = []
+    for index in range(GAUNTLET_TASK_COUNT):
+        number = GAUNTLET_FIRST_ID + index
+        suffixes = ("Alpha", "Beta") if index % GAUNTLET_WAVE_SIZE == 0 else ("",)
+        for suffix in suffixes:
+            method = _test_method(number, suffix)
+            type_name = f"MuffcabbageGauntlet{number:03d}{suffix}"
+            methods.append(
+                "\n".join(
+                    (
+                        "        [Test]",
+                        f"        public void {method}()",
+                        "        {",
+                        f'            AssertValue("{type_name}", {number});',
+                        "        }",
+                    )
+                )
+            )
     text = r'''using System;
-using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 
@@ -310,30 +335,21 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 {
     public class MuffcabbageGauntletTests
     {
-        [Test]
-        public void EveryPublishedGauntletClassHasItsTaskNumberValue()
+        private static void AssertValue(string typeName, int expected)
         {
-            const string Prefix = "MuffcabbageGauntlet";
-            Type[] types = typeof(DoorInteractable).Assembly.GetTypes()
-                .Where(type => type.Name.StartsWith(Prefix, StringComparison.Ordinal))
-                .OrderBy(type => type.Name, StringComparer.Ordinal)
-                .ToArray();
-
-            Assert.That(types, Is.Not.Empty, "No synthetic gauntlet value has been published.");
-            foreach (Type type in types)
-            {
-                string digits = new string(type.Name.Substring(Prefix.Length)
-                    .TakeWhile(char.IsDigit).ToArray());
-                Assert.That(digits.Length, Is.EqualTo(3), type.FullName);
-                FieldInfo field = type.GetField("Value", BindingFlags.Public | BindingFlags.Static);
-                Assert.That(field, Is.Not.Null, type.FullName);
-                Assert.That(field.IsLiteral, Is.True, type.FullName);
-                Assert.That((int)field.GetRawConstantValue(), Is.EqualTo(int.Parse(digits)), type.FullName);
-            }
+            string qualifiedName = $"NoSafeCircle.DoorPrototype.{typeName}";
+            Type type = typeof(DoorInteractable).Assembly.GetType(qualifiedName);
+            Assert.That(type, Is.Not.Null, qualifiedName);
+            FieldInfo field = type.GetField("Value", BindingFlags.Public | BindingFlags.Static);
+            Assert.That(field, Is.Not.Null, qualifiedName);
+            Assert.That(field.IsLiteral, Is.True, qualifiedName);
+            Assert.That((int)field.GetRawConstantValue(), Is.EqualTo(expected), qualifiedName);
         }
+__METHODS__
     }
 }
 '''
+    text = text.replace("__METHODS__", "\n\n".join(methods))
     return text.replace("\n", "\r\n").encode("utf-8")
 
 
@@ -342,6 +358,130 @@ def _meta_source() -> bytes:
         "fileFormatVersion: 2\n"
         f"guid: {_guid(TEST_RELATIVE.as_posix())}\n"
     ).encode("utf-8")
+
+
+def _validation_policy(
+    source: Path,
+    tasks: Sequence[Mapping[str, Any]],
+    task_bytes: Mapping[str, bytes],
+) -> dict[str, Any]:
+    existing = json.loads((source / POLICY_RELATIVE).read_text(encoding="utf-8"))
+    preserved = deepcopy((existing.get("tasks") or {}).get(PRESERVED_TASK_ID))
+    if not isinstance(preserved, dict):
+        raise SyntheticGauntletError("NSC-042 validation policy must already exist")
+    preserved["task_contract_sha256"] = _sha256(task_bytes[PRESERVED_TASK_ID])
+    policy: dict[str, Any] = {
+        "schema_version": "1.0",
+        "tasks": {PRESERVED_TASK_ID: preserved},
+        "decomposition_child_templates": {},
+    }
+    for task in tasks:
+        task_id = str(task["id"])
+        provenance = task.get("provenance") or {}
+        if provenance.get("gauntlet_id") != GAUNTLET_ID:
+            continue
+        number = int(task_id.split("-")[1])
+        if task.get("execution_scope") == "single_agent":
+            policy["tasks"][task_id] = {
+                "task_contract_sha256": _sha256(task_bytes[task_id]),
+                "required_test_platforms": ["EditMode"],
+                "test_filters": {"EditMode": _test_filter(number)},
+                "authority": "committed_private_synthetic_gauntlet_validation_policy",
+            }
+            continue
+        alpha, alpha_meta = _value_paths(number, "Alpha")
+        beta, beta_meta = _value_paths(number, "Beta")
+        policy["decomposition_child_templates"][task_id] = {
+            "parent_task_contract_sha256": semantic_json_sha256(
+                {key: value for key, value in dict(task).items() if key != "task_contract_sha256"}
+            ),
+            "validation_variants": [
+                {
+                    "required_exclusive_resources": [
+                        f"repo-file:{alpha}",
+                        f"repo-file:{alpha_meta}",
+                    ],
+                    "required_test_platforms": ["EditMode"],
+                    "test_filters": {"EditMode": _test_filter(number, "Alpha")},
+                },
+                {
+                    "required_exclusive_resources": [
+                        f"repo-file:{beta}",
+                        f"repo-file:{beta_meta}",
+                    ],
+                    "required_test_platforms": ["EditMode"],
+                    "test_filters": {"EditMode": _test_filter(number, "Beta")},
+                },
+            ],
+            "authority": (
+                "committed_private_synthetic_gauntlet_decomposition_child_policy"
+            ),
+        }
+    return policy
+
+
+def build_validation_repair_bundle(
+    source: Path,
+) -> tuple[dict[Path, bytes], dict[str, Any]]:
+    graph = load_persistent_work_graph(source)
+    tasks = [deepcopy(task) for task in graph.plan.tasks]
+    by_id = {str(task["id"]): task for task in tasks}
+    if PRESERVED_TASK_ID not in by_id:
+        raise SyntheticGauntletError("validation repair requires NSC-042")
+    gauntlet_tasks: list[dict[str, Any]] = []
+    for index in range(GAUNTLET_TASK_COUNT):
+        number = GAUNTLET_FIRST_ID + index
+        task_id = _task_id(number)
+        task = by_id.get(task_id)
+        if task is None or (task.get("provenance") or {}).get("gauntlet_id") != GAUNTLET_ID:
+            raise SyntheticGauntletError(
+                "validation repair requires the exact materialized NSC-911 through NSC-990 graph"
+            )
+        task["contract_revision"] = int(task["contract_revision"]) + 1
+        if index % GAUNTLET_WAVE_SIZE == 0:
+            task["completion_gates"] = [
+                _gate(
+                    "VAL-001",
+                    f"Unity EditMode filter {_test_filter(number, 'Alpha')} passes for the exact Alpha child commit and proves MuffcabbageGauntlet{number:03d}Alpha.Value == {number}.",
+                ),
+                _gate(
+                    "VAL-002",
+                    f"Unity EditMode filter {_test_filter(number, 'Beta')} passes for the exact Beta child commit and proves MuffcabbageGauntlet{number:03d}Beta.Value == {number}.",
+                ),
+            ]
+        else:
+            task["completion_gates"] = [
+                _gate(
+                    "VAL-001",
+                    f"Unity EditMode filter {_test_filter(number)} passes for the exact commit and proves Value == {number} for MuffcabbageGauntlet{number:03d}.",
+                )
+            ]
+        gauntlet_tasks.append(task)
+
+    validate_work_graph_plan(
+        WorkGraphPlan(
+            id_map=deepcopy(graph.plan.id_map),
+            tasks=tuple(tasks),
+            resource_groups=deepcopy(graph.plan.resource_groups),
+            project_requirements=deepcopy(graph.plan.project_requirements),
+        )
+    )
+    task_bytes = {str(task["id"]): _json_bytes(task) for task in tasks}
+    bundle = {
+        Path("Tasks") / f"{task['id']}.yaml": task_bytes[str(task["id"])]
+        for task in gauntlet_tasks
+    }
+    bundle[POLICY_RELATIVE] = _json_bytes(
+        _validation_policy(source, tasks, task_bytes)
+    )
+    bundle[TEST_RELATIVE] = _test_source()
+    return bundle, {
+        "schema_version": GAUNTLET_SCHEMA_VERSION,
+        "gauntlet_id": GAUNTLET_ID,
+        "repaired_task_contracts": len(gauntlet_tasks),
+        "test_methods": GAUNTLET_TASK_COUNT + GAUNTLET_TASK_COUNT // GAUNTLET_WAVE_SIZE,
+        "target_paths": len(bundle),
+    }
 
 
 def build_bundle(source: Path) -> tuple[dict[Path, bytes], dict[str, Any]]:
@@ -423,29 +563,7 @@ def build_bundle(source: Path) -> tuple[dict[Path, bytes], dict[str, Any]]:
         }
     )
 
-    policy = {
-        "schema_version": "1.0",
-        "tasks": {},
-        "decomposition_child_templates": {},
-    }
-    policy_ids = [PRESERVED_TASK_ID, *concrete_ids]
-    for task_id in policy_ids:
-        policy["tasks"][task_id] = {
-            "task_contract_sha256": _sha256(task_bytes[task_id]),
-            "required_test_platforms": ["EditMode"],
-            "test_filters": {"EditMode": TEST_FILTER},
-            "authority": "committed_private_synthetic_gauntlet_validation_policy",
-        }
-    task_by_id = {task["id"]: task for task in tasks}
-    for task_id in decomposition_ids:
-        policy["decomposition_child_templates"][task_id] = {
-            "parent_task_contract_sha256": semantic_json_sha256(task_by_id[task_id]),
-            "required_test_platforms": ["EditMode"],
-            "test_filters": {"EditMode": TEST_FILTER},
-            "authority": (
-                "committed_private_synthetic_gauntlet_decomposition_child_policy"
-            ),
-        }
+    policy = _validation_policy(source, tasks, task_bytes)
     bundle[POLICY_RELATIVE] = _json_bytes(policy)
     bundle[TEST_RELATIVE] = _test_source()
     bundle[TEST_META_RELATIVE] = _meta_source()
@@ -590,11 +708,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--source", type=Path, default=ROOT)
     parser.add_argument("--expected-head")
     parser.add_argument("--confirm-repository")
+    parser.add_argument("--repair-validation", action="store_true")
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args(argv)
     try:
         source = args.source.resolve()
-        bundle, summary = build_bundle(source)
+        bundle, summary = (
+            build_validation_repair_bundle(source)
+            if args.repair_validation
+            else build_bundle(source)
+        )
         if not args.apply:
             print(json.dumps({**summary, "status": "ready_dry_run"}, indent=2, sort_keys=True))
             return 0

@@ -112,13 +112,23 @@ def test_exact_editmode_filter_is_used_before_approval() -> None:
             head_commit="a" * 40,
         )
         snapshot = SimpleNamespace(state=state)
-        task = {"id": "NSC-912", "task_contract_sha256": "b" * 64}
+        expected_filter = approver._test_filter(912)
+        task = {
+            "id": "NSC-912",
+            "task_contract_sha256": "b" * 64,
+            "execution_scope": "single_agent",
+            "provenance": {
+                "origin": "human_approved_synthetic_gauntlet",
+                "gauntlet_id": approver.GAUNTLET_ID,
+                "expected_value": 912,
+            },
+        }
         calls: list[tuple[str, ...]] = []
         original_plan = approver.validation_plan_for
         original_run = approver.subprocess.run
         approver.validation_plan_for = lambda *_args: {
             "required_test_platforms": ["EditMode"],
-            "test_filters": {"EditMode": approver.TEST_FILTER},
+            "test_filters": {"EditMode": expected_filter},
         }
 
         def record(command, **_values):
@@ -139,7 +149,7 @@ def test_exact_editmode_filter_is_used_before_approval() -> None:
         require(result["status"].endswith("passed"), str(result))
         command = calls[0]
         require(command[command.index("-TestPlatform") + 1] == "EditMode", str(command))
-        require(command[command.index("-TestFilter") + 1] == approver.TEST_FILTER, str(command))
+        require(command[command.index("-TestFilter") + 1] == expected_filter, str(command))
 
 
 def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
@@ -151,10 +161,10 @@ def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
         )
         plan_id = "GDP-" + ("a" * 64)
         paths = [
-            "Assets/Gauntlet/Alpha.cs",
-            "Assets/Gauntlet/Alpha.cs.meta",
-            "Assets/Gauntlet/Beta.cs",
-            "Assets/Gauntlet/Beta.cs.meta",
+            "Assets/Gauntlet/MuffcabbageGauntlet911Alpha.cs",
+            "Assets/Gauntlet/MuffcabbageGauntlet911Alpha.cs.meta",
+            "Assets/Gauntlet/MuffcabbageGauntlet911Beta.cs",
+            "Assets/Gauntlet/MuffcabbageGauntlet911Beta.cs.meta",
         ]
         task = {
             "schema_version": "2.0",
@@ -170,7 +180,7 @@ def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
         }
         parent_hash = approver.semantic_json_sha256(task)
 
-        def child(task_id: str, resources: list[str]) -> dict:
+        def child(task_id: str, resources: list[str], suffix: str) -> dict:
             return {
                 "id": task_id,
                 "parent": task["id"],
@@ -178,7 +188,11 @@ def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
                 "decomposition_state": "concrete",
                 "exclusive_resources": resources,
                 "completion_gates": [
-                    {"requirement": f"Run {approver.TEST_FILTER} for this exact commit."}
+                    {
+                        "requirement": (
+                            f"Run {approver._test_filter(911, suffix)} for this exact commit."
+                        )
+                    }
                 ],
                 "provenance": {
                     "origin": "progressive_decomposition",
@@ -188,8 +202,8 @@ def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
             }
 
         contracts = [
-            child("NSC-991", [f"repo-file:{path}" for path in paths[:2]]),
-            child("NSC-992", [f"repo-file:{path}" for path in paths[2:]]),
+            child("NSC-991", [f"repo-file:{path}" for path in paths[:2]], "Alpha"),
+            child("NSC-992", [f"repo-file:{path}" for path in paths[2:]], "Beta"),
         ]
         graph = SimpleNamespace(
             plan_id=plan_id,

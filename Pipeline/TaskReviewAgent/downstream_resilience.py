@@ -230,6 +230,41 @@ def validation_plan_for(
         raise DownstreamPipelineError(
             f"authoritative validation policy for {task_id} is invalid"
         )
+    if inherited_from is not None and raw.get("validation_variants") is not None:
+        variants = raw.get("validation_variants")
+        resources = task.get("exclusive_resources")
+        if (
+            not isinstance(variants, list)
+            or not variants
+            or not isinstance(resources, list)
+            or any(type(item) is not str for item in resources)
+        ):
+            raise DownstreamPipelineError(
+                f"authoritative validation variants for {task_id} are invalid"
+            )
+        resource_set = set(resources)
+        matches: list[Mapping[str, Any]] = []
+        for variant in variants:
+            if not isinstance(variant, Mapping):
+                raise DownstreamPipelineError(
+                    f"authoritative validation variants for {task_id} are invalid"
+                )
+            required = variant.get("required_exclusive_resources")
+            if (
+                not isinstance(required, list)
+                or not required
+                or any(type(item) is not str for item in required)
+            ):
+                raise DownstreamPipelineError(
+                    f"authoritative validation variants for {task_id} are invalid"
+                )
+            if set(required) == resource_set:
+                matches.append(variant)
+        if len(matches) != 1:
+            raise DownstreamPipelineError(
+                f"authoritative validation variants for {task_id} did not match exactly once"
+            )
+        raw = {**raw, **matches[0]}
     contract_hash = task.get("task_contract_sha256")
     if (
         not isinstance(contract_hash, str)
