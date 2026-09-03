@@ -212,6 +212,16 @@ To inspect what the production controller would do without acquiring a lease or 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -Mode observe
 ```
 
+## Reset an abandoned task to fresh availability
+
+Do not delete or reset a task checkout merely to retry the launcher. When Vincent explicitly abandons an undelivered run and requests a fresh start, follow:
+
+```text
+Docs/AI-Pipeline/FRESH_TASK_RESET_RUNBOOK.md
+```
+
+That procedure closes the abandoned Issue and PR without fabricating completion, fences deletion of the exact remote branch, verifies and removes only clean task-specific checkouts, archives the active checkout manifest, retains immutable run logs, and proves the TaskGraph task is still `not_delivered` before another explicit launch.
+
 ## Safety boundaries
 
 The Game Task Agent cannot:
