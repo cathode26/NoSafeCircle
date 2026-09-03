@@ -116,6 +116,21 @@ function Stop-WithCode {
     exit $Code
 }
 
+function Get-Sha256Hex {
+    param([string]$Path)
+
+    $stream = [System.IO.File]::OpenRead($Path)
+    $algorithm = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $algorithm.ComputeHash($stream)
+        return ([System.BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $algorithm.Dispose()
+        $stream.Dispose()
+    }
+}
+
 function ConvertTo-WindowsCommandLineArgument {
     param([AllowEmptyString()][string]$Argument)
 
@@ -429,8 +444,8 @@ try {
         if ($xmlFile.PSIsContainer -or $logFile.PSIsContainer) {
             throw "Unity XML and log artifacts must be regular files."
         }
-        $xmlHash = (Get-FileHash -LiteralPath $xmlPath -Algorithm SHA256).Hash.ToLowerInvariant()
-        $logHash = (Get-FileHash -LiteralPath $logPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $xmlHash = Get-Sha256Hex $xmlPath
+        $logHash = Get-Sha256Hex $logPath
         $manifest = [ordered]@{
             schema_version = "1.0"
             manifest_type = "unity_test_validation"
