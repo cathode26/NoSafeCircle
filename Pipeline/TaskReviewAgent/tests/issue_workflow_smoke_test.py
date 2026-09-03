@@ -209,6 +209,23 @@ class LaggyMemoryIssueBackend(MemoryIssueBackend):
         self._stale_issue = None
 
 
+class BodyBeforeCommentMemoryBackend(MemoryIssueBackend):
+    """Expose a current Issue body before its newest event comment."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.hidden_comment_reads = 0
+        self.comment_reads = 0
+
+    def get_comments(self, issue_number: int) -> list[dict]:
+        self.comment_reads += 1
+        comments = super().get_comments(issue_number)
+        if self.hidden_comment_reads > 0:
+            self.hidden_comment_reads -= 1
+            return comments[:-1]
+        return comments
+
+
 def test_state_event_round_trip_and_chain() -> None:
     state = initial_state(
         task_id=TASK_ID,
@@ -883,6 +900,52 @@ def test_resource_conflict_and_tampered_history_fail_closed() -> None:
     )
 
 
+def test_resource_scan_retries_body_before_comment_visibility_skew() -> None:
+    backend = BodyBeforeCommentMemoryBackend()
+    tasks = {TASK_ID: task(TASK_ID), OTHER_TASK_ID: task(OTHER_TASK_ID)}
+    owner = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+    )
+    acquired = owner.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Reserve the shared scene.",
+        expected_validation="Expose the reservation after GitHub converges.",
+        now="2026-09-03T21:00:00Z",
+    )
+    require(acquired["status"] == "acquired", str(acquired))
+
+    backend.hidden_comment_reads = 1
+    reads_before = backend.comment_reads
+    checker = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-b",
+    )
+    original_delays = issue_workflow_store_module.RESERVATION_CONSISTENCY_DELAYS_SECONDS
+    issue_workflow_store_module.RESERVATION_CONSISTENCY_DELAYS_SECONDS = (0.0, 0.0)
+    try:
+        conflicts, _diagnostics = checker.resource_conflicts(tasks[OTHER_TASK_ID])
+    finally:
+        issue_workflow_store_module.RESERVATION_CONSISTENCY_DELAYS_SECONDS = original_delays
+
+    require(
+        conflicts == [
+            f"{TASK_ID} reserves overlapping resources: "
+            "['unity-scene:Assets/Scenes/Test.unity']"
+        ],
+        str(conflicts),
+    )
+    require(
+        backend.comment_reads - reads_before == 2,
+        "reservation scan did not perform exactly one bounded consistency reread",
+    )
+
+
 def test_durable_ownership_by_other_is_typed_blocked_kind() -> None:
     """MEDIUM-1: another authorized worker's valid agent_working Issue for
     the SAME task, with no exclusive-resource overlap involved, must block
@@ -1359,6 +1422,7 @@ def main() -> int:
         test_post_mutation_verification_exhaustion_fails_closed_without_repeating_write,
         test_post_mutation_verification_rejects_visible_same_version_conflict,
         test_resource_conflict_and_tampered_history_fail_closed,
+        test_resource_scan_retries_body_before_comment_visibility_skew,
         test_durable_ownership_by_other_is_typed_blocked_kind,
         test_operational_resource_inspection_failure_is_not_benign,
         test_untyped_blocked_state_carries_no_blocked_kind,

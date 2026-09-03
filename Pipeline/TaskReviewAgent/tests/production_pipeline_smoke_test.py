@@ -488,6 +488,7 @@ def test_scope_execution_commit_push() -> None:
             root,
             authoritative_validation=True,
         )
+        task["title"] = "Door Prototype"
         scope = RepositoryScopeAuthority(
             checkout=checkout,
             task=task,
@@ -496,6 +497,10 @@ def test_scope_execution_commit_push() -> None:
         )
         facts = scope.facts()
         require(IMPLEMENTATION in facts["existing_resource_paths"], "resource fact missing")
+        require(
+            DOOR_TEST in facts["suggested_test_paths"],
+            "task-title substring did not expose the matching committed test",
+        )
         require(
             IMPLEMENTATION in scope.list_files(prefix=".")["paths"],
             "approved-root file listing omitted the implementation",

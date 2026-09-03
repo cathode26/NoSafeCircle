@@ -32,6 +32,10 @@ _READ_PREFIXES = (
 _IMPLEMENTATION_PREFIXES = ("Assets/", "Packages/", "ProjectSettings/")
 _NEW_IMPLEMENTATION_PREFIXES = ("Assets/",)
 _TEST_PREFIXES = ("Assets/", "Packages/")
+_REQUIRED_POLICY_PATHS = (
+    "Docs/Engineering/UNITY_TESTING_POLICY.md",
+    "Docs/AI-Pipeline/UNITY_PROGRAMMER_LANGUAGE.md",
+)
 _PROTECTED_TOP_LEVEL = {
     ".git",
     ".github",
@@ -287,7 +291,7 @@ class RepositoryScopeAuthority:
         for path in tracked:
             folded = path.casefold()
             if _is_test_path(path):
-                if title_tokens & set(folded.replace("/", " ").replace("_", " ").split()) or any(
+                if any(token in folded for token in title_tokens) or any(
                     stem in folded for stem in resource_stems
                 ):
                     tests.append(path)
@@ -306,6 +310,9 @@ class RepositoryScopeAuthority:
             "ownership_roots": list(roots),
             "existing_resource_paths": existing_resources,
             "absent_resource_paths": absent_resources,
+            "required_policy_paths": [
+                path for path in _REQUIRED_POLICY_PATHS if path in tracked
+            ],
             "suggested_implementation_paths": relevant[:200],
             "suggested_test_paths": tests[:200],
             "accepted_plan_id": self._accepted.plan_id if self._accepted else None,

@@ -71,6 +71,9 @@ OPERATING RULES
 - Acquire a lease only with a concrete implementation approach and expected validation.
 - Before proposing scope, inspect repository_facts and read the Unity testing/programmer-language
   policies plus enough current scripts and tests to identify the smallest exact file set.
+- repository_scope_facts already supplies exact required_policy_paths, existing/absent resource
+  paths, and suggested tests. Use those paths directly; do not search or list merely to rediscover
+  a path already present there.
 - Correct existing/new classifications from deterministic validation findings. Never include .meta.
 - Keep implementation and test scopes disjoint and include at least one C# test file.
 - Run ExecutionCrew only with a returned plan_id.

@@ -2058,6 +2058,53 @@ def test_nonzero_child_exit_stops_new_admissions() -> None:
         require('"event": "worker_failed"' in stream.getvalue(), stream.getvalue())
 
 
+def test_fatal_child_exit_drains_other_workers_before_scheduler_stops() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        planner = SequencePlanner([candidate_plan(head, TASK_C)])
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=FakeArchitect({TASK_C: advisory(TASK_C, head)}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B), TASK_C: task(TASK_C)},
+        )
+        failed = FakeProcess(returncode=7)
+
+        class FinishesDuringDrain(FakeProcess):
+            def __init__(self) -> None:
+                super().__init__()
+                self.polls = 0
+
+            def poll(self) -> int | None:
+                self.polls += 1
+                return None if self.polls == 1 else 0
+
+        survivor = FinishesDuringDrain()
+        add_active(orchestrator, task_id=TASK_A, process=failed)
+        add_active(orchestrator, task_id=TASK_B, process=survivor)
+
+        with patch.object(scheduler_module.time, "sleep", return_value=None):
+            exit_code = orchestrator.run(
+                lock=SchedulerLock(root / "drain.lock"),
+                poll_seconds=0.01,
+                once=False,
+            )
+
+        require(exit_code == 2, f"failed child returned {exit_code}")
+        require(not planner.calls, "fatal child exit allowed a new admission")
+        require(not orchestrator.active_assignments, "surviving worker was not drained")
+        require(
+            survivor.kill_calls == 0 and survivor.terminate_calls == 0,
+            "drain killed the surviving worker",
+        )
+        events = stream.getvalue()
+        require('"event": "scheduler_draining"' in events, events)
+        require('"event": "worker_finished"' in events, events)
+        require('"active_children": []' in events, events)
+
+
 def test_one_transient_reservation_observation_failure_then_recovers() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -2463,6 +2510,7 @@ def main() -> int:
         test_actual_branch_path_overlap_prevents_launch,
         test_successful_child_exit_frees_local_capacity,
         test_nonzero_child_exit_stops_new_admissions,
+        test_fatal_child_exit_drains_other_workers_before_scheduler_stops,
         test_one_transient_reservation_observation_failure_then_recovers,
         test_reservation_observation_failure_threshold_fails_closed,
         test_dry_run_never_invokes_models_or_workers,

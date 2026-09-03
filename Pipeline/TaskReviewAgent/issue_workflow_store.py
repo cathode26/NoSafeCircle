@@ -90,6 +90,20 @@ BLOCKED_KIND_DURABLE_RESOURCE_RESERVATION_CONFLICT = "durable_resource_reservati
 # Retry only the read side, for a finite total wait of 15 seconds, then fail closed.
 POST_MUTATION_VERIFICATION_DELAYS_SECONDS = (0.0, 1.0, 2.0, 4.0, 8.0)
 
+# A different worker may observe the same GitHub eventual-consistency window
+# while enumerating durable reservations.  In that case the Issue body can
+# name event N before the comments endpoint exposes event N.  Re-read only
+# this narrowly recognizable body/event skew; every other invalid snapshot
+# remains an immediate fail-closed coordination conflict.
+RESERVATION_CONSISTENCY_DELAYS_SECONDS = (0.0, 1.0, 2.0, 4.0)
+_TRANSIENT_RESERVATION_SNAPSHOT_REASONS = frozenset(
+    {
+        "state_version does not match workflow event count",
+        "issue state does not point to the final workflow event",
+        "issue state does not match final workflow event",
+    }
+)
+
 
 class IssueWorkflowStoreError(TaskReviewContractError):
     """Raised when GitHub Issue workflow state cannot be changed safely."""
@@ -467,6 +481,46 @@ def _snapshot(
     )
 
 
+def _reservation_snapshot(
+    backend: IssueBackend,
+    issue: Mapping[str, Any],
+) -> IssueWorkflowSnapshot | None:
+    """Read a reservation snapshot through bounded GitHub consistency skew.
+
+    ``None`` means the Issue disappeared from the open-Issue listing during
+    the retry window (normally because another worker completed and closed
+    it), so it no longer reserves a resource.  This helper never mutates or
+    repairs an Issue.
+    """
+
+    snapshot = _snapshot(backend, issue)
+    if snapshot.valid or not (
+        set(snapshot.reasons) & _TRANSIENT_RESERVATION_SNAPSHOT_REASONS
+    ):
+        return snapshot
+
+    number = snapshot.issue_number
+    for delay_seconds in RESERVATION_CONSISTENCY_DELAYS_SECONDS:
+        if delay_seconds > 0:
+            time.sleep(delay_seconds)
+        current = next(
+            (
+                item
+                for item in backend.list_issues()
+                if item.get("number") == number
+            ),
+            None,
+        )
+        if current is None:
+            return None
+        snapshot = _snapshot(backend, current)
+        if snapshot.valid or not (
+            set(snapshot.reasons) & _TRANSIENT_RESERVATION_SNAPSHOT_REASONS
+        ):
+            return snapshot
+    return snapshot
+
+
 class IssueWorkflowReader(Protocol):
     def find(self, task_id: str) -> IssueWorkflowSnapshot | None: ...
 
@@ -709,12 +763,14 @@ class IssueWorkflowService:
                     )
                 continue
             try:
-                snapshot = _snapshot(self.backend, issue)
+                snapshot = _reservation_snapshot(self.backend, issue)
             except IssueWorkflowStoreError as exc:
                 conflicts.append(
                     f"workflow Issue #{number} could not be inspected: {exc}"
                 )
                 all_benign = False
+                continue
+            if snapshot is None:
                 continue
             if snapshot.state is not None and snapshot.state.task_id == task.get("id"):
                 continue

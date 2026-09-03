@@ -2310,6 +2310,18 @@ class PollingOrchestrator:
                 if cycle.fatal:
                     exit_code = 2
                     stop_reason = cycle.status
+                    if self.active_assignments:
+                        self.events.emit(
+                            "scheduler_draining",
+                            reason=(
+                                "new admissions stopped after a fatal cycle; existing "
+                                "children remain supervised until they exit"
+                            ),
+                            active_children=self.active_child_summary(),
+                        )
+                        while self.active_assignments:
+                            time.sleep(poll_seconds)
+                            self._reap_workers()
                     break
                 if once:
                     stop_reason = cycle.status
