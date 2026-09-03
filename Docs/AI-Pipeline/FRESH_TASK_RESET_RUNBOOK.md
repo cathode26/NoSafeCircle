@@ -29,7 +29,7 @@ An implementation task is operationally fresh when all of the following are true
 - no task or resource claim ref from the abandoned run exists;
 - `C:\NSC\NSC\<TASK-ID>` does not exist;
 - no task-specific auxiliary worktree or local branch from the abandoned run remains;
-- no active durable-checkout manifest points at the removed checkout.
+- no active task-specific controller state file remains for the abandoned run.
 
 Historical Issue/PR discussion and immutable run logs are retained as audit evidence. A later fresh launch creates a new managed Issue, checkout, branch, and run ID.
 
@@ -110,12 +110,16 @@ For any task-specific linked worktree, require an explicitly inventoried path, b
 
 After those checks, remove the canonical task directory by its literal absolute path. Do not use a wildcard, computed parent directory, recursive repository-root target, `git clean`, or `git reset`.
 
-### 6. Archive the active checkout manifest
+### 6. Archive active task controller state
 
-Move the exact active manifest:
+Inventory and move every existing exact task-owned controller state file:
 
 ```text
 C:\NSC\NSC\.task-review-agent\<TASK-ID>.json
+C:\NSC\NSC\.task-review-agent\<TASK-ID>.scope.json
+C:\NSC\NSC\.task-review-agent\<TASK-ID>.execution.json
+C:\NSC\NSC\.task-review-agent\<TASK-ID>.integration.json
+C:\NSC\NSC\.task-review-agent\<TASK-ID>.downstream.json
 ```
 
 to a no-overwrite timestamped directory under:
@@ -124,7 +128,11 @@ to a no-overwrite timestamped directory under:
 C:\NSC\NSC\.task-review-agent\archive\<TASK-ID>\<UTC-TIMESTAMP>\
 ```
 
-Retain `outputs\<TASK-ID>\<RUN-ID>` directories in place. They are immutable diagnostics, use unique run IDs, and do not authorize resume by themselves.
+Some files may be absent when the abandoned run stopped before that phase. Verify
+the archived filename set exactly equals the task-specific files that existed at
+preflight. Retain `outputs\<TASK-ID>\<RUN-ID>` directories in place. They are
+immutable diagnostics, use unique run IDs, and do not authorize resume by
+themselves.
 
 ### 7. Verify fresh availability
 
@@ -134,7 +142,7 @@ Refresh remote refs with pruning, then prove:
 - the abandoned remote branch is absent;
 - no matching claim refs exist;
 - the canonical and auxiliary checkout paths are absent;
-- no active checkout manifest exists;
+- no active task-specific controller state file exists;
 - the old PR and Issue are closed;
 - `taskcontrol.py state <TASK-ID>` reports `not_delivered`;
 - `taskcontrol.py validate` passes.
@@ -174,12 +182,15 @@ a recovery path for a merged production task.
 7. Verify the standalone task checkout's resolved path, origin, branch, HEAD,
    upstream, and clean status; verify no Unity, IDE, terminal, provider process,
    or container uses it; then remove only that literal task directory.
-8. Move the exact active checkout manifest to a no-overwrite timestamped archive
-   under `.task-review-agent/archive/<TASK-ID>/<UTC-TIMESTAMP>/`. Retain every
-   immutable output/run directory.
+8. Move every exact active task-specific controller state file (checkout,
+   scope, execution, integration, and downstream when present) to one
+   no-overwrite timestamped archive under
+   `.task-review-agent/archive/<TASK-ID>/<UTC-TIMESTAMP>/`. Verify the archived
+   filename set and retain every immutable output/run directory.
 9. Re-fetch with pruning and prove: clean synchronized rehearsal `main`,
    TaskGraph state `not_delivered`, TaskGraph validation PASS, no active matching
-   Issue, no task branch, no claim ref, no task checkout, and no active manifest.
+   Issue, no task branch, no claim ref, no task checkout, and no active
+   task-specific controller state file.
 10. Commit and validate any pipeline fixes on rehearsal `main` before starting the
     next task run. Launch the same task ID explicitly only after all fresh-state
     checks pass.
