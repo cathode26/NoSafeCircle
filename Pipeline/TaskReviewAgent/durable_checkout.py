@@ -362,8 +362,13 @@ class DurableTaskCheckoutManager:
         else:
             if task.get("execution_scope") != "needs_execution_decomposition":
                 reasons.append("task does not require execution decomposition")
-        if task.get("derived_state") != "not_delivered":
-            reasons.append("task is not in not_delivered state")
+        expected_derived_state = (
+            "not_delivered" if self.work_type == "implementation" else "aggregate"
+        )
+        if task.get("derived_state") != expected_derived_state:
+            reasons.append(
+                f"task is not in {expected_derived_state} state for {self.work_type} work"
+            )
         if (
             self.work_type == "implementation"
             and task.get("dependencies_conformant") is not True
