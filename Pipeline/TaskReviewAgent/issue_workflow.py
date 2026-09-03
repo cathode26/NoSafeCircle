@@ -37,6 +37,11 @@ HUMAN_RESULT_RE = re.compile(
     r"^\s*Tested commit:\s*`?([0-9a-f]{40})`?\s*$",
     re.DOTALL,
 )
+DECOMPOSITION_RESULT_RE = re.compile(
+    r"(?im)^\s*Result:\s*(APPROVE|REJECT)\s*$.*?"
+    r"^\s*Reviewed plan_id:\s*`?(GDP-[0-9a-f]{64})`?\s*$",
+    re.DOTALL,
+)
 HISTORY_MIGRATION_MANIFEST_RE = re.compile(
     r"^Pipeline/TaskGraph/migrations/repository-history-identity-"
     r"([a-z0-9][a-z0-9._-]*)\.json$"
@@ -66,6 +71,9 @@ class WorkflowPhase(str, Enum):
     UNITY_RUNTIME_VALIDATION = "unity_runtime_validation"
     DELIVERY_EVIDENCE = "delivery_evidence"
     MERGE_CLOSEOUT = "merge_closeout"
+    DECOMPOSITION = "decomposition"
+    DECOMPOSITION_APPLY_AUTHORIZATION = "decomposition_apply_authorization"
+    DECOMPOSITION_APPLY = "decomposition_apply"
 
 
 class WorkflowActor(str, Enum):
@@ -86,6 +94,9 @@ class WorkflowEventType(str, Enum):
     BLOCKED = "blocked"
     UNBLOCKED = "unblocked"
     COMPLETED = "completed"
+    DECOMPOSITION_HANDOFF_CREATED = "decomposition_handoff_created"
+    DECOMPOSITION_APPLICATION_APPROVED = "decomposition_application_approved"
+    DECOMPOSITION_APPLICATION_REJECTED = "decomposition_application_rejected"
 
 
 class WorkflowContractError(TaskReviewContractError):
@@ -553,6 +564,22 @@ class HumanValidationResult:
         object.__setattr__(self, "body", _string(self.body, field="human result body"))
 
 
+@dataclass(frozen=True)
+class DecompositionApplicationResult:
+    result: str
+    reviewed_plan_id: str
+    body: str
+
+    def __post_init__(self) -> None:
+        if self.result not in ("approve", "reject"):
+            raise WorkflowContractError(
+                "decomposition application result must be approve or reject"
+            )
+        if re.fullmatch(r"GDP-[0-9a-f]{64}", self.reviewed_plan_id) is None:
+            raise WorkflowContractError("reviewed_plan_id has an invalid identity")
+        object.__setattr__(self, "body", _string(self.body, field="decomposition result body"))
+
+
 _FENCE_LINE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
 
 
@@ -602,6 +629,19 @@ def parse_human_validation_result(body: str) -> HumanValidationResult | None:
     if not match:
         return None
     return HumanValidationResult(match.group(1).casefold(), match.group(2), body)
+
+
+def parse_decomposition_application_result(
+    body: str,
+) -> DecompositionApplicationResult | None:
+    if type(body) is not str:
+        return None
+    match = DECOMPOSITION_RESULT_RE.search(strip_fenced_blocks(body))
+    if not match:
+        return None
+    return DecompositionApplicationResult(
+        match.group(1).casefold(), match.group(2), body
+    )
 
 
 def _comment_body(item: Any) -> str | None:
@@ -933,6 +973,27 @@ def _validate_transition(
             WorkflowState.COMPLETE,
             WorkflowActor.AGENT,
         ),
+        (
+            WorkflowState.AGENT_WORKING,
+            WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED,
+        ): (
+            WorkflowState.HUMAN_ACTION_REQUIRED,
+            WorkflowActor.AGENT,
+        ),
+        (
+            WorkflowState.HUMAN_ACTION_REQUIRED,
+            WorkflowEventType.DECOMPOSITION_APPLICATION_APPROVED,
+        ): (
+            WorkflowState.AGENT_READY,
+            WorkflowActor.HUMAN,
+        ),
+        (
+            WorkflowState.HUMAN_ACTION_REQUIRED,
+            WorkflowEventType.DECOMPOSITION_APPLICATION_REJECTED,
+        ): (
+            WorkflowState.AGENT_READY,
+            WorkflowActor.HUMAN,
+        ),
     }
     expected = allowed.get((state.state, event_type))
     if expected is None:
@@ -950,6 +1011,17 @@ def _validate_transition(
         _sha(details.get("head_commit"), field="head_commit")
         if to_phase is not WorkflowPhase.UNITY_RUNTIME_VALIDATION:
             raise WorkflowContractError("human handoff must enter unity_runtime_validation")
+    if event_type is WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED:
+        for key in ("branch", "checkout_path", "decomposition_run_id", "artifact_root"):
+            _string(details.get(key), field=key)
+        _sha(details.get("head_commit"), field="head_commit")
+        plan_id = _string(details.get("graph_delta_plan_id"), field="graph_delta_plan_id")
+        if re.fullmatch(r"GDP-[0-9a-f]{64}", plan_id or "") is None:
+            raise WorkflowContractError("graph_delta_plan_id has an invalid identity")
+        if to_phase is not WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION:
+            raise WorkflowContractError(
+                "decomposition handoff must enter decomposition_apply_authorization"
+            )
     if event_type in (
         WorkflowEventType.HUMAN_VALIDATION_PASSED,
         WorkflowEventType.HUMAN_VALIDATION_FAILED,
@@ -966,6 +1038,22 @@ def _validate_transition(
         )
         if to_phase is not expected_phase:
             raise WorkflowContractError("human result selected the wrong next phase")
+    if event_type in (
+        WorkflowEventType.DECOMPOSITION_APPLICATION_APPROVED,
+        WorkflowEventType.DECOMPOSITION_APPLICATION_REJECTED,
+    ):
+        plan_id = _string(details.get("reviewed_plan_id"), field="reviewed_plan_id")
+        if re.fullmatch(r"GDP-[0-9a-f]{64}", plan_id or "") is None:
+            raise WorkflowContractError("reviewed_plan_id has an invalid identity")
+        expected_phase = (
+            WorkflowPhase.DECOMPOSITION_APPLY
+            if event_type is WorkflowEventType.DECOMPOSITION_APPLICATION_APPROVED
+            else WorkflowPhase.DECOMPOSITION
+        )
+        if to_phase is not expected_phase:
+            raise WorkflowContractError(
+                "decomposition application result selected an invalid next phase"
+            )
 
 
 def render_state_block(state: IssueWorkflowState) -> str:

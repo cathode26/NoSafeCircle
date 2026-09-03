@@ -83,6 +83,7 @@ import Pipeline.TaskReviewAgent.dispatch_plan as dispatch_plan_module  # noqa: E
 from Pipeline.TaskReviewAgent.issue_queue import repo_root  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     STATE_RE,
+    WorkflowPhase,
     WorkflowState,
 )
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
@@ -1079,6 +1080,7 @@ def build_worker_command(
 def build_decomposition_worker_command(
     *,
     task_id: str,
+    worker_id: str,
     source: Path | str,
     output_root: Path | str | None = None,
 ) -> tuple[str, ...]:
@@ -1105,6 +1107,8 @@ def build_decomposition_worker_command(
         task_id,
         "--source",
         str(root),
+        "--worker-id",
+        str(worker_id),
         "--output-root",
         str(selected_output),
     )
@@ -1407,7 +1411,13 @@ class PollingOrchestrator:
         for candidate, resume_phase in ordered:
             task_id = validate_task_id(candidate.get("task_id"))
             task = self._load_candidate(plan, candidate, task_id)
-            work_types = ["implementation"]
+            if resume_phase in {
+                WorkflowPhase.DECOMPOSITION.value,
+                WorkflowPhase.DECOMPOSITION_APPLY.value,
+            }:
+                work_types = ["decomposition"]
+            else:
+                work_types = ["implementation"]
             if resume_phase is None:
                 try:
                     validate_decomposition_selection(task_id, task)
@@ -2020,6 +2030,7 @@ class PollingOrchestrator:
             if advisory.work_type_recommendation == "decomposition":
                 command = build_decomposition_worker_command(
                     task_id=task_id,
+                    worker_id=worker_id,
                     source=self.source,
                 )
                 route_event = {

@@ -13,7 +13,11 @@ acquire the Issue lease
         ↓
 create/resume canonical checkout and task branch
         ↓
-implement, test, commit, and push
+implement candidate
+        ↓
+refresh current main and apply the candidate on top of it
+        ↓
+test, commit, and push the exact integrated candidate
         ↓
 write the branch, commit, summary, and Unity checklist into the Issue
         ↓
@@ -102,6 +106,9 @@ repair
 unity_runtime_validation
 delivery_evidence
 merge_closeout
+decomposition
+decomposition_apply_authorization
+decomposition_apply
 ```
 
 A human PASS moves the Issue to `agent_ready / delivery_evidence`. A human FAIL moves it to `agent_ready / repair`.
@@ -120,6 +127,42 @@ including one classified as automation-only, creates a new exact-commit human
 handoff. Vincent must test and approve that integrated commit. Once it passes,
 the unchanged integrated commit proceeds through delivery and merge closeout
 without a second approval.
+
+These are intentionally two independent current-main boundaries. Before the
+first human handoff, the candidate is validated against current `origin/main`,
+the task branch is advanced to that exact base, and the candidate is committed
+and tested there. After the human PASS, downstream delivery fetches
+`origin/main` again. A no-op second synchronization preserves the exact tested
+commit and continues automatically; a synchronization that creates a new
+commit invalidates the older PASS and returns the integrated commit for another
+human test. A merge conflict is a repair problem at the task checkout, never
+permission to overwrite either side.
+
+## Decomposition handoff and application
+
+The software architect may select one eligible `work_type: decomposition`
+candidate from the same mixed portfolio as implementation work. Decomposition
+does not wait for the implementation portfolio to become empty. The selected
+parent acquires the ordinary durable Issue/task claim, while the Docker
+round-robin service receives a physically read-only repository and writes only
+to the external no-overwrite output root.
+
+A `review_ready` plan is published as an exact `plan_id` handoff in
+`human_action_required / decomposition_apply_authorization`. It is still
+review-only. Vincent may approve that exact plan with:
+
+```powershell
+python Pipeline\TaskReviewAgent\pass_and_resume_task.py NSC-### --source . --checkout-root C:\NSC\NSC --execution-provider claude --approve-decomposition --apply
+```
+
+The helper reads the plan identity from the durable Issue, posts an exact-plan
+APPROVE, waits for GitHub to enter `agent_ready / decomposition_apply`, and
+starts the distinct host application boundary. Application is serialized by a
+global D1C claim, requires the authorized source to remain exact current main,
+uses the network-free `apply_graph_delta()` transaction, pushes the exact
+resulting commit, and records completion. If main moved while the plan waited,
+the plan is not applied; its lease is released to fresh decomposition so child
+IDs and graph rewrites are replanned against the new graph.
 
 ## Agent lease and resource conflict checks
 

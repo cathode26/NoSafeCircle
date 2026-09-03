@@ -29,6 +29,7 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     WorkflowState,
     find_human_validation_result,
     human_comments_after_event,
+    parse_decomposition_application_result,
     parse_state,
 )
 from Pipeline.TaskReviewAgent.issue_workflow_action import (  # noqa: E402
@@ -125,23 +126,53 @@ def main() -> int:
                 raise IssueWorkflowStoreError(
                     "human_action_required state has no recorded handoff event/commit"
                 )
-            human_result, rejections = find_human_validation_result(
-                comments,
-                after_event_id=state.last_event_id,
-                expected_commit=state.human_handoff_commit,
-            )
-            if human_result is None:
-                raise IssueWorkflowStoreError(
-                    "No authorized Human validation result was posted after the "
-                    "current handoff. Post Result: PASS|FAIL with the exact Tested "
-                    "commit before changing state."
-                    + ("".join(f" {item}" for item in rejections))
+            if state.phase is WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION:
+                candidates, rejections = human_comments_after_event(
+                    comments, after_event_id=state.last_event_id
                 )
-            result = service.apply_human_result(
-                task_id=state.task_id,
-                result_body=human_result.body,
-                actor_id=sender_login,
-            )
+                decomposition_result = next(
+                    (
+                        parsed
+                        for comment in reversed(candidates)
+                        if (
+                            parsed := parse_decomposition_application_result(
+                                str(comment.get("body") or "")
+                            )
+                        )
+                        is not None
+                    ),
+                    None,
+                )
+                if decomposition_result is None:
+                    raise IssueWorkflowStoreError(
+                        "No authorized decomposition application result was posted "
+                        "after the current handoff. Post APPROVE|REJECT with the exact "
+                        "Reviewed plan_id before changing state."
+                        + ("".join(f" {item}" for item in rejections))
+                    )
+                result = service.apply_decomposition_result(
+                    task_id=state.task_id,
+                    result_body=decomposition_result.body,
+                    actor_id=sender_login,
+                )
+            else:
+                human_result, rejections = find_human_validation_result(
+                    comments,
+                    after_event_id=state.last_event_id,
+                    expected_commit=state.human_handoff_commit,
+                )
+                if human_result is None:
+                    raise IssueWorkflowStoreError(
+                        "No authorized Human validation result was posted after the "
+                        "current handoff. Post Result: PASS|FAIL with the exact Tested "
+                        "commit before changing state."
+                        + ("".join(f" {item}" for item in rejections))
+                    )
+                result = service.apply_human_result(
+                    task_id=state.task_id,
+                    result_body=human_result.body,
+                    actor_id=sender_login,
+                )
         elif (
             state.state is WorkflowState.BLOCKED
             and state.phase is WorkflowPhase.DELIVERY_EVIDENCE

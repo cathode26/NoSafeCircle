@@ -879,15 +879,48 @@ def test_architect_can_choose_decomposition_while_implementation_exists() -> Non
 def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> None:
     command = build_decomposition_worker_command(
         task_id=TASK_B,
+        worker_id="decomposition-fixture-worker",
         source=Path("C:/fixture/source"),
         output_root=Path("C:/fixture/outputs/NSC-102"),
     )
     require(command[command.index("--task-id") + 1] == TASK_B, str(command))
     require(
+        command[command.index("--worker-id") + 1]
+        == "decomposition-fixture-worker",
+        str(command),
+    )
+    require(
         command[command.index("--output-root") + 1].replace("\\", "/")
         == "C:/fixture/outputs/NSC-102",
         str(command),
     )
+
+
+def test_approved_decomposition_resume_cannot_route_to_implementation() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner(
+            [resume_plan(head, TASK_B, phase="decomposition_apply")]
+        )
+        architect = FakeArchitect(
+            {TASK_B: advisory(TASK_B, head, work_type="decomposition")}
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_B: decomposition_task(TASK_B)},
+        )
+        result = orchestrator.poll_once()
+        require(
+            result.status == "worker_launched" and result.task_id == TASK_B,
+            str(result),
+        )
+        command = processes.calls[0][0]
+        require("host_decomposition_launcher.py" in " ".join(command), str(command))
+        require('"work_types": ["decomposition"]' in stream.getvalue(), stream.getvalue())
 
 
 def test_resume_wait_does_not_starve_stage2_ranked_fresh_work() -> None:
@@ -2260,6 +2293,7 @@ def main() -> int:
         test_ineligible_decomposition_pair_is_not_selected_or_launched,
         test_architect_can_choose_decomposition_while_implementation_exists,
         test_decomposition_worker_command_binds_exact_task_and_output_policy,
+        test_approved_decomposition_resume_cannot_route_to_implementation,
         test_resume_wait_does_not_starve_stage2_ranked_fresh_work,
         test_resume_survives_typed_taskgraph_observation_failure,
         test_fresh_only_typed_taskgraph_observation_failure_remains_blocked,

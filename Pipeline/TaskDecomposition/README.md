@@ -256,9 +256,16 @@ The parent `<TASK-ID>` folder is the host output root. The pipeline creates the 
 
 JSON review artifacts use strict finite JSON, deterministic key ordering, UTF-8, LF, one trailing newline, and atomic no-overwrite publication. Runtime raw artifacts remain available when an outer semantic layer rejects model output. Progress telemetry excludes prompts, raw provider output, credentials, and reasoning. Artifact references in final results are run-relative.
 
-Everything produced here has authority `review_only_not_applied`. Neither D1B.1 nor D1B.2 changes task contracts, ID maps, resource groups, project requirements, the GDD, or implementation files. Neither establishes readiness, authorization, delivery, conformance, completion, priority, dependency readiness, or graph-application authority.
+Everything produced by D1B.1 or D1B.2 has authority
+`review_only_not_applied`. Those stages do not change task contracts, ID maps,
+resource groups, project requirements, the GDD, or implementation files. They
+do not establish readiness, authorization, delivery, conformance, completion,
+priority, dependency readiness, or graph-application authority.
 
-A generic task-picking instruction authorizes the orchestrator to select and run an eligible decomposition proposal/review circuit. It does not authorize applying the proposal. Stage D1C reusable graph application remains separate.
+A generic task-picking instruction authorizes the orchestrator to select and
+run an eligible decomposition proposal/review circuit. It does not authorize
+applying the proposal. Stage D1C reusable graph application remains a separate,
+exact-plan human-authorized transition.
 
 ### Human review after `review_ready`
 
@@ -353,6 +360,11 @@ D1B.2 implementation validation uses deterministic fake-provider tests and does 
 Stage D1C is implemented as the network-free, exact-authority
 `Pipeline/TaskGraph/apply_graph_delta.py` commit boundary. Its matching
 `undo_graph_delta.py` creates an additive inverse only while the exact D1C
-commit remains the clean `HEAD`; later history is refused. Automatic GitHub
-authorization, Issue closeout, portfolio scheduling, pushing, and merging are
-still orchestration boundaries outside this package.
+commit remains the clean `HEAD`; later history is refused.
+
+The TaskReviewAgent software architect supplies the surrounding durable
+orchestration: mixed implementation/decomposition portfolio choice, Issue and
+Git-ref claims, an exact-plan human handoff, an exact-plan APPROVE/REJECT
+transition, a global D1C application claim, an exact push to current main, and
+Issue completion. The D1B artifacts remain review-only until that distinct
+authorization and application boundary runs.

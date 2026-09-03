@@ -17,16 +17,22 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     WorkflowActor,
     WorkflowPhase,
     WorkflowState,
+    WorkflowEventType,
+    parse_decomposition_application_result,
     parse_human_validation_result,
 )
 from Pipeline.TaskReviewAgent.pass_and_resume_task import (  # noqa: E402
     PassAndResumeError,
+    _decomposition_comment,
+    _decomposition_plan_id,
     _pass_comment,
     _recover_safe_unity_churn,
     _ready_for_delivery,
+    _ready_for_decomposition_apply,
 )
 
 COMMIT = "a" * 40
+PLAN_ID = "GDP-" + "b" * 64
 
 
 def require(condition: bool, message: str) -> None:
@@ -66,6 +72,54 @@ def test_ready_requires_consistent_event_count_and_commit() -> None:
     require(
         not _ready_for_delivery(snapshot(version=2), COMMIT),
         "state/event race was accepted",
+    )
+
+
+def test_decomposition_approval_is_exact_plan_bound() -> None:
+    body = _decomposition_comment(PLAN_ID, "Reviewed the exact graph changes.")
+    parsed = parse_decomposition_application_result(body)
+    require(parsed is not None, "generated decomposition approval did not parse")
+    require(parsed.reviewed_plan_id == PLAN_ID, str(parsed))
+    handoff = SimpleNamespace(
+        event_type=WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED,
+        details={"graph_delta_plan_id": PLAN_ID},
+    )
+    waiting = SimpleNamespace(
+        managed=True,
+        valid=True,
+        state=SimpleNamespace(
+            state=WorkflowState.HUMAN_ACTION_REQUIRED,
+            phase=WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION,
+            current_actor=WorkflowActor.HUMAN,
+        ),
+        events=(handoff,),
+        labels=("nsc-state:human-action",),
+        reasons=(),
+    )
+    require(_decomposition_plan_id(waiting) == PLAN_ID, "handoff plan was not bound")
+    approval = SimpleNamespace(
+        event_type=WorkflowEventType.DECOMPOSITION_APPLICATION_APPROVED,
+        details={"reviewed_plan_id": PLAN_ID},
+    )
+    ready = SimpleNamespace(
+        managed=True,
+        valid=True,
+        state=SimpleNamespace(
+            state=WorkflowState.AGENT_READY,
+            phase=WorkflowPhase.DECOMPOSITION_APPLY,
+            current_actor=WorkflowActor.AGENT,
+        ),
+        events=(handoff, approval),
+        labels=("nsc-state:agent-ready",),
+    )
+    require(_ready_for_decomposition_apply(ready, PLAN_ID), "approved plan did not resume")
+    require(
+        _decomposition_plan_id(ready) == PLAN_ID,
+        "an interrupted helper could not resume an already-approved plan",
+    )
+    require(
+        not _ready_for_decomposition_apply(ready, "GDP-" + "c" * 64),
+        "different plan ID was accepted",
     )
 
 
@@ -127,6 +181,7 @@ def main() -> int:
     tests = (
         test_comment_has_canonical_exact_commit_result,
         test_ready_requires_consistent_event_count_and_commit,
+        test_decomposition_approval_is_exact_plan_bound,
         test_safe_unity_churn_is_restored_but_other_edits_are_refused,
     )
     for test in tests:

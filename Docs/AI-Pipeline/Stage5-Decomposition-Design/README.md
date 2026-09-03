@@ -6,6 +6,19 @@ This is a design/audit deliverable only. Nothing under `Pipeline/`, `Tasks/`, `.
 production path was modified to produce it. See `Docs/AI-Pipeline/Stage5-Decomposition-Design/` for the
 full document set.
 
+## IMPLEMENTATION UPDATE — 2026-09-03
+
+This packet's original capability inventory is historical. D1C exact-head
+application and additive undo are now implemented. The supervised software
+architect also has mixed implementation/decomposition portfolio selection,
+durable decomposition Issue phases, exact `plan_id` human authorization, a
+distinct host launcher around the physically read-only D1B.2 service, a global
+D1C application claim, exact current-main push verification, and completion.
+The original WAIT tables below describe the pre-implementation audit and must
+not be used as current runtime status. Live multi-worker acceptance remains a
+separate proving activity; deterministic implementation does not by itself
+claim that proof.
+
 ## STATUS UPDATE — superseded in part by the Software Architect Orchestrator
 
 **This packet is retained as historical design evidence. Its detailed audit, D1C design, concurrency

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record an exact-commit human PASS, await GitHub, and resume the task agent."""
+"""Record exact human approval, await GitHub, and resume the correct worker."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +23,10 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     WorkflowActor,
     WorkflowPhase,
     WorkflowState,
+    WorkflowEventType,
+)
+from Pipeline.TaskReviewAgent.polling_orchestrator import (  # noqa: E402
+    build_decomposition_worker_command,
 )
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
@@ -215,6 +220,73 @@ def _pass_comment(tested_commit: str, notes: str) -> str:
     )
 
 
+def _decomposition_comment(plan_id: str, notes: str) -> str:
+    return "\n".join(
+        (
+            "## Decomposition application result",
+            "",
+            "Result: APPROVE",
+            f"Reviewed plan_id: {plan_id}",
+            "",
+            "Notes:",
+            notes,
+        )
+    )
+
+
+def _decomposition_plan_id(snapshot: IssueWorkflowSnapshot) -> str:
+    if not snapshot.managed or not snapshot.valid or snapshot.state is None:
+        raise PassAndResumeError("Issue is not a valid managed decomposition workflow")
+    state = snapshot.state
+    waiting = (
+        state.state is WorkflowState.HUMAN_ACTION_REQUIRED
+        and state.phase is WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION
+        and state.current_actor is WorkflowActor.HUMAN
+    )
+    ready = (
+        state.state is WorkflowState.AGENT_READY
+        and state.phase is WorkflowPhase.DECOMPOSITION_APPLY
+        and state.current_actor is WorkflowActor.AGENT
+    )
+    if not waiting and not ready:
+        raise PassAndResumeError(
+            "Issue is neither waiting for decomposition authorization nor ready "
+            "to apply its approved plan"
+        )
+    handoffs = [
+        event
+        for event in snapshot.events
+        if event.event_type is WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED
+    ]
+    if not handoffs:
+        raise PassAndResumeError("decomposition workflow has no durable plan handoff")
+    plan_id = handoffs[-1].details.get("graph_delta_plan_id")
+    if type(plan_id) is not str or re.fullmatch(r"GDP-[0-9a-f]{64}", plan_id) is None:
+        raise PassAndResumeError("decomposition handoff plan_id is invalid")
+    return plan_id
+
+
+def _ready_for_decomposition_apply(
+    snapshot: IssueWorkflowSnapshot, plan_id: str
+) -> bool:
+    if not snapshot.managed or not snapshot.valid or snapshot.state is None:
+        return False
+    state = snapshot.state
+    approvals = [
+        event
+        for event in snapshot.events
+        if event.event_type is WorkflowEventType.DECOMPOSITION_APPLICATION_APPROVED
+    ]
+    return (
+        state.state is WorkflowState.AGENT_READY
+        and state.phase is WorkflowPhase.DECOMPOSITION_APPLY
+        and state.current_actor is WorkflowActor.AGENT
+        and bool(approvals)
+        and approvals[-1].details.get("reviewed_plan_id") == plan_id
+        and "nsc-state:agent-ready" in snapshot.labels
+    )
+
+
 def _ready_for_delivery(snapshot: IssueWorkflowSnapshot, tested_commit: str) -> bool:
     if not snapshot.managed or not snapshot.valid or snapshot.state is None:
         return False
@@ -261,6 +333,33 @@ def _wait_for_delivery_ready(
     )
 
 
+def _wait_for_decomposition_ready(
+    service: IssueWorkflowService,
+    task_id: str,
+    plan_id: str,
+    *,
+    timeout_seconds: float,
+    poll_seconds: float,
+) -> IssueWorkflowSnapshot:
+    deadline = time.monotonic() + timeout_seconds
+    last_status = "GitHub workflow has not been observed"
+    while time.monotonic() <= deadline:
+        snapshot = service.find(task_id)
+        if snapshot is None:
+            raise PassAndResumeError("managed Issue disappeared while waiting for GitHub")
+        if _ready_for_decomposition_apply(snapshot, plan_id):
+            return snapshot
+        state = snapshot.state
+        last_status = (
+            f"valid={snapshot.valid}, state={state.state.value if state else None}, "
+            f"phase={state.phase.value if state else None}, reasons={list(snapshot.reasons)}"
+        )
+        time.sleep(poll_seconds)
+    raise PassAndResumeError(
+        f"timed out waiting for agent_ready / decomposition_apply: {last_status}"
+    )
+
+
 def _launch(
     root: Path,
     *,
@@ -289,10 +388,28 @@ def _launch(
     ).returncode
 
 
+def _launch_decomposition(root: Path, *, task_id: str) -> int:
+    worker_id = f"approve-decomposition-{task_id.casefold()}-{uuid.uuid4().hex[:12]}"
+    return subprocess.run(
+        build_decomposition_worker_command(
+            task_id=task_id,
+            worker_id=worker_id,
+            source=root,
+        ),
+        cwd=str(root),
+        check=False,
+    ).returncode
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("task_id")
-    parser.add_argument("--tested-commit", required=True)
+    parser.add_argument("--tested-commit")
+    parser.add_argument(
+        "--approve-decomposition",
+        action="store_true",
+        help="Approve the exact durable decomposition plan instead of a Unity commit.",
+    )
     parser.add_argument("--source", type=Path, default=ROOT)
     parser.add_argument("--checkout-root", type=Path, required=True)
     parser.add_argument("--execution-provider", choices=("claude", "codex"), default="claude")
@@ -310,9 +427,15 @@ def main() -> int:
     args = parser.parse_args()
     try:
         task_id = validate_task_id(args.task_id)
-        tested_commit = str(args.tested_commit).strip().lower()
-        if SHA40.fullmatch(tested_commit) is None:
-            raise PassAndResumeError("--tested-commit must be a 40-character lowercase SHA")
+        if args.approve_decomposition and args.tested_commit:
+            raise PassAndResumeError(
+                "--approve-decomposition and --tested-commit are mutually exclusive"
+            )
+        tested_commit = str(args.tested_commit or "").strip().lower()
+        if not args.approve_decomposition and SHA40.fullmatch(tested_commit) is None:
+            raise PassAndResumeError(
+                "--tested-commit must be a 40-character lowercase SHA"
+            )
         if args.wait_timeout_seconds <= 0 or args.poll_seconds <= 0:
             raise PassAndResumeError("wait and poll durations must be positive")
         root = _repo_root(args.source.resolve())
@@ -326,7 +449,15 @@ def main() -> int:
         if snapshot is None:
             raise PassAndResumeError(f"no open managed Issue exists for {task_id}")
 
-        if _ready_for_delivery(snapshot, tested_commit):
+        if args.approve_decomposition:
+            plan_id = _decomposition_plan_id(snapshot)
+            checkout = root
+            status = (
+                "already_ready"
+                if _ready_for_decomposition_apply(snapshot, plan_id)
+                else "ready_to_approve_decomposition"
+            )
+        elif _ready_for_delivery(snapshot, tested_commit):
             checkout = Path(snapshot.state.checkout_path).resolve()  # type: ignore[union-attr]
             status = "already_ready"
         else:
@@ -343,6 +474,7 @@ def main() -> int:
             "issue_number": snapshot.issue_number,
             "issue_url": snapshot.issue_url,
             "tested_commit": tested_commit,
+            "decomposition_plan_id": plan_id if args.approve_decomposition else None,
             "checkout": str(checkout),
             "status": status,
             "will_launch": bool(args.apply),
@@ -353,7 +485,11 @@ def main() -> int:
             return 0
 
         if status != "already_ready":
-            body = _pass_comment(tested_commit, str(args.notes).strip())
+            body = (
+                _decomposition_comment(plan_id, str(args.notes).strip())
+                if args.approve_decomposition
+                else _pass_comment(tested_commit, str(args.notes).strip())
+            )
             existing_comments = backend.get_comments(snapshot.issue_number)
             if not any(item.get("body") == body for item in existing_comments):
                 backend.add_comment(snapshot.issue_number, body)
@@ -361,13 +497,28 @@ def main() -> int:
                 label for label in snapshot.labels if label not in ALL_STATE_LABELS
             ] + ["nsc-state:agent-ready"]
             backend.update_issue(snapshot.issue_number, labels=desired_labels)
-            snapshot = _wait_for_delivery_ready(
-                service,
-                task_id,
-                tested_commit,
-                timeout_seconds=args.wait_timeout_seconds,
-                poll_seconds=args.poll_seconds,
+            if args.approve_decomposition:
+                snapshot = _wait_for_decomposition_ready(
+                    service,
+                    task_id,
+                    plan_id,
+                    timeout_seconds=args.wait_timeout_seconds,
+                    poll_seconds=args.poll_seconds,
+                )
+            else:
+                snapshot = _wait_for_delivery_ready(
+                    service,
+                    task_id,
+                    tested_commit,
+                    timeout_seconds=args.wait_timeout_seconds,
+                    poll_seconds=args.poll_seconds,
+                )
+        if args.approve_decomposition:
+            print(
+                f"GitHub ready: Issue #{snapshot.issue_number} is agent_ready / "
+                f"decomposition_apply for {plan_id}"
             )
+            return _launch_decomposition(root, task_id=task_id)
         print(
             f"GitHub ready: Issue #{snapshot.issue_number} is agent_ready / delivery_evidence "
             f"at {tested_commit}"

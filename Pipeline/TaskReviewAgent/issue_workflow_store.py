@@ -30,6 +30,7 @@ from .issue_workflow import (
     issue_is_agent_ready,
     labels_for_state,
     parse_events,
+    parse_decomposition_application_result,
     parse_human_validation_result,
     parse_state,
     render_event_comment,
@@ -1251,6 +1252,336 @@ class IssueWorkflowService:
             "vincent_notification": notification_status,
             **verified.to_dict(),
         }
+
+    def publish_decomposition_handoff(
+        self,
+        *,
+        task_id: str,
+        source_head: str,
+        checkout_path: str,
+        decomposition_run_id: str,
+        artifact_root: str,
+        graph_delta_plan_id: str,
+        summary: str,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        """Hand one exact independently reviewed graph plan to the human."""
+
+        snapshot = self.find(task_id)
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "decomposition handoff requires a valid managed Issue"
+            )
+        state = snapshot.state
+        if re.fullmatch(r"GDP-[0-9a-f]{64}", graph_delta_plan_id) is None:
+            raise IssueWorkflowStoreError("graph_delta_plan_id has an invalid identity")
+        if state.state is WorkflowState.HUMAN_ACTION_REQUIRED:
+            events = parse_events(self.backend.get_comments(snapshot.issue_number))
+            handoff = events[-1] if events else None
+            exact_retry = (
+                state.phase is WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION
+                and handoff is not None
+                and handoff.event_type
+                is WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED
+                and handoff.details.get("graph_delta_plan_id") == graph_delta_plan_id
+                and handoff.details.get("decomposition_run_id") == decomposition_run_id
+                and handoff.details.get("artifact_root") == artifact_root
+                and state.head_commit == source_head
+                and state.checkout_path == checkout_path
+            )
+            if not exact_retry:
+                raise IssueWorkflowStoreError(
+                    "decomposition handoff retry does not match durable authority"
+                )
+            return {"status": "human_action_required", **snapshot.to_dict()}
+        if state.state is not WorkflowState.AGENT_WORKING or state.worker_id != self.worker_id:
+            raise IssueWorkflowStoreError(
+                "decomposition handoff requires this worker's active lease"
+            )
+        occurred = now or utc_now()
+        next_state, event = transition(
+            state,
+            event_type=WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED,
+            actor_type=WorkflowActor.AGENT,
+            actor_id=self.worker_id,
+            to_state=WorkflowState.HUMAN_ACTION_REQUIRED,
+            to_phase=WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION,
+            details={
+                "branch": "main",
+                "head_commit": source_head,
+                "checkout_path": checkout_path,
+                "decomposition_run_id": decomposition_run_id,
+                "artifact_root": artifact_root,
+                "graph_delta_plan_id": graph_delta_plan_id,
+            },
+            now=occurred,
+        )
+        body = "\n".join(
+            (
+                "The round-robin decomposer produced an independently reviewed graph plan. No graph change has been applied.",
+                "",
+                f"- **Source commit:** `{source_head}`",
+                f"- **Run:** `{decomposition_run_id}`",
+                f"- **Plan:** `{graph_delta_plan_id}`",
+                f"- **Artifacts:** `{artifact_root}`",
+                "",
+                "### Proposal summary",
+                summary.strip(),
+                "",
+                "### Record the result",
+                "Post this exact shape, then apply `nsc-state:agent-ready`:",
+                "",
+                "```text",
+                "## Decomposition application result",
+                "",
+                "Result: <APPROVE or REJECT>",
+                f"Reviewed plan_id: {graph_delta_plan_id}",
+                "```",
+            )
+        )
+        self.backend.add_comment(
+            snapshot.issue_number, render_event_comment(event, body)
+        )
+        updated_body = update_issue_body(
+            snapshot.body,
+            next_state,
+            next_action=(
+                "Review the exact decomposition plan, post APPROVE or REJECT bound "
+                "to its plan_id, then apply `nsc-state:agent-ready`."
+            ),
+        )
+        self.backend.update_issue(
+            snapshot.issue_number,
+            body=updated_body,
+            labels=labels_for_state(next_state.state, snapshot.labels),
+            assignees=[self.assignee],
+        )
+        verified = self.verify_post_mutation_state(
+            task_id, next_state, transition_name="decomposition handoff"
+        )
+        return {"status": "human_action_required", **verified.to_dict()}
+
+    def apply_decomposition_result(
+        self,
+        *,
+        task_id: str,
+        result_body: str,
+        actor_id: str,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        snapshot = self.find(task_id)
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "decomposition result requires a valid managed Issue"
+            )
+        state = snapshot.state
+        if (
+            state.state is not WorkflowState.HUMAN_ACTION_REQUIRED
+            or state.phase is not WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION
+        ):
+            raise IssueWorkflowStoreError(
+                "decomposition result requires decomposition_apply_authorization"
+            )
+        if not default_actor_policy().is_authorized_human(actor_id):
+            raise IssueWorkflowStoreError(
+                "decomposition application authority requires the authorized human operator"
+            )
+        result = parse_decomposition_application_result(result_body)
+        if result is None:
+            raise IssueWorkflowStoreError(
+                "decomposition result must contain APPROVE|REJECT and Reviewed plan_id"
+            )
+        events = parse_events(self.backend.get_comments(snapshot.issue_number))
+        handoff = events[-1] if events else None
+        expected_plan = (
+            handoff.details.get("graph_delta_plan_id")
+            if handoff is not None
+            and handoff.event_type is WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED
+            else None
+        )
+        if result.reviewed_plan_id != expected_plan:
+            raise IssueWorkflowStoreError(
+                "reviewed plan_id does not match the durable decomposition handoff"
+            )
+        approved = result.result == "approve"
+        event_type = (
+            WorkflowEventType.DECOMPOSITION_APPLICATION_APPROVED
+            if approved
+            else WorkflowEventType.DECOMPOSITION_APPLICATION_REJECTED
+        )
+        next_phase = (
+            WorkflowPhase.DECOMPOSITION_APPLY
+            if approved
+            else WorkflowPhase.DECOMPOSITION
+        )
+        next_state, event = transition(
+            state,
+            event_type=event_type,
+            actor_type=WorkflowActor.HUMAN,
+            actor_id=actor_id,
+            to_state=WorkflowState.AGENT_READY,
+            to_phase=next_phase,
+            details={
+                "reviewed_plan_id": result.reviewed_plan_id,
+                "human_comment_sha256": semantic_sha256({"body": result_body}),
+            },
+            now=now or utc_now(),
+        )
+        self.backend.add_comment(
+            snapshot.issue_number,
+            render_event_comment(
+                event,
+                f"Human decomposition application decision recorded: **{result.result.upper()}** for `{result.reviewed_plan_id}`.",
+            ),
+        )
+        self.backend.update_issue(
+            snapshot.issue_number,
+            body=update_issue_body(
+                snapshot.body,
+                next_state,
+                next_action=(
+                    "A generic agent should apply the exact approved plan."
+                    if approved
+                    else "A generic agent may produce a fresh decomposition proposal."
+                ),
+            ),
+            labels=labels_for_state(next_state.state, snapshot.labels),
+            assignees=[self.assignee],
+        )
+        verified = self.verify_post_mutation_state(
+            task_id, next_state, transition_name="decomposition application result"
+        )
+        return {
+            "status": "agent_ready",
+            "decision": result.result,
+            "reviewed_plan_id": result.reviewed_plan_id,
+            **verified.to_dict(),
+        }
+
+    def complete_decomposition(
+        self,
+        *,
+        task_id: str,
+        graph_delta_plan_id: str,
+        applied_commit: str,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        snapshot = self.find(task_id)
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "decomposition completion requires a valid managed Issue"
+            )
+        state = snapshot.state
+        if (
+            state.state is not WorkflowState.AGENT_WORKING
+            or state.worker_id != self.worker_id
+            or state.phase is not WorkflowPhase.DECOMPOSITION_APPLY
+        ):
+            raise IssueWorkflowStoreError(
+                "decomposition completion requires this worker's decomposition_apply lease"
+            )
+        if re.fullmatch(r"GDP-[0-9a-f]{64}", graph_delta_plan_id) is None:
+            raise IssueWorkflowStoreError("graph_delta_plan_id has an invalid identity")
+        if re.fullmatch(r"[0-9a-f]{40}", applied_commit) is None:
+            raise IssueWorkflowStoreError("applied_commit has an invalid identity")
+        next_state, event = transition(
+            state,
+            event_type=WorkflowEventType.COMPLETED,
+            actor_type=WorkflowActor.AGENT,
+            actor_id=self.worker_id,
+            to_state=WorkflowState.COMPLETE,
+            to_phase=WorkflowPhase.DECOMPOSITION_APPLY,
+            details={
+                "graph_delta_plan_id": graph_delta_plan_id,
+                "applied_commit": applied_commit,
+                "work_type": "decomposition",
+            },
+            now=now or utc_now(),
+        )
+        self.backend.add_comment(
+            snapshot.issue_number,
+            render_event_comment(
+                event,
+                "Decomposition application completed.\n\n"
+                f"- **Plan:** `{graph_delta_plan_id}`\n"
+                f"- **Applied commit:** `{applied_commit}`\n"
+                "- **TaskGraph validation:** `passed`",
+            ),
+        )
+        self.backend.update_issue(
+            snapshot.issue_number,
+            body=update_issue_body(
+                snapshot.body,
+                next_state,
+                next_action="No further decomposition workflow action is required.",
+            ),
+            labels=labels_for_state(next_state.state, snapshot.labels),
+            assignees=[self.assignee],
+        )
+        verified = self.verify_post_mutation_state(
+            task_id, next_state, transition_name="decomposition completion"
+        )
+        return {"status": "complete", **verified.to_dict()}
+
+    def release_decomposition_lease(
+        self,
+        *,
+        task_id: str,
+        reason: str,
+        retry_phase: WorkflowPhase = WorkflowPhase.DECOMPOSITION,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        snapshot = self.find(task_id)
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "decomposition lease release requires a valid managed Issue"
+            )
+        state = snapshot.state
+        if state.state is not WorkflowState.AGENT_WORKING or state.worker_id != self.worker_id:
+            raise IssueWorkflowStoreError(
+                "decomposition lease release requires this worker's active lease"
+            )
+        if retry_phase not in {
+            WorkflowPhase.DECOMPOSITION,
+            WorkflowPhase.DECOMPOSITION_APPLY,
+        }:
+            raise IssueWorkflowStoreError("decomposition retry phase is invalid")
+        next_state, event = transition(
+            state,
+            event_type=WorkflowEventType.AGENT_LEASE_RELEASED,
+            actor_type=WorkflowActor.AGENT,
+            actor_id=self.worker_id,
+            to_state=WorkflowState.AGENT_READY,
+            to_phase=retry_phase,
+            details={"reason": str(reason).strip(), "work_type": "decomposition"},
+            now=now or utc_now(),
+        )
+        self.backend.add_comment(
+            snapshot.issue_number,
+            render_event_comment(
+                event,
+                "The decomposition lease was released safely.\n\n"
+                f"- **Reason:** {str(reason).strip()}",
+            ),
+        )
+        self.backend.update_issue(
+            snapshot.issue_number,
+            body=update_issue_body(
+                snapshot.body,
+                next_state,
+                next_action=(
+                    "Retry the exact approved graph application."
+                    if retry_phase is WorkflowPhase.DECOMPOSITION_APPLY
+                    else "Run a fresh decomposition against current main."
+                ),
+            ),
+            labels=labels_for_state(next_state.state, snapshot.labels),
+            assignees=[self.assignee],
+        )
+        verified = self.verify_post_mutation_state(
+            task_id, next_state, transition_name="decomposition lease release"
+        )
+        return {"status": "agent_ready", **verified.to_dict()}
 
     def apply_human_result(
         self,

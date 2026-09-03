@@ -374,6 +374,90 @@ The player crossed the blocker.
     )
 
 
+def test_decomposition_handoff_binds_exact_plan_and_resumes_apply_phase() -> None:
+    backend = MemoryIssueBackend()
+    tasks = {TASK_ID: task(TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="decomposition-agent-a",
+    )
+    acquired = service.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch="main",
+        checkout_path=CHECKOUT,
+        planned_approach="work_type: decomposition",
+        expected_validation="Independent review then exact plan authorization.",
+        now="2026-09-03T10:00:00Z",
+    )
+    require(acquired["status"] == "acquired", str(acquired))
+    plan_id = "GDP-" + "c" * 64
+    handoff = service.publish_decomposition_handoff(
+        task_id=TASK_ID,
+        source_head=SOURCE_HEAD,
+        checkout_path=CHECKOUT,
+        decomposition_run_id="nsc-777-fixture-run",
+        artifact_root=r"C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-777\fixture",
+        graph_delta_plan_id=plan_id,
+        summary="Split the parent into two tiny ordered children.",
+        now="2026-09-03T10:01:00Z",
+    )
+    require(handoff["status"] == "human_action_required", str(handoff))
+    require(
+        handoff["workflow_state"]["phase"]
+        == "decomposition_apply_authorization",
+        str(handoff),
+    )
+    wrong = "## Decomposition application result\n\nResult: APPROVE\nReviewed plan_id: GDP-" + "d" * 64
+    expect_error(
+        lambda: service.apply_decomposition_result(
+            task_id=TASK_ID,
+            result_body=wrong,
+            actor_id="cathode26",
+        ),
+        "does not match",
+    )
+    approved = service.apply_decomposition_result(
+        task_id=TASK_ID,
+        result_body=(
+            "## Decomposition application result\n\n"
+            f"Result: APPROVE\nReviewed plan_id: {plan_id}\n"
+        ),
+        actor_id="cathode26",
+        now="2026-09-03T10:02:00Z",
+    )
+    require(approved["decision"] == "approve", str(approved))
+    require(
+        approved["workflow_state"]["phase"] == "decomposition_apply",
+        str(approved),
+    )
+    require(len(service.list_agent_ready()) == 1, "approved plan did not resume")
+    applier = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="decomposition-agent-b",
+    )
+    resumed = applier.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch="main",
+        checkout_path=CHECKOUT,
+        planned_approach="Apply the exact approved graph plan.",
+        expected_validation="Validate committed graph and push main.",
+        now="2026-09-03T10:03:00Z",
+    )
+    require(resumed["status"] == "acquired", str(resumed))
+    completed = applier.complete_decomposition(
+        task_id=TASK_ID,
+        graph_delta_plan_id=plan_id,
+        applied_commit=HANDOFF_HEAD,
+        now="2026-09-03T10:04:00Z",
+    )
+    require(completed["status"] == "complete", str(completed))
+    require(completed["workflow_state"]["state"] == "complete", str(completed))
+
+
 
 def test_human_handoff_notifies_vincent_once_and_exact_retry_is_notification_only() -> None:
     backend = MemoryIssueBackend()
@@ -1257,6 +1341,7 @@ def main() -> int:
     tests = (
         test_state_event_round_trip_and_chain,
         test_issue_service_handoff_human_result_and_resume,
+        test_decomposition_handoff_binds_exact_plan_and_resumes_apply_phase,
         test_human_handoff_notifies_vincent_once_and_exact_retry_is_notification_only,
         test_configured_vincent_inbox_is_preflighted_before_source_handoff_mutation,
         test_vincent_notification_accepted_write_timeout_and_stale_reads_never_rewrite,

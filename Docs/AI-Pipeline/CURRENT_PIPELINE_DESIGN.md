@@ -1,6 +1,6 @@
 # Current No Safe Circle AI Pipeline Design
 
-Status: current architecture snapshot after D1B.2 round-robin decomposition merged to `main` on 2026-08-26.
+Status: historical baseline plus current operating updates through 2026-09-03.
 
 This document describes the system that exists now. It separates current runtime behavior from future possibilities so an agent does not accidentally treat an architectural idea as implemented authority.
 
@@ -65,9 +65,10 @@ Autonomous dispatch remains disabled. TaskGraph state inspection never grants re
                                                 HUMAN REVIEW
                                                     │
                                                     ▼
-                                      targeted/manual graph application
-                                      (D1C reusable application tooling
-                                             is NOT implemented)
+                                      exact-plan human authorization
+                                                    │
+                                                    ▼
+                                      serialized D1C application to main
 ```
 
 ## Authority layers
@@ -319,12 +320,16 @@ A D1B.2 run preserves the original context plus every round:
     ...
 ```
 
-All artifacts are `review_only_not_applied`.
+All D1B artifacts are `review_only_not_applied`.
 
 D1C reusable reviewed graph-application tooling and exact-head additive undo
-are implemented as network-free local commit boundaries. Human authorization,
-GitHub coordination, portfolio dispatch, push, and merge remain separate
-orchestration authority boundaries.
+are implemented as network-free local commit boundaries. The supervised
+software architect now selects decomposition from a mixed
+implementation/decomposition portfolio, records an exact-plan GitHub Issue
+handoff, waits for exact-plan human authorization, serializes application with
+a global D1C claim, pushes the exact current-main commit, and records Issue
+completion. A plan whose source is no longer current main is released for fresh
+decomposition rather than applied with stale child IDs or rewrites.
 
 ## GDDRAG — current role
 
