@@ -308,10 +308,74 @@ def test_real_workflow_rejects_unpushed_handoff() -> None:
         )
 
 
+def test_decomposition_uses_exact_canonical_durable_checkout() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-decomposition-checkout-") as temporary:
+        root = Path(temporary)
+        controller, remote, source_head = create_fixture(root)
+        contract, contract_hash, source_tree = contract_facts(controller)
+        checkout_root = root / "operator"
+        checkout = checkout_root / TASK_ID
+        state = initial_state(
+            task_id=TASK_ID,
+            task_contract_sha256=contract_hash,
+            now="2026-09-03T13:00:00Z",
+        )
+        state = lease(
+            state,
+            worker=WORKER_A,
+            source_head=source_head,
+            checkout=checkout,
+            now="2026-09-03T13:01:00Z",
+        )
+        observed = observation(
+            controller=controller,
+            remote=remote,
+            contract=contract,
+            contract_hash=contract_hash,
+            source_head=source_head,
+            source_tree=source_tree,
+            state=state,
+            worker=WORKER_A,
+        )
+        observed["task"].update(
+            execution_scope="needs_execution_decomposition",
+            decomposition_state="atomicity_unknown",
+            dependencies_conformant=False,
+        )
+        implementation = DurableTaskCheckoutManager(
+            source_root=controller,
+            task_id=TASK_ID,
+            checkout_root=checkout_root,
+            worker_id=WORKER_A,
+            allow_local_remote_for_tests=True,
+        )
+        blocked = implementation.prepare(observed)
+        require(blocked["status"] == "blocked", str(blocked))
+        require(not checkout.exists(), "implementation mode created a decomposition checkout")
+
+        decomposition = DurableTaskCheckoutManager(
+            source_root=controller,
+            task_id=TASK_ID,
+            checkout_root=checkout_root,
+            worker_id=WORKER_A,
+            work_type="decomposition",
+            allow_local_remote_for_tests=True,
+        )
+        created = decomposition.prepare(observed)
+        require(created["status"] == "ready", str(created))
+        require(Path(created["path"]).resolve() == checkout.resolve(), str(created))
+        require(git(checkout, "branch", "--show-current") == BRANCH, "wrong branch")
+        require(git(checkout, "rev-parse", "HEAD") == source_head, "wrong source commit")
+        require(git(checkout, "status", "--porcelain") == "", "checkout is dirty")
+        manifest = json.loads(decomposition.manifest_path.read_text(encoding="utf-8"))
+        require(manifest.get("checkout_purpose") == "decomposition", str(manifest))
+
+
 def main() -> int:
     tests = (
         test_checkout_survives_human_and_new_agent,
         test_real_workflow_rejects_unpushed_handoff,
+        test_decomposition_uses_exact_canonical_durable_checkout,
     )
     for test in tests:
         test()

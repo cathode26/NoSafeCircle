@@ -61,6 +61,7 @@ from Pipeline.TaskReviewAgent.polling_orchestrator import (  # noqa: E402
     observe_durable_integration_reservations,
     read_branch_changed_paths,
     read_working_tree_changed_paths,
+    refresh_source_main,
     scheduler_lock_path,
 )
 
@@ -569,6 +570,11 @@ def make_orchestrator(
         plan_builder=planner,
         task_loader=lambda task_id: tasks[task_id],
         reservation_observer=lambda: reservations,
+        source_refresher=lambda _source: {
+            "before": git(source, "rev-parse", "HEAD"),
+            "after": git(source, "rev-parse", "HEAD"),
+            "changed": False,
+        },
         process_factory=processes,
         event_emitter=JsonEventEmitter(stream),
         dry_run=dry_run,
@@ -881,6 +887,7 @@ def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> No
         task_id=TASK_B,
         worker_id="decomposition-fixture-worker",
         source=Path("C:/fixture/source"),
+        checkout_root=Path("C:/fixture/checkouts"),
         output_root=Path("C:/fixture/outputs/NSC-102"),
     )
     require(command[command.index("--task-id") + 1] == TASK_B, str(command))
@@ -892,6 +899,11 @@ def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> No
     require(
         command[command.index("--output-root") + 1].replace("\\", "/")
         == "C:/fixture/outputs/NSC-102",
+        str(command),
+    )
+    require(
+        command[command.index("--checkout-root") + 1].replace("\\", "/")
+        == "C:/fixture/checkouts",
         str(command),
     )
 
@@ -2277,6 +2289,50 @@ def test_default_max_workers_is_one_until_live_acceptance() -> None:
     require(DEFAULT_POLL_SECONDS == 60.0, f"default poll is {DEFAULT_POLL_SECONDS}")
 
 
+def test_source_refresh_fast_forwards_exact_remote_main_without_rewrite() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, before = create_source(root)
+        remote = root / "remote.git"
+        git(root, "init", "--bare", str(remote))
+        git(source, "remote", "add", "origin", str(remote))
+        git(source, "push", "-u", "origin", "main")
+
+        updater = root / "updater"
+        git(root, "clone", "--branch", "main", str(remote), str(updater))
+        git(updater, "config", "user.name", "Polling Fixture")
+        git(updater, "config", "user.email", "polling-fixture@nosafecircle.invalid")
+        (updater / "remote.txt").write_text("remote advance\n", encoding="utf-8")
+        git(updater, "add", "remote.txt")
+        git(updater, "commit", "-m", "remote advance")
+        git(updater, "push", "origin", "main")
+        remote_head = git(updater, "rev-parse", "HEAD")
+
+        result = refresh_source_main(source)
+        require(result == {"before": before, "after": remote_head, "changed": True}, str(result))
+        require(git(source, "rev-parse", "HEAD") == remote_head, "source did not fast-forward")
+        require(git(source, "status", "--porcelain") == "", "refresh dirtied source")
+
+
+def test_source_refresh_refuses_dirty_controller_without_overwrite() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        remote = root / "remote.git"
+        git(root, "init", "--bare", str(remote))
+        git(source, "remote", "add", "origin", str(remote))
+        git(source, "push", "-u", "origin", "main")
+        (source / "local.txt").write_text("preserve me\n", encoding="utf-8")
+        try:
+            refresh_source_main(source)
+        except IntegrationObservationError as exc:
+            require("not completely clean" in str(exc), str(exc))
+        else:
+            raise AssertionError("dirty controller was refreshed")
+        require(git(source, "rev-parse", "HEAD") == head, "dirty source HEAD changed")
+        require((source / "local.txt").read_text(encoding="utf-8") == "preserve me\n", "dirty file changed")
+
+
 def main() -> int:
     tests = (
         test_singleton_second_scheduler_fails_immediately,
@@ -2332,6 +2388,8 @@ def main() -> int:
         test_main_handles_bare_task_review_contract_error,
         test_private_snapshot_coupling_signature_and_fields_are_pinned,
         test_default_max_workers_is_one_until_live_acceptance,
+        test_source_refresh_fast_forwards_exact_remote_main_without_rewrite,
+        test_source_refresh_refuses_dirty_controller_without_overwrite,
     )
     for test in tests:
         test()

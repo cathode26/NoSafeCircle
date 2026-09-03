@@ -69,6 +69,7 @@ class DurableTaskCheckoutManager:
         task_id: str,
         checkout_root: Path | str | None = None,
         worker_id: str,
+        work_type: str = "implementation",
         allow_local_remote_for_tests: bool = False,
     ) -> None:
         self.task_id = validate_task_id(task_id)
@@ -77,6 +78,11 @@ class DurableTaskCheckoutManager:
         self.worker_id = str(worker_id).strip()
         if not self.worker_id:
             raise DurableCheckoutError("worker_id must be non-empty")
+        self.work_type = str(work_type).strip().casefold()
+        if self.work_type not in {"implementation", "decomposition"}:
+            raise DurableCheckoutError(
+                "work_type must be implementation or decomposition"
+            )
         self.allow_local_remote_for_tests = bool(allow_local_remote_for_tests)
         self.checkout_path = self.checkout_root / self.task_id
         self.state_root = self.checkout_root / ".task-review-agent"
@@ -131,6 +137,8 @@ class DurableTaskCheckoutManager:
             "task_contract_sha256": task["task_contract_sha256"],
             "authority": "durable_checkout_identity",
         }
+        if self.work_type != "implementation":
+            payload["checkout_purpose"] = self.work_type
         return {"manifest_sha256": semantic_sha256(payload), **payload}
 
     def _read_manifest(self) -> dict[str, Any] | None:
@@ -167,6 +175,8 @@ class DurableTaskCheckoutManager:
             "task_contract_sha256": task["task_contract_sha256"],
             "authority": "durable_checkout_identity",
         }
+        if self.work_type != "implementation":
+            stable["checkout_purpose"] = self.work_type
         if any(current.get(key) != value for key, value in stable.items()):
             return False
         return _normalized_remote(str(current.get("remote_url") or "")) == _normalized_remote(
@@ -344,13 +354,22 @@ class DurableTaskCheckoutManager:
             reasons.append("task contract is not active")
         if task.get("kind") != "implementation":
             reasons.append("task is not an implementation contract")
-        if task.get("execution_scope") != "single_agent":
-            reasons.append("task is not single_agent")
-        if task.get("decomposition_state") != "concrete":
-            reasons.append("task is not concrete")
+        if self.work_type == "implementation":
+            if task.get("execution_scope") != "single_agent":
+                reasons.append("task is not single_agent")
+            if task.get("decomposition_state") != "concrete":
+                reasons.append("task is not concrete")
+        else:
+            if task.get("execution_scope") != "needs_execution_decomposition":
+                reasons.append("task does not require execution decomposition")
+            if task.get("decomposition_state") == "concrete":
+                reasons.append("concrete task cannot use a decomposition checkout")
         if task.get("derived_state") != "not_delivered":
             reasons.append("task is not in not_delivered state")
-        if task.get("dependencies_conformant") is not True:
+        if (
+            self.work_type == "implementation"
+            and task.get("dependencies_conformant") is not True
+        ):
             reasons.append("one or more declared dependencies are not conformant")
         workflow_status = coordination.get("workflow_status")
         if workflow_status != "agent_working_by_worker":

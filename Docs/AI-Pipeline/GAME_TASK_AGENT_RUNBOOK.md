@@ -92,6 +92,13 @@ The launcher first finds fully validated `nsc-state:agent-ready` Issues. It resu
 
 When no validated agent-ready Issue exists, generic resume stops and asks for an explicit task ID. It does not guess dependency readiness or autonomously invent fresh work.
 
+For supervised multi-task operation, each live scheduler poll first fetches
+`origin/main` and fast-forwards the clean attached controller `main`. A dirty or
+diverged controller stops admissions without reset or overwrite. Every
+implementation and decomposition provider runs from its own canonical
+standalone task checkout, so this refresh cannot move the repository beneath an
+active worker.
+
 ## What happens during a fresh implementation run
 
 1. The controller validates the selected task, TaskGraph, dependencies, controller `HEAD`, working-tree cleanliness, and exclusive-resource availability.

@@ -452,6 +452,60 @@ def _git_text(root: Path, *args: str) -> str:
         raise IntegrationObservationError("Git text output was not UTF-8") from exc
 
 
+def refresh_source_main(source: Path | str) -> dict[str, Any]:
+    """Fast-forward a clean attached controller main to exact origin/main.
+
+    Task workers use durable standalone checkouts, so refreshing the controller
+    never changes a worker repository beneath it. Divergence and dirt stop
+    closed: this operation never rebases, resets, or overwrites local state.
+    """
+
+    root = Path(source).resolve()
+    branch = _git_text(root, "symbolic-ref", "--quiet", "--short", "HEAD")
+    if branch != "main":
+        raise IntegrationObservationError(
+            f"scheduler controller must use attached main, found {branch!r}"
+        )
+    status = _git_text(
+        root, "status", "--porcelain=v1", "--untracked-files=all"
+    )
+    if status:
+        raise IntegrationObservationError(
+            "scheduler controller main is not completely clean"
+        )
+    before = _git_text(root, "rev-parse", "--verify", "HEAD")
+    fetched = _run_git(root, "fetch", "origin", "main")
+    if fetched.returncode != 0:
+        detail = fetched.stderr.decode("utf-8", errors="replace").strip()
+        raise IntegrationObservationError(
+            "could not refresh scheduler origin/main"
+            + (f": {detail[:500]}" if detail else "")
+        )
+    remote = _git_text(root, "rev-parse", "--verify", "origin/main")
+    ancestry = _run_git(root, "merge-base", "--is-ancestor", before, remote)
+    if ancestry.returncode != 0:
+        raise IntegrationObservationError(
+            "scheduler controller main diverged from origin/main; refusing rewrite"
+        )
+    if before != remote:
+        merged = _run_git(root, "merge", "--ff-only", "origin/main")
+        if merged.returncode != 0:
+            detail = merged.stderr.decode("utf-8", errors="replace").strip()
+            raise IntegrationObservationError(
+                "scheduler controller main could not fast-forward"
+                + (f": {detail[:500]}" if detail else "")
+            )
+    after = _git_text(root, "rev-parse", "--verify", "HEAD")
+    verified_status = _git_text(
+        root, "status", "--porcelain=v1", "--untracked-files=all"
+    )
+    if after != remote or verified_status:
+        raise IntegrationObservationError(
+            "scheduler controller refresh did not verify exact clean origin/main"
+        )
+    return {"before": before, "after": after, "changed": before != after}
+
+
 def _decode_z_paths(raw: bytes) -> tuple[str, ...]:
     try:
         values = [item.decode("utf-8") for item in raw.split(b"\0") if item]
@@ -1082,6 +1136,7 @@ def build_decomposition_worker_command(
     task_id: str,
     worker_id: str,
     source: Path | str,
+    checkout_root: Path | str,
     output_root: Path | str | None = None,
 ) -> tuple[str, ...]:
     """Build the distinct host boundary for review-only decomposition work."""
@@ -1107,6 +1162,8 @@ def build_decomposition_worker_command(
         task_id,
         "--source",
         str(root),
+        "--checkout-root",
+        str(Path(checkout_root).resolve()),
         "--worker-id",
         str(worker_id),
         "--output-root",
@@ -1163,6 +1220,7 @@ class PollingOrchestrator:
         plan_builder: PlanBuilder = build_poll_dispatch_plan,
         task_loader: Callable[[str], Mapping[str, Any]] | None = None,
         reservation_observer: Callable[[], Sequence[IntegrationReservation]] | None = None,
+        source_refresher: Callable[[Path], Mapping[str, Any]] = refresh_source_main,
         process_factory: Callable[..., Any] = subprocess.Popen,
         event_emitter: JsonEventEmitter | None = None,
         dry_run: bool = False,
@@ -1208,6 +1266,7 @@ class PollingOrchestrator:
         self.architect_invocations_this_session = 0
         self.architect_cooldowns: dict[str, ArchitectCooldownEntry] = {}
         self.consecutive_observation_failures = 0
+        self.consecutive_source_refresh_failures = 0
         self.plan_builder = plan_builder
         self.task_loader = task_loader or (
             lambda task_id: load_committed_task(self.source, task_id)
@@ -1219,6 +1278,7 @@ class PollingOrchestrator:
                 worker_id=self.scheduler_id,
             )
         )
+        self.source_refresher = source_refresher
         self.process_factory = process_factory
         self.events = event_emitter or JsonEventEmitter()
         self.dry_run = bool(dry_run)
@@ -1273,6 +1333,8 @@ class PollingOrchestrator:
             )
         if not callable(monotonic_clock):
             raise PollingOrchestratorError("monotonic_clock must be callable")
+        if not callable(source_refresher):
+            raise PollingOrchestratorError("source_refresher must be callable")
         if (
             isinstance(architect_min_confidence, bool)
             or not isinstance(architect_min_confidence, (int, float))
@@ -1574,6 +1636,42 @@ class PollingOrchestrator:
             max_workers=self.max_workers,
             dry_run=self.dry_run,
         )
+        if not self.dry_run:
+            try:
+                refresh = dict(self.source_refresher(self.source))
+            except (IntegrationObservationError, OSError) as exc:
+                self.consecutive_source_refresh_failures += 1
+                fatal = (
+                    self.consecutive_source_refresh_failures
+                    >= self.max_consecutive_observation_failures
+                )
+                self.events.emit(
+                    "scheduler_blocked" if fatal else "scheduler_wait_source_refresh",
+                    reason=(
+                        "controller main refresh failed at the bounded consecutive-"
+                        "failure limit"
+                        if fatal
+                        else "controller main refresh failed temporarily; no candidate "
+                        "was planned or launched this poll"
+                    ),
+                    consecutive_observation_failures=(
+                        self.consecutive_source_refresh_failures
+                    ),
+                    max_consecutive_observation_failures=(
+                        self.max_consecutive_observation_failures
+                    ),
+                    error=_bounded_error(exc),
+                )
+                return PollCycleResult("source_refresh_failed", fatal=fatal)
+            if self.consecutive_source_refresh_failures:
+                self.events.emit(
+                    "scheduler_source_refresh_recovered",
+                    previous_consecutive_failures=(
+                        self.consecutive_source_refresh_failures
+                    ),
+                )
+            self.consecutive_source_refresh_failures = 0
+            self.events.emit("source_main_refreshed", **refresh)
         if len(self.active_assignments) >= self.max_workers:
             self.events.emit(
                 "scheduler_blocked",
@@ -2032,6 +2130,7 @@ class PollingOrchestrator:
                     task_id=task_id,
                     worker_id=worker_id,
                     source=self.source,
+                    checkout_root=self.checkout_root,
                 )
                 route_event = {
                     "work_type": "decomposition",

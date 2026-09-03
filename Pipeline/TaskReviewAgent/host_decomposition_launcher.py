@@ -24,8 +24,15 @@ for module_root in (ROOT, PIPELINE_ROOT, TASK_GRAPH_ROOT):
     if str(module_root) not in sys.path:
         sys.path.insert(0, str(module_root))
 
-from Pipeline.TaskReviewAgent.contracts import validate_task_id  # noqa: E402
+from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
+    semantic_sha256,
+    validate_task_id,
+)
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
+from Pipeline.TaskReviewAgent.durable_checkout import (  # noqa: E402
+    DurableCheckoutError,
+    DurableTaskCheckoutManager,
+)
 from Pipeline.TaskReviewAgent.claim_refs import (  # noqa: E402
     ClaimConflict,
     acquire_issue_lease_with_claims,
@@ -39,6 +46,10 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
     IssueWorkflowService,
+)
+from Pipeline.TaskReviewAgent.real_observation import RealTaskObserver  # noqa: E402
+from Pipeline.TaskDecomposition.context_builder import (  # noqa: E402
+    validate_task_selection as validate_decomposition_selection,
 )
 from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
 from graph_delta import GraphDeltaPlan  # noqa: E402
@@ -124,6 +135,8 @@ def _acquire_workflow_lease(
     source_head: str,
     worker_id: str,
     service: IssueWorkflowService,
+    branch: str,
+    checkout_path: Path,
 ):
     remote_url = _git(source, "remote", "get-url", "origin")
     client = build_activated_claim_client(
@@ -136,8 +149,8 @@ def _acquire_workflow_lease(
         issue_workflow=service,
         task=task,
         source_head=source_head,
-        branch="main",
-        checkout_path=str(source),
+        branch=branch,
+        checkout_path=str(checkout_path),
         planned_approach=(
             "work_type: decomposition\nRun or resume the independently reviewed "
             "round-robin decomposition lifecycle for this exact parent contract."
@@ -155,10 +168,34 @@ def _acquire_workflow_lease(
     return client, result
 
 
+def _checkout_observation(
+    *,
+    source: Path,
+    task_id: str,
+    service: IssueWorkflowService,
+) -> dict:
+    observation = RealTaskObserver(source, task_id).observe_goal_state()
+    environment = dict(observation["environment"])
+    environment["remote_url"] = _git(source, "remote", "get-url", "origin")
+    coordination = dict(service.observe(task_id))
+    workflow_status = coordination.get("status")
+    coordination["workflow_status"] = workflow_status
+    identity = {
+        "environment": environment,
+        "task": observation["task"],
+        "coordination": coordination,
+    }
+    return {
+        **observation,
+        **identity,
+        "observation_sha256": semantic_sha256(identity),
+    }
+
+
 def _run_proposal(
     *,
     args: argparse.Namespace,
-    source: Path,
+    workspace: Path,
     output_root: Path,
     source_head: str,
     service: IssueWorkflowService,
@@ -167,17 +204,37 @@ def _run_proposal(
     before = {path.name for path in output_root.iterdir() if path.is_dir()}
     environment = os.environ.copy()
     environment["NSC_DECOMPOSITION_HOST_OUTPUT_ROOT"] = str(output_root)
-    completed = subprocess.run(
-        build_compose_command(
+    try:
+        completed = subprocess.run(
+            build_compose_command(
+                task_id=args.task_id,
+                project=args.compose_project,
+                providers=args.providers,
+                max_calls=args.max_calls,
+            ),
+            cwd=str(workspace),
+            env=environment,
+            check=False,
+        )
+    except OSError as exc:
+        service.release_decomposition_lease(
             task_id=args.task_id,
-            project=args.compose_project,
-            providers=args.providers,
-            max_calls=args.max_calls,
-        ),
-        cwd=str(source),
-        env=environment,
-        check=False,
-    )
+            reason=(
+                "D1B.2 provider process could not start; no provider ran: "
+                f"{type(exc).__name__}: {exc}"
+            ),
+        )
+        print(
+            json.dumps(
+                {
+                    "status": "proposal_retry_required",
+                    "task_id": args.task_id,
+                    "provider_start_error": type(exc).__name__,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
     after = [
         path
         for path in output_root.iterdir()
@@ -263,7 +320,7 @@ def _run_proposal(
     service.publish_decomposition_handoff(
         task_id=args.task_id,
         source_head=source_head,
-        checkout_path=str(source),
+        checkout_path=str(workspace),
         decomposition_run_id=str(result["run_id"]),
         artifact_root=str(run_dir),
         graph_delta_plan_id=graph.plan_id,
@@ -272,6 +329,7 @@ def _run_proposal(
             f"{args.task_id}; independent reviewer: "
             f"{result.get('independent_approver_provider')}."
         ),
+        branch=_git(workspace, "branch", "--show-current"),
     )
     print(
         json.dumps(
@@ -381,6 +439,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task-id", required=True)
     parser.add_argument("--source", type=Path, default=ROOT)
+    parser.add_argument("--checkout-root", type=Path, required=True)
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--worker-id", required=True)
     parser.add_argument("--compose-project", default="nosafecircle-m2a")
@@ -404,6 +463,7 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError("decomposition controller source must be completely clean")
         source_head = _git(source, "rev-parse", "HEAD")
         task = load_committed_task(source, task_id)
+        validate_decomposition_selection(task_id, task)
         service = IssueWorkflowService(
             backend=GhIssueBackend(source_root=source),
             task_loader=lambda selected: load_committed_task(source, selected),
@@ -413,12 +473,24 @@ def main(argv: list[str] | None = None) -> int:
         resume_phase = (
             prelease.state.phase if prelease is not None and prelease.state is not None else None
         )
+        checkout_manager = DurableTaskCheckoutManager(
+            source_root=source,
+            task_id=task_id,
+            checkout_root=args.checkout_root.resolve(),
+            worker_id=args.worker_id,
+            work_type="decomposition",
+        )
+        expected_branch = checkout_manager.expected_branch(
+            RealTaskObserver(source, task_id).observe_goal_state()
+        )
         claim_client, _lease = _acquire_workflow_lease(
             source=source,
             task=task,
             source_head=source_head,
             worker_id=args.worker_id,
             service=service,
+            branch=expected_branch,
+            checkout_path=checkout_manager.checkout_path,
         )
         if resume_phase is WorkflowPhase.DECOMPOSITION_APPLY:
             if prelease is None:
@@ -431,14 +503,41 @@ def main(argv: list[str] | None = None) -> int:
                 claim_client=claim_client,
                 prelease_snapshot=prelease,
             )
+        try:
+            observation = _checkout_observation(
+                source=source,
+                task_id=task_id,
+                service=service,
+            )
+            checkout = checkout_manager.prepare(observation)
+        except (DurableCheckoutError, OSError, RuntimeError, ValueError) as exc:
+            service.release_decomposition_lease(
+                task_id=task_id,
+                reason=(
+                    "canonical decomposition checkout preparation failed before "
+                    f"provider start: {type(exc).__name__}: {exc}"
+                ),
+            )
+            raise
+        if checkout.get("status") not in {"created", "adopted", "resumed"}:
+            service.release_decomposition_lease(
+                task_id=task_id,
+                reason=(
+                    "canonical decomposition checkout could not be prepared: "
+                    + json.dumps(checkout.get("reasons") or [], sort_keys=True)
+                ),
+            )
+            raise RuntimeError(
+                "canonical decomposition checkout is blocked; existing path was not changed"
+            )
         return _run_proposal(
             args=args,
-            source=source,
+            workspace=checkout_manager.checkout_path,
             output_root=output_root,
             source_head=source_head,
             service=service,
         )
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (DurableCheckoutError, OSError, RuntimeError, ValueError) as exc:
         print(f"Decomposition launcher blocked: {exc}", file=sys.stderr)
         return 2
 

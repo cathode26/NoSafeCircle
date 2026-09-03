@@ -1263,6 +1263,7 @@ class IssueWorkflowService:
         artifact_root: str,
         graph_delta_plan_id: str,
         summary: str,
+        branch: str = "main",
         now: str | None = None,
     ) -> dict[str, Any]:
         """Hand one exact independently reviewed graph plan to the human."""
@@ -1286,6 +1287,7 @@ class IssueWorkflowService:
                 and handoff.details.get("graph_delta_plan_id") == graph_delta_plan_id
                 and handoff.details.get("decomposition_run_id") == decomposition_run_id
                 and handoff.details.get("artifact_root") == artifact_root
+                and state.branch == branch
                 and state.head_commit == source_head
                 and state.checkout_path == checkout_path
             )
@@ -1307,7 +1309,7 @@ class IssueWorkflowService:
             to_state=WorkflowState.HUMAN_ACTION_REQUIRED,
             to_phase=WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION,
             details={
-                "branch": "main",
+                "branch": branch,
                 "head_commit": source_head,
                 "checkout_path": checkout_path,
                 "decomposition_run_id": decomposition_run_id,

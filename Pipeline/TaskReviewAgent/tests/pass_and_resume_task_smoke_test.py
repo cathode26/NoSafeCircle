@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
@@ -25,6 +26,7 @@ from Pipeline.TaskReviewAgent.pass_and_resume_task import (  # noqa: E402
     PassAndResumeError,
     _decomposition_comment,
     _decomposition_plan_id,
+    _launch_decomposition,
     _pass_comment,
     _recover_safe_unity_churn,
     _ready_for_delivery,
@@ -177,12 +179,35 @@ def test_safe_unity_churn_is_restored_but_other_edits_are_refused() -> None:
     )
 
 
+def test_decomposition_resume_carries_canonical_checkout_root() -> None:
+    root = Path("C:/fixture/source")
+    checkout_root = Path("C:/NSC/NSC")
+    with patch(
+        "Pipeline.TaskReviewAgent.pass_and_resume_task.subprocess.run",
+        return_value=SimpleNamespace(returncode=0),
+    ) as invoked:
+        result = _launch_decomposition(
+            root,
+            task_id="NSC-777",
+            checkout_root=checkout_root,
+        )
+    require(result == 0, str(result))
+    command = invoked.call_args.args[0]
+    require(command[command.index("--task-id") + 1] == "NSC-777", str(command))
+    require(
+        command[command.index("--checkout-root") + 1].replace("\\", "/")
+        == "C:/NSC/NSC",
+        str(command),
+    )
+
+
 def main() -> int:
     tests = (
         test_comment_has_canonical_exact_commit_result,
         test_ready_requires_consistent_event_count_and_commit,
         test_decomposition_approval_is_exact_plan_bound,
         test_safe_unity_churn_is_restored_but_other_edits_are_refused,
+        test_decomposition_resume_carries_canonical_checkout_root,
     )
     for test in tests:
         test()

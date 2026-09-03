@@ -75,7 +75,7 @@ def test_proposal_failure_releases_durable_lease_without_killing_scheduler() -> 
         try:
             result = launcher._run_proposal(
                 args=arguments(),
-                source=root,
+                workspace=root,
                 output_root=output,
                 source_head=SOURCE_HEAD,
                 service=service,
@@ -118,7 +118,7 @@ def test_malformed_proposal_artifact_releases_durable_lease() -> None:
         try:
             result = launcher._run_proposal(
                 args=arguments(),
-                source=root,
+                workspace=root,
                 output_root=output,
                 source_head=SOURCE_HEAD,
                 service=service,
@@ -128,6 +128,33 @@ def test_malformed_proposal_artifact_releases_durable_lease() -> None:
         require(result == 0, str(result))
         require(len(service.releases) == 1, str(service.releases))
         require("artifacts" in service.releases[0]["reason"], str(service.releases))
+
+
+def test_provider_start_error_releases_durable_lease() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        output = root / "outputs"
+        output.mkdir()
+        service = RecordingService()
+        original = launcher.subprocess.run
+
+        def fail_start(*_args, **_kwargs):
+            raise FileNotFoundError("docker fixture missing")
+
+        launcher.subprocess.run = fail_start
+        try:
+            result = launcher._run_proposal(
+                args=arguments(),
+                workspace=root,
+                output_root=output,
+                source_head=SOURCE_HEAD,
+                service=service,
+            )
+        finally:
+            launcher.subprocess.run = original
+        require(result == 0, str(result))
+        require(len(service.releases) == 1, str(service.releases))
+        require("could not start" in service.releases[0]["reason"], str(service.releases))
 
 
 def test_apply_artifact_error_releases_global_claim() -> None:
@@ -199,6 +226,7 @@ def main() -> int:
         test_proposal_failure_releases_durable_lease_without_killing_scheduler,
         test_stale_authorized_plan_releases_to_fresh_decomposition,
         test_malformed_proposal_artifact_releases_durable_lease,
+        test_provider_start_error_releases_durable_lease,
         test_apply_artifact_error_releases_global_claim,
         test_compose_command_is_exact_review_only_service,
     )

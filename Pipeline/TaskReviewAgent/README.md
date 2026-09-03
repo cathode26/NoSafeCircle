@@ -147,6 +147,13 @@ parent acquires the ordinary durable Issue/task claim, while the Docker
 round-robin service receives a physically read-only repository and writes only
 to the external no-overwrite output root.
 
+Decomposition uses the same canonical standalone task checkout and
+deterministic task branch as implementation work. The scheduler may therefore
+fast-forward its separate clean controller `main` between polls without moving
+the repository beneath an active decomposition provider. A wrong, dirty,
+stale, or differently bound `C:\NSC\NSC\<TASK-ID>` checkout stops visibly and
+is never reset or replaced.
+
 A `review_ready` plan is published as an exact `plan_id` handoff in
 `human_action_required / decomposition_apply_authorization`. It is still
 review-only. Vincent may approve that exact plan with:
@@ -199,6 +206,12 @@ Checkout preparation still enforces:
 - external checkout identity manifest.
 
 A wrong or dirty existing checkout becomes a human conflict. It is never reset, deleted, overwritten, or bypassed with a differently named directory.
+
+Before every live scheduling poll, the controller fetches `origin/main` and
+fast-forwards attached clean `main` when possible. Dirt or divergence stops new
+admissions; the scheduler never rebases or resets the controller. This keeps
+later task admissions and both task-branch synchronization boundaries based on
+the exact mainline produced by earlier completed workers.
 
 ## Human handoff
 

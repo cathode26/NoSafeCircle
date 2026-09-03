@@ -30,12 +30,13 @@ may be used to refresh `main`, inspect TaskGraph state, discover candidates, and
 
 After claiming `work_type: decomposition`, and **before any decomposition provider invocation**, the orchestrator must:
 
-1. create a fresh standalone clone from `https://github.com/cathode26/NoSafeCircle.git` at current remote `main`;
+1. create a fresh standalone clone from the controller's exact approved GitHub remote at current remote `main`, or resume/adopt only an exact clean checkout whose external identity manifest matches the same task;
 2. use the exact task-ID directory directly under the crew root;
-3. `Set-Location` / `cd` into that task directory;
-4. run D1B.1 from that directory;
-5. keep decomposition outputs filesystem-disjoint from the source checkout;
-6. place the host decomposition output root under `Downloads\NoSafeCircleOutput\<TASK-ID>` so each no-overwrite D1B.1 run lands at `Downloads\NoSafeCircleOutput\<TASK-ID>\<RunId>`.
+3. create or resume the deterministic task branch recorded in the managed Issue;
+4. `Set-Location` / `cd` into that task directory;
+5. run D1B.2 from that directory;
+6. keep decomposition outputs filesystem-disjoint from the source checkout;
+7. place the host decomposition output root under `Downloads\NoSafeCircleOutput\<TASK-ID>` so each no-overwrite D1B.2 run lands at `Downloads\NoSafeCircleOutput\<TASK-ID>\<RunId>`.
 
 For NSC-021, the canonical source checkout and a representative run output are:
 
@@ -67,7 +68,8 @@ The task ID itself is the required human-visible coordination label. `work_type:
 - Start from current remote `main`.
 - Use `git -c core.longpaths=true clone ...` because the repository contains deeply nested historical pipeline paths.
 - After cloning, set `git config core.longpaths true` in the task checkout.
-- Decomposition source work is read-only; no task implementation branch is required merely to run D1B.1.
+- Decomposition source work is read-only. The deterministic task branch exists to preserve checkout identity and coordination; D1B.2 does not commit source changes to it.
+- The checkout's `HEAD`, `origin/main`, task contract hash, remote, branch, cleanliness, and external durable manifest must all match the managed Issue before a provider starts.
 - Require a completely clean source checkout before decomposition preflight.
 - Do not overwrite or casually reuse an existing canonical task checkout.
 - If `C:\NSC\NSC\<TASK-ID>` already exists, inspect and reconcile it rather than creating a differently named duplicate directory.
@@ -76,7 +78,10 @@ The task ID itself is the required human-visible coordination label. `work_type:
 
 ## PowerShell pattern
 
-After the parent Issue is claimed:
+The production host launcher performs the following policy atomically after the
+parent Issue is claimed. This expanded pattern is diagnostic guidance; normal
+operation uses the supervised scheduler or `host_decomposition_launcher.py` so
+the exact Issue branch and external manifest are not reconstructed by hand:
 
 ```powershell
 $TaskId = "NSC-021"
@@ -103,9 +108,13 @@ git status --short
 python Pipeline/TaskGraph/taskcontrol.py validate
 ```
 
-Only after the prompt visibly shows the canonical task directory should the orchestrator run the documented Docker-backed D1B.1 command from `Pipeline/TaskDecomposition/README.md`.
+Before the provider starts, the production launcher also creates the
+deterministic Issue-recorded task branch and writes the hash-verified checkout
+manifest outside the checkout. Only after the prompt visibly shows the
+canonical task directory should the orchestrator run the documented
+Docker-backed D1B.2 command from `Pipeline/TaskDecomposition/README.md`.
 
-D1B.1 owns the no-overwrite run directory beneath `$OutputRoot`. When the orchestrator supplies a timestamp run ID such as `20260825-195246`, the authoritative host run directory is:
+D1B.2 owns the no-overwrite run directory beneath `$OutputRoot`. When the orchestrator supplies a timestamp run ID such as `20260825-195246`, the authoritative host run directory is:
 
 ```text
 C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\20260825-195246
@@ -156,6 +165,6 @@ The Decomposition Closeout must record:
 - canonical task source checkout path, e.g. `C:\NSC\NSC\NSC-021`;
 - exact external decomposition run path, e.g. `C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-021\20260825-195246`;
 - parent task ID and source commit;
-- provider, run ID, and existing D1B.1 result identities.
+- providers, independent reviewer, run ID, and existing D1B.2 result identities.
 
 This rule changes operator checkout/output isolation only. It does not change decomposition authority: outputs remain `review_only_not_applied`, and decomposition grants no readiness, delivery, conformance, graph-application, or merge authority.

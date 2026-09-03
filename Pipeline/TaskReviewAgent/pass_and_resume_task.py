@@ -388,13 +388,16 @@ def _launch(
     ).returncode
 
 
-def _launch_decomposition(root: Path, *, task_id: str) -> int:
+def _launch_decomposition(
+    root: Path, *, task_id: str, checkout_root: Path
+) -> int:
     worker_id = f"approve-decomposition-{task_id.casefold()}-{uuid.uuid4().hex[:12]}"
     return subprocess.run(
         build_decomposition_worker_command(
             task_id=task_id,
             worker_id=worker_id,
             source=root,
+            checkout_root=checkout_root,
         ),
         cwd=str(root),
         check=False,
@@ -531,7 +534,9 @@ def main() -> int:
             if args.defer_launch:
                 print("Launch deferred to the supervised software architect.")
                 return 0
-            return _launch_decomposition(root, task_id=task_id)
+            return _launch_decomposition(
+                root, task_id=task_id, checkout_root=args.checkout_root
+            )
         print(
             f"GitHub ready: Issue #{snapshot.issue_number} is agent_ready / delivery_evidence "
             f"at {tested_commit}"
