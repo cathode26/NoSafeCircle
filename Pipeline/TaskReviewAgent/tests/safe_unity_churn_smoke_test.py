@@ -20,6 +20,9 @@ from Pipeline.TaskReviewAgent.safe_unity_churn import (  # noqa: E402
 
 SCENE = "Assets/Scenes/DoorPrototype.unity"
 COVERAGE = "ProjectSettings/Packages/com.unity.testtools.codecoverage/Settings.json"
+GENERATED_TILE = (
+    "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset"
+)
 
 
 def git(root: Path, *args: str) -> str:
@@ -47,10 +50,22 @@ def test_scene_requires_proven_trailing_whitespace_only_diff() -> None:
         git(root, "config", "user.email", "safe-unity-churn@example.invalid")
         scene = root / SCENE
         coverage = root / COVERAGE
+        generated_tile = root / GENERATED_TILE
         scene.parent.mkdir(parents=True)
         coverage.parent.mkdir(parents=True)
+        generated_tile.parent.mkdir(parents=True)
+        (root / ".gitattributes").write_text(
+            "*.asset text\n",
+            encoding="utf-8",
+            newline="\n",
+        )
         scene.write_text("root:\n  value: one\n", encoding="utf-8", newline="\n")
         coverage.write_text("{}\n", encoding="utf-8", newline="\n")
+        generated_tile.write_text(
+            "root:\n  value: one\n",
+            encoding="utf-8",
+            newline="\n",
+        )
         git(root, "add", ".")
         git(root, "commit", "-m", "Create fixture")
 
@@ -68,6 +83,19 @@ def test_scene_requires_proven_trailing_whitespace_only_diff() -> None:
         git(root, "restore", "--worktree", "--", SCENE)
         coverage.write_text('{"enabled": true}\n', encoding="utf-8", newline="\n")
         assert classify_safe_post_unity_churn(status(root), root) == (COVERAGE,)
+
+        git(root, "restore", "--worktree", "--", COVERAGE)
+        generated_tile.write_bytes(b"root:\r\n  value: one\r\n")
+        assert classify_safe_post_unity_churn(
+            f" M {GENERATED_TILE}\n", root
+        ) == (GENERATED_TILE,)
+
+        generated_tile.write_text(
+            "root:\n  value: two\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        assert classify_safe_post_unity_churn(f" M {GENERATED_TILE}\n", root) is None
 
 
 def main() -> int:

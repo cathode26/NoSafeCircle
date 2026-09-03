@@ -5,15 +5,17 @@ open PR as ``checks_pending``. Because that shortcut ran before lease acquisitio
 a later generic invocation could never reach ``inspect_or_merge_pull_request``—
 even after GitHub reported all checks successful.
 
-This compatibility layer keeps ``checks_pending`` terminal only for the run that
-has just inspected the live pull request and released its lease for genuinely
-pending checks. A new process invocation starts unconfirmed, reacquires the lease,
-and performs a fresh GitHub inspection. The layer does not alter check authority,
-merge authority, or Issue transitions.
+This compatibility layer waits for genuinely pending checks during the same
+invocation while the normal operator heartbeat remains visible. A bounded timeout
+still returns ``checks_pending`` and releases the lease, and a new invocation
+reacquires it before inspecting GitHub again. The layer does not alter check
+authority, merge authority, or Issue transitions.
 """
 
 from __future__ import annotations
 
+import os
+import time
 from contextvars import ContextVar
 from typing import Any, Mapping
 
@@ -24,6 +26,8 @@ _PENDING_CHECKS_CONFIRMED: ContextVar[bool] = ContextVar(
     "nsc_pending_checks_confirmed_for_current_run",
     default=False,
 )
+_DEFAULT_WAIT_SECONDS = 900.0
+_DEFAULT_POLL_SECONDS = 15.0
 
 
 def _workflow_state(observation: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -61,7 +65,55 @@ def _record_inspection_result(result: Any) -> None:
     _PENDING_CHECKS_CONFIRMED.set(bool(pending))
 
 
+def _positive_seconds(name: str, default: float, maximum: float) -> float:
+    try:
+        value = float(os.environ.get(name, ""))
+    except (TypeError, ValueError):
+        return default
+    if value <= 0:
+        return default
+    return min(value, maximum)
+
+
+def _pull_request_is_pending(self: Any) -> bool:
+    number = self.state.get("pull_request_number")
+    if not isinstance(number, int) or number <= 0:
+        return False
+    pull_request = self._view_pr(number)
+    if pull_request.get("headRefOid") != self.state.get("evidence_commit"):
+        return False
+    if pull_request.get("state") == "MERGED":
+        return False
+    if pull_request.get("state") != "OPEN":
+        return False
+    checks = self._check_state(pull_request.get("statusCheckRollup"))
+    if checks["failed"]:
+        return False
+    mergeable = str(pull_request.get("mergeable") or "").upper()
+    return bool(checks["pending"]) or mergeable == "UNKNOWN"
+
+
+def _wait_for_pull_request_checks(self: Any) -> None:
+    wait_seconds = _positive_seconds(
+        "NSC_MERGE_CHECK_WAIT_SECONDS",
+        _DEFAULT_WAIT_SECONDS,
+        3600.0,
+    )
+    poll_seconds = _positive_seconds(
+        "NSC_MERGE_CHECK_POLL_SECONDS",
+        _DEFAULT_POLL_SECONDS,
+        60.0,
+    )
+    deadline = time.monotonic() + wait_seconds
+    while _pull_request_is_pending(self):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(poll_seconds, remaining))
+
+
 def _patched_inspect_or_merge_pull_request(self: Any) -> Any:
+    _wait_for_pull_request_checks(self)
     result = _ORIGINALS["inspect_or_merge_pull_request"](self)
     _record_inspection_result(result)
     return result

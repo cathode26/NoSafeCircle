@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import sys
+from contextlib import ExitStack
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -21,6 +23,7 @@ from Pipeline.TaskReviewAgent import merge_closeout_check_repoll as repoll  # no
 from Pipeline.TaskReviewAgent.merge_closeout_check_repoll import (  # noqa: E402
     _PENDING_CHECKS_CONFIRMED,
     _is_unresolved_agent_ready_closeout,
+    _wait_for_pull_request_checks,
     _record_inspection_result,
 )
 
@@ -134,12 +137,51 @@ def test_merged_or_failed_inspection_does_not_arm_pending_terminal() -> None:
         _PENDING_CHECKS_CONFIRMED.reset(token)
 
 
+def test_same_invocation_waits_for_pending_checks() -> None:
+    pull_requests = iter(
+        (
+            {
+                "state": "OPEN",
+                "headRefOid": "a" * 40,
+                "mergeable": "UNKNOWN",
+                "statusCheckRollup": [{"status": "IN_PROGRESS"}],
+            },
+            {
+                "state": "OPEN",
+                "headRefOid": "a" * 40,
+                "mergeable": "MERGEABLE",
+                "statusCheckRollup": [{"status": "COMPLETED"}],
+            },
+        )
+    )
+    controller = SimpleNamespace(
+        state={
+            "pull_request_number": 77,
+            "evidence_commit": "a" * 40,
+        },
+        _view_pr=lambda number: next(pull_requests),
+        _check_state=lambda raw: (
+            {"pending": ["windows-smoke"], "failed": []}
+            if raw[0]["status"] == "IN_PROGRESS"
+            else {"pending": [], "failed": []}
+        ),
+    )
+    with ExitStack() as stack:
+        sleep = stack.enter_context(patch.object(repoll.time, "sleep"))
+        stack.enter_context(
+            patch.object(repoll.time, "monotonic", side_effect=(0.0, 1.0))
+        )
+        _wait_for_pull_request_checks(controller)
+    sleep.assert_called_once_with(15.0)
+
+
 def main() -> int:
     tests = (
         test_repoll_and_check_authority_layers_are_safely_ordered,
         test_new_invocation_does_not_assume_checks_are_pending,
         test_live_pending_result_terminates_only_the_current_run,
         test_merged_or_failed_inspection_does_not_arm_pending_terminal,
+        test_same_invocation_waits_for_pending_checks,
     )
     for test in tests:
         test()

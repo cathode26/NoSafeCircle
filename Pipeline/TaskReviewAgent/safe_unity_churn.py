@@ -46,6 +46,40 @@ def _is_trailing_whitespace_only(root: Path, path: str) -> bool:
     return result.returncode == 0
 
 
+def _is_index_equivalent(root: Path, path: str) -> bool:
+    """Prove that Git would stage the worktree path as its existing index blob."""
+
+    try:
+        index = subprocess.run(
+            ("git", "-C", str(root), "rev-parse", "--verify", f":{path}"),
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        worktree = subprocess.run(
+            (
+                "git",
+                "-C",
+                str(root),
+                "hash-object",
+                "--path",
+                path,
+                "--",
+                path,
+            ),
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError:
+        return False
+    return (
+        index.returncode == 0
+        and worktree.returncode == 0
+        and index.stdout.strip() == worktree.stdout.strip()
+    )
+
+
 def classify_safe_post_unity_churn(
     raw_status: str,
     repository: Path | str | None = None,
@@ -64,6 +98,10 @@ def classify_safe_post_unity_churn(
         status = line[:2]
         path = line[3:]
         allowed = path in SAFE_POST_UNITY_CHURN_PATHS
+        if repository is not None and _is_index_equivalent(
+            Path(repository).resolve(), path
+        ):
+            allowed = True
         if path in SAFE_TRAILING_WHITESPACE_CHURN_PATHS:
             allowed = repository is not None and _is_trailing_whitespace_only(
                 Path(repository).resolve(), path

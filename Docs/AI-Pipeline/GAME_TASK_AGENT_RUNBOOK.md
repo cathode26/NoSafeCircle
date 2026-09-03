@@ -204,6 +204,14 @@ and unchanged.
 
 The connected production controller in this milestone is authoritative through the committed-and-pushed human Unity handoff. The durable Issue state already routes PASS and FAIL. Fully automatic human-feedback repair injection, authoritative clean Unity test execution, TaskDelivery finalization, evidence commits, conformance, and merge closeout remain later pipeline boundaries; they are not falsely claimed by this command.
 
+During merge closeout, one launcher invocation waits for the exact pull request's
+required checks for up to 15 minutes while continuing to print normal work
+heartbeats. If the checks pass, it proceeds through the existing exact-head merge
+and post-merge verification without requiring another command. A failed check
+still stops immediately; a timeout releases the lease safely so a later generic
+invocation can resume. Operators may override the bounded wait and poll intervals
+with `NSC_MERGE_CHECK_WAIT_SECONDS` and `NSC_MERGE_CHECK_POLL_SECONDS`.
+
 ## Read-only inspection
 
 To inspect what the production controller would do without acquiring a lease or writing an Issue:
