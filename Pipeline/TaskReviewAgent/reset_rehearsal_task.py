@@ -559,6 +559,17 @@ def _path_is_reparse_point(path: Path) -> bool:
     return bool(attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT)
 
 
+def _remove_tree_exact(path: Path) -> None:
+    """Remove one prevalidated tree, retrying Windows read-only files exactly."""
+
+    def handle_readonly(function: Any, value: str, exception: Any) -> None:
+        _ = exception
+        os.chmod(value, stat.S_IWRITE)
+        function(value)
+
+    shutil.rmtree(path, onerror=handle_readonly)
+
+
 def _inspect_checkout(
     runner: CommandRunner,
     checkout: Path,
@@ -1104,7 +1115,7 @@ class RehearsalTaskReset:
             containers = _containers_using_checkout(self.runner, self.source, self.checkout)
             if processes or containers:
                 raise RehearsalResetError("task checkout became active after preflight")
-            shutil.rmtree(self.checkout)
+            _remove_tree_exact(self.checkout)
             if self.checkout.exists():
                 raise RehearsalResetError("task checkout removal was not verified")
         local = _git_text(

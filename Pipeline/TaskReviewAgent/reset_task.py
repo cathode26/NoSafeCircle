@@ -43,9 +43,11 @@ from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
     _git_text,
     _inspect_checkout,
     _json_command,
+    _path_is_reparse_point,
     _processes_using_checkout,
     _relevant_claims,
     _remote_ref_oid,
+    _remove_tree_exact,
     _repo_metadata,
     _repository_from_origin,
     _require_archive_repository,
@@ -447,6 +449,108 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
             report.update({"status": "stopped", "error": str(exc)})
             _write_report(report_path, report)
             raise
+
+    def resume(self, report_path: Path) -> dict[str, Any]:
+        report_path = report_path.resolve()
+        expected_parent = (self.state_root / "reset-runs" / self.task_id).resolve()
+        if report_path.parent != expected_parent or not report_path.is_file():
+            raise TaskResetError("resume receipt is not the exact task reset receipt path")
+        try:
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise TaskResetError("resume receipt is not valid UTF-8 JSON") from exc
+        if not isinstance(report, dict):
+            raise TaskResetError("resume receipt must be a JSON object")
+        fixed = {
+            "operation": "abandon_incomplete_task_in_private_rehearsal",
+            "task_id": self.task_id,
+            "repository": self.repository,
+            "status": "stopped",
+            "report_path": str(report_path),
+        }
+        for field, expected in fixed.items():
+            if report.get(field) != expected:
+                raise TaskResetError(
+                    f"resume receipt {field} differs from the requested reset"
+                )
+        main_head = str(report.get("main_head") or "")
+        task_head = str(report.get("task_head") or "")
+        issue = report.get("issue")
+        checkout_facts = report.get("checkout")
+        if (
+            not re.fullmatch(r"[0-9a-f]{40}", main_head)
+            or not re.fullmatch(r"[0-9a-f]{40}", task_head)
+            or not isinstance(issue, dict)
+            or type(issue.get("number")) is not int
+            or not isinstance(checkout_facts, dict)
+            or checkout_facts.get("path") != str(self.checkout)
+            or checkout_facts.get("head") != task_head
+            or checkout_facts.get("branch") != self.branch
+        ):
+            raise TaskResetError("resume receipt omitted exact preflight identities")
+        if _git_text(self.runner, self.source, "rev-parse", "HEAD") != main_head:
+            raise TaskResetError("controller main moved after the stopped reset")
+        _git(self.runner, self.source, "fetch", "origin", "main")
+        if _git_text(self.runner, self.source, "rev-parse", "origin/main") != main_head:
+            raise TaskResetError("origin/main moved after the stopped reset")
+        if _remote_ref_oid(
+            self.runner, self.source, "origin", f"refs/heads/{self.branch}"
+        ) is not None:
+            raise TaskResetError("remote task branch reappeared after the stopped reset")
+        issue_value = _json_command(
+            self.runner,
+            (
+                "gh",
+                "issue",
+                "view",
+                str(issue["number"]),
+                "--repo",
+                self.repository,
+                "--json",
+                "state,url",
+            ),
+            cwd=self.source,
+        )
+        if not isinstance(issue_value, dict) or issue_value.get("state") != "CLOSED":
+            raise TaskResetError("abandoned Issue is not closed during resume")
+        if self.checkout.exists():
+            if (
+                self.checkout.resolve() != (self.checkout_root / self.task_id).resolve()
+                or self.checkout.parent.resolve() != self.checkout_root
+                or _path_is_reparse_point(self.checkout)
+            ):
+                raise TaskResetError("partial checkout path no longer matches the exact target")
+            processes = _processes_using_checkout(self.runner, self.source, self.checkout)
+            containers = _containers_using_checkout(self.runner, self.source, self.checkout)
+            if processes or containers:
+                raise TaskResetError("partial checkout became active; resume is refused")
+            _remove_tree_exact(self.checkout)
+            if self.checkout.exists():
+                raise TaskResetError("partial checkout removal was not verified")
+        report["status"] = "checkout_removed"
+        report.pop("error", None)
+        _write_report(report_path, report)
+        archive, archived_names = _archive_state_files(
+            self.state_root,
+            self.task_id,
+            timestamp=report_path.stem,
+        )
+        report.update(
+            {
+                "state_archive": str(archive) if archive else None,
+                "archived_state_files": list(archived_names),
+                "status": "state_archived",
+            }
+        )
+        _write_report(report_path, report)
+        if any(path.exists() for path in _state_paths(self.state_root, self.task_id)):
+            raise TaskResetError("active task state remains after resumed reset")
+        if _task_state(self.runner, self.source, self.task_id).get("state") != "not_delivered":
+            raise TaskResetError("TaskGraph did not remain not_delivered")
+        _validate_taskgraph(self.runner, self.source)
+        report.update({"status": "complete", "taskgraph_state": "not_delivered"})
+        _write_report(report_path, report)
+        return report
 
 
 def _tree_entry(
@@ -1075,6 +1179,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--checkout-root", type=Path)
     parser.add_argument("--archive-repository")
     parser.add_argument("--confirm-repository")
+    parser.add_argument(
+        "--resume-report",
+        type=Path,
+        help="Resume one exact stopped abandoned-rehearsal reset receipt",
+    )
     parser.add_argument("--apply", action="store_true")
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument(
@@ -1142,6 +1251,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 archive_repository=archive,
                 runner=runner,
             )
+        if args.resume_report is not None:
+            if not args.abandon_incomplete_rehearsal or not args.apply:
+                raise TaskResetError(
+                    "--resume-report requires --abandon-incomplete-rehearsal --apply"
+                )
+            if not args.confirm_repository or args.confirm_repository.casefold() != repository.casefold():
+                raise TaskResetError(f"--apply requires --confirm-repository {repository}")
+            report = operation.resume(args.resume_report)
+            print(json.dumps(report, indent=2, sort_keys=True))
+            return 0
         plan = operation.preflight()
         if not args.apply:
             print(json.dumps({**plan, "status": "ready_dry_run"}, indent=2, sort_keys=True))

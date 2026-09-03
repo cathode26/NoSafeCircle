@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -14,7 +15,10 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from Pipeline.TaskReviewAgent.reset_rehearsal_task import CommandRunner  # noqa: E402
+from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
+    CommandRunner,
+    _remove_tree_exact,
+)
 from Pipeline.TaskReviewAgent.reset_task import (  # noqa: E402
     TaskResetError,
     _require_task_paths_unchanged_since_merge,
@@ -117,6 +121,16 @@ def test_path_guard(repository: Path) -> None:
         raise AssertionError("later task-owned changes were not refused")
 
 
+def test_readonly_tree_removal(root: Path) -> None:
+    target = root / "readonly-tree"
+    target.mkdir()
+    readonly = target / "object"
+    readonly.write_bytes(b"git object fixture\n")
+    readonly.chmod(stat.S_IREAD)
+    _remove_tree_exact(target)
+    expect(not target.exists(), "read-only checkout tree was not removed")
+
+
 def main() -> int:
     test_dependency_walk()
     preferred = Path(os.environ.get("NSC_TEST_TEMP_ROOT", ""))
@@ -127,7 +141,9 @@ def main() -> int:
         prefix="reset-production-task-",
         dir=str(temporary_parent) if temporary_parent else None,
     ) as directory:
-        test_path_guard(Path(directory) / "repo")
+        root = Path(directory)
+        test_path_guard(root / "repo")
+        test_readonly_tree_removal(root)
     print("reset_task_smoke_test: PASS")
     return 0
 

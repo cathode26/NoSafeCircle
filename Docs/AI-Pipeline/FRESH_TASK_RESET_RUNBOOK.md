@@ -214,6 +214,13 @@ This mode refuses a completed Issue, a task already contained in `main`, a
 dirty/unpushed checkout, a changed remote branch, live claims, or any repository
 that cannot be proven to be private and explicitly named as rehearsal.
 
+If Windows interrupts checkout removal on a read-only Git object, do not delete
+the remainder manually. Resume the exact no-overwrite stopped receipt; the
+helper revalidates main, the closed Issue, the absent remote branch, and the
+preflight checkout identity before retrying read-only removal. Re-run the same
+applied command with `--resume-report` set to the exact `report_path` printed by
+the stopped run.
+
 Use this procedure only when Vincent explicitly requests another end-to-end run
 of the same task in the same disposable private rehearsal repository. It is not
 a recovery path for a merged production task.
