@@ -64,6 +64,28 @@ Do not use `git reset --hard`, `git clean`, or a force-push to manufacture a cle
 
 Perform the reset in this order so each destructive step is fenced by the state recorded immediately before it.
 
+### Production cache-only cleanup helper
+
+When the full inventory already proves that production TaskGraph is
+`not_delivered`, every matching Issue and pull request is closed, and the task
+has no checkout, local/remote branch, or claim ref, the remaining exact
+controller cache files can be archived by the general helper. It will not revert
+or commit production code:
+
+```powershell
+python Pipeline/TaskReviewAgent/reset_task.py NSC-042 --source C:\NSC\NSC\NoSafeCircle --checkout-root C:\NSC\NSC --production-state-cleanup
+```
+
+After reviewing that dry run, apply the exact cache-only cleanup with:
+
+```powershell
+python Pipeline/TaskReviewAgent/reset_task.py NSC-042 --source C:\NSC\NSC\NoSafeCircle --checkout-root C:\NSC\NSC --production-state-cleanup --apply --confirm-repository cathode26/NoSafeCircle
+```
+
+This mode deliberately refuses delivered production work, an existing checkout,
+any branch or claim, or an open Issue/PR. A production delivery revert remains a
+separately reviewed Git change; it is never inferred from stale cache cleanup.
+
 ### 1. Close the abandoned pull request
 
 Close the open PR with a comment that identifies:
