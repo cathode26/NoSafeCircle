@@ -321,7 +321,10 @@ A D1B.2 run preserves the original context plus every round:
 
 All artifacts are `review_only_not_applied`.
 
-D1C reusable reviewed graph-application tooling is not implemented. Human-reviewed targeted application remains a separate authority boundary.
+D1C reusable reviewed graph-application tooling and exact-head additive undo
+are implemented as network-free local commit boundaries. Human authorization,
+GitHub coordination, portfolio dispatch, push, and merge remain separate
+orchestration authority boundaries.
 
 ## GDDRAG — current role
 

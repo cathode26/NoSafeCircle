@@ -350,4 +350,9 @@ docker compose -p nosafecircle-m2a run --rm -T round-robin-decompose python3 Pip
 
 D1B.2 implementation validation uses deterministic fake-provider tests and does not require an external provider call. A real live proving run remains separately human-authorized.
 
-Stage D1C graph application is not implemented. Artifact Authority, artifact generation/GER outside this decomposition circuit, readiness, dispatch, candidate patches, automatic commits, and merges remain outside this package.
+Stage D1C is implemented as the network-free, exact-authority
+`Pipeline/TaskGraph/apply_graph_delta.py` commit boundary. Its matching
+`undo_graph_delta.py` creates an additive inverse only while the exact D1C
+commit remains the clean `HEAD`; later history is refused. Automatic GitHub
+authorization, Issue closeout, portfolio scheduling, pushing, and merging are
+still orchestration boundaries outside this package.

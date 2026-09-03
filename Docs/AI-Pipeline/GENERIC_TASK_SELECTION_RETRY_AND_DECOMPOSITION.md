@@ -95,7 +95,10 @@ The orchestrator must preserve the existing authority boundary:
 - accepted outputs are immutable review artifacts;
 - `graph_delta.json`, when produced, is review-only and is **not automatically applied**;
 - decomposition does not grant readiness, execution authority, delivery, conformance, or merge authority;
-- Stage D1C reusable graph application is not implemented.
+- Stage D1C reusable graph application and exact-head additive undo are
+  implemented as network-free primitives. The generic orchestrator must still
+  obtain and bind the independent review plus human authorization before it
+  invokes D1C; review-ready output alone is never application permission.
 
 A generic task-picking instruction authorizes selecting and running an eligible decomposition proposal. It does **not** authorize silently applying proposed child contracts to the persistent TaskGraph.
 
