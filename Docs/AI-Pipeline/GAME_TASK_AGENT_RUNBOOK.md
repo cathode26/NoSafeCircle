@@ -107,8 +107,17 @@ When no validated agent-ready Issue exists, generic resume stops and asks for an
 6. Deterministic validation rejects wrong existing/new classifications, missing committed parents, ignored paths, test/implementation overlap, protected repository areas, unrelated resource roots, and unsafe file types.
 7. The existing Docker ExecutionCrew performs implementation, test authorship, semantic validation, and its bounded repair cycle.
 8. A `review_ready` result is checked against its persisted `crew_result.json`, source commit, task-contract hash, exact requested paths, final changed paths, and candidate SHA-256.
-9. The candidate is first applied in a disposable clone. The path set, whitespace, TaskGraph, and task-contract identity are revalidated.
-10. The candidate is applied to the canonical task checkout, staged only by its exact verified paths, committed, and pushed without force.
+9. Immediately before the first human handoff, the integrator fetches current
+   `origin/main`. The reviewed candidate is applied with Git three-way
+   resolution in a disposable clone based on that exact main commit. When main
+   advanced without changing the task contract, the clean task branch advances
+   to current main before the candidate is applied. An overlapping candidate
+   that cannot be resolved safely is rejected for repair; stale code is not
+   committed for human testing.
+10. The candidate is applied to the canonical task checkout, and its path set,
+    whitespace, TaskGraph, and task-contract identity are revalidated against
+    the refreshed main base. Only the exact verified task paths are staged,
+    committed, and pushed without force.
 11. The Issue receives the exact branch, commit, concrete implementation summary, checks already completed, numbered Unity steps, expected result, and PASS/FAIL template.
 12. The Issue changes to:
 
@@ -216,6 +225,13 @@ to `human_action_required` for exact-commit testing, even when the mainline drif
 is automation-only. A PASS on that integrated commit then authorizes delivery
 and merge closeout without another approval while the checkout remains clean
 and unchanged.
+
+These are two separate current-main boundaries. The first runs immediately
+before the initial task commit and human checklist. The second runs after the
+human PASS and immediately before authoritative delivery validation. Both may
+be no-ops. If either produces a different commit, validation applies to the new
+integrated commit; a post-PASS merge always invalidates the older exact-commit
+PASS and returns to `human_action_required`.
 
 The connected production controller in this milestone is authoritative through the committed-and-pushed human Unity handoff. The durable Issue state already routes PASS and FAIL. Fully automatic human-feedback repair injection, authoritative clean Unity test execution, TaskDelivery finalization, evidence commits, conformance, and merge closeout remain later pipeline boundaries; they are not falsely claimed by this command.
 

@@ -224,17 +224,24 @@ class CandidateIntegrator:
 
         existing_commit = self._existing_commit_for_run(execution)
         if existing_commit is not None:
-            self._push_exact(existing_commit, execution.source_head)
-            receipt = self._create_receipt(existing_commit, execution)
+            commit, integration_base = existing_commit
+            self._push_exact(
+                commit,
+                allowed_remote_heads=(execution.source_head, integration_base),
+            )
+            receipt = self._create_receipt(
+                commit,
+                execution,
+                integration_base=integration_base,
+            )
             self._persist(receipt)
             self._receipt = receipt
             return receipt
 
         self._assert_checkout_identity(execution)
         candidate = Path(execution.candidate_path)
-        self._validate_in_disposable_clone(candidate, execution)
-        _git(self.checkout, "apply", "--check", "--", str(candidate))
-        _git(self.checkout, "apply", "--", str(candidate))
+        integration_base = self._prepare_current_main_base(candidate, execution)
+        self._apply_candidate(self.checkout, candidate, execution)
         try:
             self._verify_applied_state(self.checkout, execution)
             final_changed_paths = execution.final_actual_changed_paths
@@ -289,12 +296,21 @@ class CandidateIntegrator:
         if not _SHA40.fullmatch(commit):
             raise CandidateIntegrationError("Git commit returned an invalid identity")
         parent = _git_text(self.checkout, "rev-parse", "HEAD^")
-        if parent != execution.source_head:
-            raise CandidateIntegrationError("candidate commit parent is not ExecutionCrew source HEAD")
-        if _changed_paths(self.checkout, base=execution.source_head) != final_changed_paths:
+        if parent != integration_base:
+            raise CandidateIntegrationError(
+                "candidate commit parent is not the verified pre-handoff main head"
+            )
+        if _changed_paths(self.checkout, base=integration_base) != final_changed_paths:
             raise CandidateIntegrationError("candidate commit changed an unexpected path set")
-        self._push_exact(commit, execution.source_head)
-        receipt = self._create_receipt(commit, execution)
+        self._push_exact(
+            commit,
+            allowed_remote_heads=(execution.source_head, integration_base),
+        )
+        receipt = self._create_receipt(
+            commit,
+            execution,
+            integration_base=integration_base,
+        )
         self._persist(receipt)
         self._receipt = receipt
         return receipt
@@ -323,7 +339,10 @@ class CandidateIntegrator:
         if status:
             raise CandidateIntegrationError("integration requires a clean task checkout")
 
-    def _existing_commit_for_run(self, execution: ExecutionCrewReceipt) -> str | None:
+    def _existing_commit_for_run(
+        self,
+        execution: ExecutionCrewReceipt,
+    ) -> tuple[str, str] | None:
         head = _git_text(self.checkout, "rev-parse", "HEAD", check=False)
         if head == execution.source_head:
             return None
@@ -339,12 +358,109 @@ class CandidateIntegrator:
         if f"ExecutionCrew-Run: {execution.run_id}" not in message:
             return None
         parent = _git_text(self.checkout, "rev-parse", "HEAD^", check=False)
-        if parent != execution.source_head:
-            raise CandidateIntegrationError("existing integration commit has the wrong parent")
-        changed_paths = _changed_paths(self.checkout, base=execution.source_head)
+        if not parent or (
+            _git(
+                self.checkout,
+                "merge-base",
+                "--is-ancestor",
+                execution.source_head,
+                parent,
+                check=False,
+            ).returncode
+            != 0
+        ):
+            raise CandidateIntegrationError(
+                "existing integration commit is not based on the ExecutionCrew source"
+            )
+        self._assert_contract_identity(parent, execution)
+        changed_paths = _changed_paths(self.checkout, base=parent)
         if not self._paths_match_execution(changed_paths, execution):
             raise CandidateIntegrationError("existing integration commit has the wrong path set")
-        return head
+        return head, parent
+
+    def _assert_contract_identity(
+        self,
+        commit: str,
+        execution: ExecutionCrewReceipt,
+    ) -> None:
+        contract_path = str(
+            self.scope.task.get("contract_path")
+            or f"Tasks/{self.scope.task_id}.yaml"
+        )
+        contract = _git(
+            self.checkout,
+            "show",
+            f"{commit}:{contract_path}",
+            check=False,
+        )
+        if (
+            contract.returncode != 0
+            or hashlib.sha256(contract.stdout).hexdigest()
+            != execution.task_contract_sha256
+        ):
+            raise CandidateIntegrationError(
+                "current main changed the task-contract identity; rerun task planning"
+            )
+
+    def _prepare_current_main_base(
+        self,
+        candidate: Path,
+        execution: ExecutionCrewReceipt,
+    ) -> str:
+        """Refresh main before the first human handoff and rebase the patch safely."""
+
+        _git(
+            self.checkout,
+            "fetch",
+            "origin",
+            "+refs/heads/main:refs/remotes/origin/main",
+        )
+        main_head = _git_text(self.checkout, "rev-parse", "origin/main")
+        if not _SHA40.fullmatch(main_head):
+            raise CandidateIntegrationError("origin/main did not resolve to a commit")
+        if (
+            _git(
+                self.checkout,
+                "merge-base",
+                "--is-ancestor",
+                execution.source_head,
+                main_head,
+                check=False,
+            ).returncode
+            != 0
+        ):
+            raise CandidateIntegrationError(
+                "current main is not descended from the ExecutionCrew source; "
+                "manual history reconciliation is required"
+            )
+        self._assert_contract_identity(main_head, execution)
+        self._validate_in_disposable_clone(
+            candidate,
+            execution,
+            base_head=main_head,
+        )
+        if main_head != execution.source_head:
+            _git(self.checkout, "merge", "--ff-only", main_head)
+        if _git_text(self.checkout, "rev-parse", "HEAD") != main_head:
+            raise CandidateIntegrationError(
+                "task branch did not reach the verified pre-handoff main head"
+            )
+        return main_head
+
+    @staticmethod
+    def _apply_candidate(
+        root: Path,
+        candidate: Path,
+        execution: ExecutionCrewReceipt,
+    ) -> None:
+        _git(root, "apply", "--3way", "--", str(candidate))
+        _git(
+            root,
+            "restore",
+            "--staged",
+            "--",
+            *execution.final_actual_changed_paths,
+        )
 
     @staticmethod
     def _requires_door_prototype_builder(execution: ExecutionCrewReceipt) -> bool:
@@ -532,6 +648,8 @@ class CandidateIntegrator:
         self,
         candidate: Path,
         execution: ExecutionCrewReceipt,
+        *,
+        base_head: str,
     ) -> None:
         with tempfile.TemporaryDirectory(prefix=f"{self.scope.task_id.casefold()}-candidate-") as temporary:
             clone = Path(temporary) / "candidate"
@@ -548,9 +666,14 @@ class CandidateIntegrator:
                 cwd=self.checkout.parent,
                 timeout_seconds=600.0,
             )
-            _git(clone, "checkout", "--detach", execution.source_head)
-            _git(clone, "apply", "--check", "--", str(candidate))
-            _git(clone, "apply", "--", str(candidate))
+            _git(
+                clone,
+                "fetch",
+                str(self.checkout),
+                "+refs/remotes/origin/main:refs/remotes/source/main",
+            )
+            _git(clone, "checkout", "--detach", base_head)
+            self._apply_candidate(clone, candidate, execution)
             self._verify_applied_state(clone, execution)
 
     def _verify_applied_state(
@@ -615,9 +738,14 @@ class CandidateIntegrator:
                 ),
             )
 
-    def _push_exact(self, commit: str, base_head: str) -> None:
+    def _push_exact(
+        self,
+        commit: str,
+        *,
+        allowed_remote_heads: Sequence[str],
+    ) -> None:
         remote_before = _remote_head(self.checkout, self.branch)
-        if remote_before not in (None, base_head, commit):
+        if remote_before not in (None, commit, *allowed_remote_heads):
             raise CandidateIntegrationError(
                 f"remote task branch moved unexpectedly to {remote_before}; refusing to overwrite"
             )
@@ -636,15 +764,18 @@ class CandidateIntegrator:
         self,
         commit: str,
         execution: ExecutionCrewReceipt,
+        *,
+        integration_base: str,
     ) -> CandidateIntegrationReceipt:
         tree = _git_text(self.checkout, "rev-parse", f"{commit}^{{tree}}")
-        changed_paths = _changed_paths(self.checkout, base=execution.source_head)
+        changed_paths = _changed_paths(self.checkout, base=integration_base)
         if not self._paths_match_execution(changed_paths, execution):
             raise CandidateIntegrationError("integrated commit has an unauthorized path set")
         checks = [
             "ExecutionCrew contract-locality audit and semantic validator completed.",
             "candidate.patch SHA-256 matched crew_result.json.",
-            "candidate.patch applied cleanly in a disposable clone.",
+            "Current origin/main was fetched immediately before candidate integration.",
+            "candidate.patch applied cleanly with three-way resolution in a disposable clone based on current main.",
             "Applied path set exactly matched ExecutionCrew final_actual_changed_paths.",
             "git diff --check passed.",
             "TaskGraph validation passed after candidate application.",
@@ -670,7 +801,7 @@ class CandidateIntegrator:
             run_id=execution.run_id,
             provider=execution.provider,
             branch=self.branch,
-            base_head=execution.source_head,
+            base_head=integration_base,
             commit=commit,
             commit_tree=tree,
             task_contract_sha256=execution.task_contract_sha256,

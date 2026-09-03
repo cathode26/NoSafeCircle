@@ -23,7 +23,9 @@ from Pipeline.TaskReviewAgent.git_identity_guard import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     WorkflowState,
+    parse_events,
     parse_state,
+    validate_event_chain,
 )
 from Pipeline.TaskReviewAgent.real_checkout import branch_name  # noqa: E402
 from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
@@ -47,6 +49,7 @@ from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
     _repo_metadata,
     _repository_from_origin,
     _require_archive_repository,
+    _require_private_rehearsal_repository,
     _state_paths,
     _task_state,
     _validate_complete_issue,
@@ -134,6 +137,316 @@ def _task_pull_requests(
     if not isinstance(value, list):
         raise TaskResetError("GitHub pull-request listing was invalid")
     return [item for item in value if isinstance(item, dict)]
+
+
+def _validated_incomplete_issue(
+    runner: CommandRunner,
+    source: Path,
+    repository: str,
+    issue: dict[str, Any],
+    *,
+    task_id: str,
+    branch: str,
+) -> tuple[Any, str]:
+    number = issue.get("number")
+    body = issue.get("body")
+    if type(number) is not int or not isinstance(body, str):
+        raise TaskResetError("managed Issue identity is invalid")
+    state = parse_state(body)
+    if state is None or state.task_id != task_id:
+        raise TaskResetError("open Issue does not contain the exact managed task state")
+    if state.state is WorkflowState.COMPLETE:
+        raise TaskResetError("completed rehearsal work requires merged-rehearsal reset mode")
+    if state.branch != branch or state.head_commit is None:
+        raise TaskResetError("open Issue branch/head does not identify the abandoned run")
+    comments_value = _json_command(
+        runner,
+        (
+            "gh",
+            "issue",
+            "view",
+            str(number),
+            "--repo",
+            repository,
+            "--json",
+            "comments",
+        ),
+        cwd=source,
+    )
+    comments = comments_value.get("comments") if isinstance(comments_value, dict) else None
+    if not isinstance(comments, list):
+        raise TaskResetError("managed Issue comments were not readable")
+    validate_event_chain(state, parse_events(comments))
+    return state, str(state.head_commit)
+
+
+class AbandonedRehearsalTaskReset(RehearsalTaskReset):
+    """Close and remove one exact unmerged rehearsal run without touching main."""
+
+    def preflight(self) -> dict[str, Any]:
+        if not self.source.is_dir() or not self.checkout_root.is_dir():
+            raise TaskResetError("source and checkout root must already exist")
+        if Path(_git_text(self.runner, self.source, "rev-parse", "--show-toplevel")).resolve() != self.source:
+            raise TaskResetError("source is not the exact Git repository root")
+        if _git_text(self.runner, self.source, "branch", "--show-current") != "main":
+            raise TaskResetError("controller must be on main")
+        if _git_text(
+            self.runner,
+            self.source,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ):
+            raise TaskResetError("controller working tree is not completely clean")
+
+        source_meta = _repo_metadata(self.runner, self.source, self.repository)
+        _require_private_rehearsal_repository(source_meta, self.repository)
+        _git(self.runner, self.source, "fetch", "--prune", "origin", "main")
+        head = _git_text(self.runner, self.source, "rev-parse", "HEAD")
+        if _git_text(self.runner, self.source, "rev-parse", "origin/main") != head:
+            raise TaskResetError("controller HEAD must exactly equal fetched origin/main")
+        task_state = _task_state(self.runner, self.source, self.task_id)
+        if task_state.get("state") != "not_delivered":
+            raise TaskResetError(
+                "abandoned rehearsal cleanup cannot remove delivered work; TaskGraph must "
+                f"report not_delivered, found {task_state.get('state')!r}"
+            )
+        _validate_taskgraph(self.runner, self.source)
+
+        issues = _managed_task_issues(
+            self.runner, self.source, self.repository, self.task_id, "open"
+        )
+        if len(issues) != 1:
+            raise TaskResetError(
+                "exactly one open managed Issue must identify the abandoned rehearsal run"
+            )
+        issue = issues[0]
+        workflow_state, task_head = _validated_incomplete_issue(
+            self.runner,
+            self.source,
+            self.repository,
+            issue,
+            task_id=self.task_id,
+            branch=self.branch,
+        )
+        if workflow_state.task_contract_sha256 != self.task.get("task_contract_sha256"):
+            raise TaskResetError("managed Issue task-contract identity changed")
+        if (
+            _git(
+                self.runner,
+                self.source,
+                "merge-base",
+                "--is-ancestor",
+                task_head,
+                head,
+                check=False,
+            ).returncode
+            == 0
+        ):
+            raise TaskResetError("abandoned task head is already contained in main")
+
+        pull_requests = _task_pull_requests(
+            self.runner, self.source, self.repository, self.branch, "open"
+        )
+        if len(pull_requests) > 1:
+            raise TaskResetError("multiple open pull requests use the abandoned task branch")
+        if pull_requests and pull_requests[0].get("headRefOid") != task_head:
+            raise TaskResetError("open pull-request head differs from the managed Issue head")
+        remote_branch_oid = _remote_ref_oid(
+            self.runner,
+            self.source,
+            "origin",
+            f"refs/heads/{self.branch}",
+        )
+        if remote_branch_oid != task_head:
+            raise TaskResetError("remote task branch differs from the managed Issue head")
+        claims = _relevant_claims(self.source, self.task)
+        if claims:
+            raise TaskResetError(
+                "task/resource claim refs still exist; exact-OID stale-claim repair is required:\n"
+                + json.dumps(claims, indent=2, sort_keys=True)
+            )
+        worktrees = _controller_task_worktrees(
+            self.runner, self.source, self.task_id, self.branch
+        )
+        if any(Path(item.get("worktree") or ".").resolve() != self.source for item in worktrees):
+            raise TaskResetError("task-specific linked worktree exists; reset is refused")
+
+        checkout_facts = None
+        if self.checkout.exists():
+            if not self.checkout.is_dir():
+                raise TaskResetError("canonical task checkout is not a directory")
+            checkout_facts = _inspect_checkout(
+                self.runner,
+                self.checkout,
+                expected_root=self.checkout_root,
+                expected_origin=self.origin,
+                expected_branch=self.branch,
+                expected_head=task_head,
+                remote_branch_oid=remote_branch_oid,
+            )
+            processes = _processes_using_checkout(self.runner, self.source, self.checkout)
+            containers = _containers_using_checkout(self.runner, self.source, self.checkout)
+            if processes or containers:
+                raise TaskResetError(
+                    "task checkout is still in use; reset is refused:\n"
+                    + json.dumps(
+                        {"processes": processes, "containers": containers},
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+        local_branch_oid = _git_text(
+            self.runner,
+            self.source,
+            "rev-parse",
+            "--verify",
+            f"refs/heads/{self.branch}",
+            check=False,
+        ) or None
+        if local_branch_oid is not None and local_branch_oid != task_head:
+            raise TaskResetError("controller local task branch differs from the managed Issue head")
+        active_state_files = [
+            str(path) for path in _state_paths(self.state_root, self.task_id) if path.is_file()
+        ]
+        return {
+            "schema_version": "1.0",
+            "operation": "abandon_incomplete_task_in_private_rehearsal",
+            "task_id": self.task_id,
+            "repository": self.repository,
+            "main_head": head,
+            "taskgraph_state": "not_delivered",
+            "task_branch": self.branch,
+            "task_head": task_head,
+            "issue": {"number": issue["number"], "url": issue["url"]},
+            "pull_request": (
+                {
+                    "number": pull_requests[0]["number"],
+                    "url": pull_requests[0]["url"],
+                }
+                if pull_requests
+                else None
+            ),
+            "remote_branch_oid": remote_branch_oid,
+            "local_branch_oid": local_branch_oid,
+            "checkout": checkout_facts,
+            "active_state_files": active_state_files,
+            "retained_outputs": str(self.state_root / "outputs" / self.task_id),
+        }
+
+    def _close_abandoned_github_objects(self, plan: dict[str, Any]) -> None:
+        body = (
+            "## Abandoned rehearsal run reset\n\n"
+            f"Vincent explicitly requested a fresh `{self.task_id}` rehearsal run. "
+            "This incomplete run was not merged and no completion was fabricated.\n\n"
+            f"- Task branch: `{plan['task_branch']}`\n"
+            f"- Abandoned head: `{plan['task_head']}`\n"
+            f"- Replacement base: current `main` at `{plan['main_head']}`\n\n"
+            "The Issue/PR discussion and immutable run outputs remain as audit history."
+        )
+        pull_request = plan.get("pull_request")
+        if isinstance(pull_request, dict):
+            number = str(pull_request["number"])
+            self.runner.run(
+                ("gh", "pr", "comment", number, "--repo", self.repository, "--body", body),
+                cwd=self.source,
+            )
+            self.runner.run(
+                ("gh", "pr", "close", number, "--repo", self.repository),
+                cwd=self.source,
+            )
+        issue_number = str(plan["issue"]["number"])
+        self.runner.run(
+            ("gh", "issue", "comment", issue_number, "--repo", self.repository, "--body", body),
+            cwd=self.source,
+        )
+        self.runner.run(
+            ("gh", "issue", "close", issue_number, "--repo", self.repository),
+            cwd=self.source,
+        )
+
+    def apply(self, plan: dict[str, Any]) -> dict[str, Any]:
+        timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%SZ")
+        report_path = self.state_root / "reset-runs" / self.task_id / f"{timestamp}.json"
+        report = {**plan, "status": "applying", "report_path": str(report_path)}
+        _create_report(report_path, report)
+        try:
+            if _git_text(self.runner, self.source, "rev-parse", "HEAD") != plan["main_head"]:
+                raise TaskResetError("controller main moved after preflight")
+            if _remote_ref_oid(
+                self.runner, self.source, "origin", f"refs/heads/{self.branch}"
+            ) != plan["task_head"]:
+                raise TaskResetError("remote task branch moved after preflight")
+            self._close_abandoned_github_objects(plan)
+            report["status"] = "github_objects_closed"
+            _write_report(report_path, report)
+            self._delete_task_branch(plan)
+            report["status"] = "remote_branch_removed"
+            _write_report(report_path, report)
+            self._remove_checkout_and_local_branch(plan)
+            report["status"] = "checkout_removed"
+            _write_report(report_path, report)
+            archive, archived_names = _archive_state_files(
+                self.state_root, self.task_id, timestamp=timestamp
+            )
+            report.update(
+                {
+                    "state_archive": str(archive) if archive else None,
+                    "archived_state_files": list(archived_names),
+                    "status": "state_archived",
+                }
+            )
+            _write_report(report_path, report)
+
+            _git(self.runner, self.source, "fetch", "--prune", "origin")
+            if _git_text(self.runner, self.source, "rev-parse", "HEAD") != plan["main_head"]:
+                raise TaskResetError("controller main changed during reset")
+            if _git_text(self.runner, self.source, "rev-parse", "origin/main") != plan["main_head"]:
+                raise TaskResetError("origin/main changed during reset")
+            if _git_text(
+                self.runner,
+                self.source,
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=all",
+            ):
+                raise TaskResetError("controller is dirty after reset")
+            if _managed_task_issues(
+                self.runner, self.source, self.repository, self.task_id, "open"
+            ):
+                raise TaskResetError("managed Issue is still open after reset")
+            if _task_pull_requests(
+                self.runner, self.source, self.repository, self.branch, "open"
+            ):
+                raise TaskResetError("task pull request is still open after reset")
+            closed_numbers = {
+                item.get("number")
+                for item in _managed_task_issues(
+                    self.runner, self.source, self.repository, self.task_id, "closed"
+                )
+            }
+            if plan["issue"]["number"] not in closed_numbers:
+                raise TaskResetError("closed abandoned Issue could not be verified")
+            if _remote_ref_oid(
+                self.runner, self.source, "origin", f"refs/heads/{self.branch}"
+            ) is not None:
+                raise TaskResetError("task branch still exists after reset")
+            if self.checkout.exists():
+                raise TaskResetError("task checkout still exists after reset")
+            if any(path.exists() for path in _state_paths(self.state_root, self.task_id)):
+                raise TaskResetError("active task state remains after reset")
+            if _relevant_claims(self.source, self.task):
+                raise TaskResetError("task/resource claim refs appeared during reset")
+            if _task_state(self.runner, self.source, self.task_id).get("state") != "not_delivered":
+                raise TaskResetError("TaskGraph did not remain not_delivered")
+            _validate_taskgraph(self.runner, self.source)
+            report.update({"status": "complete", "taskgraph_state": "not_delivered"})
+            _write_report(report_path, report)
+            return report
+        except Exception as exc:
+            report.update({"status": "stopped", "error": str(exc)})
+            _write_report(report_path, report)
+            raise
 
 
 def _tree_entry(
@@ -775,6 +1088,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Additively revert and clean a completed private rehearsal task",
     )
     modes.add_argument(
+        "--abandon-incomplete-rehearsal",
+        action="store_true",
+        help="Close and remove one exact unmerged private rehearsal run",
+    )
+    modes.add_argument(
         "--revert-delivered-production",
         action="store_true",
         help="Additively revert an unchanged completed production delivery",
@@ -798,6 +1116,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             owner, name = repository.split("/", 1)
             archive = args.archive_repository or f"{owner}/{name}-Archive"
             operation = RehearsalTaskReset(
+                source=source,
+                checkout_root=checkout_root,
+                task_id=args.task_id,
+                archive_repository=archive,
+                runner=runner,
+            )
+        elif args.abandon_incomplete_rehearsal:
+            owner, name = repository.split("/", 1)
+            archive = args.archive_repository or f"{owner}/{name}-Archive"
+            operation = AbandonedRehearsalTaskReset(
                 source=source,
                 checkout_root=checkout_root,
                 task_id=args.task_id,

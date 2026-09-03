@@ -194,6 +194,26 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAge
 
 ## Repeat a merged task in a disposable rehearsal repository
 
+For an incomplete, unmerged task in a disposable private rehearsal repository,
+use the general helper's abandoned-rehearsal mode. It closes the exact
+incomplete Issue and any exact open PR, fences deletion of the exact remote
+branch, verifies/removes only the clean canonical checkout, archives active
+state, retains immutable outputs, and leaves `main` unchanged:
+
+```powershell
+python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_task.py NSC-901 --source C:\NSC\Rehearsal\NoSafeCircle-Homework-Rehearsal --checkout-root C:\NSC\Rehearsal --abandon-incomplete-rehearsal
+```
+
+After reviewing the dry run:
+
+```powershell
+python C:\NSC\NSC\NoSafeCircle\Pipeline\TaskReviewAgent\reset_task.py NSC-901 --source C:\NSC\Rehearsal\NoSafeCircle-Homework-Rehearsal --checkout-root C:\NSC\Rehearsal --abandon-incomplete-rehearsal --apply --confirm-repository cathode26/NoSafeCircle-Homework-Rehearsal
+```
+
+This mode refuses a completed Issue, a task already contained in `main`, a
+dirty/unpushed checkout, a changed remote branch, live claims, or any repository
+that cannot be proven to be private and explicitly named as rehearsal.
+
 Use this procedure only when Vincent explicitly requests another end-to-end run
 of the same task in the same disposable private rehearsal repository. It is not
 a recovery path for a merged production task.

@@ -495,6 +495,20 @@ def test_scope_execution_commit_push() -> None:
         crew = bridge.run(plan_id=accepted.plan_id, provider="claude")
         require(crew.crew_status == "review_ready", "fake crew did not reach review_ready")
 
+        main_writer = root / "main-writer"
+        run("git", "clone", str(remote), str(main_writer), cwd=root)
+        git(main_writer, "config", "user.name", "Pipeline Smoke")
+        git(main_writer, "config", "user.email", "pipeline@example.invalid")
+        (main_writer / "later-main.txt").write_text(
+            "main advanced while the candidate was being prepared\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        git(main_writer, "add", "later-main.txt")
+        git(main_writer, "commit", "-m", "Advance main during candidate preparation")
+        git(main_writer, "push", "origin", "main")
+        current_main = git(main_writer, "rev-parse", "HEAD")
+
         def forbidden_unity_runner(args, cwd, timeout):
             _ = (args, cwd, timeout)
             raise AssertionError("normal candidate unexpectedly ran Unity")
@@ -509,6 +523,16 @@ def test_scope_execution_commit_push() -> None:
         )
         integrated = integrator.integrate(run_id)
         require(git(checkout, "rev-parse", "HEAD") == integrated.commit, "commit not checked out")
+        require(integrated.base_head == current_main, "candidate did not use current main as its base")
+        require(
+            git(checkout, "rev-parse", "HEAD^") == current_main,
+            "task commit parent is not the pre-handoff main head",
+        )
+        require(
+            git(checkout, "show", f"{integrated.commit}:later-main.txt")
+            == "main advanced while the candidate was being prepared",
+            "task commit omitted the latest main content",
+        )
         require(git(checkout, "status", "--porcelain=v1", "--untracked-files=all") == "", "checkout dirty")
         remote_head = run(
             "git",
