@@ -424,6 +424,14 @@ def main() -> int:
         action="store_true",
         help="Post PASS, change the state label, wait for GitHub, and launch.",
     )
+    parser.add_argument(
+        "--defer-launch",
+        action="store_true",
+        help=(
+            "After --apply posts and verifies the exact result, leave the task "
+            "agent_ready for the supervised scheduler instead of launching directly."
+        ),
+    )
     args = parser.parse_args()
     try:
         task_id = validate_task_id(args.task_id)
@@ -438,6 +446,8 @@ def main() -> int:
             )
         if args.wait_timeout_seconds <= 0 or args.poll_seconds <= 0:
             raise PassAndResumeError("wait and poll durations must be positive")
+        if args.defer_launch and not args.apply:
+            raise PassAndResumeError("--defer-launch requires --apply")
         root = _repo_root(args.source.resolve())
         backend = GhIssueBackend(source_root=root)
         service = IssueWorkflowService(
@@ -477,7 +487,7 @@ def main() -> int:
             "decomposition_plan_id": plan_id if args.approve_decomposition else None,
             "checkout": str(checkout),
             "status": status,
-            "will_launch": bool(args.apply),
+            "will_launch": bool(args.apply and not args.defer_launch),
         }
         print(json.dumps(plan, indent=2, sort_keys=True))
         if not args.apply:
@@ -518,11 +528,17 @@ def main() -> int:
                 f"GitHub ready: Issue #{snapshot.issue_number} is agent_ready / "
                 f"decomposition_apply for {plan_id}"
             )
+            if args.defer_launch:
+                print("Launch deferred to the supervised software architect.")
+                return 0
             return _launch_decomposition(root, task_id=task_id)
         print(
             f"GitHub ready: Issue #{snapshot.issue_number} is agent_ready / delivery_evidence "
             f"at {tested_commit}"
         )
+        if args.defer_launch:
+            print("Launch deferred to the supervised software architect.")
+            return 0
         return _launch(
             root,
             task_id=task_id,
