@@ -175,7 +175,7 @@ def test_checkout_survives_human_and_new_agent() -> None:
             allow_local_remote_for_tests=True,
         )
         created = manager_a.prepare(first_observation)
-        require(created["status"] == "ready", f"fresh checkout failed: {created}")
+        require(created["status"] == "created", f"fresh checkout failed: {created}")
 
         handoff_head = commit_change(checkout)
         git(checkout, "push", "-u", "origin", BRANCH)
@@ -235,7 +235,7 @@ def test_checkout_survives_human_and_new_agent() -> None:
         checkout.rename(saved_checkout)
         require(not checkout.exists(), "canonical checkout path was not released")
         recloned = manager_b.prepare(resume_observation)
-        require(recloned["status"] == "ready", f"remote branch resume failed: {recloned}")
+        require(recloned["status"] == "created", f"remote branch resume failed: {recloned}")
         require(git(checkout, "rev-parse", "HEAD") == handoff_head, "wrong resumed commit")
         require(git(checkout, "branch", "--show-current") == BRANCH, "wrong resumed branch")
         require(
@@ -363,7 +363,7 @@ def test_decomposition_uses_exact_canonical_durable_checkout() -> None:
             allow_local_remote_for_tests=True,
         )
         created = decomposition.prepare(observed)
-        require(created["status"] == "ready", str(created))
+        require(created["status"] == "created", str(created))
         require(Path(created["path"]).resolve() == checkout.resolve(), str(created))
         require(git(checkout, "branch", "--show-current") == BRANCH, "wrong branch")
         require(git(checkout, "rev-parse", "HEAD") == source_head, "wrong source commit")

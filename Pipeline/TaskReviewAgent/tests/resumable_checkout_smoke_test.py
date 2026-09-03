@@ -141,7 +141,7 @@ def test_active_implementation_defers_main_advance_to_candidate_integration() ->
             worker_id=WORKER_A,
             allow_local_remote_for_tests=True,
         )
-        require(manager.prepare(initial_observation)["status"] == "ready", "create failed")
+        require(manager.prepare(initial_observation)["status"] == "created", "create failed")
         current_main, current_tree = advance_main(controller)
         advanced_observation = observation(
             controller=controller,
@@ -199,7 +199,7 @@ def test_resume_ignores_only_stale_origin_main() -> None:
             worker_id=WORKER_A,
             allow_local_remote_for_tests=True,
         )
-        require(first_manager.prepare(first_observation)["status"] == "ready", "create failed")
+        require(first_manager.prepare(first_observation)["status"] == "created", "create failed")
         handoff_head = commit_change(checkout)
         git(checkout, "push", "-u", "origin", BRANCH)
         state = human_handoff_state(
@@ -248,7 +248,7 @@ def test_resume_ignores_only_stale_origin_main() -> None:
         if inspected["status"] == "unmanaged_exact":
             inspected = manager.prepare(resume_observation)
             require(
-                inspected["status"] == "ready",
+                inspected["status"] == "adopted",
                 f"exact checkout could not be safely adopted: {inspected}",
             )
         require(inspected["head_commit"] == handoff_head, "human-tested commit changed")
@@ -293,7 +293,7 @@ def test_resume_recovers_exact_unity_churn_and_refreshes_main() -> None:
             worker_id=WORKER_A,
             allow_local_remote_for_tests=True,
         )
-        require(first_manager.prepare(first_observation)["status"] == "ready", "create failed")
+        require(first_manager.prepare(first_observation)["status"] == "created", "create failed")
         handoff_head = commit_change(checkout)
         git(checkout, "push", "-u", "origin", BRANCH)
         state = human_handoff_state(
@@ -335,7 +335,7 @@ def test_resume_recovers_exact_unity_churn_and_refreshes_main() -> None:
         before = manager.inspect(resume_observation)
         require(before["status"] == "conflict", f"dirty checkout was not rejected: {before}")
         recovered = manager.prepare(resume_observation)
-        require(recovered["status"] == "ready", f"safe churn recovery failed: {recovered}")
+        require(recovered["status"] == "resumed", f"safe churn recovery failed: {recovered}")
         require(
             set(recovered.get("recovered_unity_churn") or []) == set(UNITY_CHURN),
             f"wrong paths were recovered: {recovered}",

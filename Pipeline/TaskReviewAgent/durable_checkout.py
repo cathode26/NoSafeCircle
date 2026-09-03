@@ -452,16 +452,16 @@ class DurableTaskCheckoutManager:
             }
         inspected = self.inspect(observation)
         if inspected["status"] == "ready":
-            return {"status": "resumed", **inspected}
+            return {**inspected, "status": "resumed"}
         if inspected["status"] == "unmanaged_exact":
             remote_url = str(inspected["remote_url"])
             self._write_manifest(observation, remote_url)
             adopted = self.inspect(observation)
             if adopted["status"] != "ready":
                 raise DurableCheckoutError("exact checkout adoption could not be verified")
-            return {"status": "adopted", **adopted}
+            return {**adopted, "status": "adopted"}
         if inspected["status"] == "conflict":
-            return {"status": "blocked", **inspected}
+            return {**inspected, "status": "blocked"}
 
         environment = observation["environment"]
         remote_url = str(environment["remote_url"])
@@ -530,7 +530,7 @@ class DurableTaskCheckoutManager:
             verified = self.inspect(observation)
             if verified["status"] != "ready":
                 raise DurableCheckoutError("published canonical checkout could not be verified")
-            return {"status": "created", **verified}
+            return {**verified, "status": "created"}
         finally:
             if temporary.exists():
                 def onerror(function, path, _exc):

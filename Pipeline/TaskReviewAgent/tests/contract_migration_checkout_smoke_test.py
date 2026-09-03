@@ -158,7 +158,7 @@ def test_contract_migration_fast_forwards_and_rekeys_manifest() -> None:
             worker_id=WORKER_A,
             allow_local_remote_for_tests=True,
         )
-        require(manager_a.prepare(initial_observation)["status"] == "ready", "initial checkout failed")
+        require(manager_a.prepare(initial_observation)["status"] == "created", "initial checkout failed")
         human_head = commit_change(checkout)
         git(checkout, "push", "-u", "origin", BRANCH)
         state = human_pass_state(state, checkout, human_head)
@@ -213,7 +213,7 @@ def test_contract_migration_fast_forwards_and_rekeys_manifest() -> None:
         require(before["status"] == "conflict", f"stale checkout was not detected: {before}")
 
         recovered = manager_b.prepare(migrated_observation)
-        require(recovered["status"] == "ready", f"contract migration recovery failed: {recovered}")
+        require(recovered["status"] == "resumed", f"contract migration recovery failed: {recovered}")
         require(recovered.get("contract_migration_fast_forwarded") is True, "checkout was not fast-forwarded")
         require(recovered.get("durable_manifest_migrated") is True, "manifest was not migrated")
         require(git(checkout, "rev-parse", "HEAD") == integrated_head, "checkout head is wrong")
