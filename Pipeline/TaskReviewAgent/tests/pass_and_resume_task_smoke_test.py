@@ -24,6 +24,7 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.pass_and_resume_task import (  # noqa: E402
     PassAndResumeError,
+    _apply_canonical_human_transition,
     _decomposition_comment,
     _decomposition_plan_id,
     _launch_decomposition,
@@ -201,6 +202,41 @@ def test_decomposition_resume_carries_canonical_checkout_root() -> None:
     )
 
 
+def test_helper_uses_canonical_human_transition_service() -> None:
+    class RecordingService:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def apply_human_result(self, **values):
+            self.calls.append(("unity", values))
+
+        def apply_decomposition_result(self, **values):
+            self.calls.append(("decomposition", values))
+
+    service = RecordingService()
+    body = _pass_comment(COMMIT, "Validated in Unity.")
+    _apply_canonical_human_transition(
+        service,
+        task_id="NSC-901",
+        body=body,
+        actor_id="cathode26",
+        approve_decomposition=False,
+    )
+    require(
+        service.calls == [("unity", {"task_id":"NSC-901","result_body":body,"actor_id":"cathode26"})],
+        str(service.calls),
+    )
+    decomposition_body = _decomposition_comment(PLAN_ID, "Reviewed exact plan.")
+    _apply_canonical_human_transition(
+        service,
+        task_id="NSC-911",
+        body=decomposition_body,
+        actor_id="cathode26",
+        approve_decomposition=True,
+    )
+    require(service.calls[-1][0] == "decomposition", str(service.calls))
+
+
 def main() -> int:
     tests = (
         test_comment_has_canonical_exact_commit_result,
@@ -208,6 +244,7 @@ def main() -> int:
         test_decomposition_approval_is_exact_plan_bound,
         test_safe_unity_churn_is_restored_but_other_edits_are_refused,
         test_decomposition_resume_carries_canonical_checkout_root,
+        test_helper_uses_canonical_human_transition_service,
     )
     for test in tests:
         test()

@@ -19,7 +19,6 @@ if str(ROOT) not in sys.path:
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.contracts import TaskReviewContractError, validate_task_id  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
-    ALL_STATE_LABELS,
     WorkflowActor,
     WorkflowPhase,
     WorkflowState,
@@ -73,6 +72,39 @@ def _repo_root(source: Path) -> Path:
     if not (root / "Pipeline" / "TaskReviewAgent" / "Start-GameTaskAgent.ps1").is_file():
         raise PassAndResumeError("source does not contain the canonical Game Task Agent launcher")
     return root
+
+
+def _authenticated_human_login(root: Path) -> str:
+    """Resolve the GitHub identity whose explicit human result is being recorded."""
+
+    login = _run_text(("gh", "api", "user", "--jq", ".login"), cwd=root)
+    if not login:
+        raise PassAndResumeError("GitHub CLI did not return an authenticated login")
+    return login
+
+
+def _apply_canonical_human_transition(
+    service: IssueWorkflowService,
+    *,
+    task_id: str,
+    body: str,
+    actor_id: str,
+    approve_decomposition: bool,
+) -> None:
+    """Advance body, state label, and hashed event through the canonical service."""
+
+    if approve_decomposition:
+        service.apply_decomposition_result(
+            task_id=task_id,
+            result_body=body,
+            actor_id=actor_id,
+        )
+    else:
+        service.apply_human_result(
+            task_id=task_id,
+            result_body=body,
+            actor_id=actor_id,
+        )
 
 
 def _stable_status(checkout: Path) -> str:
@@ -506,10 +538,13 @@ def main() -> int:
             existing_comments = backend.get_comments(snapshot.issue_number)
             if not any(item.get("body") == body for item in existing_comments):
                 backend.add_comment(snapshot.issue_number, body)
-            desired_labels = [
-                label for label in snapshot.labels if label not in ALL_STATE_LABELS
-            ] + ["nsc-state:agent-ready"]
-            backend.update_issue(snapshot.issue_number, labels=desired_labels)
+            _apply_canonical_human_transition(
+                service,
+                task_id=task_id,
+                body=body,
+                actor_id=_authenticated_human_login(root),
+                approve_decomposition=bool(args.approve_decomposition),
+            )
             if args.approve_decomposition:
                 snapshot = _wait_for_decomposition_ready(
                     service,
