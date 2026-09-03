@@ -116,10 +116,19 @@ When no validated agent-ready Issue exists, generic resume stops and asks for an
    committed for human testing.
 10. The candidate is applied to the canonical task checkout, and its path set,
     whitespace, TaskGraph, and task-contract identity are revalidated against
-    the refreshed main base. Only the exact verified task paths are staged,
-    committed, and pushed without force.
-11. The Issue receives the exact branch, commit, concrete implementation summary, checks already completed, numbered Unity steps, expected result, and PASS/FAIL template.
-12. The Issue changes to:
+    the refreshed main base. Only the exact verified task paths are staged and
+    committed locally. The local commit is necessary because authoritative
+    tests must identify the exact immutable commit and tree they validated.
+11. When the committed task-specific validation policy names authoritative
+    Unity checks, the clean runner executes them against that exact local
+    commit. Its hash-verified manifest is preserved outside the checkout and
+    bound into the integration receipt. A failed test or any test-created
+    repository mutation stops the handoff; the task branch is not pushed.
+12. Only after the pre-handoff checks pass is the exact commit pushed without
+    force. The Issue receives the exact branch, commit, concrete implementation
+    summary, checks already completed, numbered Unity steps, expected result,
+    and PASS/FAIL template.
+13. The Issue changes to:
 
     ```text
     human_action_required / unity_runtime_validation
@@ -212,12 +221,14 @@ FAIL -> agent_ready / repair
 A later generic agent therefore knows which branch and commit to resume and whether it is handling repair or delivery continuation. It never relies on the previous browser conversation.
 
 For a PASS, the exact-commit human decision carries forward through delivery
-evidence and merge closeout. The downstream controller runs authoritative Unity
-tests, generates hash-bound evidence, and continues without a redundant second
-delivery-proposal approval when the canonical checkout remains clean and the
-commit is still exactly the one Vincent tested. A changed commit, uncommitted
-file, scope drift, failed check, merge conflict, or other reconciliation anomaly
-still stops before evidence publication or merge.
+evidence and merge closeout. The downstream controller performs the second
+current-main synchronization, reruns the task's authoritative Unity checks on
+the resulting exact commit, generates hash-bound evidence, and continues
+without a redundant second delivery-proposal approval when the canonical
+checkout remains clean and the commit is still exactly the one Vincent tested.
+A changed commit, uncommitted file, scope drift, failed check, merge conflict,
+or other reconciliation anomaly still stops before evidence publication or
+merge.
 
 If `origin/main` advanced, the downstream controller first merges current main
 into the task branch and pushes the merge commit. The new commit always returns
@@ -226,14 +237,12 @@ is automation-only. A PASS on that integrated commit then authorizes delivery
 and merge closeout without another approval while the checkout remains clean
 and unchanged.
 
-These are two separate current-main boundaries. The first runs immediately
-before the initial task commit and human checklist. The second runs after the
-human PASS and immediately before authoritative delivery validation. Both may
-be no-ops. If either produces a different commit, validation applies to the new
-integrated commit; a post-PASS merge always invalidates the older exact-commit
-PASS and returns to `human_action_required`.
-
-The connected production controller in this milestone is authoritative through the committed-and-pushed human Unity handoff. The durable Issue state already routes PASS and FAIL. Fully automatic human-feedback repair injection, authoritative clean Unity test execution, TaskDelivery finalization, evidence commits, conformance, and merge closeout remain later pipeline boundaries; they are not falsely claimed by this command.
+These are two separate current-main boundaries. The first runs before the local
+candidate commit and its pre-handoff authoritative tests. The second runs after
+the human PASS and immediately before authoritative delivery validation. Both
+may be no-ops. If either produces a different commit, validation applies to the
+new integrated commit; a post-PASS merge always invalidates the older
+exact-commit PASS and returns to `human_action_required`.
 
 During merge closeout, one launcher invocation waits for the exact pull request's
 required checks for up to 15 minutes while continuing to print normal work

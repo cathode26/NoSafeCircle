@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -16,9 +17,13 @@ from typing import Any, Callable, Sequence
 from .contracts import TaskReviewContractError, semantic_sha256
 from .execution_bridge import ExecutionCrewBridge, ExecutionCrewReceipt
 from .pipeline_scope import RepositoryScopeAuthority
+from Pipeline.Testing.validation_manifest import (
+    ValidationManifestError,
+    load_validation_manifest,
+)
 
 
-INTEGRATION_SCHEMA_VERSION = "1.0"
+INTEGRATION_SCHEMA_VERSION = "1.1"
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _UNITY_VERSION = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]*$")
 _DOOR_PROTOTYPE_BUILDER = (
@@ -149,6 +154,7 @@ class CandidateIntegrationReceipt:
     task_contract_sha256: str
     candidate_sha256: str
     changed_paths: tuple[str, ...]
+    pre_handoff_validations: tuple[dict[str, Any], ...]
     completed_checks: tuple[str, ...]
 
     def to_dict(self) -> dict[str, Any]:
@@ -166,6 +172,9 @@ class CandidateIntegrationReceipt:
             "task_contract_sha256": self.task_contract_sha256,
             "candidate_sha256": self.candidate_sha256,
             "changed_paths": list(self.changed_paths),
+            "pre_handoff_validations": [
+                dict(item) for item in self.pre_handoff_validations
+            ],
             "completed_checks": list(self.completed_checks),
         }
 
@@ -225,6 +234,7 @@ class CandidateIntegrator:
         existing_commit = self._existing_commit_for_run(execution)
         if existing_commit is not None:
             commit, integration_base = existing_commit
+            validations = self._run_pre_handoff_validations(commit, execution)
             self._push_exact(
                 commit,
                 allowed_remote_heads=(execution.source_head, integration_base),
@@ -233,6 +243,7 @@ class CandidateIntegrator:
                 commit,
                 execution,
                 integration_base=integration_base,
+                pre_handoff_validations=validations,
             )
             self._persist(receipt)
             self._receipt = receipt
@@ -302,6 +313,7 @@ class CandidateIntegrator:
             )
         if _changed_paths(self.checkout, base=integration_base) != final_changed_paths:
             raise CandidateIntegrationError("candidate commit changed an unexpected path set")
+        validations = self._run_pre_handoff_validations(commit, execution)
         self._push_exact(
             commit,
             allowed_remote_heads=(execution.source_head, integration_base),
@@ -310,6 +322,7 @@ class CandidateIntegrator:
             commit,
             execution,
             integration_base=integration_base,
+            pre_handoff_validations=validations,
         )
         self._persist(receipt)
         self._receipt = receipt
@@ -644,6 +657,177 @@ class CandidateIntegrator:
             timeout_seconds=timeout_seconds,
         )
 
+    def _run_pre_handoff_validations(
+        self,
+        commit: str,
+        execution: ExecutionCrewReceipt,
+    ) -> tuple[dict[str, Any], ...]:
+        """Run committed task-specific Unity checks before publishing the handoff."""
+
+        plan = self._pre_handoff_validation_plan()
+        if plan is None:
+            return ()
+
+        if _git_text(self.checkout, "rev-parse", "HEAD") != commit:
+            raise CandidateIntegrationError(
+                "pre-handoff validation commit is not the checked-out task head"
+            )
+        if _git_text(
+            self.checkout,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ):
+            raise CandidateIntegrationError(
+                "pre-handoff authoritative validation requires a clean task checkout"
+            )
+        tree = _git_text(self.checkout, "rev-parse", "HEAD^{tree}")
+        script = self.checkout / "Pipeline" / "Testing" / "run_unity_tests_clean.ps1"
+        if not script.is_file():
+            raise CandidateIntegrationError("clean Unity test runner is missing")
+
+        validation_root = (
+            self.state_root
+            / "outputs"
+            / self.scope.task_id
+            / execution.run_id
+            / "pre-handoff-validation"
+        )
+        facts: list[dict[str, Any]] = []
+        for platform in plan["required_test_platforms"]:
+            test_filter = plan["test_filters"][platform]
+            destination = validation_root / (
+                f"{platform}-"
+                f"{hashlib.sha256(test_filter.encode('utf-8')).hexdigest()[:12]}"
+            )
+            stored_manifest = destination / "validation-manifest.json"
+            if stored_manifest.is_file():
+                facts.append(
+                    self._pre_handoff_validation_fact(
+                        stored_manifest,
+                        commit=commit,
+                        tree=tree,
+                        platform=platform,
+                        test_filter=test_filter,
+                        policy_sha256=plan["policy_sha256"],
+                    )
+                )
+                continue
+            if destination.exists() or destination.is_symlink():
+                raise CandidateIntegrationError(
+                    "pre-handoff validation destination exists with unknown identity: "
+                    f"{destination}"
+                )
+
+            shell = "powershell.exe" if os.name == "nt" else "pwsh"
+            command = [
+                shell,
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(script),
+                "-TestPlatform",
+                platform,
+                "-TestFilter",
+                test_filter,
+                "-ProjectPath",
+                str(self.checkout),
+            ]
+            if self.unity_executable is not None:
+                command.extend(("-UnityExecutable", str(self.unity_executable)))
+            try:
+                result = self.unity_command_runner(
+                    command,
+                    self.checkout,
+                    float(os.getenv("NSC_TASK_AGENT_UNITY_TIMEOUT_SECONDS", "3600")),
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                raise CandidateIntegrationError(
+                    f"pre-handoff {platform} Unity test could not run"
+                ) from exc
+            stdout = _decode(result.stdout or b"", label="Unity stdout")
+            stderr = _decode(result.stderr or b"", label="Unity stderr")
+            if result.returncode != 0:
+                detail = "\n".join(item for item in (stdout.strip(), stderr.strip()) if item)
+                raise CandidateIntegrationError(
+                    f"pre-handoff {platform} Unity test failed ({result.returncode})"
+                    + (f"\n{detail}" if detail else "")
+                )
+            match = re.search(r"(?im)^Validation manifest:\s*(.+?)\s*$", stdout)
+            if match is None:
+                raise CandidateIntegrationError(
+                    f"pre-handoff {platform} Unity test omitted its validation manifest"
+                )
+            try:
+                source_manifest = Path(match.group(1).strip()).resolve(strict=True)
+                load_validation_manifest(source_manifest)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(source_manifest.parent, destination)
+            except (OSError, ValidationManifestError) as exc:
+                raise CandidateIntegrationError(
+                    f"pre-handoff {platform} Unity validation evidence is invalid: {exc}"
+                ) from exc
+            facts.append(
+                self._pre_handoff_validation_fact(
+                    stored_manifest,
+                    commit=commit,
+                    tree=tree,
+                    platform=platform,
+                    test_filter=test_filter,
+                    policy_sha256=plan["policy_sha256"],
+                )
+            )
+        return tuple(facts)
+
+    def _pre_handoff_validation_plan(self) -> dict[str, Any] | None:
+        # Import lazily so the candidate integration primitive remains usable without
+        # installing the downstream controller monkey patches.
+        from .downstream_resilience import validation_plan_for
+
+        try:
+            return validation_plan_for(self.checkout, self.scope.task)
+        except TaskReviewContractError as exc:
+            raise CandidateIntegrationError(str(exc)) from exc
+
+    @staticmethod
+    def _pre_handoff_validation_fact(
+        manifest_path: Path,
+        *,
+        commit: str,
+        tree: str,
+        platform: str,
+        test_filter: str,
+        policy_sha256: str,
+    ) -> dict[str, Any]:
+        try:
+            manifest = load_validation_manifest(manifest_path)
+            digest = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        except (OSError, ValidationManifestError) as exc:
+            raise CandidateIntegrationError(
+                f"stored pre-handoff Unity validation is invalid: {exc}"
+            ) from exc
+        if (
+            manifest.validated_state.commit != commit
+            or manifest.validated_state.tree != tree
+            or manifest.unity.test_platform != platform
+            or manifest.unity.test_filter != test_filter
+        ):
+            raise CandidateIntegrationError(
+                "pre-handoff Unity validation does not match the exact candidate commit"
+            )
+        return {
+            "test_platform": platform,
+            "test_filter": test_filter,
+            "commit": commit,
+            "tree": tree,
+            "manifest_path": str(manifest.path),
+            "manifest_sha256": digest,
+            "policy_sha256": policy_sha256,
+            "total": manifest.test_run.total,
+            "passed": manifest.test_run.passed,
+        }
+
     def _validate_in_disposable_clone(
         self,
         candidate: Path,
@@ -766,6 +950,7 @@ class CandidateIntegrator:
         execution: ExecutionCrewReceipt,
         *,
         integration_base: str,
+        pre_handoff_validations: tuple[dict[str, Any], ...],
     ) -> CandidateIntegrationReceipt:
         tree = _git_text(self.checkout, "rev-parse", f"{commit}^{{tree}}")
         changed_paths = _changed_paths(self.checkout, base=integration_base)
@@ -788,6 +973,11 @@ class CandidateIntegrator:
                 "DoorPrototype scene trailing whitespace was normalized and the final "
                 "builder output passed git diff --check."
             )
+        for validation in pre_handoff_validations:
+            checks.append(
+                "Pre-handoff authoritative Unity "
+                f"{validation['test_platform']} validation passed on exact commit {commit}."
+            )
         checks.extend(
             (
                 "Implementation and tests were committed on the canonical task branch.",
@@ -807,6 +997,7 @@ class CandidateIntegrator:
             task_contract_sha256=execution.task_contract_sha256,
             candidate_sha256=str(execution.candidate_sha256),
             changed_paths=changed_paths,
+            pre_handoff_validations=pre_handoff_validations,
             completed_checks=tuple(checks),
         )
 
@@ -825,6 +1016,42 @@ class CandidateIntegrator:
             raise CandidateIntegrationError("integration receipt does not match ExecutionCrew run")
         if not self._paths_match_execution(receipt.changed_paths, execution):
             raise CandidateIntegrationError("integration receipt has an unauthorized path set")
+        plan = self._pre_handoff_validation_plan()
+        expected = () if plan is None else tuple(
+            (platform, plan["test_filters"][platform], plan["policy_sha256"])
+            for platform in plan["required_test_platforms"]
+        )
+        try:
+            actual = tuple(
+                (
+                    item["test_platform"],
+                    item["test_filter"],
+                    item["policy_sha256"],
+                )
+                for item in receipt.pre_handoff_validations
+            )
+            if actual != expected:
+                raise CandidateIntegrationError(
+                    "integration receipt does not contain the exact committed "
+                    "pre-handoff validation plan"
+                )
+            for validation in receipt.pre_handoff_validations:
+                fact = self._pre_handoff_validation_fact(
+                    Path(validation["manifest_path"]),
+                    commit=receipt.commit,
+                    tree=receipt.commit_tree,
+                    platform=validation["test_platform"],
+                    test_filter=validation["test_filter"],
+                    policy_sha256=validation["policy_sha256"],
+                )
+                if fact != validation:
+                    raise CandidateIntegrationError(
+                        "pre-handoff Unity validation receipt changed"
+                    )
+        except (KeyError, TypeError) as exc:
+            raise CandidateIntegrationError(
+                "pre-handoff Unity validation receipt is malformed"
+            ) from exc
         head = _git_text(self.checkout, "rev-parse", "HEAD", check=False)
         branch = _git_text(self.checkout, "branch", "--show-current", check=False)
         status = _git_text(
@@ -833,7 +1060,13 @@ class CandidateIntegrator:
             "--porcelain=v1",
             "--untracked-files=all",
         )
-        if head != receipt.commit or branch != receipt.branch or status:
+        tree = _git_text(self.checkout, "rev-parse", "HEAD^{tree}", check=False)
+        if (
+            head != receipt.commit
+            or tree != receipt.commit_tree
+            or branch != receipt.branch
+            or status
+        ):
             raise CandidateIntegrationError("integrated task checkout no longer matches its receipt")
         if _remote_head(self.checkout, receipt.branch) != receipt.commit:
             raise CandidateIntegrationError("integrated task commit is no longer the remote branch head")
@@ -872,6 +1105,9 @@ class CandidateIntegrator:
                 task_contract_sha256=identity["task_contract_sha256"],
                 candidate_sha256=identity["candidate_sha256"],
                 changed_paths=tuple(identity["changed_paths"]),
+                pre_handoff_validations=tuple(
+                    dict(item) for item in identity["pre_handoff_validations"]
+                ),
                 completed_checks=tuple(identity["completed_checks"]),
             )
         except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError):

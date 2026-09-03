@@ -103,6 +103,7 @@ def create_fixture(
     root: Path,
     *,
     implementation: str = IMPLEMENTATION,
+    authoritative_validation: bool = False,
 ) -> tuple[Path, Path, dict, str]:
     remote = root / "remote.git"
     seed = root / "seed"
@@ -190,6 +191,37 @@ def create_fixture(
     )
     git(seed, "add", ".")
     git(seed, "commit", "-m", "Create synthetic production pipeline fixture")
+    if authoritative_validation:
+        contract_hash = hashlib.sha256(
+            git_bytes(seed, "show", f"HEAD:Tasks/{TASK_ID}.yaml")
+        ).hexdigest()
+        (seed / "Pipeline/TaskReviewAgent").mkdir(parents=True, exist_ok=True)
+        (seed / "Pipeline/Testing").mkdir(parents=True, exist_ok=True)
+        policy = {
+            "schema_version": "1.0",
+            "tasks": {
+                TASK_ID: {
+                    "task_contract_sha256": contract_hash,
+                    "required_test_platforms": ["EditMode"],
+                    "test_filters": {
+                        "EditMode": "Synthetic.Tests.FeatureEditModeTests"
+                    },
+                    "authority": "synthetic_pre_handoff_validation",
+                }
+            },
+        }
+        (seed / "Pipeline/TaskReviewAgent/authoritative_validation_policy.json").write_text(
+            json.dumps(policy, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        (seed / "Pipeline/Testing/run_unity_tests_clean.ps1").write_text(
+            "# synthetic clean Unity runner contract\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        git(seed, "add", "Pipeline")
+        git(seed, "commit", "-m", "Add authoritative validation policy")
     git(seed, "remote", "add", "origin", str(remote))
     git(seed, "push", "-u", "origin", "main")
     run(
@@ -212,6 +244,71 @@ def create_fixture(
         "task_contract_sha256": hashlib.sha256(contract_bytes).hexdigest(),
     }
     return checkout, remote, task, git(checkout, "rev-parse", "HEAD")
+
+
+def write_validation_manifest(
+    directory: Path,
+    *,
+    commit: str,
+    tree: str,
+    platform: str,
+    test_filter: str,
+) -> Path:
+    directory.mkdir(parents=True)
+    xml = (
+        '<test-run result="Passed" total="1" passed="1" failed="0" skipped="0">'
+        "</test-run>\n"
+    ).encode("utf-8")
+    log = b"Synthetic Unity validation passed.\n"
+    (directory / "test-results.xml").write_bytes(xml)
+    (directory / "unity.log").write_bytes(log)
+    manifest = {
+        "schema_version": "1.0",
+        "manifest_type": "unity_test_validation",
+        "status": "passed",
+        "validated_state": {
+            "commit": commit,
+            "tree": tree,
+            "post_commit": commit,
+            "post_tree": tree,
+            "repository_clean_before": True,
+            "repository_clean_after": True,
+        },
+        "unity": {
+            "version": UNITY_VERSION,
+            "executable": "synthetic-unity.exe",
+            "exit_code": 0,
+            "test_platform": platform,
+            "test_filter": test_filter,
+        },
+        "test_run": {
+            "result": "Passed",
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+        },
+        "artifacts": {
+            "xml": {
+                "relative_path": "test-results.xml",
+                "sha256": hashlib.sha256(xml).hexdigest(),
+                "size_bytes": len(xml),
+            },
+            "log": {
+                "relative_path": "unity.log",
+                "sha256": hashlib.sha256(log).hexdigest(),
+                "size_bytes": len(log),
+            },
+        },
+        "runner": {"path": "Pipeline/Testing/run_unity_tests_clean.ps1"},
+    }
+    path = directory / "validation-manifest.json"
+    path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return path
 
 
 def candidate_patch() -> bytes:
@@ -387,7 +484,10 @@ def assert_builder_command(
 def test_scope_execution_commit_push() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-production-pipeline-") as temporary:
         root = Path(temporary)
-        checkout, remote, task, source_head = create_fixture(root)
+        checkout, remote, task, source_head = create_fixture(
+            root,
+            authoritative_validation=True,
+        )
         scope = RepositoryScopeAuthority(
             checkout=checkout,
             task=task,
@@ -509,9 +609,52 @@ def test_scope_execution_commit_push() -> None:
         git(main_writer, "push", "origin", "main")
         current_main = git(main_writer, "rev-parse", "HEAD")
 
-        def forbidden_unity_runner(args, cwd, timeout):
-            _ = (args, cwd, timeout)
-            raise AssertionError("normal candidate unexpectedly ran Unity")
+        unity_calls: list[tuple[str, ...]] = []
+
+        def pre_handoff_unity_runner(args, cwd, timeout):
+            _ = timeout
+            require(cwd.resolve() == checkout.resolve(), "Unity ran in the wrong checkout")
+            require(args[0].casefold().endswith("powershell.exe"), "wrong Unity runner shell")
+            require(args[args.index("-TestPlatform") + 1] == "EditMode", "wrong platform")
+            test_filter = args[args.index("-TestFilter") + 1]
+            require(
+                test_filter == "Synthetic.Tests.FeatureEditModeTests",
+                "wrong authoritative test filter",
+            )
+            candidate_commit = git(checkout, "rev-parse", "HEAD")
+            require(
+                git(checkout, "rev-parse", "HEAD^") == current_main,
+                "authoritative validation ran before current main was integrated",
+            )
+            require(
+                git(checkout, "status", "--porcelain=v1", "--untracked-files=all") == "",
+                "authoritative validation did not receive a clean committed candidate",
+            )
+            require(
+                git(checkout, "ls-remote", "--heads", "origin", f"refs/heads/{BRANCH}") == "",
+                "candidate was pushed before authoritative validation",
+            )
+            unity_calls.append(tuple(args))
+            if len(unity_calls) == 1:
+                return subprocess.CompletedProcess(
+                    args=args,
+                    returncode=23,
+                    stdout=b"Synthetic first validation failed.\n",
+                    stderr=b"",
+                )
+            manifest = write_validation_manifest(
+                root / "unity-validation",
+                commit=candidate_commit,
+                tree=git(checkout, "rev-parse", "HEAD^{tree}"),
+                platform="EditMode",
+                test_filter=test_filter,
+            )
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=0,
+                stdout=f"Validation manifest: {manifest}\n".encode(),
+                stderr=b"",
+            )
 
         integrator = CandidateIntegrator(
             checkout=checkout,
@@ -519,8 +662,26 @@ def test_scope_execution_commit_push() -> None:
             task_title=task["title"],
             scope=scope,
             execution=bridge,
-            unity_command_runner=forbidden_unity_runner,
+            unity_command_runner=pre_handoff_unity_runner,
         )
+        try:
+            integrator.integrate(run_id)
+        except CandidateIntegrationError as exc:
+            require(
+                "pre-handoff EditMode Unity test failed (23)" in str(exc),
+                f"wrong pre-handoff validation failure: {exc}",
+            )
+        else:
+            raise AssertionError("failed pre-handoff validation was accepted")
+        require(
+            git(checkout, "rev-parse", "HEAD^") == current_main,
+            "failed validation lost the current-main-based local commit",
+        )
+        require(
+            git(checkout, "ls-remote", "--heads", "origin", f"refs/heads/{BRANCH}") == "",
+            "failed validation pushed a human handoff branch",
+        )
+
         integrated = integrator.integrate(run_id)
         require(git(checkout, "rev-parse", "HEAD") == integrated.commit, "commit not checked out")
         require(integrated.base_head == current_main, "candidate did not use current main as its base")
@@ -550,6 +711,15 @@ def test_scope_execution_commit_push() -> None:
         require(
             integrated.changed_paths == tuple(sorted([IMPLEMENTATION, NEW_TEST, NEW_META])),
             "normal candidate receipt path set changed",
+        )
+        require(len(unity_calls) == 2, "authoritative validation retry count changed")
+        require(
+            len(integrated.pre_handoff_validations) == 1,
+            "authoritative validation evidence was not bound to the integration receipt",
+        )
+        require(
+            integrated.pre_handoff_validations[0]["commit"] == integrated.commit,
+            "validation evidence was not bound to the exact candidate commit",
         )
         require(
             integrator.integrate(run_id).commit == integrated.commit,
