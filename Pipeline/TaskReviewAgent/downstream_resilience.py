@@ -194,14 +194,51 @@ def validation_plan_for(
     if not isinstance(task_id, str):
         return None
     raw = tasks.get(task_id)
+    inherited_from: dict[str, str] | None = None
     if raw is None:
-        return None
+        provenance = task.get("provenance")
+        if (
+            not isinstance(provenance, Mapping)
+            or provenance.get("origin") != "progressive_decomposition"
+        ):
+            return None
+        parent_id = provenance.get("parent_task_id")
+        parent_hash = provenance.get("parent_contract_sha256")
+        templates = document.get("decomposition_child_templates")
+        if templates is None:
+            return None
+        if not isinstance(templates, Mapping):
+            raise DownstreamPipelineError(
+                "authoritative validation policy decomposition templates are invalid"
+            )
+        raw = templates.get(parent_id) if isinstance(parent_id, str) else None
+        if raw is None:
+            return None
+        if not isinstance(raw, Mapping):
+            raise DownstreamPipelineError(
+                f"authoritative validation template for {parent_id} is invalid"
+            )
+        if raw.get("parent_task_contract_sha256") != parent_hash:
+            raise DownstreamPipelineError(
+                f"authoritative validation template for {task_id} is stale"
+            )
+        inherited_from = {
+            "parent_task_id": parent_id,
+            "parent_task_contract_sha256": parent_hash,
+        }
     if not isinstance(raw, Mapping):
         raise DownstreamPipelineError(
             f"authoritative validation policy for {task_id} is invalid"
         )
     contract_hash = task.get("task_contract_sha256")
-    if raw.get("task_contract_sha256") != contract_hash:
+    if (
+        not isinstance(contract_hash, str)
+        or re.fullmatch(r"[0-9a-f]{64}", contract_hash) is None
+    ):
+        raise DownstreamPipelineError(
+            f"authoritative validation policy for {task_id} has no exact contract hash"
+        )
+    if inherited_from is None and raw.get("task_contract_sha256") != contract_hash:
         raise DownstreamPipelineError(
             f"authoritative validation policy for {task_id} is stale"
         )
@@ -234,6 +271,8 @@ def validation_plan_for(
         or "committed_task_authoritative_validation_policy",
         "policy_path": _VALIDATION_POLICY_RELATIVE.as_posix(),
     }
+    if inherited_from is not None:
+        payload["inherited_from_decomposition"] = inherited_from
     return {**payload, "policy_sha256": semantic_sha256(payload)}
 
 

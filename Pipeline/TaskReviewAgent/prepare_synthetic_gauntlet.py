@@ -39,6 +39,7 @@ from work_graph_validate import validate_work_graph_plan  # noqa: E402
 from decomposition_graph_semantics import (  # noqa: E402
     validate_decomposition_graph_semantics,
 )
+from graph_delta import semantic_json_sha256  # noqa: E402
 
 
 GAUNTLET_SCHEMA_VERSION = "1.0"
@@ -425,6 +426,7 @@ def build_bundle(source: Path) -> tuple[dict[Path, bytes], dict[str, Any]]:
     policy = {
         "schema_version": "1.0",
         "tasks": {},
+        "decomposition_child_templates": {},
     }
     policy_ids = [PRESERVED_TASK_ID, *concrete_ids]
     for task_id in policy_ids:
@@ -433,6 +435,16 @@ def build_bundle(source: Path) -> tuple[dict[Path, bytes], dict[str, Any]]:
             "required_test_platforms": ["EditMode"],
             "test_filters": {"EditMode": TEST_FILTER},
             "authority": "committed_private_synthetic_gauntlet_validation_policy",
+        }
+    task_by_id = {task["id"]: task for task in tasks}
+    for task_id in decomposition_ids:
+        policy["decomposition_child_templates"][task_id] = {
+            "parent_task_contract_sha256": semantic_json_sha256(task_by_id[task_id]),
+            "required_test_platforms": ["EditMode"],
+            "test_filters": {"EditMode": TEST_FILTER},
+            "authority": (
+                "committed_private_synthetic_gauntlet_decomposition_child_policy"
+            ),
         }
     bundle[POLICY_RELATIVE] = _json_bytes(policy)
     bundle[TEST_RELATIVE] = _test_source()

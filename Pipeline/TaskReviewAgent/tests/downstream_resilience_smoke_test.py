@@ -525,6 +525,62 @@ def test_nsc020_validation_policy_is_playmode_only() -> None:
     )
 
 
+def test_decomposition_child_inherits_only_exact_parent_validation_template() -> None:
+    parent_hash = "a" * 64
+    child_hash = "b" * 64
+    with tempfile.TemporaryDirectory(prefix="nsc-child-validation-policy-") as temporary:
+        root = Path(temporary)
+        policy_path = root / "Pipeline" / "TaskReviewAgent" / "authoritative_validation_policy.json"
+        policy_path.parent.mkdir(parents=True)
+        policy_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "tasks": {},
+                    "decomposition_child_templates": {
+                        "NSC-911": {
+                            "parent_task_contract_sha256": parent_hash,
+                            "required_test_platforms": ["EditMode"],
+                            "test_filters": {"EditMode": "Fixture.Exact.Tests"},
+                            "authority": "fixture_exact_parent_template",
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        child = {
+            "task_id": "NSC-991",
+            "task_contract_sha256": child_hash,
+            "provenance": {
+                "origin": "progressive_decomposition",
+                "parent_task_id": "NSC-911",
+                "parent_contract_sha256": parent_hash,
+                "graph_delta_plan_id": "GDP-" + "c" * 64,
+            },
+        }
+        plan = validation_plan_for(root, child)
+        require(plan is not None, "exact decomposition child had no plan")
+        require(plan["task_contract_sha256"] == child_hash, str(plan))
+        require(plan["test_filters"]["EditMode"] == "Fixture.Exact.Tests", str(plan))
+        require(
+            plan["inherited_from_decomposition"]
+            == {
+                "parent_task_id": "NSC-911",
+                "parent_task_contract_sha256": parent_hash,
+            },
+            str(plan),
+        )
+
+        child["provenance"]["parent_contract_sha256"] = "d" * 64
+        try:
+            validation_plan_for(root, child)
+        except DownstreamPipelineError as exc:
+            require("stale" in str(exc), str(exc))
+        else:
+            raise AssertionError("child with a different parent hash inherited the plan")
+
+
 def test_second_identical_rejection_releases_lease() -> None:
     service, controller = guard_fixture("progress")
     error = DownstreamPipelineError("deterministic synthetic rejection")
@@ -582,6 +638,7 @@ def main() -> int:
         test_behavioral_contract_change_is_rejected,
         test_task_owned_blob_change_is_rejected,
         test_nsc020_validation_policy_is_playmode_only,
+        test_decomposition_child_inherits_only_exact_parent_validation_template,
         test_second_identical_rejection_releases_lease,
         test_fatal_pipeline_error_releases_exact_active_lease,
     )

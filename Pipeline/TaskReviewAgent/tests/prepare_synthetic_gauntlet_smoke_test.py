@@ -27,6 +27,7 @@ from Pipeline.TaskReviewAgent.prepare_synthetic_gauntlet import (  # noqa: E402
     build_bundle,
 )
 from persistent_work_graph import load_persistent_work_graph  # noqa: E402
+from graph_delta import semantic_json_sha256  # noqa: E402
 
 
 def require(condition: bool, message: str) -> None:
@@ -83,6 +84,17 @@ def test_validation_policy_binds_every_concrete_initial_contract() -> None:
     for task_id, entry in policy["tasks"].items():
         data = bundle[Path("Tasks") / f"{task_id}.yaml"]
         require(entry["task_contract_sha256"] == hashlib.sha256(data).hexdigest(), task_id)
+        require(entry["test_filters"]["EditMode"] == TEST_FILTER, task_id)
+    require(
+        set(policy["decomposition_child_templates"]) == decomposition,
+        str(set(policy["decomposition_child_templates"]) ^ decomposition),
+    )
+    for task_id, entry in policy["decomposition_child_templates"].items():
+        require(
+            entry["parent_task_contract_sha256"]
+            == semantic_json_sha256(task(bundle, task_id)),
+            task_id,
+        )
         require(entry["test_filters"]["EditMode"] == TEST_FILTER, task_id)
 
 

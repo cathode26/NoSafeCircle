@@ -154,6 +154,13 @@ the repository beneath an active decomposition provider. A wrong, dirty,
 stale, or differently bound `C:\NSC\NSC\<TASK-ID>` checkout stops visibly and
 is never reset or replaced.
 
+When a committed validation policy contains a decomposition-child template,
+only a D1C-generated child whose provenance names that exact parent and exact
+pre-decomposition parent contract hash may inherit its platform/filter pair.
+The resulting plan remains bound to the child's own exact contract hash. This
+lets reviewed synthetic children run the same named Edit Mode test without
+repository discovery or a guessed filter.
+
 A `review_ready` plan is published as an exact `plan_id` handoff in
 `human_action_required / decomposition_apply_authorization`. It is still
 review-only. Vincent may approve that exact plan with:
