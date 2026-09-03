@@ -74,8 +74,13 @@ def _task_id(number: int) -> str:
     return f"NSC-{number:03d}"
 
 
-def _guid(label: str) -> str:
-    return hashlib.sha256(f"{GAUNTLET_ID}:{label}".encode("utf-8")).hexdigest()[:32]
+def _guid(source_path: str) -> str:
+    """Match ExecutionCrew's deterministic Unity sidecar GUID exactly."""
+
+    normalized = "/".join(part.casefold() for part in source_path.split("/"))
+    return hashlib.sha256(
+        b"NoSafeCircle.ExecutionCrew.UnityMeta/v1\0" + normalized.encode("utf-8")
+    ).hexdigest()[:32]
 
 
 def _value_paths(number: int, suffix: str = "") -> tuple[str, str]:
@@ -160,7 +165,7 @@ def _concrete_task(number: int, index: int) -> dict[str, Any]:
             ),
             _acceptance(
                 "AC-002",
-                f"Create {meta} with fileFormatVersion 2 and guid {_guid(task_id)}; do not "
+                f"Create {meta} with fileFormatVersion 2 and guid {_guid(source)}; do not "
                 "modify any other task's value file.",
             ),
         ],
@@ -230,13 +235,13 @@ def _decomposition_task(number: int, index: int) -> dict[str, Any]:
                 "AC-001",
                 f"Create {alpha} and {alpha_meta}; the Alpha class is public static, is named "
                 f"MuffcabbageGauntlet{number:03d}Alpha, and contains public const int Value = {number};. "
-                f"The .meta guid is {_guid(task_id + '-alpha')}.",
+                f"The .meta guid is {_guid(alpha)}.",
             ),
             _acceptance(
                 "AC-002",
                 f"Create {beta} and {beta_meta}; the Beta class is public static, is named "
                 f"MuffcabbageGauntlet{number:03d}Beta, and contains public const int Value = {number};. "
-                f"The .meta guid is {_guid(task_id + '-beta')}.",
+                f"The .meta guid is {_guid(beta)}.",
             ),
         ],
         "completion_gates": [

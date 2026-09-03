@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import Pipeline.TaskReviewAgent.prepare_synthetic_gauntlet as gauntlet  # noqa: E402
+from Pipeline.ExecutionCrew.run_crew import unity_meta_bytes  # noqa: E402
 from Pipeline.TaskReviewAgent.prepare_synthetic_gauntlet import (  # noqa: E402
     GAUNTLET_FIRST_ID,
     GAUNTLET_TASK_COUNT,
@@ -138,6 +139,25 @@ def test_every_concrete_task_owns_a_disjoint_source_and_meta_pair() -> None:
         seen.update(resources)
 
 
+def test_task_contract_guids_match_execution_crew_sidecars() -> None:
+    bundle, summary = build_bundle(ROOT)
+    decomposition = set(summary["decomposition_parents"])
+    for number in range(GAUNTLET_FIRST_ID, GAUNTLET_FIRST_ID + GAUNTLET_TASK_COUNT):
+        task_id = f"NSC-{number:03d}"
+        current = task(bundle, task_id)
+        sources = [
+            resource.removeprefix("repo-file:")
+            for resource in current["exclusive_resources"]
+            if resource.endswith(".cs")
+        ]
+        requirements = "\n".join(
+            item["requirement"] for item in current["acceptance_criteria"]
+        )
+        for source in sources:
+            expected_guid = unity_meta_bytes(source).decode("ascii").split("guid: ", 1)[1].strip()
+            require(expected_guid in requirements, f"{task_id}: {source}: {requirements}")
+
+
 def _copy_graph(destination: Path) -> None:
     shutil.copytree(ROOT / "Tasks", destination / "Tasks")
     target = destination / "Pipeline" / "TaskGraph"
@@ -253,6 +273,7 @@ def main() -> int:
         test_validation_policy_binds_every_concrete_initial_contract,
         test_test_source_has_one_exact_method_per_implementation_child,
         test_every_concrete_task_owns_a_disjoint_source_and_meta_pair,
+        test_task_contract_guids_match_execution_crew_sidecars,
         test_materialization_validates_and_failure_rolls_back,
         test_public_or_production_repository_is_refused_before_mutation,
     )
