@@ -162,7 +162,8 @@ function Wait-ForRepositoryQuiescence {
     # authoritative post-run checks are captured.
     $previous = $null
     $stable = 0
-    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+    $maximumSamples = $RequiredStableSamples + 20
+    for ($attempt = 0; $attempt -lt $maximumSamples; $attempt++) {
         $current = Invoke-Git $RepositoryRoot @(
             "status", "--porcelain=v1", "--untracked-files=all"
         )
@@ -311,8 +312,12 @@ try {
             Restore-ProvenSafeUnityChurn $repositoryRoot $preHead
             Wait-ForRepositoryQuiescence `
                 -RepositoryRoot $repositoryRoot `
-                -RequiredStableSamples 8 `
+                -RequiredStableSamples 12 `
                 -SampleDelayMilliseconds 500
+            # Coverage settings can be written twice: once as Unity exits and
+            # once after its package worker settles. Re-apply the same exact
+            # fenced policy after the quiet window, then capture final facts.
+            Restore-ProvenSafeUnityChurn $repositoryRoot $preHead
             $postHead = Invoke-Git $repositoryRoot @("rev-parse", "HEAD")
             $postTree = Invoke-Git $repositoryRoot @("rev-parse", "HEAD^{tree}")
             $postStatus = Get-WorkingTreeStatus $repositoryRoot
