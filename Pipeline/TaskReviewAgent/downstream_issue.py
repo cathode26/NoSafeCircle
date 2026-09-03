@@ -291,6 +291,7 @@ class DownstreamIssueCoordinator:
             event_type = WorkflowEventType.AGENT_LEASE_RELEASED
             actor_type = WorkflowActor.AGENT
             actor_id = self.worker_id
+            target_phase = WorkflowPhase.MERGE_CLOSEOUT
         elif state.state is WorkflowState.BLOCKED:
             if state.current_actor is not WorkflowActor.HUMAN or not snapshot.events:
                 raise DownstreamIssueError(
@@ -311,6 +312,12 @@ class DownstreamIssueCoordinator:
             event_type = WorkflowEventType.UNBLOCKED
             actor_type = WorkflowActor.HUMAN
             actor_id = pass_event.actor_id
+            # Return legacy blockers to delivery_evidence first. This lets the
+            # normal mainline-reintegration guard run before the proposal is
+            # accepted, which matters when the policy change itself advanced
+            # main while an older task was waiting here.
+            target_phase = WorkflowPhase.DELIVERY_EVIDENCE
+            details["decision"] = "resume_unchanged_pass"
         else:
             raise DownstreamIssueError(
                 "automatic delivery acceptance requires an active or legacy review state"
@@ -322,7 +329,7 @@ class DownstreamIssueCoordinator:
             actor_type=actor_type,
             actor_id=actor_id,
             to_state=WorkflowState.AGENT_READY,
-            to_phase=WorkflowPhase.MERGE_CLOSEOUT,
+            to_phase=target_phase,
             details=details,
             now=now or utc_now(),
         )
@@ -335,7 +342,11 @@ class DownstreamIssueCoordinator:
                 "- **Checkout condition:** clean; no post-PASS repository changes",
                 f"- **Authorization source:** human validation event `{pass_event.event_id}`",
                 "",
-                "A generic agent may finalize evidence and continue verified merge closeout.",
+                (
+                    "A generic agent may continue verified merge closeout."
+                    if target_phase is WorkflowPhase.MERGE_CLOSEOUT
+                    else "A generic agent may resume delivery evidence and reconcile current main."
+                ),
             )
         )
         self.service.backend.add_comment(
@@ -348,8 +359,13 @@ class DownstreamIssueCoordinator:
                 snapshot.body,
                 next_state,
                 next_action=(
-                    "Resume merge closeout for the unchanged human-tested commit; "
-                    "stop if any new or uncommitted repository change appears."
+                    (
+                        "Resume merge closeout for the unchanged human-tested commit; "
+                        "stop if any new or uncommitted repository change appears."
+                        if target_phase is WorkflowPhase.MERGE_CLOSEOUT
+                        else "Resume delivery evidence, reconcile current main, and retain "
+                        "the exact-commit PASS only for automation-only drift."
+                    )
                 ),
             ),
             labels=labels_for_state(next_state.state, snapshot.labels),

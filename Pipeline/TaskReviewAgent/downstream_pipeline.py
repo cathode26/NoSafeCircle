@@ -658,7 +658,8 @@ class DownstreamTaskController:
                 "delivery acceptance requires a clean canonical checkout"
             )
         self._assert_checkout()
-        self._assert_human_tested_head(workflow_state)
+        if active_delivery:
+            self._assert_human_tested_head(workflow_state)
         facts = self.delivery_review_facts()
         proposal_path = self.state.get("proposal_path")
         proposal_sha = self.state.get("proposal_sha256")

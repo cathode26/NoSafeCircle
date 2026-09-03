@@ -244,7 +244,10 @@ def test_legacy_delivery_review_blocker_is_automatically_recovered() -> None:
     accepted = accept_unchanged_pass(service, now="2026-08-27T16:05:00Z")
     state = accepted["workflow_state"]
     require(state["state"] == "agent_ready", "legacy blocker was not released")
-    require(state["phase"] == "merge_closeout", "legacy blocker did not enter closeout")
+    require(
+        state["phase"] == "delivery_evidence",
+        "legacy blocker did not return through mainline reconciliation",
+    )
 
 
 def test_changed_commit_cannot_reuse_human_pass() -> None:
