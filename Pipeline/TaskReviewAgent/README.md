@@ -108,6 +108,13 @@ allowed only while the canonical checkout is clean and still points to the
 human-tested commit. Any new or uncommitted repository change stops for human
 reconciliation instead of reusing the earlier PASS.
 
+If `origin/main` advances after that PASS, the controller merges current main
+into the task branch and pushes the resulting merge commit. Every such merge,
+including one classified as automation-only, creates a new exact-commit human
+handoff. Vincent must test and approve that integrated commit. Once it passes,
+the unchanged integrated commit proceeds through delivery and merge closeout
+without a second approval.
+
 ## Agent lease and resource conflict checks
 
 Before checkout work, the agent:

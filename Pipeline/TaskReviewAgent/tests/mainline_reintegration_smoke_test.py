@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression tests for mainline reintegration and conditional revalidation."""
+"""Regression tests for mainline reintegration and mandatory revalidation."""
 
 from __future__ import annotations
 
@@ -378,6 +378,10 @@ def test_classifier_is_narrow() -> None:
         automation["classification"] == "automation_only",
         "automation drift was rejected",
     )
+    require(
+        automation["human_revalidation_required"] is True,
+        "automation-only drift bypassed exact-commit human review",
+    )
     sensitive = classify_mainline_drift(
         main_changed_paths=["Assets/MainlineRuntime.cs"],
         task_changed_paths=["Assets/Feature.cs"],
@@ -434,7 +438,7 @@ def test_action_and_terminal_contract_installed() -> None:
     )
 
 
-def test_automation_only_integration_preserves_original_pass() -> None:
+def test_automation_only_integration_creates_new_handoff() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-mainline-auto-") as temporary:
         checkout, base, task_head, main_head = create_fixture(
             Path(temporary),
@@ -454,7 +458,7 @@ def test_automation_only_integration_preserves_original_pass() -> None:
         )
         result = controller.integrate_current_main()
         require(
-            result["status"] == "integrated_automation_only",
+            result["status"] == "human_revalidation_required",
             f"unexpected result: {result}",
         )
         integrated = git(checkout, "rev-parse", "HEAD")
@@ -477,20 +481,20 @@ def test_automation_only_integration_preserves_original_pass() -> None:
         snapshot = service.find(TASK_ID)
         assert snapshot is not None and snapshot.state is not None
         require(
-            snapshot.state.state.value == "agent_working",
-            "lease was not reacquired",
+            snapshot.state.state.value == "human_action_required",
+            "human handoff was not created",
         )
         require(
             snapshot.state.head_commit == integrated,
             "Issue head was not advanced",
         )
         require(
-            snapshot.state.human_handoff_commit == task_head,
-            "original handoff identity changed",
+            snapshot.state.human_handoff_commit == integrated,
+            "new handoff identity is wrong",
         )
         require(
-            snapshot.state.human_result == "pass",
-            "original PASS was not preserved",
+            snapshot.state.human_result is None,
+            "old PASS leaked into new handoff",
         )
         require(
             controller.state["delivery_base_commit"] == main_head,
@@ -556,7 +560,7 @@ def main() -> int:
     tests = (
         test_classifier_is_narrow,
         test_action_and_terminal_contract_installed,
-        test_automation_only_integration_preserves_original_pass,
+        test_automation_only_integration_creates_new_handoff,
         test_runtime_sensitive_integration_creates_new_handoff,
     )
     for test in tests:

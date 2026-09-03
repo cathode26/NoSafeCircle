@@ -342,6 +342,13 @@ the canonical checkout is clean and its commit identity is unchanged. New or
 uncommitted changes invalidate that automatic continuation and require human
 reconciliation.
 
+When `origin/main` has advanced, the controller merges it into the task branch
+before delivery. Because that operation creates a new commit, the Issue returns
+to `human_action_required` and requires PASS or FAIL for the exact integrated
+commit regardless of whether the drift is runtime-sensitive or automation-only.
+After PASS, that unchanged integrated commit can continue through delivery and
+merge closeout without a second approval.
+
 If validation fails, the Action restores `nsc-state:human-action`, comments the reason, and leaves the task human-owned.
 
 ## Later generic-agent behavior

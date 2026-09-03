@@ -178,7 +178,7 @@ def error_hint(error: Any) -> str | None:
         ),
         (
             "exact human pass for checkout head is missing",
-            "The task branch is safe, but the pipeline does not recognize the preserved human Unity PASS for this commit.",
+            "The task branch commit changed and this exact commit needs a new human Unity PASS before delivery can continue.",
         ),
         (
             "no unique task-contract migration authorizes the preserved human pass",

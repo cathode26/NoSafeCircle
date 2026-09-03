@@ -195,6 +195,13 @@ commit is still exactly the one Vincent tested. A changed commit, uncommitted
 file, scope drift, failed check, merge conflict, or other reconciliation anomaly
 still stops before evidence publication or merge.
 
+If `origin/main` advanced, the downstream controller first merges current main
+into the task branch and pushes the merge commit. The new commit always returns
+to `human_action_required` for exact-commit testing, even when the mainline drift
+is automation-only. A PASS on that integrated commit then authorizes delivery
+and merge closeout without another approval while the checkout remains clean
+and unchanged.
+
 The connected production controller in this milestone is authoritative through the committed-and-pushed human Unity handoff. The durable Issue state already routes PASS and FAIL. Fully automatic human-feedback repair injection, authoritative clean Unity test execution, TaskDelivery finalization, evidence commits, conformance, and merge closeout remain later pipeline boundaries; they are not falsely claimed by this command.
 
 ## Read-only inspection
