@@ -14,7 +14,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from Pipeline.TaskReviewAgent.safe_unity_churn import (  # noqa: E402
+    SafeUnityChurnError,
     classify_safe_post_unity_churn,
+    recover_safe_post_unity_churn,
 )
 
 
@@ -83,8 +85,12 @@ def test_scene_requires_proven_trailing_whitespace_only_diff() -> None:
         git(root, "restore", "--worktree", "--", SCENE)
         coverage.write_text('{"enabled": true}\n', encoding="utf-8", newline="\n")
         assert classify_safe_post_unity_churn(status(root), root) == (COVERAGE,)
+        head = git(root, "rev-parse", "HEAD")
+        assert recover_safe_post_unity_churn(root, head, apply=False) == (COVERAGE,)
+        assert status(root)
+        assert recover_safe_post_unity_churn(root, head, apply=True) == (COVERAGE,)
+        assert status(root) == ""
 
-        git(root, "restore", "--worktree", "--", COVERAGE)
         generated_tile.write_bytes(b"root:\r\n  value: one\r\n")
         assert classify_safe_post_unity_churn(
             f" M {GENERATED_TILE}\n", root
@@ -96,6 +102,13 @@ def test_scene_requires_proven_trailing_whitespace_only_diff() -> None:
             newline="\n",
         )
         assert classify_safe_post_unity_churn(f" M {GENERATED_TILE}\n", root) is None
+        try:
+            recover_safe_post_unity_churn(root, head, apply=True)
+        except SafeUnityChurnError:
+            pass
+        else:
+            raise AssertionError("unsafe Unity churn was restored")
+        assert "value: two" in generated_tile.read_text(encoding="utf-8")
 
 
 def main() -> int:

@@ -181,6 +181,31 @@ function Wait-ForRepositoryQuiescence {
     throw "Repository did not reach a stable post-Unity filesystem state."
 }
 
+function Restore-ProvenSafeUnityChurn {
+    param(
+        [string]$RepositoryRoot,
+        [string]$ExpectedHead
+    )
+
+    $recoveryScript = Join-Path $RepositoryRoot 'Pipeline\TaskReviewAgent\safe_unity_churn.py'
+    if (-not (Test-Path -LiteralPath $recoveryScript -PathType Leaf)) {
+        throw "Safe Unity churn policy is missing: $recoveryScript"
+    }
+    $output = @(
+        & python $recoveryScript `
+            --repository $RepositoryRoot `
+            --expected-head $ExpectedHead `
+            --apply 2>&1
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw "Safe Unity churn recovery refused the worktree: $($output -join [Environment]::NewLine)"
+    }
+    $summary = ($output -join [Environment]::NewLine).Trim()
+    if (-not [string]::IsNullOrWhiteSpace($summary)) {
+        Write-Host "Safe Unity churn recovery: $summary"
+    }
+}
+
 function Invoke-PythonCapture {
     param([string[]]$Arguments)
 
@@ -283,6 +308,11 @@ try {
         $postCheckFailure = $null
         try {
             Wait-ForRepositoryQuiescence $repositoryRoot
+            Restore-ProvenSafeUnityChurn $repositoryRoot $preHead
+            Wait-ForRepositoryQuiescence `
+                -RepositoryRoot $repositoryRoot `
+                -RequiredStableSamples 8 `
+                -SampleDelayMilliseconds 500
             $postHead = Invoke-Git $repositoryRoot @("rev-parse", "HEAD")
             $postTree = Invoke-Git $repositoryRoot @("rev-parse", "HEAD^{tree}")
             $postStatus = Get-WorkingTreeStatus $repositoryRoot

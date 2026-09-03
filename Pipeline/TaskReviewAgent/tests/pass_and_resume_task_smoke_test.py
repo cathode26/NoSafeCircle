@@ -97,6 +97,12 @@ def test_safe_unity_churn_is_restored_but_other_edits_are_refused() -> None:
         commit = _git(root, "rev-parse", "HEAD")
 
         safe.write_text("Unity rewrite\n", encoding="utf-8")
+        inspected = _recover_safe_unity_churn(root, commit, apply=False)
+        require(
+            inspected == ("ProjectSettings/EditorBuildSettings.asset",),
+            f"dry run did not identify safe Unity churn: {inspected}",
+        )
+        require(bool(_git(root, "status", "--porcelain")), "dry run mutated the checkout")
         recovered = _recover_safe_unity_churn(root, commit)
         require(
             recovered == ("ProjectSettings/EditorBuildSettings.asset",),

@@ -110,13 +110,20 @@ def _stable_status(checkout: Path) -> str:
     raise PassAndResumeError("checkout status did not become stable after Unity exited")
 
 
-def _recover_safe_unity_churn(checkout: Path, tested_commit: str) -> tuple[str, ...]:
+def _recover_safe_unity_churn(
+    checkout: Path,
+    tested_commit: str,
+    *,
+    apply: bool = True,
+) -> tuple[str, ...]:
     raw_status = _stable_status(checkout)
     if not raw_status:
         return ()
     paths = classify_safe_post_unity_churn(raw_status, checkout)
     if paths is None or not paths:
         raise PassAndResumeError("checkout has uncommitted or untracked changes")
+    if not apply:
+        return paths
     _run_text(
         (
             "git",
@@ -143,6 +150,7 @@ def _validate_handoff(
     task_id: str,
     tested_commit: str,
     checkout_root: Path,
+    apply_recovery: bool,
 ) -> Path:
     if not snapshot.managed or not snapshot.valid or snapshot.state is None:
         reasons = "; ".join(snapshot.reasons) or "managed workflow state is unavailable"
@@ -179,7 +187,7 @@ def _validate_handoff(
         raise PassAndResumeError(
             f"checkout HEAD {local_head!r} differs from tested commit {tested_commit!r}"
         )
-    _recover_safe_unity_churn(checkout, tested_commit)
+    _recover_safe_unity_churn(checkout, tested_commit, apply=apply_recovery)
     remote_head = _run_text(
         ("git", "-C", str(checkout), "rev-parse", "@{upstream}"), cwd=checkout
     )
@@ -327,6 +335,7 @@ def main() -> int:
                 task_id=task_id,
                 tested_commit=tested_commit,
                 checkout_root=args.checkout_root,
+                apply_recovery=bool(args.apply),
             )
             status = "ready_to_apply"
         plan = {
