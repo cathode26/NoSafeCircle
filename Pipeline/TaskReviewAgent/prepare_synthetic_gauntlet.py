@@ -443,24 +443,13 @@ def build_validation_repair_bundle(
                 "validation repair requires the exact materialized NSC-911 through NSC-990 graph"
             )
         task["contract_revision"] = int(task["contract_revision"]) + 1
-        if index % GAUNTLET_WAVE_SIZE == 0:
-            task["completion_gates"] = [
-                _gate(
-                    "VAL-001",
-                    f"Unity EditMode filter {_test_filter(number, 'Alpha')} passes for the exact Alpha child commit and proves MuffcabbageGauntlet{number:03d}Alpha.Value == {number}.",
-                ),
-                _gate(
-                    "VAL-002",
-                    f"Unity EditMode filter {_test_filter(number, 'Beta')} passes for the exact Beta child commit and proves MuffcabbageGauntlet{number:03d}Beta.Value == {number}.",
-                ),
-            ]
-        else:
-            task["completion_gates"] = [
-                _gate(
-                    "VAL-001",
-                    f"Unity EditMode filter {_test_filter(number)} passes for the exact commit and proves Value == {number} for MuffcabbageGauntlet{number:03d}.",
-                )
-            ]
+        canonical = (
+            _decomposition_task(number, index)
+            if index % GAUNTLET_WAVE_SIZE == 0
+            else _concrete_task(number, index)
+        )
+        task["acceptance_criteria"] = deepcopy(canonical["acceptance_criteria"])
+        task["completion_gates"] = deepcopy(canonical["completion_gates"])
         gauntlet_tasks.append(task)
 
     validate_work_graph_plan(

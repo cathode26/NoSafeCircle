@@ -189,6 +189,17 @@ def test_materialization_validates_and_failure_rolls_back() -> None:
             require(ROOT_TASK_ID in active and PRESERVED_TASK_ID in active, str(active))
             require("NSC-911" in active and "NSC-990" in active, str(active))
 
+            stale_path = target / "Tasks" / "NSC-912.yaml"
+            stale = json.loads(stale_path.read_text(encoding="utf-8"))
+            stale["acceptance_criteria"][1]["requirement"] = (
+                stale["acceptance_criteria"][1]["requirement"].split("guid ", 1)[0]
+                + "guid 00000000000000000000000000000000; do not modify any other task's value file."
+            )
+            stale_path.write_text(
+                json.dumps(stale, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+
             repair, summary = build_validation_repair_bundle(target)
             require(summary["repaired_task_contracts"] == 80, str(summary))
             require(summary["test_methods"] == 88, str(summary))
@@ -196,6 +207,13 @@ def test_materialization_validates_and_failure_rolls_back() -> None:
             repaired = json.loads((target / "Tasks" / "NSC-912.yaml").read_text())
             require(repaired["contract_revision"] == 2, str(repaired))
             require(_test_filter(912) in repaired["completion_gates"][0]["requirement"], str(repaired))
+            expected_guid = unity_meta_bytes(
+                "Assets/NoSafeCircle/DoorPrototype/Scripts/MuffcabbageGauntlet912.cs"
+            ).decode("ascii").split("guid: ", 1)[1].strip()
+            require(
+                expected_guid in repaired["acceptance_criteria"][1]["requirement"],
+                str(repaired["acceptance_criteria"]),
+            )
 
             root_path = target / "Tasks" / "NSC-001.yaml"
             before = root_path.read_bytes()
