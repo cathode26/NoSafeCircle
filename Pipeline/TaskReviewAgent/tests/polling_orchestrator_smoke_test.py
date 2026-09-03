@@ -181,6 +181,7 @@ def mixed_work_plan(
         "reason_codes": [
             "execution_scope_not_single_agent",
             "decomposition_state_not_concrete",
+            "derived_state_not_fresh:aggregate",
         ],
     }
     return DispatchPlan(

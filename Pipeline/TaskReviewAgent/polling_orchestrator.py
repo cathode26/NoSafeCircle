@@ -134,6 +134,7 @@ _DECOMPOSITION_COMPATIBLE_STAGE2_REASONS = frozenset(
         "unsupported_kind",
         "execution_scope_not_single_agent",
         "decomposition_state_not_concrete",
+        "derived_state_not_fresh:aggregate",
     }
 )
 
