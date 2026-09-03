@@ -1223,6 +1223,7 @@ class PollingOrchestrator:
         source_refresher: Callable[[Path], Mapping[str, Any]] = refresh_source_main,
         process_factory: Callable[..., Any] = subprocess.Popen,
         event_emitter: JsonEventEmitter | None = None,
+        excluded_task_ids: Sequence[str] = (),
         dry_run: bool = False,
         compose_project: str = COMPOSE_PROJECT,
         monotonic_clock: Callable[[], float] = time.monotonic,
@@ -1281,6 +1282,9 @@ class PollingOrchestrator:
         self.source_refresher = source_refresher
         self.process_factory = process_factory
         self.events = event_emitter or JsonEventEmitter()
+        self.excluded_task_ids = frozenset(
+            validate_task_id(task_id) for task_id in excluded_task_ids
+        )
         self.dry_run = bool(dry_run)
         self.compose_project = str(compose_project).strip()
         self.monotonic_clock = monotonic_clock
@@ -1634,6 +1638,7 @@ class PollingOrchestrator:
             "poll_started",
             active_worker_count=len(self.active_assignments),
             max_workers=self.max_workers,
+            excluded_task_ids=sorted(self.excluded_task_ids),
             dry_run=self.dry_run,
         )
         if not self.dry_run:
@@ -1728,7 +1733,9 @@ class PollingOrchestrator:
         self.consecutive_observation_failures = 0
 
         integration_fingerprint = active_surface_fingerprint(reservations)
-        temporary_exclusions = set(self.active_assignments)
+        temporary_exclusions = set(self.active_assignments).union(
+            self.excluded_task_ids
+        )
         plan = self.plan_builder(
             source=self.source,
             worker_id=self.scheduler_id,
@@ -2379,6 +2386,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-workers", type=_positive_int, default=DEFAULT_MAX_WORKERS
     )
     parser.add_argument(
+        "--exclude-task-id",
+        action="append",
+        default=[],
+        metavar="NSC-NNN",
+        help=(
+            "Permanently exclude this exact task from every Stage-2 poll in this "
+            "scheduler session; repeat for multiple tasks."
+        ),
+    )
+    parser.add_argument(
         "--execution-provider",
         choices=("claude", "codex"),
         help=(
@@ -2488,6 +2505,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.max_consecutive_observation_failures
             ),
             event_emitter=events,
+            excluded_task_ids=args.exclude_task_id,
             dry_run=args.dry_run,
         )
         lock = SchedulerLock(

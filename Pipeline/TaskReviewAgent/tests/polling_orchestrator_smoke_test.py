@@ -549,6 +549,7 @@ def make_orchestrator(
     monotonic_clock: Any = None,
     routing_policy: Any = None,
     routing_policy_loader: Any = None,
+    excluded_task_ids: tuple[str, ...] = (),
 ) -> tuple[PollingOrchestrator, io.StringIO]:
     stream = io.StringIO()
     orchestrator = PollingOrchestrator(
@@ -577,6 +578,7 @@ def make_orchestrator(
         },
         process_factory=processes,
         event_emitter=JsonEventEmitter(stream),
+        excluded_task_ids=excluded_task_ids,
         dry_run=dry_run,
         monotonic_clock=monotonic_clock or scheduler_module.time.monotonic,
     )
@@ -792,6 +794,56 @@ def test_active_task_ids_feed_stage2_exclusions() -> None:
         add_active(orchestrator, task_id=TASK_A, process=FakeProcess())
         orchestrator.poll_once()
         require(planner.calls == [{TASK_A}], str(planner.calls))
+
+
+def test_session_exclusions_feed_every_stage2_poll() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner(
+            [
+                terminal_plan(head, "no_safe_work"),
+                terminal_plan(head, "no_safe_work"),
+            ]
+        )
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={},
+            excluded_task_ids=(TASK_A,),
+        )
+        require(orchestrator.poll_once().status == "idle", "first poll was not idle")
+        require(orchestrator.poll_once().status == "idle", "second poll was not idle")
+        require(planner.calls == [{TASK_A}, {TASK_A}], str(planner.calls))
+        require(
+            f'"excluded_task_ids": ["{TASK_A}"]' in stream.getvalue(),
+            stream.getvalue(),
+        )
+
+
+def test_exclude_task_id_cli_is_repeatable_and_validated() -> None:
+    args = scheduler_module.build_parser().parse_args(
+        ["--exclude-task-id", TASK_A, "--exclude-task-id", TASK_B]
+    )
+    require(args.exclude_task_id == [TASK_A, TASK_B], str(args.exclude_task_id))
+    try:
+        PollingOrchestrator(
+            source=ROOT,
+            checkout_root=ROOT.parent / "checkouts",
+            scheduler_id="invalid-exclusion-fixture",
+            execution_provider="claude",
+            model=None,
+            max_turns=1,
+            max_workers=1,
+            architect_min_confidence=0.65,
+            architect_runner=FakeArchitect({}),
+            excluded_task_ids=("not-a-task",),
+        )
+    except TaskReviewContractError:
+        pass
+    else:
+        raise AssertionError("invalid permanent scheduler exclusion was accepted")
 
 
 def test_architect_portfolio_selects_disjoint_candidate_in_one_call() -> None:
@@ -2345,6 +2397,8 @@ def main() -> int:
         test_max_workers_blocks_launch,
         test_at_most_one_new_worker_per_poll,
         test_active_task_ids_feed_stage2_exclusions,
+        test_session_exclusions_feed_every_stage2_poll,
+        test_exclude_task_id_cli_is_repeatable_and_validated,
         test_architect_portfolio_selects_disjoint_candidate_in_one_call,
         test_ineligible_decomposition_pair_is_not_selected_or_launched,
         test_architect_can_choose_decomposition_while_implementation_exists,

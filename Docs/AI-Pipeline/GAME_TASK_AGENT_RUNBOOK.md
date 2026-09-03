@@ -99,6 +99,13 @@ implementation and decomposition provider runs from its own canonical
 standalone task checkout, so this refresh cannot move the repository beneath an
 active worker.
 
+For a bounded rehearsal that must leave a legitimate task untouched, pass a
+repeatable session exclusion such as `--exclude-task-id NSC-042` to
+`polling_orchestrator.py`. The scheduler supplies that ID to Stage 2 on every
+poll and records it in `poll_started`; it does not change the task contract,
+Issue, claim, checkout, or branch. This is an operator boundary for the session,
+not a statement that the task is complete.
+
 ## What happens during a fresh implementation run
 
 1. The controller validates the selected task, TaskGraph, dependencies, controller `HEAD`, working-tree cleanliness, and exclusive-resource availability.
