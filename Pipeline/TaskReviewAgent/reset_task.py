@@ -358,6 +358,19 @@ def _validate_branchless_checkout_manifest(
     return value
 
 
+def _abandoned_rehearsal_state_is_undelivered(
+    task: Mapping[str, Any], state: str | None
+) -> bool:
+    if state == "not_delivered":
+        return True
+    return bool(
+        state == "aggregate"
+        and task.get("execution_scope") == "needs_execution_decomposition"
+        and task.get("decomposition_state") != "decomposed"
+        and not task.get("decomposition_children")
+    )
+
+
 class AbandonedRehearsalTaskReset(RehearsalTaskReset):
     """Close and remove one exact unmerged rehearsal run without touching main."""
 
@@ -384,7 +397,9 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
         if _git_text(self.runner, self.source, "rev-parse", "origin/main") != head:
             raise TaskResetError("controller HEAD must exactly equal fetched origin/main")
         task_state = _task_state(self.runner, self.source, self.task_id)
-        if task_state.get("state") != "not_delivered":
+        if not _abandoned_rehearsal_state_is_undelivered(
+            self.task, task_state.get("state")
+        ):
             raise TaskResetError(
                 "abandoned rehearsal cleanup cannot remove delivered work; TaskGraph must "
                 f"report not_delivered, found {task_state.get('state')!r}"
@@ -554,7 +569,7 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
             "task_id": self.task_id,
             "repository": self.repository,
             "main_head": head,
-            "taskgraph_state": "not_delivered",
+            "taskgraph_state": task_state.get("state"),
             "task_branch": self.branch,
             "task_head": task_head,
             "checkout_head": checkout_head,
@@ -673,10 +688,15 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
                 raise TaskResetError("active task state remains after reset")
             if _relevant_claims(self.source, self.task):
                 raise TaskResetError("task/resource claim refs appeared during reset")
-            if _task_state(self.runner, self.source, self.task_id).get("state") != "not_delivered":
-                raise TaskResetError("TaskGraph did not remain not_delivered")
+            final_task_state = _task_state(
+                self.runner, self.source, self.task_id
+            ).get("state")
+            if not _abandoned_rehearsal_state_is_undelivered(
+                self.task, final_task_state
+            ):
+                raise TaskResetError("TaskGraph did not remain undelivered")
             _validate_taskgraph(self.runner, self.source)
-            report.update({"status": "complete", "taskgraph_state": "not_delivered"})
+            report.update({"status": "complete", "taskgraph_state": final_task_state})
             _write_report(report_path, report)
             return report
         except Exception as exc:
@@ -814,10 +834,15 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
         _write_report(report_path, report)
         if any(path.exists() for path in _state_paths(self.state_root, self.task_id)):
             raise TaskResetError("active task state remains after resumed reset")
-        if _task_state(self.runner, self.source, self.task_id).get("state") != "not_delivered":
-            raise TaskResetError("TaskGraph did not remain not_delivered")
+        final_task_state = _task_state(self.runner, self.source, self.task_id).get(
+            "state"
+        )
+        if not _abandoned_rehearsal_state_is_undelivered(
+            self.task, final_task_state
+        ):
+            raise TaskResetError("TaskGraph did not remain undelivered")
         _validate_taskgraph(self.runner, self.source)
-        report.update({"status": "complete", "taskgraph_state": "not_delivered"})
+        report.update({"status": "complete", "taskgraph_state": final_task_state})
         _write_report(report_path, report)
         return report
 

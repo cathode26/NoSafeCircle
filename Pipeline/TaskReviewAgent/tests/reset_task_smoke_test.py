@@ -22,6 +22,7 @@ from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.reset_task import (  # noqa: E402
     TaskResetError,
+    _abandoned_rehearsal_state_is_undelivered,
     _fetch_exact_remote_commit_object,
     _require_task_paths_unchanged_since_merge,
     _transitive_active_dependents,
@@ -74,6 +75,23 @@ def test_dependency_walk() -> None:
         _transitive_active_dependents(contracts, "NSC-100")
         == ("NSC-101", "NSC-102"),
         "direct/transitive active dependents were not discovered exactly",
+    )
+
+
+def test_undecomposed_aggregate_is_safe_abandoned_rehearsal_state() -> None:
+    task = {
+        "execution_scope": "needs_execution_decomposition",
+        "decomposition_state": "concrete",
+    }
+    expect(
+        _abandoned_rehearsal_state_is_undelivered(task, "aggregate"),
+        "undecomposed aggregate was not recognized as undelivered",
+    )
+    task["decomposition_state"] = "decomposed"
+    task["decomposition_children"] = ["NSC-991", "NSC-992"]
+    expect(
+        not _abandoned_rehearsal_state_is_undelivered(task, "aggregate"),
+        "applied decomposition was accepted as an abandoned undecomposed parent",
     )
 
 
@@ -238,6 +256,7 @@ def test_exact_remote_branch_object_is_fetched_without_local_ref(root: Path) -> 
 
 def main() -> int:
     test_dependency_walk()
+    test_undecomposed_aggregate_is_safe_abandoned_rehearsal_state()
     preferred = Path(os.environ.get("NSC_TEST_TEMP_ROOT", ""))
     temporary_parent = preferred if str(preferred) else None
     if temporary_parent:
