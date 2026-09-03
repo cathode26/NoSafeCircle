@@ -17,6 +17,9 @@ from .pipeline_scope import (
 )
 
 
+_ORIGINAL_LIST_FILES = _RepositoryScopeAuthority.list_files
+
+
 class RepositoryScopeAuthority(_RepositoryScopeAuthority):
     """Repository scope authority with correct `git grep HEAD` result parsing."""
 
@@ -27,7 +30,7 @@ class RepositoryScopeAuthority(_RepositoryScopeAuthority):
         limit: int = 200,
     ) -> dict[str, Any]:
         if not isinstance(prefix, str) or prefix.strip() not in (".", "./"):
-            return super().list_files(prefix=prefix, limit=limit)
+            return _ORIGINAL_LIST_FILES(self, prefix=prefix, limit=limit)
         self._assert_checkout()
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise RepositoryScopeError("file-list limit must be from 1 through 1000")

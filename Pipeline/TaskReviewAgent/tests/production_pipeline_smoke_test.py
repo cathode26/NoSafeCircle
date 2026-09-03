@@ -400,6 +400,10 @@ def test_scope_execution_commit_push() -> None:
             IMPLEMENTATION in scope.list_files(prefix=".")["paths"],
             "approved-root file listing omitted the implementation",
         )
+        require(
+            IMPLEMENTATION in scope.list_files(prefix="Assets/")["paths"],
+            "normal approved-prefix file listing regressed",
+        )
         require(scope.search(query="Value", prefixes=["Assets/"])["count"] == 1, "search failed")
         require(
             scope.search(query="Value", prefixes=["."])["count"] == 1,
