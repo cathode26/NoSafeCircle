@@ -1,4 +1,4 @@
-"""Mainline reintegration and conditional revalidation for downstream tasks.
+"""Mainline reintegration with mandatory revalidation for downstream tasks.
 
 Codex may select the bounded action, but host Python owns classification, Git
 integration, validation, push, and durable Issue transitions.
@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import replace
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from typing import Any, Iterable, Mapping
 
 from .contracts import TASK_REVIEW_SCHEMA_VERSION, semantic_sha256
@@ -17,7 +17,6 @@ from .downstream_pipeline import (
     _SHA40,
     DownstreamPipelineError,
     _decode,
-    _file_fact,
     _git,
     _git_text,
     _run,
@@ -187,7 +186,10 @@ def classify_mainline_drift(
         "classification": (
             "automation_only" if automation_only else "runtime_sensitive"
         ),
-        "human_revalidation_required": not automation_only,
+        # A merge creates a new commit even when main changed only automation
+        # files. Human approval is commit-bound, so every integration must be
+        # tested and approved as the exact integrated commit.
+        "human_revalidation_required": True,
         "main_changed_paths": main_paths,
         "task_changed_paths": task_paths,
         "overlap_paths": overlap,
@@ -573,17 +575,7 @@ def _patched_assert_human_tested_head(
             "checkout differs from the exact branch/commit recorded in the Issue"
         )
     human = self._latest_human_validation()
-    receipt = _automation_receipt_for(self, head)
-    if receipt is not None:
-        if (
-            human is None
-            or human.get("result") != "pass"
-            or human.get("tested_commit") != receipt.get("human_tested_commit")
-        ):
-            raise DownstreamPipelineError(
-                "automation-only receipt is missing its original exact human PASS"
-            )
-    elif (
+    if (
         human is None
         or human.get("result") != "pass"
         or human.get("tested_commit") != head
@@ -619,6 +611,7 @@ def _patched_assert_human_tested_head(
         raise DownstreamPipelineError(
             "origin/main advanced beyond the validated integration; run integrate_current_main"
         )
+    receipt = _automation_receipt_for(self, head)
     base_commit = receipt.get("main_head") if receipt is not None else current_main
     existing = self.state.get("delivery_base_commit")
     if existing is not None and existing != base_commit:
@@ -634,53 +627,7 @@ def _patched_human_validation_artifact(
     self: Any,
     commit: str,
 ) -> dict[str, Any]:
-    receipt = _automation_receipt_for(self, commit)
-    if receipt is None:
-        return _ORIGINALS["human_validation_artifact"](self, commit)
-    current = self.state.get("human_validation")
-    if isinstance(current, Mapping):
-        path = Path(str(current.get("path") or ""))
-        if path.is_file() and current.get("sha256") == _file_fact(path)["sha256"]:
-            return dict(current)
-    human = self._latest_human_validation()
-    if (
-        human is None
-        or human.get("result") != "pass"
-        or human.get("tested_commit") != receipt.get("human_tested_commit")
-    ):
-        raise DownstreamPipelineError("original human PASS is unavailable")
-    service = self.workflow.issue_workflow
-    if service is None:
-        raise DownstreamPipelineError("Issue workflow is unavailable")
-    snapshot = service.find(self.task_id)
-    if snapshot is None:
-        raise DownstreamPipelineError("managed Issue is missing")
-    output = self._output_root(commit) / "human-validation.txt"
-    if output.exists():
-        raise DownstreamPipelineError(
-            "human-validation output exists with unknown identity"
-        )
-    output.write_text(
-        "\n".join(
-            (
-                f"Task: {self.task_id}",
-                f"Issue: {snapshot.issue_url}",
-                f"Human-tested implementation commit: {receipt['human_tested_commit']}",
-                f"Integrated commit being evidenced: {commit}",
-                "Human result: PASS",
-                "Integrated-commit human revalidation: NOT PERFORMED",
-                "Reason: mainline drift was classified as automation_only.",
-                f"Integration receipt SHA256: {receipt['receipt_sha256']}",
-                "Authoritative Unity validation on the integrated commit is required.",
-                "",
-                str(human.get("body") or "").strip(),
-                "",
-            )
-        ),
-        encoding="utf-8",
-        newline="\n",
-    )
-    return _file_fact(output)
+    return _ORIGINALS["human_validation_artifact"](self, commit)
 
 
 def _integrate_current_main(self: Any) -> dict[str, Any]:
@@ -708,12 +655,7 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
             "integration requires the exact Issue branch and head"
         )
     human = self._latest_human_validation()
-    prior_receipt = _automation_receipt_for(self, task_head)
-    expected_human_commit = (
-        prior_receipt.get("human_tested_commit")
-        if prior_receipt is not None
-        else task_head
-    )
+    expected_human_commit = task_head
     if (
         human is None
         or human.get("result") != "pass"
@@ -994,43 +936,36 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
     }
     _invalidate_downstream_receipt(self, receipt)
 
-    if receipt["human_revalidation_required"]:
-        handoff = self.workflow.publish_human_handoff(
-            branch=branch,
-            head_commit=integrated_commit,
-            implementation_summary=(
-                "Merged current main into the previously human-tested task branch. "
-                "The drift touched runtime-sensitive or unknown paths, so the "
-                "integrated commit requires a new exact Unity result."
-            ),
-            completed_checks=[
-                "Merge commit preserves the prior task head as first parent.",
-                "TaskGraph validation passed on the integrated commit.",
-                "git diff --check passed on the integration delta.",
-                f"Integration receipt: {receipt['receipt_sha256']}",
-            ],
-            human_steps=[
-                "Open the recorded NSC task checkout in Unity.",
-                "Run the Issue's named EditMode/PlayMode tests.",
-                "Repeat the prior gameplay checks on this exact integrated commit.",
-                "Post PASS or FAIL for the exact commit and apply nsc-state:agent-ready.",
-            ],
-            expected_result=(
-                "The integrated commit preserves the task behavior and all required "
-                "tests pass without unexpected Console errors."
-            ),
-        )
-        return {
-            "status": "human_revalidation_required",
-            "receipt": receipt,
-            "handoff": handoff,
-        }
-
-    lease = _advance_automation_only_issue(self, receipt)
+    handoff = self.workflow.publish_human_handoff(
+        branch=branch,
+        head_commit=integrated_commit,
+        implementation_summary=(
+            "Merged current main into the previously human-tested task branch. "
+            "Because the merge created a new commit, that exact integrated commit "
+            "requires a new Unity result before delivery."
+        ),
+        completed_checks=[
+            "Merge commit preserves the prior task head as first parent.",
+            "TaskGraph validation passed on the integrated commit.",
+            "git diff --check passed on the integration delta.",
+            f"Integration classification: {receipt['classification']}",
+            f"Integration receipt: {receipt['receipt_sha256']}",
+        ],
+        human_steps=[
+            "Open the recorded NSC task checkout in Unity.",
+            "Run the Issue's named EditMode/PlayMode tests.",
+            "Repeat the prior gameplay checks on this exact integrated commit.",
+            "Post PASS or FAIL for the exact commit and apply nsc-state:agent-ready.",
+        ],
+        expected_result=(
+            "The integrated commit preserves the task behavior and all required "
+            "tests pass without unexpected Console errors."
+        ),
+    )
     return {
-        "status": "integrated_automation_only",
+        "status": "human_revalidation_required",
         "receipt": receipt,
-        **lease,
+        "handoff": handoff,
     }
 
 
@@ -1114,16 +1049,16 @@ def install_mainline_reintegration() -> None:
 
     openai._ACTIONS["integrate_current_main"] = (
         "Merge current origin/main into the exact task branch with history preserved, "
-        "classify drift, push the merge commit, and either preserve the original "
-        "human PASS for automation-only drift or create a new Unity handoff. "
+        "classify drift, push the merge commit, and create a new exact-commit "
+        "human Unity handoff. "
         "No arguments."
     )
     openai._GOAL_AND_RULES += """
 - If downstream.next_action is integrate_current_main, select it before any Unity or
   delivery-evidence action. Host Python alone classifies drift and performs the merge.
-- Automation-only integration preserves the original human result only for its
-  original commit and still requires fresh authoritative Unity manifests.
-- Runtime-sensitive or unknown drift creates a new exact-commit human Unity handoff.
+- Every mainline integration creates a new exact-commit human Unity handoff,
+  including automation-only drift. A PASS for the pre-merge commit is never reused
+  as approval for the merge commit.
 """
     openai._execute = _patched_execute
     openai._terminal_outcome = _patched_terminal_outcome

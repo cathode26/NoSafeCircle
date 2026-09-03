@@ -100,6 +100,21 @@ merge_closeout
 
 A human PASS moves the Issue to `agent_ready / delivery_evidence`. A human FAIL moves it to `agent_ready / repair`.
 
+An exact-commit human PASS also supplies the delivery authorization for that
+unchanged commit. After authoritative Unity tests pass and the hash-bound
+delivery proposal is generated, the controller proceeds to `merge_closeout`
+without asking Vincent for a second approval. This automatic continuation is
+allowed only while the canonical checkout is clean and still points to the
+human-tested commit. Any new or uncommitted repository change stops for human
+reconciliation instead of reusing the earlier PASS.
+
+If `origin/main` advances after that PASS, the controller merges current main
+into the task branch and pushes the resulting merge commit. Every such merge,
+including one classified as automation-only, creates a new exact-commit human
+handoff. Vincent must test and approve that integrated commit. Once it passes,
+the unchanged integrated commit proceeds through delivery and merge closeout
+without a second approval.
+
 ## Agent lease and resource conflict checks
 
 Before checkout work, the agent:

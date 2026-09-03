@@ -40,7 +40,7 @@ _ACTION_LABELS = {
     "create_delivery_review_draft": "Build the delivery-evidence draft",
     "delivery_review_facts": "Inspect delivery-evidence candidates",
     "create_delivery_review_proposal": "Prepare the delivery-evidence review",
-    "publish_delivery_review": "Send delivery evidence for human review",
+    "publish_delivery_review": "Carry the unchanged human PASS into merge closeout",
     "finalize_delivery_evidence_and_open_pr": "Commit delivery evidence and open the pull request",
     "inspect_or_merge_pull_request": "Check the pull request and merge it when ready",
     "verify_post_merge_and_complete": "Verify main and finish the task",
@@ -178,7 +178,7 @@ def error_hint(error: Any) -> str | None:
         ),
         (
             "exact human pass for checkout head is missing",
-            "The task branch is safe, but the pipeline does not recognize the preserved human Unity PASS for this commit.",
+            "The task branch commit changed and this exact commit needs a new human Unity PASS before delivery can continue.",
         ),
         (
             "no unique task-contract migration authorizes the preserved human pass",

@@ -248,7 +248,7 @@ def _manifest(path: Path) -> dict[str, Any]:
 
 
 class DownstreamTaskController:
-    """Advance an Issue after human Unity PASS without bypassing delivery review."""
+    """Advance an Issue after human Unity PASS through verified closeout."""
 
     def __init__(
         self,
@@ -297,6 +297,12 @@ class DownstreamTaskController:
         current = state.get("state")
         phase = state.get("phase")
         if current == WorkflowState.BLOCKED.value and phase == WorkflowPhase.DELIVERY_EVIDENCE.value:
+            if (
+                state.get("human_result") == "pass"
+                and self.state.get("proposal_path")
+                and self.state.get("proposal_sha256")
+            ):
+                return "publish_delivery_review"
             return "vincent_reviews_delivery_proposal"
         if current == WorkflowState.COMPLETE.value:
             return "complete"
@@ -628,24 +634,43 @@ class DownstreamTaskController:
     def publish_delivery_review(self) -> dict[str, Any]:
         if self.issue is None:
             raise DownstreamPipelineError("Issue workflow is unavailable")
-        _, workflow_state = self._require_lease(WorkflowPhase.DELIVERY_EVIDENCE)
+        observation = self.observe()
+        workflow_state = _workflow_state(observation)
+        if workflow_state is None:
+            raise DownstreamPipelineError("managed delivery workflow state is unavailable")
+        active_delivery = (
+            workflow_state.get("state") == WorkflowState.AGENT_WORKING.value
+            and workflow_state.get("worker_id") == self.workflow.worker_id
+            and workflow_state.get("phase") == WorkflowPhase.DELIVERY_EVIDENCE.value
+        )
+        legacy_review = (
+            workflow_state.get("state") == WorkflowState.BLOCKED.value
+            and workflow_state.get("current_actor") == "human"
+            and workflow_state.get("phase") == WorkflowPhase.DELIVERY_EVIDENCE.value
+        )
+        if not active_delivery and not legacy_review:
+            raise DownstreamPipelineError(
+                "delivery acceptance requires this worker's lease or a legacy review blocker"
+            )
+        checkout = observation.get("checkout")
+        if not isinstance(checkout, Mapping) or checkout.get("status") != "ready":
+            raise DownstreamPipelineError(
+                "delivery acceptance requires a clean canonical checkout"
+            )
+        self._assert_checkout()
+        if active_delivery:
+            self._assert_human_tested_head(workflow_state)
         facts = self.delivery_review_facts()
         proposal_path = self.state.get("proposal_path")
         proposal_sha = self.state.get("proposal_sha256")
         if not isinstance(proposal_path, str) or not isinstance(proposal_sha, str):
             raise DownstreamPipelineError("delivery proposal has not been created")
         proposal = _json_object(Path(proposal_path).read_bytes(), "delivery proposal")
-        surfaces = [
-            f"`{item['path']}` — {item['role']}"
-            for item in proposal.get("selected_surfaces") or []
-            if isinstance(item, Mapping)
-        ]
-        gates = [
-            f"`{item['gate_id']}` → {', '.join(item.get('evidence') or [])}: {item.get('notes')}"
-            for item in proposal.get("gate_mappings") or []
-            if isinstance(item, Mapping)
-        ]
-        return self.issue.request_delivery_review(
+        if proposal.get("validated_commit") != workflow_state.get("head_commit"):
+            raise DownstreamPipelineError(
+                "delivery proposal does not target the unchanged human-tested commit"
+            )
+        return self.issue.accept_unchanged_delivery_after_human_pass(
             task_id=self.task_id,
             branch=workflow_state["branch"],
             head_commit=workflow_state["head_commit"],
@@ -654,8 +679,6 @@ class DownstreamTaskController:
             draft_sha256=facts["draft_sha256"],
             proposal_path=proposal_path,
             proposal_sha256=proposal_sha,
-            surface_summary=surfaces,
-            gate_summary=gates,
         )
 
     def finalize_delivery_evidence_and_open_pr(self) -> dict[str, Any]:
@@ -1108,13 +1131,17 @@ class DownstreamTaskController:
             return None
         for event in reversed(snapshot.events):
             if (
-                event.event_type is WorkflowEventType.UNBLOCKED
+                event.event_type in (
+                    WorkflowEventType.UNBLOCKED,
+                    WorkflowEventType.AGENT_LEASE_RELEASED,
+                )
                 and event.details.get("review_kind") == "delivery_spec"
+                and event.details.get("decision") in ("approve", "request_changes")
             ):
                 return {
                     "decision": event.details.get("decision"),
                     "proposal_sha256": event.details.get("proposal_sha256"),
-                    "actor_id": event.actor_id,
+                    "actor_id": event.details.get("authorized_by") or event.actor_id,
                     "event_id": event.event_id,
                     "comment_body": event.details.get("human_comment_body"),
                 }

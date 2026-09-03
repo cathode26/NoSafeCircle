@@ -202,6 +202,182 @@ class DownstreamIssueCoordinator:
         )
         return {"status": "human_delivery_review", **verified.to_dict()}
 
+    def accept_unchanged_delivery_after_human_pass(
+        self,
+        *,
+        task_id: str,
+        branch: str,
+        head_commit: str,
+        checkout_path: str,
+        draft_path: str,
+        draft_sha256: str,
+        proposal_path: str,
+        proposal_sha256: str,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        """Carry an exact-commit human PASS into merge closeout.
+
+        The caller must first prove that the canonical checkout is clean. This
+        transition removes the redundant second human approval when downstream
+        work has not changed the commit Vincent already tested. It also resumes
+        Issues parked at the former delivery-review boundary.
+        """
+
+        snapshot = self.service.find(task_id)
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise DownstreamIssueError("automatic delivery acceptance requires a valid Issue")
+        state = snapshot.state
+        if state.phase is not WorkflowPhase.DELIVERY_EVIDENCE:
+            raise DownstreamIssueError("automatic delivery acceptance requires delivery_evidence")
+        if state.human_result != "pass":
+            raise DownstreamIssueError("automatic delivery acceptance requires a human PASS")
+
+        branch = _meaningful(branch, "branch")
+        head_commit = _meaningful(head_commit, "head_commit")
+        checkout_path = _meaningful(checkout_path, "checkout_path")
+        draft_path = _meaningful(draft_path, "draft_path")
+        proposal_path = _meaningful(proposal_path, "proposal_path")
+        if not SHA256_RE.fullmatch(draft_sha256):
+            raise DownstreamIssueError("draft_sha256 is invalid")
+        if not SHA256_RE.fullmatch(proposal_sha256):
+            raise DownstreamIssueError("proposal_sha256 is invalid")
+        if (
+            state.branch != branch
+            or state.head_commit != head_commit
+            or state.human_handoff_commit != head_commit
+        ):
+            raise DownstreamIssueError(
+                "automatic delivery acceptance requires the unchanged human-tested commit"
+            )
+
+        pass_event = next(
+            (
+                event
+                for event in reversed(snapshot.events)
+                if event.event_type is WorkflowEventType.HUMAN_VALIDATION_PASSED
+                and event.details.get("tested_commit") == head_commit
+            ),
+            None,
+        )
+        if pass_event is None:
+            raise DownstreamIssueError(
+                "automatic delivery acceptance could not prove the human PASS event"
+            )
+
+        details = {
+            "reason": (
+                "The exact human-tested commit remained unchanged and the canonical "
+                "checkout was deterministically proven clean."
+            ),
+            "review_kind": "delivery_spec",
+            "decision": "approve",
+            "approval_basis": "unchanged_human_validated_commit",
+            "authorized_by": pass_event.actor_id,
+            "human_validation_event_id": pass_event.event_id,
+            "tested_commit": head_commit,
+            "branch": branch,
+            "checkout_path": checkout_path,
+            "draft_path": draft_path,
+            "draft_sha256": draft_sha256,
+            "proposal_path": proposal_path,
+            "proposal_sha256": proposal_sha256,
+        }
+
+        if state.state is WorkflowState.AGENT_WORKING:
+            if state.worker_id != self.worker_id:
+                raise DownstreamIssueError(
+                    "automatic delivery acceptance requires this worker's lease"
+                )
+            event_type = WorkflowEventType.AGENT_LEASE_RELEASED
+            actor_type = WorkflowActor.AGENT
+            actor_id = self.worker_id
+            target_phase = WorkflowPhase.MERGE_CLOSEOUT
+        elif state.state is WorkflowState.BLOCKED:
+            if state.current_actor is not WorkflowActor.HUMAN or not snapshot.events:
+                raise DownstreamIssueError(
+                    "legacy delivery-review recovery requires a human-owned blocker"
+                )
+            request_event = snapshot.events[-1]
+            if (
+                request_event.event_type is not WorkflowEventType.BLOCKED
+                or request_event.details.get("review_kind") != "delivery_spec"
+                or request_event.details.get("proposal_sha256") != proposal_sha256
+            ):
+                raise DownstreamIssueError(
+                    "legacy delivery-review blocker does not match the current proposal"
+                )
+            # The authority is the earlier exact-commit PASS. This automated
+            # transition applies that already-recorded human decision; it does
+            # not invent a second approval.
+            event_type = WorkflowEventType.UNBLOCKED
+            actor_type = WorkflowActor.HUMAN
+            actor_id = pass_event.actor_id
+            # Return legacy blockers to delivery_evidence first. This lets the
+            # normal mainline-reintegration guard run before the proposal is
+            # accepted, which matters when the policy change itself advanced
+            # main while an older task was waiting here.
+            target_phase = WorkflowPhase.DELIVERY_EVIDENCE
+            details["decision"] = "resume_unchanged_pass"
+        else:
+            raise DownstreamIssueError(
+                "automatic delivery acceptance requires an active or legacy review state"
+            )
+
+        next_state, event = transition(
+            state,
+            event_type=event_type,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            to_state=WorkflowState.AGENT_READY,
+            to_phase=target_phase,
+            details=details,
+            now=now or utc_now(),
+        )
+        summary = "\n".join(
+            (
+                "The existing human PASS now authorizes delivery closeout without a second approval.",
+                "",
+                f"- **Human-tested commit:** `{head_commit}`",
+                f"- **Proposal SHA-256:** `{proposal_sha256}`",
+                "- **Checkout condition:** clean; no post-PASS repository changes",
+                f"- **Authorization source:** human validation event `{pass_event.event_id}`",
+                "",
+                (
+                    "A generic agent may continue verified merge closeout."
+                    if target_phase is WorkflowPhase.MERGE_CLOSEOUT
+                    else "A generic agent may resume delivery evidence and reconcile current main."
+                ),
+            )
+        )
+        self.service.backend.add_comment(
+            snapshot.issue_number,
+            render_event_comment(event, summary),
+        )
+        self.service.backend.update_issue(
+            snapshot.issue_number,
+            body=update_issue_body(
+                snapshot.body,
+                next_state,
+                next_action=(
+                    (
+                        "Resume merge closeout for the unchanged human-tested commit; "
+                        "stop if any new or uncommitted repository change appears."
+                        if target_phase is WorkflowPhase.MERGE_CLOSEOUT
+                        else "Resume delivery evidence, reconcile current main, and retain "
+                        "the exact-commit PASS only for automation-only drift."
+                    )
+                ),
+            ),
+            labels=labels_for_state(next_state.state, snapshot.labels),
+            assignees=[self.service.assignee],
+        )
+        verified = self.service.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="unchanged human PASS delivery acceptance",
+        )
+        return {"status": "agent_ready", **verified.to_dict()}
+
     def apply_delivery_review(
         self,
         *,
