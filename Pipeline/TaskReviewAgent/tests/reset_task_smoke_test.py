@@ -272,7 +272,6 @@ def test_branchless_checkout_source_may_advance_on_main(root: Path) -> None:
         _validate_branchless_checkout_source(
             CommandRunner(),
             repository,
-            acquired_source_head=acquired,
             manifest={
                 "initial_source_head": checkout,
                 "initial_source_tree": checkout_tree,
@@ -292,7 +291,6 @@ def test_branchless_checkout_source_may_advance_on_main(root: Path) -> None:
         _validate_branchless_checkout_source(
             CommandRunner(),
             repository,
-            acquired_source_head=acquired,
             manifest={
                 "initial_source_head": divergent,
                 "initial_source_tree": divergent_tree,

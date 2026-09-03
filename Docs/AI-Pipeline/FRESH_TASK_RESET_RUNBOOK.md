@@ -249,16 +249,15 @@ refreshes can produce them without creating task code:
 
 - an undecomposed aggregate may retain a clean, plan-only decomposition checkout
   at a historical `main` commit with no remote task branch; and
-- a branchless implementation checkout may start from a newer `main` commit than
-  the lease-acquisition event when `main` advanced between acquisition and
-  checkout creation.
+- a branchless implementation checkout may retain an earlier clean `main` base
+  across a later lease, or start from a newer `main` commit when the scheduler
+  refreshes between acquisition and checkout creation.
 
 The helper accepts the first case only for decomposition phases whose handoff
 commit is the clean baseline and whose TaskGraph aggregate is still undecomposed.
 It accepts the second only when the hash-bound checkout manifest proves that its
-base is a descendant of the acquired source and an ancestor of current `main`,
-and the recorded tree matches that commit. Divergent history remains a hard
-failure.
+base is an ancestor of current `main` and the recorded tree matches that commit.
+Divergent history remains a hard failure.
 
 If Windows interrupts checkout removal on a read-only Git object, do not delete
 the remainder manually. Resume the exact no-overwrite stopped receipt; the

@@ -365,11 +365,10 @@ def _validate_branchless_checkout_source(
     runner: CommandRunner,
     source: Path,
     *,
-    acquired_source_head: str,
     manifest: dict[str, Any],
     current_main: str,
 ) -> str:
-    """Return a checkout base proven to be a mainline refresh after acquisition."""
+    """Return a hash-bound checkout base proven to be in current main history."""
 
     manifest_head = manifest.get("initial_source_head")
     manifest_tree = manifest.get("initial_source_tree")
@@ -386,16 +385,6 @@ def _validate_branchless_checkout_source(
             source,
             "merge-base",
             "--is-ancestor",
-            acquired_source_head,
-            manifest_head,
-            check=False,
-        ).returncode
-        != 0
-        or _git(
-            runner,
-            source,
-            "merge-base",
-            "--is-ancestor",
             manifest_head,
             current_main,
             check=False,
@@ -403,7 +392,7 @@ def _validate_branchless_checkout_source(
         != 0
     ):
         raise TaskResetError(
-            "branchless checkout manifest source is outside the acquired-to-current main ancestry"
+            "branchless checkout manifest source is outside current main ancestry"
         )
     if (
         _git_text(runner, source, "rev-parse", f"{manifest_head}^{{tree}}")
@@ -619,7 +608,6 @@ class AbandonedRehearsalTaskReset(RehearsalTaskReset):
                 checkout_head = _validate_branchless_checkout_source(
                     self.runner,
                     self.source,
-                    acquired_source_head=checkout_head,
                     manifest=manifest,
                     current_main=head,
                 )
