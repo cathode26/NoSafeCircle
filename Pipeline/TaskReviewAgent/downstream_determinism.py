@@ -303,18 +303,16 @@ def allowed_actions_for(
                 if "run_authoritative_unity_test" in actions
                 else tuple(actions)
             )
-        fallback = tuple(
-            name
-            for name in (
-                "read_issue_log",
-                "list_repository_files",
-                "search_repository",
-                "read_repository_file",
-                "run_authoritative_unity_test",
-            )
-            if name in actions
+        task = observation.get("task")
+        task_id = (
+            task.get("task_id")
+            if isinstance(task, Mapping)
+            else "unknown task"
         )
-        return fallback or tuple(actions)
+        raise DownstreamPipelineError(
+            "authoritative validation policy omitted an exact test plan for "
+            f"{task_id}; refusing repository discovery or an inferred Unity filter"
+        )
 
     direct = {
         "acquire_agent_lease",

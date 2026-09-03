@@ -402,6 +402,10 @@ def validate_unity_test_results(data: bytes, source_label: str) -> UnityReport:
     inconclusive = _xml_int_attribute(root_element, "inconclusive", source_label, default=0)
     if total < 0 or passed < 0 or failed < 0 or skipped < 0 or inconclusive < 0:
         raise RecordDeliveryError(f"Unity test-results XML at {source_label} has a negative count attribute.")
+    if total == 0:
+        raise RecordDeliveryError(
+            f"Unity test-results XML at {source_label} discovered zero tests."
+        )
     if total != passed + failed + skipped + inconclusive:
         raise RecordDeliveryError(
             f"Unity test-results XML at {source_label} counts are inconsistent: "

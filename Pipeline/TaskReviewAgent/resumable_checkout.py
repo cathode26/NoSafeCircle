@@ -217,5 +217,5 @@ class ResumableTaskCheckoutManager(DurableTaskCheckoutManager):
             "--untracked-files=all",
         )
         raw = _decode(result.stdout, label="git status stdout")
-        classified = classify_safe_post_unity_churn(raw)
+        classified = classify_safe_post_unity_churn(raw, self.checkout_path)
         return list(classified) if classified is not None else None

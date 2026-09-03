@@ -93,12 +93,18 @@ def main() -> int:
     require(runner, r"GetAttribute\(\"result\"\)", "Runner does not parse the test-run result")
     require(runner, r"failed\s+-ne\s+0", "Runner does not reject failed tests")
     require(runner, r"result\s+-ne\s+\"Passed\"", "Runner does not reject a non-Passed result")
+    require(runner, r"total\s+-le\s+0", "Runner does not reject a zero-test result")
+    require(runner, r"function\s+Invoke-PythonCapture.+Start-Process.+RedirectStandardOutput.+RedirectStandardError",
+            "Runner does not isolate Python stdout/stderr from PowerShell's error stream")
+    if re.search(r"(?im)^\s*&\s*python(?:\.exe)?\b.+2>&1", runner):
+        raise AssertionError("Runner must not merge raw Python stderr into the PowerShell success stream")
 
     manifest_start = runner.find('$manifestPath = Join-Path $artifactDirectory "validation-manifest.json"')
     final_success = runner.find('Write-Host "VALIDATION PASSED:')
     failed_check = runner.find('if ($failed -ne 0)')
     passed_check = runner.find('if ($result -ne "Passed")')
-    if not (failed_check < passed_check < manifest_start < final_success):
+    zero_check = runner.find('if ($total -le 0)')
+    if not (failed_check < passed_check < zero_check < manifest_start < final_success):
         raise AssertionError("Runner does not publish the manifest only after all result success checks")
     for fact in ("preHead", "preTree", "postHead", "postTree", "TestPlatform", "TestFilter",
                  "result", "total", "passed", "failed", "skipped", "xmlHash", "logHash"):

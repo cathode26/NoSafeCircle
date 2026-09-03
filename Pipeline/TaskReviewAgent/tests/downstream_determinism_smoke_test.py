@@ -333,6 +333,17 @@ def test_action_narrowing_and_host_validation_are_strict() -> None:
         == ("run_authoritative_unity_test",),
         "Unity state still exposes exploratory actions",
     )
+    del observation["downstream"]["authoritative_test_plan"]
+    try:
+        allowed_actions_for(observation, [], actions)
+    except DownstreamPipelineError as exc:
+        require("omitted an exact test plan" in str(exc), "wrong missing-plan error")
+    else:
+        raise AssertionError("missing exact Unity plan enabled repository discovery")
+    observation["downstream"]["authoritative_test_plan"] = {
+        "required_test_platforms": ["PlayMode"],
+        "test_filters": {"PlayMode": "Example.Tests"},
+    }
     observation["downstream"]["mainline_reintegration"] = {
         "status": "main_commit_unavailable"
     }
@@ -486,6 +497,23 @@ def test_nsc020_policy_remains_playmode_only() -> None:
     require(plan["required_test_platforms"] == ["PlayMode"], "NSC-020 policy broadened")
 
 
+def test_nsc042_policy_is_exact_editmode_filter() -> None:
+    task_bytes = subprocess.check_output(
+        ["git", "-C", str(ROOT), "show", "HEAD:Tasks/NSC-042.yaml"]
+    )
+    task = json.loads(task_bytes.decode("utf-8"))
+    task["task_id"] = task["id"]
+    task["task_contract_sha256"] = hashlib.sha256(task_bytes).hexdigest()
+    plan = validation_plan_for(ROOT, task)
+    require(plan is not None, "NSC-042 policy is missing")
+    require(plan["required_test_platforms"] == ["EditMode"], "NSC-042 platform broadened")
+    require(
+        plan["test_filters"]["EditMode"]
+        == "NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests",
+        "NSC-042 EditMode filter is wrong",
+    )
+
+
 def main() -> int:
     tests = (
         test_human_authority_ignores_agent_template,
@@ -497,6 +525,7 @@ def main() -> int:
         test_same_state_rejection_streak_releases_after_three,
         test_mainline_drift_is_reported_before_pass_receipt_work,
         test_nsc020_policy_remains_playmode_only,
+        test_nsc042_policy_is_exact_editmode_filter,
     )
     for test in tests:
         test()

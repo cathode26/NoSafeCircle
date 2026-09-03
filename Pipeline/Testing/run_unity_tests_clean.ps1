@@ -148,6 +148,31 @@ function ConvertTo-WindowsCommandLineArgument {
     return $quoted.ToString()
 }
 
+function Invoke-PythonCapture {
+    param([string[]]$Arguments)
+
+    $captureRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("NoSafeCircle-Python-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $captureRoot | Out-Null
+    $stdoutPath = Join-Path $captureRoot "stdout.txt"
+    $stderrPath = Join-Path $captureRoot "stderr.txt"
+    try {
+        $quotedArguments = @($Arguments | ForEach-Object { ConvertTo-WindowsCommandLineArgument $_ })
+        $process = Start-Process -FilePath "python.exe" -ArgumentList $quotedArguments -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        $stdout = if (Test-Path -LiteralPath $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { "" }
+        $stderr = if (Test-Path -LiteralPath $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { "" }
+        $outputParts = @()
+        if (-not [string]::IsNullOrWhiteSpace($stdout)) { $outputParts += $stdout.Trim() }
+        if (-not [string]::IsNullOrWhiteSpace($stderr)) { $outputParts += $stderr.Trim() }
+        return [PSCustomObject]@{
+            ExitCode = $process.ExitCode
+            Output = ($outputParts -join [Environment]::NewLine)
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $captureRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 try {
     if ([string]::IsNullOrWhiteSpace($ProjectPath)) {
         $ProjectPath = Join-Path $PSScriptRoot "..\.."
@@ -302,6 +327,9 @@ try {
     if ($result -ne "Passed") {
         Stop-WithCode $ExitResult "RESULT FAILURE: Test-run result is '$result', expected 'Passed'."
     }
+    if ($total -le 0) {
+        Stop-WithCode $ExitResult "RESULT FAILURE: Unity discovered zero tests for platform '$TestPlatform' and filter '$TestFilter'."
+    }
 
     $manifestPath = Join-Path $artifactDirectory "validation-manifest.json"
     $manifestTemporaryPath = Join-Path $artifactDirectory (".validation-manifest-" + [Guid]::NewGuid().ToString("N") + ".tmp")
@@ -313,20 +341,10 @@ try {
     if (-not (Test-Path -LiteralPath $logHygieneScript -PathType Leaf)) {
         Stop-WithCode $ExitResult "RESULT FAILURE: Unity log hygiene helper is missing: $logHygieneScript"
     }
-    $previousErrorActionPreference = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = "Continue"
-        $normalizationLines = @(
-            & python $logHygieneScript normalize --path $logPath --json 2>&1
-        )
-        $normalizationExitCode = $LASTEXITCODE
-    }
-    finally {
-        $ErrorActionPreference = $previousErrorActionPreference
-    }
-    $normalizationOutput = ($normalizationLines | Out-String).Trim()
-    if ($normalizationExitCode -ne 0) {
-        Stop-WithCode $ExitResult "RESULT FAILURE: Unity log normalization failed with exit code $normalizationExitCode.`n$normalizationOutput"
+    $normalization = Invoke-PythonCapture @($logHygieneScript, "normalize", "--path", $logPath, "--json")
+    $normalizationOutput = $normalization.Output
+    if ($normalization.ExitCode -ne 0) {
+        Stop-WithCode $ExitResult "RESULT FAILURE: Unity log normalization failed with exit code $($normalization.ExitCode).`n$normalizationOutput"
     }
     try {
         $logNormalization = $normalizationOutput | ConvertFrom-Json

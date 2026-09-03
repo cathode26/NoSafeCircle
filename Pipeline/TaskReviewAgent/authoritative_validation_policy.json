@@ -10,6 +10,16 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-042": {
+      "task_contract_sha256": "85b133ffa0af42f6a26c21180878c79ed9121a57ba6df151a88b2c6611d359a0",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   }
 }

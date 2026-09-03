@@ -526,7 +526,9 @@ def write_builder_owned_outputs(checkout: Path) -> tuple[str, ...]:
         "builder-state: regenerated\n", encoding="utf-8", newline="\n"
     )
     (checkout / DOOR_SCENE).write_text(
-        "door-scene: regenerated\n", encoding="utf-8", newline="\n"
+        "door-scene: regenerated   \nnext: value\t\n",
+        encoding="utf-8",
+        newline="\n",
     )
     (checkout / DOOR_PREFAB).parent.mkdir(parents=True, exist_ok=True)
     (checkout / DOOR_PREFAB).write_text(
@@ -605,8 +607,12 @@ def test_door_builder_outputs_and_incidental_cleanup() -> None:
         )
         original_verify = integrator._verify_applied_state
 
-        def recording_verify(verify_root, execution):
-            original_verify(verify_root, execution)
+        def recording_verify(verify_root, execution, *, expected_paths=None):
+            original_verify(
+                verify_root,
+                execution,
+                expected_paths=expected_paths,
+            )
             if verify_root.resolve() == checkout.resolve():
                 events.append("verify")
 
@@ -640,11 +646,20 @@ def test_door_builder_outputs_and_incidental_cleanup() -> None:
                 key=str.casefold,
             )
         )
-        require(events == ["verify", "builder"], f"wrong integration order: {events}")
+        require(events == ["verify", "builder", "verify"], f"wrong integration order: {events}")
         require(committed == expected, f"wrong builder commit path set: {committed}")
         require(integrated.changed_paths == committed, "receipt does not match committed paths")
         require(EDITOR_BUILD_SETTINGS not in committed, "EditorBuildSettings was committed")
         require(COVERAGE_SETTINGS not in committed, "coverage settings were committed")
+        require(
+            git(checkout, "show", f"HEAD:{DOOR_SCENE}")
+            == "door-scene: regenerated\nnext: value",
+            "builder scene trailing whitespace was committed",
+        )
+        require(
+            git(checkout, "diff", "--check", f"{source_head}..HEAD", "--") == "",
+            "builder commit failed git diff --check",
+        )
         require(
             git(checkout, "show", f"HEAD:{EDITOR_BUILD_SETTINGS}")
             == "editor-build-settings: original",

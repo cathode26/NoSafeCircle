@@ -333,6 +333,19 @@ def scenario_failed_unity_xml(root: Path) -> None:
     expect_error(lambda: create_delivery_package(spec_path, root), "not 'Passed'")
 
 
+def scenario_zero_unity_tests(root: Path) -> None:
+    validated = init_repo(root)
+    external = root.parent / "external-sources"
+    sources = write_external_sources(
+        external,
+        xml_content=unity_xml(total=0, passed=0, failed=0, skipped=0),
+    )
+    spec = base_spec(validated)
+    wire_sources(spec, sources)
+    spec_path = write_spec(root, spec)
+    expect_error(lambda: create_delivery_package(spec_path, root), "zero tests")
+
+
 # 10: malformed Unity XML rejected.
 def scenario_malformed_unity_xml(root: Path) -> None:
     validated = init_repo(root)
@@ -796,6 +809,7 @@ def scenario_malformed_token_usage_is_non_authoritative(root: Path) -> None:
 def main() -> int:
     fresh(scenario_happy_path)
     fresh(scenario_failed_unity_xml)
+    fresh(scenario_zero_unity_tests)
     fresh(scenario_malformed_unity_xml)
     fresh(scenario_missing_artifact)
     fresh(scenario_empty_human_validation)

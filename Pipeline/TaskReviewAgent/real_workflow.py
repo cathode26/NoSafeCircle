@@ -337,7 +337,7 @@ class RealTaskReviewWorkflow:
         )
         raw_status = _decode(status_result.stdout, label="git status stdout")
         if raw_status:
-            recoverable_paths = classify_safe_post_unity_churn(raw_status)
+            recoverable_paths = classify_safe_post_unity_churn(raw_status, checkout)
             if not recoverable_paths:
                 raise TaskReviewContractError(
                     "human handoff requires a completely clean committed checkout"

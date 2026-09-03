@@ -211,8 +211,14 @@ def _manifest(path: Path) -> dict[str, Any]:
         raise DownstreamPipelineError("validation manifest is not a passed v1 Unity manifest")
     state = raw.get("validated_state")
     unity = raw.get("unity")
+    test_run = raw.get("test_run")
     artifacts = raw.get("artifacts")
-    if not isinstance(state, Mapping) or not isinstance(unity, Mapping) or not isinstance(artifacts, Mapping):
+    if (
+        not isinstance(state, Mapping)
+        or not isinstance(unity, Mapping)
+        or not isinstance(test_run, Mapping)
+        or not isinstance(artifacts, Mapping)
+    ):
         raise DownstreamPipelineError("validation manifest omitted required sections")
     commit = state.get("commit")
     tree = state.get("tree")
@@ -226,6 +232,22 @@ def _manifest(path: Path) -> dict[str, Any]:
         raise DownstreamPipelineError("validation manifest platform is invalid")
     if not isinstance(test_filter, str) or not test_filter.strip():
         raise DownstreamPipelineError("validation manifest filter is invalid")
+    if test_run.get("result") != "Passed":
+        raise DownstreamPipelineError("validation manifest test result is not Passed")
+    counts: dict[str, int] = {}
+    for key in ("total", "passed", "failed", "skipped"):
+        value = test_run.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise DownstreamPipelineError(
+                f"validation manifest test_run.{key} is invalid"
+            )
+        counts[key] = value
+    if counts["total"] <= 0:
+        raise DownstreamPipelineError("validation manifest discovered zero tests")
+    if counts["failed"] != 0:
+        raise DownstreamPipelineError("validation manifest reports failed tests")
+    if counts["total"] < counts["passed"] + counts["failed"] + counts["skipped"]:
+        raise DownstreamPipelineError("validation manifest test counts are inconsistent")
     for key in ("xml", "log"):
         fact = artifacts.get(key)
         if not isinstance(fact, Mapping):

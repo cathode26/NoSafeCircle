@@ -240,6 +240,12 @@ class CandidateIntegrator:
             final_changed_paths = execution.final_actual_changed_paths
             if self._requires_door_prototype_builder(execution):
                 final_changed_paths = self._run_door_prototype_builder(execution)
+                self._normalize_door_prototype_scene(final_changed_paths)
+                self._verify_applied_state(
+                    self.checkout,
+                    execution,
+                    expected_paths=final_changed_paths,
+                )
             _git(self.checkout, "add", "--", *final_changed_paths)
             staged_lines = _git_text(
                 self.checkout,
@@ -455,6 +461,25 @@ class CandidateIntegrator:
             )
         return expected_paths
 
+    def _normalize_door_prototype_scene(
+        self,
+        changed_paths: tuple[str, ...],
+    ) -> None:
+        """Remove builder-generated trailing space/tab without changing line endings."""
+
+        if _DOOR_PROTOTYPE_SCENE not in changed_paths:
+            return
+        scene = self.checkout / _DOOR_PROTOTYPE_SCENE
+        try:
+            original = scene.read_bytes()
+            normalized = re.sub(rb"[ \t]+(?=\r?\n|\Z)", b"", original)
+            if normalized != original:
+                scene.write_bytes(normalized)
+        except OSError as exc:
+            raise CandidateIntegrationError(
+                f"could not normalize DoorPrototype scene output: {scene}"
+            ) from exc
+
     def _resolve_unity_executable(self) -> Path:
         if self.unity_executable is not None:
             executable = self.unity_executable
@@ -532,12 +557,19 @@ class CandidateIntegrator:
         self,
         root: Path,
         execution: ExecutionCrewReceipt,
+        *,
+        expected_paths: tuple[str, ...] | None = None,
     ) -> None:
         changed = _changed_paths(root)
-        if changed != execution.final_actual_changed_paths:
+        expected = (
+            execution.final_actual_changed_paths
+            if expected_paths is None
+            else expected_paths
+        )
+        if changed != expected:
             raise CandidateIntegrationError(
-                f"applied candidate paths differ from ExecutionCrew result: {changed} != "
-                f"{execution.final_actual_changed_paths}"
+                f"applied integration paths differ from the verified path set: "
+                f"{changed} != {expected}"
             )
         whitespace = _git(root, "diff", "--check", check=False)
         if whitespace.returncode != 0:
@@ -620,6 +652,10 @@ class CandidateIntegrator:
         if self._requires_door_prototype_builder(execution):
             checks.append(
                 "DoorPrototype builder output was limited to its owned asset and scene paths."
+            )
+            checks.append(
+                "DoorPrototype scene trailing whitespace was normalized and the final "
+                "builder output passed git diff --check."
             )
         checks.extend(
             (

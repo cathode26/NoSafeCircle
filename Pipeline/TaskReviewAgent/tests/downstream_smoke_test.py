@@ -236,10 +236,13 @@ def test_downstream_workflow_accepts_conformant_task_only() -> None:
 
 
 def make_manifest(directory: Path, *, commit: str, tree: str) -> Path:
-    directory.mkdir(parents=True)
+    directory.mkdir(parents=True, exist_ok=True)
     xml = directory / "test-results.xml"
     log = directory / "unity.log"
-    xml.write_text("<test-run result=\"Passed\" />\n", encoding="utf-8")
+    xml.write_text(
+        '<test-run result="Passed" total="1" passed="1" failed="0" skipped="0" />\n',
+        encoding="utf-8",
+    )
     log.write_text("Unity test passed.\n", encoding="utf-8")
     manifest = directory / "validation-manifest.json"
     value = {
@@ -248,6 +251,13 @@ def make_manifest(directory: Path, *, commit: str, tree: str) -> Path:
         "status": "passed",
         "validated_state": {"commit": commit, "tree": tree},
         "unity": {"test_platform": "PlayMode", "test_filter": "Synthetic.Tests"},
+        "test_run": {
+            "result": "Passed",
+            "total": 1,
+            "passed": 1,
+            "failed": 0,
+            "skipped": 0,
+        },
         "artifacts": {
             "xml": {
                 "relative_path": xml.name,
@@ -263,6 +273,21 @@ def make_manifest(directory: Path, *, commit: str, tree: str) -> Path:
     }
     manifest.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return manifest
+
+
+def test_manifest_rejects_zero_discovered_tests() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-zero-tests-") as temporary:
+        root = Path(temporary)
+        manifest = make_manifest(root, commit="1" * 40, tree="2" * 40)
+        raw = json.loads(manifest.read_text(encoding="utf-8"))
+        raw["test_run"].update(total=0, passed=0)
+        manifest.write_text(json.dumps(raw), encoding="utf-8")
+        try:
+            _manifest(manifest)
+        except DownstreamPipelineError as exc:
+            require("zero tests" in str(exc), "wrong zero-test manifest error")
+        else:
+            raise AssertionError("zero-test validation manifest was accepted")
 
 
 def test_delivery_draft_uses_stable_main_base() -> None:
@@ -710,6 +735,7 @@ def main() -> int:
         test_downstream_repository_mismatch_fails_before_any_gh_command,
         test_post_merge_accepts_newer_main,
         test_delivery_review_materializes_exact_proposal,
+        test_manifest_rejects_zero_discovered_tests,
     )
     for test in tests:
         test()

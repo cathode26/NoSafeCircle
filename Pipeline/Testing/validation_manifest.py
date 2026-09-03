@@ -175,6 +175,8 @@ def load_validation_manifest(path: Path) -> UnityValidationManifest:
     if run["result"] != "Passed":
         raise ValidationManifestError("test_run.result must be exactly Passed.")
     counts = {name: _integer(run[name], f"test_run.{name}") for name in ("total", "passed", "failed", "skipped")}
+    if counts["total"] <= 0:
+        raise ValidationManifestError("test_run.total must be greater than zero.")
     if counts["failed"] != 0:
         raise ValidationManifestError("test_run.failed must be zero.")
     if counts["total"] < counts["passed"] + counts["failed"] + counts["skipped"]:

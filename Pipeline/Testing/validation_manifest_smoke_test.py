@@ -92,6 +92,11 @@ class ValidationManifestSmokeTest(unittest.TestCase):
         for value in (True, -1, 1.5, "1"):
             self.run_case(lambda raw, value=value: raw["test_run"].__setitem__("passed", value))
         self.run_case(lambda raw: raw["test_run"].update(total=1, passed=2))
+        self.run_case(
+            lambda raw: raw["test_run"].update(
+                total=0, passed=0, failed=0, skipped=0
+            )
+        )
 
     def test_xml_mismatch_and_malformed(self):
         self.run_case(lambda raw: raw["test_run"].__setitem__("total", 4))
