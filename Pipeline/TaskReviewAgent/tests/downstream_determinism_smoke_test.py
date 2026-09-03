@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from Pipeline.TaskReviewAgent.codex_supervisor import (  # noqa: E402
+    CodexDockerDecisionProvider,
     CodexSupervisorError,
     SupervisorDecision,
 )
@@ -24,6 +25,7 @@ from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_determinism import (  # noqa: E402
     _assert_current_main_integrated,
     _authoritative_human_validation,
+    _patched_provider_decide,
     _record_same_state_rejection,
     allowed_actions_for,
     bounded_history,
@@ -59,6 +61,24 @@ from Pipeline.TaskReviewAgent.tests.downstream_resilience_smoke_test import (  #
 def require(value: bool, message: str) -> None:
     if not value:
         raise AssertionError(message)
+
+
+def test_zero_argument_single_action_bypasses_provider() -> None:
+    provider = object.__new__(CodexDockerDecisionProvider)
+    provider.last_usage = None
+    decision = _patched_provider_decide(
+        provider,
+        task_id="NSC-020",
+        turn=1,
+        prompt="provider must not be called",
+        allowed_actions=("publish_delivery_review",),
+    )
+    require(decision.action == "publish_delivery_review", "wrong host action")
+    require(decision.arguments == {}, "host action invented arguments")
+    require(
+        provider.last_usage.get("authority") == "deterministic_host_single_action",
+        "host bypass authority was not reported",
+    )
 
 
 class FakeBackend:
@@ -543,6 +563,7 @@ def test_nsc042_policy_is_exact_editmode_filter() -> None:
 
 def main() -> int:
     tests = (
+        test_zero_argument_single_action_bypasses_provider,
         test_human_authority_ignores_agent_template,
         test_automation_receipt_rebuilds_from_issue_and_git,
         test_automation_receipt_rejects_task_blob_change,

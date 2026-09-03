@@ -59,6 +59,19 @@ _NEXT_ACTION_ALIASES = {
     "open_pull_request": "finalize_delivery_evidence_and_open_pr",
 }
 
+_HOST_DETERMINISTIC_ZERO_ARGUMENT_ACTIONS = frozenset(
+    {
+        "prepare_task_checkout",
+        "integrate_current_main",
+        "create_delivery_review_draft",
+        "delivery_review_facts",
+        "publish_delivery_review",
+        "finalize_delivery_evidence_and_open_pr",
+        "inspect_or_merge_pull_request",
+        "verify_post_merge_and_complete",
+    }
+)
+
 
 def _short(value: Any, *, limit: int = 700) -> str:
     text = " ".join(str(value).split())
@@ -397,6 +410,25 @@ def _patched_provider_decide(
     if not actual:
         actual = tuple(allowed_actions)
     try:
+        if (
+            len(actual) == 1
+            and actual[0] in _HOST_DETERMINISTIC_ZERO_ARGUMENT_ACTIONS
+        ):
+            self.last_usage = {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "authority": "deterministic_host_single_action",
+            }
+            return SupervisorDecision(
+                task_id=task_id,
+                action=actual[0],
+                arguments={},
+                rationale=(
+                    "Deterministic host state permits exactly this zero-argument "
+                    "action; no provider judgment is required."
+                ),
+            )
         return _ORIGINALS["provider_decide"](
             self,
             task_id=task_id,
