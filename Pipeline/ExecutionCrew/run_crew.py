@@ -2,7 +2,7 @@
 """Run the minimum production ExecutionCrew for one human-selected task."""
 from __future__ import annotations
 
-import argparse, hashlib, json, math, os, re, stat, subprocess, sys, tempfile, threading, time
+import argparse, hashlib, json, math, os, re, stat, subprocess, sys, tempfile, threading, time, unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
@@ -37,6 +37,7 @@ from Pipeline.ExecutionCrew.schemas import (
     VALIDATOR_CONTRACT_REVIEW_REASON_CODES,
     VALIDATOR_NON_PASS_REASON_CODES,
     VALIDATOR_STATUS_REASON_CODES,
+    ROLE_OUTPUT_NORMALIZATION,
     SourceIdentity,
 )
 from work_graph_validate import WorkGraphValidationError, _validate_v2_task
@@ -717,7 +718,7 @@ def validator_semantic_reasons(output: Mapping[str, Any], expected_ids: tuple[st
     if unknown: reasons.append(f"validator criteria_results contains unknown IDs: {', '.join(unknown)}")
     status = output.get("status")
     failed = any(item.get("status") == "fail" for item in results if isinstance(item, Mapping))
-    blocking = bool(output.get("blocking_issues"))
+    blocking = bool(normalized_validator_blocking_issues(output.get("blocking_issues")))
     non_pass_reason_used = False
     contract_review_reason_used = False
     for item in results:
@@ -793,9 +794,50 @@ def safe_human_reason(reasons: list[str]) -> str | None:
     return first
 
 
-_EMPTY_BLOCKER_SENTINELS = frozenset(
-    {"none", "(none)", "no blocker", "no blockers", "(no blocker)", "(no blockers)"}
+_EMPTY_AGENT_SENTINELS = frozenset(
+    {
+        "empty",
+        "n/a",
+        "na",
+        "nil",
+        "no blocker",
+        "no blockers",
+        "no blockers found",
+        "no blockers identified",
+        "no changes",
+        "no changes were made",
+        "no issues",
+        "no issues found",
+        "no",
+        "none",
+        "none - no changes were made",
+        "none found",
+        "none identified",
+        "not applicable",
+        "nothing",
+        "nothing to report",
+        "null",
+    }
 )
+
+
+def _is_empty_agent_sentinel(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    text = unicodedata.normalize("NFKC", value).replace("\u00a0", " ").strip()
+    if len(text) > 64:
+        return False
+    while len(text) >= 2 and (text[0], text[-1]) in {
+        ("(", ")"),
+        ("[", "]"),
+        ("{", "}"),
+        ('"', '"'),
+        ("'", "'"),
+    }:
+        text = text[1:-1].strip()
+    text = text.strip(" \t-–—•").rstrip(".!;,:…").strip()
+    text = " ".join(text.split()).casefold()
+    return text == "" or text in _EMPTY_AGENT_SENTINELS
 
 
 def normalized_agent_blockers(value: Any) -> list[str]:
@@ -813,10 +855,81 @@ def normalized_agent_blockers(value: Any) -> list[str]:
         if not isinstance(item, str):
             continue
         text = item.strip()
-        if not text or text.casefold() in _EMPTY_BLOCKER_SENTINELS:
+        if not text or _is_empty_agent_sentinel(text):
             continue
         blockers.append(text)
     return blockers
+
+
+def normalized_agent_claimed_paths(value: Any) -> list[str]:
+    """Preserve claimed paths except explicit prose meaning no changed paths."""
+
+    if not isinstance(value, list):
+        return []
+    return [
+        item.strip()
+        for item in value
+        if isinstance(item, str)
+        and item.strip()
+        and not _is_empty_agent_sentinel(item)
+    ]
+
+
+def normalized_validator_blocking_issues(value: Any) -> list[Mapping[str, Any]]:
+    """Ignore only validator issue objects whose every text field says none."""
+
+    if not isinstance(value, list):
+        return []
+    issues: list[Mapping[str, Any]] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            continue
+        text_values = [item.get(name) for name in ("path", "issue", "required_fix")]
+        if all(isinstance(text, str) for text in text_values) and all(
+            _is_empty_agent_sentinel(text) for text in text_values
+        ):
+            continue
+        issues.append(item)
+    return issues
+
+
+def normalize_role_structured_output(
+    role: str, output: Any
+) -> tuple[dict[str, Any], dict[str, list[Any]]]:
+    """Normalize only declared ExecutionCrew empty sentinels, with audit evidence."""
+
+    if not isinstance(output, Mapping):
+        return {}, {}
+    normalized = dict(output)
+    discarded: dict[str, list[Any]] = {}
+    for field_name, field_kind in ROLE_OUTPUT_NORMALIZATION.get(role, {}).items():
+        original = output.get(field_name)
+        if not isinstance(original, list):
+            continue
+        if field_kind in {"string_list", "path_list"}:
+            kept = [
+                item
+                for item in original
+                if isinstance(item, str) and not _is_empty_agent_sentinel(item)
+            ]
+        elif field_kind == "blocking_issue_list":
+            kept = normalized_validator_blocking_issues(original)
+        else:
+            raise CrewBlocked(
+                f"unsupported structured-output normalization kind {field_kind!r}"
+            )
+        normalized[field_name] = kept
+        removed = [item for item in original if item not in kept]
+        if removed:
+            discarded[field_name] = removed
+    return normalized, discarded
+
+
+def _normalization_audit_fields(discarded: Mapping[str, list[Any]]) -> dict[str, Any]:
+    return {
+        f"normalized_discarded_{field_name}": list(values)
+        for field_name, values in discarded.items()
+    }
 
 def source_revalidation(source: Path, identity: SourceIdentity):
     reasons=[]
@@ -1241,13 +1354,15 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 before=snapshot(clone)
                 inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=impl_plan.existing_paths,new_implementation_paths=impl_plan.new_paths,pipeline_sidecars=impl_plan.pipeline_generated_sidecars,other_role_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
                 after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
-                output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
+                raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
+                output,normalized_discarded=normalize_role_structured_output("implementer",raw_output)
+                blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
                 generated=[]
                 if not scope and not blockers:
                     for new_path, sidecar in zip(impl_plan.new_paths, (_sidecar(path) for path in impl_plan.new_paths)):
                         if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
                             (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
-                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict()}
+                record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
                 (run_dir/f"role_results/implementer_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
                 progress.emit("scope_check_completed",f"Implementer {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="implementer",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
@@ -1270,13 +1385,15 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                         and bool(test_plan.new_paths)
                     ),
                 ); scope+=source_revalidation(source_root,identity)
-                output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
+                raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
+                output,normalized_discarded=normalize_role_structured_output("test_author",raw_output)
+                blockers=normalized_agent_blockers(output.get("blockers",[])); scope += ([] if res.status=="succeeded" else [f"AgentResult failed: {res.failure_classification}"])
                 generated=[]
                 if not scope and not blockers:
                     for new_path, sidecar in zip(test_plan.new_paths, (_sidecar(path) for path in test_plan.new_paths)):
                         if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
                             (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
-                record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":list(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict()}
+                record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
                 (run_dir/f"role_results/test_author_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/test_author_{attempt}.json"); test_actual.update(actual); latest_test=output
                 progress.emit("scope_check_completed",f"Test Author {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="test_author",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
@@ -1290,10 +1407,13 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 new_surface=tuple(sorted((*impl_plan.new_paths, *test_plan.new_paths, *pipeline_generated)))
                 candidate=full_patch(clone,identity.head,new_surface); final_paths=changed_paths(baseline_clone,snapshot(clone))
                 inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
-                scope=source_revalidation(source_root,identity); output=thaw_json(res.structured_output) if res.status=="succeeded" else {}; validator_status=output.get("status")
+                scope=source_revalidation(source_root,identity)
+                raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
+                output,normalized_discarded=normalize_role_structured_output("validator",raw_output)
+                validator_status=output.get("status")
                 if res.status!="succeeded": scope.append(f"AgentResult failed: {res.failure_classification}")
                 else: scope += validator_semantic_reasons(output, expected_requirement_ids)
-                record={"role":"validator","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict()}
+                record={"role":"validator","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":scope,"duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
                 (run_dir/f"role_results/validator_{attempt}.json").write_text(json.dumps(record,indent=2,sort_keys=True)+"\n"); role_records.append(f"role_results/validator_{attempt}.json"); latest_validator=output
                 progress.emit("validator_completed",f"Validator {attempt} completed: {validator_status or res.status}",role="validator",attempt=attempt,status=validator_status or res.status)
                 if scope: reasons+=scope; crew_status="rejected"; stop=True; break

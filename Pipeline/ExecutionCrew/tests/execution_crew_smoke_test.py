@@ -7,6 +7,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+# Every Git subprocess in this smoke test operates only on throwaway repositories.
+# Pin checkout conversion at the process boundary so Windows global autocrlf cannot
+# make an early byte assertion fail or give later fixtures contradictory trees.
+os.environ["GIT_CONFIG_COUNT"] = "1"
+os.environ["GIT_CONFIG_KEY_0"] = "core.autocrlf"
+os.environ["GIT_CONFIG_VALUE_0"] = "false"
+
 sys.dont_write_bytecode=True
 ROOT=Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
@@ -14,12 +21,12 @@ from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import Usage
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse
 from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider, ClaudeLiveRenderer
-from Pipeline.ExecutionCrew.run_crew import CrewBlocked, EntryState, Snapshot, audit_commands, changed_paths, clone_exact, construct_real_provider, full_patch, main as crew_main, normalized_agent_blockers, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, unity_meta_bytes, validate_host_output_root
+from Pipeline.ExecutionCrew.run_crew import CrewBlocked, EntryState, Snapshot, audit_commands, changed_paths, clone_exact, construct_real_provider, full_patch, main as crew_main, normalize_role_structured_output, normalized_agent_blockers, normalized_agent_claimed_paths, normalized_validator_blocking_issues, patch_commands, powershell_single_quote, print_human_summary, run_crew, runtime_configuration, safe_human_reason, unity_meta_bytes, validate_host_output_root, validator_semantic_reasons
 
 TASK="NSC-005"; IMPL="Assets/Scripts/PlayerMana.cs"; TEST="Assets/Tests/PlayerManaTests.cs"; OTHER="Assets/Scripts/Other.cs"; NEW_IMPL="Assets/Scripts/EnemyHealth.cs"; NEW_TEST="Assets/Tests/EnemyHealthPlayModeTests.cs"; OUTSIDE_NEW="Docs/NewBehavior.md"; SECRET="FULL_ROLE_PROMPT_SENTINEL_SECRET"
 RELATED_TASK="NSC-010"
 def cmd(root,*args): return subprocess.run(("git","-C",str(root),*args),check=True,stdout=subprocess.PIPE,text=True).stdout.strip()
-def write(path,text): path.parent.mkdir(parents=True,exist_ok=True); path.write_text(text,encoding="utf-8")
+def write(path,text): path.parent.mkdir(parents=True,exist_ok=True); path.write_text(text,encoding="utf-8",newline="\n")
 
 def root_task():
     """Minimal valid persistent-graph root (NSC-001); required by load_persistent_work_graph."""
@@ -244,7 +251,7 @@ def main():
     root=Path(td); source=fixture(root); outputs=root/"outputs"; baseline=(cmd(source,"rev-parse","HEAD"),cmd(source,"status","--porcelain=v1","--untracked-files=all"),(source/IMPL).read_bytes())
     cmd(source,"config","core.autocrlf","true")
     with tempfile.TemporaryDirectory(prefix="clone-proof-") as clone_parent:
-        clone_parent=Path(clone_parent); fake_home=clone_parent/"home"; fake_home.mkdir(); normal_config=fake_home/".gitconfig"; normal_config.write_text("[user]\n\tname = Untouched\n")
+        clone_parent=Path(clone_parent); fake_home=clone_parent/"home"; fake_home.mkdir(); normal_config=fake_home/".gitconfig"; normal_config.write_text("[user]\n\tname = Untouched\n", newline="\n")
         calls=[]
         def recording_runner(argv,**kwargs):
             calls.append((tuple(argv),dict(kwargs))); return subprocess.run(argv,**kwargs)
@@ -603,7 +610,7 @@ def main():
     write(contract_changed/f"Tasks/{TASK}.yaml",json.dumps(changed_task)+"\n")
     cmd(contract_changed,"add",f"Tasks/{TASK}.yaml"); cmd(contract_changed,"commit","-qm","change task contract")
     contract_feedback_dir=outputs/"contract-feedback"; contract_feedback_dir.mkdir(exist_ok=True)
-    contract_feedback_path=contract_feedback_dir/"retry.txt"; contract_feedback_path.write_text("review correction\n")
+    contract_feedback_path=contract_feedback_dir/"retry.txt"; contract_feedback_path.write_text("review correction\n", newline="\n")
     contract_state=State("seed_preserve",contract_changed,"review correction\n")
     try:
         run_crew(source=contract_changed,output_root=outputs,run_id="retry-contract-changed-163",
@@ -624,7 +631,7 @@ def main():
     prior_result_path=prior_dir/"crew_result.json"
     prior_result_json=json.loads(prior_result_path.read_text())
     prior_result_json.pop("candidate_patch_sha256",None)
-    prior_result_path.write_text(json.dumps(prior_result_json,indent=2,sort_keys=True)+"\n")
+    prior_result_path.write_text(json.dumps(prior_result_json,indent=2,sort_keys=True)+"\n", newline="\n")
     prior_source_head=prior["source_head"]
     write(source/IMPL,"public class PlayerMana { public int Mana; }\n")
     write(source/TEST,"public class PlayerManaTests { public void ManaTest() {} }\n")
@@ -723,7 +730,36 @@ def main():
     assert safe_human_reason(["test author blocker: leak this text"])=="The Test Author reported a blocker."
     assert safe_human_reason(["validator blocked_by_design"])=="validator blocked_by_design"
     assert normalized_agent_blockers(["(none)", " no blockers ", ""])==[]
+    empty_variants=["(none)","None.","none","NONE","N/A","n/a.","NA","- none -","  (No Blockers)  ","nil","Nothing to report.","not applicable","—","\u00a0none\u00a0"]
+    assert normalized_agent_blockers(empty_variants)==[]
     assert normalized_agent_blockers(["Cannot compile", "(none)"])==["Cannot compile"]
+    substantive=[
+        "None of the approved paths allow the required change",
+        "none identified in the approved scope, but the meta guid is wrong",
+        "N/A because the contract omits the target assembly",
+    ]
+    assert normalized_agent_blockers(substantive)==substantive
+    assert normalized_agent_claimed_paths(["(none - no changes were made)", "Assets/Real.cs"])==["Assets/Real.cs"]
+    empty_validator_issue={"path":"(none)","issue":"N/A","required_fix":"None identified."}
+    assert normalized_validator_blocking_issues([empty_validator_issue])==[]
+    real_validator_issue={"path":IMPL,"issue":"Incorrect value","required_fix":"Set the expected value"}
+    assert normalized_validator_blocking_issues([empty_validator_issue,real_validator_issue])==[real_validator_issue]
+    assert validator_semantic_reasons(
+        {"status":"pass","criteria_results":[],"blocking_issues":[empty_validator_issue]},
+        (),
+    )==[]
+    assert "validator pass contains blocking issues" in validator_semantic_reasons(
+        {"status":"pass","criteria_results":[],"blocking_issues":[real_validator_issue]},
+        (),
+    )
+    normalized,discarded=normalize_role_structured_output(
+        "test_author",
+        {"blockers":["(none)","Cannot compile"],"claimed_changed_paths":["(none - no changes were made)",IMPL]},
+    )
+    assert normalized["blockers"]==["Cannot compile"] and normalized["claimed_changed_paths"]==[IMPL]
+    assert discarded=={"blockers":["(none)"],"claimed_changed_paths":["(none - no changes were made)"]}
+    original=["Cannot compile","(none)",None,{"nested":"none"}]
+    assert normalized_agent_blockers(original)==["Cannot compile"]
     impl_leak_retry,impl_leak_state,impl_leak_dir=retry_execute(source,outputs,"blocker_leak",77,prior["run_id"],feedback_path,feedback_text)
     assert impl_leak_retry["crew_status"]=="blocked"
     assert [role for role,_,_ in impl_leak_state.calls]==["contract_locality_auditor","implementer"]
@@ -908,7 +944,7 @@ def main():
     del legacy_json["requested_implementation_paths"]; del legacy_json["requested_test_paths"]
     for field in ("requested_existing_implementation_paths","requested_new_implementation_paths","requested_existing_test_paths","requested_new_test_paths","pipeline_generated_paths"):
         legacy_json.pop(field,None)
-    legacy_result_path.write_text(json.dumps(legacy_json,indent=2,sort_keys=True)+"\n")
+    legacy_result_path.write_text(json.dumps(legacy_json,indent=2,sort_keys=True)+"\n", newline="\n")
     legacy_retry,legacy_state,_=retry_execute(source,outputs,"pass",74,legacy["run_id"],feedback_path,feedback_text)
     assert legacy_retry["requested_implementation_paths"]==sorted((IMPL,OTHER))
     assert legacy_retry["requested_test_paths"]==[TEST]
@@ -1002,7 +1038,7 @@ def main():
     def copied_prior(new_id, mutate):
         destination=outputs/new_id; shutil.copytree(prior_dir,destination)
         value=json.loads((destination/"crew_result.json").read_text()); value["run_id"]=new_id; mutate(value)
-        (destination/"crew_result.json").write_text(json.dumps(value,indent=2,sort_keys=True)+"\n")
+        (destination/"crew_result.json").write_text(json.dumps(value,indent=2,sort_keys=True)+"\n", newline="\n")
         return destination
 
     def expect_retry_blocked(prior_id, feedback, run_id, expected):
@@ -1027,7 +1063,7 @@ def main():
     missing_candidate=copied_prior("prior-missing-candidate",lambda value:None)
     (missing_candidate/"candidate.patch").unlink()
     expect_retry_blocked("prior-missing-candidate",feedback_path,"fail-candidate-missing","prior candidate.patch")
-    invalid_json=outputs/"prior-invalid-json"; invalid_json.mkdir(); (invalid_json/"crew_result.json").write_text("[]\n")
+    invalid_json=outputs/"prior-invalid-json"; invalid_json.mkdir(); (invalid_json/"crew_result.json").write_text("[]\n", newline="\n")
     expect_retry_blocked("prior-invalid-json",feedback_path,"fail-json","JSON object")
     missing_result=outputs/"prior-missing-result"; missing_result.mkdir()
     expect_retry_blocked("prior-missing-result",feedback_path,"fail-result-missing","crew_result.json")
@@ -1039,7 +1075,7 @@ def main():
     copied_prior("prior-unrelated",lambda value:(value.__setitem__("source_head",orphan_head),value.__setitem__("source_tree",cmd(source,"rev-parse",f"{orphan_head}^{{tree}}"))))
     expect_retry_blocked("prior-unrelated",feedback_path,"fail-ancestor","must be an ancestor")
 
-    outside_feedback=root/"outside-feedback.txt"; outside_feedback.write_text("outside\n")
+    outside_feedback=root/"outside-feedback.txt"; outside_feedback.write_text("outside\n", newline="\n")
     expect_retry_blocked(prior["run_id"],outside_feedback,"fail-feedback-outside","strictly underneath")
     expect_retry_blocked(prior["run_id"],feedback_dir/"missing.txt","fail-feedback-missing","does not exist")
     empty_feedback=feedback_dir/"empty.txt"; empty_feedback.write_bytes(b"")
@@ -1313,7 +1349,7 @@ def main():
     for field in ("contract_locality_status","contract_locality_audit_path","contract_locality_audit_host_path"):
         pre_feature_json.pop(field,None)
     pre_feature_json["role_results"]=[p for p in pre_feature_json["role_results"] if p!="role_results/contract_locality_auditor_1.json"]
-    pre_feature_result_path.write_text(json.dumps(pre_feature_json,indent=2,sort_keys=True)+"\n")
+    pre_feature_result_path.write_text(json.dumps(pre_feature_json,indent=2,sort_keys=True)+"\n", newline="\n")
     (pre_feature_dir/"contract_locality_audit.json").unlink(missing_ok=True)
     assert not (pre_feature_dir/"contract_locality_audit.json").exists()
 
@@ -1322,7 +1358,7 @@ def main():
     # IMPL/TEST would intentionally make the old candidate stale and must now fail closed.
     for field in ("candidate_patch_sha256","retry_seed_candidate_sha256","retry_seed_mode"):
         pre_feature_json.pop(field,None)
-    pre_feature_result_path.write_text(json.dumps(pre_feature_json,indent=2,sort_keys=True)+"\n")
+    pre_feature_result_path.write_text(json.dumps(pre_feature_json,indent=2,sort_keys=True)+"\n", newline="\n")
 
     pre_feature_head=pre_feature_json["source_head"]
     write(source/OTHER,"public class Other { public int PreFeatureUnrelatedMarker; }\n")
@@ -1347,7 +1383,7 @@ def main():
     cmd(retry_source,"config","user.name","Crew Smoke"); cmd(retry_source,"config","user.email","crew@example.invalid")
     retry_outputs=root/"new-retry-outputs"
     prior_new,_,prior_new_dir=execute(retry_source,retry_outputs,"new_files",140,provider="claude",implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
-    retry_feedback_dir=retry_outputs/"feedback"; retry_feedback_dir.mkdir(); retry_feedback=retry_feedback_dir/"review.txt"; retry_feedback.write_text("Adjust the newly committed behavior.\n")
+    retry_feedback_dir=retry_outputs/"feedback"; retry_feedback_dir.mkdir(); retry_feedback=retry_feedback_dir/"review.txt"; retry_feedback.write_text("Adjust the newly committed behavior.\n", newline="\n")
     retry_source_head=cmd(retry_source,"rev-parse","HEAD")
     absent_retry,absent_state,absent_dir=retry_execute(retry_source,retry_outputs,"new_files",139,prior_new["run_id"],retry_feedback,"Adjust the newly committed behavior.\n")
     assert absent_retry["crew_status"]=="review_ready"
@@ -1407,11 +1443,11 @@ def main():
     # New-format existing/new metadata is only a claim: the prior source commit is authoritative.
     tamper_source=root/"retry-tamper-source"; subprocess.run(("git","clone","-q",str(source),str(tamper_source)),check=True)
     cmd(tamper_source,"config","user.name","Crew Smoke"); cmd(tamper_source,"config","user.email","crew@example.invalid")
-    tamper_outputs=root/"retry-tamper-outputs"; tamper_feedback=tamper_outputs/"feedback.txt"; tamper_outputs.mkdir(); tamper_feedback.write_text("Retry tamper proof.\n")
+    tamper_outputs=root/"retry-tamper-outputs"; tamper_feedback=tamper_outputs/"feedback.txt"; tamper_outputs.mkdir(); tamper_feedback.write_text("Retry tamper proof.\n", newline="\n")
     prior_existing,_,prior_existing_dir=execute(tamper_source,tamper_outputs,"pass",148,provider="claude")
     existing_json=json.loads((prior_existing_dir/"crew_result.json").read_text())
     existing_json["requested_existing_implementation_paths"]=[]; existing_json["requested_new_implementation_paths"]=[IMPL]
-    (prior_existing_dir/"crew_result.json").write_text(json.dumps(existing_json,indent=2,sort_keys=True)+"\n")
+    (prior_existing_dir/"crew_result.json").write_text(json.dumps(existing_json,indent=2,sort_keys=True)+"\n", newline="\n")
     (tamper_source/IMPL).unlink(); cmd(tamper_source,"add",IMPL); cmd(tamper_source,"commit","-qm","delete prior-existing fixture")
     try: retry_execute(tamper_source,tamper_outputs,"pass",149,prior_existing["run_id"],tamper_feedback,"Retry tamper proof.\n")
     except CrewBlocked as exc: assert "does not match prior source HEAD" in str(exc),str(exc)
@@ -1420,7 +1456,7 @@ def main():
     prior_new_tamper,_,prior_new_tamper_dir=execute(tamper_source,tamper_outputs,"new_files",150,provider="claude",implementation_paths=(),test_paths=(),new_implementation_paths=(NEW_IMPL,),new_test_paths=(NEW_TEST,))
     new_json=json.loads((prior_new_tamper_dir/"crew_result.json").read_text())
     new_json["requested_existing_implementation_paths"]=[NEW_IMPL]; new_json["requested_new_implementation_paths"]=[]
-    (prior_new_tamper_dir/"crew_result.json").write_text(json.dumps(new_json,indent=2,sort_keys=True)+"\n")
+    (prior_new_tamper_dir/"crew_result.json").write_text(json.dumps(new_json,indent=2,sort_keys=True)+"\n", newline="\n")
     try: retry_execute(tamper_source,tamper_outputs,"new_files",151,prior_new_tamper["run_id"],tamper_feedback,"Retry tamper proof.\n")
     except CrewBlocked as exc: assert "does not match prior source HEAD" in str(exc),str(exc)
     else: raise AssertionError("prior-new path was relabeled prior-existing")

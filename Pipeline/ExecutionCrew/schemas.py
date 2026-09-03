@@ -119,6 +119,24 @@ VALIDATOR_NON_PASS_REASON_CODES = VALIDATOR_NOT_PROVEN_REASON_CODES - {"runtime_
 VALIDATOR_CONTRACT_REVIEW_REASON_CODES = frozenset({"missing_integration_dependency", "design_ambiguity"})
 
 
+# Provider output is schema-valid before this crew-specific normalization runs.
+# Keep the policy declarative and role-scoped so architect/decomposition payloads
+# never inherit ExecutionCrew's tolerance for short-form empty answers.
+ROLE_OUTPUT_NORMALIZATION = {
+    "implementer": {
+        "blockers": "string_list",
+        "claimed_changed_paths": "path_list",
+    },
+    "test_author": {
+        "blockers": "string_list",
+        "claimed_changed_paths": "path_list",
+    },
+    "validator": {
+        "blocking_issues": "blocking_issue_list",
+    },
+}
+
+
 @dataclass(frozen=True)
 class SourceIdentity:
     root: str
