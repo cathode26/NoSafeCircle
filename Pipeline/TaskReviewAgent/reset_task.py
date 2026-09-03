@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Sequence
@@ -17,22 +18,39 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.contracts import validate_task_id  # noqa: E402
+from Pipeline.TaskReviewAgent.git_identity_guard import (  # noqa: E402
+    validated_agent_git_identity,
+)
+from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    WorkflowState,
+    parse_state,
+)
 from Pipeline.TaskReviewAgent.real_checkout import branch_name  # noqa: E402
 from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
     CommandRunner,
     RehearsalResetError,
     RehearsalTaskReset,
     _archive_state_files,
+    _changed_paths,
+    _commit_parents,
+    _containers_using_checkout,
     _create_report,
+    _controller_task_worktrees,
+    _find_pull_request,
     _git,
     _git_text,
+    _inspect_checkout,
     _json_command,
+    _processes_using_checkout,
     _relevant_claims,
     _remote_ref_oid,
     _repo_metadata,
     _repository_from_origin,
+    _require_archive_repository,
     _state_paths,
     _task_state,
+    _validate_complete_issue,
+    _validate_pull_request,
     _validate_taskgraph,
     _write_report,
 )
@@ -40,6 +58,10 @@ from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
 
 class TaskResetError(RehearsalResetError):
     """Raised when production abandoned-state cleanup cannot be proven safe."""
+
+
+PRODUCTION_RESET_TASK_TRAILER = "NSC-Production-Reset-Task"
+PRODUCTION_RESET_MERGE_TRAILER = "NSC-Production-Reset-Merge"
 
 
 def _managed_task_issues(
@@ -112,6 +134,450 @@ def _task_pull_requests(
     if not isinstance(value, list):
         raise TaskResetError("GitHub pull-request listing was invalid")
     return [item for item in value if isinstance(item, dict)]
+
+
+def _tree_entry(
+    runner: CommandRunner, source: Path, commit: str, path: str
+) -> tuple[str, str, str] | None:
+    value = _git_text(runner, source, "ls-tree", commit, "--", path)
+    if not value:
+        return None
+    lines = value.splitlines()
+    if len(lines) != 1:
+        raise TaskResetError(f"tree lookup returned multiple entries for {path}")
+    metadata, separator, returned_path = lines[0].partition("\t")
+    fields = metadata.split()
+    if not separator or returned_path != path or len(fields) != 3:
+        raise TaskResetError(f"tree lookup returned an invalid entry for {path}")
+    return fields[0], fields[1], fields[2]
+
+
+def _require_task_paths_unchanged_since_merge(
+    runner: CommandRunner,
+    source: Path,
+    *,
+    merge_commit: str,
+    current_main: str,
+    paths: Sequence[str],
+) -> None:
+    changed = [
+        path
+        for path in paths
+        if _tree_entry(runner, source, merge_commit, path)
+        != _tree_entry(runner, source, current_main, path)
+    ]
+    if changed:
+        raise TaskResetError(
+            "later production commits changed task-owned paths; automatic revert is refused: "
+            + ", ".join(changed)
+        )
+
+
+def _committed_task_contracts(
+    runner: CommandRunner, source: Path
+) -> dict[str, dict[str, Any]]:
+    listing = _git_text(
+        runner, source, "ls-tree", "-r", "--name-only", "HEAD", "--", "Tasks"
+    )
+    contracts: dict[str, dict[str, Any]] = {}
+    for path in listing.splitlines():
+        if not re.fullmatch(r"Tasks/NSC-[0-9]{3}\.yaml", path):
+            continue
+        raw = _git_text(runner, source, "show", f"HEAD:{path}")
+        try:
+            contract = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise TaskResetError(f"committed task contract is invalid JSON: {path}") from exc
+        task_id = contract.get("id") if isinstance(contract, dict) else None
+        if not isinstance(task_id, str) or task_id in contracts:
+            raise TaskResetError(f"committed task identity is invalid or duplicated: {path}")
+        contracts[task_id] = contract
+    return contracts
+
+
+def _transitive_active_dependents(
+    contracts: dict[str, dict[str, Any]], task_id: str
+) -> tuple[str, ...]:
+    reverse: dict[str, set[str]] = {}
+    for dependent_id, contract in contracts.items():
+        if contract.get("contract_disposition") != "active":
+            continue
+        dependencies = contract.get("depends_on")
+        if not isinstance(dependencies, list):
+            raise TaskResetError(f"{dependent_id}.depends_on is not a list")
+        for dependency_id in dependencies:
+            if not isinstance(dependency_id, str):
+                raise TaskResetError(f"{dependent_id}.depends_on contains a non-string")
+            reverse.setdefault(dependency_id, set()).add(dependent_id)
+    found: set[str] = set()
+    pending = list(sorted(reverse.get(task_id, set())))
+    while pending:
+        dependent_id = pending.pop(0)
+        if dependent_id in found:
+            continue
+        found.add(dependent_id)
+        pending.extend(sorted(reverse.get(dependent_id, set()) - found))
+    return tuple(sorted(found))
+
+
+def _require_no_built_dependents(
+    runner: CommandRunner, source: Path, task_id: str
+) -> None:
+    contracts = _committed_task_contracts(runner, source)
+    dependents = _transitive_active_dependents(contracts, task_id)
+    if not dependents:
+        return
+    value = _json_command(
+        runner,
+        (
+            sys.executable,
+            str(source / "Pipeline" / "TaskGraph" / "taskcontrol.py"),
+            "states",
+            "--json",
+        ),
+        cwd=source,
+    )
+    if not isinstance(value, list):
+        raise TaskResetError("TaskGraph states result was invalid")
+    by_id = {
+        item.get("task_id"): item
+        for item in value
+        if isinstance(item, dict) and isinstance(item.get("task_id"), str)
+    }
+    missing = [dependent_id for dependent_id in dependents if dependent_id not in by_id]
+    if missing:
+        raise TaskResetError(
+            "TaskGraph did not report dependent state for: " + ", ".join(missing)
+        )
+    built = [
+        {
+            "task_id": dependent_id,
+            "state": by_id[dependent_id].get("state"),
+            "selected_record_id": by_id[dependent_id].get("selected_record_id"),
+        }
+        for dependent_id in dependents
+        if by_id[dependent_id].get("state") != "not_delivered"
+    ]
+    if built:
+        raise TaskResetError(
+            "one or more direct/transitive dependent tasks are already built or otherwise "
+            "past not_delivered; production revert is refused:\n"
+            + json.dumps(built, indent=2, sort_keys=True)
+        )
+
+
+def _complete_production_issues(
+    runner: CommandRunner,
+    source: Path,
+    repository: str,
+    task_id: str,
+    branch: str,
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for issue in _managed_task_issues(
+        runner, source, repository, task_id, "closed"
+    ):
+        body = issue.get("body")
+        if not isinstance(body, str):
+            continue
+        try:
+            state = parse_state(body)
+        except ValueError:
+            continue
+        if (
+            state is not None
+            and state.state is WorkflowState.COMPLETE
+            and state.task_id == task_id
+            and state.branch == branch
+            and state.head_commit is not None
+        ):
+            candidate = {**issue, "workflow_state": state}
+            _validate_complete_issue(
+                runner,
+                source,
+                repository,
+                candidate,
+                require_state_label=True,
+            )
+            candidates.append(candidate)
+    return candidates
+
+
+class ProductionDeliveredTaskReset(RehearsalTaskReset):
+    """Additively revert one exact completed production delivery."""
+
+    def preflight(self) -> dict[str, Any]:
+        if Path(_git_text(self.runner, self.source, "rev-parse", "--show-toplevel")).resolve() != self.source:
+            raise TaskResetError("source is not the exact Git repository root")
+        if _git_text(self.runner, self.source, "branch", "--show-current") != "main":
+            raise TaskResetError("production controller must be on main")
+        if _git_text(
+            self.runner,
+            self.source,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ):
+            raise TaskResetError("production controller is not completely clean")
+        metadata = _repo_metadata(self.runner, self.source, self.repository)
+        if str(metadata.get("nameWithOwner") or "").casefold() != self.repository.casefold():
+            raise TaskResetError("GitHub repository identity changed")
+        if metadata.get("isArchived") is True:
+            raise TaskResetError("production repository is archived")
+        if "rehearsal" in self.repository.casefold():
+            raise TaskResetError("use merged-rehearsal mode for rehearsal repositories")
+
+        _git(self.runner, self.source, "fetch", "--prune", "origin", "main")
+        head = _git_text(self.runner, self.source, "rev-parse", "HEAD")
+        if _git_text(self.runner, self.source, "rev-parse", "origin/main") != head:
+            raise TaskResetError("production HEAD must exactly equal fetched origin/main")
+        task_state = _task_state(self.runner, self.source, self.task_id)
+        if task_state.get("state") != "conformant":
+            raise TaskResetError(
+                "there is no conformant delivered production task to revert; "
+                f"TaskGraph reports {task_state.get('state')!r}"
+            )
+        _validate_taskgraph(self.runner, self.source)
+        _require_no_built_dependents(self.runner, self.source, self.task_id)
+
+        archive_meta = _repo_metadata(
+            self.runner, self.source, self.archive_repository
+        )
+        _require_archive_repository(
+            archive_meta,
+            source_repository=self.repository,
+            archive_repository=self.archive_repository,
+        )
+        open_issues = _managed_task_issues(
+            self.runner, self.source, self.repository, self.task_id, "open"
+        )
+        if open_issues:
+            raise TaskResetError("an open task Issue exists; delivered reset is refused")
+        issues = _complete_production_issues(
+            self.runner,
+            self.source,
+            self.repository,
+            self.task_id,
+            self.branch,
+        )
+        if len(issues) != 1:
+            raise TaskResetError(
+                "exactly one closed, valid COMPLETE Issue must identify the production delivery"
+            )
+        issue = issues[0]
+        workflow_state = issue["workflow_state"]
+        task_head = str(workflow_state.head_commit)
+
+        merged_prs = _task_pull_requests(
+            self.runner, self.source, self.repository, self.branch, "merged"
+        )
+        matching_prs = [
+            item
+            for item in merged_prs
+            if item.get("headRefOid") == task_head
+            and isinstance(item.get("mergeCommit"), dict)
+            and item["mergeCommit"].get("oid")
+        ]
+        if len(matching_prs) != 1:
+            raise TaskResetError(
+                "exactly one merged pull request must match the completed Issue head"
+            )
+        merge_commit = str(matching_prs[0]["mergeCommit"]["oid"])
+        ancestor = _git(
+            self.runner,
+            self.source,
+            "merge-base",
+            "--is-ancestor",
+            merge_commit,
+            head,
+            check=False,
+        )
+        if ancestor.returncode != 0:
+            raise TaskResetError("task merge commit is not an ancestor of current production main")
+        pull_request = _find_pull_request(
+            self.runner,
+            self.source,
+            self.repository,
+            self.branch,
+            merge_commit,
+        )
+        merge_parent, changed_paths = _validate_pull_request(
+            self.runner,
+            self.source,
+            pull_request,
+            branch=self.branch,
+            merge_commit=merge_commit,
+        )
+        _require_task_paths_unchanged_since_merge(
+            self.runner,
+            self.source,
+            merge_commit=merge_commit,
+            current_main=head,
+            paths=changed_paths,
+        )
+
+        remote_branch_oid = _remote_ref_oid(
+            self.runner,
+            self.source,
+            "origin",
+            f"refs/heads/{self.branch}",
+        )
+        if remote_branch_oid is not None and remote_branch_oid != task_head:
+            raise TaskResetError("remote task branch moved after completed delivery")
+        claims = _relevant_claims(self.source, self.task)
+        if claims:
+            raise TaskResetError(
+                "task/resource claim refs still exist; exact-OID review is required:\n"
+                + json.dumps(claims, indent=2, sort_keys=True)
+            )
+        worktrees = _controller_task_worktrees(
+            self.runner, self.source, self.task_id, self.branch
+        )
+        if any(
+            Path(item.get("worktree") or ".").resolve() != self.source
+            for item in worktrees
+        ):
+            raise TaskResetError("task-specific linked worktree exists; reset is refused")
+
+        checkout_facts = None
+        if self.checkout.exists():
+            if not self.checkout.is_dir():
+                raise TaskResetError("canonical task checkout is not a directory")
+            checkout_facts = _inspect_checkout(
+                self.runner,
+                self.checkout,
+                expected_root=self.checkout_root,
+                expected_origin=self.origin,
+                expected_branch=self.branch,
+                expected_head=task_head,
+                remote_branch_oid=remote_branch_oid,
+            )
+            processes = _processes_using_checkout(
+                self.runner, self.source, self.checkout
+            )
+            containers = _containers_using_checkout(
+                self.runner, self.source, self.checkout
+            )
+            if processes or containers:
+                raise TaskResetError("task checkout is still in use; reset is refused")
+        local_branch_oid = _git_text(
+            self.runner,
+            self.source,
+            "rev-parse",
+            "--verify",
+            f"refs/heads/{self.branch}",
+            check=False,
+        ) or None
+        if local_branch_oid is not None and local_branch_oid != task_head:
+            raise TaskResetError("controller local task branch moved after delivery")
+        active_state_files = [
+            str(path) for path in _state_paths(self.state_root, self.task_id) if path.is_file()
+        ]
+        return {
+            "schema_version": "1.0",
+            "operation": "revert_delivered_production_task",
+            "task_id": self.task_id,
+            "repository": self.repository,
+            "archive_repository": self.archive_repository,
+            "main_head": head,
+            "already_reverted": False,
+            "merge_commit": merge_commit,
+            "merge_first_parent": merge_parent,
+            "task_branch": self.branch,
+            "task_head": task_head,
+            "pull_request": {
+                "number": pull_request["number"],
+                "url": pull_request["url"],
+            },
+            "source_issue": {"number": issue["number"], "url": issue["url"]},
+            "archived_issue": None,
+            "changed_paths": list(changed_paths),
+            "remote_branch_oid": remote_branch_oid,
+            "local_branch_oid": local_branch_oid,
+            "checkout": checkout_facts,
+            "active_state_files": active_state_files,
+            "retained_outputs": str(self.state_root / "outputs" / self.task_id),
+            "taskgraph_state": "conformant",
+        }
+
+    def _create_and_push_revert(self, plan: dict[str, Any]) -> str:
+        previous_main = str(plan["main_head"])
+        merge_commit = str(plan["merge_commit"])
+        merge_parent = str(plan["merge_first_parent"])
+        if _remote_ref_oid(self.runner, self.source, "origin", "refs/heads/main") != previous_main:
+            raise TaskResetError("origin/main moved after preflight; no revert was created")
+        _require_task_paths_unchanged_since_merge(
+            self.runner,
+            self.source,
+            merge_commit=merge_commit,
+            current_main=previous_main,
+            paths=plan["changed_paths"],
+        )
+        _git(self.runner, self.source, "revert", "-m", "1", "--no-commit", merge_commit)
+        staged = tuple(
+            line
+            for line in _git_text(
+                self.runner, self.source, "diff", "--cached", "--name-only", "--no-renames"
+            ).splitlines()
+            if line
+        )
+        if tuple(sorted(staged)) != tuple(sorted(plan["changed_paths"])):
+            raise TaskResetError("staged production revert paths differ from the verified merge")
+        if _git_text(self.runner, self.source, "diff", "--name-only"):
+            raise TaskResetError("production revert produced unstaged changes")
+        if _git_text(
+            self.runner, self.source, "ls-files", "--others", "--exclude-standard"
+        ):
+            raise TaskResetError("production revert produced untracked files")
+        name, email = validated_agent_git_identity()
+        _git(
+            self.runner,
+            self.source,
+            "-c",
+            f"user.name={name}",
+            "-c",
+            f"user.email={email}",
+            "commit",
+            "-m",
+            f"Revert delivered {self.task_id} for a fresh run",
+            "-m",
+            "Preserve production history while removing only the unchanged task delivery.",
+            "-m",
+            (
+                f"{PRODUCTION_RESET_TASK_TRAILER}: {self.task_id}\n"
+                f"{PRODUCTION_RESET_MERGE_TRAILER}: {merge_commit}"
+            ),
+        )
+        revert_commit = _git_text(self.runner, self.source, "rev-parse", "HEAD")
+        if _commit_parents(self.runner, self.source, revert_commit) != (previous_main,):
+            raise TaskResetError("production revert is not additive on the verified current main")
+        committed_paths = _changed_paths(
+            self.runner, self.source, previous_main, revert_commit
+        )
+        if tuple(sorted(committed_paths)) != tuple(sorted(plan["changed_paths"])):
+            raise TaskResetError("production revert commit changed an unexpected path")
+        for path in plan["changed_paths"]:
+            if _tree_entry(self.runner, self.source, revert_commit, path) != _tree_entry(
+                self.runner, self.source, merge_parent, path
+            ):
+                raise TaskResetError(
+                    f"production revert did not restore the pre-delivery tree entry: {path}"
+                )
+        if _task_state(self.runner, self.source, self.task_id).get("state") != "not_delivered":
+            raise TaskResetError("additive production revert did not restore not_delivered")
+        _validate_taskgraph(self.runner, self.source)
+        _git(self.runner, self.source, "diff", "--check", f"{revert_commit}^")
+        _git(
+            self.runner,
+            self.source,
+            "push",
+            "origin",
+            f"{revert_commit}:refs/heads/main",
+        )
+        _git(self.runner, self.source, "fetch", "origin", "main")
+        if _git_text(self.runner, self.source, "rev-parse", "origin/main") != revert_commit:
+            raise TaskResetError("pushed production revert could not be verified")
+        return revert_commit
 
 
 class ProductionAbandonedStateCleanup:
@@ -308,6 +774,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Additively revert and clean a completed private rehearsal task",
     )
+    modes.add_argument(
+        "--revert-delivered-production",
+        action="store_true",
+        help="Additively revert an unchanged completed production delivery",
+    )
     args = parser.parse_args(argv)
     try:
         source = args.source.resolve()
@@ -323,10 +794,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                 task_id=args.task_id,
                 runner=runner,
             )
-        else:
+        elif args.repeat_merged_rehearsal:
             owner, name = repository.split("/", 1)
             archive = args.archive_repository or f"{owner}/{name}-Archive"
             operation = RehearsalTaskReset(
+                source=source,
+                checkout_root=checkout_root,
+                task_id=args.task_id,
+                archive_repository=archive,
+                runner=runner,
+            )
+        else:
+            owner, name = repository.split("/", 1)
+            archive = args.archive_repository or f"{owner}/{name}-Archive"
+            operation = ProductionDeliveredTaskReset(
                 source=source,
                 checkout_root=checkout_root,
                 task_id=args.task_id,

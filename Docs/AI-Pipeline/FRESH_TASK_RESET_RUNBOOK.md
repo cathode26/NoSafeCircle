@@ -86,6 +86,23 @@ This mode deliberately refuses delivered production work, an existing checkout,
 any branch or claim, or an open Issue/PR. A production delivery revert remains a
 separately reviewed Git change; it is never inferred from stale cache cleanup.
 
+When Vincent explicitly authorizes repeating a task whose delivery is already
+conformant on production `main`, use the separate delivered-production mode:
+
+```powershell
+python Pipeline/TaskReviewAgent/reset_task.py NSC-### --source C:\NSC\NSC\NoSafeCircle --checkout-root C:\NSC\NSC --revert-delivered-production --archive-repository cathode26/NoSafeCircle-Archive --apply --confirm-repository cathode26/NoSafeCircle
+```
+
+This mode requires one valid closed `complete` Issue and its exact merged PR. It
+refuses the revert when any active direct or transitive dependent task is past
+`not_delivered`. It also proves the merge is an ancestor of current `main` and
+refuses when any later commit changed a task-delivery path. The helper creates a
+normal revert on top of current `main`, verifies only the exact PR path set
+changed and every reverted tree entry equals the merge's first parent, requires
+TaskGraph to return to `not_delivered`, and preserves later unrelated production
+commits. The archive repository must already exist and be private. No production
+reset, rebase, or force-push is permitted.
+
 ### 1. Close the abandoned pull request
 
 Close the open PR with a comment that identifies:
