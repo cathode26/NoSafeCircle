@@ -497,6 +497,62 @@ class DownstreamTaskController:
         return result
 
     def prepare_task_checkout(self) -> dict[str, Any]:
+        observation = self.last_observation or {}
+        checkout = observation.get("checkout")
+        checkout = checkout if isinstance(checkout, Mapping) else {}
+        recovery = checkout.get("persisted_evidence_recovery")
+        if isinstance(recovery, Mapping) and recovery.get("status") == "recovered":
+            state = _workflow_state(observation)
+            branch = state.get("branch") if isinstance(state, Mapping) else None
+            evidence_commit = recovery.get("evidence_commit")
+            if (
+                not isinstance(branch, str)
+                or not branch.strip()
+                or not isinstance(evidence_commit, str)
+                or not _SHA40.fullmatch(evidence_commit)
+                or checkout.get("head_commit") != evidence_commit
+                or checkout.get("status") != "ready"
+                or checkout.get("clean") is not True
+            ):
+                raise DownstreamPipelineError(
+                    "persisted evidence ref refresh requires an exact recovered checkout"
+                )
+            _git(
+                self.command_runner,
+                self.checkout,
+                "fetch",
+                "origin",
+                "+refs/heads/main:refs/remotes/origin/main",
+                f"+refs/heads/{branch}:refs/remotes/origin/{branch}",
+            )
+            refreshed = self.observe()
+            refreshed_checkout = refreshed.get("checkout")
+            refreshed_checkout = (
+                refreshed_checkout if isinstance(refreshed_checkout, Mapping) else {}
+            )
+            refreshed_recovery = refreshed_checkout.get(
+                "persisted_evidence_recovery"
+            )
+            if (
+                refreshed_checkout.get("status") != "ready"
+                or refreshed_checkout.get("head_commit") != evidence_commit
+                or refreshed_checkout.get("clean") is not True
+                or not isinstance(refreshed_recovery, Mapping)
+                or refreshed_recovery.get("status") != "recovered"
+                or refreshed_recovery.get("evidence_commit") != evidence_commit
+            ):
+                raise DownstreamPipelineError(
+                    "persisted evidence checkout changed while refreshing remote refs"
+                )
+            result = {
+                **dict(refreshed_checkout),
+                "origin_main_refreshed": True,
+                "recovery_authority": (
+                    "persisted_downstream_receipt_and_exact_git_identity"
+                ),
+            }
+            self.workflow.last_checkout_result = _copy(result)
+            return _copy(result)
         return self.workflow.prepare_task_checkout()
 
     def read_issue_log(self) -> dict[str, Any]:

@@ -861,6 +861,63 @@ def test_interrupted_pr_open_recovers_exact_persisted_evidence_head() -> None:
         require(recovered["environment"]["ready"] is True, "environment stayed blocked")
 
 
+def test_persisted_evidence_ref_refresh_preserves_recovered_head() -> None:
+    calls: list[tuple[str, ...]] = []
+
+    def runner(
+        args: Sequence[str], cwd: Path, timeout_seconds: float
+    ) -> subprocess.CompletedProcess[bytes]:
+        command = tuple(args)
+        calls.append(command)
+        require(command[0] == "git" and "fetch" in command, "unexpected command")
+        return subprocess.CompletedProcess(command, 0, b"", b"")
+
+    workflow = SimpleNamespace(last_checkout_result=None)
+    controller = object.__new__(ResumableDownstreamTaskController)
+    controller.checkout = Path(".")
+    controller.command_runner = runner
+    controller.workflow = workflow
+    controller.last_observation = {
+        "coordination": {"workflow_state": {"branch": BRANCH}},
+        "checkout": {
+            "status": "ready",
+            "head_commit": EVIDENCE_HEAD,
+            "clean": True,
+            "origin_main_refresh_required": True,
+            "persisted_evidence_recovery": {
+                "status": "recovered",
+                "evidence_commit": EVIDENCE_HEAD,
+            },
+        },
+    }
+    controller.observe = lambda: {
+        "checkout": {
+            "status": "ready",
+            "head_commit": EVIDENCE_HEAD,
+            "clean": True,
+            "persisted_evidence_recovery": {
+                "status": "recovered",
+                "evidence_commit": EVIDENCE_HEAD,
+            },
+        }
+    }
+
+    result = controller.prepare_task_checkout()
+    require(result["head_commit"] == EVIDENCE_HEAD, "evidence head changed")
+    require(result["origin_main_refreshed"] is True, "main ref was not refreshed")
+    require(workflow.last_checkout_result == result, "workflow result was not recorded")
+    require(len(calls) == 1, "ref refresh ran an unexpected number of commands")
+    command = calls[0]
+    require(
+        "+refs/heads/main:refs/remotes/origin/main" in command,
+        "main refspec was not fetched",
+    )
+    require(
+        f"+refs/heads/{BRANCH}:refs/remotes/origin/{BRANCH}" in command,
+        "task branch refspec was not fetched",
+    )
+
+
 def main() -> int:
     tests = (
         test_issue_lifecycle_resumes_evidence_head,
@@ -871,6 +928,7 @@ def main() -> int:
         test_downstream_repository_mismatch_fails_before_any_gh_command,
         test_pull_request_reuse_ignores_historical_runs,
         test_interrupted_pr_open_recovers_exact_persisted_evidence_head,
+        test_persisted_evidence_ref_refresh_preserves_recovered_head,
         test_post_merge_accepts_newer_main,
         test_delivery_review_materializes_exact_proposal,
         test_manifest_rejects_zero_discovered_tests,
