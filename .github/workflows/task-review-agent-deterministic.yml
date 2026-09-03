@@ -228,6 +228,10 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/prepare_synthetic_gauntlet_smoke_test.py
 
+      - name: Run private synthetic gauntlet approver smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/synthetic_gauntlet_approver_smoke_test.py
+
       - name: Run ephemeral Git-ref claim tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/claim_refs_smoke_test.py

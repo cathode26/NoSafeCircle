@@ -161,6 +161,15 @@ The resulting plan remains bound to the child's own exact contract hash. This
 lets reviewed synthetic children run the same named Edit Mode test without
 repository discovery or a guessed filter.
 
+The disposable gauntlet uses
+`Pipeline/TaskReviewAgent/synthetic_gauntlet_approver.py` as a deliberately
+narrow operator boundary. It refuses production and public repositories,
+ignores NSC-042, recognizes only the exact gauntlet lineage, runs the committed
+Edit Mode filter before an implementation PASS, and verifies the exact
+two-child resource partition before a decomposition APPROVE. It delegates the
+actual Issue mutation to `pass_and_resume_task.py --defer-launch`, leaving the
+software architect in control of the next admission.
+
 A `review_ready` plan is published as an exact `plan_id` handoff in
 `human_action_required / decomposition_apply_authorization`. It is still
 review-only. Vincent may approve that exact plan with:

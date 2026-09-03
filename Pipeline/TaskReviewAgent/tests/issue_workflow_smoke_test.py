@@ -315,6 +315,12 @@ def test_issue_service_handoff_human_result_and_resume() -> None:
     )
     require(handoff["status"] == "human_action_required", "handoff state was wrong")
     require(not service.list_agent_ready(), "human task incorrectly appeared agent-ready")
+    waiting = service.list_human_action_required()
+    require(len(waiting) == 1, f"human-action queue was wrong: {waiting}")
+    require(
+        waiting[0]["workflow_state"]["task_id"] == TASK_ID,
+        f"human-action queue changed task identity: {waiting}",
+    )
 
     wrong_result = """## Human validation result
 
@@ -346,6 +352,10 @@ The player crossed the blocker.
         now="2026-08-27T11:03:00Z",
     )
     require(ready["status"] == "agent_ready", "human failure did not return agent-ready")
+    require(
+        not service.list_human_action_required(),
+        "agent-ready task remained in the human-action queue",
+    )
     queue = service.list_agent_ready()
     require(len(queue) == 1, f"agent-ready queue was wrong: {queue}")
     require(

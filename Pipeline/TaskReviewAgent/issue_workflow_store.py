@@ -1696,6 +1696,28 @@ class IssueWorkflowService:
                 ready.append(snapshot.to_dict())
         return sorted(ready, key=lambda item: (item["issue_number"], item["title"]))
 
+    def list_human_action_required(self) -> list[dict[str, Any]]:
+        """Return coherent open human-owned workflows, failing on managed corruption."""
+
+        waiting: list[dict[str, Any]] = []
+        for issue in self.backend.list_issues():
+            if str(issue.get("state") or "").upper() == "CLOSED":
+                continue
+            body = str(issue.get("body") or "")
+            if STATE_RE.search(body) is None or not issue_author_authorized(issue):
+                continue
+            snapshot = _snapshot(self.backend, issue)
+            if not snapshot.managed:
+                continue
+            if not snapshot.valid or snapshot.state is None:
+                raise IssueWorkflowStoreError(
+                    f"managed Issue #{snapshot.issue_number} is invalid: "
+                    + "; ".join(snapshot.reasons)
+                )
+            if snapshot.state.state is WorkflowState.HUMAN_ACTION_REQUIRED:
+                waiting.append(snapshot.to_dict())
+        return sorted(waiting, key=lambda item: (item["issue_number"], item["title"]))
+
 
 class MemoryIssueBackend:
     """No-network backend for state-machine and race/failure tests."""
