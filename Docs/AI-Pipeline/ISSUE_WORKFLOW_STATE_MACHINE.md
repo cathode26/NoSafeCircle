@@ -351,6 +351,38 @@ merge closeout without a second approval.
 
 If validation fails, the Action restores `nsc-state:human-action`, comments the reason, and leaves the task human-owned.
 
+## Private synthetic-gauntlet machine evidence
+
+The exact private homework rehearsal may replace the human-owned transition
+only for tasks carrying the committed synthetic-gauntlet provenance. This is a
+machine evidence route, not a simulated human result.
+
+For an implementation handoff, the automated event binds the exact repository,
+gauntlet, task contract, handoff event, branch, commit and tree, validation
+policy, Unity platform/filter, clean pre/post state, non-empty passing test
+counts, runner identity, and exact manifest/XML/log hashes. It moves:
+
+```text
+human_action_required / unity_runtime_validation
+        -> agent_ready / delivery_evidence
+```
+
+For a decomposition handoff, the automated event additionally binds the exact
+canonical graph plan/hash, exact decomposition-result bytes, semantic parent
+hash, committed validation-template hash, and sorted two-child disjoint exact
+resource partition. D1C revalidates those artifacts and committed identities
+before it may apply the graph. It moves:
+
+```text
+human_action_required / decomposition_apply_authorization
+        -> agent_ready / decomposition_apply
+```
+
+Both events require an authenticated agent actor matching the configured
+service worker, must immediately follow their exact handoff, and keep
+`human_result` unset. They are rejected in production, public repositories,
+private lookalikes, for NSC-042, or when any identity/evidence field changes.
+
 ## Later generic-agent behavior
 
 ### After PASS

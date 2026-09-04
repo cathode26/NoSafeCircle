@@ -1046,6 +1046,117 @@ def test_exclude_task_id_cli_is_repeatable_and_validated() -> None:
         raise AssertionError("invalid permanent scheduler exclusion was accepted")
 
 
+def test_dynamic_admission_allowlist_filters_before_architect_and_launch() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner(
+            [candidate_plan(head, TASK_A, TASK_B), candidate_plan(head, TASK_A, TASK_B)]
+        )
+        architect = FakeArchitect(
+            {
+                TASK_A: advisory(TASK_A, head),
+                TASK_B: advisory(TASK_B, head),
+            }
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
+        )
+        orchestrator.set_admission_allowlist((TASK_B,))
+        result = orchestrator.poll_once()
+        require(result.status == "worker_launched" and result.task_id == TASK_B, str(result))
+        require(architect.portfolio_calls == [(TASK_B,)], str(architect.portfolio_calls))
+        require(len(processes.calls) == 1, str(processes.calls))
+        command = processes.calls[0][0]
+        require(command[command.index("--task-id") + 1] == TASK_B, str(command))
+        require("candidate_skipped_outside_admission_scope" in stream.getvalue(), stream.getvalue())
+
+        orchestrator.set_admission_allowlist((TASK_A, TASK_B))
+        require(
+            orchestrator.admission_allowlist == frozenset((TASK_A, TASK_B)),
+            "dynamic allowlist did not update",
+        )
+
+
+def test_capacity_batch_counts_same_task_relaunch_without_key_diff() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner(
+            [candidate_plan(head, TASK_A), candidate_plan(head, TASK_A)]
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=FakeArchitect({TASK_A: advisory(TASK_A, head)}),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+            max_workers=1,
+        )
+        first = orchestrator.poll_capacity_batch()
+        require(first.status == "worker_launched", str(first))
+        require(orchestrator.worker_launches_this_poll == 1, "first launch count missing")
+        require(orchestrator.worker_launches_total == 1, "first lifetime count missing")
+        del orchestrator.active_assignments[TASK_A]
+
+        second = orchestrator.poll_capacity_batch()
+        require(second.status == "worker_launched", str(second))
+        require(orchestrator.worker_launches_this_poll == 1, "same-key relaunch was lost")
+        require(orchestrator.worker_launches_total == 2, "lifetime relaunch count was lost")
+        completed = [
+            json.loads(line)
+            for line in stream.getvalue().splitlines()
+            if json.loads(line)["event"] == "poll_capacity_batch_completed"
+        ]
+        require([item["launched_count"] for item in completed] == [1, 1], str(completed))
+
+
+def test_scheduler_run_preserves_extracted_activity_listener_lifecycle() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A)},
+        )
+        listener_events: list[str] = []
+
+        class SpyListener:
+            def __init__(
+                self, listener_source: Path, *, scheduler_id: str, wake_event: Any
+            ) -> None:
+                require(listener_source == source.resolve(), "listener source changed")
+                require(scheduler_id == orchestrator.scheduler_id, "scheduler ID changed")
+                require(
+                    wake_event is orchestrator.worker_completion_event,
+                    "listener wake event changed",
+                )
+
+            def start(self) -> None:
+                listener_events.append("start")
+
+            def close(self) -> None:
+                listener_events.append("close")
+
+        with patch.object(scheduler_module, "LocalArchitectWakeListener", SpyListener):
+            exit_code = orchestrator.run(
+                lock=SchedulerLock(root / "listener-lifecycle.lock"),
+                poll_seconds=0.01,
+                once=True,
+            )
+        require(exit_code == 0, f"once run failed: {exit_code}")
+        require(listener_events == ["start", "close"], str(listener_events))
+        events = [json.loads(line)["event"] for line in stream.getvalue().splitlines()]
+        require(events.index("scheduler_started") < events.index("scheduler_stopped"), str(events))
+
+
 def add_result_active(
     orchestrator: PollingOrchestrator,
     *,
@@ -4583,6 +4694,9 @@ def main() -> int:
         test_active_task_ids_feed_stage2_exclusions,
         test_session_exclusions_feed_every_stage2_poll,
         test_exclude_task_id_cli_is_repeatable_and_validated,
+        test_dynamic_admission_allowlist_filters_before_architect_and_launch,
+        test_capacity_batch_counts_same_task_relaunch_without_key_diff,
+        test_scheduler_run_preserves_extracted_activity_listener_lifecycle,
         test_architect_portfolio_selects_disjoint_candidate_in_one_call,
         test_ineligible_decomposition_pair_is_not_selected_or_launched,
         test_architect_can_choose_decomposition_while_implementation_exists,

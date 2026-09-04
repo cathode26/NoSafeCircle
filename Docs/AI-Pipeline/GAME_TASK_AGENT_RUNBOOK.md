@@ -225,6 +225,16 @@ Scheduler-launched workers still stop at this boundary so human-owned tasks do
 not occupy scheduler capacity. Direct operators may disable or tune the bounded
 wait with `-HumanActionWaitMinutes` and `-HumanActionPollSeconds`.
 
+The disposable private synthetic gauntlet has one separate, explicit machine
+evidence boundary. `synthetic_gauntlet_approver.py` accepts only the exact
+private `cathode26/NoSafeCircle-Homework-Rehearsal` repository and exact
+gauntlet lineage, always excludes NSC-042, and re-runs the committed Unity
+Edit Mode filter or exact two-child decomposition review. A successful check
+appends an agent-owned hash-bound workflow event and leaves `human_result`
+unset. It does not post, infer, or impersonate a human PASS/APPROVE. The tool
+serially processes every eligible synthetic handoff visible at invocation and
+re-reads each Issue before its validation/mutation boundary.
+
 ## Vincent's task
 
 The Issue is the durable to-do item. It states:

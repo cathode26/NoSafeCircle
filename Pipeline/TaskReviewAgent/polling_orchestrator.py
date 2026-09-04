@@ -1568,6 +1568,7 @@ class PollingOrchestrator:
         process_factory: Callable[..., Any] = subprocess.Popen,
         event_emitter: JsonEventEmitter | None = None,
         excluded_task_ids: Sequence[str] = (),
+        admission_allowlist: Sequence[str] | None = None,
         dry_run: bool = False,
         compose_project: str = COMPOSE_PROJECT,
         monotonic_clock: Callable[[], float] = time.monotonic,
@@ -1610,6 +1611,9 @@ class PollingOrchestrator:
         self.decision_cache = decision_cache or ArchitectDecisionCache()
         self.architect_invocations_this_poll = 0
         self.architect_invocations_this_session = 0
+        self.worker_launches_this_poll = 0
+        self.worker_launches_total = 0
+        self._worker_launch_task_ids_this_poll: list[str] | None = None
         self.architect_cooldowns: dict[str, ArchitectCooldownEntry] = {}
         self.consecutive_observation_failures = 0
         self.consecutive_source_refresh_failures = 0
@@ -1632,11 +1636,15 @@ class PollingOrchestrator:
         self.excluded_task_ids = frozenset(
             validate_task_id(task_id) for task_id in excluded_task_ids
         )
+        self.admission_allowlist: frozenset[str] | None = None
+        self.set_admission_allowlist(admission_allowlist)
         self.dry_run = bool(dry_run)
         self.compose_project = str(compose_project).strip()
         self.monotonic_clock = monotonic_clock
         self.worker_completion_event = threading.Event()
         self.architect_wake_listener: LocalArchitectWakeListener | None = None
+        self._activity_listener_start_attempted = False
+        self._activity_listener_closed = False
         self.architect_notification_revision = 0
         self.worker_slots = tuple(
             f"{self.scheduler_id}-slot-{index:02d}"
@@ -1932,7 +1940,7 @@ class PollingOrchestrator:
             )
         return failed, frozenset(returned_task_ids)
 
-    def _drain_active_workers(self, *, poll_seconds: float) -> bool:
+    def drain_active_workers(self, *, poll_seconds: float) -> bool:
         """Supervise existing children for a bounded interval after fatal stop."""
 
         deadline = self.monotonic_clock() + self.fatal_drain_seconds
@@ -1967,6 +1975,26 @@ class PollingOrchestrator:
             )
             time.sleep(min(poll_seconds, remaining))
         return True
+
+    def set_admission_allowlist(self, task_ids: Sequence[str] | None) -> None:
+        """Restrict architect visibility and launch authority to exact task IDs.
+
+        ``None`` preserves the normal unscoped polling behavior. Autonomous
+        controllers replace the exact allowlist before each capacity pass after
+        observing their root tasks and authorized decomposition descendants.
+        """
+
+        if task_ids is None:
+            self.admission_allowlist = None
+            return
+        if type(task_ids) not in {list, tuple, set, frozenset}:
+            raise PollingOrchestratorError(
+                "admission allowlist must be a built-in task-ID collection"
+            )
+        normalized = frozenset(validate_task_id(task_id) for task_id in task_ids)
+        if not normalized:
+            raise PollingOrchestratorError("admission allowlist must not be empty")
+        self.admission_allowlist = normalized
 
     def _refresh_active_reservations(self) -> tuple[IntegrationReservation, ...]:
         reservations: list[IntegrationReservation] = []
@@ -2486,12 +2514,43 @@ class PollingOrchestrator:
             return PollCycleResult("unsupported_plan", fatal=True)
 
         candidates = self._ordered_candidates(plan)
+        if self.admission_allowlist is not None:
+            outside_scope = tuple(
+                sorted(
+                    entry[0].get("task_id")
+                    for entry in candidates
+                    if entry[0].get("task_id") not in self.admission_allowlist
+                )
+            )
+            candidates = tuple(
+                entry
+                for entry in candidates
+                if entry[0].get("task_id") in self.admission_allowlist
+            )
+            if outside_scope:
+                self.events.emit(
+                    "candidate_skipped_outside_admission_scope",
+                    task_ids=list(outside_scope),
+                    admission_allowlist=sorted(self.admission_allowlist),
+                    reason=(
+                        "candidate is outside the controller-proven root and "
+                        "authorized decomposition-descendant scope"
+                    ),
+                )
         if local_ahead_recovery_task_id is not None:
             candidates = tuple(
                 entry
                 for entry in candidates
                 if entry[0].get("task_id") == local_ahead_recovery_task_id
             )
+        if not candidates and self.admission_allowlist is not None:
+            self.events.emit(
+                "plan_idle",
+                decision="no_candidate_inside_admission_scope",
+                admission_allowlist=sorted(self.admission_allowlist),
+                exclusions=sorted(temporary_exclusions),
+            )
+            return PollCycleResult("idle")
         if not candidates:
             self.events.emit(
                 "scheduler_blocked",
@@ -2975,6 +3034,12 @@ class PollingOrchestrator:
                 fresh_entries = self._mixed_portfolio(
                     fresh_plan, self._ordered_candidates(fresh_plan)
                 )
+                if self.admission_allowlist is not None:
+                    fresh_entries = tuple(
+                        entry
+                        for entry in fresh_entries
+                        if entry[2]["task"]["id"] in self.admission_allowlist
+                    )
                 fresh_entry = next(
                     (
                         entry
@@ -3197,6 +3262,9 @@ class PollingOrchestrator:
                 issue_number=expected_issue_number,
             )
             self.active_assignments[task_id] = assignment
+            self.worker_launches_total += 1
+            if self._worker_launch_task_ids_this_poll is not None:
+                self._worker_launch_task_ids_this_poll.append(task_id)
             self._watch_worker_return(assignment)
             self.events.emit(
                 "worker_launched",
@@ -3235,17 +3303,19 @@ class PollingOrchestrator:
         """
 
         self.architect_invocations_this_poll = 0
-        active_before = set(self.active_assignments)
-        reported_cycle = self.poll_once(reset_architect_budget=False)
-        launched_task_ids = [
-            task_id
-            for task_id in self.active_assignments
-            if task_id not in active_before
-        ]
+        launches_before = self.worker_launches_total
+        self.worker_launches_this_poll = 0
+        self._worker_launch_task_ids_this_poll = []
+        try:
+            reported_cycle = self.poll_once(reset_architect_budget=False)
+        finally:
+            launched_task_ids = list(self._worker_launch_task_ids_this_poll)
+            self._worker_launch_task_ids_this_poll = None
+            self.worker_launches_this_poll = self.worker_launches_total - launches_before
         self.events.emit(
             "poll_capacity_batch_completed",
             launched_task_ids=launched_task_ids,
-            launched_count=len(launched_task_ids),
+            launched_count=self.worker_launches_this_poll,
             active_worker_count=len(self.active_assignments),
             architect_invocations=self.architect_invocations_this_poll,
             result_status=reported_cycle.status,
@@ -3267,6 +3337,57 @@ class PollingOrchestrator:
             )
         ]
 
+    def start_activity_listener(self) -> bool:
+        """Start the Issue/worker wake listener once for an owning run loop.
+
+        ``poll_once`` and ``poll_capacity_batch`` intentionally do not manage this
+        lifecycle.  A caller that owns a multi-cycle loop starts it before the
+        first possible wait and closes it in a ``finally`` boundary.
+        """
+
+        if (
+            self._activity_listener_start_attempted
+            and not self._activity_listener_closed
+        ):
+            return (
+                self.architect_wake_listener is not None
+            )
+        if self._activity_listener_closed:
+            self._activity_listener_start_attempted = False
+            self._activity_listener_closed = False
+        self._activity_listener_start_attempted = True
+        try:
+            listener = LocalArchitectWakeListener(
+                self.source,
+                scheduler_id=self.scheduler_id,
+                wake_event=self.worker_completion_event,
+            )
+            listener.start()
+            self.architect_wake_listener = listener
+            return True
+        except OSError as exc:
+            self.architect_wake_listener = None
+            self.events.emit(
+                "architect_wake_listener_unavailable",
+                reason=(
+                    "local Issue-state notifications are unavailable; the bounded "
+                    "fallback refresh remains active"
+                ),
+                error=_bounded_error(exc),
+            )
+            return False
+
+    def close_activity_listener(self) -> None:
+        """Close the owned activity listener at most once."""
+
+        if self._activity_listener_closed:
+            return
+        self._activity_listener_closed = True
+        listener = self.architect_wake_listener
+        self.architect_wake_listener = None
+        if listener is not None:
+            listener.close()
+
     def run(
         self,
         *,
@@ -3284,23 +3405,7 @@ class PollingOrchestrator:
                 lock_path=str(lock.path),
             )
             return 2
-        try:
-            self.architect_wake_listener = LocalArchitectWakeListener(
-                self.source,
-                scheduler_id=self.scheduler_id,
-                wake_event=self.worker_completion_event,
-            )
-            self.architect_wake_listener.start()
-        except OSError as exc:
-            self.architect_wake_listener = None
-            self.events.emit(
-                "architect_wake_listener_unavailable",
-                reason=(
-                    "local Issue-state notifications are unavailable; the bounded "
-                    "fallback refresh remains active"
-                ),
-                error=_bounded_error(exc),
-            )
+        self.start_activity_listener()
         self.events.emit(
             "scheduler_started",
             scheduler_id=self.scheduler_id,
@@ -3340,7 +3445,7 @@ class PollingOrchestrator:
                     exit_code = 2
                     stop_reason = cycle.status
                     if self.active_assignments:
-                        drained = self._drain_active_workers(poll_seconds=poll_seconds)
+                        drained = self.drain_active_workers(poll_seconds=poll_seconds)
                         if not drained:
                             stop_reason = f"{cycle.status}_drain_timeout"
                     break
@@ -3355,8 +3460,7 @@ class PollingOrchestrator:
                 stop_reason = "keyboard_interrupt"
                 exit_code = 0
         finally:
-            if self.architect_wake_listener is not None:
-                self.architect_wake_listener.close()
+            self.close_activity_listener()
             children = self.active_child_summary()
             self.events.emit(
                 "scheduler_stopped",

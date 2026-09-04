@@ -187,14 +187,18 @@ The disposable gauntlet uses
 `Pipeline/TaskReviewAgent/synthetic_gauntlet_approver.py` as a deliberately
 narrow operator boundary. It refuses production and public repositories,
 ignores NSC-042, recognizes only the exact gauntlet lineage, runs the committed
-Edit Mode filter before an implementation PASS, and verifies the exact
-two-child resource partition before a decomposition APPROVE. It delegates the
-actual Issue mutation to `pass_and_resume_task.py --defer-launch`, leaving the
-software architect in control of the next admission. For implementation PASS,
-that deferred path also sends an advisory local wake hint to an already-waiting
-direct Game Task Agent. The launcher immediately re-reads the authoritative
-GitHub state; a missing or malformed hint merely falls back to the normal
-one-minute poll.
+Edit Mode filter before advancing an implementation handoff, and verifies the
+exact two-child resource partition before decomposition application. It accepts only
+the exact private `cathode26/NoSafeCircle-Homework-Rehearsal` repository; a
+private lookalike is not eligible. Successful checks append agent-owned,
+hash-bound automated-validation or automated-decomposition evidence through the
+ordinary Issue workflow service. They never create a human PASS, human approval,
+or `human_result`. One invocation serially processes every currently eligible
+synthetic Issue, re-reading each Issue immediately before validation. After a
+verified transition it removes only that task's exact Vincent routing comment
+and publishes an advisory local wake hint. The launcher immediately re-reads
+the authoritative GitHub state; a missing or malformed hint merely falls back
+to its normal wait.
 
 A `review_ready` plan is published as an exact `plan_id` handoff in
 `human_action_required / decomposition_apply_authorization`. It is still
@@ -405,6 +409,22 @@ NSC-004 = needs_testing
 ```
 
 The workflow state and checkout boundaries are tested using deterministic in-memory Issues and temporary synthetic Git repositories instead of creating an inappropriate live NSC-050 task.
+
+## Autonomous graph controller integration status
+
+<!-- autonomous-graph-controller:start -->
+`autonomous_graph_run.py` is currently a deterministic, dependency-injected
+controller boundary over `PollingOrchestrator`; it is not yet a production
+launcher. The production coherent snapshotter, exact manifest/receipt path
+selection, structured synthetic-evidence pump adapter, command-line entry point,
+and launcher wiring remain intentionally unwired. No caller should approximate
+those authority-bearing adapters from mutable or partial observations.
+
+The current scheduler's cumulative architect-invocation cap still fails closed.
+The separate real lifecycle owner that rotates an architect provider only after
+100 completed graph cycles is not implemented here, and the controller does not
+claim that the older invocation cap represents lifecycle retirement.
+<!-- autonomous-graph-controller:end -->
 
 ## Validation
 
