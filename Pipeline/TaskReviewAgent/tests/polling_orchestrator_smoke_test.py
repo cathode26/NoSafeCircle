@@ -1358,7 +1358,7 @@ def test_dynamic_admission_allowlist_filters_before_architect_and_launch() -> No
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
         planner = SequencePlanner(
-            [candidate_plan(head, TASK_A, TASK_B), candidate_plan(head, TASK_A, TASK_B)]
+            [mixed_work_plan(head, TASK_B, TASK_A), candidate_plan(head, TASK_A, TASK_B)]
         )
         architect = FakeArchitect(
             {
@@ -1372,7 +1372,7 @@ def test_dynamic_admission_allowlist_filters_before_architect_and_launch() -> No
             planner=planner,
             architect=architect,
             processes=processes,
-            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
+            tasks={TASK_A: decomposition_task(TASK_A), TASK_B: task(TASK_B)},
         )
         orchestrator.set_admission_allowlist((TASK_B,))
         result = orchestrator.poll_once()

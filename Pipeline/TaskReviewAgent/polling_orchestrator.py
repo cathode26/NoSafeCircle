@@ -2728,6 +2728,29 @@ class PollingOrchestrator:
                 error=_bounded_error(exc),
             )
             return PollCycleResult("candidate_verification_failed", fatal=True)
+        if self.admission_allowlist is not None:
+            outside_mixed_scope = tuple(
+                sorted(
+                    entry[2]["task"]["id"]
+                    for entry in mixed_portfolio
+                    if entry[2]["task"]["id"] not in self.admission_allowlist
+                )
+            )
+            mixed_portfolio = tuple(
+                entry
+                for entry in mixed_portfolio
+                if entry[2]["task"]["id"] in self.admission_allowlist
+            )
+            if outside_mixed_scope:
+                self.events.emit(
+                    "candidate_skipped_outside_admission_scope",
+                    task_ids=list(outside_mixed_scope),
+                    admission_allowlist=sorted(self.admission_allowlist),
+                    reason=(
+                        "decomposition candidate is outside the controller-proven "
+                        "root and authorized decomposition-descendant scope"
+                    ),
+                )
         if local_ahead_recovery_task_id is not None:
             mixed_portfolio = tuple(
                 entry
