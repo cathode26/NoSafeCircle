@@ -46,8 +46,10 @@ from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
     TaskcontrolStateObservationError,
 )
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    ALL_STATE_LABELS,
     WorkflowPhase,
     WorkflowState,
+    legal_next_states,
 )
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowSnapshot,
@@ -3779,7 +3781,9 @@ def _stamp(offset_seconds: float) -> str:
 class PendingIssueFixture:
     """One managed Issue that reached human_action_required for real."""
 
-    def __init__(self, *, checkout_path: str, head_commit: str) -> None:
+    def __init__(
+        self, *, checkout_path: str, head_commit: str, handoff: bool = True
+    ) -> None:
         self.backend = MemoryIssueBackend()
         self.tasks = {PENDING_TASK: workflow_fixture.task(PENDING_TASK)}
         service = IssueWorkflowService(
@@ -3796,6 +3800,9 @@ class PendingIssueFixture:
             expected_validation="Vincent completes the Unity checklist.",
             now=_stamp(0),
         )
+        self.issue_number = next(iter(self.backend.issues))
+        if not handoff:
+            return
         service.publish_human_handoff(
             task_id=PENDING_TASK,
             branch=workflow_fixture.BRANCH,
@@ -3807,17 +3814,35 @@ class PendingIssueFixture:
             expected_result="The doorway publishes once.",
             now=_stamp(60),
         )
-        self.issue_number = next(iter(self.backend.issues))
 
     @property
     def issue(self) -> dict[str, Any]:
         return self.backend.issues[self.issue_number]
 
-    def apply_label(self, label: str, *, at_offset: float) -> None:
-        """Model the human/GitHub-UI label write the state Action reacts to."""
+    def apply_label(
+        self, label: str, *, at_offset: float, replace: bool = False
+    ) -> None:
+        """Model the human/GitHub-UI label write the state Action reacts to.
 
-        self.issue["labels"] = [{"name": label}]
+        The GitHub UI ADDS a label; it does not replace one. The authoritative
+        prior state label therefore stays present until issue_state_action.py
+        calls restore_state_label and advances the body. ``replace=True`` models
+        the already-restored form that a managed transition leaves behind.
+        """
+
+        names = {item["name"] for item in self.issue["labels"]}
+        if replace:
+            names -= set(ALL_STATE_LABELS)
+        names.add(label)
+        self.issue["labels"] = [{"name": name} for name in sorted(names)]
         self.issue["updated_at"] = _stamp(at_offset)
+
+    def state_labels(self) -> set[str]:
+        return {
+            item["name"]
+            for item in self.issue["labels"]
+            if item["name"] in ALL_STATE_LABELS
+        }
 
     def observer(self, orchestrator_source: Path, checkout_root: Path):
         def observe():
@@ -3849,6 +3874,7 @@ def _pending_environment(
     *,
     candidate_task_id: str | None = None,
     candidate_resources: tuple[str, ...] = (),
+    handoff: bool = True,
 ):
     source, head = create_source(root)
     checkout_root = source.parent / "checkouts"
@@ -3870,6 +3896,7 @@ def _pending_environment(
     fixture = PendingIssueFixture(
         checkout_path=str(checkout),
         head_commit=git(checkout, "rev-parse", "HEAD"),
+        handoff=handoff,
     )
     tasks: dict[str, dict[str, Any]] = {PENDING_TASK: fixture.tasks[PENDING_TASK]}
     planner: Any = SequencePlanner([terminal_plan(head, "no_safe_work")])
@@ -4062,6 +4089,139 @@ def test_illegal_label_pair_is_invalid_immediately() -> None:
         require(not processes.calls, "an illegal label pair launched a worker")
 
 
+def test_additive_ui_label_set_is_pending_transition() -> None:
+    """The real GitHub UI shape: agent-ready ADDED beside the current label."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(root)
+        fixture.apply_label(AGENT_READY_LABEL, at_offset=120)
+        require(
+            fixture.state_labels() == {HUMAN_ACTION_LABEL, AGENT_READY_LABEL},
+            f"fixture did not model the additive UI shape: {fixture.state_labels()}",
+        )
+        with _frozen_pending_clock(180):
+            orchestrator.poll_once()
+        events = stream.getvalue()
+        require('"event": "issue_pending_transition"' in events, events)
+        require(
+            '"event": "scheduler_wait_observation_failure"' not in events,
+            "the additive UI shape was counted as an observation failure",
+        )
+        require(
+            orchestrator.consecutive_observation_failures == 0,
+            f"fatal counter moved to {orchestrator.consecutive_observation_failures}",
+        )
+        require(not processes.calls, f"a worker was launched: {processes.calls}")
+
+
+def test_replacement_label_form_is_still_pending_transition() -> None:
+    """A managed transition that already replaced the label stays recognized."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(root)
+        fixture.apply_label(AGENT_READY_LABEL, at_offset=120, replace=True)
+        require(
+            fixture.state_labels() == {AGENT_READY_LABEL},
+            f"fixture did not model the replacement shape: {fixture.state_labels()}",
+        )
+        with _frozen_pending_clock(180):
+            orchestrator.poll_once()
+        events = stream.getvalue()
+        require('"event": "issue_pending_transition"' in events, events)
+        require(orchestrator.consecutive_observation_failures == 0, "counter moved")
+        require(not processes.calls, "a worker was launched")
+
+
+def test_unrelated_multi_state_label_set_is_invalid() -> None:
+    """Only the two exact agent-ready shapes are tolerated."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(root)
+        # human-action + blocked is neither shape and can never trigger the Action.
+        fixture.apply_label("nsc-state:blocked", at_offset=120)
+        require(
+            fixture.state_labels() == {HUMAN_ACTION_LABEL, "nsc-state:blocked"},
+            str(fixture.state_labels()),
+        )
+        with _frozen_pending_clock(130):
+            orchestrator.poll_once()
+        events = stream.getvalue()
+        require(
+            '"event": "issue_pending_transition"' not in events,
+            "an unrelated multi-label set was tolerated as pending",
+        )
+        require('"event": "scheduler_wait_observation_failure"' in events, events)
+        require(
+            orchestrator.consecutive_observation_failures == 1,
+            f"unrelated label set did not count: {orchestrator.consecutive_observation_failures}",
+        )
+        require(not processes.calls, "a worker was launched")
+
+
+def test_agent_working_agent_ready_label_is_not_pending() -> None:
+    """Legal is not sufficient: the Action cannot converge agent_working.
+
+    agent_working -> agent_ready IS in the committed transition table, and the
+    label set is the exact additive shape, so only the convergence restriction
+    keeps this invalid.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(
+            root, handoff=False
+        )
+        fixture.apply_label(AGENT_READY_LABEL, at_offset=120)
+        require(
+            fixture.state_labels() == {AGENT_WORKING_LABEL, AGENT_READY_LABEL},
+            f"fixture is not in the agent_working additive shape: {fixture.state_labels()}",
+        )
+        require(
+            WorkflowState.AGENT_READY
+            in legal_next_states(WorkflowState.AGENT_WORKING),
+            "fixture assumption broke: agent_working -> agent_ready must be legal",
+        )
+        with _frozen_pending_clock(130):
+            orchestrator.poll_once()
+        events = stream.getvalue()
+        require(
+            '"event": "issue_pending_transition"' not in events,
+            "a transition the Action cannot converge was classified as pending",
+        )
+        require('"event": "scheduler_wait_observation_failure"' in events, events)
+        require(
+            orchestrator.consecutive_observation_failures == 1,
+            f"non-convergent transition did not count: {orchestrator.consecutive_observation_failures}",
+        )
+
+
+def test_agent_working_to_complete_label_is_not_pending() -> None:
+    """body agent_working + nsc-state:complete must stay invalid, not pending."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(
+            root, handoff=False
+        )
+        fixture.apply_label("nsc-state:complete", at_offset=120)
+        with _frozen_pending_clock(130):
+            orchestrator.poll_once()
+        events = stream.getvalue()
+        require(
+            '"event": "issue_pending_transition"' not in events,
+            "agent_working -> complete was classified as pending",
+        )
+        require('"event": "scheduler_wait_observation_failure"' in events, events)
+        require(
+            orchestrator.consecutive_observation_failures == 1,
+            f"non-agent-ready target did not count: {orchestrator.consecutive_observation_failures}",
+        )
+        require(not processes.calls, "a worker was launched")
+
+
 def main() -> int:
     tests = (
         test_singleton_second_scheduler_fails_immediately,
@@ -4158,6 +4318,11 @@ def main() -> int:
         test_body_convergence_resumes_normal_admission,
         test_pending_transition_past_max_age_fails_closed_and_counts,
         test_illegal_label_pair_is_invalid_immediately,
+        test_additive_ui_label_set_is_pending_transition,
+        test_replacement_label_form_is_still_pending_transition,
+        test_unrelated_multi_state_label_set_is_invalid,
+        test_agent_working_agent_ready_label_is_not_pending,
+        test_agent_working_to_complete_label_is_not_pending,
         test_default_max_workers_is_one_until_live_acceptance,
         test_source_refresh_fast_forwards_exact_remote_main_without_rewrite,
         test_source_refresh_refuses_dirty_controller_without_overwrite,

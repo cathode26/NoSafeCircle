@@ -28,6 +28,7 @@ from .issue_workflow import (
     WorkflowPhase,
     WorkflowState,
     initial_state,
+    agent_ready_action_converges,
     labels_for_state,
     legal_next_states,
     state_for_label,
@@ -213,6 +214,14 @@ def _classify_pending_transition(
         return None
     # Legality comes from the one committed transition table.
     if target not in legal_next_states(state.state):
+        return None
+    # Legal is not sufficient. Only the agent-ready Action ever converges a
+    # label-ahead-of-body divergence, and only from the source combinations it
+    # handles. Anything else can never converge by waiting, so it must fail
+    # closed now rather than burn the bounded allowance first.
+    if target is not WorkflowState.AGENT_READY:
+        return None
+    if not agent_ready_action_converges(state):
         return None
     # No separate "target event absent" test is needed or correct here.
     # validate_event_chain already proved the final event's to_state equals the
@@ -650,10 +659,17 @@ def _snapshot(
                     f"workflow state label mismatch: expected {expected_label!r}, "
                     f"found {sorted(state_labels)}"
                 )
-                # Exactly one state label is required; a missing or multiple
-                # label set is never an in-flight transition.
-                if len(state_labels) == 1:
-                    found_state_label = next(iter(state_labels))
+                # The GitHub UI adds nsc-state:agent-ready BESIDE the current
+                # state label; issue_state_action.py restores the prior label
+                # before advancing. Both the additive form and the already-
+                # replaced form are the same in-flight transition. Every other
+                # multi-label set stays an ordinary invalid snapshot.
+                agent_ready_label = STATE_LABELS[WorkflowState.AGENT_READY.value]
+                if state_labels in (
+                    {agent_ready_label},
+                    {expected_label, agent_ready_label},
+                ):
+                    found_state_label = agent_ready_label
     except WorkflowContractError as exc:
         managed = state is not None
         reasons.append(str(exc))
@@ -1143,7 +1159,9 @@ class IssueWorkflowService:
                 continue
             if snapshot.state is not None and snapshot.state.task_id == task.get("id"):
                 continue
-            if not snapshot.valid or snapshot.state is None:
+            if snapshot.state is None or (
+                not snapshot.valid and snapshot.pending_transition is None
+            ):
                 conflicts.append(
                     f"Issue #{number} claims managed workflow state but is invalid and "
                     f"must be repaired before resource coordination: "

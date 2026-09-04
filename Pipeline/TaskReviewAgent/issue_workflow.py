@@ -958,6 +958,32 @@ def legal_next_states(from_state: WorkflowState) -> frozenset[WorkflowState]:
     )
 
 
+def agent_ready_action_converges(state: IssueWorkflowState) -> bool:
+    """Report whether the agent-ready Action can actually converge this state.
+
+    .github/workflows/nsc-issue-workflow.yml fires only on the exact
+    ``nsc-state:agent-ready`` label, and issue_state_action.py then handles only
+    the source combinations mirrored here; every other source state raises
+    "nsc-state:agent-ready is not a valid human transition from ...".
+
+    A state-machine move being legal is therefore NOT sufficient for a pending
+    transition: if the Action cannot converge it, waiting cannot help and the
+    snapshot must stay ordinary invalid.
+
+    issue_state_action.py remains the authority. This mirror exists because the
+    Action imports this module, so it cannot be imported back without a cycle;
+    test_agent_ready_convergence_matches_the_action pins the two together.
+    """
+
+    if state.state is WorkflowState.HUMAN_ACTION_REQUIRED:
+        return True
+    return (
+        state.state is WorkflowState.BLOCKED
+        and state.phase is WorkflowPhase.DELIVERY_EVIDENCE
+        and state.current_actor is WorkflowActor.HUMAN
+    )
+
+
 def state_for_label(label: str) -> WorkflowState | None:
     """Invert STATE_LABELS. Returns None for any non-state label."""
 

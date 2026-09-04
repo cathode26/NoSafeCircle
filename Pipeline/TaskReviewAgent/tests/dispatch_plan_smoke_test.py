@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from contextlib import contextmanager
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -1619,8 +1620,138 @@ def test_empty_committed_task_enumeration_without_resume_is_blocked() -> None:
         )
 
 
+# --------------------------------------------------------------------------
+# Pending transition must not reject disjoint fresh work (review B3 / A7(d)).
+#
+# These drive the REAL plan_dispatch kernel, the REAL IssueWorkflowService and
+# the REAL _resource_conflicts_classified path. No planner is injected.
+# --------------------------------------------------------------------------
+
+import datetime as _pending_dt  # noqa: E402
+
+import Pipeline.TaskReviewAgent.issue_workflow_store as pending_store  # noqa: E402
+
+PENDING_HOLDER = "NSC-780"
+PENDING_RESOURCE = "unity-scene:Assets/Scenes/PendingHolder.unity"
+AGENT_READY_LABEL = "nsc-state:agent-ready"
+_PENDING_BASE = _pending_dt.datetime(2026, 9, 4, tzinfo=_pending_dt.timezone.utc)
+
+
+def _pending_stamp(offset_seconds: float) -> str:
+    moment = _PENDING_BASE + _pending_dt.timedelta(seconds=offset_seconds)
+    return moment.isoformat().replace("+00:00", "Z")
+
+
+@contextmanager
+def _frozen_pending_clock(offset_seconds: float):
+    original = pending_store.pending_transition_now
+    pending_store.pending_transition_now = (
+        lambda: _PENDING_BASE + _pending_dt.timedelta(seconds=offset_seconds)
+    )
+    try:
+        yield
+    finally:
+        pending_store.pending_transition_now = original
+
+
+def _workflow_with_pending_holder(tasks: dict[str, dict[str, Any]]):
+    """Real service whose holder Issue sits in the additive-label UI window."""
+
+    backend, service = fresh_issue_workflow(tasks)
+    service.acquire_agent_lease(
+        task=tasks[PENDING_HOLDER],
+        source_head=SOURCE_HEAD,
+        branch="nsc-780-pending-holder",
+        checkout_path=r"C:\NSC\NSC\NSC-780",
+        planned_approach="Hold the shared scene.",
+        expected_validation="Vincent completes the Unity checklist.",
+        now=_pending_stamp(0),
+    )
+    service.publish_human_handoff(
+        task_id=PENDING_HOLDER,
+        branch="nsc-780-pending-holder",
+        head_commit="2" * 40,
+        checkout_path=r"C:\NSC\NSC\NSC-780",
+        implementation_summary="Fixture handoff.",
+        completed_checks=["deterministic checks"],
+        human_steps=["Open the canonical checkout."],
+        expected_result="The doorway publishes once.",
+        now=_pending_stamp(60),
+    )
+    issue = backend.issues[next(iter(backend.issues))]
+    # The GitHub UI ADDS agent-ready beside the authoritative state label.
+    names = sorted({item["name"] for item in issue["labels"]} | {AGENT_READY_LABEL})
+    issue["labels"] = [{"name": name} for name in names]
+    issue["updated_at"] = _pending_stamp(120)
+    return backend, service
+
+
+def test_pending_issue_does_not_reject_disjoint_fresh_candidate() -> None:
+    tasks = {
+        PENDING_HOLDER: make_task(
+            PENDING_HOLDER, exclusive_resources=[PENDING_RESOURCE]
+        ),
+        "NSC-781": make_task("NSC-781"),
+    }
+    states = {PENDING_HOLDER: "not_delivered", "NSC-781": "not_delivered"}
+    _backend, issue_workflow = _workflow_with_pending_holder(tasks)
+    with _frozen_pending_clock(180):
+        plan = plan_dispatch(
+            source_commit=SOURCE_HEAD,
+            task_ids=list(tasks),
+            task_loader=build_task_loader(tasks),
+            state_provider=build_state_provider(states),
+            issue_workflow=issue_workflow,
+        )
+    require(
+        plan.decision == "fresh_candidate",
+        f"a pending Issue rejected all fresh work: {plan.decision} {plan.reasons}",
+    )
+    require(
+        plan.selected_fresh_candidate["task_id"] == "NSC-781",
+        f"disjoint candidate was not selected: {plan.selected_fresh_candidate}",
+    )
+
+
+def test_pending_issue_still_reserves_its_exclusive_resource() -> None:
+    tasks = {
+        PENDING_HOLDER: make_task(
+            PENDING_HOLDER, exclusive_resources=[PENDING_RESOURCE]
+        ),
+        "NSC-782": make_task("NSC-782", exclusive_resources=[PENDING_RESOURCE]),
+    }
+    states = {PENDING_HOLDER: "not_delivered", "NSC-782": "not_delivered"}
+    _backend, issue_workflow = _workflow_with_pending_holder(tasks)
+    with _frozen_pending_clock(180):
+        conflicts, _diagnostics = issue_workflow.resource_conflicts(tasks["NSC-782"])
+        decision = evaluate(
+            "NSC-782", tasks, states, issue_workflow=issue_workflow
+        )
+    require(
+        any(PENDING_HOLDER in item and PENDING_RESOURCE in item for item in conflicts),
+        f"pending Issue stopped reserving its scene: {conflicts}",
+    )
+    require(
+        not any("must be repaired" in item for item in conflicts),
+        f"pending Issue was reported as corrupt state: {conflicts}",
+    )
+    require(
+        not decision.eligible,
+        "a candidate sharing the pending task's scene was ruled eligible",
+    )
+    require(
+        any(
+            "resource" in code or "conflict" in code
+            for code in decision.reason_codes
+        ),
+        f"overlap was not the stated rejection reason: {decision.reason_codes}",
+    )
+
+
 def main() -> int:
     tests = (
+        test_pending_issue_does_not_reject_disjoint_fresh_candidate,
+        test_pending_issue_still_reserves_its_exclusive_resource,
         test_resume_beats_every_fresh_candidate,
         test_not_delivered_candidate_selected_when_no_actionable_issue,
         test_needs_testing_is_not_a_fresh_candidate,
