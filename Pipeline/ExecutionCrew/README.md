@@ -21,7 +21,7 @@ and task identity, write boundaries, changed-path validation, and patch checks.
 
 ## Contract Locality Auditor (full profile, before the Implementer)
 
-Every full-profile normal run and human-review retry runs one read-only, `high_reasoning` Contract Locality Auditor immediately after source/task/graph preflight and before the Implementer. Lean and standard runs record that the role was deterministically omitted; the independent Validator still fails closed on a locality/design defect and routes it to `contract_review_required`. The auditor has only `repository_read` and `repository_search`, empty `WriteBoundaries`, and reads the physically read-only committed source directly (no disposable clone exists yet at this point). It never edits the task contract, GDD, graph, source, or tests, and it never commits, stages, or otherwise touches Git. Its context includes the exact selected task contract, the full canonical GDD, source `HEAD`/tree, direct dependency contracts, direct dependent contracts, a deterministic id-sorted catalog of every committed task, and the task's execution/decomposition metadata.
+Every full-profile normal run and human-review retry runs one read-only, `high_reasoning` Contract Locality Auditor immediately after source/task/graph preflight and before the Implementer. Lean and standard runs record that the role was deterministically omitted; the independent Validator still fails closed on a locality/design defect and routes it to `contract_review_required`. The auditor has only `repository_read` and `repository_search`, empty `WriteBoundaries`, and reads the physically read-only committed source directly (no disposable clone exists yet at this point). It never edits the task contract, GDD, graph, source, or tests, and it never commits, stages, or otherwise touches Git. Its context includes the exact selected task contract, the full canonical GDD, source `HEAD`/tree, direct dependency contracts in full, the locality-bearing projection of the direct dependent contracts, a deterministic id-sorted catalog of every committed task, and the task's execution/decomposition metadata. It is the one role that receives the GDD inline; see "Prompt context" below.
 
 It classifies every current acceptance-criterion (`AC-###`) and completion-gate (`VAL-###`) ID on the selected task exactly once:
 
@@ -42,6 +42,56 @@ When the audit is nonlocal, the crew publishes `contract_locality_audit.json` (s
 A Validator that later reports `blocked_by_design` with a `criteria_results` `reason_code` of `missing_integration_dependency` or `design_ambiguity` is treated as the same locality-defect class caught after writers already ran (the audit passed, but the defect only became apparent once the candidate was built). That fallback also routes the crew to `contract_review_required`, but by then a `workspace_diagnostic.patch` may already exist from retained tracked-file movement; it is diagnostic only, never an approved candidate, and never applyable.
 
 The Implementer has `repository_read`, `repository_search`, and `repository_write`, model class `standard`, and may edit existing `--implementation-path` values or create exact `--new-implementation-path` values. The fresh Unity Test Author has the same capabilities, model class `low_cost`, and equivalent test-path authority. Requested role paths and pipeline sidecars are disjoint under conservative case-insensitive comparison. Its prompt includes the committed Unity testing policy and exact implementation diff. The fresh Validator is `high_reasoning` with only `repository_read` and `repository_search`; it reads the physically read-only committed source checkout as baseline context and semantically evaluates the candidate state represented by that baseline plus the exact candidate patch and actual changed paths. The baseline is intentionally unchanged, so absence of candidate edits there is not a defect and the Validator must not require them to be committed or applied before review. A pass is semantic review only, never a Unity, delivery, readiness, integration, or conformance claim. The source remains unchanged until a human approves and manually applies `candidate.patch`.
+
+## Prompt context
+
+Exactly one role prompt carries the canonical GDD inline: the **Contract Locality
+Auditor**. It is the only role whose classification set requires an exhaustive
+negative claim about canon (`missing_design` -- "the committed GDD/task contract
+lacks sufficient approved design authority"), and the only role that runs before
+any diff, candidate patch, or changed-path set exists to scope a targeted read.
+Every other role is anchored by a concrete artifact -- the Implementer by its
+approved paths and contract, the Test Author by the exact implementation diff and
+the committed testing policy, the Validator by the candidate patch and actual
+changed paths -- and reads canon against that anchor.
+
+The Implementer, Unity Test Author, and Validator are therefore pointed at the
+committed file instead of being handed a copy of it. Each of those prompts
+carries an explicit instruction naming `Docs/GDD/No_Safe_Circle_GDD.md`, stating
+that the file must be read at this assignment's exact source commit before any
+canon-dependent claim, that remembered or earlier-assignment GDD text is never
+canon, and that absent canon is reported as missing/ambiguous design rather than
+invented. `run_crew.GDD_PATH` and `prompts.COMMITTED_GDD_PATH` are the same
+constant, and that exact path stays in every role's `context_paths` alongside
+the task contract, the testing policy, and the engineering standards, so the
+file a role is told to read is the file its invocation already binds. This is
+identical for ephemeral and pooled sessions: a resumed conversation receives the
+same instruction plus the assignment capsule that retires the previous
+assignment's authority, and never a prior task's canon.
+
+The auditor's **direct dependent** contracts are reduced to their
+locality-bearing fields. Acceptance criteria, completion gates, downstream
+integration obligations, notes, exclusive resources, `depends_on`,
+`contract_disposition`, and the execution/decomposition reasoning that says what
+a task keeps versus defers are all preserved verbatim, and any field this
+pipeline has not classified is preserved too. Omitted are the fields the
+deterministic task catalog in the same prompt already carries for every
+committed task (`reconciliation_key`, `kind`, `type`, `parent`,
+`execution_scope`, `decomposition_state`) and the derivation metadata that
+states nothing about what a dependent requires (`gdd_evidence`, which is an
+excerpt of the GDD the auditor already holds in full; `provenance`;
+`repository_evidence_at_bootstrap` and `repository_state_at_bootstrap`, a stale
+snapshot of a tree the auditor can read directly at the audited head;
+`schema_version`; `contract_revision`). Each entry lists its own
+`omitted_fields` and names its exact `committed_contract_path`, so any omitted
+field remains deterministically readable at the audited commit through the
+repository read capability the role already has. **Direct dependency contracts
+are not reduced at all** -- they are the context a `requires_declared_dependency`
+or `local_to_task` decision turns on most directly.
+
+This is a token-efficiency change only. It changes no rigor, crew composition,
+test selection, validation requirement, human verification, role authority, or
+session-pooling behavior.
 
 ## Optional role-scoped provider sessions
 

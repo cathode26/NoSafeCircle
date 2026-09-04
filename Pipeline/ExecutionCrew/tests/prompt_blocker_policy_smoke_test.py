@@ -10,15 +10,17 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from Pipeline.ExecutionCrew.prompts import implementer_prompt, test_author_prompt, validator_prompt
+from Pipeline.ExecutionCrew.prompts import COMMITTED_GDD_PATH, implementer_prompt, test_author_prompt, validator_prompt
 
 
 def main() -> int:
+    # These three roles are pointed at the committed GDD rather than handed an
+    # inline copy of it; the auditor keeps the inline copy. See
+    # prompt_context_reduction_smoke_test.py for that boundary.
     common = {
         "task_id": "NSC-999",
         "title": "Prompt Policy Fixture",
         "task_contract": '{"id":"NSC-999"}',
-        "gdd": "# GDD\nApproved behavior.\n",
     }
 
     implementer = implementer_prompt(
@@ -62,6 +64,10 @@ def main() -> int:
     assert "not by itself a source-level failure" in validator
     assert "Keep Unity/runtime gates not_proven" in validator
     assert "pipeline-generated asset identity" in validator
+
+    for role_prompt in (implementer, test_author, validator):
+        assert "COMMITTED CANONICAL GDD - READ IT; IT IS NOT INLINED IN THIS PROMPT" in role_prompt
+        assert COMMITTED_GDD_PATH in role_prompt
 
     print("ExecutionCrew prompt blocker-policy smoke: PASS")
     return 0

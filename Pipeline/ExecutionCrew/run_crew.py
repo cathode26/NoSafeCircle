@@ -38,12 +38,13 @@ from Pipeline.TaskExecution.task_runner import TaskExecutionRunner
 from Pipeline.ExecutionCrew.contract_locality import (
     CONTRACT_LOCALITY_AUDIT_SCHEMA_VERSION,
     ContractLocalityError,
+    auditor_dependent_contract_payload,
     build_task_catalog,
     direct_dependency_contracts,
     direct_dependent_contracts,
     validate_locality_audit_output,
 )
-from Pipeline.ExecutionCrew.prompts import contract_locality_auditor_prompt, implementer_prompt, test_author_prompt, validator_prompt
+from Pipeline.ExecutionCrew.prompts import COMMITTED_GDD_PATH, contract_locality_auditor_prompt, implementer_prompt, test_author_prompt, validator_prompt
 from Pipeline.ExecutionCrew.schemas import (
     CONTRACT_LOCALITY_AUDITOR_OUTPUT_SCHEMA,
     IMPLEMENTER_OUTPUT_SCHEMA,
@@ -61,7 +62,7 @@ from persistent_work_graph import PersistentWorkGraph, PersistentWorkGraphError,
 TASK_ID_RE = re.compile(r"^NSC-[0-9]{3}$")
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$")
 GIT_OBJECT_RE = re.compile(r"^[0-9a-f]{40}$")
-GDD_PATH = "Docs/GDD/No_Safe_Circle_GDD.md"
+GDD_PATH = COMMITTED_GDD_PATH
 POLICY_PATH = "Docs/Engineering/UNITY_TESTING_POLICY.md"
 ENGINEERING_STANDARDS_PATH = "Docs/Engineering/ENGINEERING_STANDARDS.md"
 MAX_REVIEW_FEEDBACK_BYTES = 64 * 1024
@@ -1806,7 +1807,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     except ContractLocalityError as exc:
         raise CrewBlocked(str(exc)) from exc
     dependency_contracts=direct_dependency_contracts(task,tasks_by_id)
-    dependent_contracts=direct_dependent_contracts(task_id,tasks_by_id)
+    dependent_contracts=auditor_dependent_contract_payload(direct_dependent_contracts(task_id,tasks_by_id))
     valid_task_ids=frozenset(tasks_by_id)
     impl_plan, test_plan = preflight_role_paths(
         source_root, identity.head, implementation_paths, new_implementation_paths,
@@ -2237,7 +2238,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 repair_actual=set()
                 findings=None if attempt==1 else latest_validator.get("blocking_issues",[])
                 before=snapshot(clone)
-                inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,implementation_paths=impl_plan.existing_paths,new_implementation_paths=impl_plan.new_paths,pipeline_sidecars=impl_plan.pipeline_generated_sidecars,other_role_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
+                inv,res=invoke("implementer",attempt,clone,True,implementer_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,implementation_paths=impl_plan.existing_paths,new_implementation_paths=impl_plan.new_paths,pipeline_sidecars=impl_plan.pipeline_generated_sidecars,other_role_paths=test_paths,findings=findings,human_review_feedback=human_review_feedback),IMPLEMENTER_OUTPUT_SCHEMA,"standard",impl_bounds)
                 after=snapshot(clone); actual,scope=incremental_check(before,after,inv,require_change=(attempt==1 and retry_context is None)); scope+=source_revalidation(source_root,identity)
                 deterministic_scope=list(scope)
                 raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
@@ -2260,7 +2261,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     impl_new_surface=tuple(sorted((*impl_plan.new_paths, *impl_plan.pipeline_generated_sidecars)))
                     impl_patch=paths_patch(clone,identity.head,implementation_paths,impl_new_surface).decode("utf-8","replace")
                     before=snapshot(clone)
-                    inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_plan.existing_paths,new_test_paths=test_plan.new_paths,pipeline_sidecars=test_plan.pipeline_generated_sidecars,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
+                    inv,res=invoke("test_author",attempt,clone,True,test_author_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,policy=policy,implementation_patch=impl_patch,implementation_paths=implementation_paths,implementation_actual_paths=sorted(impl_actual),test_paths=test_plan.existing_paths,new_test_paths=test_plan.new_paths,pipeline_sidecars=test_plan.pipeline_generated_sidecars,findings=findings,human_review_feedback=human_review_feedback),TEST_AUTHOR_OUTPUT_SCHEMA,"low_cost",test_bounds)
                     # An existing authoritative test may already prove the new production
                     # behavior.  The independent Test Author must inspect it, but should
                     # not be forced to churn that file merely to satisfy a non-empty diff.
@@ -2311,7 +2312,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     reasons.append("repair cycle made no deterministic changes"); crew_status="needs_human"; stop=True; break
                 new_surface=tuple(sorted((*impl_plan.new_paths, *test_plan.new_paths, *pipeline_generated)))
                 candidate=full_patch(clone,identity.head,new_surface); final_paths=changed_paths(baseline_clone,snapshot(clone))
-                inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
+                inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
                 scope=source_revalidation(source_root,identity)
                 deterministic_scope=list(scope)
                 raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}

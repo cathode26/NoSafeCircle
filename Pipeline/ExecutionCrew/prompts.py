@@ -5,8 +5,40 @@ import json
 from typing import Iterable, Mapping, Any
 
 
+# The one committed file that is canon for a run. `run_crew` binds this exact
+# path into every role's `context_paths`, so a role told to read it is told to
+# read the same bytes the invocation already carries.
+COMMITTED_GDD_PATH = "Docs/GDD/No_Safe_Circle_GDD.md"
+
+
 def _paths(values: Iterable[str]) -> str:
     return "\n".join(f"- {value}" for value in values)
+
+
+def _committed_gdd_reference(gdd_path: str) -> str:
+    """The explicit committed-GDD read instruction for a role not handed it inline.
+
+    The GDD is not inlined for this role: the exact committed file is already
+    bound to the invocation through `context_paths`, and every role has
+    repository read and search capability. The replacement therefore has to be
+    unambiguous about which bytes are canon, because a reused provider session
+    can still be holding an earlier assignment's GDD text, and because a role
+    that quietly skipped the read would be making canon claims from nothing.
+    """
+    return (
+        "COMMITTED CANONICAL GDD - READ IT; IT IS NOT INLINED IN THIS PROMPT\n"
+        f"- The approved canonical GDD for this task is the committed file {gdd_path} at the exact source "
+        "commit this assignment names. That exact path is bound to this invocation in context_paths, and "
+        "you have repository read and search capability for it.\n"
+        "- Before making any claim that depends on approved game-design canon, read the relevant committed "
+        f"sections of {gdd_path} at that commit. This applies equally to a claim that canon does authorize "
+        "a behavior and to a claim that canon does not.\n"
+        "- Remembered GDD text, GDD text from an earlier assignment or conversation, and any other "
+        "document are not canon and must never be substituted for it. Only the committed file at that "
+        "exact path and commit is canon for this assignment.\n"
+        f"- If the canon a decision needs is not present in {gdd_path} at that commit, report it as "
+        "missing or ambiguous design under this role's normal reporting rules. Do not invent it.\n"
+    )
 
 
 def _human_review(feedback: str, *, role: str) -> str:
@@ -104,12 +136,13 @@ execution_reason: {execution_reason}
 decomposition_state: {decomposition_state}
 decomposition_reason: {decomposition_reason}
 DIRECT DEPENDENCY CONTRACTS (already declared on this task)\n---\n{json.dumps(dependency_contracts, indent=2)}\n---
-DIRECT DEPENDENT TASK CONTRACTS (tasks that declare a dependency on this task)\n---\n{json.dumps(dependent_contracts, indent=2)}\n---
+DIRECT DEPENDENT TASK CONTRACTS (tasks that declare a dependency on this task). Every field that states what a dependent requires or owns is present verbatim. Fields the deterministic task catalog below already carries, and fields recording only how that contract was derived, are listed per entry under omitted_fields; read committed_contract_path at the exact source_head above when one of them actually matters. Never treat an omitted field as absent from the committed contract.\n---\n{json.dumps(dependent_contracts, indent=2)}\n---
 DETERMINISTIC TASK CATALOG (every committed task; id, reconciliation_key, title, kind, execution_scope, decomposition_state, parent, depends_on)\n---\n{json.dumps(task_catalog, indent=2)}\n---
 FULL COMMITTED CANONICAL GDD\n---\n{gdd}\n---"""
 
 
-def implementer_prompt(*, task_id: str, title: str, task_contract: str, gdd: str,
+def implementer_prompt(*, task_id: str, title: str, task_contract: str,
+                       gdd_path: str = COMMITTED_GDD_PATH,
                        implementation_paths: Iterable[str], new_implementation_paths: Iterable[str] = (),
                        pipeline_sidecars: Iterable[str] = (), other_role_paths: Iterable[str] = (), findings: Any = None,
                        human_review_feedback: str | None = None) -> str:
@@ -135,10 +168,11 @@ ROLE-OWNERSHIP / INTEGRATION BLOCKER POLICY
 - Test Author-owned work is not an Implementer blocker. Do not modify test files. If the approved production behavior can be completed within your implementation paths but existing tests are expected to become stale or fail because they encode superseded behavior, complete the production change and report the needed test update in notes for the Test Author.
 - A generated or serialized integration artifact outside your implementation paths is not an Implementer blocker when an approved writable source-of-truth in your implementation paths deterministically regenerates that artifact and no design decision is missing. Implement the writable source-of-truth and report the required regeneration/human-integration step in notes. Do not hand-edit an out-of-scope generated artifact.
 - Report a blocker only when required production behavior itself cannot be completed within the approved implementation paths, or when the task/canon/design requires unresolved authority or missing information. Do not report blockers merely because Test Author work or a later deterministic human integration step remains.
-EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\nFULL COMMITTED CANONICAL GDD\n---\n{gdd}\n---{review}{repair}"""
+EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\n{_committed_gdd_reference(gdd_path)}{review}{repair}"""
 
 
-def test_author_prompt(*, task_id: str, title: str, task_contract: str, gdd: str,
+def test_author_prompt(*, task_id: str, title: str, task_contract: str,
+                       gdd_path: str = COMMITTED_GDD_PATH,
                        policy: str, implementation_patch: str, implementation_paths: Iterable[str],
                        implementation_actual_paths: Iterable[str], test_paths: Iterable[str],
                        new_test_paths: Iterable[str] = (), pipeline_sidecars: Iterable[str] = (), findings: Any = None,
@@ -161,10 +195,11 @@ Implementation paths are read-only to you:\n{_paths(implementation_paths)}
 Deterministic actual implementation changed paths:\n{_paths(implementation_actual_paths)}
 Do not run Unity, tests, builds, scripts, or package managers. Do not stage, commit, reset, checkout, rebase, merge, or modify Git metadata. Do not claim tests passed. Report blockers rather than expanding scope.
 If an existing test inside your approved test paths encodes behavior that the current TaskContract/GDD explicitly supersedes and the implementation diff replaces, updating that stale assertion is your responsibility rather than an Implementer blocker. Preserve valid regression coverage while making the test express the current approved behavior. Report a blocker only if required test coverage cannot be represented within your approved test paths or the task/canon/design is genuinely ambiguous.
-EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\nFULL COMMITTED CANONICAL GDD\n---\n{gdd}\n---\nCOMMITTED UNITY TESTING POLICY\n---\n{policy}\n---\nEXACT DETERMINISTIC IMPLEMENTATION DIFF\n---\n{implementation_patch}\n---{review}{repair}"""
+EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\n{_committed_gdd_reference(gdd_path)}COMMITTED UNITY TESTING POLICY\n---\n{policy}\n---\nEXACT DETERMINISTIC IMPLEMENTATION DIFF\n---\n{implementation_patch}\n---{review}{repair}"""
 
 
-def validator_prompt(*, task_id: str, title: str, task_contract: str, gdd: str,
+def validator_prompt(*, task_id: str, title: str, task_contract: str,
+                     gdd_path: str = COMMITTED_GDD_PATH,
                      candidate_patch: str, changed_paths: Iterable[str],
                      implementer_output: Mapping[str, Any], test_author_output: Mapping[str, Any],
                      human_review_feedback: str | None = None) -> str:
@@ -196,4 +231,4 @@ REASON_CODE (required on every criteria_results item)
   - insufficient_evidence: the available evidence does not establish the criterion either way. Must not coexist with overall status=pass; use needs_changes or blocked_by_design as appropriate.
   - design_ambiguity: the GDD/task contract does not unambiguously define the required behavior. Must never coexist with overall status=pass; the overall status must be blocked_by_design.
 Overall status=pass is valid only when every not_proven item uses runtime_not_executed. Any not_proven item using missing_integration_dependency or design_ambiguity requires overall status=blocked_by_design.{review}
-EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\nFULL COMMITTED CANONICAL GDD\n---\n{gdd}\n---\nEXACT DETERMINISTIC ACTUAL CHANGED PATHS\n---\n{_paths(changed_paths)}\n---\nIMPLEMENTER STRUCTURED OUTPUT\n---\n{json.dumps(implementer_output, indent=2)}\n---\nTEST AUTHOR STRUCTURED OUTPUT\n---\n{json.dumps(test_author_output, indent=2)}\n---\nEXACT FULL CANDIDATE GIT PATCH\n---\n{candidate_patch}\n---"""
+EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\n{_committed_gdd_reference(gdd_path)}EXACT DETERMINISTIC ACTUAL CHANGED PATHS\n---\n{_paths(changed_paths)}\n---\nIMPLEMENTER STRUCTURED OUTPUT\n---\n{json.dumps(implementer_output, indent=2)}\n---\nTEST AUTHOR STRUCTURED OUTPUT\n---\n{json.dumps(test_author_output, indent=2)}\n---\nEXACT FULL CANDIDATE GIT PATCH\n---\n{candidate_patch}\n---"""
