@@ -1548,6 +1548,474 @@ class ProductionAbandonedStateCleanup:
             raise
 
 
+DECOMPOSITION_UNDO_OPERATION = "decomposition_undo_reset"
+
+
+def _decomposition_children(task: dict[str, Any]) -> tuple[str, ...]:
+    """Read the exact child set recorded by the applied parent contract."""
+
+    if str(task.get("decomposition_state") or "") != "decomposed":
+        raise TaskResetError(
+            "parent contract is not in decomposition_state 'decomposed'; there is no "
+            "applied decomposition to undo"
+        )
+    raw = task.get("decomposition_children")
+    if not isinstance(raw, list) or not raw:
+        raise TaskResetError(
+            "applied parent contract records no decomposition_children; refusing to "
+            "guess the child set"
+        )
+    children: list[str] = []
+    for item in raw:
+        if not isinstance(item, str):
+            raise TaskResetError("decomposition_children contains a non-string entry")
+        children.append(validate_task_id(item))
+    if len(set(children)) != len(children):
+        raise TaskResetError("decomposition_children contains a duplicate task id")
+    return tuple(children)
+
+
+class DecompositionUndoReset:
+    """Undo one exact, unconsumed D1C decomposition and free the parent again.
+
+    The additive inverse commit is produced only by
+    ``Pipeline/TaskGraph/undo_graph_delta.py``. This operation adds the
+    repository-coordination safety that primitive intentionally does not own:
+    exact origin/main identity, per-child consumption discovery, guarded
+    fast-forward publication, parent state archival, and a resumable receipt.
+    Audit history is never rewritten.
+    """
+
+    def __init__(
+        self,
+        *,
+        source: Path,
+        checkout_root: Path,
+        task_id: str,
+        graph_delta: Path,
+        runner: CommandRunner | None = None,
+    ) -> None:
+        from Pipeline.TaskGraph.undo_graph_delta import _load_stored_plan
+
+        self.runner = runner or CommandRunner()
+        self.source = source.resolve()
+        self.checkout_root = checkout_root.resolve()
+        self.task_id = validate_task_id(task_id)
+        self.state_root = self.checkout_root / ".task-review-agent"
+        self.graph_delta_path = Path(graph_delta).resolve()
+        self.origin = _git_text(self.runner, self.source, "remote", "get-url", "origin")
+        self.repository = _repository_from_origin(self.origin)
+        self.stored = _load_stored_plan(self.graph_delta_path)
+
+    def _stored_parent_task_id(self) -> str:
+        payload = self.stored.to_dict()
+        summary = payload.get("parent_before_summary")
+        if not isinstance(summary, dict):
+            raise TaskResetError("stored graph delta omitted its parent summary")
+        stored_parent = summary.get("task_id")
+        if not isinstance(stored_parent, str) or not stored_parent:
+            raise TaskResetError("stored graph delta omitted its parent task id")
+        return stored_parent
+
+    def _undo_plan(self, head: str):
+        from Pipeline.TaskGraph.undo_graph_delta import (
+            GraphDeltaUndoError,
+            inspect_graph_delta_undo,
+        )
+
+        try:
+            return inspect_graph_delta_undo(self.source, self.stored, expected_head=head)
+        except GraphDeltaUndoError as exc:
+            raise TaskResetError(f"exact D1C undo authority was refused: {exc}") from exc
+
+    def _child_consumption(self, child_id: str) -> list[str]:
+        """Return every proven reason this child is already consumed or reserved."""
+
+        reasons: list[str] = []
+        child_task = load_committed_task(self.source, child_id)
+        branch = branch_name(child_id, child_task.get("title"))
+
+        open_issues = _managed_task_issues(
+            self.runner, self.source, self.repository, child_id, "open"
+        )
+        if open_issues:
+            numbers = sorted(str(item.get("number")) for item in open_issues)
+            reasons.append(f"open managed Issue(s) {', '.join(numbers)}")
+
+        remote_branch = _remote_ref_oid(
+            self.runner, self.source, "origin", f"refs/heads/{branch}"
+        )
+        if remote_branch is not None:
+            reasons.append(f"remote branch refs/heads/{branch} at {remote_branch}")
+
+        local_branch = (
+            _git_text(
+                self.runner,
+                self.source,
+                "rev-parse",
+                "--verify",
+                f"refs/heads/{branch}",
+                check=False,
+            )
+            or None
+        )
+        if local_branch is not None:
+            reasons.append(f"local branch refs/heads/{branch} at {local_branch}")
+
+        checkout = self.checkout_root / child_id
+        present = checkout.exists()
+        if not present:
+            # A dangling junction/symlink still reserves the exact path.
+            try:
+                present = _path_is_reparse_point(checkout)
+            except OSError:
+                present = False
+        if present:
+            reasons.append(f"task checkout {checkout}")
+
+        worktrees = _controller_task_worktrees(
+            self.runner, self.source, child_id, branch
+        )
+        if worktrees:
+            reasons.append(f"linked worktree(s) {json.dumps(worktrees, sort_keys=True)}")
+
+        claims = _relevant_claims(self.source, child_task)
+        if claims:
+            refs = sorted(str(entry.get("ref")) for entry in claims)
+            reasons.append(f"claim ref(s) {', '.join(refs)}")
+
+        active_state = [
+            str(path)
+            for path in _state_paths(self.state_root, child_id)
+            if path.is_file()
+        ]
+        if active_state:
+            reasons.append(f"active state file(s) {', '.join(sorted(active_state))}")
+
+        state = _task_state(self.runner, self.source, child_id)
+        if str(state.get("state") or "") != "not_delivered":
+            reasons.append(f"TaskGraph state {state.get('state')!r}")
+        return reasons
+
+    def preflight(self) -> dict[str, Any]:
+        if (
+            Path(
+                _git_text(self.runner, self.source, "rev-parse", "--show-toplevel")
+            ).resolve()
+            != self.source
+        ):
+            raise TaskResetError("source is not the exact Git repository root")
+        if _git_text(self.runner, self.source, "branch", "--show-current") != "main":
+            raise TaskResetError("decomposition undo requires the controller on main")
+        if _git_text(
+            self.runner,
+            self.source,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ):
+            raise TaskResetError(
+                "controller checkout is not completely clean; decomposition undo never "
+                "cleans a dirty checkout"
+            )
+
+        stored_parent = self._stored_parent_task_id()
+        if stored_parent != self.task_id:
+            raise TaskResetError(
+                f"stored graph delta belongs to {stored_parent}, not {self.task_id}"
+            )
+
+        _git(self.runner, self.source, "fetch", "--prune", "origin", "main")
+        head = _git_text(self.runner, self.source, "rev-parse", "HEAD")
+        origin_main = _git_text(self.runner, self.source, "rev-parse", "origin/main")
+        if head != origin_main:
+            raise TaskResetError(
+                "controller HEAD must exactly equal fetched origin/main before an undo"
+            )
+        remote_main = _remote_ref_oid(
+            self.runner, self.source, "origin", "refs/heads/main"
+        )
+        if remote_main != head:
+            raise TaskResetError(
+                f"origin/main is {remote_main}, not the exact local HEAD {head}"
+            )
+
+        undo_plan = self._undo_plan(head)
+        if undo_plan.parent_task_id != self.task_id:
+            raise TaskResetError(
+                f"D1C commit decomposes {undo_plan.parent_task_id}, not {self.task_id}"
+            )
+
+        _validate_taskgraph(self.runner, self.source)
+        parent_task = load_committed_task(self.source, self.task_id)
+        children = _decomposition_children(parent_task)
+
+        blocked: dict[str, list[str]] = {}
+        for child_id in children:
+            reasons = self._child_consumption(child_id)
+            if reasons:
+                blocked[child_id] = reasons
+        if blocked:
+            raise TaskResetError(
+                "decomposition children are already consumed or reserved; undo refuses "
+                "to strand them:\n" + json.dumps(blocked, indent=2, sort_keys=True)
+            )
+
+        parent_state = _task_state(self.runner, self.source, self.task_id)
+        parent_active_state = [
+            str(path)
+            for path in _state_paths(self.state_root, self.task_id)
+            if path.is_file()
+        ]
+        closed_issues = _managed_task_issues(
+            self.runner, self.source, self.repository, self.task_id, "closed"
+        )
+        return {
+            "schema_version": "1.0",
+            "operation": DECOMPOSITION_UNDO_OPERATION,
+            "repository": self.repository,
+            "task_id": self.task_id,
+            "graph_delta_path": str(self.graph_delta_path),
+            "plan_id": undo_plan.plan_id,
+            "apply_commit": undo_plan.apply_commit,
+            "source_commit": undo_plan.source_commit,
+            "apply_tree": undo_plan.apply_tree,
+            "source_tree": undo_plan.source_tree,
+            "changed_paths": list(undo_plan.changed_paths),
+            "source_graph_semantic_hash": undo_plan.source_graph_semantic_hash,
+            "proposed_graph_semantic_hash": undo_plan.proposed_graph_semantic_hash,
+            "main_head": undo_plan.apply_commit,
+            "origin_main": remote_main,
+            "decomposition_children": list(children),
+            "parent_taskgraph_state": parent_state.get("state"),
+            "parent_active_state_files": parent_active_state,
+            "closed_issues_retained": [
+                {"number": item.get("number"), "url": item.get("url")}
+                for item in closed_issues
+            ],
+            "retained_outputs": str(self.state_root / "outputs" / self.task_id),
+            "audit_history_rewritten": False,
+        }
+
+    def _verify_undo_commit(self, plan: dict[str, Any], undo_commit: str) -> None:
+        from Pipeline.TaskGraph.undo_graph_delta import _graph_hash
+
+        if (
+            _git_text(self.runner, self.source, "rev-parse", f"{undo_commit}^")
+            != plan["apply_commit"]
+        ):
+            raise TaskResetError("undo commit parent is not the exact D1C apply commit")
+        if (
+            _git_text(self.runner, self.source, "rev-parse", f"{undo_commit}^{{tree}}")
+            != plan["source_tree"]
+        ):
+            raise TaskResetError(
+                "undo commit tree does not restore the exact pre-D1C source tree"
+            )
+        if _graph_hash(self.source) != plan["source_graph_semantic_hash"]:
+            raise TaskResetError("undo commit did not restore the source TaskGraph")
+
+    def _publish_undo(self, plan: dict[str, Any], undo_commit: str) -> str:
+        """Fast-forward origin/main from the exact expected old value."""
+
+        remote_main = _remote_ref_oid(
+            self.runner, self.source, "origin", "refs/heads/main"
+        )
+        if remote_main == undo_commit:
+            return "already_published"
+        if remote_main != plan["apply_commit"]:
+            raise TaskResetError(
+                f"origin/main is {remote_main}, not the expected old value "
+                f"{plan['apply_commit']}; refusing to publish the undo"
+            )
+        # Additive fast-forward only. No force, no lease override, no rewind.
+        _git(
+            self.runner,
+            self.source,
+            "push",
+            "origin",
+            f"{undo_commit}:refs/heads/main",
+        )
+        published = _remote_ref_oid(
+            self.runner, self.source, "origin", "refs/heads/main"
+        )
+        if published != undo_commit:
+            raise TaskResetError(
+                f"origin/main is {published} after push, expected {undo_commit}"
+            )
+        return "published"
+
+    def _finish_cleanup(
+        self,
+        plan: dict[str, Any],
+        report: dict[str, Any],
+        report_path: Path,
+        timestamp: str,
+    ) -> dict[str, Any]:
+        archive, names = _archive_state_files(
+            self.state_root, self.task_id, timestamp=timestamp
+        )
+        report.update(
+            {
+                "state_archive": str(archive) if archive else None,
+                "archived_state_files": list(names),
+                "status": "state_archived",
+            }
+        )
+        _write_report(report_path, report)
+
+        remaining = [
+            str(path)
+            for path in _state_paths(self.state_root, self.task_id)
+            if path.is_file()
+        ]
+        if remaining:
+            raise TaskResetError(
+                "active parent decomposition state remains after archive: "
+                + ", ".join(sorted(remaining))
+            )
+        parent_task = load_committed_task(self.source, self.task_id)
+        if str(parent_task.get("decomposition_state") or "") == "decomposed":
+            raise TaskResetError("parent contract is still marked decomposed")
+        if parent_task.get("decomposition_children"):
+            raise TaskResetError("parent contract still records decomposition children")
+        surviving = [
+            child_id
+            for child_id in plan["decomposition_children"]
+            if (self.source / "Tasks" / f"{child_id}.yaml").exists()
+        ]
+        if surviving:
+            raise TaskResetError(
+                "child contracts still exist after undo: " + ", ".join(surviving)
+            )
+        _validate_taskgraph(self.runner, self.source)
+        report.update(
+            {
+                "status": "complete",
+                "parent_decomposition_state": parent_task.get("decomposition_state"),
+                "parent_eligible_for_fresh_decomposition": True,
+                "origin_main": _remote_ref_oid(
+                    self.runner, self.source, "origin", "refs/heads/main"
+                ),
+            }
+        )
+        _write_report(report_path, report)
+        return report
+
+    def apply(self, plan: dict[str, Any]) -> dict[str, Any]:
+        from Pipeline.TaskGraph.undo_graph_delta import (
+            GraphDeltaUndoError,
+            undo_graph_delta,
+        )
+
+        timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%SZ")
+        report_path = (
+            self.state_root
+            / "reset-runs"
+            / self.task_id
+            / f"{timestamp}-undo-decomposition.json"
+        )
+        report = {**plan, "status": "applying", "report_path": str(report_path)}
+        _create_report(report_path, report)
+        try:
+            verification = self.preflight()
+            for field in (
+                "plan_id",
+                "apply_commit",
+                "source_commit",
+                "source_tree",
+                "source_graph_semantic_hash",
+                "decomposition_children",
+            ):
+                if verification[field] != plan[field]:
+                    raise TaskResetError(
+                        f"{field} changed between preflight and apply"
+                    )
+            remote_main = _remote_ref_oid(
+                self.runner, self.source, "origin", "refs/heads/main"
+            )
+            if remote_main != plan["apply_commit"]:
+                raise TaskResetError(
+                    f"origin/main moved to {remote_main} after preflight"
+                )
+            try:
+                result = undo_graph_delta(
+                    self.source,
+                    self.stored,
+                    expected_head=plan["apply_commit"],
+                )
+            except GraphDeltaUndoError as exc:
+                raise TaskResetError(f"exact D1C undo failed: {exc}") from exc
+            self._verify_undo_commit(plan, result.undo_commit)
+            report.update(
+                {
+                    "undo_commit": result.undo_commit,
+                    "committed_paths": list(result.committed_paths),
+                    "status": "undo_committed",
+                }
+            )
+            _write_report(report_path, report)
+
+            report["publish"] = self._publish_undo(plan, result.undo_commit)
+            report["status"] = "undo_published"
+            _write_report(report_path, report)
+
+            return self._finish_cleanup(plan, report, report_path, timestamp)
+        except Exception as exc:
+            report.update({"status": "stopped", "error": str(exc)})
+            _write_report(report_path, report)
+            raise
+
+    def resume(self, report_path: Path) -> dict[str, Any]:
+        """Finish cleanup for a receipt whose undo commit already exists.
+
+        This never creates a second undo commit. It requires the receipt's exact
+        identities and reuses the recorded additive commit.
+        """
+
+        path = Path(report_path).resolve()
+        try:
+            report = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise TaskResetError(f"reset receipt is not readable UTF-8 JSON: {path}") from exc
+        if not isinstance(report, dict):
+            raise TaskResetError("reset receipt must contain one JSON object")
+        if report.get("operation") != DECOMPOSITION_UNDO_OPERATION:
+            raise TaskResetError("reset receipt is not a decomposition-undo receipt")
+        if report.get("task_id") != self.task_id:
+            raise TaskResetError("reset receipt belongs to a different task")
+        if report.get("repository") != self.repository:
+            raise TaskResetError("reset receipt belongs to a different repository")
+        if report.get("plan_id") != self.stored.to_dict().get("plan_id"):
+            raise TaskResetError("reset receipt names a different decomposition plan")
+        undo_commit = report.get("undo_commit")
+        if not isinstance(undo_commit, str) or not undo_commit:
+            raise TaskResetError(
+                "reset receipt records no undo commit; rerun the ordinary "
+                "--undo-decomposition --apply preflight instead of resuming"
+            )
+        if report.get("status") == "complete":
+            return report
+        if not _git_text(
+            self.runner,
+            self.source,
+            "rev-parse",
+            "--verify",
+            f"{undo_commit}^{{commit}}",
+            check=False,
+        ):
+            raise TaskResetError(
+                f"receipt undo commit {undo_commit} does not exist in this repository"
+            )
+        self._verify_undo_commit(report, undo_commit)
+        report["publish"] = self._publish_undo(report, undo_commit)
+        report["status"] = "undo_published"
+        report["resumed"] = True
+        _write_report(path, report)
+        timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%SZ")
+        return self._finish_cleanup(report, report, path, timestamp)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("task_id", help="Exact task ID, for example NSC-042")
@@ -1559,6 +2027,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--resume-report",
         type=Path,
         help="Resume one exact stopped abandoned-rehearsal reset receipt",
+    )
+    parser.add_argument(
+        "--graph-delta",
+        type=Path,
+        help="Exact stored graph_delta.json authority for --undo-decomposition",
+    )
+    parser.add_argument(
+        "--confirm-plan-id",
+        help="Exact decomposition plan id required by --undo-decomposition --apply",
     )
     parser.add_argument("--apply", action="store_true")
     modes = parser.add_mutually_exclusive_group(required=True)
@@ -1581,6 +2058,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--revert-delivered-production",
         action="store_true",
         help="Additively revert an unchanged completed production delivery",
+    )
+    modes.add_argument(
+        "--undo-decomposition",
+        action="store_true",
+        help=(
+            "Additively undo one exact unconsumed D1C decomposition and leave the "
+            "parent eligible for a fresh decomposition run"
+        ),
     )
     args = parser.parse_args(argv)
     try:
@@ -1617,6 +2102,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 archive_repository=archive,
                 runner=runner,
             )
+        elif args.undo_decomposition:
+            if args.graph_delta is None:
+                raise TaskResetError(
+                    "--undo-decomposition requires --graph-delta <graph_delta.json>"
+                )
+            operation = DecompositionUndoReset(
+                source=source,
+                checkout_root=checkout_root,
+                task_id=args.task_id,
+                graph_delta=args.graph_delta,
+                runner=runner,
+            )
         else:
             owner, name = repository.split("/", 1)
             archive = args.archive_repository or f"{owner}/{name}-Archive"
@@ -1628,10 +2125,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 runner=runner,
             )
         if args.resume_report is not None:
-            if not args.abandon_incomplete_rehearsal or not args.apply:
+            if not (args.abandon_incomplete_rehearsal or args.undo_decomposition):
                 raise TaskResetError(
-                    "--resume-report requires --abandon-incomplete-rehearsal --apply"
+                    "--resume-report requires --abandon-incomplete-rehearsal or "
+                    "--undo-decomposition"
                 )
+            if not args.apply:
+                raise TaskResetError("--resume-report requires --apply")
             if not args.confirm_repository or args.confirm_repository.casefold() != repository.casefold():
                 raise TaskResetError(f"--apply requires --confirm-repository {repository}")
             report = operation.resume(args.resume_report)
@@ -1643,6 +2143,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if not args.confirm_repository or args.confirm_repository.casefold() != repository.casefold():
             raise TaskResetError(f"--apply requires --confirm-repository {repository}")
+        if args.undo_decomposition and args.confirm_plan_id != plan["plan_id"]:
+            raise TaskResetError(
+                f"--apply requires --confirm-plan-id {plan['plan_id']}"
+            )
         report = operation.apply(plan)
         print(json.dumps(report, indent=2, sort_keys=True))
         return 0

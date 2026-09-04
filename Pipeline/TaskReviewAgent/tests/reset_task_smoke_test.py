@@ -353,6 +353,508 @@ def test_exact_remote_branch_object_is_fetched_without_local_ref(root: Path) -> 
     expect(local_ref.returncode != 0, "preflight fetch created a local task branch")
 
 
+# ---------------------------------------------------------------------------
+# Decomposition undo (--undo-decomposition)
+#
+# Every test below uses a disposable local Git repository plus a local bare
+# "origin". No real GitHub object, remote ref, or network call is used: `gh`
+# and `git remote get-url origin` are answered by FakeGitHubRunner.
+# ---------------------------------------------------------------------------
+
+TASK_GRAPH_DIR = ROOT / "Pipeline" / "TaskGraph"
+for _module_root in (str(ROOT / "Pipeline"), str(TASK_GRAPH_DIR)):
+    if _module_root not in sys.path:
+        sys.path.insert(0, _module_root)
+
+from apply_graph_delta import apply_graph_delta  # noqa: E402
+from graph_apply_smoke_test import (  # noqa: E402
+    approved_identity_environment,
+    create_fixture,
+)
+from Pipeline.TaskReviewAgent.real_checkout import branch_name  # noqa: E402
+from Pipeline.TaskReviewAgent.reset_rehearsal_task import CommandResult  # noqa: E402
+from Pipeline.TaskReviewAgent.reset_task import (  # noqa: E402
+    DecompositionUndoReset,
+    _decomposition_children,
+    main as reset_task_main,
+)
+
+FIXTURE_REPOSITORY = "cathode26/NoSafeCircle-UndoFixture"
+FIXTURE_ORIGIN_URL = "https://github.com/" + FIXTURE_REPOSITORY + ".git"
+
+
+class FakeGitHubRunner(CommandRunner):
+    """Real git against a local bare origin; every `gh` call is faked."""
+
+    def __init__(self, *, open_issues=None, fail_push: bool = False, task_states=None) -> None:
+        self.open_issues = dict(open_issues or {})
+        self.fail_push = fail_push
+        # The disposable fixture holds a real persisted TaskGraph but no
+        # taskcontrol.py CLI, so those two exact invocations are answered here.
+        self.task_states = dict(task_states or {})
+        self.gh_calls = []
+        self.push_calls = []
+
+    def run(self, args, *, cwd, check: bool = True, timeout: float = 600.0):
+        argv = tuple(args)
+        if argv and argv[0] == "gh":
+            self.gh_calls.append(argv)
+            return CommandResult(
+                args=argv, returncode=0, stdout=self._gh_payload(argv), stderr=""
+            )
+        # The fixture origin is a local bare repository, but production code
+        # legitimately requires a GitHub-shaped identity. Answer only that
+        # identity question; every other git call runs for real.
+        if argv[0] == "git" and argv[-3:] == ("remote", "get-url", "origin"):
+            return CommandResult(
+                args=argv, returncode=0, stdout=FIXTURE_ORIGIN_URL + "\n", stderr=""
+            )
+        if len(argv) >= 2 and argv[1].endswith("taskcontrol.py"):
+            return self._taskcontrol(argv)
+        if argv[0] == "git" and "push" in argv:
+            self.push_calls.append(argv)
+            if self.fail_push:
+                if check:
+                    raise TaskResetError("command failed (1): fixture push failure")
+                return CommandResult(
+                    args=argv, returncode=1, stdout="", stderr="fixture push failure\n"
+                )
+        return super().run(argv, cwd=cwd, check=check, timeout=timeout)
+
+    def _taskcontrol(self, argv):
+        if argv[2] == "validate":
+            return CommandResult(
+                args=argv,
+                returncode=0,
+                stdout="taskcontrol validate: PASS" + chr(10),
+                stderr="",
+            )
+        if argv[2] == "state":
+            task_id = argv[3]
+            return CommandResult(
+                args=argv,
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "task_id": task_id,
+                        "state": self.task_states.get(task_id, "not_delivered"),
+                    }
+                ),
+                stderr="",
+            )
+        raise AssertionError("unexpected taskcontrol invocation: " + " ".join(argv))
+
+    def _gh_payload(self, argv) -> str:
+        if "issue" in argv and "list" in argv:
+            state = argv[argv.index("--state") + 1]
+            search = argv[argv.index("--search") + 1]
+            task_id = search.split(" ", 1)[0]
+            if state == "open":
+                return json.dumps(self.open_issues.get(task_id, []))
+        return json.dumps([])
+
+
+class UndoEnvironment:
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.work = root / "work"
+        self.bare = root / "origin.git"
+        self.checkout_root = root / "checkouts"
+        self.checkout_root.mkdir(parents=True, exist_ok=True)
+        self.work.mkdir(parents=True, exist_ok=True)
+
+        self.fixture = create_fixture(self.work)
+        run("git", "branch", "-M", "main", cwd=self.work)
+        with approved_identity_environment():
+            self.applied = apply_graph_delta(
+                self.work,
+                self.fixture.selector,
+                self.fixture.decomposition_result,
+                self.fixture.stored_plan,
+                expected_head=self.fixture.initial_head,
+            )
+        run("git", "init", "--bare", "-q", str(self.bare), cwd=root)
+        run("git", "remote", "add", "origin", str(self.bare), cwd=self.work)
+        run("git", "push", "-q", "origin", "HEAD:refs/heads/main", cwd=self.work)
+        run("git", "fetch", "-q", "--prune", "origin", "main", cwd=self.work)
+
+        payload = self.fixture.stored_plan.to_dict()
+        self.parent_id = payload["parent_before_summary"]["task_id"]
+        self.plan_id = payload["plan_id"]
+        self.graph_delta = root / "graph_delta.json"
+        self.graph_delta.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+
+    def operation(self, runner=None) -> DecompositionUndoReset:
+        return DecompositionUndoReset(
+            source=self.work,
+            checkout_root=self.checkout_root,
+            task_id=self.parent_id,
+            graph_delta=self.graph_delta,
+            runner=runner or FakeGitHubRunner(),
+        )
+
+    def head(self) -> str:
+        return run("git", "rev-parse", "HEAD", cwd=self.work)
+
+    def origin_main(self) -> str:
+        line = run("git", "ls-remote", "origin", "refs/heads/main", cwd=self.work)
+        return line.split()[0]
+
+    def commit_count(self) -> int:
+        return int(run("git", "rev-list", "--count", "HEAD", cwd=self.work))
+
+
+def _expect_refusal(callable_, fragment: str, message: str) -> str:
+    try:
+        callable_()
+    except TaskResetError as exc:
+        expect(fragment in str(exc), message + ": unexpected error " + str(exc))
+        return str(exc)
+    raise AssertionError(message + ": no refusal was raised")
+
+
+def test_undo_decomposition_dry_run_is_read_only(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    before_head = environment.head()
+    before_count = environment.commit_count()
+    plan = environment.operation().preflight()
+    expect(plan["operation"] == "decomposition_undo_reset", "wrong operation name")
+    expect(plan["task_id"] == environment.parent_id, "wrong parent task")
+    expect(plan["plan_id"] == environment.plan_id, "wrong plan id")
+    expect(plan["apply_commit"] == environment.applied.new_commit_sha, "wrong D1C commit")
+    expect(plan["origin_main"] == before_head, "origin/main identity was not proven")
+    expect(
+        tuple(plan["decomposition_children"]) == ("NSC-043", "NSC-044"),
+        "children were not discovered exactly",
+    )
+    expect(plan["audit_history_rewritten"] is False, "undo claimed to rewrite audit history")
+    expect(environment.head() == before_head, "dry run moved HEAD")
+    expect(environment.commit_count() == before_count, "dry run created a commit")
+    expect(
+        run("git", "status", "--porcelain=v1", cwd=environment.work) == "",
+        "dry run dirtied the checkout",
+    )
+
+
+def test_undo_decomposition_restores_exact_source_tree(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    runner = FakeGitHubRunner()
+    operation = environment.operation(runner)
+    plan = operation.preflight()
+    source_tree = run(
+        "git",
+        "rev-parse",
+        environment.fixture.initial_head + "^{tree}",
+        cwd=environment.work,
+    )
+    with approved_identity_environment():
+        report = operation.apply(plan)
+    expect(report["status"] == "complete", "undo did not complete")
+    expect(report["undo_commit"] != plan["apply_commit"], "undo reused the apply commit")
+    expect(
+        run("git", "rev-parse", "HEAD^{tree}", cwd=environment.work) == source_tree,
+        "undo did not restore the exact pre-D1C tree",
+    )
+    expect(
+        run("git", "rev-parse", "HEAD^", cwd=environment.work) == plan["apply_commit"],
+        "undo commit is not additive on the exact D1C commit",
+    )
+    expect(environment.origin_main() == report["undo_commit"], "origin/main was not updated")
+    expect(environment.commit_count() == 3, "undo was not exactly one additive commit")
+    for child in plan["decomposition_children"]:
+        expect(
+            not (environment.work / "Tasks" / (child + ".yaml")).exists(),
+            "child contract " + child + " survived the undo",
+        )
+    parent = json.loads(
+        (environment.work / "Tasks" / (environment.parent_id + ".yaml")).read_text(
+            encoding="utf-8"
+        )
+    )
+    expect(
+        parent.get("decomposition_state") != "decomposed",
+        "parent is still marked decomposed",
+    )
+    expect(
+        not parent.get("decomposition_children"),
+        "parent still records decomposition children",
+    )
+    expect(report["parent_eligible_for_fresh_decomposition"] is True, "parent not freed")
+    expect(
+        all("--force" not in " ".join(call) for call in runner.push_calls),
+        "undo used a force push",
+    )
+    expect(
+        run("git", "cat-file", "-t", plan["apply_commit"], cwd=environment.work) == "commit",
+        "the original D1C commit was removed from history",
+    )
+
+
+def test_undo_decomposition_refuses_later_main(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    (environment.work / "FixtureUnrelated.txt").write_text(
+        "later dependent work\n", encoding="utf-8", newline="\n"
+    )
+    run("git", "add", "--", "FixtureUnrelated.txt", cwd=environment.work)
+    run(
+        "git", "commit", "-q", "--no-gpg-sign", "-m", "fixture: later work",
+        cwd=environment.work,
+    )
+    run("git", "push", "-q", "origin", "HEAD:refs/heads/main", cwd=environment.work)
+    run("git", "fetch", "-q", "--prune", "origin", "main", cwd=environment.work)
+    before = environment.commit_count()
+    _expect_refusal(
+        environment.operation().preflight,
+        "HEAD is not the exact D1C decomposition commit",
+        "later main was not refused",
+    )
+    expect(environment.commit_count() == before, "refusal created a commit")
+
+
+def test_undo_decomposition_refuses_changed_graph(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    contract = json.loads(
+        (environment.work / "Tasks" / "NSC-043.yaml").read_text(encoding="utf-8")
+    )
+    contract["id"] = "NSC-050"
+    (environment.work / "Tasks" / "NSC-050.yaml").write_text(
+        json.dumps(contract, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    run("git", "add", "--", "Tasks/NSC-050.yaml", cwd=environment.work)
+    run(
+        "git", "commit", "-q", "--no-gpg-sign", "-m", "fixture: graph moved",
+        cwd=environment.work,
+    )
+    run("git", "push", "-q", "origin", "HEAD:refs/heads/main", cwd=environment.work)
+    run("git", "fetch", "-q", "--prune", "origin", "main", cwd=environment.work)
+    _expect_refusal(
+        environment.operation().preflight,
+        "exact D1C undo authority was refused",
+        "changed graph was not refused",
+    )
+
+
+def test_undo_decomposition_refuses_consumed_child_issue(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    runner = FakeGitHubRunner(
+        open_issues={
+            "NSC-044": [
+                {
+                    "number": 77,
+                    "title": "NSC-044",
+                    "state": "OPEN",
+                    "url": "https://example.invalid/issues/77",
+                    "body": "<!-- no-safe-circle-task: NSC-044 -->",
+                    "labels": [],
+                }
+            ]
+        }
+    )
+    message = _expect_refusal(
+        environment.operation(runner).preflight,
+        "already consumed or reserved",
+        "open child Issue was not refused",
+    )
+    expect("NSC-044" in message and "77" in message, "refusal did not name the Issue")
+
+
+def test_undo_decomposition_refuses_child_branch(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    child = json.loads(
+        (environment.work / "Tasks" / "NSC-043.yaml").read_text(encoding="utf-8")
+    )
+    branch = branch_name("NSC-043", child.get("title"))
+    run("git", "branch", branch, cwd=environment.work)
+    message = _expect_refusal(
+        environment.operation().preflight,
+        "already consumed or reserved",
+        "local child branch was not refused",
+    )
+    expect(branch in message, "refusal did not name the branch")
+
+
+def test_undo_decomposition_refuses_child_checkout(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    (environment.checkout_root / "NSC-043").mkdir(parents=True)
+    message = _expect_refusal(
+        environment.operation().preflight,
+        "already consumed or reserved",
+        "child checkout was not refused",
+    )
+    expect("NSC-043" in message, "refusal did not name the checkout")
+
+
+def test_undo_decomposition_refuses_child_state_file(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    state_root = environment.checkout_root / ".task-review-agent"
+    state_root.mkdir(parents=True, exist_ok=True)
+    (state_root / "NSC-044.json").write_text("{}\n", encoding="utf-8", newline="\n")
+    message = _expect_refusal(
+        environment.operation().preflight,
+        "already consumed or reserved",
+        "child state file was not refused",
+    )
+    expect("NSC-044.json" in message, "refusal did not name the state file")
+
+
+def test_undo_decomposition_refuses_advanced_child_taskgraph_state(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    runner = FakeGitHubRunner(task_states={"NSC-043": "delivered"})
+    message = _expect_refusal(
+        environment.operation(runner).preflight,
+        "already consumed or reserved",
+        "advanced child TaskGraph state was not refused",
+    )
+    expect("delivered" in message, "refusal did not name the TaskGraph state")
+
+
+def test_undo_decomposition_refuses_wrong_plan_identity(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    payload = json.loads(environment.graph_delta.read_text(encoding="utf-8"))
+    payload["parent_before_summary"]["task_id"] = "NSC-030"
+    other = root / "other_graph_delta.json"
+    other.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+    operation = DecompositionUndoReset(
+        source=environment.work,
+        checkout_root=environment.checkout_root,
+        task_id=environment.parent_id,
+        graph_delta=other,
+        runner=FakeGitHubRunner(),
+    )
+    _expect_refusal(
+        operation.preflight,
+        "belongs to NSC-030",
+        "mismatched plan artifact was not refused",
+    )
+
+
+def test_undo_decomposition_refuses_dirty_controller(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    (environment.work / "FixtureUnrelated.txt").write_text(
+        "uncommitted operator edit\n", encoding="utf-8", newline="\n"
+    )
+    _expect_refusal(
+        environment.operation().preflight,
+        "not completely clean",
+        "dirty controller was not refused",
+    )
+    expect(
+        (environment.work / "FixtureUnrelated.txt").read_text(encoding="utf-8")
+        == "uncommitted operator edit\n",
+        "refusal silently cleaned the dirty checkout",
+    )
+
+
+def test_undo_decomposition_refuses_origin_movement_after_preflight(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    operation = environment.operation()
+    plan = operation.preflight()
+    before_count = environment.commit_count()
+
+    mover = root / "mover"
+    run("git", "clone", "-q", "-b", "main", str(environment.bare), str(mover), cwd=root)
+    run("git", "config", "user.email", "t@t.invalid", cwd=mover)
+    run("git", "config", "user.name", "t", cwd=mover)
+    (mover / "FixtureUnrelated.txt").write_text(
+        "other operator\n", encoding="utf-8", newline="\n"
+    )
+    run("git", "add", "-A", cwd=mover)
+    run("git", "commit", "-q", "--no-gpg-sign", "-m", "other", cwd=mover)
+    run("git", "push", "-q", "origin", "HEAD:refs/heads/main", cwd=mover)
+
+    with approved_identity_environment():
+        _expect_refusal(
+            lambda: operation.apply(plan),
+            "origin/main",
+            "origin/main movement was not refused",
+        )
+    expect(environment.commit_count() == before_count, "refused apply created a commit")
+
+
+def test_undo_decomposition_resume_does_not_create_a_second_undo(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    operation = environment.operation(FakeGitHubRunner(fail_push=True))
+    plan = operation.preflight()
+    with approved_identity_environment():
+        try:
+            operation.apply(plan)
+        except TaskResetError:
+            pass
+        else:
+            raise AssertionError("failed push did not stop the apply")
+
+    after_undo_count = environment.commit_count()
+    undo_commit = environment.head()
+    expect(after_undo_count == 3, "undo commit was not created before the push failure")
+    expect(environment.origin_main() == plan["apply_commit"], "push unexpectedly succeeded")
+
+    reports = sorted(
+        (
+            environment.checkout_root
+            / ".task-review-agent"
+            / "reset-runs"
+            / environment.parent_id
+        ).glob("*-undo-decomposition.json")
+    )
+    expect(len(reports) == 1, "expected exactly one receipt")
+    receipt = json.loads(reports[0].read_text(encoding="utf-8"))
+    expect(receipt["status"] == "stopped", "receipt did not record the stop")
+    expect(receipt["undo_commit"] == undo_commit, "receipt did not record the undo commit")
+
+    with approved_identity_environment():
+        resumed = environment.operation(FakeGitHubRunner()).resume(reports[0])
+    expect(resumed["status"] == "complete", "resume did not complete")
+    expect(resumed["resumed"] is True, "resume did not mark itself")
+    expect(
+        environment.commit_count() == after_undo_count,
+        "resume created a second undo commit",
+    )
+    expect(environment.head() == undo_commit, "resume moved HEAD")
+    expect(environment.origin_main() == undo_commit, "resume did not publish the undo")
+
+
+def test_ordinary_reset_modes_are_unchanged(root: Path) -> None:
+    del root
+    from Pipeline.TaskReviewAgent import reset_task as module
+
+    for name in (
+        "ProductionAbandonedStateCleanup",
+        "RehearsalTaskReset",
+        "AbandonedRehearsalTaskReset",
+        "ProductionDeliveredTaskReset",
+    ):
+        expect(hasattr(module, name), "ordinary reset mode " + name + " disappeared")
+    expect(
+        _decomposition_children(
+            {"decomposition_state": "decomposed", "decomposition_children": ["NSC-043"]}
+        )
+        == ("NSC-043",),
+        "child discovery did not read the applied parent contract",
+    )
+    for task in (
+        {"decomposition_state": "concrete", "decomposition_children": ["NSC-043"]},
+        {"decomposition_state": "decomposed"},
+        {"decomposition_state": "decomposed", "decomposition_children": []},
+    ):
+        try:
+            _decomposition_children(task)
+        except TaskResetError:
+            continue
+        raise AssertionError("unsafe parent contract was accepted")
+    expect(
+        reset_task_main(["NSC-042", "--undo-decomposition"]) == 2,
+        "--undo-decomposition without --graph-delta was not refused",
+    )
+
+
 def main() -> int:
     test_dependency_walk()
     test_undecomposed_aggregate_is_safe_abandoned_rehearsal_state()
@@ -371,6 +873,28 @@ def main() -> int:
         test_branchless_checkout_manifest_guard(root)
         test_branchless_checkout_source_may_advance_on_main(root)
         test_exact_remote_branch_object_is_fetched_without_local_ref(root)
+
+        undo_tests = (
+            test_undo_decomposition_dry_run_is_read_only,
+            test_undo_decomposition_restores_exact_source_tree,
+            test_undo_decomposition_refuses_later_main,
+            test_undo_decomposition_refuses_changed_graph,
+            test_undo_decomposition_refuses_consumed_child_issue,
+            test_undo_decomposition_refuses_child_branch,
+            test_undo_decomposition_refuses_child_checkout,
+            test_undo_decomposition_refuses_child_state_file,
+            test_undo_decomposition_refuses_advanced_child_taskgraph_state,
+            test_undo_decomposition_refuses_wrong_plan_identity,
+            test_undo_decomposition_refuses_dirty_controller,
+            test_undo_decomposition_refuses_origin_movement_after_preflight,
+            test_undo_decomposition_resume_does_not_create_a_second_undo,
+            test_ordinary_reset_modes_are_unchanged,
+        )
+        for index, undo_test in enumerate(undo_tests):
+            case_root = root / f"undo-{index:02d}"
+            case_root.mkdir(parents=True, exist_ok=True)
+            undo_test(case_root)
+            print(f"PASS {undo_test.__name__}")
     print("reset_task_smoke_test: PASS")
     return 0
 
