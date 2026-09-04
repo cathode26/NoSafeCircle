@@ -183,9 +183,20 @@ def codex_transcript(*, thread_ids: tuple[Any, ...] = (SESSION_A,)) -> bytes:
 
 
 class CodexRunner:
-    def __init__(self, stdout: bytes | None = None, *, final: str = '{"message":"ok"}') -> None:
+    def __init__(
+        self,
+        stdout: bytes | None = None,
+        *,
+        final: str = '{"message":"ok"}',
+        returncode: int = 0,
+        stderr: bytes = b"",
+        timeout: bool = False,
+    ) -> None:
         self.stdout = codex_transcript() if stdout is None else stdout
         self.final = final
+        self.returncode = returncode
+        self.stderr = stderr
+        self.timeout = timeout
         self.calls: list[dict[str, Any]] = []
 
     def run(self, argv: Any, *, stdin: bytes, cwd: Path, timeout_seconds: float,
@@ -197,7 +208,12 @@ class CodexRunner:
         Path(args[args.index("--output-last-message") + 1]).write_text(
             self.final, encoding="utf-8"
         )
-        return ProcessResult(args, 0, self.stdout, b"", 0.1)
+        result = ProcessResult(
+            args, self.returncode, self.stdout, self.stderr, 0.1
+        )
+        if self.timeout:
+            raise ProcessTimeoutError(result)
+        return result
 
 
 def codex_provider(temp: Path, runner: CodexRunner, *, writable: bool = False,
@@ -884,6 +900,59 @@ def test_confirmed_identity_survives_a_nonzero_exit_a_timeout_and_stray_stderr()
         )
 
 
+def test_codex_identity_survives_nonzero_timeout_and_stray_stderr() -> None:
+    """Codex must preserve the same transcript-proven identity as Claude."""
+
+    with workspace() as text:
+        temp = Path(text)
+        cases = (
+            (CodexRunner(returncode=1), ProviderFailure),
+            (CodexRunner(timeout=True), ProviderTimeout),
+            (CodexRunner(stderr=b"warning"), ProviderTransportError),
+        )
+        for index, (runner, error) in enumerate(cases):
+            ledger = ProviderSessionLedger()
+            provider = codex_provider(
+                temp,
+                runner,
+                session=binding("openai-codex", mode="resume"),
+                session_ledger=ledger,
+                resume_sandbox_argument=VERIFIED_RESUME_SANDBOX,
+            )
+            rejects(
+                lambda provider=provider: provider.invoke(request(), CODEX_MODEL),
+                error,
+            )
+            confirmed = ledger.confirmed
+            require(
+                confirmed is not None and confirmed.session_id == SESSION_A,
+                f"case {index} discarded a transcript-proven Codex identity: {confirmed}",
+            )
+            require(confirmed.mode == "resume", f"case {index}: {confirmed}")
+
+        for transcript in (
+            b"not json\n",
+            codex_transcript(thread_ids=()),
+            codex_transcript(thread_ids=(SESSION_B,)),
+        ):
+            ledger = ProviderSessionLedger()
+            provider = codex_provider(
+                temp,
+                CodexRunner(stdout=transcript, returncode=1),
+                session=binding("openai-codex", mode="resume"),
+                session_ledger=ledger,
+                resume_sandbox_argument=VERIFIED_RESUME_SANDBOX,
+            )
+            rejects(
+                lambda provider=provider: provider.invoke(request(), CODEX_MODEL),
+                ProviderFailure,
+            )
+            require(
+                ledger.confirmed is None,
+                "Codex adopted an identity its transcript did not prove",
+            )
+
+
 def test_repeated_events_cannot_overwrite_or_erase_a_confirmed_identity() -> None:
     ledger = ProviderSessionLedger()
     first = ProviderSessionConfirmation("claude-code", "test_author", "start", SESSION_A)
@@ -962,6 +1031,7 @@ TESTS = (
     test_confirmed_identity_survives_ordinary_structured_output,
     test_confirmed_identity_survives_a_terminal_provider_error,
     test_confirmed_identity_survives_a_nonzero_exit_a_timeout_and_stray_stderr,
+    test_codex_identity_survives_nonzero_timeout_and_stray_stderr,
     test_repeated_events_cannot_overwrite_or_erase_a_confirmed_identity,
     test_a_terminal_error_without_a_proved_identity_confirms_nothing,
 )

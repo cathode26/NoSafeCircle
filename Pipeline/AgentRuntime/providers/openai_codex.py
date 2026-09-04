@@ -235,7 +235,18 @@ class OpenAICodexProvider:
                 raw_log=raw_log,
             ) from exc
         if self.session_ledger is not None:
-            self.session_ledger.record(confirmation)
+            self.session_ledger.record_confirmed(confirmation)
+
+    def _capture_session(self, raw_log: str) -> None:
+        """Record a transcript-proven thread before judging the turn outcome."""
+
+        if self.session is None or self.session_ledger is None:
+            return
+        try:
+            events = _parse_jsonl(raw_log)
+            self._confirm_session(events, raw_log)
+        except (ProviderOutputInvalid, ProviderSessionError):
+            return
 
     @staticmethod
     def _validate_model(model: str) -> None:
@@ -364,9 +375,11 @@ class OpenAICodexProvider:
         except ProcessTimeoutError as exc:
             if type(exc.result) is not ProcessResult or exc.result.argv != argv:
                 raise ProviderTransportError("Codex timeout returned invalid local metadata") from exc
+            raw_log = _decode_stdout(exc.result.stdout)
+            self._capture_session(raw_log)
             raise ProviderTimeout(
                 "Codex invocation exceeded its external timeout",
-                raw_log=_decode_stdout(exc.result.stdout),
+                raw_log=raw_log,
             ) from exc
         except (KeyboardInterrupt, SystemExit, GeneratorExit):
             raise
@@ -379,6 +392,7 @@ class OpenAICodexProvider:
     def _response(self, result: ProcessResult, final_path: Path) -> ProviderInvocationResponse:
         raw_log = _decode_stdout(result.stdout)
         stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        self._capture_session(raw_log)
         if result.returncode != 0:
             raise ProviderFailure(
                 f"Codex exited with status {result.returncode}" + (f": {stderr}" if stderr else ""),
