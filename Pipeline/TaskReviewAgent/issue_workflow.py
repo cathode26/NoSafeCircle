@@ -875,6 +875,98 @@ def transition(
     return replace(state, **updates), event
 
 
+# The committed workflow state machine. This is the ONLY transition policy:
+# _validate_transition enforces it for mutations, and legal_next_states()
+# exposes the same table read-only so no second policy can drift from it.
+_ALLOWED_STATE_EVENT_TRANSITIONS: dict[
+    tuple[WorkflowState, WorkflowEventType], tuple[WorkflowState, WorkflowActor]
+] = {
+    (WorkflowState.AGENT_READY, WorkflowEventType.AGENT_LEASE_ACQUIRED): (
+        WorkflowState.AGENT_WORKING,
+        WorkflowActor.AGENT,
+    ),
+    (WorkflowState.AGENT_WORKING, WorkflowEventType.HUMAN_HANDOFF_CREATED): (
+        WorkflowState.HUMAN_ACTION_REQUIRED,
+        WorkflowActor.AGENT,
+    ),
+    (WorkflowState.HUMAN_ACTION_REQUIRED, WorkflowEventType.HUMAN_VALIDATION_PASSED): (
+        WorkflowState.AGENT_READY,
+        WorkflowActor.HUMAN,
+    ),
+    (WorkflowState.HUMAN_ACTION_REQUIRED, WorkflowEventType.HUMAN_VALIDATION_FAILED): (
+        WorkflowState.AGENT_READY,
+        WorkflowActor.HUMAN,
+    ),
+    (WorkflowState.AGENT_WORKING, WorkflowEventType.AGENT_LEASE_RELEASED): (
+        WorkflowState.AGENT_READY,
+        WorkflowActor.AGENT,
+    ),
+    (WorkflowState.AGENT_WORKING, WorkflowEventType.BLOCKED): (
+        WorkflowState.BLOCKED,
+        WorkflowActor.AGENT,
+    ),
+    (WorkflowState.HUMAN_ACTION_REQUIRED, WorkflowEventType.BLOCKED): (
+        WorkflowState.BLOCKED,
+        WorkflowActor.HUMAN,
+    ),
+    (WorkflowState.BLOCKED, WorkflowEventType.UNBLOCKED): (
+        WorkflowState.AGENT_READY,
+        WorkflowActor.HUMAN,
+    ),
+    (WorkflowState.AGENT_WORKING, WorkflowEventType.COMPLETED): (
+        WorkflowState.COMPLETE,
+        WorkflowActor.AGENT,
+    ),
+    (
+        WorkflowState.AGENT_WORKING,
+        WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED,
+    ): (
+        WorkflowState.HUMAN_ACTION_REQUIRED,
+        WorkflowActor.AGENT,
+    ),
+    (
+        WorkflowState.HUMAN_ACTION_REQUIRED,
+        WorkflowEventType.DECOMPOSITION_APPLICATION_APPROVED,
+    ): (
+        WorkflowState.AGENT_READY,
+        WorkflowActor.HUMAN,
+    ),
+    (
+        WorkflowState.HUMAN_ACTION_REQUIRED,
+        WorkflowEventType.DECOMPOSITION_APPLICATION_REJECTED,
+    ): (
+        WorkflowState.AGENT_READY,
+        WorkflowActor.HUMAN,
+    ),
+}
+
+
+def legal_next_states(from_state: WorkflowState) -> frozenset[WorkflowState]:
+    """Read-only view of the states the committed machine can move to.
+
+    Derived from the single committed transition table, so a caller that
+    only needs legality never duplicates the mutation policy. Event-type
+    specific migrations are deliberately excluded: they are agent-driven
+    and never produced by a bare human label change.
+    """
+
+    return frozenset(
+        target
+        for (source, _event), (target, _actor) in
+        _ALLOWED_STATE_EVENT_TRANSITIONS.items()
+        if source is from_state
+    )
+
+
+def state_for_label(label: str) -> WorkflowState | None:
+    """Invert STATE_LABELS. Returns None for any non-state label."""
+
+    for value, name in STATE_LABELS.items():
+        if name == label:
+            return WorkflowState(value)
+    return None
+
+
 def _validate_transition(
     state: IssueWorkflowState,
     event_type: WorkflowEventType,
@@ -936,66 +1028,7 @@ def _validate_transition(
             raise WorkflowContractError("task contract migration human_result is invalid")
         return
 
-    allowed = {
-        (WorkflowState.AGENT_READY, WorkflowEventType.AGENT_LEASE_ACQUIRED): (
-            WorkflowState.AGENT_WORKING,
-            WorkflowActor.AGENT,
-        ),
-        (WorkflowState.AGENT_WORKING, WorkflowEventType.HUMAN_HANDOFF_CREATED): (
-            WorkflowState.HUMAN_ACTION_REQUIRED,
-            WorkflowActor.AGENT,
-        ),
-        (WorkflowState.HUMAN_ACTION_REQUIRED, WorkflowEventType.HUMAN_VALIDATION_PASSED): (
-            WorkflowState.AGENT_READY,
-            WorkflowActor.HUMAN,
-        ),
-        (WorkflowState.HUMAN_ACTION_REQUIRED, WorkflowEventType.HUMAN_VALIDATION_FAILED): (
-            WorkflowState.AGENT_READY,
-            WorkflowActor.HUMAN,
-        ),
-        (WorkflowState.AGENT_WORKING, WorkflowEventType.AGENT_LEASE_RELEASED): (
-            WorkflowState.AGENT_READY,
-            WorkflowActor.AGENT,
-        ),
-        (WorkflowState.AGENT_WORKING, WorkflowEventType.BLOCKED): (
-            WorkflowState.BLOCKED,
-            WorkflowActor.AGENT,
-        ),
-        (WorkflowState.HUMAN_ACTION_REQUIRED, WorkflowEventType.BLOCKED): (
-            WorkflowState.BLOCKED,
-            WorkflowActor.HUMAN,
-        ),
-        (WorkflowState.BLOCKED, WorkflowEventType.UNBLOCKED): (
-            WorkflowState.AGENT_READY,
-            WorkflowActor.HUMAN,
-        ),
-        (WorkflowState.AGENT_WORKING, WorkflowEventType.COMPLETED): (
-            WorkflowState.COMPLETE,
-            WorkflowActor.AGENT,
-        ),
-        (
-            WorkflowState.AGENT_WORKING,
-            WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED,
-        ): (
-            WorkflowState.HUMAN_ACTION_REQUIRED,
-            WorkflowActor.AGENT,
-        ),
-        (
-            WorkflowState.HUMAN_ACTION_REQUIRED,
-            WorkflowEventType.DECOMPOSITION_APPLICATION_APPROVED,
-        ): (
-            WorkflowState.AGENT_READY,
-            WorkflowActor.HUMAN,
-        ),
-        (
-            WorkflowState.HUMAN_ACTION_REQUIRED,
-            WorkflowEventType.DECOMPOSITION_APPLICATION_REJECTED,
-        ): (
-            WorkflowState.AGENT_READY,
-            WorkflowActor.HUMAN,
-        ),
-    }
-    expected = allowed.get((state.state, event_type))
+    expected = _ALLOWED_STATE_EVENT_TRANSITIONS.get((state.state, event_type))
     if expected is None:
         raise WorkflowContractError(
             f"event {event_type.value} is not valid from {state.state.value}"

@@ -9,6 +9,8 @@ claim ref, provider, worker, canonical Unity asset, or TaskGraph is mutated.
 from __future__ import annotations
 
 import io
+from contextlib import contextmanager
+import datetime
 import inspect
 import json
 import os
@@ -635,6 +637,7 @@ def make_orchestrator(
     routing_policy_loader: Any = None,
     excluded_task_ids: tuple[str, ...] = (),
     source_refresher: Any = None,
+    reservation_observer: Any = None,
 ) -> tuple[PollingOrchestrator, io.StringIO]:
     stream = io.StringIO()
     orchestrator = PollingOrchestrator(
@@ -656,7 +659,7 @@ def make_orchestrator(
         fatal_drain_seconds=fatal_drain_seconds,
         plan_builder=planner,
         task_loader=lambda task_id: tasks[task_id],
-        reservation_observer=lambda: reservations,
+        reservation_observer=reservation_observer or (lambda: reservations),
         source_refresher=source_refresher
         or (
             lambda _source: {
@@ -3742,6 +3745,323 @@ def test_source_refresh_refuses_dirty_controller_without_overwrite() -> None:
         require((source / "local.txt").read_text(encoding="utf-8") == "preserve me\n", "dirty file changed")
 
 
+# ---------------------------------------------------------------------------
+# Bounded PENDING_TRANSITION (review B3 / findings A3, A7(d)).
+#
+# These drive the REAL poll_once against the REAL classification chain:
+#   MemoryIssueBackend -> _consistent_snapshots -> _snapshot -> classification
+#   -> observe_durable_integration_reservations -> poll_once
+# Nothing here asserts a helper's return value in isolation, because the
+# pre-fix scheduler could satisfy such an assertion without changing behavior.
+# ---------------------------------------------------------------------------
+
+import Pipeline.TaskReviewAgent.issue_workflow_store as store_module  # noqa: E402
+import Pipeline.TaskReviewAgent.tests.issue_workflow_smoke_test as workflow_fixture  # noqa: E402
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    IssueWorkflowService,
+    MemoryIssueBackend,
+    PENDING_TRANSITION_MAX_AGE_SECONDS,
+)
+
+PENDING_TASK = workflow_fixture.TASK_ID
+PENDING_RESOURCE = "unity-scene:Assets/Scenes/Test.unity"
+HUMAN_ACTION_LABEL = "nsc-state:human-action"
+AGENT_READY_LABEL = "nsc-state:agent-ready"
+AGENT_WORKING_LABEL = "nsc-state:agent-working"
+_BASE_CLOCK = datetime.datetime(2026, 9, 4, 0, 0, 0, tzinfo=datetime.timezone.utc)
+
+
+def _stamp(offset_seconds: float) -> str:
+    moment = _BASE_CLOCK + datetime.timedelta(seconds=offset_seconds)
+    return moment.isoformat().replace("+00:00", "Z")
+
+
+class PendingIssueFixture:
+    """One managed Issue that reached human_action_required for real."""
+
+    def __init__(self, *, checkout_path: str, head_commit: str) -> None:
+        self.backend = MemoryIssueBackend()
+        self.tasks = {PENDING_TASK: workflow_fixture.task(PENDING_TASK)}
+        service = IssueWorkflowService(
+            backend=self.backend,
+            task_loader=lambda task_id: self.tasks[task_id],
+            worker_id="pending-fixture-worker",
+        )
+        service.acquire_agent_lease(
+            task=self.tasks[PENDING_TASK],
+            source_head=workflow_fixture.SOURCE_HEAD,
+            branch=workflow_fixture.BRANCH,
+            checkout_path=checkout_path,
+            planned_approach="Prove the bounded transition window.",
+            expected_validation="Vincent completes the Unity checklist.",
+            now=_stamp(0),
+        )
+        service.publish_human_handoff(
+            task_id=PENDING_TASK,
+            branch=workflow_fixture.BRANCH,
+            head_commit=head_commit,
+            checkout_path=checkout_path,
+            implementation_summary="Fixture handoff.",
+            completed_checks=["deterministic checks"],
+            human_steps=["Open the canonical checkout."],
+            expected_result="The doorway publishes once.",
+            now=_stamp(60),
+        )
+        self.issue_number = next(iter(self.backend.issues))
+
+    @property
+    def issue(self) -> dict[str, Any]:
+        return self.backend.issues[self.issue_number]
+
+    def apply_label(self, label: str, *, at_offset: float) -> None:
+        """Model the human/GitHub-UI label write the state Action reacts to."""
+
+        self.issue["labels"] = [{"name": label}]
+        self.issue["updated_at"] = _stamp(at_offset)
+
+    def observer(self, orchestrator_source: Path, checkout_root: Path):
+        def observe():
+            return observe_durable_integration_reservations(
+                source=orchestrator_source,
+                checkout_root=checkout_root,
+                worker_id="polling-smoke-scheduler",
+                backend=self.backend,
+                task_loader=lambda task_id: self.tasks[task_id],
+            )
+
+        return observe
+
+
+@contextmanager
+def _frozen_pending_clock(offset_seconds: float):
+    original = store_module.pending_transition_now
+    store_module.pending_transition_now = lambda: _BASE_CLOCK + datetime.timedelta(
+        seconds=offset_seconds
+    )
+    try:
+        yield
+    finally:
+        store_module.pending_transition_now = original
+
+
+def _pending_environment(
+    root: Path,
+    *,
+    candidate_task_id: str | None = None,
+    candidate_resources: tuple[str, ...] = (),
+):
+    source, head = create_source(root)
+    checkout_root = source.parent / "checkouts"
+    checkout = checkout_root / PENDING_TASK
+    checkout.mkdir(parents=True)
+    # read_branch_changed_paths resolves its base from origin/main or main, so
+    # the fixture checkout needs a real main plus the recorded task branch.
+    # Without both, every reservation is surface_unknown and conflict detection
+    # blocks everything, which would make the disjoint-candidate test vacuous.
+    git(checkout, "init", "-b", "main")
+    git(checkout, "config", "user.name", "Pending Fixture")
+    git(checkout, "config", "user.email", "pending-fixture@nosafecircle.invalid")
+    (checkout / "fixture.txt").write_text(
+        "pending fixture" + chr(10), encoding="utf-8"
+    )
+    git(checkout, "add", "fixture.txt")
+    git(checkout, "commit", "-m", "pending fixture base")
+    git(checkout, "checkout", "-b", workflow_fixture.BRANCH)
+    fixture = PendingIssueFixture(
+        checkout_path=str(checkout),
+        head_commit=git(checkout, "rev-parse", "HEAD"),
+    )
+    tasks: dict[str, dict[str, Any]] = {PENDING_TASK: fixture.tasks[PENDING_TASK]}
+    planner: Any = SequencePlanner([terminal_plan(head, "no_safe_work")])
+    architect = FakeArchitect({})
+    if candidate_task_id is not None:
+        tasks[candidate_task_id] = task(candidate_task_id, resources=candidate_resources)
+        planner = SequencePlanner([candidate_plan(head, candidate_task_id)])
+        architect = FakeArchitect({candidate_task_id: advisory(candidate_task_id, head)})
+    processes = ProcessFactory()
+    orchestrator, stream = make_orchestrator(
+        source=source,
+        planner=planner,
+        architect=architect,
+        processes=processes,
+        tasks=tasks,
+        reservation_observer=fixture.observer(source, checkout_root),
+    )
+    return fixture, orchestrator, stream, processes
+
+
+def test_recent_legal_label_mismatch_is_pending_transition() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, _processes = _pending_environment(root)
+        fixture.apply_label(AGENT_READY_LABEL, at_offset=120)
+        with _frozen_pending_clock(180):
+            result = orchestrator.poll_once()
+        events = stream.getvalue()
+        require('"event": "issue_pending_transition"' in events, events)
+        require('"from_state": "human_action_required"' in events, events)
+        require('"to_state": "agent_ready"' in events, events)
+        require(not result.fatal, f"pending transition was fatal: {result.status}")
+        require(
+            '"event": "scheduler_wait_observation_failure"' not in events,
+            "a bounded pending transition was reported as an observation failure",
+        )
+
+
+def test_pending_transition_launches_no_worker() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(root)
+        fixture.apply_label(AGENT_READY_LABEL, at_offset=120)
+        with _frozen_pending_clock(180):
+            orchestrator.poll_once()
+        require(not processes.calls, f"a worker was launched: {processes.calls}")
+        require(not orchestrator.active_assignments, "an assignment was created")
+        require(
+            '"event": "worker_launched"' not in stream.getvalue(),
+            "a worker launch was reported during a pending transition",
+        )
+
+
+def test_pending_transition_does_not_increment_failure_counters() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, _processes = _pending_environment(root)
+        fixture.apply_label(AGENT_READY_LABEL, at_offset=120)
+        with _frozen_pending_clock(180):
+            orchestrator.poll_once()
+            orchestrator.poll_once()
+            orchestrator.poll_once()
+        require(
+            orchestrator.consecutive_observation_failures == 0,
+            f"fatal counter moved to {orchestrator.consecutive_observation_failures}",
+        )
+        require(
+            '"event": "scheduler_blocked"' not in stream.getvalue(),
+            "repeated pending transitions reached the bounded fatal policy",
+        )
+
+
+def test_pending_transition_keeps_reserving_its_resources() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, _processes = _pending_environment(root)
+        fixture.apply_label(AGENT_READY_LABEL, at_offset=120)
+        with _frozen_pending_clock(180):
+            orchestrator.poll_once()
+        events = stream.getvalue()
+        require('"event": "integration_reservations_observed"' in events, events)
+        require(PENDING_RESOURCE in events, "the pending task stopped reserving its scene")
+        require(f'"task_id": "{PENDING_TASK}"' in events, events)
+
+
+def test_pending_transition_allows_a_non_conflicting_candidate() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(
+            root,
+            candidate_task_id=TASK_B,
+            candidate_resources=("unity-scene:Assets/Scenes/Other.unity",),
+        )
+        fixture.apply_label(AGENT_READY_LABEL, at_offset=120)
+        with _frozen_pending_clock(180):
+            result = orchestrator.poll_once()
+        events = stream.getvalue()
+        require('"event": "issue_pending_transition"' in events, events)
+        require(
+            result.status == "worker_launched",
+            f"a non-conflicting candidate was not admitted: {result.status}",
+        )
+        require(len(processes.calls) == 1, f"expected one launch: {processes.calls}")
+
+
+def test_pending_transition_blocks_a_conflicting_candidate() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(
+            root,
+            candidate_task_id=TASK_B,
+            candidate_resources=(PENDING_RESOURCE,),
+        )
+        fixture.apply_label(AGENT_READY_LABEL, at_offset=120)
+        with _frozen_pending_clock(180):
+            result = orchestrator.poll_once()
+        events = stream.getvalue()
+        require('"event": "issue_pending_transition"' in events, events)
+        require(
+            result.status != "worker_launched",
+            "a candidate sharing the pending task's scene was admitted",
+        )
+        require(not processes.calls, f"a conflicting worker was launched: {processes.calls}")
+
+
+def test_body_convergence_resumes_normal_admission() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(
+            root,
+            candidate_task_id=TASK_B,
+            candidate_resources=("unity-scene:Assets/Scenes/Other.unity",),
+        )
+        # The state Action has landed: body and label agree again.
+        fixture.apply_label(HUMAN_ACTION_LABEL, at_offset=120)
+        with _frozen_pending_clock(180):
+            result = orchestrator.poll_once()
+        events = stream.getvalue()
+        require(
+            '"event": "issue_pending_transition"' not in events,
+            "a converged Issue was still reported as mid-transition",
+        )
+        require(
+            result.status == "worker_launched",
+            f"normal admission did not resume: {result.status}",
+        )
+        require(len(processes.calls) == 1, f"expected one launch: {processes.calls}")
+        require(orchestrator.consecutive_observation_failures == 0, "counter moved")
+
+
+def test_pending_transition_past_max_age_fails_closed_and_counts() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(root)
+        fixture.apply_label(AGENT_READY_LABEL, at_offset=120)
+        # One second past the bounded allowance.
+        with _frozen_pending_clock(120 + PENDING_TRANSITION_MAX_AGE_SECONDS + 1):
+            orchestrator.poll_once()
+        events = stream.getvalue()
+        require(
+            '"event": "issue_pending_transition"' not in events,
+            "an expired transition was still treated as pending",
+        )
+        require('"event": "scheduler_wait_observation_failure"' in events, events)
+        require(
+            orchestrator.consecutive_observation_failures == 1,
+            f"expired transition did not count: {orchestrator.consecutive_observation_failures}",
+        )
+        require(not processes.calls, "an expired transition launched a worker")
+
+
+def test_illegal_label_pair_is_invalid_immediately() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        fixture, orchestrator, stream, processes = _pending_environment(root)
+        # human_action_required -> agent_working is not in the committed table.
+        fixture.apply_label(AGENT_WORKING_LABEL, at_offset=120)
+        with _frozen_pending_clock(130):
+            orchestrator.poll_once()
+        events = stream.getvalue()
+        require(
+            '"event": "issue_pending_transition"' not in events,
+            "an illegal label pair was tolerated as a pending transition",
+        )
+        require('"event": "scheduler_wait_observation_failure"' in events, events)
+        require(
+            orchestrator.consecutive_observation_failures == 1,
+            f"illegal pair did not count: {orchestrator.consecutive_observation_failures}",
+        )
+        require(not processes.calls, "an illegal label pair launched a worker")
+
+
 def main() -> int:
     tests = (
         test_singleton_second_scheduler_fails_immediately,
@@ -3829,6 +4149,15 @@ def main() -> int:
         test_scheduler_source_has_no_issue_or_claim_mutation_calls,
         test_main_handles_bare_task_review_contract_error,
         test_private_snapshot_coupling_signature_and_fields_are_pinned,
+        test_recent_legal_label_mismatch_is_pending_transition,
+        test_pending_transition_launches_no_worker,
+        test_pending_transition_does_not_increment_failure_counters,
+        test_pending_transition_keeps_reserving_its_resources,
+        test_pending_transition_allows_a_non_conflicting_candidate,
+        test_pending_transition_blocks_a_conflicting_candidate,
+        test_body_convergence_resumes_normal_admission,
+        test_pending_transition_past_max_age_fails_closed_and_counts,
+        test_illegal_label_pair_is_invalid_immediately,
         test_default_max_workers_is_one_until_live_acceptance,
         test_source_refresh_fast_forwards_exact_remote_main_without_rewrite,
         test_source_refresh_refuses_dirty_controller_without_overwrite,

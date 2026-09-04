@@ -226,6 +226,10 @@ class IntegrationReservation:
     evidence_type: str
     surface_unknown: bool = False
     local_active: bool = False
+    # Set when this reservation is a bounded, recognized label-ahead-of-body
+    # transition. The task is never admitted while set, but its resources stay
+    # reserved and the rest of the poll continues normally.
+    pending_transition: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "task_id", validate_task_id(self.task_id))
@@ -673,7 +677,21 @@ def observe_durable_integration_reservations(
         snapshot = entry.snapshot
         if snapshot is None:
             continue
-        if not snapshot.valid or not snapshot.managed or snapshot.state is None:
+        # A recognized in-flight transition is an expected, bounded GitHub
+        # Action window, not an observation failure. It is read from the
+        # explicit typed classification, never by parsing reason strings. The
+        # task still reserves its resources below; it is simply never admitted.
+        pending_transition = (
+            snapshot.pending_transition.to_dict()
+            if snapshot.pending_transition is not None
+            else None
+        )
+        if not snapshot.managed or snapshot.state is None:
+            raise IntegrationObservationError(
+                f"managed Issue #{snapshot.issue_number} is invalid: "
+                + "; ".join(snapshot.reasons)
+            )
+        if not snapshot.valid and pending_transition is None:
             raise IntegrationObservationError(
                 f"managed Issue #{snapshot.issue_number} is invalid: "
                 + "; ".join(snapshot.reasons)
@@ -786,6 +804,7 @@ def observe_durable_integration_reservations(
                 evidence_type=evidence_type,
                 surface_unknown=surface_unknown,
                 local_active=False,
+                pending_transition=pending_transition,
             )
         )
     return tuple(
@@ -2125,10 +2144,33 @@ class PollingOrchestrator:
             )
         self.consecutive_observation_failures = 0
 
+        pending_transitions = [
+            {"task_id": item.task_id, **dict(item.pending_transition)}
+            for item in reservations
+            if item.pending_transition is not None
+        ]
+        if pending_transitions:
+            # An expected, bounded GitHub Action window -- not an observation
+            # failure. The counter is untouched, no blocker is written, and the
+            # poll continues so unrelated candidates are still considered.
+            self.events.emit(
+                "issue_pending_transition",
+                reason=(
+                    "a managed Issue label is one legal state ahead of its body "
+                    "while the state Action runs; the task keeps its exclusive "
+                    "resources and is not admitted this poll"
+                ),
+                pending_transitions=pending_transitions,
+                consecutive_observation_failures=(
+                    self.consecutive_observation_failures
+                ),
+            )
+
         integration_fingerprint = active_surface_fingerprint(reservations)
         temporary_exclusions = set(self.active_assignments).union(
             self.excluded_task_ids,
             just_reaped_task_ids,
+            (item["task_id"] for item in pending_transitions),
         )
         if shared_issue_backend is not None:
             plan = build_poll_dispatch_plan(

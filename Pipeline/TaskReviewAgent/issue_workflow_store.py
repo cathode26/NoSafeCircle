@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import re
@@ -10,7 +11,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Protocol, Sequence
+from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence
 
 from .actor_policy import actor_login, default_actor_policy
 from .contracts import TaskReviewContractError, semantic_sha256, validate_task_id
@@ -28,6 +29,8 @@ from .issue_workflow import (
     WorkflowState,
     initial_state,
     labels_for_state,
+    legal_next_states,
+    state_for_label,
     parse_events,
     parse_decomposition_application_result,
     parse_human_validation_result,
@@ -121,6 +124,117 @@ _MAX_REPORTED_PENDING_ISSUE_NUMBERS = 10
 # shared retry queue. It is deliberately empty in this branch, so every
 # recognizable skew still uses the full shared ladder.
 _CONSISTENCY_RETRY_EXCLUDED_STATE_VALUES: frozenset[str] = frozenset()
+
+
+# A human applying a state label in the GitHub UI cannot write the body, the
+# label and the hashed event in one transaction: GitHub offers no such API. The
+# `labeled` webhook then starts .github/workflows/nsc-issue-workflow.yml, whose
+# dispatch, checkout and Python setup take tens of seconds. During that window
+# the Issue is legitimately label-ahead-of-body. That window is bounded: past
+# this age the divergence is no longer an in-flight Action and fails closed as
+# an ordinary invalid snapshot.
+PENDING_TRANSITION_MAX_AGE_SECONDS = 600.0
+
+
+def pending_transition_now() -> dt.datetime:
+    """Injection seam for the pending-transition age clock (UTC)."""
+
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def _issue_updated_at(issue: Mapping[str, Any]) -> dt.datetime | None:
+    """Read GitHub's last-modification time from either read shape.
+
+    The REST listing (`gh api repos/.../issues`) exposes snake_case
+    ``updated_at``; `gh issue view --json updatedAt` exposes camelCase. Both are
+    accepted so the two backends stay coherent. ``None`` means no trustworthy
+    age evidence, which is never treated as a pending transition.
+    """
+
+    for key in ("updated_at", "updatedAt"):
+        raw = issue.get(key)
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        text = raw.strip()
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        try:
+            parsed = dt.datetime.fromisoformat(text)
+        except ValueError:
+            continue
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=dt.timezone.utc)
+        return parsed.astimezone(dt.timezone.utc)
+    return None
+
+
+@dataclass(frozen=True)
+class PendingStateTransition:
+    """One recognized in-flight label-ahead-of-body workflow transition.
+
+    This is an explicit typed classification. Callers must never re-derive it
+    by parsing snapshot reason strings.
+    """
+
+    from_state: WorkflowState
+    to_state: WorkflowState
+    target_label: str
+    observed_at_utc: str
+    age_seconds: float
+    max_age_seconds: float = PENDING_TRANSITION_MAX_AGE_SECONDS
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "from_state": self.from_state.value,
+            "to_state": self.to_state.value,
+            "target_label": self.target_label,
+            "observed_at_utc": self.observed_at_utc,
+            "age_seconds": self.age_seconds,
+            "max_age_seconds": self.max_age_seconds,
+        }
+
+
+def _classify_pending_transition(
+    issue: Mapping[str, Any],
+    state: IssueWorkflowState,
+    events: Sequence[IssueWorkflowEvent],
+    found_label: str,
+    *,
+    now: dt.datetime | None = None,
+) -> PendingStateTransition | None:
+    """Recognize the bounded in-flight transition, or return None.
+
+    Every condition must hold. Any failure leaves the snapshot an ordinary
+    invalid snapshot that counts toward the existing bounded fatal policy.
+    """
+
+    target = state_for_label(found_label)
+    if target is None or target is state.state:
+        return None
+    # Legality comes from the one committed transition table.
+    if target not in legal_next_states(state.state):
+        return None
+    # No separate "target event absent" test is needed or correct here.
+    # validate_event_chain already proved the final event's to_state equals the
+    # body state, which IS the proof that the Action has not written event N+1.
+    # Testing "no event in the chain ever reached target" would instead reject
+    # every legitimate repeat cycle: a task that already went through one
+    # FAIL/PASS carries an earlier event whose to_state is agent_ready.
+    observed = _issue_updated_at(issue)
+    if observed is None:
+        return None
+    current = now if now is not None else pending_transition_now()
+    age = (current - observed).total_seconds()
+    # A negative age means clock skew or a forged future timestamp.
+    if age < 0 or age > PENDING_TRANSITION_MAX_AGE_SECONDS:
+        return None
+    return PendingStateTransition(
+        from_state=state.state,
+        to_state=target,
+        target_label=found_label,
+        observed_at_utc=observed.isoformat().replace("+00:00", "Z"),
+        age_seconds=age,
+    )
 
 
 class IssueWorkflowStoreError(TaskReviewContractError):
@@ -334,6 +448,13 @@ class IssueWorkflowSnapshot:
     # or authorless accounts that were ignored during event-chain construction.
     # These never make the Issue invalid and never block coordination.
     ignored_comment_diagnostics: tuple[str, ...] = ()
+    # Explicit typed classification of a bounded in-flight label-ahead-of-body
+    # transition. Never encoded in, or re-derived from, `reasons`.
+    pending_transition: PendingStateTransition | None = None
+
+    @property
+    def is_pending_transition(self) -> bool:
+        return self.pending_transition is not None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -346,6 +467,9 @@ class IssueWorkflowSnapshot:
             "valid": self.valid,
             "reasons": list(self.reasons),
             "ignored_comment_diagnostics": list(self.ignored_comment_diagnostics),
+            "pending_transition": (
+                self.pending_transition.to_dict() if self.pending_transition else None
+            ),
             "workflow_state": self.state.to_dict() if self.state else None,
             "event_count": len(self.events),
             "last_event_id": self.events[-1].event_id if self.events else None,
@@ -503,6 +627,7 @@ def _snapshot(
     reasons: list[str] = []
     ignored_diagnostics: list[str] = []
     state = None
+    found_state_label: str | None = None
     events: tuple[IssueWorkflowEvent, ...] = ()
     try:
         state = parse_state(body)
@@ -525,9 +650,23 @@ def _snapshot(
                     f"workflow state label mismatch: expected {expected_label!r}, "
                     f"found {sorted(state_labels)}"
                 )
+                # Exactly one state label is required; a missing or multiple
+                # label set is never an in-flight transition.
+                if len(state_labels) == 1:
+                    found_state_label = next(iter(state_labels))
     except WorkflowContractError as exc:
         managed = state is not None
         reasons.append(str(exc))
+    # A pending transition requires that the label set is the ONLY defect: the
+    # body and the complete hashed event chain must already be coherent.
+    pending: PendingStateTransition | None = None
+    if len(reasons) == 1 and found_state_label is not None and state is not None:
+        pending = _classify_pending_transition(
+            issue,
+            state,
+            events,
+            found_state_label,
+        )
     return IssueWorkflowSnapshot(
         issue_number=number,
         issue_url=str(issue.get("url") or ""),
@@ -541,6 +680,7 @@ def _snapshot(
         valid=not reasons,
         reasons=tuple(reasons),
         ignored_comment_diagnostics=tuple(ignored_diagnostics),
+        pending_transition=pending,
     )
 
 
@@ -558,6 +698,11 @@ def _snapshot_is_settled(snapshot: IssueWorkflowSnapshot) -> bool:
     """
 
     if snapshot.valid:
+        return True
+    # A recognized in-flight transition cannot converge by re-reading: it waits
+    # on the GitHub Action, not on read consistency. It never joins the queue
+    # and never spends the shared budget.
+    if snapshot.pending_transition is not None:
         return True
     if not (set(snapshot.reasons) & _TRANSIENT_RESERVATION_SNAPSHOT_REASONS):
         return True
@@ -2026,6 +2171,10 @@ class IssueWorkflowService:
             snapshot = entry.snapshot
             if snapshot is None or not snapshot.managed:
                 continue
+            if snapshot.pending_transition is not None:
+                # Bounded in-flight transition: never selectable while the
+                # state Action runs, and never a hard read failure either.
+                continue
             if not snapshot.valid or snapshot.state is None:
                 raise IssueWorkflowStoreError(
                     f"managed Issue #{snapshot.issue_number} is invalid: "
@@ -2063,6 +2212,10 @@ class IssueWorkflowService:
                 continue
             if not snapshot.managed:
                 continue
+            if snapshot.pending_transition is not None:
+                # Same bounded window: the human-owned queue must not report a
+                # corrupt workflow merely because the state Action is running.
+                continue
             if not snapshot.valid or snapshot.state is None:
                 raise IssueWorkflowStoreError(
                     f"managed Issue #{snapshot.issue_number} is invalid: "
@@ -2076,7 +2229,17 @@ class IssueWorkflowService:
 class MemoryIssueBackend:
     """No-network backend for state-machine and race/failure tests."""
 
-    def __init__(self, *, author_login: str = DEFAULT_ASSIGNEE) -> None:
+    def __init__(
+        self,
+        *,
+        author_login: str = DEFAULT_ASSIGNEE,
+        now: Callable[[], str] | None = None,
+    ) -> None:
+        self.now = now or (
+            lambda: dt.datetime.now(dt.timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z")
+        )
         self.issues: dict[int, dict[str, Any]] = {}
         self.comments: dict[int, list[dict[str, Any]]] = {}
         self.next_issue = 1
@@ -2115,6 +2278,9 @@ class MemoryIssueBackend:
             "author": {"login": self.author_login},
             "labels": [{"name": item} for item in labels],
             "assignees": [{"login": item} for item in assignees],
+            # Mirrors GitHub's REST `updated_at`, the pending-transition age
+            # authority. Tests set it explicitly to control divergence age.
+            "updated_at": self.now(),
         }
         self.issues[number] = issue
         self.comments[number] = []
@@ -2130,6 +2296,7 @@ class MemoryIssueBackend:
         assignees: list[str] | None = None,
     ) -> dict[str, Any]:
         issue = self.issues[issue_number]
+        issue["updated_at"] = self.now()
         if title is not None:
             issue["title"] = title
         if body is not None:
@@ -2300,7 +2467,7 @@ class GhIssueBackend:
                 "--repo",
                 self.repository,
                 "--json",
-                "number,title,body,state,url,author,labels,assignees",
+                "number,title,body,state,url,author,labels,assignees,updatedAt",
             )
         )
         if not isinstance(value, dict):
@@ -2367,7 +2534,7 @@ class GhIssueBackend:
                 "--repo",
                 self.repository,
                 "--json",
-                "number,title,state,assignees,url,body,labels,author",
+                "number,title,state,assignees,url,body,labels,author,updatedAt",
             )
         )
         if not isinstance(value, dict):
