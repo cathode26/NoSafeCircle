@@ -1735,6 +1735,56 @@ class IssueWorkflowService:
                 "human handoff that is already agent_ready"
             )
 
+        return self._clear_vincent_notification_for_snapshot(snapshot)
+
+    def clear_vincent_notification_after_automated_evidence(
+        self, task_id: str
+    ) -> str:
+        """Delete the exact notification after an agent-owned synthetic transition."""
+
+        snapshot = self.find(validate_task_id(task_id))
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "automated Vincent notification cleanup requires a valid managed Issue"
+            )
+        state = snapshot.state
+        expected_events = {
+            WorkflowPhase.DELIVERY_EVIDENCE: (
+                WorkflowEventType.AUTOMATED_VALIDATION_PASSED
+            ),
+            WorkflowPhase.DECOMPOSITION_APPLY: (
+                WorkflowEventType.AUTOMATED_DECOMPOSITION_APPLICATION_APPROVED
+            ),
+        }
+        last_event = snapshot.events[-1] if snapshot.events else None
+        if (
+            state.state is not WorkflowState.AGENT_READY
+            or state.current_actor is not WorkflowActor.AGENT
+            or state.human_result is not None
+            or state.human_handoff_commit != state.head_commit
+            or state.phase not in expected_events
+            or last_event is None
+            or last_event.event_type is not expected_events[state.phase]
+            or last_event.event_id != state.last_event_id
+        ):
+            raise IssueWorkflowStoreError(
+                "automated Vincent notification cleanup requires an exact verified "
+                "synthetic evidence transition that is already agent_ready"
+            )
+
+        return self._clear_vincent_notification_for_snapshot(snapshot)
+
+    def _clear_vincent_notification_for_snapshot(
+        self, snapshot: IssueWorkflowSnapshot
+    ) -> str:
+        """Delete one already-authorized notification and verify the exact outcome."""
+
+        if snapshot.state is None:  # Defensive for internal callers.
+            raise IssueWorkflowStoreError(
+                "Vincent notification cleanup requires managed state"
+            )
+        state = snapshot.state
+
         inbox = self._find_vincent_inbox()
         if inbox is None:
             return "disabled"

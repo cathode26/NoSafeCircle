@@ -12,9 +12,10 @@ deadlock detection.  The optional synthetic evidence pump is an injected host
 boundary; it may publish exact machine-validation events, but this module has no
 human-result API and cannot fabricate a human PASS.
 
-Production snapshot, manifest/receipt-path, evidence-pump, CLI, launcher, and
-100-completed-cycle architect-lifecycle adapters are intentionally not wired in
-this module. They require separate explicit authority contracts.
+Production snapshot, manifest/receipt-path, evidence-pump, CLI, and launcher
+adapters live in separate modules so this controller retains injected,
+deterministic authority boundaries. The shared scheduler factory owns the
+100-completed-cycle architect lifecycle.
 """
 
 from __future__ import annotations
@@ -32,7 +33,7 @@ from typing import Any, Callable, Mapping, Protocol, Sequence
 from Pipeline.TaskReviewAgent.issue_workflow import WorkflowPhase, WorkflowState
 
 
-AUTONOMOUS_GRAPH_RUN_SCHEMA_VERSION = "2.0"
+AUTONOMOUS_GRAPH_RUN_SCHEMA_VERSION = "3.0"
 AUTONOMOUS_GRAPH_PROGRESS_SCHEMA_VERSION = "1.0"
 GRAPH_COMPLETE_RECEIPT_SCHEMA_VERSION = "1.0"
 DEFAULT_FALLBACK_SECONDS = 300.0
@@ -120,6 +121,80 @@ class AutonomousGraphRunError(ValueError):
     """The autonomous run cannot be observed or continued safely."""
 
 
+@dataclass(frozen=True)
+class AutonomousRuntimeConfiguration:
+    """Exact provider, rigor, retry, and synthetic-authority run binding."""
+
+    execution_provider: str | None
+    execution_model: str | None
+    execution_max_turns: int | None
+    architect_provider: str
+    architect_model: str | None
+    architect_max_turns: int
+    architect_min_confidence: float
+    architect_max_invocations_per_poll: int
+    architect_min_reanalysis_seconds: float
+    max_consecutive_observation_failures: int
+    fatal_drain_seconds: float
+    fallback_seconds: float
+    synthetic_evidence_enabled: bool
+
+    def __post_init__(self) -> None:
+        if self.execution_provider not in {None, "claude", "codex"}:
+            raise AutonomousGraphRunError("unsupported execution provider")
+        if self.architect_provider not in {"claude", "codex"}:
+            raise AutonomousGraphRunError("unsupported architect provider")
+        for field in ("execution_model", "architect_model"):
+            value = getattr(self, field)
+            if value is not None:
+                _text(value, field=field)
+        for field in (
+            "execution_max_turns",
+            "architect_max_turns",
+            "architect_max_invocations_per_poll",
+            "max_consecutive_observation_failures",
+        ):
+            value = getattr(self, field)
+            if value is None and field == "execution_max_turns":
+                continue
+            if type(value) is not int or value < 1:
+                raise AutonomousGraphRunError(f"{field} must be a positive integer")
+        for field in (
+            "architect_min_confidence",
+            "architect_min_reanalysis_seconds",
+            "fatal_drain_seconds",
+            "fallback_seconds",
+        ):
+            value = getattr(self, field)
+            if type(value) not in {int, float} or isinstance(value, bool):
+                raise AutonomousGraphRunError(f"{field} must be numeric")
+            if not math.isfinite(value) or value < 0:
+                raise AutonomousGraphRunError(f"{field} must be finite and non-negative")
+        if not 0 <= self.architect_min_confidence <= 1:
+            raise AutonomousGraphRunError("architect_min_confidence must be in [0, 1]")
+        if not 0 < self.fallback_seconds <= DEFAULT_FALLBACK_SECONDS:
+            raise AutonomousGraphRunError(
+                f"fallback_seconds must be in (0, {DEFAULT_FALLBACK_SECONDS}]"
+            )
+        if type(self.synthetic_evidence_enabled) is not bool:
+            raise AutonomousGraphRunError("synthetic_evidence_enabled must be boolean")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            field: getattr(self, field)
+            for field in self.__dataclass_fields__
+        }
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "AutonomousRuntimeConfiguration":
+        item = _exact_object(
+            value,
+            set(cls.__dataclass_fields__),
+            label="autonomous runtime configuration",
+        )
+        return cls(**item)
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(
         value,
@@ -194,6 +269,7 @@ class AutonomousRunManifest:
     run_id: str
     source_repository: str
     github_repository: str
+    runtime_configuration: AutonomousRuntimeConfiguration
     initial_source_commit: str
     initial_source_tree: str
     target_task_ids: tuple[str, ...]
@@ -215,6 +291,10 @@ class AutonomousRunManifest:
         if _GITHUB_REPOSITORY_RE.fullmatch(github_repository) is None:
             raise AutonomousGraphRunError(
                 "github_repository must be an exact GitHub owner/repository identity"
+            )
+        if type(self.runtime_configuration) is not AutonomousRuntimeConfiguration:
+            raise AutonomousGraphRunError(
+                "runtime_configuration must be an exact AutonomousRuntimeConfiguration"
             )
         _git_sha(self.initial_source_commit, field="initial_source_commit")
         _git_sha(self.initial_source_tree, field="initial_source_tree")
@@ -244,6 +324,7 @@ class AutonomousRunManifest:
             "run_id": self.run_id,
             "source_repository": self.source_repository,
             "github_repository": self.github_repository,
+            "runtime_configuration": self.runtime_configuration.to_dict(),
             "initial_source_commit": self.initial_source_commit,
             "initial_source_tree": self.initial_source_tree,
             "target_task_ids": list(self.target_task_ids),
@@ -260,6 +341,7 @@ class AutonomousRunManifest:
                 "run_id",
                 "source_repository",
                 "github_repository",
+                "runtime_configuration",
                 "initial_source_commit",
                 "initial_source_tree",
                 "target_task_ids",
@@ -273,6 +355,9 @@ class AutonomousRunManifest:
             run_id=item["run_id"],
             source_repository=item["source_repository"],
             github_repository=item["github_repository"],
+            runtime_configuration=AutonomousRuntimeConfiguration.from_dict(
+                item["runtime_configuration"]
+            ),
             initial_source_commit=item["initial_source_commit"],
             initial_source_tree=item["initial_source_tree"],
             target_task_ids=tuple(item["target_task_ids"]),
@@ -1711,6 +1796,7 @@ __all__ = [
     "AutonomousGraphRunError",
     "AutonomousRunManifest",
     "AutonomousRunPaths",
+    "AutonomousRuntimeConfiguration",
     "AutonomousRunProgress",
     "AutonomousStepResult",
     "CoherentGraphSnapshot",

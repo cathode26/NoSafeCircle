@@ -438,12 +438,47 @@ The workflow state and checkout boundaries are tested using deterministic in-mem
 ## Autonomous graph controller integration status
 
 <!-- autonomous-graph-controller:start -->
-`autonomous_graph_run.py` is currently a deterministic, dependency-injected
-controller boundary over `PollingOrchestrator`; it is not yet a production
-launcher. The production coherent snapshotter, exact manifest/receipt path
-selection, structured synthetic-evidence pump adapter, command-line entry point,
-and launcher wiring remain intentionally unwired. No caller should approximate
-those authority-bearing adapters from mutable or partial observations.
+`autonomous_graph_run.py` remains the deterministic controller boundary over
+`PollingOrchestrator`. Production composition is now provided by
+`run_autonomous_graph.py` and the canonical `Start-AutonomousGraphRun.ps1`
+launcher. The CLI uses the same scheduler factory as the polling entry point,
+refreshes and rechecks source `main`, reads TaskGraph state in one bulk payload,
+and derives managed Issue state plus durable reservations from one cached Issue
+batch. Only the current scheduler's in-memory children count as active
+assignments; a prior-process lease remains a reservation and is never adopted or
+stolen.
+
+Each run creates an immutable repository-bound manifest before scheduler or
+provider work under:
+
+```text
+<checkout-root>/.task-review-agent/autonomous-runs/<repository-sha256>/<run-id>/
+    manifest.json
+    progress.json
+    graph-complete.json
+    events.jsonl
+```
+
+A resume may omit targets, exclusions, and capacity and load them from the exact
+manifest. If any are supplied again, they must match. A valid existing
+`graph-complete.json` returns success before source refresh, GitHub observation,
+Docker, the architect, or a worker is invoked. Example private rehearsal run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-AutonomousGraphRun.ps1 `
+  -RunId gauntlet-922 `
+  -ConfirmRepository cathode26/NoSafeCircle-Homework-Rehearsal `
+  -TargetTaskId NSC-922 `
+  -ExcludeTaskId NSC-042 `
+  -MaxWorkers 1 `
+  -ExecutionProvider claude `
+  -EnableSyntheticEvidence
+```
+
+`-EnableSyntheticEvidence` is opt-in and remains restricted to exact committed
+private rehearsal tasks. It advances one relevant waiting Issue per controller
+step with hash-bound automated evidence and never creates `human_result` or a
+human PASS. NSC-042 is categorically excluded from this path.
 
 The production polling entry point now decorates its existing architect callable
 with a durable provider-session lifecycle owner; it does not replace or restart

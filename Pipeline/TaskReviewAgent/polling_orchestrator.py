@@ -3799,6 +3799,7 @@ def build_production_orchestrator(
     excluded_task_ids: Sequence[str] = (),
     dry_run: bool = False,
     event_emitter_observer: Callable[[JsonEventEmitter], None] | None = None,
+    event_journal_path: Path | str | None = None,
 ) -> ProductionOrchestratorBinding:
     """Build the canonical production scheduler composition without running it.
 
@@ -3828,11 +3829,14 @@ def build_production_orchestrator(
         / "orchestrator"
     )
     artifact_root = operational_root / "architect"
-    events = JsonEventEmitter(
-        journal_path=operational_root
-        / "events"
-        / f"{resolved_scheduler_id}.jsonl"
+    journal_path = (
+        operational_root / "events" / f"{resolved_scheduler_id}.jsonl"
+        if event_journal_path is None
+        else Path(event_journal_path)
     )
+    if not journal_path.is_absolute():
+        raise PollingOrchestratorError("event_journal_path must be absolute")
+    events = JsonEventEmitter(journal_path=journal_path)
     if event_emitter_observer is not None:
         if not callable(event_emitter_observer):
             raise PollingOrchestratorError(

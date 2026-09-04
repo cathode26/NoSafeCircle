@@ -248,6 +248,18 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/autonomous_graph_run_smoke_test.py
 
+      - name: Run production graph snapshot smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/production_graph_snapshot_smoke_test.py
+
+      - name: Run autonomous graph CLI smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/autonomous_graph_cli_smoke_test.py
+
+      - name: Run autonomous graph launcher smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/autonomous_graph_launcher_smoke_test.py
+
       - name: Run execution routing and worker-boundary smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/execution_routing_smoke_test.py
@@ -275,6 +287,15 @@ jobs:
       - name: Run private synthetic gauntlet approver smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/synthetic_gauntlet_approver_smoke_test.py
+
+      - name: Run automated synthetic evidence event smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        shell: pwsh
+        run: |
+          python Pipeline/TaskReviewAgent/tests/automated_validation_event_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Automated validation event tests failed." }
+          python Pipeline/TaskReviewAgent/tests/automated_decomposition_event_smoke_test.py
+          if ($LASTEXITCODE -ne 0) { throw "Automated decomposition event tests failed." }
 
       - name: Run ephemeral Git-ref claim tests
         if: steps.scope.outputs.run_full_core == 'true'

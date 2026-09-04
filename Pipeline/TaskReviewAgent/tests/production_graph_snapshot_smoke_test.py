@@ -25,6 +25,7 @@ import Pipeline.TaskReviewAgent.production_graph_snapshot as snapshot_module  # 
 from Pipeline.TaskReviewAgent.autonomous_graph_run import (  # noqa: E402
     AUTONOMOUS_GRAPH_RUN_SCHEMA_VERSION,
     AutonomousRunManifest,
+    AutonomousRuntimeConfiguration,
 )
 from Pipeline.TaskReviewAgent.dispatch_plan import PlanScopedIssueBackend  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
@@ -70,6 +71,21 @@ def manifest() -> AutonomousRunManifest:
         run_id="coherent-snapshot-test",
         source_repository=str(ROOT),
         github_repository="cathode26/NoSafeCircle-Homework-Rehearsal",
+        runtime_configuration=AutonomousRuntimeConfiguration(
+            execution_provider="claude",
+            execution_model=None,
+            execution_max_turns=120,
+            architect_provider="claude",
+            architect_model=None,
+            architect_max_turns=24,
+            architect_min_confidence=0.7,
+            architect_max_invocations_per_poll=3,
+            architect_min_reanalysis_seconds=300.0,
+            max_consecutive_observation_failures=3,
+            fatal_drain_seconds=1800.0,
+            fallback_seconds=300.0,
+            synthetic_evidence_enabled=False,
+        ),
         initial_source_commit=HEAD,
         initial_source_tree=TREE,
         target_task_ids=(PARENT,),

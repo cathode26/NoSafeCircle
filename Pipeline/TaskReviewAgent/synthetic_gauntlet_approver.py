@@ -269,7 +269,15 @@ def _run_text(
     return completed.stdout.strip()
 
 
-def _require_private_rehearsal(source: Path, confirmed_repository: str) -> str:
+def _require_private_rehearsal(
+    source: Path,
+    confirmed_repository: str,
+    expected_source_head: str | None = None,
+) -> str:
+    if expected_source_head is not None:
+        expected_source_head = _exact_sha(
+            expected_source_head, field="expected_source_head"
+        )
     origin = _run_text(
         ("git", "-C", str(source), "remote", "get-url", "origin"), cwd=source
     )
@@ -329,9 +337,35 @@ def _require_private_rehearsal(source: Path, confirmed_repository: str) -> str:
     remote = _run_text(
         ("git", "-C", str(source), "rev-parse", "origin/main"), cwd=source
     )
-    if head != remote:
+    post_head = _run_text(
+        ("git", "-C", str(source), "rev-parse", "HEAD"), cwd=source
+    )
+    post_status = _run_text(
+        (
+            "git",
+            "-C",
+            str(source),
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ),
+        cwd=source,
+    )
+    if post_status:
+        raise SyntheticApprovalError(
+            "synthetic approval controller changed during repository preflight"
+        )
+    if head != post_head:
+        raise SyntheticApprovalError(
+            "synthetic approval controller HEAD changed during repository preflight"
+        )
+    if post_head != remote:
         raise SyntheticApprovalError(
             "synthetic approval controller HEAD must exactly match current origin/main"
+        )
+    if expected_source_head is not None and post_head != expected_source_head:
+        raise SyntheticApprovalError(
+            "synthetic approval source HEAD differs from the selected graph snapshot"
         )
     return repository
 
@@ -928,7 +962,9 @@ def _apply_automated_decomposition(
         )
     notification_status = "not_configured"
     try:
-        notification_status = service.clear_vincent_notification(task_id)
+        notification_status = (
+            service.clear_vincent_notification_after_automated_evidence(task_id)
+        )
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         print(
             "SYNTHETIC APPROVER: WARNING\n"
@@ -988,7 +1024,9 @@ def _apply_automated_validation(
         )
     notification_status = "not_configured"
     try:
-        notification_status = service.clear_vincent_notification(task_id)
+        notification_status = (
+            service.clear_vincent_notification_after_automated_evidence(task_id)
+        )
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         print(
             "SYNTHETIC APPROVER: WARNING\n"
@@ -1072,6 +1110,7 @@ def process_one_synthetic_handoff(
     confirm_repository: str,
     apply: bool = True,
     report: Callable[[Mapping[str, Any]], None] | None = None,
+    expected_source_head: str | None = None,
     _session: _SyntheticApproverSession | None = None,
 ) -> "SyntheticEvidencePumpResult | None":
     """Validate and optionally advance one exact synthetic human handoff.
@@ -1110,6 +1149,25 @@ def process_one_synthetic_handoff(
         )
         session = _session
 
+    bound_source_head = (
+        _exact_sha(expected_source_head, field="expected_source_head")
+        if expected_source_head is not None
+        else _exact_sha(
+            _run_text(
+                ("git", "-C", str(session.source), "rev-parse", "HEAD"),
+                cwd=session.source,
+            ),
+            field="source_head",
+        )
+    )
+    if _run_text(
+        ("git", "-C", str(session.source), "rev-parse", "HEAD"),
+        cwd=session.source,
+    ) != bound_source_head:
+        raise SyntheticApprovalError(
+            "synthetic approval source HEAD changed before task authorization"
+        )
+
     # This check categorically excludes NSC-042 and any task outside the exact
     # committed gauntlet lineage before its Issue can be mutated.
     task = _require_gauntlet_task(session.source, exact_task_id)
@@ -1133,6 +1191,9 @@ def process_one_synthetic_handoff(
         if not apply:
             return None
         evidence = reviewed["evidence"]
+        _require_private_rehearsal(
+            session.source, session.repository, bound_source_head
+        )
         transitioned = _apply_automated_decomposition(
             source=session.source,
             service=session.service,
@@ -1169,6 +1230,9 @@ def process_one_synthetic_handoff(
         if report is not None:
             report(validated)
         evidence = validated["evidence"]
+        _require_private_rehearsal(
+            session.source, session.repository, bound_source_head
+        )
         transitioned = _apply_automated_validation(
             source=session.source,
             service=session.service,
@@ -1187,6 +1251,55 @@ def process_one_synthetic_handoff(
     raise SyntheticApprovalError(
         f"unsupported human-owned phase for synthetic task: {phase.value}"
     )
+
+
+class SyntheticHandoffProcessor:
+    """Repository-verified reusable boundary for an autonomous run.
+
+    Construction opens one repository-verified service session. Each call still
+    re-reads only the named Issue and freshly revalidates private-repository
+    authority immediately before mutation through the exact public
+    ``process_one_synthetic_handoff`` behavior.
+    """
+
+    def __init__(
+        self,
+        *,
+        source: Path,
+        checkout_root: Path,
+        confirm_repository: str,
+    ) -> None:
+        self.source = source.resolve()
+        self.checkout_root = checkout_root.resolve()
+        self.confirm_repository = confirm_repository
+        self._session = _open_synthetic_approver_session(
+            source=self.source,
+            checkout_root=self.checkout_root,
+            confirm_repository=confirm_repository,
+        )
+
+    def process_one(
+        self,
+        task_id: str,
+        *,
+        report: Callable[[Mapping[str, Any]], None] | None = None,
+        expected_source_head: str | None = None,
+    ) -> "SyntheticEvidencePumpResult":
+        result = process_one_synthetic_handoff(
+            task_id,
+            source=self.source,
+            checkout_root=self.checkout_root,
+            confirm_repository=self.confirm_repository,
+            apply=True,
+            report=report,
+            expected_source_head=expected_source_head,
+            _session=self._session,
+        )
+        if result is None:  # pragma: no cover - apply=True guarantees a result
+            raise SyntheticApprovalError(
+                "applied synthetic handoff returned no durable event identity"
+            )
+        return result
 
 
 def _print_json(value: Mapping[str, Any]) -> None:

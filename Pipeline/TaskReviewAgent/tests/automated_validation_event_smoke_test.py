@@ -32,6 +32,7 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowStoreError,
     MemoryIssueBackend,
 )
+import Pipeline.TaskReviewAgent.issue_workflow_store as workflow_store  # noqa: E402
 
 TASK_ID = "NSC-912"
 CONTRACT_HASH = "a" * 64
@@ -103,13 +104,18 @@ class VerifyingService(IssueWorkflowService):
         return super().verify_post_mutation_state(*args, **kwargs)
 
 
-def waiting_service() -> tuple[VerifyingService, MemoryIssueBackend, dict]:
+def waiting_service(
+    *, with_vincent_inbox: bool = False
+) -> tuple[VerifyingService, MemoryIssueBackend, dict]:
     backend = MemoryIssueBackend()
     selected = task()
     service = VerifyingService(
         backend=backend,
         task_loader=lambda task_id: selected,
         worker_id=WORKER_ID,
+        vincent_inbox_title=(
+            workflow_store.VINCENT_INBOX_TITLE if with_vincent_inbox else None
+        ),
     )
     service.acquire_agent_lease(
         task=selected,
@@ -120,6 +126,17 @@ def waiting_service() -> tuple[VerifyingService, MemoryIssueBackend, dict]:
         expected_validation="Run the committed exact Edit Mode filter.",
         now="2026-09-04T12:00:00Z",
     )
+    if with_vincent_inbox:
+        backend.create_issue(
+            title=workflow_store.VINCENT_INBOX_TITLE,
+            body=(
+                "# NSC-Vincent\n\n"
+                "Human-action routing inbox.\n\n"
+                f"{workflow_store.VINCENT_INBOX_MARKER}\n"
+            ),
+            labels=[],
+            assignees=["cathode26"],
+        )
     service.publish_human_handoff(
         task_id=TASK_ID,
         branch=BRANCH,
@@ -207,6 +224,37 @@ def test_exact_evidence_advances_without_fabricating_human_pass() -> None:
     require(event.actor_id == WORKER_ID, str(event))
     require(event.details == evidence, "evidence envelope changed during persistence")
     require(result["automated_validation_event_id"] == event.event_id, str(result))
+
+
+def test_automated_evidence_deletes_only_its_exact_vincent_notification() -> None:
+    service, backend, evidence = waiting_service(with_vincent_inbox=True)
+    service.apply_automated_validation(
+        task_id=TASK_ID,
+        evidence=evidence,
+        actor_id=WORKER_ID,
+        now="2026-09-04T12:02:00Z",
+    )
+    inbox = next(
+        issue
+        for issue in backend.list_issues()
+        if issue["title"] == workflow_store.VINCENT_INBOX_TITLE
+    )
+    require(len(backend.get_comments(inbox["number"])) == 1, "notification missing")
+    expect_store_error(
+        lambda: service.clear_vincent_notification(TASK_ID),
+        "human handoff",
+    )
+    require(
+        service.clear_vincent_notification_after_automated_evidence(TASK_ID)
+        == "deleted",
+        "automated notification was not deleted",
+    )
+    require(backend.get_comments(inbox["number"]) == [], "notification remained")
+    require(
+        service.clear_vincent_notification_after_automated_evidence(TASK_ID)
+        == "absent",
+        "automated notification cleanup was not idempotent",
+    )
 
 
 def _assert_rejected_without_mutation(mutator, expected: str) -> None:
@@ -452,6 +500,7 @@ def test_existing_human_pass_semantics_remain_unchanged() -> None:
 def main() -> int:
     tests = (
         test_exact_evidence_advances_without_fabricating_human_pass,
+        test_automated_evidence_deletes_only_its_exact_vincent_notification,
         test_envelope_identity_and_policy_are_strict,
         test_platform_filter_and_unity_artifacts_are_strict,
         test_multiple_required_validations_must_be_sorted_unique_and_exactly_covered,

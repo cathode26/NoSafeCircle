@@ -36,6 +36,7 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowStoreError,
     MemoryIssueBackend,
 )
+import Pipeline.TaskReviewAgent.issue_workflow_store as workflow_store  # noqa: E402
 
 TASK_ID = "NSC-911"
 CONTRACT_HASH = "a" * 64
@@ -116,13 +117,18 @@ class VerifyingService(IssueWorkflowService):
         return super().verify_post_mutation_state(*args, **kwargs)
 
 
-def waiting_service() -> tuple[VerifyingService, MemoryIssueBackend, dict]:
+def waiting_service(
+    *, with_vincent_inbox: bool = False
+) -> tuple[VerifyingService, MemoryIssueBackend, dict]:
     backend = MemoryIssueBackend()
     selected = task()
     service = VerifyingService(
         backend=backend,
         task_loader=lambda _task_id: selected,
         worker_id=WORKER_ID,
+        vincent_inbox_title=(
+            workflow_store.VINCENT_INBOX_TITLE if with_vincent_inbox else None
+        ),
     )
     service.acquire_agent_lease(
         task=selected,
@@ -133,6 +139,17 @@ def waiting_service() -> tuple[VerifyingService, MemoryIssueBackend, dict]:
         expected_validation="Require a fresh disjoint two-child partition.",
         now="2026-09-04T13:00:00Z",
     )
+    if with_vincent_inbox:
+        backend.create_issue(
+            title=workflow_store.VINCENT_INBOX_TITLE,
+            body=(
+                "# NSC-Vincent\n\n"
+                "Human-action routing inbox.\n\n"
+                f"{workflow_store.VINCENT_INBOX_MARKER}\n"
+            ),
+            labels=[],
+            assignees=["cathode26"],
+        )
     service.publish_decomposition_handoff(
         task_id=TASK_ID,
         source_head=SOURCE_COMMIT,
@@ -223,6 +240,30 @@ def test_exact_review_advances_without_fabricating_human_approval() -> None:
     require(event.actor_id == WORKER_ID, str(event))
     require(event.details == evidence, "decomposition evidence changed in persistence")
     require(result["automated_decomposition_event_id"] == event.event_id, str(result))
+
+
+def test_automated_decomposition_notification_cleanup_is_safely_absent() -> None:
+    service, backend, evidence = waiting_service(with_vincent_inbox=True)
+    service.apply_automated_decomposition_result(
+        task_id=TASK_ID,
+        evidence=evidence,
+        actor_id=WORKER_ID,
+        now="2026-09-04T13:02:00Z",
+    )
+    inbox = next(
+        issue
+        for issue in backend.list_issues()
+        if issue["title"] == workflow_store.VINCENT_INBOX_TITLE
+    )
+    require(
+        backend.get_comments(inbox["number"]) == [],
+        "decomposition handoff unexpectedly created a Vincent notification",
+    )
+    require(
+        service.clear_vincent_notification_after_automated_evidence(TASK_ID)
+        == "absent",
+        "decomposition notification cleanup was not safely absent",
+    )
 
 
 def _assert_rejected_without_mutation(mutator, expected: str) -> None:
@@ -455,6 +496,7 @@ def test_existing_human_approval_event_is_byte_compatible() -> None:
 def main() -> int:
     tests = (
         test_exact_review_advances_without_fabricating_human_approval,
+        test_automated_decomposition_notification_cleanup_is_safely_absent,
         test_envelope_and_handoff_bindings_are_exact,
         test_exact_two_child_disjoint_partition_is_required,
         test_review_decomposition_plan_result_is_pinned,
