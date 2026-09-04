@@ -41,7 +41,7 @@ param(
     [int]$MaxTurns = 120,
 
     [ValidateRange(0, 1440)]
-    [int]$HumanActionWaitMinutes = 30,
+    [int]$HumanActionWaitMinutes = 60,
 
     [ValidateRange(1, 300)]
     [int]$HumanActionPollSeconds = 60

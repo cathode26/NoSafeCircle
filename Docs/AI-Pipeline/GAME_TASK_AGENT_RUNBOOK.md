@@ -207,7 +207,7 @@ not a statement that the task is complete.
     ```
 
 For a direct launcher invocation with an explicit task ID, the agent releases
-its lease and waits on the validated GitHub Issue for up to 30 minutes by
+its lease and waits on the validated GitHub Issue for up to 60 minutes by
 default, polling once per minute. If Vincent records PASS or FAIL and the Issue
 becomes internally consistent `agent_ready` during that window, the same
 launcher session resumes automatically. The wait makes no provider calls and

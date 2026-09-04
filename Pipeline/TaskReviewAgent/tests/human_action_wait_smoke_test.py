@@ -197,7 +197,7 @@ def test_launcher_waits_only_for_direct_explicit_runs() -> None:
     launcher = (ROOT / "Pipeline/TaskReviewAgent/Start-GameTaskAgent.ps1").read_text(
         encoding="utf-8-sig"
     )
-    require("[int]$HumanActionWaitMinutes = 30" in launcher, "30-minute default missing")
+    require("[int]$HumanActionWaitMinutes = 60" in launcher, "one-hour default missing")
     require("[int]$HumanActionPollSeconds = 60" in launcher, "one-minute poll default missing")
     require("Pipeline/TaskReviewAgent/human_action_wait.py" in launcher, "waiter not invoked")
     require("-not [string]::IsNullOrWhiteSpace($RunId)" in launcher, "scheduler bypass missing")
