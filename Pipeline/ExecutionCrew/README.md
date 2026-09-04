@@ -169,7 +169,11 @@ carrying that retirement decision and no separate withdrawal reason, so
 `quarantined` is reserved for what the policy did not authoritatively retire:
 unproven evidence, a missing durable result, or a cold conversation with no
 lifecycle at all. The distinction is bookkeeping, not authority -- neither state
-is ever selectable.
+is ever selectable. It is also a constructor invariant in both directions:
+`state == "retired"` exactly when the lifecycle phase is `retired`, so a restored
+payload can neither claim a retirement the policy never decided nor file a
+retired lifecycle under another state where `sessions_for("retired")` would omit
+it.
 
 An idle session stays reusable for one hour after a successful check-in, a
 half-open window: reusable below 3600 seconds, expired at exactly 3600. Only

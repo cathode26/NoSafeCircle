@@ -881,10 +881,19 @@ class PooledSession:
             _parse_utc(self.idle_since_utc, field="idle_since_utc")
         elif self.state != "active" and self.idle_since_utc is not None:
             raise SessionPoolError(f"a {self.state} session must not be idle-timed")
-        if self.state == "retired" and (
-            self.lifecycle is None or self.lifecycle.phase != "retired"
-        ):
+        # Retirement is decided by the committed policy, so the public pool state
+        # and the lifecycle phase must say the same thing in both directions. A
+        # record may not claim retirement the lifecycle never decided, and a
+        # conversation the lifecycle retired may not be filed under any other
+        # state, where `sessions_for("retired")` would silently omit it.
+        retired_lifecycle = self.lifecycle is not None and self.lifecycle.phase == "retired"
+        if self.state == "retired" and not retired_lifecycle:
             raise SessionPoolError("a retired session requires its lifecycle retirement decision")
+        if retired_lifecycle and self.state != "retired":
+            raise SessionPoolError(
+                f"a lifecycle retired for {self.lifecycle.retirement_reason!r} must be "
+                f"recorded as retired, not as {self.state!r}"
+            )
         if (self.quarantine_reason is None) != (self.state != "quarantined"):
             raise SessionPoolError("quarantine_reason is required exactly when quarantined")
         if (self.probation_reason is None) != (self.state != "probation"):

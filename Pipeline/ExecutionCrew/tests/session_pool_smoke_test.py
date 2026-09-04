@@ -1505,6 +1505,126 @@ def test_a_lifecycle_retirement_is_recorded_as_retired_not_quarantined() -> None
                 f"{label}: a quarantined conversation stayed selectable")
 
 
+def retired_payload() -> tuple[dict, str]:
+    """Return durable state holding one genuinely retired conversation."""
+
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease, task_id="NSC-999")
+    settled = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(30))
+    require(settled.state == "retired", str(settled.state))
+    require(settled.retirement_reason == "identity_failure", str(settled.retirement_reason))
+    payload = json.loads(json.dumps(session_pool.to_dict()))
+    require(payload["sessions"][0]["lifecycle"]["phase"] == "retired",
+            str(payload["sessions"][0]["lifecycle"]["phase"]))
+    return payload, settled.record_id
+
+
+def test_a_retired_lifecycle_cannot_be_filed_under_another_state() -> None:
+    # The genuine record restores as retired and is reported as retired.
+    payload, record_id = retired_payload()
+    session_pool = restored(payload)
+    require([item.record_id for item in session_pool.sessions_for("retired")] == [record_id],
+            str(session_pool.sessions_for("retired")))
+
+    # Re-labelling only the public state and reason hides that same retirement
+    # from `sessions_for("retired")`, so restoration must refuse it.
+    forged = json.loads(json.dumps(payload))
+    forged["sessions"][0]["state"] = "quarantined"
+    forged["sessions"][0]["quarantine_reason"] = "withdrawn rather than retired"
+    blocked = rejects(lambda: restored(forged), SessionPoolError)
+    require("must be recorded as retired, not as 'quarantined'" in str(blocked), str(blocked))
+    require("identity_failure" in str(blocked), str(blocked))
+    rejects(lambda: PooledSession.from_dict(forged["sessions"][0]), SessionPoolError)
+    # Every other non-retired state is refused for the same reason.
+    for state, fields in (
+        ("expired", {}),
+        ("idle", {"idle_since_utc": "2026-09-04T12:00:30Z"}),
+        ("probation", {"idle_since_utc": "2026-09-04T12:00:30Z",
+                       "probation_reason": "claimed after retirement"}),
+    ):
+        mutated = json.loads(json.dumps(payload))
+        mutated["sessions"][0].update({"state": state, **fields})
+        rejects(lambda mutated=mutated: restored(mutated), SessionPoolError)
+
+    # A quarantined record whose lifecycle was never retired stays legitimate,
+    # both with a between-assignments lifecycle and with none at all.
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease)
+    (run_dir / result.role_result_artifact).unlink()
+    withdrawn = session_pool.check_in(
+        lease=lease, result=result, evidence_root=run_dir, now=at(30)
+    )
+    require(withdrawn.state == "quarantined", str(withdrawn.state))
+    require(withdrawn.lifecycle is not None
+            and withdrawn.lifecycle.phase == "between_assignments", str(withdrawn.lifecycle))
+    require(restored(session_pool.to_dict()).sessions[0] == withdrawn,
+            "a legitimate quarantined record was refused")
+
+    cold = pool()
+    cold_lease = checkout(cold)
+    unproven = cold.check_in(lease=cold_lease, result=None, evidence_root=None, now=at(30))
+    require(unproven.state == "quarantined" and unproven.lifecycle is None, str(unproven))
+    require(restored(cold.to_dict()).sessions[0] == unproven,
+            "a quarantined record with no lifecycle was refused")
+
+    # Every internal settlement path still constructs a state this invariant
+    # accepts, and each retirement it produces is reported as retired.
+    for label, build in (
+        ("streak retirement", _retired_by_streak),
+        ("budget refusal at checkout", _retired_by_budget_refusal),
+        ("between-assignment observation", _retired_by_observation),
+        ("successful assignment at the context threshold", _retired_by_context),
+    ):
+        produced = build()
+        require(produced.state == "retired", f"{label}: {produced.state}")
+        require(produced.retirement_reason is not None, f"{label}: no retirement decision")
+        require(restored(_owning_pool[label].to_dict()).sessions_for("retired"),
+                f"{label}: the retirement did not survive restoration as retired")
+
+
+_owning_pool: dict = {}
+
+
+def _retired_by_streak() -> PooledSession:
+    session_pool = pool()
+    lease = checkout(session_pool)
+    probation = failed(session_pool, lease, outcome="output_failure", now=at(10))
+    retry = session_pool.offer_probation_retry(
+        compatibility=compatibility(), record_id=probation.record_id,
+        worker_slot_id="worker-slot-1", task_id="NSC-050", worker_run_id="nsc-050-run-2",
+        source_commit=COMMIT, checkout_identity=CHECKOUT, now=at(11),
+    )
+    _owning_pool["streak retirement"] = session_pool
+    return failed(session_pool, retry, outcome="output_failure", now=at(12))
+
+
+def _retired_by_budget_refusal() -> PooledSession:
+    nearly = lifecycle_state(completed_assignments=8, worker_weighted_units=46)
+    deep = compatibility(capability_class="high_reasoning")
+    session_pool = pool(sessions=[seeded(nearly, compat=deep,
+                                         record_id="aaaa0000-1111-4111-8111-000000000002")])
+    checkout(session_pool, compat=deep, run_id="nsc-050-run-2", now=at(1))
+    _owning_pool["budget refusal at checkout"] = session_pool
+    return session_pool.sessions_for("retired")[0]
+
+
+def _retired_by_observation() -> PooledSession:
+    session_pool = pool(sessions=[seeded(lifecycle_state(), compat=compatibility(),
+                                         record_id="aaaa0000-1111-4111-8111-000000000002")])
+    _owning_pool["between-assignment observation"] = session_pool
+    return session_pool.observe("aaaa0000-1111-4111-8111-000000000002",
+                                observation="session_incompatibility")
+
+
+def _retired_by_context() -> PooledSession:
+    session_pool = pool()
+    lease = checkout(session_pool)
+    _owning_pool["successful assignment at the context threshold"] = session_pool
+    return complete(session_pool, lease, context_percent=CONTEXT_WINDOW_RETIRE_PERCENT)
+
+
 def test_an_evidenced_success_between_failures_resets_the_streak() -> None:
     session_pool = pool()
     lease = checkout(session_pool)
@@ -1821,6 +1941,7 @@ TESTS = (
     test_every_early_retirement_condition_is_enforced,
     test_two_counted_failures_retire_a_conversation_through_the_real_pool,
     test_a_lifecycle_retirement_is_recorded_as_retired_not_quarantined,
+    test_a_retired_lifecycle_cannot_be_filed_under_another_state,
     test_an_evidenced_success_between_failures_resets_the_streak,
     test_pool_state_and_lifecycle_state_cannot_disagree,
     test_an_active_assignment_cannot_contradict_its_own_history,
