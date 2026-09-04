@@ -243,20 +243,12 @@ def test_committed_policy_audits_clean_against_the_committed_graph() -> None:
     require(receipt["committed_task_count"] >= 60, str(receipt))
     eligible = receipt["eligible_decomposition_parents"]
     require(eligible == expected_eligible, str(eligible))
-    # These production parents are decomposition-eligible but human-approved, so
-    # none requires -- or may carry -- a private-gauntlet template. A private
-    # rehearsal graph may additionally contain machine-approved parents, which
-    # must appear in both expected_required and the committed template map.
-    human_approved = {"NSC-014", "NSC-015", "NSC-025", "NSC-033", "NSC-035"}
-    require(
-        human_approved.issubset(eligible),
-        str(eligible),
-    )
-    for task_id in human_approved:
+    for task_id in eligible:
         require(is_decomposition_eligible_parent(tasks[task_id]), task_id)
         require(
-            not requires_decomposition_child_template(tasks[task_id]),
-            f"{task_id} is human-approved and must not require a gauntlet template",
+            requires_decomposition_child_template(tasks[task_id])
+            == (task_id in expected_required),
+            f"{task_id} requirement classification drifted from the exact graph",
         )
 
 
