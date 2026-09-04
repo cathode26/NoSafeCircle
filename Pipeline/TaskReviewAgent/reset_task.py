@@ -1595,7 +1595,10 @@ class DecompositionUndoReset:
         graph_delta: Path,
         runner: CommandRunner | None = None,
     ) -> None:
-        from Pipeline.TaskGraph.undo_graph_delta import _load_stored_plan
+        from Pipeline.TaskGraph.undo_graph_delta import (
+            GraphDeltaUndoError,
+            _load_stored_plan,
+        )
 
         self.runner = runner or CommandRunner()
         self.source = source.resolve()
@@ -1605,7 +1608,10 @@ class DecompositionUndoReset:
         self.graph_delta_path = Path(graph_delta).resolve()
         self.origin = _git_text(self.runner, self.source, "remote", "get-url", "origin")
         self.repository = _repository_from_origin(self.origin)
-        self.stored = _load_stored_plan(self.graph_delta_path)
+        try:
+            self.stored = _load_stored_plan(self.graph_delta_path)
+        except GraphDeltaUndoError as exc:
+            raise TaskResetError(f"graph-delta authority was refused: {exc}") from exc
 
     def _stored_parent_task_id(self) -> str:
         payload = self.stored.to_dict()
@@ -1815,6 +1821,59 @@ class DecompositionUndoReset:
         if _graph_hash(self.source) != plan["source_graph_semantic_hash"]:
             raise TaskResetError("undo commit did not restore the source TaskGraph")
 
+    def _verify_cleanup_boundary(
+        self,
+        plan: dict[str, Any],
+        undo_commit: str,
+        *,
+        require_published: bool,
+    ) -> None:
+        """Prove the exact local and remote state before archiving controller data."""
+
+        if (
+            Path(
+                _git_text(self.runner, self.source, "rev-parse", "--show-toplevel")
+            ).resolve()
+            != self.source
+        ):
+            raise TaskResetError("source is not the exact Git repository root")
+        if _git_text(self.runner, self.source, "branch", "--show-current") != "main":
+            raise TaskResetError("decomposition undo resume requires the controller on main")
+        if _git_text(
+            self.runner,
+            self.source,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ):
+            raise TaskResetError(
+                "controller checkout is not completely clean; decomposition undo resume "
+                "never cleans a dirty checkout"
+            )
+        head = _git_text(self.runner, self.source, "rev-parse", "HEAD")
+        if head != undo_commit:
+            raise TaskResetError(
+                f"controller HEAD is {head}, not the receipt undo commit {undo_commit}"
+            )
+        remote_main = _remote_ref_oid(
+            self.runner, self.source, "origin", "refs/heads/main"
+        )
+        allowed_remote = (
+            (undo_commit,)
+            if require_published
+            else (plan["apply_commit"], undo_commit)
+        )
+        if remote_main not in allowed_remote:
+            raise TaskResetError(
+                f"origin/main is {remote_main}, not "
+                + (
+                    "the published receipt undo commit"
+                    if require_published
+                    else "the receipt apply or undo commit"
+                )
+            )
+        self._verify_undo_commit(plan, undo_commit)
+
     def _publish_undo(self, plan: dict[str, Any], undo_commit: str) -> str:
         """Fast-forward origin/main from the exact expected old value."""
 
@@ -1960,6 +2019,9 @@ class DecompositionUndoReset:
             report["status"] = "undo_published"
             _write_report(report_path, report)
 
+            self._verify_cleanup_boundary(
+                plan, result.undo_commit, require_published=True
+            )
             return self._finish_cleanup(plan, report, report_path, timestamp)
         except Exception as exc:
             report.update({"status": "stopped", "error": str(exc)})
@@ -1989,7 +2051,10 @@ class DecompositionUndoReset:
         if report.get("plan_id") != self.stored.to_dict().get("plan_id"):
             raise TaskResetError("reset receipt names a different decomposition plan")
         undo_commit = report.get("undo_commit")
-        if not isinstance(undo_commit, str) or not undo_commit:
+        if (
+            not isinstance(undo_commit, str)
+            or re.fullmatch(r"[0-9a-f]{40}", undo_commit) is None
+        ):
             raise TaskResetError(
                 "reset receipt records no undo commit; rerun the ordinary "
                 "--undo-decomposition --apply preflight instead of resuming"
@@ -2007,11 +2072,29 @@ class DecompositionUndoReset:
             raise TaskResetError(
                 f"receipt undo commit {undo_commit} does not exist in this repository"
             )
-        self._verify_undo_commit(report, undo_commit)
+        for field in ("apply_commit", "source_tree"):
+            value = report.get(field)
+            if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{40}", value) is None:
+                raise TaskResetError(f"reset receipt has an invalid {field}")
+        graph_hash = report.get("source_graph_semantic_hash")
+        if (
+            not isinstance(graph_hash, str)
+            or re.fullmatch(r"[0-9a-f]{64}", graph_hash) is None
+        ):
+            raise TaskResetError("reset receipt has an invalid source_graph_semantic_hash")
+        children = report.get("decomposition_children")
+        if not isinstance(children, list) or any(
+            not isinstance(child, str) for child in children
+        ):
+            raise TaskResetError("reset receipt has an invalid decomposition_children set")
+        self._verify_cleanup_boundary(
+            report, undo_commit, require_published=False
+        )
         report["publish"] = self._publish_undo(report, undo_commit)
         report["status"] = "undo_published"
         report["resumed"] = True
         _write_report(path, report)
+        self._verify_cleanup_boundary(report, undo_commit, require_published=True)
         timestamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%SZ")
         return self._finish_cleanup(report, report, path, timestamp)
 

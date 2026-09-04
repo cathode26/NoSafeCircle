@@ -33,6 +33,8 @@ from Pipeline.TaskReviewAgent.reset_task import (  # noqa: E402
     _validate_branchless_checkout_source,
 )
 from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
+from Pipeline.TaskReviewAgent.claim_policy import activated_claim_namespace  # noqa: E402
+from Pipeline.TaskReviewAgent.claim_refs import task_claim_ref  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import WorkflowPhase  # noqa: E402
 
 
@@ -517,6 +519,31 @@ def _expect_refusal(callable_, fragment: str, message: str) -> str:
     raise AssertionError(message + ": no refusal was raised")
 
 
+def _create_stopped_undo(
+    environment: UndoEnvironment,
+) -> tuple[Path, str, dict[str, object]]:
+    state_root = environment.checkout_root / ".task-review-agent"
+    state_root.mkdir(parents=True, exist_ok=True)
+    parent_state = state_root / (environment.parent_id + ".json")
+    parent_state.write_text("{}\n", encoding="utf-8", newline="\n")
+    operation = environment.operation(FakeGitHubRunner(fail_push=True))
+    plan = operation.preflight()
+    with approved_identity_environment():
+        try:
+            operation.apply(plan)
+        except TaskResetError:
+            pass
+        else:
+            raise AssertionError("failed push did not stop the apply")
+    reports = sorted(
+        (state_root / "reset-runs" / environment.parent_id).glob(
+            "*-undo-decomposition.json"
+        )
+    )
+    expect(len(reports) == 1, "expected exactly one stopped undo receipt")
+    return reports[0], environment.head(), plan
+
+
 def test_undo_decomposition_dry_run_is_read_only(root: Path) -> None:
     environment = UndoEnvironment(root)
     before_head = environment.head()
@@ -690,6 +717,39 @@ def test_undo_decomposition_refuses_child_checkout(root: Path) -> None:
     expect("NSC-043" in message, "refusal did not name the checkout")
 
 
+def test_undo_decomposition_refuses_child_linked_worktree(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    linked = root / "linked" / "NSC-043"
+    linked.parent.mkdir(parents=True)
+    run(
+        "git",
+        "worktree",
+        "add",
+        "--detach",
+        str(linked),
+        "HEAD",
+        cwd=environment.work,
+    )
+    message = _expect_refusal(
+        environment.operation().preflight,
+        "already consumed or reserved",
+        "child linked worktree was not refused",
+    )
+    expect("linked worktree" in message, "refusal did not name the linked worktree")
+
+
+def test_undo_decomposition_refuses_child_claim_ref(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    claim_ref = task_claim_ref(activated_claim_namespace(), "NSC-043")
+    run("git", "push", "-q", "origin", "HEAD:" + claim_ref, cwd=environment.work)
+    message = _expect_refusal(
+        environment.operation().preflight,
+        "already consumed or reserved",
+        "child claim ref was not refused",
+    )
+    expect(claim_ref in message, "refusal did not name the claim ref")
+
+
 def test_undo_decomposition_refuses_child_state_file(root: Path) -> None:
     environment = UndoEnvironment(root)
     state_root = environment.checkout_root / ".task-review-agent"
@@ -781,36 +841,16 @@ def test_undo_decomposition_refuses_origin_movement_after_preflight(root: Path) 
 
 def test_undo_decomposition_resume_does_not_create_a_second_undo(root: Path) -> None:
     environment = UndoEnvironment(root)
-    operation = environment.operation(FakeGitHubRunner(fail_push=True))
-    plan = operation.preflight()
-    with approved_identity_environment():
-        try:
-            operation.apply(plan)
-        except TaskResetError:
-            pass
-        else:
-            raise AssertionError("failed push did not stop the apply")
-
+    report_path, undo_commit, plan = _create_stopped_undo(environment)
     after_undo_count = environment.commit_count()
-    undo_commit = environment.head()
     expect(after_undo_count == 3, "undo commit was not created before the push failure")
     expect(environment.origin_main() == plan["apply_commit"], "push unexpectedly succeeded")
-
-    reports = sorted(
-        (
-            environment.checkout_root
-            / ".task-review-agent"
-            / "reset-runs"
-            / environment.parent_id
-        ).glob("*-undo-decomposition.json")
-    )
-    expect(len(reports) == 1, "expected exactly one receipt")
-    receipt = json.loads(reports[0].read_text(encoding="utf-8"))
+    receipt = json.loads(report_path.read_text(encoding="utf-8"))
     expect(receipt["status"] == "stopped", "receipt did not record the stop")
     expect(receipt["undo_commit"] == undo_commit, "receipt did not record the undo commit")
 
     with approved_identity_environment():
-        resumed = environment.operation(FakeGitHubRunner()).resume(reports[0])
+        resumed = environment.operation(FakeGitHubRunner()).resume(report_path)
     expect(resumed["status"] == "complete", "resume did not complete")
     expect(resumed["resumed"] is True, "resume did not mark itself")
     expect(
@@ -819,6 +859,94 @@ def test_undo_decomposition_resume_does_not_create_a_second_undo(root: Path) -> 
     )
     expect(environment.head() == undo_commit, "resume moved HEAD")
     expect(environment.origin_main() == undo_commit, "resume did not publish the undo")
+
+
+def test_undo_decomposition_resume_refuses_dirty_controller(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    report_path, _, _ = _create_stopped_undo(environment)
+    dirty = environment.work / "FixtureUnrelated.txt"
+    dirty.write_text("operator edit\n", encoding="utf-8", newline="\n")
+    _expect_refusal(
+        lambda: environment.operation().resume(report_path),
+        "not completely clean",
+        "dirty resume checkout was not refused",
+    )
+    expect(dirty.read_text(encoding="utf-8") == "operator edit\n", "resume cleaned work")
+    expect(
+        (
+            environment.checkout_root
+            / ".task-review-agent"
+            / (environment.parent_id + ".json")
+        ).is_file(),
+        "dirty refusal archived parent state",
+    )
+
+
+def test_undo_decomposition_resume_refuses_wrong_branch(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    report_path, _, _ = _create_stopped_undo(environment)
+    run("git", "switch", "-q", "-c", "wrong-resume-branch", cwd=environment.work)
+    _expect_refusal(
+        lambda: environment.operation().resume(report_path),
+        "requires the controller on main",
+        "wrong resume branch was not refused",
+    )
+    expect(
+        (
+            environment.checkout_root
+            / ".task-review-agent"
+            / (environment.parent_id + ".json")
+        ).is_file(),
+        "wrong-branch refusal archived parent state",
+    )
+
+
+def test_undo_decomposition_resume_refuses_wrong_head(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    report_path, undo_commit, _ = _create_stopped_undo(environment)
+    later = environment.work / "FixtureUnrelated.txt"
+    later.write_text("later local work\n", encoding="utf-8", newline="\n")
+    run("git", "add", "--", "FixtureUnrelated.txt", cwd=environment.work)
+    run(
+        "git",
+        "commit",
+        "-q",
+        "--no-gpg-sign",
+        "-m",
+        "fixture: later local work",
+        cwd=environment.work,
+    )
+    expect(environment.head() != undo_commit, "fixture did not move HEAD")
+    _expect_refusal(
+        lambda: environment.operation().resume(report_path),
+        "not the receipt undo commit",
+        "wrong resume HEAD was not refused",
+    )
+    expect(
+        (
+            environment.checkout_root
+            / ".task-review-agent"
+            / (environment.parent_id + ".json")
+        ).is_file(),
+        "wrong-HEAD refusal archived parent state",
+    )
+
+
+def test_undo_decomposition_rejects_invalid_graph_delta_cleanly(root: Path) -> None:
+    environment = UndoEnvironment(root)
+    invalid = root / "invalid_graph_delta.json"
+    invalid.write_text("not json\n", encoding="utf-8", newline="\n")
+    _expect_refusal(
+        lambda: DecompositionUndoReset(
+            source=environment.work,
+            checkout_root=environment.checkout_root,
+            task_id=environment.parent_id,
+            graph_delta=invalid,
+            runner=FakeGitHubRunner(),
+        ),
+        "graph-delta authority was refused",
+        "invalid graph delta escaped the reset error boundary",
+    )
 
 
 def test_ordinary_reset_modes_are_unchanged(root: Path) -> None:
@@ -882,12 +1010,18 @@ def main() -> int:
             test_undo_decomposition_refuses_consumed_child_issue,
             test_undo_decomposition_refuses_child_branch,
             test_undo_decomposition_refuses_child_checkout,
+            test_undo_decomposition_refuses_child_linked_worktree,
+            test_undo_decomposition_refuses_child_claim_ref,
             test_undo_decomposition_refuses_child_state_file,
             test_undo_decomposition_refuses_advanced_child_taskgraph_state,
             test_undo_decomposition_refuses_wrong_plan_identity,
             test_undo_decomposition_refuses_dirty_controller,
             test_undo_decomposition_refuses_origin_movement_after_preflight,
             test_undo_decomposition_resume_does_not_create_a_second_undo,
+            test_undo_decomposition_resume_refuses_dirty_controller,
+            test_undo_decomposition_resume_refuses_wrong_branch,
+            test_undo_decomposition_resume_refuses_wrong_head,
+            test_undo_decomposition_rejects_invalid_graph_delta_cleanly,
             test_ordinary_reset_modes_are_unchanged,
         )
         for index, undo_test in enumerate(undo_tests):

@@ -317,6 +317,23 @@ python Pipeline/TaskReviewAgent/issue_queue.py --source .
 
 Only Issues whose managed state, state label, and complete event chain all prove `agent_ready` are returned. Generic selection must resume these Issues before choosing a new task.
 
+## Undoing an unconsumed decomposition
+
+`reset_task.py --undo-decomposition` is the coordinated Stage D1C inverse. A
+dry run binds one exact `graph_delta.json`, current clean `main`, the exact D1C
+commit, and every child-consumption signal. Applied mode delegates the sole
+inverse algorithm to `TaskGraph/undo_graph_delta.py`, creates one additive
+commit, publishes it by ordinary fast-forward, and archives only the parent's
+active controller state. It never resets, rebases, force-pushes, or deletes
+child work.
+
+If publication stops after commit creation, `--resume-report` reuses that exact
+commit. Before any publication or state archive it requires clean `main`, local
+`HEAD` at the receipt's undo commit, and `origin/main` at either the recorded D1C
+commit or the undo commit. See
+`Docs/AI-Pipeline/FRESH_TASK_RESET_RUNBOOK.md` for the guarded commands and full
+refusal conditions.
+
 ## Current real command
 
 For an eligible explicit task, the deterministic mode can initialize/acquire the Issue lease and prepare the checkout in one bounded stage:

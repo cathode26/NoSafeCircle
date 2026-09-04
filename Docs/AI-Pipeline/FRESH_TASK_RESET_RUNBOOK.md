@@ -110,28 +110,42 @@ only while the exact `taskgraph: apply <TASK-ID> decomposition <PLAN-ID>` commit
 is still the clean local `HEAD`. Any later commit is treated as possible child
 or dependent work and automatic undo is refused.
 
-First inspect the exact independently reviewed `graph_delta.json` without
-mutation:
+Use the reset helper to inspect the exact independently reviewed
+`graph_delta.json` without mutation:
 
 ```powershell
-python Pipeline/TaskGraph/undo_graph_delta.py C:\path\to\graph_delta.json --source C:\path\to\clean\repository --expected-head <exact-D1C-commit>
+python Pipeline/TaskReviewAgent/reset_task.py NSC-### --source C:\path\to\clean\repository --checkout-root C:\path\to\checkout-root --undo-decomposition --graph-delta C:\path\to\graph_delta.json
 ```
 
-After checking the reported parent, plan ID, source commit, and changed paths,
-create one additive inverse commit:
+After checking the reported parent, plan ID, source/apply commits, child set,
+and changed paths, create and publish one additive inverse commit and archive
+only the parent's active controller state:
 
 ```powershell
-python Pipeline/TaskGraph/undo_graph_delta.py C:\path\to\graph_delta.json --source C:\path\to\clean\repository --expected-head <exact-D1C-commit> --confirm-plan-id <exact-GDP-plan-id> --apply
+python Pipeline/TaskReviewAgent/reset_task.py NSC-### --source C:\path\to\clean\repository --checkout-root C:\path\to\checkout-root --undo-decomposition --graph-delta C:\path\to\graph_delta.json --apply --confirm-repository owner/repository --confirm-plan-id <exact-GDP-plan-id>
 ```
 
-The tool proves that the current whole graph equals the reviewed proposed graph,
-the D1C parent equals the reviewed source graph, and the staged inverse restores
-the exact source tree. It then validates the restored persistent graph and
-commits the inverse. It does not push, remove GitHub Issues, or delete child
-checkouts; those external cleanup steps require their own exact-state reset
-preflight. If any child was already claimed or any later history exists, stop
-and handle the dependency explicitly rather than trying to erase the
-decomposition.
+The helper proves that the current whole graph equals the reviewed proposed
+graph, the D1C parent equals the reviewed source graph, and the staged inverse
+restores the exact source tree. It refuses any child with an open managed Issue,
+local or remote task branch, canonical checkout, linked worktree, claim ref,
+active controller state, or TaskGraph state past `not_delivered`. It delegates
+the only inverse-commit algorithm to `undo_graph_delta.py`, validates the
+restored persistent graph, and publishes by ordinary fast-forward only. It does
+not force, rewind, delete child state, or erase the original D1C commit.
+
+If publication stops after the additive undo commit was created, resume only
+the exact no-overwrite receipt. Resume revalidates the repository, plan, clean
+`main` checkout, exact local undo commit, and remote apply/undo identity before
+publishing or archiving anything:
+
+```powershell
+python Pipeline/TaskReviewAgent/reset_task.py NSC-### --source C:\path\to\clean\repository --checkout-root C:\path\to\checkout-root --undo-decomposition --graph-delta C:\path\to\graph_delta.json --resume-report C:\path\to\exact-undo-receipt.json --apply --confirm-repository owner/repository
+```
+
+If any child was already consumed, any later history exists, the source is
+dirty, or the receipt identities no longer match, stop and handle the dependency
+explicitly rather than trying to erase the decomposition.
 
 ### 1. Close the abandoned pull request
 
