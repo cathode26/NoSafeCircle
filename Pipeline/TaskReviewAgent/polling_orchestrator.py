@@ -3693,54 +3693,166 @@ def default_scheduler_id() -> str:
     return f"polling-orchestrator-{uuid.uuid4().hex[:16]}"
 
 
+@dataclass(frozen=True)
+class ProductionOrchestratorBinding:
+    """One production scheduler, its singleton lock, and durable event sink."""
+
+    source: Path
+    checkout_root: Path
+    operational_root: Path
+    scheduler_id: str
+    events: JsonEventEmitter
+    orchestrator: PollingOrchestrator
+    lock: SchedulerLock
+
+
+def build_production_orchestrator(
+    *,
+    source: Path | str,
+    checkout_root: Path | str | None = None,
+    scheduler_id: str | None = None,
+    execution_provider: str | None = None,
+    model: str | None = None,
+    max_turns: int | None = None,
+    max_workers: int = DEFAULT_MAX_WORKERS,
+    architect_provider: str = "claude",
+    architect_model: str | None = None,
+    architect_max_turns: int = DEFAULT_ARCHITECT_MAX_TURNS,
+    architect_min_confidence: float = DEFAULT_ARCHITECT_MIN_CONFIDENCE,
+    max_architect_invocations_per_poll: int = (
+        DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL
+    ),
+    architect_min_reanalysis_seconds: float = (
+        DEFAULT_ARCHITECT_MIN_REANALYSIS_SECONDS
+    ),
+    max_consecutive_observation_failures: int = (
+        DEFAULT_MAX_CONSECUTIVE_OBSERVATION_FAILURES
+    ),
+    fatal_drain_seconds: float = DEFAULT_FATAL_DRAIN_SECONDS,
+    excluded_task_ids: Sequence[str] = (),
+    dry_run: bool = False,
+    event_emitter_observer: Callable[[JsonEventEmitter], None] | None = None,
+) -> ProductionOrchestratorBinding:
+    """Build the canonical production scheduler composition without running it.
+
+    Callers own the returned lock/listener lifecycle.  Keeping construction
+    here ensures the polling CLI and autonomous graph runner use the same
+    architect transport, persistent session owner, journal, worker-safety
+    limits, and checkout-root singleton lock.
+
+    ``event_emitter_observer`` lets a CLI retain the durable journal before
+    later construction can fail, preserving initialization-failure reporting.
+    """
+
+    resolved_source = repo_root(Path(source).resolve())
+    resolved_checkout_root = Path(checkout_root or default_checkout_root())
+    resolved_scheduler_id = (
+        default_scheduler_id()
+        if scheduler_id is None
+        else str(scheduler_id).strip()
+    )
+    if not resolved_scheduler_id:
+        raise PollingOrchestratorError("scheduler_id must be non-empty")
+    operational_root = (
+        resolved_source
+        / "Pipeline"
+        / "ArchitectureReview"
+        / "outputs"
+        / "orchestrator"
+    )
+    artifact_root = operational_root / "architect"
+    events = JsonEventEmitter(
+        journal_path=operational_root
+        / "events"
+        / f"{resolved_scheduler_id}.jsonl"
+    )
+    if event_emitter_observer is not None:
+        if not callable(event_emitter_observer):
+            raise PollingOrchestratorError(
+                "event_emitter_observer must be callable"
+            )
+        event_emitter_observer(events)
+    architect_transport = DockerArchitectRunner(
+        source=resolved_source,
+        artifact_root=artifact_root,
+        provider=architect_provider,
+        model=architect_model,
+        max_turns=architect_max_turns,
+    )
+    architect_provider_identifier = (
+        "claude-code"
+        if architect_transport.provider == "claude"
+        else "openai-codex"
+    )
+    architect_runner = ArchitectSessionOwner(
+        architect_runner=architect_transport,
+        provider_identifier=architect_provider_identifier,
+        role=ARCHITECT_SESSION_ROLE,
+        store=JsonArchitectSessionStore(
+            operational_root
+            / "architect-sessions"
+            / architect_provider_identifier
+            / ARCHITECT_SESSION_ROLE
+        ),
+        compatibility=architect_transport.session_compatibility,
+    )
+    orchestrator = PollingOrchestrator(
+        source=resolved_source,
+        checkout_root=resolved_checkout_root,
+        scheduler_id=resolved_scheduler_id,
+        execution_provider=execution_provider,
+        model=model,
+        max_turns=max_turns,
+        max_workers=max_workers,
+        architect_min_confidence=architect_min_confidence,
+        architect_runner=architect_runner,
+        max_architect_invocations_per_poll=max_architect_invocations_per_poll,
+        architect_min_reanalysis_seconds=architect_min_reanalysis_seconds,
+        max_consecutive_observation_failures=(
+            max_consecutive_observation_failures
+        ),
+        fatal_drain_seconds=fatal_drain_seconds,
+        event_emitter=events,
+        excluded_task_ids=excluded_task_ids,
+        dry_run=dry_run,
+    )
+    lock = SchedulerLock(
+        scheduler_lock_path(
+            checkout_root=resolved_checkout_root,
+            source=resolved_source,
+        )
+    )
+    return ProductionOrchestratorBinding(
+        source=resolved_source,
+        checkout_root=resolved_checkout_root,
+        operational_root=operational_root,
+        scheduler_id=resolved_scheduler_id,
+        events=events,
+        orchestrator=orchestrator,
+        lock=lock,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     events = JsonEventEmitter()
+
+    def observe_events(value: JsonEventEmitter) -> None:
+        nonlocal events
+        events = value
+
     try:
-        source = repo_root(args.source.resolve())
-        checkout_root = Path(args.checkout_root or default_checkout_root())
-        operational_root = (
-            source / "Pipeline" / "ArchitectureReview" / "outputs" / "orchestrator"
-        )
-        artifact_root = operational_root / "architect"
-        scheduler_id = default_scheduler_id()
-        events = JsonEventEmitter(
-            journal_path=operational_root / "events" / f"{scheduler_id}.jsonl"
-        )
-        architect_transport = DockerArchitectRunner(
-            source=source,
-            artifact_root=artifact_root,
-            provider=args.architect_provider,
-            model=args.architect_model,
-            max_turns=args.architect_max_turns,
-        )
-        architect_provider_identifier = (
-            "claude-code"
-            if args.architect_provider == "claude"
-            else "openai-codex"
-        )
-        architect_runner = ArchitectSessionOwner(
-            architect_runner=architect_transport,
-            provider_identifier=architect_provider_identifier,
-            role=ARCHITECT_SESSION_ROLE,
-            store=JsonArchitectSessionStore(
-                operational_root
-                / "architect-sessions"
-                / architect_provider_identifier
-                / ARCHITECT_SESSION_ROLE
-            ),
-            compatibility=architect_transport.session_compatibility,
-        )
-        orchestrator = PollingOrchestrator(
-            source=source,
-            checkout_root=checkout_root,
-            scheduler_id=scheduler_id,
+        production = build_production_orchestrator(
+            source=args.source,
+            checkout_root=args.checkout_root,
             execution_provider=args.execution_provider,
             model=args.model,
             max_turns=args.max_turns,
             max_workers=args.max_workers,
+            architect_provider=args.architect_provider,
+            architect_model=args.architect_model,
+            architect_max_turns=args.architect_max_turns,
             architect_min_confidence=args.architect_min_confidence,
-            architect_runner=architect_runner,
             max_architect_invocations_per_poll=args.architect_max_invocations_per_poll,
             architect_min_reanalysis_seconds=(
                 args.architect_min_reanalysis_seconds
@@ -3749,18 +3861,13 @@ def main(argv: list[str] | None = None) -> int:
                 args.max_consecutive_observation_failures
             ),
             fatal_drain_seconds=args.fatal_drain_seconds,
-            event_emitter=events,
             excluded_task_ids=args.exclude_task_id,
             dry_run=args.dry_run,
+            event_emitter_observer=observe_events,
         )
-        lock = SchedulerLock(
-            scheduler_lock_path(
-                checkout_root=checkout_root,
-                source=source,
-            )
-        )
-        return orchestrator.run(
-            lock=lock,
+        events = production.events
+        return production.orchestrator.run(
+            lock=production.lock,
             poll_seconds=args.poll_seconds,
             once=args.once,
         )
@@ -3797,8 +3904,10 @@ __all__ = [
     "PollCycleResult",
     "PollingOrchestrator",
     "PollingOrchestratorError",
+    "ProductionOrchestratorBinding",
     "SchedulerAlreadyActive",
     "SchedulerLock",
+    "build_production_orchestrator",
     "build_worker_command",
     "build_poll_dispatch_plan",
     "is_git_checkout",

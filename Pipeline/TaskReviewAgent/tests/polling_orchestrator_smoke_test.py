@@ -1096,6 +1096,264 @@ def test_exclude_task_id_cli_is_repeatable_and_validated() -> None:
         raise AssertionError("invalid permanent scheduler exclusion was accepted")
 
 
+def test_production_factory_owns_the_complete_scheduler_composition() -> None:
+    """Regression-only: production entry points share one exact binding."""
+
+    with tempfile.TemporaryDirectory() as text:
+        source = Path(text) / "source"
+        checkout_root = Path(text) / "checkouts"
+        source.mkdir()
+        created_orchestrators: list[Mapping[str, Any]] = []
+        created_transports: list[Mapping[str, Any]] = []
+
+        class FakeDockerArchitectRunner:
+            def __init__(self, **values: Any) -> None:
+                created_transports.append(values)
+                self.provider = str(values["provider"]).casefold()
+                provider_identifier = (
+                    "claude-code"
+                    if self.provider == "claude"
+                    else "openai-codex"
+                )
+                self.session_compatibility = ArchitectSessionCompatibility(
+                    provider_identifier,
+                    scheduler_module.ARCHITECT_SESSION_ROLE,
+                    str(values["model"] or "fixture-model"),
+                    None,
+                    "fixture-protocol",
+                    ("fixture-capability",),
+                )
+
+            def __call__(self, **_values: Any) -> ArchitectAnalysis:
+                raise AssertionError("factory invoked the architect")
+
+        class FakePollingOrchestrator:
+            def __init__(self, **values: Any) -> None:
+                created_orchestrators.append(values)
+                self.values = values
+
+        with (
+            patch.object(
+                scheduler_module,
+                "repo_root",
+                side_effect=lambda value: Path(value).resolve(),
+            ),
+            patch.object(
+                scheduler_module,
+                "DockerArchitectRunner",
+                FakeDockerArchitectRunner,
+            ),
+            patch.object(
+                scheduler_module,
+                "PollingOrchestrator",
+                FakePollingOrchestrator,
+            ),
+        ):
+            binding = scheduler_module.build_production_orchestrator(
+                source=source,
+                checkout_root=checkout_root,
+                scheduler_id="factory-fixture",
+                execution_provider="codex",
+                model="worker-model",
+                max_turns=23,
+                max_workers=7,
+                architect_provider="codex",
+                architect_model="architect-model",
+                architect_max_turns=19,
+                architect_min_confidence=0.81,
+                max_architect_invocations_per_poll=5,
+                architect_min_reanalysis_seconds=41.0,
+                max_consecutive_observation_failures=6,
+                fatal_drain_seconds=73.0,
+                excluded_task_ids=(TASK_A, TASK_B),
+                dry_run=True,
+            )
+
+        expected_operational_root = (
+            source.resolve()
+            / "Pipeline"
+            / "ArchitectureReview"
+            / "outputs"
+            / "orchestrator"
+        )
+        require(binding.source == source.resolve(), str(binding.source))
+        require(binding.checkout_root == checkout_root, str(binding.checkout_root))
+        require(binding.operational_root == expected_operational_root, str(binding))
+        require(binding.scheduler_id == "factory-fixture", str(binding.scheduler_id))
+        require(
+            binding.events.journal_path
+            == expected_operational_root / "events" / "factory-fixture.jsonl",
+            str(binding.events.journal_path),
+        )
+        require(
+            binding.lock.path
+            == scheduler_lock_path(checkout_root=checkout_root, source=source),
+            str(binding.lock.path),
+        )
+        require(len(created_transports) == 1, str(created_transports))
+        transport_values = created_transports[0]
+        require(transport_values["source"] == source.resolve(), str(transport_values))
+        require(
+            transport_values["artifact_root"]
+            == expected_operational_root / "architect",
+            str(transport_values),
+        )
+        require(
+            transport_values["provider"] == "codex"
+            and transport_values["model"] == "architect-model"
+            and transport_values["max_turns"] == 19,
+            str(transport_values),
+        )
+        require(len(created_orchestrators) == 1, str(created_orchestrators))
+        values = created_orchestrators[0]
+        owner = values["architect_runner"]
+        require(type(owner) is ArchitectSessionOwner, type(owner).__name__)
+        require(owner.architect_runner.provider == "codex", "wrong transport owner")
+        require(owner.provider_identifier == "openai-codex", owner.provider_identifier)
+        require(owner.role == scheduler_module.ARCHITECT_SESSION_ROLE, owner.role)
+        require(
+            owner.store.root
+            == expected_operational_root
+            / "architect-sessions"
+            / "openai-codex"
+            / scheduler_module.ARCHITECT_SESSION_ROLE,
+            str(owner.store.root),
+        )
+        expected_values = {
+            "source": source.resolve(),
+            "checkout_root": checkout_root,
+            "scheduler_id": "factory-fixture",
+            "execution_provider": "codex",
+            "model": "worker-model",
+            "max_turns": 23,
+            "max_workers": 7,
+            "architect_min_confidence": 0.81,
+            "max_architect_invocations_per_poll": 5,
+            "architect_min_reanalysis_seconds": 41.0,
+            "max_consecutive_observation_failures": 6,
+            "fatal_drain_seconds": 73.0,
+            "event_emitter": binding.events,
+            "excluded_task_ids": (TASK_A, TASK_B),
+            "dry_run": True,
+        }
+        require(
+            {key: values[key] for key in expected_values} == expected_values,
+            str(values),
+        )
+        require(binding.orchestrator.values is values, "binding copied scheduler values")
+
+
+def test_polling_main_delegates_to_the_production_factory() -> None:
+    """Regression-only: CLI parsing does not retain a second composition path."""
+
+    calls: list[Mapping[str, Any]] = []
+    run_calls: list[tuple[Any, float, bool]] = []
+    events = JsonEventEmitter(stream=io.StringIO())
+    lock = object()
+
+    class FakeOrchestrator:
+        def run(self, *, lock: Any, poll_seconds: float, once: bool) -> int:
+            run_calls.append((lock, poll_seconds, once))
+            return 17
+
+    def fake_factory(**values: Any) -> Any:
+        observer = values.pop("event_emitter_observer")
+        require(callable(observer), "main omitted its initialization event observer")
+        observer(events)
+        calls.append(values)
+        return SimpleNamespace(
+            events=events,
+            orchestrator=FakeOrchestrator(),
+            lock=lock,
+        )
+
+    argv = [
+        "--once",
+        "--dry-run",
+        "--source",
+        str(ROOT),
+        "--checkout-root",
+        str(ROOT.parent / "factory-checkouts"),
+        "--poll-seconds",
+        "11",
+        "--max-workers",
+        "4",
+        "--exclude-task-id",
+        TASK_A,
+        "--execution-provider",
+        "codex",
+        "--model",
+        "worker-model",
+        "--max-turns",
+        "13",
+        "--architect-provider",
+        "codex",
+        "--architect-model",
+        "architect-model",
+        "--architect-max-turns",
+        "17",
+        "--architect-min-confidence",
+        "0.72",
+        "--architect-max-invocations-per-poll",
+        "2",
+        "--architect-min-reanalysis-seconds",
+        "29",
+        "--max-consecutive-observation-failures",
+        "8",
+        "--fatal-drain-seconds",
+        "31",
+    ]
+    with patch.object(
+        scheduler_module,
+        "build_production_orchestrator",
+        side_effect=fake_factory,
+    ):
+        exit_code = scheduler_module.main(argv)
+
+    require(exit_code == 17, f"main returned {exit_code}")
+    require(run_calls == [(lock, 11.0, True)], str(run_calls))
+    require(len(calls) == 1, str(calls))
+    require(
+        calls[0]
+        == {
+            "source": ROOT,
+            "checkout_root": ROOT.parent / "factory-checkouts",
+            "execution_provider": "codex",
+            "model": "worker-model",
+            "max_turns": 13,
+            "max_workers": 4,
+            "architect_provider": "codex",
+            "architect_model": "architect-model",
+            "architect_max_turns": 17,
+            "architect_min_confidence": 0.72,
+            "max_architect_invocations_per_poll": 2,
+            "architect_min_reanalysis_seconds": 29.0,
+            "max_consecutive_observation_failures": 8,
+            "fatal_drain_seconds": 31.0,
+            "excluded_task_ids": [TASK_A],
+            "dry_run": True,
+        },
+        str(calls[0]),
+    )
+
+    failure_stream = io.StringIO()
+    failure_events = JsonEventEmitter(stream=failure_stream)
+
+    def failing_factory(**values: Any) -> Any:
+        values["event_emitter_observer"](failure_events)
+        raise scheduler_module.PollingOrchestratorError("fixture construction failed")
+
+    with patch.object(
+        scheduler_module,
+        "build_production_orchestrator",
+        side_effect=failing_factory,
+    ):
+        require(scheduler_module.main(["--once"]) == 2, "factory failure returned zero")
+    failure_output = failure_stream.getvalue()
+    require('"event": "scheduler_blocked"' in failure_output, failure_output)
+    require("fixture construction failed" in failure_output, failure_output)
+
+
 def test_dynamic_admission_allowlist_filters_before_architect_and_launch() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -4960,6 +5218,8 @@ def main() -> int:
         test_active_task_ids_feed_stage2_exclusions,
         test_session_exclusions_feed_every_stage2_poll,
         test_exclude_task_id_cli_is_repeatable_and_validated,
+        test_production_factory_owns_the_complete_scheduler_composition,
+        test_polling_main_delegates_to_the_production_factory,
         test_dynamic_admission_allowlist_filters_before_architect_and_launch,
         test_capacity_batch_counts_same_task_relaunch_without_key_diff,
         test_scheduler_run_preserves_extracted_activity_listener_lifecycle,
