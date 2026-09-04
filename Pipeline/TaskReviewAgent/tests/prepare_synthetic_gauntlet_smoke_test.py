@@ -43,7 +43,7 @@ def task(bundle, task_id: str) -> dict:
 
 
 def test_bundle_has_eight_dependency_waves_and_mixed_work() -> None:
-    bundle, summary = build_bundle(ROOT)
+    bundle, summary = _build_bundle_fixture()
     require(summary["initial_synthetic_tasks"] == 80, str(summary))
     require(summary["dependency_waves"] == 8, str(summary))
     require(len(summary["decomposition_parents"]) == 8, str(summary))
@@ -64,7 +64,7 @@ def test_bundle_has_eight_dependency_waves_and_mixed_work() -> None:
 
 
 def test_old_active_work_is_cancelled_but_root_and_42_remain_active() -> None:
-    bundle, _ = build_bundle(ROOT)
+    bundle, _ = _build_bundle_fixture()
     require(task(bundle, ROOT_TASK_ID)["contract_disposition"] == "active", "root inactive")
     preserved = task(bundle, PRESERVED_TASK_ID)
     require(preserved["contract_disposition"] == "active", str(preserved))
@@ -75,7 +75,7 @@ def test_old_active_work_is_cancelled_but_root_and_42_remain_active() -> None:
 
 
 def test_validation_policy_binds_every_concrete_initial_contract() -> None:
-    bundle, summary = build_bundle(ROOT)
+    bundle, summary = _build_bundle_fixture()
     policy = json.loads(bundle[POLICY_RELATIVE])
     expected = {PRESERVED_TASK_ID}
     decomposition = set(summary["decomposition_parents"])
@@ -116,7 +116,7 @@ def test_validation_policy_binds_every_concrete_initial_contract() -> None:
 
 
 def test_test_source_has_one_exact_method_per_implementation_child() -> None:
-    bundle, _ = build_bundle(ROOT)
+    bundle, _ = _build_bundle_fixture()
     source = bundle[gauntlet.TEST_RELATIVE].decode("utf-8")
     require(source.count("        [Test]") == 88, "expected 88 exact test methods")
     require(_test_filter(912).split(".")[-1] in source, "NSC-912 test missing")
@@ -126,7 +126,7 @@ def test_test_source_has_one_exact_method_per_implementation_child() -> None:
 
 
 def test_every_concrete_task_owns_a_disjoint_source_and_meta_pair() -> None:
-    bundle, summary = build_bundle(ROOT)
+    bundle, summary = _build_bundle_fixture()
     seen: set[str] = set()
     decomposition = set(summary["decomposition_parents"])
     for number in range(GAUNTLET_FIRST_ID, GAUNTLET_FIRST_ID + GAUNTLET_TASK_COUNT):
@@ -140,7 +140,7 @@ def test_every_concrete_task_owns_a_disjoint_source_and_meta_pair() -> None:
 
 
 def test_task_contract_guids_match_execution_crew_sidecars() -> None:
-    bundle, summary = build_bundle(ROOT)
+    bundle, summary = _build_bundle_fixture()
     decomposition = set(summary["decomposition_parents"])
     for number in range(GAUNTLET_FIRST_ID, GAUNTLET_FIRST_ID + GAUNTLET_TASK_COUNT):
         task_id = f"NSC-{number:03d}"
@@ -171,8 +171,69 @@ def _copy_graph(destination: Path) -> None:
         shutil.copy2(ROOT / "Pipeline" / "TaskGraph" / name, target / name)
 
 
+def _build_bundle_fixture():
+    """Build from the live pre-install tree or an equivalent temporary graph.
+
+    The private rehearsal repository is also the artifact produced by this
+    tool.  Once the gauntlet is installed, using ``ROOT`` directly would test
+    only the intentional duplicate-install refusal and make every later task PR
+    fail CI.  Reconstruct only the pre-install inputs in a disposable directory;
+    production mutation behavior remains fail-closed and unchanged.
+    """
+
+    try:
+        return build_bundle(ROOT)
+    except gauntlet.SyntheticGauntletError as exc:
+        if str(exc) != "synthetic NSC-911 through NSC-990 contracts already exist":
+            raise
+
+    with tempfile.TemporaryDirectory(prefix="synthetic-gauntlet-source-") as text:
+        source = Path(text)
+        _copy_graph(source)
+        policy_target = source / POLICY_RELATIVE
+        policy_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / POLICY_RELATIVE, policy_target)
+
+        for number in range(
+            GAUNTLET_FIRST_ID,
+            GAUNTLET_FIRST_ID + GAUNTLET_TASK_COUNT,
+        ):
+            (source / "Tasks" / f"NSC-{number:03d}.yaml").unlink()
+
+        id_map_path = source / "Pipeline" / "TaskGraph" / "WORK_ID_MAP.json"
+        id_map = json.loads(id_map_path.read_text(encoding="utf-8"))
+        id_map["id_map"] = {
+            key: value
+            for key, value in id_map["id_map"].items()
+            if not (
+                isinstance(value, str)
+                and value.startswith("NSC-")
+                and value[4:].isdigit()
+                and GAUNTLET_FIRST_ID
+                <= int(value[4:])
+                < GAUNTLET_FIRST_ID + GAUNTLET_TASK_COUNT
+            )
+        }
+        id_map_path.write_text(
+            json.dumps(id_map, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+
+        preserved_path = source / "Tasks" / f"{PRESERVED_TASK_ID}.yaml"
+        preserved = json.loads(preserved_path.read_text(encoding="utf-8"))
+        preserved["parent"] = ROOT_TASK_ID
+        preserved["depends_on"] = []
+        preserved_path.write_text(
+            json.dumps(preserved, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        return build_bundle(source)
+
+
 def test_materialization_validates_and_failure_rolls_back() -> None:
-    bundle, _ = build_bundle(ROOT)
+    bundle, _ = _build_bundle_fixture()
     with tempfile.TemporaryDirectory(prefix="synthetic-gauntlet-") as text:
         target = Path(text)
         _copy_graph(target)
