@@ -98,6 +98,16 @@ nsc-state:blocked
 nsc-state:complete
 ```
 
+A human applying `nsc-state:agent-ready` in the GitHub UI is label-ahead-of-body
+until the state Action converges the body. That bounded window
+(`PENDING_TRANSITION_MAX_AGE_SECONDS`) is dated by GitHub's own `labeled` event for
+the target label (`gh api repos/<repo>/issues/<n>/events`), read only for a legal,
+convergible label-ahead Issue and cached per Issue inside the scheduler's
+plan-scoped snapshot; a comment, body edit, assignment, or any other Issue
+activity refreshes `updated_at` but never renews the window. A transition whose
+label event cannot be proven (no event support, no matching event, or a
+malformed id/timestamp) is ordinary invalid managed state and fails closed.
+
 The phase tells the next agent what work to perform:
 
 ```text

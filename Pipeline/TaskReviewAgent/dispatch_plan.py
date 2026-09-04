@@ -755,8 +755,10 @@ class _PlanScopedIssueBackend:
     each call ``list_issues``/``get_comments`` again for every candidate and
     dependency edge, which is slow and lets two candidates evaluated within
     one plan observe two different GitHub states. ``list_issues`` is fetched
-    once and reused; ``get_comments`` is cached per Issue number. The cache
-    is a plain instance created fresh inside :func:`build_dispatch_plan` and
+    once and reused; ``get_comments`` is cached per Issue number, and so is
+    ``get_issue_events`` (the GitHub label-event history that dates a pending
+    state-label transition), both invalidated by an exact ``get_issue``. The
+    cache is a plain instance created fresh inside :func:`build_dispatch_plan` and
     discarded when that call returns -- it is never persisted or shared
     across plan invocations. Every mutating method raises: Stage 2 dispatch
     planning must never create, update, or comment on a GitHub Issue.
@@ -766,6 +768,12 @@ class _PlanScopedIssueBackend:
         self._backend = backend
         self._issues: list[dict[str, Any]] | None = None
         self._comments: dict[int, list[dict[str, Any]]] = {}
+        self._events: dict[int, list[dict[str, Any]]] = {}
+        if not callable(getattr(backend, "get_issue_events", None)):
+            # A wrapped backend without Issue-event support must remain
+            # undatable for issue_workflow_store._snapshot (fail closed as
+            # ordinary invalid state) rather than raise AttributeError here.
+            self.get_issue_events = None  # type: ignore[assignment]
 
     def list_issues(self) -> list[dict[str, Any]]:
         if self._issues is None:
@@ -775,6 +783,7 @@ class _PlanScopedIssueBackend:
     def get_issue(self, issue_number: int) -> dict[str, Any] | None:
         issue = self._backend.get_issue(issue_number)
         self._comments.pop(issue_number, None)
+        self._events.pop(issue_number, None)
         if self._issues is not None:
             self._issues = [
                 item for item in self._issues if item.get("number") != issue_number
@@ -787,6 +796,14 @@ class _PlanScopedIssueBackend:
         if issue_number not in self._comments:
             self._comments[issue_number] = self._backend.get_comments(issue_number)
         return self._comments[issue_number]
+
+    def get_issue_events(self, issue_number: int) -> list[dict[str, Any]]:
+        # Label-event history dates a pending state-label transition. It is
+        # read at most once per Issue per plan-scoped snapshot, exactly like
+        # comments, so no candidate ever triggers its own GitHub scan.
+        if issue_number not in self._events:
+            self._events[issue_number] = self._backend.get_issue_events(issue_number)
+        return self._events[issue_number]
 
     def create_issue(self, **_kwargs: Any) -> dict[str, Any]:
         raise IssueWorkflowStoreError(

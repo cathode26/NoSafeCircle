@@ -1658,6 +1658,10 @@ def _workflow_with_pending_holder(tasks: dict[str, dict[str, Any]]):
     """Real service whose holder Issue sits in the additive-label UI window."""
 
     backend, service = fresh_issue_workflow(tasks)
+    # Managed label writes record GitHub-shaped label events at the backend
+    # clock; pin it before the human's later UI label event so event order is
+    # deterministic instead of depending on the machine clock.
+    backend.now = lambda: _pending_stamp(0)
     service.acquire_agent_lease(
         task=tasks[PENDING_HOLDER],
         source_head=SOURCE_HEAD,
@@ -1682,7 +1686,11 @@ def _workflow_with_pending_holder(tasks: dict[str, dict[str, Any]]):
     # The GitHub UI ADDS agent-ready beside the authoritative state label.
     names = sorted({item["name"] for item in issue["labels"]} | {AGENT_READY_LABEL})
     issue["labels"] = [{"name": name} for name in names]
-    issue["updated_at"] = _pending_stamp(120)
+    # The window is dated by GitHub's `labeled` event for the target label,
+    # never by the Issue's general updated_at.
+    backend.record_label_event(
+        issue["number"], label=AGENT_READY_LABEL, created_at=_pending_stamp(120)
+    )
     return backend, service
 
 

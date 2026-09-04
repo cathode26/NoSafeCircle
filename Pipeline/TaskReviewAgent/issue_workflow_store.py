@@ -143,30 +143,127 @@ def pending_transition_now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
-def _issue_updated_at(issue: Mapping[str, Any]) -> dt.datetime | None:
-    """Read GitHub's last-modification time from either read shape.
+def _parse_github_timestamp(raw: Any) -> dt.datetime | None:
+    """Parse one GitHub ISO-8601 timestamp into an aware UTC datetime.
 
-    The REST listing (`gh api repos/.../issues`) exposes snake_case
-    ``updated_at``; `gh issue view --json updatedAt` exposes camelCase. Both are
-    accepted so the two backends stay coherent. ``None`` means no trustworthy
-    age evidence, which is never treated as a pending transition.
+    ``None`` means the value is absent or unparsable; callers must treat that
+    as missing evidence, never as "now".
     """
 
-    for key in ("updated_at", "updatedAt"):
-        raw = issue.get(key)
-        if not isinstance(raw, str) or not raw.strip():
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    text = raw.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.timezone.utc)
+    return parsed.astimezone(dt.timezone.utc)
+
+
+# GitHub Issue event types that carry a `label` object. Every other event type
+# (commented, assigned, edited, renamed, ...) is unrelated Issue activity and
+# is ignored when dating a state-label transition.
+_LABEL_EVENT_TYPES = frozenset({"labeled", "unlabeled"})
+
+
+@dataclass(frozen=True)
+class StateLabelEvent:
+    """One authoritative GitHub ``labeled``/``unlabeled`` Issue event."""
+
+    event_id: int
+    event: str
+    label: str
+    created_at: dt.datetime
+    actor: str | None
+
+    @property
+    def created_at_utc(self) -> str:
+        return self.created_at.isoformat().replace("+00:00", "Z")
+
+
+def _state_label_events(
+    backend: IssueBackend,
+    issue_number: int,
+    label: str,
+) -> tuple[StateLabelEvent, ...] | None:
+    """Return one label's ``labeled``/``unlabeled`` history, oldest first.
+
+    The age of an in-flight state-label transition is dated by GitHub's own
+    label event, never by the Issue's general ``updated_at``: a comment, body
+    edit, assignment, or any other unrelated activity refreshes ``updated_at``
+    and would otherwise renew the bounded window indefinitely.
+
+    ``None`` means the evidence cannot be proven: the backend exposes no Issue
+    events, the payload is not a list of objects, or an event for THIS label
+    lacks an exact positive integer ``id`` or a parsable ``created_at``. A
+    caller must treat ``None`` as "no recognized transition". Transport
+    failures raise exactly like comment reads and are never swallowed here.
+    """
+
+    reader = getattr(backend, "get_issue_events", None)
+    if not callable(reader):
+        return None
+    raw_events = reader(issue_number)
+    if not isinstance(raw_events, list):
+        return None
+    collected: list[StateLabelEvent] = []
+    for item in raw_events:
+        if not isinstance(item, Mapping):
+            return None
+        event_type = item.get("event")
+        if event_type not in _LABEL_EVENT_TYPES:
             continue
-        text = raw.strip()
-        if text.endswith("Z"):
-            text = text[:-1] + "+00:00"
-        try:
-            parsed = dt.datetime.fromisoformat(text)
-        except ValueError:
+        label_value = item.get("label")
+        name = label_value.get("name") if isinstance(label_value, Mapping) else None
+        if not isinstance(name, str) or not name:
+            # A label event whose label cannot be identified might be ours.
+            return None
+        if name != label:
             continue
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=dt.timezone.utc)
-        return parsed.astimezone(dt.timezone.utc)
-    return None
+        event_id = item.get("id")
+        created = _parse_github_timestamp(item.get("created_at"))
+        if type(event_id) is not int or event_id < 1 or created is None:
+            return None
+        actor_value = item.get("actor")
+        actor_login_value = (
+            actor_value.get("login") if isinstance(actor_value, Mapping) else None
+        )
+        collected.append(
+            StateLabelEvent(
+                event_id=event_id,
+                event=str(event_type),
+                label=name,
+                created_at=created,
+                actor=(
+                    actor_login_value
+                    if isinstance(actor_login_value, str) and actor_login_value
+                    else None
+                ),
+            )
+        )
+    # GitHub does not promise an order; equal timestamps are ordered by the
+    # monotonically assigned event id.
+    return tuple(sorted(collected, key=lambda item: (item.created_at, item.event_id)))
+
+
+def _current_label_application(
+    label_events: Sequence[StateLabelEvent],
+) -> StateLabelEvent | None:
+    """Return the ``labeled`` event that put the label on the Issue now.
+
+    The most recent event for the label must itself be ``labeled``. A trailing
+    ``unlabeled`` event means the listing that still shows the label is stale
+    or contradictory, which is never a datable open transition.
+    """
+
+    if not label_events:
+        return None
+    latest = label_events[-1]
+    return latest if latest.event == "labeled" else None
 
 
 @dataclass(frozen=True)
@@ -174,13 +271,16 @@ class PendingStateTransition:
     """One recognized in-flight label-ahead-of-body workflow transition.
 
     This is an explicit typed classification. Callers must never re-derive it
-    by parsing snapshot reason strings.
+    by parsing snapshot reason strings. ``label_applied_at_utc`` is the
+    authoritative GitHub ``labeled`` event time for ``target_label``; the
+    bounded age is measured from it and from nothing else.
     """
 
     from_state: WorkflowState
     to_state: WorkflowState
     target_label: str
-    observed_at_utc: str
+    label_event_id: int
+    label_applied_at_utc: str
     age_seconds: float
     max_age_seconds: float = PENDING_TRANSITION_MAX_AGE_SECONDS
 
@@ -189,17 +289,45 @@ class PendingStateTransition:
             "from_state": self.from_state.value,
             "to_state": self.to_state.value,
             "target_label": self.target_label,
-            "observed_at_utc": self.observed_at_utc,
+            "label_event_id": self.label_event_id,
+            "label_applied_at_utc": self.label_applied_at_utc,
             "age_seconds": self.age_seconds,
             "max_age_seconds": self.max_age_seconds,
         }
 
 
+def _pending_transition_target(
+    state: IssueWorkflowState,
+    found_label: str,
+) -> WorkflowState | None:
+    """Return the target of a recognizable in-flight label transition, or None.
+
+    Legality comes from the one committed transition table. Legal is not
+    sufficient: only the agent-ready Action ever converges a
+    label-ahead-of-body divergence, and only from the source combinations it
+    handles. Anything else can never converge by waiting, so it fails closed
+    now rather than burn the bounded allowance first. This gate runs BEFORE
+    any label-event read, so a shape that can never converge costs no GitHub
+    event read and is reported only as the ordinary label mismatch.
+    """
+
+    target = state_for_label(found_label)
+    if target is None or target is state.state:
+        return None
+    if target not in legal_next_states(state.state):
+        return None
+    if target is not WorkflowState.AGENT_READY:
+        return None
+    if not agent_ready_action_converges(state):
+        return None
+    return target
+
+
 def _classify_pending_transition(
-    issue: Mapping[str, Any],
     state: IssueWorkflowState,
     events: Sequence[IssueWorkflowEvent],
     found_label: str,
+    label_events: Sequence[StateLabelEvent],
     *,
     now: dt.datetime | None = None,
 ) -> PendingStateTransition | None:
@@ -207,21 +335,12 @@ def _classify_pending_transition(
 
     Every condition must hold. Any failure leaves the snapshot an ordinary
     invalid snapshot that counts toward the existing bounded fatal policy.
+    ``label_events`` is the proven GitHub event history for ``found_label``
+    (see :func:`_state_label_events`).
     """
 
-    target = state_for_label(found_label)
-    if target is None or target is state.state:
-        return None
-    # Legality comes from the one committed transition table.
-    if target not in legal_next_states(state.state):
-        return None
-    # Legal is not sufficient. Only the agent-ready Action ever converges a
-    # label-ahead-of-body divergence, and only from the source combinations it
-    # handles. Anything else can never converge by waiting, so it must fail
-    # closed now rather than burn the bounded allowance first.
-    if target is not WorkflowState.AGENT_READY:
-        return None
-    if not agent_ready_action_converges(state):
+    target = _pending_transition_target(state, found_label)
+    if target is None:
         return None
     # No separate "target event absent" test is needed or correct here.
     # validate_event_chain already proved the final event's to_state equals the
@@ -229,19 +348,22 @@ def _classify_pending_transition(
     # Testing "no event in the chain ever reached target" would instead reject
     # every legitimate repeat cycle: a task that already went through one
     # FAIL/PASS carries an earlier event whose to_state is agent_ready.
-    observed = _issue_updated_at(issue)
-    if observed is None:
+    applied = _current_label_application(label_events)
+    if applied is None:
         return None
     current = now if now is not None else pending_transition_now()
-    age = (current - observed).total_seconds()
-    # A negative age means clock skew or a forged future timestamp.
+    age = (current - applied.created_at).total_seconds()
+    # A negative age means clock skew or a forged future timestamp. Later
+    # unrelated Issue activity cannot move `applied.created_at`, so the window
+    # expires exactly max_age_seconds after the human's label write.
     if age < 0 or age > PENDING_TRANSITION_MAX_AGE_SECONDS:
         return None
     return PendingStateTransition(
         from_state=state.state,
         to_state=target,
         target_label=found_label,
-        observed_at_utc=observed.isoformat().replace("+00:00", "Z"),
+        label_event_id=applied.event_id,
+        label_applied_at_utc=applied.created_at_utc,
         age_seconds=age,
     )
 
@@ -415,6 +537,7 @@ class IssueBackend(Protocol):
     def list_issues(self) -> list[dict[str, Any]]: ...
     def get_issue(self, issue_number: int) -> dict[str, Any] | None: ...
     def get_comments(self, issue_number: int) -> list[dict[str, Any]]: ...
+    def get_issue_events(self, issue_number: int) -> list[dict[str, Any]]: ...
     def create_issue(
         self,
         *,
@@ -676,13 +799,38 @@ def _snapshot(
     # A pending transition requires that the label set is the ONLY defect: the
     # body and the complete hashed event chain must already be coherent.
     pending: PendingStateTransition | None = None
-    if len(reasons) == 1 and found_state_label is not None and state is not None:
-        pending = _classify_pending_transition(
-            issue,
-            state,
-            events,
-            found_state_label,
+    if (
+        len(reasons) == 1
+        and found_state_label is not None
+        and state is not None
+        and _pending_transition_target(state, found_state_label) is not None
+    ):
+        # Only a legal, convergible label-ahead-of-body candidate pays for the
+        # Issue event read; coherent, otherwise-invalid, and never-convergible
+        # snapshots never touch it.
+        label_events = _state_label_events(backend, number, found_state_label)
+        applied = (
+            None if label_events is None else _current_label_application(label_events)
         )
+        if applied is None:
+            # Unprovable evidence is reported explicitly; an expired but
+            # provable transition is left to the classifier and reports only
+            # the ordinary label mismatch.
+            reasons.append(
+                f"state label transition to {found_state_label!r} cannot be dated: "
+                + (
+                    "GitHub label-event identity or timestamp is unavailable"
+                    if label_events is None
+                    else "no current GitHub `labeled` event exists for the label"
+                )
+            )
+        else:
+            pending = _classify_pending_transition(
+                state,
+                events,
+                found_state_label,
+                label_events,
+            )
     return IssueWorkflowSnapshot(
         issue_number=number,
         issue_url=str(issue.get("url") or ""),
@@ -2260,8 +2408,15 @@ class MemoryIssueBackend:
         )
         self.issues: dict[int, dict[str, Any]] = {}
         self.comments: dict[int, list[dict[str, Any]]] = {}
+        # GitHub-shaped `labeled`/`unlabeled` Issue events, the only authority
+        # for dating a state-label transition. Managed label writes record
+        # them automatically; fixtures modelling a GitHub UI label write must
+        # call record_label_event, because mutating `labels` directly leaves
+        # the transition undatable and therefore fail-closed.
+        self.issue_events: dict[int, list[dict[str, Any]]] = {}
         self.next_issue = 1
         self.next_comment = 1
+        self.next_event_id = 1
         self.labels: set[str] = set()
         # Issues and comments created through this backend model the operator's
         # authenticated gh session, so they carry the gh CLI author shape.
@@ -2276,6 +2431,57 @@ class MemoryIssueBackend:
 
     def get_comments(self, issue_number: int) -> list[dict[str, Any]]:
         return json.loads(json.dumps(self.comments.get(issue_number, [])))
+
+    def get_issue_events(self, issue_number: int) -> list[dict[str, Any]]:
+        return json.loads(json.dumps(self.issue_events.get(issue_number, [])))
+
+    def _record_label_event(
+        self,
+        issue_number: int,
+        *,
+        label: str,
+        event: str,
+        created_at: str,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        record = {
+            "id": self.next_event_id,
+            "event": event,
+            "label": {"name": label, "color": "ededed"},
+            "created_at": created_at,
+            "actor": {"login": actor or self.author_login},
+        }
+        self.next_event_id += 1
+        self.issue_events.setdefault(issue_number, []).append(record)
+        return json.loads(json.dumps(record))
+
+    def record_label_event(
+        self,
+        issue_number: int,
+        *,
+        label: str,
+        created_at: str,
+        event: str = "labeled",
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        """Record one GitHub UI label write as authoritative event evidence.
+
+        This models the `labeled`/`unlabeled` event GitHub emits when a human
+        changes a label in the browser. It records evidence only; the caller
+        sets the Issue's `labels` list to the shape it wants to observe.
+        """
+
+        if issue_number not in self.issues:
+            raise KeyError(issue_number)
+        if event not in _LABEL_EVENT_TYPES:
+            raise ValueError(f"unsupported label event type: {event!r}")
+        return self._record_label_event(
+            issue_number,
+            label=label,
+            event=event,
+            created_at=created_at,
+            actor=actor,
+        )
 
     def create_issue(
         self,
@@ -2302,6 +2508,14 @@ class MemoryIssueBackend:
         }
         self.issues[number] = issue
         self.comments[number] = []
+        self.issue_events[number] = []
+        for label in labels:
+            self._record_label_event(
+                number,
+                label=label,
+                event="labeled",
+                created_at=issue["updated_at"],
+            )
         return json.loads(json.dumps(issue))
 
     def update_issue(
@@ -2320,6 +2534,23 @@ class MemoryIssueBackend:
         if body is not None:
             issue["body"] = body
         if labels is not None:
+            before = [item["name"] for item in issue["labels"]]
+            for label in before:
+                if label not in labels:
+                    self._record_label_event(
+                        issue_number,
+                        label=label,
+                        event="unlabeled",
+                        created_at=issue["updated_at"],
+                    )
+            for label in labels:
+                if label not in before:
+                    self._record_label_event(
+                        issue_number,
+                        label=label,
+                        event="labeled",
+                        created_at=issue["updated_at"],
+                    )
             issue["labels"] = [{"name": item} for item in labels]
         if assignees is not None:
             issue["assignees"] = [{"login": item} for item in assignees]
@@ -2417,30 +2648,21 @@ class GhIssueBackend:
         except json.JSONDecodeError as exc:
             raise IssueWorkflowStoreError("GitHub CLI returned invalid JSON") from exc
 
-    def _list_issues_via_api(self, state: str) -> list[dict[str, Any]]:
-        """List issues completely via `gh api --paginate`.
+    def _paginated_api_objects(self, path: str, *, label: str) -> list[dict[str, Any]]:
+        """Read one REST array endpoint completely via `gh api --paginate`.
 
-        `gh issue list --limit N` silently truncates after N results, which
-        would forget old completed tasks and let them be reinitialized. The
-        REST pagination follows Link headers to exhaustion, and any transport
-        failure raises instead of returning a partial listing. `--paginate`
-        emits one JSON array per page back-to-back, so the output is decoded
-        as concatenated JSON documents. Pull requests share the REST issues
-        endpoint and are excluded by their `pull_request` key.
+        The REST pagination follows Link headers to exhaustion, and any
+        transport failure raises instead of returning a partial listing.
+        `--paginate` emits one JSON array per page back-to-back, so the output
+        is decoded as concatenated JSON documents. Every entry must be an
+        object; ``label`` names the endpoint in failure messages.
         """
 
-        result = self._run(
-            (
-                "gh",
-                "api",
-                "--paginate",
-                f"repos/{self.repository}/issues?state={state}&per_page=100",
-            )
-        )
+        result = self._run(("gh", "api", "--paginate", path))
         decoder = json.JSONDecoder()
         text = result.stdout
         index = 0
-        issues: list[dict[str, Any]] = []
+        items: list[dict[str, Any]] = []
         while True:
             while index < len(text) and text[index] in " \t\r\n":
                 index += 1
@@ -2450,27 +2672,55 @@ class GhIssueBackend:
                 page, index = decoder.raw_decode(text, index)
             except json.JSONDecodeError as exc:
                 raise IssueWorkflowStoreError(
-                    "GitHub issue listing returned invalid JSON"
+                    f"{label} returned invalid JSON"
                 ) from exc
             if not isinstance(page, list):
-                raise IssueWorkflowStoreError(
-                    "GitHub issue listing page was not an array"
-                )
+                raise IssueWorkflowStoreError(f"{label} page was not an array")
             for item in page:
                 if not isinstance(item, dict):
-                    raise IssueWorkflowStoreError(
-                        "GitHub issue listing entry was not an object"
-                    )
-                if "pull_request" in item:
-                    continue
-                html_url = item.get("html_url")
-                if isinstance(html_url, str) and html_url:
-                    # REST `url` is the API endpoint. gh issue list/view expose
-                    # the browser URL as `url`, and workflow snapshots surface
-                    # it through `issue_url`, so normalize to the browser URL.
-                    item = {**item, "url": html_url}
-                issues.append(item)
+                    raise IssueWorkflowStoreError(f"{label} entry was not an object")
+                items.append(item)
+        return items
+
+    def _list_issues_via_api(self, state: str) -> list[dict[str, Any]]:
+        """List issues completely via `gh api --paginate`.
+
+        `gh issue list --limit N` silently truncates after N results, which
+        would forget old completed tasks and let them be reinitialized. Pull
+        requests share the REST issues endpoint and are excluded by their
+        `pull_request` key.
+        """
+
+        issues: list[dict[str, Any]] = []
+        for item in self._paginated_api_objects(
+            f"repos/{self.repository}/issues?state={state}&per_page=100",
+            label="GitHub issue listing",
+        ):
+            if "pull_request" in item:
+                continue
+            html_url = item.get("html_url")
+            if isinstance(html_url, str) and html_url:
+                # REST `url` is the API endpoint. gh issue list/view expose
+                # the browser URL as `url`, and workflow snapshots surface
+                # it through `issue_url`, so normalize to the browser URL.
+                item = {**item, "url": html_url}
+            issues.append(item)
         return issues
+
+    def get_issue_events(self, issue_number: int) -> list[dict[str, Any]]:
+        """List one Issue's REST events completely (`labeled`, `unlabeled`, ...).
+
+        Each event carries GitHub's own integer ``id`` and ``created_at``; the
+        `labeled` event for a state label is the only authority for dating an
+        in-flight label transition. Never derived from `updated_at`.
+        """
+
+        if type(issue_number) is not int or issue_number < 1:
+            raise IssueWorkflowStoreError("Issue number must be a positive integer")
+        return self._paginated_api_objects(
+            f"repos/{self.repository}/issues/{issue_number}/events?per_page=100",
+            label="GitHub issue events",
+        )
 
     def list_issues(self) -> list[dict[str, Any]]:
         return self._list_issues_via_api("open")
