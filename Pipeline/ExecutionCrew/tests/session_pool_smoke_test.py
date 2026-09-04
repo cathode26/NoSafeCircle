@@ -2,21 +2,29 @@
 """Deterministic tests for the role-scoped ExecutionCrew session pool.
 
 Classification: pure/component tests over the pool state machine, its durable
-store, and ExecutionCrew's lease wiring. Clocks and session identities are
-injected, no provider is contacted, no process is started, and no repository
-file is touched. Every test proves an explicit regression-only invariant.
+store, its use of the committed AgentRuntime session-lifetime policy, and
+ExecutionCrew's lease wiring. Clocks and session identities are injected, no
+provider is contacted, no process is started, and no tracked repository file is
+touched; durable role evidence is written to throwaway temporary directories.
+Every test proves an explicit regression-only invariant.
 
 The load-bearing claims are: a conversation is reusable only for the same role
-with the same stable provider/model/reasoning/capability/repository identity; a
-checked-out session is invisible to everyone else; only an exact matching
-durable result returns one; anything unproven quarantines; idle reuse ends at
-exactly one hour while active leases are never touched; and nothing in the pool
-ever terminates a worker.
+with the same stable provider/model/reasoning/class/capability/repository/
+protocol identity; a checked-out session is invisible to everyone else; only an
+exact matching durable result whose persisted artifact is present, hash-exact,
+and self-consistent returns one; anything unproven quarantines; idle reuse ends
+at exactly one hour while active leases are never touched; the committed
+worker/architect budgets and early-retirement rules are applied only between
+assignments; and nothing in the pool ever ends a worker.
+
+Full-run behavior for pooled leases lives in `pooled_run_crew_smoke_test.py`.
 """
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
+import hashlib
 import inspect
 import itertools
 import json
@@ -35,20 +43,35 @@ from Pipeline.AgentRuntime.provider_sessions import (  # noqa: E402
     ProviderSessionBinding,
     ProviderSessionConfirmation,
 )
+from Pipeline.AgentRuntime.session_lifecycle import (  # noqa: E402
+    ARCHITECT_COMPLETED_CYCLE_LIMIT,
+    CONTEXT_WINDOW_RETIRE_PERCENT,
+    LATENCY_RETIRE_MULTIPLIER,
+    LATENCY_RETIRE_SAMPLE_COUNT,
+    SESSION_LIFECYCLE_SCHEMA_VERSION,
+    WORKER_WEIGHTED_UNIT_LIMIT,
+    WORKER_WEIGHTS,
+    LatencySample,
+    SessionLifecycleState,
+)
 from Pipeline.ExecutionCrew import run_crew as crew_module  # noqa: E402
 from Pipeline.ExecutionCrew.run_crew import (  # noqa: E402
+    ROLE_CAPABILITY_CLASSES,
     CrewBlocked,
     repair_attempt_session,
     validate_role_session_leases,
 )
 from Pipeline.ExecutionCrew.session_pool import (  # noqa: E402
+    CAPABILITY_WORKLOAD_CLASSES,
     CREW_SESSION_PROTOCOL_VERSION,
     CREW_SESSION_ROLES,
     DEFAULT_MAX_CONCURRENT_ASSIGNMENTS,
+    DURABLE_ASSIGNMENT_RESULT_SCHEMA_VERSION,
     IDLE_SESSION_LIFETIME_SECONDS,
     POOL_SCHEMA_VERSION,
     AssignmentLease,
     DurableAssignmentResult,
+    PooledSession,
     SessionCompatibility,
     SessionPool,
     SessionPoolError,
@@ -62,6 +85,15 @@ OTHER_COMMIT = "b" * 40
 REPOSITORY = "https://github.com/cathode26/NoSafeCircle.git"
 CLAUDE_MODEL = "claude-sonnet-4-5-20260101"
 CODEX_MODEL = "gpt-concrete-1"
+CHECKOUT = r"C:\NSC\NSC\NSC-050"
+BANNED_PROCESS_CONTROL = (
+    "kill", "terminate", "SIGKILL", "SIGTERM", "taskkill", "Popen",
+    "subprocess", "os.system", "signal", "docker", "psutil",
+)
+
+_EVIDENCE = contextlib.ExitStack()
+_EVIDENCE_ROOT: Path | None = None
+_EVIDENCE_RUNS = itertools.count(1)
 
 
 def require(condition: bool, message: str) -> None:
@@ -106,9 +138,10 @@ def compatibility(
     capability_class: str = "standard",
     repository: str = REPOSITORY,
     protocol: str = CREW_SESSION_PROTOCOL_VERSION,
+    session_class: str = "worker",
 ) -> SessionCompatibility:
     return SessionCompatibility(
-        provider, model, reasoning, role, capability_class, repository, protocol
+        provider, model, reasoning, role, capability_class, repository, protocol, session_class
     )
 
 
@@ -120,7 +153,7 @@ def checkout(
     task_id: str = "NSC-050",
     run_id: str = "nsc-050-run-1",
     commit: str = COMMIT,
-    checkout_identity: str = r"C:\NSC\NSC\NSC-050",
+    checkout_identity: str = CHECKOUT,
     now: dt.datetime | None = None,
 ) -> AssignmentLease:
     return session_pool.checkout(
@@ -134,37 +167,140 @@ def checkout(
     )
 
 
+def evidence_root() -> Path:
+    global _EVIDENCE_ROOT
+    if _EVIDENCE_ROOT is None:
+        _EVIDENCE_ROOT = Path(
+            _EVIDENCE.enter_context(tempfile.TemporaryDirectory(prefix="session-pool-evidence-"))
+        )
+    return _EVIDENCE_ROOT
+
+
+def role_artifact(role: str, *, status: str, changed: str, semantic: str) -> tuple[Path, str, str]:
+    """Write one persisted role result exactly as ExecutionCrew would."""
+
+    run_dir = evidence_root() / f"run-{next(_EVIDENCE_RUNS)}"
+    (run_dir / "role_results").mkdir(parents=True)
+    relative = f"role_results/{role}_1.json"
+    record = {
+        "role": role,
+        "attempt": 1,
+        "agent_status": "succeeded" if status == "completed" else "failed",
+        "scope_check_reasons": (
+            [] if changed == "accepted" and semantic == "accepted" else ["fixture reason"]
+        ),
+        "deterministic_changed_path_validation": changed,
+        "semantic_validation": semantic,
+    }
+    payload = json.dumps(record, indent=2, sort_keys=True) + "\n"
+    (run_dir / relative).write_text(payload, encoding="utf-8", newline="\n")
+    return run_dir, relative, hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def durable(
     lease: AssignmentLease,
     *,
     session_id: str | None = None,
     status: str = "completed",
     changed_paths: str = "accepted",
+    semantic: str = "accepted",
+    outcome: str | None = None,
+    context_percent: int | None = None,
+    latency: LatencySample | None = None,
     **overrides,
-) -> DurableAssignmentResult:
+) -> tuple[DurableAssignmentResult, Path]:
+    """Return one durable result plus the crew run directory that proves it."""
+
     confirmed = ProviderSessionConfirmation(
         overrides.pop("confirmed_provider", lease.provider_identifier),
         overrides.pop("confirmed_role", lease.role),
         overrides.pop("confirmed_mode", lease.mode),
         session_id or lease.session_id or "cafe0000-1111-4111-8111-000000000001",
     )
+    proved = status == "completed" and changed_paths == "accepted" and semantic == "accepted"
     values = {
+        "schema_version": DURABLE_ASSIGNMENT_RESULT_SCHEMA_VERSION,
+        "pool_schema_version": lease.pool_schema_version,
+        "protocol_version": lease.protocol_version,
         "lease_id": lease.lease_id,
+        "record_id": lease.record_id,
+        "crew_run_id": lease.worker_run_id,
         "task_id": lease.task_id,
         "worker_run_id": lease.worker_run_id,
+        "worker_slot_id": lease.worker_slot_id,
+        "session_class": lease.session_class,
         "role": lease.role,
+        "capability_class": lease.capability_class,
         "provider_identifier": lease.provider_identifier,
         "model": lease.model,
+        "reasoning_effort": lease.reasoning_effort,
+        "repository_identity": lease.repository_identity,
+        "source_commit": lease.source_commit,
+        "checkout_identity": lease.checkout_identity,
     }
+    run_dir, artifact, digest = role_artifact(
+        values["role"] if "role" not in overrides else overrides["role"],
+        status=status, changed=changed_paths, semantic=semantic,
+    )
     values.update(overrides)
-    return DurableAssignmentResult(
-        status=status, changed_path_validation=changed_paths,
-        confirmed_session=confirmed, **values,
+    return (
+        DurableAssignmentResult(
+            status=status,
+            assignment_outcome=outcome or ("completed" if proved else "output_failure"),
+            semantic_validation=semantic,
+            changed_path_validation=changed_paths,
+            role_result_artifact=artifact,
+            role_result_sha256=digest,
+            known_context_window_percent=context_percent,
+            latency_sample=latency,
+            confirmed_session=confirmed,
+            **values,
+        ),
+        run_dir,
     )
 
 
 def complete(session_pool: SessionPool, lease: AssignmentLease, *, now=None, **values):
-    return session_pool.check_in(lease=lease, result=durable(lease, **values), now=now or BASE)
+    result, run_dir = durable(lease, **values)
+    return session_pool.check_in(
+        lease=lease, result=result, evidence_root=run_dir, now=now or BASE
+    )
+
+
+def seeded(lifecycle: SessionLifecycleState, *, compat: SessionCompatibility,
+           record_id: str, idle_at: dt.datetime = BASE) -> PooledSession:
+    """Return one idle pooled session carrying an exact seeded lifecycle."""
+
+    return PooledSession(
+        record_id=record_id,
+        compatibility=compat,
+        state="idle",
+        session_id=lifecycle.session_id,
+        completed_assignment_count=lifecycle.completed_assignments,
+        idle_since_utc=idle_at.isoformat().replace("+00:00", "Z"),
+        lifecycle=lifecycle,
+    )
+
+
+def lifecycle_state(**values) -> SessionLifecycleState:
+    base = {
+        "schema_version": SESSION_LIFECYCLE_SCHEMA_VERSION,
+        "provider_identifier": "claude-code",
+        "role": "implementer",
+        "session_id": "aaaa0000-1111-4111-8111-000000000001",
+        "session_class": "worker",
+    }
+    base.update(values)
+    return SessionLifecycleState(**base)
+
+
+def process_control_hits(text: str) -> list[str]:
+    """Return every banned process-control word this source text mentions."""
+
+    return sorted(
+        word for word in BANNED_PROCESS_CONTROL
+        if re.search(rf"\b{re.escape(word)}\b", text) is not None
+    )
 
 
 # ------------------------------------------------- 1/2: reuse and resume
@@ -231,7 +367,10 @@ def test_every_crew_role_keeps_its_own_pool() -> None:
         == {"contract_locality_auditor", "implementer", "test_author", "validator"},
         str(CREW_SESSION_ROLES),
     )
-    keys = {role: compatibility(role=role).key() for role in CREW_SESSION_ROLES}
+    keys = {
+        role: compatibility(role=role, capability_class=ROLE_CAPABILITY_CLASSES[role]).key()
+        for role in CREW_SESSION_ROLES
+    }
     require(len(set(keys.values())) == len(CREW_SESSION_ROLES), f"roles collide: {keys}")
     session_pool = pool()
     warmed = compatibility(role="implementer")
@@ -239,7 +378,11 @@ def test_every_crew_role_keeps_its_own_pool() -> None:
     for role in CREW_SESSION_ROLES:
         if role == "implementer":
             continue
-        lease = checkout(session_pool, compat=compatibility(role=role), now=at(60))
+        lease = checkout(
+            session_pool,
+            compat=compatibility(role=role, capability_class=ROLE_CAPABILITY_CLASSES[role]),
+            now=at(60),
+        )
         require(lease.mode == "start", f"{role} was offered the implementer conversation")
         require(lease.role == role, str(lease.role))
 
@@ -250,7 +393,6 @@ def test_model_or_reasoning_change_creates_a_fresh_session() -> None:
         compatibility(reasoning="xhigh"),
         compatibility(capability_class="high_reasoning"),
         compatibility(repository="https://github.com/cathode26/Other.git"),
-        compatibility(protocol="9.9"),
     ):
         session_pool = pool()
         complete(session_pool, checkout(session_pool))
@@ -307,39 +449,52 @@ def test_exact_matching_check_in_returns_the_session() -> None:
     require(returned.idle_since_utc == "2026-09-04T12:00:30Z", str(returned.idle_since_utc))
     require(returned.session_id == lease.session_id, "identity changed on check-in")
     require(session_pool.active_assignment_count == 0, "the lease was not released")
+    require(returned.lifecycle is not None and returned.lifecycle.worker_weighted_units
+            == WORKER_WEIGHTS[CAPABILITY_WORKLOAD_CLASSES["standard"]], str(returned.lifecycle))
 
 
 def test_stale_or_mismatched_check_in_fails_closed() -> None:
     for field, value in (
         ("lease_id", "dead0000-1111-4111-8111-000000000001"),
+        ("record_id", "dead0000-1111-4111-8111-000000000002"),
+        ("crew_run_id", "nsc-999-run-9"),
         ("task_id", "NSC-999"),
         ("worker_run_id", "nsc-999-run-9"),
+        ("worker_slot_id", "worker-slot-9"),
         ("role", "validator"),
+        ("capability_class", "high_reasoning"),
         ("provider_identifier", "openai-codex"),
         ("model", "claude-other-1"),
+        ("reasoning_effort", "high"),
+        ("repository_identity", "https://github.com/cathode26/Other.git"),
+        ("source_commit", OTHER_COMMIT),
+        ("checkout_identity", r"C:\NSC\NSC\NSC-999"),
         ("confirmed_role", "validator"),
         ("confirmed_provider", "openai-codex"),
         ("confirmed_mode", "resume"),
     ):
         session_pool = pool()
         lease = checkout(session_pool)
+        result, run_dir = durable(lease, **{field: value})
         session = session_pool.check_in(
-            lease=lease, result=durable(lease, **{field: value}), now=at(30)
+            lease=lease, result=result, evidence_root=run_dir, now=at(30)
         )
         require(session.state == "quarantined", f"{field} mismatch was accepted")
-        require("did not match its lease" in (session.quarantine_reason or ""),
-                str(session.quarantine_reason))
+        require(
+            "did not match its lease" in (session.quarantine_reason or "")
+            or "compatibility differs" in (session.quarantine_reason or ""),
+            f"{field}: {session.quarantine_reason}",
+        )
+        require(session.retirement_reason in {"identity_failure", "session_incompatibility"},
+                f"{field}: {session.retirement_reason}")
         require(not session.is_reusable_at(at(31)), "a quarantined session stayed reusable")
     # A confirmation naming a different conversation is equally fatal.
     session_pool = pool()
     lease = checkout(session_pool)
     complete(session_pool, lease)
     warm = checkout(session_pool, run_id="nsc-050-run-2", now=at(60))
-    session = session_pool.check_in(
-        lease=warm,
-        result=durable(warm, session_id="dead0000-1111-4111-8111-000000000002"),
-        now=at(90),
-    )
+    result, run_dir = durable(warm, session_id="dead0000-1111-4111-8111-000000000002")
+    session = session_pool.check_in(lease=warm, result=result, evidence_root=run_dir, now=at(90))
     require(session.state == "quarantined", "a different confirmed session was accepted")
     # A lease that is no longer the session's active lease is stale.
     session_pool = pool()
@@ -349,42 +504,99 @@ def test_stale_or_mismatched_check_in_fails_closed() -> None:
 
 
 def test_provider_failure_quarantines_the_session() -> None:
-    for reason in (
-        "provider transport failure",
-        "timeout with uncertain provider state",
-        "missing or malformed provider-session identity",
+    for reason, outcome in (
+        ("provider transport failure", "provider_failure"),
+        ("timeout with uncertain provider state", "provider_failure"),
+        ("missing or malformed provider-session identity", "identity_failure"),
     ):
         session_pool = pool()
         lease = checkout(session_pool)
-        session = session_pool.quarantine(lease, reason)
+        session = session_pool.quarantine(lease, reason, outcome=outcome)
         require(session.state == "quarantined" and session.quarantine_reason == reason, str(session))
         require(session_pool.active_assignment_count == 0, "quarantine kept the lease active")
         fresh = checkout(session_pool, run_id="nsc-050-run-2", now=at(60))
         require(fresh.mode == "start", "a quarantined conversation was reused")
-    # A rejected deterministic changed-path check must not recycle either.
-    session_pool = pool()
-    lease = checkout(session_pool)
-    session = session_pool.check_in(
-        lease=lease, result=durable(lease, changed_paths="rejected"), now=at(30)
-    )
-    require(session.state == "quarantined", "rejected changed paths were recycled")
-    require("changed paths rejected" in (session.quarantine_reason or ""), str(session.quarantine_reason))
+    # A rejected deterministic changed-path check must not recycle either, and
+    # neither may a rejected semantic review.
+    for label, values in (
+        ("changed paths", {"changed_paths": "rejected"}),
+        ("semantics", {"semantic": "rejected"}),
+    ):
+        session_pool = pool()
+        lease = checkout(session_pool)
+        result, run_dir = durable(lease, **values)
+        session = session_pool.check_in(
+            lease=lease, result=result, evidence_root=run_dir, now=at(30)
+        )
+        require(session.state == "quarantined", f"{label} rejection was recycled")
+        require("rejected" in (session.quarantine_reason or ""), str(session.quarantine_reason))
+    rejects(lambda: session_pool.quarantine(lease, "reason", outcome="completed"), SessionPoolError)
 
 
 def test_missing_durable_result_prevents_reuse() -> None:
     session_pool = pool()
     lease = checkout(session_pool)
-    session = session_pool.check_in(lease=lease, result=None, now=at(30))
+    session = session_pool.check_in(lease=lease, result=None, evidence_root=None, now=at(30))
     require(session.state == "quarantined", "a missing durable result was accepted")
     require("no durable assignment result" in (session.quarantine_reason or ""),
             str(session.quarantine_reason))
     # A failed status is not reusable even when the identity all matches.
     session_pool = pool()
     lease = checkout(session_pool)
-    session = session_pool.check_in(lease=lease, result=durable(lease, status="failed"), now=at(30))
+    result, run_dir = durable(lease, status="failed", outcome="provider_failure")
+    session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(30))
     require(session.state == "quarantined", "a failed assignment recycled its session")
     rejects(lambda: durable(lease, status="unknown"), SessionPoolError)
     rejects(lambda: durable(lease, changed_paths="maybe"), SessionPoolError)
+    # A durable result may never claim success while reporting a rejection.
+    rejects(lambda: durable(lease, changed_paths="rejected", outcome="completed"), SessionPoolError)
+    rejects(lambda: durable(lease, status="failed", outcome="completed"), SessionPoolError)
+
+
+def test_missing_or_tampered_role_evidence_prevents_reuse() -> None:
+    # An exit code, a caller assertion, or a session ID is not evidence: the
+    # exact persisted role artifact must be present and hash-exact.
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease)
+    session = session_pool.check_in(lease=lease, result=result, evidence_root=None, now=at(30))
+    require(session.state == "quarantined", "a check-in with no run directory was accepted")
+
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease)
+    (run_dir / result.role_result_artifact).unlink()
+    session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(30))
+    require(session.state == "quarantined", "a missing role artifact was accepted")
+    require("missing or unreadable" in (session.quarantine_reason or ""),
+            str(session.quarantine_reason))
+
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease)
+    (run_dir / result.role_result_artifact).write_text("{}\n", encoding="utf-8")
+    session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(30))
+    require(session.state == "quarantined", "a tampered role artifact was accepted")
+    require("SHA-256" in (session.quarantine_reason or ""), str(session.quarantine_reason))
+
+    # An artifact that hashes correctly but records a different decision is a
+    # contradiction, not evidence.
+    session_pool = pool()
+    lease = checkout(session_pool)
+    run_dir, _, _ = role_artifact("implementer", status="completed", changed="rejected",
+                                  semantic="accepted")
+    honest, honest_dir = durable(lease)
+    forged = DurableAssignmentResult.from_dict({
+        **honest.to_dict(),
+        "role_result_sha256": hashlib.sha256(
+            (run_dir / "role_results/implementer_1.json").read_bytes()
+        ).hexdigest(),
+    })
+    session = session_pool.check_in(lease=lease, result=forged, evidence_root=run_dir, now=at(30))
+    require(session.state == "quarantined", "a contradictory role artifact was accepted")
+    require("disagrees with the durable claim" in (session.quarantine_reason or ""),
+            str(session.quarantine_reason))
+    require(honest_dir != run_dir, "evidence directories must not collide")
 
 
 # ------------------------------------------------------- 12/13: idle lifetime
@@ -466,7 +678,7 @@ def test_prior_allowed_paths_are_not_current_allowed_paths() -> None:
     session_pool = pool()
     first = checkout(session_pool)
     first_capsule = assignment_capsule(
-        first, checkout_root=r"C:\NSC\NSC\NSC-050", capabilities=("repository_write",),
+        first, checkout_root=CHECKOUT, capabilities=("repository_write",),
         allowed_paths=("Assets/Old.cs",), denied_paths=(), evidence_obligations=(),
     )
     require("Assets/Old.cs" in first_capsule, "setup capsule is wrong")
@@ -493,20 +705,22 @@ def test_prior_allowed_paths_are_not_current_allowed_paths() -> None:
 
 
 def test_existing_ephemeral_crew_behavior_is_unchanged_without_pool_arguments() -> None:
-    require(validate_role_session_leases(None, task_id="NSC-050", run_id="r", provider_identifier="claude-code",
-                                         model=CLAUDE_MODEL, reasoning_effort=None) == {},
-            "absent leases produced bindings")
-    require(validate_role_session_leases({}, task_id="NSC-050", run_id="r", provider_identifier="claude-code",
-                                         model=CLAUDE_MODEL, reasoning_effort=None) == {},
-            "empty leases produced bindings")
+    identity = {"task_id": "NSC-050", "run_id": "r", "provider_identifier": "claude-code",
+                "model": CLAUDE_MODEL, "reasoning_effort": None, "source_commit": COMMIT,
+                "checkout_identity": CHECKOUT, "repository_identity": REPOSITORY}
+    require(validate_role_session_leases(None, **identity) == {}, "absent leases produced bindings")
+    require(validate_role_session_leases({}, **identity) == {}, "empty leases produced bindings")
     signature = inspect.signature(crew_module.run_crew)
-    for name in ("role_session_leases", "role_session_bindings", "codex_resume_sandbox_argument"):
+    for name in ("role_session_leases", "role_session_bindings", "codex_resume_sandbox_argument",
+                 "scheduler_repository_identity"):
         require(signature.parameters[name].default is None, f"{name} is not optional")
     source = inspect.getsource(crew_module.run_crew)
     require("supply role session bindings or pooled leases, not both" in source,
             "the crew accepts both session mechanisms at once")
     require("pooled role session leases require the exact worker run ID" in source,
             "pooled leases do not pin the worker run ID")
+    require("pooled role session leases require the scheduler-proven repository identity" in source,
+            "pooled leases do not require a proven repository identity")
 
 
 def test_repair_attempts_retain_the_roles_leased_session() -> None:
@@ -525,10 +739,12 @@ def test_repair_attempts_retain_the_roles_leased_session() -> None:
             "the crew does not prefer the live per-role session")
 
 
-def test_a_retry_cannot_inherit_an_unrelated_tasks_session() -> None:
+def test_a_retry_cannot_inherit_an_unrelated_execution() -> None:
     session_pool = pool()
     lease = checkout(session_pool, task_id="NSC-050", run_id="nsc-050-run-1")
-    common = {"provider_identifier": "claude-code", "model": CLAUDE_MODEL, "reasoning_effort": None}
+    common = {"provider_identifier": "claude-code", "model": CLAUDE_MODEL,
+              "reasoning_effort": None, "source_commit": COMMIT,
+              "checkout_identity": CHECKOUT, "repository_identity": REPOSITORY}
     require(
         validate_role_session_leases({"implementer": lease}, task_id="NSC-050",
                                      run_id="nsc-050-run-1", **common) == {"implementer": lease},
@@ -545,22 +761,36 @@ def test_a_retry_cannot_inherit_an_unrelated_tasks_session() -> None:
             CrewBlocked,
         )
         require("cannot be used" in str(blocked), f"{label}: {blocked}")
-    rejects(lambda: validate_role_session_leases({"validator": lease}, task_id="NSC-050",
-                                                 run_id="nsc-050-run-1", **common), CrewBlocked)
-    rejects(lambda: validate_role_session_leases({"implementer": lease}, task_id="NSC-050",
-                                                 run_id="nsc-050-run-1",
-                                                 provider_identifier="openai-codex",
-                                                 model=CLAUDE_MODEL, reasoning_effort=None), CrewBlocked)
-    rejects(lambda: validate_role_session_leases({"implementer": lease}, task_id="NSC-050",
-                                                 run_id="nsc-050-run-1",
-                                                 provider_identifier="claude-code",
-                                                 model="claude-other-1", reasoning_effort=None), CrewBlocked)
-    rejects(lambda: validate_role_session_leases({"implementer": lease}, task_id="NSC-050",
-                                                 run_id="nsc-050-run-1",
-                                                 provider_identifier="claude-code",
-                                                 model=CLAUDE_MODEL, reasoning_effort="high"), CrewBlocked)
-    rejects(lambda: validate_role_session_leases({"implementer": "lease"}, task_id="NSC-050",
-                                                 run_id="nsc-050-run-1", **common), CrewBlocked)
+    matched = {"task_id": "NSC-050", "run_id": "nsc-050-run-1"}
+    for label, override, expected in (
+        ("role", {}, "cannot be used for role"),
+        ("provider", {"provider_identifier": "openai-codex"}, "cannot be used through"),
+        ("model", {"model": "claude-other-1"}, "routed model"),
+        ("reasoning", {"reasoning_effort": "high"}, "reasoning effort"),
+        ("commit", {"source_commit": OTHER_COMMIT}, "bound to source commit"),
+        ("checkout", {"checkout_identity": r"C:\NSC\NSC\NSC-999"}, "bound to source checkout"),
+        ("repository", {"repository_identity": "https://github.com/cathode26/Other.git"},
+         "bound to repository"),
+    ):
+        leases = {"validator": lease} if label == "role" else {"implementer": lease}
+        blocked = rejects(
+            lambda leases=leases, override=override: validate_role_session_leases(
+                leases, **matched, **{**common, **override}
+            ),
+            CrewBlocked,
+        )
+        require(expected in str(blocked), f"{label}: {blocked}")
+    # The routed capability class for this exact role is part of the identity.
+    blocked = rejects(
+        lambda: validate_role_session_leases(
+            {"implementer": lease}, **matched, **common,
+            role_capability_classes={"implementer": "high_reasoning"},
+        ),
+        CrewBlocked,
+    )
+    require("capability class" in str(blocked), str(blocked))
+    rejects(lambda: validate_role_session_leases({"implementer": "lease"}, **matched, **common),
+            CrewBlocked)
 
 
 # ------------------------------------------------------------ 19: durability
@@ -605,33 +835,288 @@ def test_pool_persistence_is_atomic_and_malformed_state_fails_closed() -> None:
         broken["sessions"][0]["session_id"] = "last"
         path.write_text(json.dumps(broken), encoding="utf-8")
         rejects(lambda: SessionPoolStore(path).load(), SessionPoolError)
+        # Durable lifecycle accounting must agree with the pool's own count.
+        disagreeing = json.loads(json.dumps(payload))
+        disagreeing["sessions"][0]["completed_assignment_count"] = 7
+        path.write_text(json.dumps(disagreeing), encoding="utf-8")
+        rejects(lambda: SessionPoolStore(path).load(), SessionPoolError)
         rejects(lambda: store.save("not-a-pool"), SessionPoolError)
     # Mutable pool state must never be stored inside the repository.
     rejects(lambda: SessionPoolStore(ROOT / "Pipeline" / "pool.json"), SessionPoolError)
 
 
-# ------------------------------------------------------- 20: no termination
+def test_a_nested_session_protocol_must_match_the_crew_protocol() -> None:
+    # Construction refuses another protocol outright.
+    rejects(lambda: compatibility(protocol="9.9"), SessionPoolError)
+    session_pool = pool()
+    lease = checkout(session_pool)
+    complete(session_pool, lease)
+    payload = session_pool.to_dict()
+    require(payload["protocol_version"] == CREW_SESSION_PROTOCOL_VERSION, str(payload))
+    # A payload that claims the supported protocol at the top level while
+    # carrying a conversation that learned another one is refused on restore.
+    nested = json.loads(json.dumps(payload))
+    nested["sessions"][0]["compatibility"]["protocol_version"] = "9.9"
+    blocked = rejects(lambda: SessionPool.from_dict(nested), SessionPoolError)
+    require("protocol" in str(blocked), str(blocked))
+    require(nested["protocol_version"] == "1.0", "the top-level protocol was not left supported")
+    # The same rule applies to a restored lease and a restored durable result.
+    rejects(lambda: AssignmentLease.from_dict({**lease.to_dict(), "protocol_version": "9.9"}),
+            SessionPoolError)
+    result, _ = durable(lease)
+    rejects(lambda: DurableAssignmentResult.from_dict({**result.to_dict(),
+                                                       "protocol_version": "9.9"}),
+            SessionPoolError)
+
+
+def test_durable_assignment_results_round_trip_and_fail_closed() -> None:
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease)
+    require(DurableAssignmentResult.from_dict(result.to_dict()) == result, "round trip failed")
+    require(result.evidence_reason(run_dir) is None, str(result.evidence_reason(run_dir)))
+    for label, mutation in (
+        ("unknown field", {"surprise": 1}),
+        ("bad schema", {"schema_version": "9.9"}),
+        ("bad pool schema", {"pool_schema_version": "9.9"}),
+        ("bad status", {"status": "maybe"}),
+        ("bad outcome", {"assignment_outcome": "idle"}),
+        ("bad digest", {"role_result_sha256": "not-a-digest"}),
+        ("absolute artifact", {"role_result_artifact": "/etc/passwd"}),
+        ("traversal artifact", {"role_result_artifact": "role_results/../../secret.json"}),
+        ("bad percent", {"known_context_window_percent": 101}),
+        ("bad session", {"confirmed_session": {"schema_version": "1.0",
+                                               "provider_identifier": "claude-code",
+                                               "role": "implementer", "mode": "start",
+                                               "session_id": "last"}}),
+    ):
+        rejects(lambda mutation=mutation: DurableAssignmentResult.from_dict(
+            {**result.to_dict(), **mutation}), SessionPoolError)
+        require(label, "each mutation is labeled")
+    missing = {key: value for key, value in result.to_dict().items() if key != "lease_id"}
+    rejects(lambda: DurableAssignmentResult.from_dict(missing), SessionPoolError)
+
+
+# ------------------------------------ 20/21/22/23: committed lifetime policy
+
+
+def budget_run(capability_class: str, expected_assignments: int) -> None:
+    """Complete assignments until the committed worker budget retires the session."""
+
+    compat = compatibility(capability_class=capability_class)
+    session_pool = pool()
+    first = checkout(session_pool, compat=compat)
+    session_id = first.session_id
+    lease = first
+    for index in range(expected_assignments):
+        returned = complete(session_pool, lease, now=at(index))
+        if index < expected_assignments - 1:
+            require(returned.state == "idle", f"retired early at {index + 1}: {returned.state}")
+            lease = checkout(session_pool, compat=compat, run_id=f"nsc-050-run-{index + 2}",
+                             now=at(index))
+            require(lease.mode == "resume" and lease.session_id == session_id,
+                    f"assignment {index + 2} did not continue the conversation")
+        else:
+            require(returned.state == "retired",
+                    f"still reusable after {expected_assignments}: {returned.state}")
+            require(returned.retirement_reason == "worker_weighted_unit_limit",
+                    str(returned.retirement_reason))
+            require(returned.completed_assignment_count == expected_assignments,
+                    str(returned.completed_assignment_count))
+    replacement = checkout(session_pool, compat=compat, run_id="nsc-050-run-final",
+                           now=at(expected_assignments))
+    require(replacement.mode == "start", "a retired conversation was offered again")
+    require(replacement.session_id != session_id, "a retired conversation was reused")
+
+
+def test_worker_budget_is_exactly_forty_eight_weighted_units() -> None:
+    require(WORKER_WEIGHTED_UNIT_LIMIT == 48, str(WORKER_WEIGHTED_UNIT_LIMIT))
+    require(WORKER_WEIGHTS == {"fast": 1, "standard": 3, "deep": 6}, str(WORKER_WEIGHTS))
+    require(CAPABILITY_WORKLOAD_CLASSES
+            == {"low_cost": "fast", "standard": "standard", "high_reasoning": "deep"},
+            str(CAPABILITY_WORKLOAD_CLASSES))
+    budget_run("low_cost", 48)
+    budget_run("standard", 16)
+    budget_run("high_reasoning", 8)
+
+
+def test_architect_retires_after_exactly_one_hundred_cycles() -> None:
+    require(ARCHITECT_COMPLETED_CYCLE_LIMIT == 100, str(ARCHITECT_COMPLETED_CYCLE_LIMIT))
+    compat = compatibility(role="architect", capability_class="high_reasoning",
+                           session_class="architect")
+    require(compat.workload_class == "admission_cycle", compat.workload_class)
+    session_pool = pool()
+    lease = checkout(session_pool, compat=compat)
+    for index in range(ARCHITECT_COMPLETED_CYCLE_LIMIT):
+        returned = complete(session_pool, lease, now=at(index))
+        if index < ARCHITECT_COMPLETED_CYCLE_LIMIT - 1:
+            require(returned.state == "idle", f"retired early at cycle {index + 1}")
+            lease = checkout(session_pool, compat=compat, run_id=f"nsc-050-run-{index + 2}",
+                             now=at(index))
+        else:
+            require(returned.state == "retired", f"still reusable after 100: {returned.state}")
+            require(returned.retirement_reason == "architect_completed_cycle_limit",
+                    str(returned.retirement_reason))
+            require(returned.lifecycle.architect_completed_admission_cycles == 100,
+                    str(returned.lifecycle))
+    # An architect session is never confused with a worker session.
+    rejects(lambda: compatibility(role="implementer", session_class="architect"), SessionPoolError)
+    rejects(lambda: compatibility(role="architect"), SessionPoolError)
+    rejects(lambda: compatibility(role="architect", capability_class="standard",
+                                  session_class="architect"), SessionPoolError)
+
+
+def test_idle_and_waiting_cost_nothing() -> None:
+    session_pool = pool()
+    lease = checkout(session_pool)
+    returned = complete(session_pool, lease, now=at(0))
+    spent = returned.lifecycle.worker_weighted_units
+    for observation in ("idle", "waiting", "idle", "waiting"):
+        observed = session_pool.observe(returned.record_id, observation=observation)
+        require(observed.state == "idle", f"{observation} changed availability: {observed.state}")
+        require(observed.lifecycle.worker_weighted_units == spent,
+                f"{observation} consumed budget: {observed.lifecycle.worker_weighted_units}")
+        require(observed.completed_assignment_count == 1, str(observed.completed_assignment_count))
+    # Waiting does not extend reusability either: the idle clock is unchanged.
+    require(session_pool.sessions[0].idle_since_utc == returned.idle_since_utc,
+            "waiting reset the idle clock")
+    warm = checkout(session_pool, run_id="nsc-050-run-2", now=at(60))
+    require(warm.mode == "resume", "a waiting session stopped being reusable")
+
+
+def test_every_early_retirement_condition_is_enforced() -> None:
+    # Incompatibility and identity failure retire immediately.
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease, task_id="NSC-999")
+    session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir)
+    require(session.retirement_reason == "identity_failure", str(session.retirement_reason))
+
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease, model="claude-other-1", capability_class="high_reasoning")
+    session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir)
+    require(session.state == "quarantined", str(session.state))
+
+    idle_session = pool(sessions=[seeded(lifecycle_state(), compat=compatibility(),
+                                         record_id="aaaa0000-1111-4111-8111-000000000002")])
+    retired = idle_session.observe("aaaa0000-1111-4111-8111-000000000002",
+                                   observation="session_incompatibility")
+    require(retired.state == "retired" and retired.retirement_reason == "session_incompatibility",
+            str(retired))
+    identity_pool = pool(sessions=[seeded(lifecycle_state(), compat=compatibility(),
+                                          record_id="aaaa0000-1111-4111-8111-000000000002")])
+    retired = identity_pool.observe("aaaa0000-1111-4111-8111-000000000002",
+                                    observation="identity_failure")
+    require(retired.state == "retired" and retired.retirement_reason == "identity_failure",
+            str(retired))
+
+    # A second consecutive provider/output failure retires the conversation.
+    streaked = lifecycle_state(completed_assignments=1, worker_weighted_units=3,
+                               consecutive_provider_output_failures=1)
+    failure_pool = pool(sessions=[seeded(streaked, compat=compatibility(),
+                                         record_id="aaaa0000-1111-4111-8111-000000000002")])
+    lease = checkout(failure_pool, run_id="nsc-050-run-2", now=at(1))
+    require(lease.mode == "resume", "the seeded conversation was not offered")
+    result, run_dir = durable(lease, status="failed", outcome="output_failure")
+    session = failure_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(2))
+    require(session.retirement_reason == "consecutive_provider_output_failures",
+            str(session.retirement_reason))
+
+    # Known context-window utilization at the committed threshold retires it.
+    require(CONTEXT_WINDOW_RETIRE_PERCENT == 70, str(CONTEXT_WINDOW_RETIRE_PERCENT))
+    below = pool()
+    lease = checkout(below)
+    returned = complete(below, lease, context_percent=CONTEXT_WINDOW_RETIRE_PERCENT - 1)
+    require(returned.state == "idle", str(returned.state))
+    above = pool()
+    lease = checkout(above)
+    returned = complete(above, lease, context_percent=CONTEXT_WINDOW_RETIRE_PERCENT)
+    require(returned.state == "retired", str(returned.state))
+    require(returned.retirement_reason == "known_context_window_threshold",
+            str(returned.retirement_reason))
+    require(returned.completed_assignment_count == 1,
+            "the finished assignment still counted")
+
+    # Three comparable latency samples at or above the multiplier retire it.
+    require(LATENCY_RETIRE_SAMPLE_COUNT == 3 and LATENCY_RETIRE_MULTIPLIER == 2,
+            f"{LATENCY_RETIRE_SAMPLE_COUNT}/{LATENCY_RETIRE_MULTIPLIER}")
+    slow = LatencySample("crew_role_turnaround", 4000, 2000)
+    latency_pool = pool()
+    lease = checkout(latency_pool)
+    for index in range(LATENCY_RETIRE_SAMPLE_COUNT):
+        returned = complete(latency_pool, lease, now=at(index), latency=slow)
+        if index < LATENCY_RETIRE_SAMPLE_COUNT - 1:
+            require(returned.state == "idle", f"retired at sample {index + 1}")
+            lease = checkout(latency_pool, run_id=f"nsc-050-run-{index + 2}", now=at(index))
+    require(returned.state == "retired", str(returned.state))
+    require(returned.retirement_reason == "sustained_comparable_latency",
+            str(returned.retirement_reason))
+
+    # A conversation whose next assignment would overflow the budget retires at
+    # checkout instead of starting work it cannot finish within the budget.
+    nearly = lifecycle_state(completed_assignments=8, worker_weighted_units=46)
+    overflow_pool = pool(sessions=[seeded(nearly, compat=compatibility(capability_class="high_reasoning"),
+                                          record_id="aaaa0000-1111-4111-8111-000000000002")])
+    lease = checkout(overflow_pool, compat=compatibility(capability_class="high_reasoning"),
+                     run_id="nsc-050-run-2", now=at(1))
+    require(lease.mode == "start", "an overflowing conversation was offered")
+    retired = overflow_pool.sessions_for("retired")
+    require(len(retired) == 1, str(overflow_pool.sessions))
+    require(retired[0].retirement_reason == "worker_weighted_unit_limit_would_be_exceeded",
+            str(retired[0].retirement_reason))
+
+
+def test_retirement_never_interrupts_an_active_assignment() -> None:
+    session_pool = pool()
+    lease = checkout(session_pool, now=at(0))
+    # Nothing between-assignments may be applied while the worker holds its lease.
+    blocked = rejects(
+        lambda: session_pool.observe(lease.record_id, observation="identity_failure"),
+        SessionPoolError,
+    )
+    require("never interrupted" in str(blocked), str(blocked))
+    rejects(lambda: session_pool.observe(lease.record_id, observation="idle"), SessionPoolError)
+    require(session_pool.expire_idle(now=at(86_400)) == (), "an active assignment was expired")
+    require(session_pool.sessions[0].state == "active", str(session_pool.sessions[0].state))
+    # A conversation already at its budget still finishes the assignment it holds.
+    exhausted = lifecycle_state(completed_assignments=15, worker_weighted_units=45)
+    ready = pool(sessions=[seeded(exhausted, compat=compatibility(),
+                                  record_id="aaaa0000-1111-4111-8111-000000000002")])
+    last = checkout(ready, run_id="nsc-050-run-2", now=at(1))
+    require(last.mode == "resume", "the seeded conversation was not offered")
+    require(ready.sessions[0].state == "active", str(ready.sessions[0].state))
+    require(ready.expire_idle(now=at(100_000)) == (), "an exhausted active assignment was expired")
+    returned = complete(ready, last, now=at(2))
+    require(returned.state == "retired", str(returned.state))
+    require(returned.completed_assignment_count == 16, str(returned.completed_assignment_count))
+
+
+# ------------------------------------------------------- 24: no termination
 
 
 def test_no_pool_code_path_terminates_a_worker() -> None:
     source = Path(ROOT / "Pipeline/ExecutionCrew/session_pool.py").read_text(encoding="utf-8")
-    banned = (
-        "kill", "terminate", "SIGKILL", "SIGTERM", "taskkill", "Popen",
-        "subprocess", "os.system", "signal", "docker", "psutil",
-    )
-    for word in banned:
-        require(
-            re.search(rf"\b{re.escape(word)}\b", source) is None,
-            f"the pool references process control: {word}",
-        )
-    # Returning and expiring are pure state transitions on the pool's own record.
-    for name in ("check_in", "quarantine", "expire_idle", "_quarantine"):
+    require(process_control_hits(source) == [],
+            f"the pool references process control: {process_control_hits(source)}")
+    targets = ("checkout", "check_in", "quarantine", "observe", "expire_idle", "_quarantine",
+               "_finish")
+    for name in targets:
         body = inspect.getsource(getattr(SessionPool, name))
-        for word in banned:
-            require(
-                re.search(rf"{re.escape(word)}", body) is None,
-                f"SessionPool.{name} references {word}",
-            )
+        require(process_control_hits(body) == [],
+                f"SessionPool.{name} references {process_control_hits(body)}")
+    # The scan must actually catch a forbidden operation injected into one of
+    # those exact methods, or this regression would be vacuous.
+    clean = inspect.getsource(SessionPool.check_in)
+    anchor = "        session = self._leased_session(lease)"
+    require(clean.count(anchor) == 1, "the injection anchor is no longer unique")
+    injected = clean.replace(
+        anchor,
+        anchor + "\n        subprocess.run(('kill', '-9', str(worker_pid)), check=False)",
+    )
+    require(injected != clean, "the injection did not change the method source")
+    require(process_control_hits(injected) == ["kill", "subprocess"],
+            f"the scan missed an injected operation: {process_control_hits(injected)}")
     require(
         "never touch a running worker" in source and "terminates nothing" in source,
         "the pool does not state its no-termination contract",
@@ -641,9 +1126,11 @@ def test_no_pool_code_path_terminates_a_worker() -> None:
 def test_pool_schema_identity_is_pinned() -> None:
     require(POOL_SCHEMA_VERSION == "1.0", POOL_SCHEMA_VERSION)
     require(CREW_SESSION_PROTOCOL_VERSION == "1.0", CREW_SESSION_PROTOCOL_VERSION)
+    require(DURABLE_ASSIGNMENT_RESULT_SCHEMA_VERSION == "1.0",
+            DURABLE_ASSIGNMENT_RESULT_SCHEMA_VERSION)
     expected = (
         "pool_schema_version", "lease_id", "record_id", "session_id", "mode",
-        "provider_identifier", "model", "reasoning_effort", "role",
+        "provider_identifier", "model", "reasoning_effort", "session_class", "role",
         "capability_class", "repository_identity", "protocol_version",
         "worker_slot_id", "task_id", "worker_run_id", "source_commit",
         "checkout_identity", "checked_out_at_utc", "prior_completed_assignment_count",
@@ -671,14 +1158,22 @@ TESTS = (
     test_stale_or_mismatched_check_in_fails_closed,
     test_provider_failure_quarantines_the_session,
     test_missing_durable_result_prevents_reuse,
+    test_missing_or_tampered_role_evidence_prevents_reuse,
     test_idle_sessions_expire_after_exactly_one_hour,
     test_active_sessions_are_never_expired_or_stolen,
     test_a_reused_session_receives_the_authority_revocation_capsule,
     test_prior_allowed_paths_are_not_current_allowed_paths,
     test_existing_ephemeral_crew_behavior_is_unchanged_without_pool_arguments,
     test_repair_attempts_retain_the_roles_leased_session,
-    test_a_retry_cannot_inherit_an_unrelated_tasks_session,
+    test_a_retry_cannot_inherit_an_unrelated_execution,
     test_pool_persistence_is_atomic_and_malformed_state_fails_closed,
+    test_a_nested_session_protocol_must_match_the_crew_protocol,
+    test_durable_assignment_results_round_trip_and_fail_closed,
+    test_worker_budget_is_exactly_forty_eight_weighted_units,
+    test_architect_retires_after_exactly_one_hundred_cycles,
+    test_idle_and_waiting_cost_nothing,
+    test_every_early_retirement_condition_is_enforced,
+    test_retirement_never_interrupts_an_active_assignment,
     test_no_pool_code_path_terminates_a_worker,
     test_pool_schema_identity_is_pinned,
 )
@@ -686,11 +1181,12 @@ TESTS = (
 
 def main(argv: list[str] | None = None) -> int:
     selected = set(argv or [])
-    for test in TESTS:
-        if selected and test.__name__ not in selected:
-            continue
-        test()
-        print(f"PASS {test.__name__}")
+    with _EVIDENCE:
+        for test in TESTS:
+            if selected and test.__name__ not in selected:
+                continue
+            test()
+            print(f"PASS {test.__name__}")
     print("session_pool_smoke_test: PASS")
     return 0
 

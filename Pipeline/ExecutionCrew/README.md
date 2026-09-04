@@ -72,32 +72,58 @@ pooling means a resumable conversation, not a live process or container.
 
 `contract_locality_auditor`, `implementer`, `test_author`, and `validator` keep
 separate pools. A conversation is offered back only for the exact stable
-identity that created it: provider, exact model, reasoning effort, role,
-capability class, repository identity, and crew/session protocol version. Task
-ID, source commit, checkout, allowed paths, and the assignment itself are
+identity that created it: provider, exact model, reasoning effort, session class,
+role, capability class, repository identity, and crew/session protocol version.
+Task ID, source commit, checkout, allowed paths, and the assignment itself are
 deliberately excluded from that key because they are refreshed every assignment
-and are never continuing authority. Anything uncertain starts a fresh session.
+and are never continuing authority. Anything uncertain starts a fresh session. A
+protocol version other than `CREW_SESSION_PROTOCOL_VERSION` is refused outright,
+at construction and again when durable state, a lease, or a durable result is
+restored, so a payload cannot claim the supported protocol at the top level while
+carrying a conversation that learned another one.
 
 `SessionPool.checkout` reserves one conversation for one assignment and returns
 an `AssignmentLease` carrying the pool schema version, lease ID, session
-identity and mode, provider, model, reasoning effort, role, capability class,
-repository identity, protocol version, worker-slot ID, task ID, worker run ID,
-source commit, checkout identity, checkout timestamp, and prior completed
-assignment count. A checked-out session is invisible to every other assignment,
-sessions are created lazily, and the pool supports at least ten concurrent
-assignments. Claude accepts a pool-chosen `--session-id`, so the identity is
+identity and mode, provider, model, reasoning effort, session class, role,
+capability class, repository identity, protocol version, worker-slot ID, task ID,
+worker run ID, source commit, checkout identity, checkout timestamp, and prior
+completed assignment count. A checked-out session is invisible to every other
+assignment, sessions are created lazily, and the pool supports at least ten
+concurrent assignments. Claude accepts a pool-chosen `--session-id`, so the identity is
 known at checkout; Codex names its own thread, so a cold Codex lease carries no
 identity and adopts the one its transcript confirms.
 
-`check_in` requires a `DurableAssignmentResult` whose lease, task, worker run,
-role, provider, model, and provider-confirmed session identity all match the
-lease exactly, and whose deterministic changed-path validation accepted the
-work. A process exit code proves nothing. Anything else quarantines: missing or
-malformed session identity, transport failure, uncertain timeout, mismatched
-fields, a missing durable result, rejected changed paths, corrupt state, or an
-unknown protocol version. Quarantine and expiry only stop the pool selecting a
-session; they never delete provider history or credentials and never touch a
-running worker.
+`check_in` requires a `DurableAssignmentResult` and the crew run directory that
+proves it. Every identity must equal the lease -- pool schema, protocol, lease,
+session record, crew run, task, worker run, worker slot, session class, role,
+capability class, provider, model, reasoning effort, repository, source commit,
+checkout, and the provider-confirmed session -- and the compatibility it states
+must equal the pooled conversation's. The result names the exact persisted role
+artifact (`role_results/<role>_<attempt>.json`) and its SHA-256; the pool re-reads
+that file, rehashes it, and requires it to record the same role, the same agent
+status, and the same deterministic changed-path and semantic decisions the result
+claims. A process exit code, a caller assertion, or a bare session ID proves
+nothing. Anything else quarantines: missing or malformed session identity,
+transport failure, uncertain timeout, mismatched fields, a missing durable result,
+missing or tampered role evidence, rejected changed paths, rejected semantics,
+corrupt state, or an unknown protocol version. Quarantine, retirement, and expiry
+only stop the pool selecting a session; they never delete provider history or
+credentials and never touch a running worker.
+
+Session lifetime is the committed policy in
+`Pipeline/AgentRuntime/session_lifecycle.py`; the pool applies it and owns no
+second copy of those numbers. A worker session spends 48 weighted units
+(`low_cost` -> fast = 1, `standard` -> standard = 3, `high_reasoning` -> deep = 6),
+so a session retires after exactly 48 fast, 16 standard, or 8 deep completed
+assignments; an architect session retires after exactly 100 completed admission
+cycles. Waiting and idling through `SessionPool.observe` cost nothing.
+Incompatibility and identity failure retire immediately, two consecutive
+provider/output failures retire, a known context-window utilization of 70% or
+more retires, and three comparable latency samples at or above twice their
+baseline retire. Every one of those decisions is applied at an assignment
+boundary only: an active assignment is never interrupted, expired, stolen, or
+retired, and a conversation whose next assignment would overflow the budget
+retires at checkout instead of starting work it cannot finish.
 
 An idle session stays reusable for one hour after a successful check-in, a
 half-open window: reusable below 3600 seconds, expired at exactly 3600. Only
@@ -112,18 +138,37 @@ leases, and impossible state combinations. The future architect scheduler is the
 authoritative writer; nothing here mutates an Issue or makes a scheduling
 decision.
 
-`run_crew(..., role_session_leases=...)` gives each role's lease to that role's
-provider invocation. Every lease must name this exact task, worker run, role,
-provider, model, and reasoning effort, so a human-review retry or another task
-can never inherit a warm conversation. A reused session's first invocation is
-prefixed with `assignment_capsule`, which closes the previous assignment,
-revokes every authorization it carried, and restates the current role, task,
-source commit, checkout root, capabilities, allowed and denied write paths, and
-evidence obligations. A role's repair attempt continues that same conversation
-rather than opening a second one. No role is skipped because its session is
-warm, and `crew_result.json` gains `provider_sessions` receipts plus
-`reusable_role_sessions`. Supplying no pool arguments leaves every run exactly
-as it was.
+`run_crew(..., role_session_leases=..., scheduler_repository_identity=...)` gives
+each role's lease to that role's provider invocation. Pooled leases fail closed
+unless every identity this execution can prove independently matches: task,
+worker run, role, provider, routed model and reasoning effort, the exact captured
+source commit, the exact source checkout, the scheduler-proven repository, the
+capability class the role is actually invoked with, and the crew/session protocol
+version. The repository is read from the checkout's own configured origin and
+must equal both the scheduler-proven value and every lease, so neither the caller
+nor a lease can assert a repository the checkout does not confirm. The complete
+check runs before any provider work and again at the real invocation boundary,
+where the routed capability class first exists. A human-review retry, another
+task, another checkout, another repository, or a re-routed role can never inherit
+a warm conversation.
+
+A reused session's first invocation is prefixed with `assignment_capsule`, which
+closes the previous assignment, revokes every authorization it carried, and
+restates the current role, task, source commit, checkout root, capabilities,
+allowed and denied write paths, and evidence obligations. A role's repair attempt
+continues that same conversation rather than opening a second one, and no role is
+skipped because its session is warm.
+
+`crew_result.json` gains `provider_sessions` receipts, `pooled_role_leases`,
+`durable_assignment_results`, and `reusable_role_sessions`. A role publishes
+durable evidence only after it actually ran and its AgentRuntime result, semantic
+validation, and deterministic changed-path validation have all been decided, and
+only an outcome all three accepted appears in `reusable_role_sessions`. A role
+that was never invoked -- because the contract-locality audit stopped the run, or
+an earlier role failed -- appears in `pooled_role_leases` with `invoked: false`
+and no durable result, so its lease is returned deliberately rather than
+recycled on this run's silence. Supplying no pool arguments leaves every run
+exactly as it was.
 
 ## Exact approved new files
 
