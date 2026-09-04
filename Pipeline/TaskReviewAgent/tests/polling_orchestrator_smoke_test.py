@@ -522,6 +522,7 @@ def advisory(
     capability_tier: str = "standard",
     provider_preference: str = "no_preference",
     work_type: str = "implementation",
+    shared_systems: tuple[str, ...] = ("player HUD",),
 ) -> ArchitectAdvisory:
     return ArchitectAdvisory.from_dict(
         {
@@ -533,7 +534,7 @@ def advisory(
                 "path_patterns": [],
                 "unity_serialized_assets": list(unity_assets),
                 "symbols_or_components": ["PlayerHud"],
-                "shared_systems": ["player HUD"],
+                "shared_systems": list(shared_systems),
             },
             "integration_risk": risk,
             "parallel_recommendation": recommendation,
@@ -4360,6 +4361,128 @@ def test_worker_popen_uses_host_controller_boundary_and_shell_false() -> None:
         )
 
 
+NSC914_SCRIPT = "Assets/NoSafeCircle/DoorPrototype/Scripts/MuffcabbageGauntlet914.cs"
+
+
+def _fast_route_environment() -> dict[str, str]:
+    return {
+        "NSC_ROUTE_FAST_DEFAULT_PROVIDER": "claude",
+        "NSC_ROUTE_FAST_ALLOWED_PROVIDERS": "openai,claude",
+        "NSC_ROUTE_FAST_CLAUDE_MODEL": "claude-fast-route",
+        "NSC_ROUTE_FAST_OPENAI_MODEL": "openai-fast-route",
+        "NSC_ROUTE_FAST_SUPERVISOR_MODEL": "supervisor-fast-route",
+        "NSC_ROUTE_FAST_MAX_TURNS": "40",
+        "NSC_ROUTE_DEEP_DEFAULT_PROVIDER": "claude",
+        "NSC_ROUTE_DEEP_ALLOWED_PROVIDERS": "openai,claude",
+        "NSC_ROUTE_DEEP_CLAUDE_MODEL": "claude-deep-route",
+        "NSC_ROUTE_DEEP_OPENAI_MODEL": "openai-deep-route",
+        "NSC_ROUTE_DEEP_SUPERVISOR_MODEL": "supervisor-deep-route",
+        "NSC_ROUTE_DEEP_MAX_TURNS": "120",
+    }
+
+
+def _launch_event(stream: Any) -> dict[str, Any]:
+    events = [json.loads(line) for line in stream.getvalue().splitlines()]
+    return next(item for item in events if item["event"] == "worker_launched")
+
+
+def test_new_script_meta_companion_launches_the_lean_fast_profile() -> None:
+    """NSC-914 end to end: a new .cs.meta sidecar no longer forces deep/full.
+
+    The source fixture does not contain the script or its sidecar, so the
+    scheduler's committed-path probe proves the sidecar is new.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_A)]),
+            architect=FakeArchitect(
+                {
+                    TASK_A: advisory(
+                        TASK_A,
+                        head,
+                        capability_tier="fast",
+                        exact_paths=(NSC914_SCRIPT,),
+                        unity_assets=(NSC914_SCRIPT + ".meta",),
+                        shared_systems=(),
+                    )
+                }
+            ),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+            routing_policy=load_execution_routing_policy(_fast_route_environment()),
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_launched", str(result))
+        launched = _launch_event(stream)
+        expected = {
+            "architect_capability_tier": "fast",
+            "minimum_capability_tier": "fast",
+            "capability_tier": "fast",
+            "crew_profile": "lean",
+            "validation_profile": "targeted",
+            "human_verification_policy": "required",
+            "architect_recommendation_honored": True,
+            "rigor_override_reasons": [],
+            "execution_model": "claude-fast-route",
+            "supervisor_model": "supervisor-fast-route",
+            "max_turns": 40,
+        }
+        for field, value in expected.items():
+            require(launched.get(field) == value, f"{field}: {launched}")
+        command = processes.calls[0][0]
+        require(
+            command[command.index("--execution-model") + 1] == "claude-fast-route",
+            str(command),
+        )
+
+
+def test_scene_surface_still_launches_the_full_deep_profile() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        scene = "Assets/Scenes/Arena.unity"
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_A)]),
+            architect=FakeArchitect(
+                {
+                    TASK_A: advisory(
+                        TASK_A,
+                        head,
+                        capability_tier="fast",
+                        exact_paths=(scene,),
+                        unity_assets=(scene,),
+                        shared_systems=(),
+                    )
+                }
+            ),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+            routing_policy=load_execution_routing_policy(_fast_route_environment()),
+        )
+        require(orchestrator.poll_once().status == "worker_launched", "no launch")
+        launched = _launch_event(stream)
+        expected = {
+            "architect_capability_tier": "fast",
+            "capability_tier": "deep",
+            "crew_profile": "full",
+            "validation_profile": "full_relevant",
+            "human_verification_policy": "required",
+            "architect_recommendation_honored": False,
+            "execution_model": "claude-deep-route",
+        }
+        for field, value in expected.items():
+            require(launched.get(field) == value, f"{field}: {launched}")
+        require(
+            any(scene in reason for reason in launched["rigor_override_reasons"]),
+            str(launched["rigor_override_reasons"]),
+        )
+
+
 def test_worker_launch_records_and_carries_exact_resolved_route() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -5287,7 +5410,9 @@ def main() -> int:
         test_reservation_observation_failure_threshold_fails_closed,
         test_dry_run_never_invokes_models_or_workers,
         test_worker_popen_uses_host_controller_boundary_and_shell_false,
-        test_worker_launch_records_and_carries_exact_resolved_route,
+        test_new_script_meta_companion_launches_the_lean_fast_profile,
+    test_scene_surface_still_launches_the_full_deep_profile,
+    test_worker_launch_records_and_carries_exact_resolved_route,
         test_malformed_routing_policy_launches_nothing,
         test_ctrl_c_does_not_kill_children_or_release_leases,
         test_scheduler_source_has_no_issue_or_claim_mutation_calls,

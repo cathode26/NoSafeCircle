@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 
 CAPABILITY_TIERS = ("fast", "standard", "deep")
@@ -61,6 +61,13 @@ _FULL_RIGOR_SUFFIXES = {
     ".unity",
 }
 _FAST_SURFACE_SUFFIXES = {".cs", ".md", ".meta"}
+# A Unity `.meta` file is import metadata, not serialized content -- but only in
+# one exact shape. ExecutionCrew generates `<script>.cs.meta` for an approved new
+# C# file under `Assets/`, and that sidecar carries nothing but a schema version
+# and a deterministic GUID. Every other `.meta` stays substantive.
+_UNITY_ASSET_ROOT = "assets/"
+_SCRIPT_IMPORT_COMPANION_SUFFIX = ".cs.meta"
+_META_SUFFIX = ".meta"
 
 _TIER_DEFAULTS = {
     "fast": {"reasoning": "medium", "max_turns": 40},
@@ -83,6 +90,10 @@ class TaskRigorDecision:
     only preserve or raise that tier. They also select the executable crew,
     validation, and human-verification policies; free-form architect text can
     never name or waive one of these controls.
+
+    ``reasons`` is the complete narrative. ``override_reasons`` is the subset
+    that actually escalated beyond the lean default, so an operator can see at a
+    glance whether the architect was overruled and exactly why.
     """
 
     architect_capability_tier: str
@@ -92,6 +103,13 @@ class TaskRigorDecision:
     validation_profile: str
     human_verification_policy: str
     reasons: tuple[str, ...]
+    override_reasons: tuple[str, ...] = ()
+
+    @property
+    def architect_recommendation_honored(self) -> bool:
+        """Whether the effective tier is exactly the tier the architect asked for."""
+
+        return self.effective_capability_tier == self.architect_capability_tier
 
     def __post_init__(self) -> None:
         for field in (
@@ -111,6 +129,21 @@ class TaskRigorDecision:
             type(item) is not str or not item for item in self.reasons
         ):
             raise ExecutionRoutingError("rigor decision requires non-empty reasons")
+        if any(
+            type(item) is not str or not item for item in self.override_reasons
+        ):
+            raise ExecutionRoutingError("override reasons must be non-empty strings")
+        if not set(self.override_reasons).issubset(self.reasons):
+            raise ExecutionRoutingError(
+                "every override reason must also appear in the full reason list"
+            )
+        if bool(self.override_reasons) and self.architect_recommendation_honored and (
+            self.minimum_capability_tier == self.effective_capability_tier
+            and self.minimum_capability_tier == "fast"
+        ):
+            raise ExecutionRoutingError(
+                "a fast-floor decision cannot report deterministic overrides"
+            )
 
     def to_event_dict(self) -> dict[str, object]:
         return {
@@ -120,7 +153,9 @@ class TaskRigorDecision:
             "crew_profile": self.crew_profile,
             "validation_profile": self.validation_profile,
             "human_verification_policy": self.human_verification_policy,
+            "architect_recommendation_honored": self.architect_recommendation_honored,
             "rigor_reasons": list(self.reasons),
+            "rigor_override_reasons": list(self.override_reasons),
         }
 
 
@@ -131,6 +166,76 @@ def _surface_values(surface: object, field: str) -> tuple[str, ...]:
             f"predicted_change_surface.{field} must be an array"
         )
     return tuple(str(item) for item in value)
+
+
+def _normalized_surface_path(value: str) -> str:
+    """Return the comparison form used by every path rule in this policy."""
+
+    return str(value).replace("\\", "/").lstrip("./").casefold()
+
+
+def _already_committed(
+    probe: "Callable[[str], bool] | None",
+    path: str,
+) -> bool:
+    """Report whether the committed source already contains this exact path.
+
+    Without a probe, or when the probe cannot answer, the path is reported as
+    already committed. Newness must be proven; an unprovable sidecar therefore
+    keeps full rigor instead of silently qualifying for the lean exemption.
+    """
+
+    if probe is None:
+        return True
+    try:
+        return bool(probe(path))
+    except (OSError, RuntimeError, ValueError):
+        return True
+
+
+def _classify_serialized_surface(
+    serialized: tuple[str, ...],
+    exact_paths: tuple[str, ...],
+    probe: "Callable[[str], bool] | None",
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Split declared Unity serialized assets into import companions and content.
+
+    A path is a non-substantive import companion only when every one of these
+    holds: it is `<script>.cs.meta`, it lives under `Assets/`, its exact
+    `<script>.cs` is part of the same bounded change, and it does not already
+    exist in the committed source. That is precisely the sidecar ExecutionCrew
+    generates for one approved new C# file.
+
+    Everything else stays substantive and keeps the full profile: scenes,
+    prefabs, `.asset` files, a `.meta` for any other asset type, an orphaned
+    `.meta` whose script is not in the change, and an edit to an existing
+    sidecar -- rewriting one changes a GUID that other assets reference.
+    """
+
+    scripts = {
+        _normalized_surface_path(path)
+        for path in exact_paths
+        if _normalized_surface_path(path).endswith(".cs")
+    }
+    companions: list[str] = []
+    substantive: list[str] = []
+    for raw in serialized:
+        path = _normalized_surface_path(raw)
+        script = (
+            path[: -len(_META_SUFFIX)]
+            if path.endswith(_SCRIPT_IMPORT_COMPANION_SUFFIX)
+            else None
+        )
+        if (
+            script is not None
+            and path.startswith(_UNITY_ASSET_ROOT)
+            and script in scripts
+            and not _already_committed(probe, raw)
+        ):
+            companions.append(raw)
+        else:
+            substantive.append(raw)
+    return tuple(companions), tuple(substantive)
 
 
 def _resource_paths(task: Mapping[str, Any]) -> tuple[str, ...]:
@@ -149,8 +254,15 @@ def resolve_task_rigor(
     *,
     task: Mapping[str, Any],
     predicted_change_surface: object,
+    committed_path_probe: "Callable[[str], bool] | None" = None,
 ) -> TaskRigorDecision:
-    """Resolve architect judgment against deterministic minimum safeguards."""
+    """Resolve architect judgment against deterministic minimum safeguards.
+
+    ``committed_path_probe`` answers "does this exact path already exist in the
+    committed source". It is required only to prove that a `<script>.cs.meta`
+    sidecar is new; omitting it keeps the historical behavior of treating every
+    declared Unity serialized asset as substantive.
+    """
 
     if not isinstance(recommendation, ExecutionRecommendation):
         raise ExecutionRoutingError(
@@ -177,12 +289,14 @@ def resolve_task_rigor(
 
     minimum = "fast"
     reasons: list[str] = []
+    overrides: list[str] = []
 
     def raise_floor(tier: str, reason: str) -> None:
         nonlocal minimum
         if _TIER_RANK[tier] > _TIER_RANK[minimum]:
             minimum = tier
         reasons.append(reason)
+        overrides.append(reason)
 
     if task.get("execution_scope") != "single_agent" or task.get(
         "decomposition_state"
@@ -196,8 +310,21 @@ def resolve_task_rigor(
         raise_floor("standard", "path patterns require broader-than-exact review")
     if shared_systems:
         raise_floor("deep", "shared-system changes require the full profile")
-    if serialized:
-        raise_floor("deep", "Unity serialized assets require the full profile")
+    import_companions, substantive_serialized = _classify_serialized_surface(
+        serialized, exact_paths, committed_path_probe
+    )
+    if substantive_serialized:
+        raise_floor(
+            "deep",
+            "Unity serialized assets require the full profile: "
+            + ", ".join(sorted(substantive_serialized)),
+        )
+    elif import_companions:
+        # Not an escalation: recorded so the reduced profile is explainable.
+        reasons.append(
+            "deterministic new C# script import companions are not substantive "
+            "serialized content: " + ", ".join(sorted(import_companions))
+        )
 
     for raw_path in exact_paths:
         path = raw_path.replace("\\", "/").lstrip("./")
@@ -233,9 +360,11 @@ def resolve_task_rigor(
         else minimum
     )
     if _TIER_RANK[effective] > _TIER_RANK[requested]:
-        reasons.append(
+        raised = (
             f"deterministic policy raised architect tier {requested} to {effective}"
         )
+        reasons.append(raised)
+        overrides.append(raised)
     elif _TIER_RANK[requested] > _TIER_RANK[minimum]:
         reasons.append(
             f"architect selected {requested}, stronger than the {minimum} minimum"
@@ -246,9 +375,13 @@ def resolve_task_rigor(
         "standard": ("standard", "task_specific"),
         "deep": ("full", "full_relevant"),
     }[effective]
-    # The separate automated-evidence workflow is not yet authoritative. Until
-    # that transition exists and validates the committed test policy, routing
-    # must never turn synthetic provenance into a fabricated human PASS.
+    # Human verification stays REQUIRED for every task, including the lean
+    # C#-plus-new-sidecar class recognized above. The separate automated-evidence
+    # workflow is not yet authoritative, so routing must never turn synthetic
+    # provenance, a reduced crew, or a narrow change surface into a fabricated
+    # human PASS. Reducing the crew and validation profile changes how much
+    # machine work runs; it never changes who signs off. `machine_evidence_permitted`
+    # therefore remains unreachable until that workflow becomes authoritative.
     human_policy = "required"
     return TaskRigorDecision(
         architect_capability_tier=requested,
@@ -258,6 +391,7 @@ def resolve_task_rigor(
         validation_profile=validation_profile,
         human_verification_policy=human_policy,
         reasons=tuple(reasons),
+        override_reasons=tuple(dict.fromkeys(overrides)),
     )
 
 

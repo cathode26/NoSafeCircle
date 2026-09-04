@@ -571,6 +571,276 @@ def test_fast_synthetic_task_resolves_lean_but_keeps_human_verification() -> Non
     require(event["architect_capability_tier"] == "fast", str(event))
 
 
+# NSC-914 shape: one trivial C# constant plus the deterministic import sidecar
+# ExecutionCrew generates for it. The architect returned fast/low/no_preference.
+EXECUTION_ROUTING_SOURCE = ROOT / "Pipeline/TaskReviewAgent/execution_routing.py"
+NSC914_SCRIPT = "Assets/NoSafeCircle/DoorPrototype/Scripts/MuffcabbageGauntlet914.cs"
+NSC914_META = NSC914_SCRIPT + ".meta"
+
+
+def committed(*paths: str):
+    """Return a probe reporting exactly these paths as already committed."""
+
+    known = {path.replace("\\", "/").casefold() for path in paths}
+    return lambda path: path.replace("\\", "/").casefold() in known
+
+
+def test_new_script_meta_companion_keeps_the_architect_fast_profile() -> None:
+    """NSC-914: a deterministic new .cs.meta sidecar is import metadata.
+
+    The architect asked for fast/low. Only the sidecar stood between that and
+    the full profile, and a sidecar carries nothing but a schema version and a
+    generated GUID.
+    """
+
+    decision = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(synthetic=True), "exclusive_resources": []},
+        predicted_change_surface=surface(
+            NSC914_SCRIPT, serialized=(NSC914_META,)
+        ),
+        committed_path_probe=committed(),
+    )
+    require(decision.minimum_capability_tier == "fast", str(decision))
+    require(decision.effective_capability_tier == "fast", str(decision))
+    require(decision.crew_profile == "lean", str(decision))
+    require(decision.validation_profile == "targeted", str(decision))
+    require(decision.architect_recommendation_honored, str(decision))
+    require(decision.override_reasons == (), str(decision))
+    require(
+        any("import companions" in reason for reason in decision.reasons),
+        str(decision.reasons),
+    )
+    # The routed model/provider must come from the same effective tier.
+    route = resolve_execution_route(
+        recommendation("fast"),
+        load_execution_routing_policy(policy_environment()),
+        rigor=decision,
+    )
+    require(route.capability_tier == "fast", str(route))
+    require(route.execution_model == "claude-fast-policy", str(route))
+    require(route.supervisor_model == "supervisor-fast-policy", str(route))
+
+
+def test_substantive_unity_serialized_assets_still_force_the_full_profile() -> None:
+    for asset in (
+        "Assets/Scenes/Arena.unity",
+        "Assets/NoSafeCircle/Prefabs/Door.prefab",
+        "Assets/NoSafeCircle/Data/DoorTuning.asset",
+        "Assets/NoSafeCircle/Input/Player.inputactions",
+        # A .meta for anything other than a C# script stays substantive.
+        "Assets/NoSafeCircle/Prefabs/Door.prefab.meta",
+    ):
+        decision = resolve_task_rigor(
+            recommendation("fast"),
+            task={**rigor_task(synthetic=True), "exclusive_resources": []},
+            predicted_change_surface=surface(asset, serialized=(asset,)),
+            # Even a brand-new asset keeps the full profile.
+            committed_path_probe=committed(),
+        )
+        require(decision.minimum_capability_tier == "deep", f"{asset}: {decision}")
+        require(decision.crew_profile == "full", f"{asset}: {decision}")
+        require(decision.validation_profile == "full_relevant", f"{asset}: {decision}")
+        require(not decision.architect_recommendation_honored, f"{asset}: {decision}")
+        require(decision.override_reasons, f"{asset}: {decision}")
+
+
+def test_orphaned_or_existing_meta_never_receives_the_companion_exemption() -> None:
+    orphan = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(synthetic=True), "exclusive_resources": []},
+        # The sidecar's own script is not part of this change.
+        predicted_change_surface=surface(
+            "Assets/NoSafeCircle/Feature/Other.cs", serialized=(NSC914_META,)
+        ),
+        committed_path_probe=committed(),
+    )
+    require(orphan.effective_capability_tier == "deep", str(orphan))
+
+    existing = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(synthetic=True), "exclusive_resources": []},
+        predicted_change_surface=surface(
+            NSC914_SCRIPT, serialized=(NSC914_META,)
+        ),
+        # Rewriting an existing sidecar changes a GUID other assets reference.
+        committed_path_probe=committed(NSC914_SCRIPT, NSC914_META),
+        )
+    require(existing.effective_capability_tier == "deep", str(existing))
+
+    unprovable = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(synthetic=True), "exclusive_resources": []},
+        predicted_change_surface=surface(
+            NSC914_SCRIPT, serialized=(NSC914_META,)
+        ),
+        # No probe: newness is unproven, so the historical full profile stands.
+        )
+    require(unprovable.effective_capability_tier == "deep", str(unprovable))
+
+    def broken(path: str) -> bool:
+        raise OSError("git observation failed")
+
+    unanswerable = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(synthetic=True), "exclusive_resources": []},
+        predicted_change_surface=surface(
+            NSC914_SCRIPT, serialized=(NSC914_META,)
+        ),
+        committed_path_probe=broken,
+    )
+    require(unanswerable.effective_capability_tier == "deep", str(unanswerable))
+
+    outside = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(synthetic=True), "exclusive_resources": []},
+        # Import metadata only exists under Assets/.
+        predicted_change_surface=surface(
+            "Pipeline/Tools/Helper.cs", serialized=("Pipeline/Tools/Helper.cs.meta",)
+        ),
+        committed_path_probe=committed(),
+    )
+    require(outside.effective_capability_tier == "deep", str(outside))
+
+
+def test_broad_or_shared_script_and_meta_work_still_escalates() -> None:
+    """The exemption removes one signal; every other risk signal still applies."""
+
+    exempt_surface = {"serialized": (NSC914_META,)}
+    for label, task_value, changed_surface in (
+        (
+            "shared system",
+            {**rigor_task(synthetic=True), "exclusive_resources": []},
+            surface(NSC914_SCRIPT, shared=("DoorRuntime",), **exempt_surface),
+        ),
+        (
+            "path pattern",
+            {**rigor_task(synthetic=True), "exclusive_resources": []},
+            surface(NSC914_SCRIPT, patterns=("Assets/**/*.cs",), **exempt_surface),
+        ),
+        (
+            "decomposable work",
+            {
+                **rigor_task(synthetic=True, scope="needs_execution_decomposition"),
+                "exclusive_resources": [],
+            },
+            surface(NSC914_SCRIPT, **exempt_surface),
+        ),
+        (
+            "protected infrastructure",
+            {**rigor_task(synthetic=True), "exclusive_resources": []},
+            surface(
+                NSC914_SCRIPT,
+                "Pipeline/TaskReviewAgent/polling_orchestrator.py",
+                **exempt_surface,
+            ),
+        ),
+        (
+            "more than four exact paths",
+            {**rigor_task(synthetic=True), "exclusive_resources": []},
+            surface(
+                NSC914_SCRIPT,
+                "Assets/NoSafeCircle/Feature/A.cs",
+                "Assets/NoSafeCircle/Feature/B.cs",
+                "Assets/NoSafeCircle/Feature/C.cs",
+                "Assets/NoSafeCircle/Feature/D.cs",
+                **exempt_surface,
+            ),
+        ),
+    ):
+        decision = resolve_task_rigor(
+            recommendation("fast"),
+            task=task_value,
+            predicted_change_surface=changed_surface,
+            committed_path_probe=committed(),
+        )
+        require(
+            decision.effective_capability_tier != "fast",
+            f"{label} stayed fast: {decision}",
+        )
+        require(decision.override_reasons, f"{label}: {decision}")
+        require(
+            not decision.architect_recommendation_honored, f"{label}: {decision}"
+        )
+
+
+def test_rigor_event_reports_requested_effective_and_override_policy() -> None:
+    policy = load_execution_routing_policy(policy_environment())
+    honored = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(synthetic=True), "exclusive_resources": []},
+        predicted_change_surface=surface(NSC914_SCRIPT, serialized=(NSC914_META,)),
+        committed_path_probe=committed(),
+    )
+    event = resolve_execution_route(
+        recommendation("fast"), policy, rigor=honored
+    ).to_event_dict()
+    require(event["architect_capability_tier"] == "fast", str(event))
+    require(event["capability_tier"] == "fast", str(event))
+    require(event["minimum_capability_tier"] == "fast", str(event))
+    require(event["crew_profile"] == "lean", str(event))
+    require(event["validation_profile"] == "targeted", str(event))
+    require(event["architect_recommendation_honored"] is True, str(event))
+    require(event["rigor_override_reasons"] == [], str(event))
+    require(event["execution_model"] == "claude-fast-policy", str(event))
+
+    overruled = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(synthetic=True), "exclusive_resources": []},
+        predicted_change_surface=surface(
+            "Assets/Scenes/Arena.unity", serialized=("Assets/Scenes/Arena.unity",)
+        ),
+        committed_path_probe=committed(),
+    )
+    overruled_event = resolve_execution_route(
+        recommendation("fast"), policy, rigor=overruled
+    ).to_event_dict()
+    require(overruled_event["architect_capability_tier"] == "fast", str(overruled_event))
+    require(overruled_event["capability_tier"] == "deep", str(overruled_event))
+    require(overruled_event["crew_profile"] == "full", str(overruled_event))
+    require(
+        overruled_event["architect_recommendation_honored"] is False,
+        str(overruled_event),
+    )
+    overrides = overruled_event["rigor_override_reasons"]
+    require(
+        any("Arena.unity" in reason for reason in overrides), str(overrides)
+    )
+    require(
+        any("raised architect tier fast to deep" in reason for reason in overrides),
+        str(overrides),
+    )
+    require(
+        set(overrides).issubset(overruled_event["rigor_reasons"]), str(overruled_event)
+    )
+    require(overruled_event["execution_model"] == "claude-deep-policy", str(overruled_event))
+
+
+def test_human_verification_is_never_reduced_by_the_companion_exemption() -> None:
+    """The exemption changes how much machine work runs, never who signs off."""
+
+    for changed_surface, probe in (
+        (surface(NSC914_SCRIPT, serialized=(NSC914_META,)), committed()),
+        (surface(NSC914_SCRIPT, NSC914_META), committed()),
+        (surface("Assets/Scenes/Arena.unity", serialized=("Assets/Scenes/Arena.unity",)), committed()),
+    ):
+        decision = resolve_task_rigor(
+            recommendation("fast"),
+            task={**rigor_task(synthetic=True), "exclusive_resources": []},
+            predicted_change_surface=changed_surface,
+            committed_path_probe=probe,
+        )
+        require(
+            decision.human_verification_policy == "required", str(decision)
+        )
+    source = Path(EXECUTION_ROUTING_SOURCE).read_text(encoding="utf-8")
+    require(
+        'human_policy = "required"' in source
+        and 'human_policy = "machine_evidence_permitted"' not in source,
+        "routing must never select machine_evidence_permitted yet",
+    )
+
+
 def test_policy_raises_fast_serialized_and_infrastructure_work_to_deep() -> None:
     policy = load_execution_routing_policy(policy_environment())
     for changed_surface in (
@@ -812,6 +1082,12 @@ def main() -> int:
         test_unavailable_preference_uses_only_allowed_default_and_records_fallback,
         test_tier_strength_and_budget_are_policy_owned,
         test_fast_synthetic_task_resolves_lean_but_keeps_human_verification,
+        test_new_script_meta_companion_keeps_the_architect_fast_profile,
+        test_substantive_unity_serialized_assets_still_force_the_full_profile,
+        test_orphaned_or_existing_meta_never_receives_the_companion_exemption,
+        test_broad_or_shared_script_and_meta_work_still_escalates,
+        test_rigor_event_reports_requested_effective_and_override_policy,
+        test_human_verification_is_never_reduced_by_the_companion_exemption,
         test_policy_raises_fast_serialized_and_infrastructure_work_to_deep,
         test_policy_raises_unknown_or_broad_surface_and_never_lowers_architect,
         test_decomposition_and_shared_systems_always_require_full_profile,

@@ -554,6 +554,27 @@ def _run_git(
         ) from exc
 
 
+def committed_path_probe(source: Path, commit: str) -> Callable[[str], bool]:
+    """Return a bounded "does this exact path already exist at this commit" oracle.
+
+    The rigor policy uses it to tell a brand-new deterministic `<script>.cs.meta`
+    import sidecar apart from an edit to one that already exists. A change
+    surface names only a handful of paths, and each answer is cached, so this
+    stays a few `git cat-file` probes per admission.
+    """
+
+    cache: dict[str, bool] = {}
+
+    def probe(path: str) -> bool:
+        normalized = str(path).replace("\\", "/")
+        if normalized not in cache:
+            result = _run_git(source, "cat-file", "-e", f"{commit}:{normalized}")
+            cache[normalized] = result.returncode == 0
+        return cache[normalized]
+
+    return probe
+
+
 def _git_text(root: Path, *args: str) -> str:
     result = _run_git(root, *args)
     if result.returncode != 0:
@@ -3350,6 +3371,9 @@ class PollingOrchestrator:
                         advisory.execution_recommendation,
                         task=task,
                         predicted_change_surface=advisory.predicted_change_surface,
+                        committed_path_probe=committed_path_probe(
+                            self.source, plan.source_commit
+                        ),
                     )
                     route = resolve_execution_route(
                         advisory.execution_recommendation,

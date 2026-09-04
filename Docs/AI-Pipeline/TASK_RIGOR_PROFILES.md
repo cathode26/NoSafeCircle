@@ -45,6 +45,10 @@ Use the full profile when any of these apply:
   packages, project settings, Docker configuration, or agent instructions.
 - The work changes Unity serialized or project-wide assets such as `.unity`, `.prefab`,
   `.asset`, `.inputactions`, `.controller`, `.anim`, `.mat`, or `.asmdef` files.
+- The work changes any `.meta` file other than a brand-new deterministic C# script
+  companion (see below). An orphaned `.meta`, a `.meta` for a non-script asset, and an
+  edit to an existing `.meta` all keep the full profile, because rewriting a sidecar
+  changes a GUID other assets reference.
 - An explicit task contract, canon rule, or committed validation policy requires the full
   profile.
 - The architect reports high uncertainty or recommends `deep`.
@@ -77,6 +81,12 @@ The fast profile is available only when all of these are true:
 - The task is concrete and `single_agent`.
 - The complete expected surface is exact, isolated, no more than four paths, and limited to
   lean file types (`.cs`, `.md`, and deterministic `.meta` companions).
+- Every `.meta` in the surface is a deterministic C# script import companion: the path is
+  exactly `<script>.cs.meta`, it lives under `Assets/`, its exact `<script>.cs` is part of
+  the same change, and it does not already exist in the committed source. This is the
+  sidecar ExecutionCrew generates for one approved new C# file; it carries only a schema
+  version and a generated GUID. Newness must be proven -- when the committed source cannot
+  be probed, the sidecar is treated as substantive and the full profile applies.
 - There is no shared-system, serialized-asset, project/repository infrastructure, migration,
   security, or design/canon uncertainty.
 - Every explicit completion gate remains enforceable.
