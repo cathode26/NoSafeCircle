@@ -89,6 +89,7 @@ class WorkflowEventType(str, Enum):
     HUMAN_HANDOFF_CREATED = "human_handoff_created"
     HUMAN_VALIDATION_PASSED = "human_validation_passed"
     HUMAN_VALIDATION_FAILED = "human_validation_failed"
+    AUTOMATED_VALIDATION_PASSED = "automated_validation_passed"
     TASK_CONTRACT_MIGRATED = "task_contract_migrated"
     REPOSITORY_HISTORY_MIGRATED = "repository_history_migrated"
     BLOCKED = "blocked"
@@ -97,6 +98,60 @@ class WorkflowEventType(str, Enum):
     DECOMPOSITION_HANDOFF_CREATED = "decomposition_handoff_created"
     DECOMPOSITION_APPLICATION_APPROVED = "decomposition_application_approved"
     DECOMPOSITION_APPLICATION_REJECTED = "decomposition_application_rejected"
+
+
+AUTOMATED_VALIDATION_EVIDENCE_SCHEMA_VERSION = "1.0"
+AUTOMATED_VALIDATION_EVIDENCE_AUTHORITY = (
+    "committed_private_synthetic_gauntlet_validation_evidence"
+)
+AUTOMATED_VALIDATION_REPOSITORY = "cathode26/NoSafeCircle-Homework-Rehearsal"
+AUTOMATED_VALIDATION_GAUNTLET_ID = "synthetic-architect-gauntlet-v1"
+AUTOMATED_VALIDATION_POLICY_AUTHORITIES = frozenset(
+    {
+        "committed_private_synthetic_gauntlet_validation_policy",
+        "committed_private_synthetic_gauntlet_decomposition_child_policy",
+    }
+)
+
+_AUTOMATED_VALIDATION_DETAIL_KEYS = frozenset(
+    {
+        "schema_version",
+        "authority",
+        "repository",
+        "repository_private",
+        "gauntlet_id",
+        "task_id",
+        "handoff_event_id",
+        "branch",
+        "commit",
+        "tree",
+        "task_contract_sha256",
+        "validation_policy_authority",
+        "validation_policy_sha256",
+        "required_validations",
+        "unity_validations",
+    }
+)
+_REQUIRED_VALIDATION_KEYS = frozenset({"test_platform", "test_filter"})
+_UNITY_VALIDATION_KEYS = frozenset(
+    {
+        "test_platform",
+        "test_filter",
+        "manifest_sha256",
+        "xml_sha256",
+        "log_sha256",
+        "commit",
+        "tree",
+        "post_commit",
+        "post_tree",
+        "repository_clean_before",
+        "repository_clean_after",
+        "total",
+        "passed",
+        "failed",
+        "skipped",
+    }
+)
 
 
 class WorkflowContractError(TaskReviewContractError):
@@ -897,6 +952,13 @@ _ALLOWED_STATE_EVENT_TRANSITIONS: dict[
         WorkflowState.AGENT_READY,
         WorkflowActor.HUMAN,
     ),
+    (
+        WorkflowState.HUMAN_ACTION_REQUIRED,
+        WorkflowEventType.AUTOMATED_VALIDATION_PASSED,
+    ): (
+        WorkflowState.AGENT_READY,
+        WorkflowActor.AGENT,
+    ),
     (WorkflowState.AGENT_WORKING, WorkflowEventType.AGENT_LEASE_RELEASED): (
         WorkflowState.AGENT_READY,
         WorkflowActor.AGENT,
@@ -991,6 +1053,205 @@ def state_for_label(label: str) -> WorkflowState | None:
         if name == label:
             return WorkflowState(value)
     return None
+
+
+def _exact_object_keys(
+    value: Any,
+    *,
+    field: str,
+    expected: frozenset[str],
+) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise WorkflowContractError(f"{field} must be an object")
+    keys = tuple(value)
+    if any(type(key) is not str for key in keys):
+        raise WorkflowContractError(f"{field} keys must all be strings")
+    actual = set(keys)
+    if actual != expected:
+        raise WorkflowContractError(
+            f"{field} keys mismatch; missing={sorted(expected-actual)}, "
+            f"extras={sorted(actual-expected)}"
+        )
+    return value
+
+
+def _exact_text(value: Any, *, field: str) -> str:
+    if type(value) is not str or not value or value != value.strip():
+        raise WorkflowContractError(
+            f"{field} must be a non-empty string without surrounding whitespace"
+        )
+    return value
+
+
+def _validation_key(value: Any, *, field: str) -> tuple[str, str]:
+    item = _exact_object_keys(
+        value,
+        field=field,
+        expected=_REQUIRED_VALIDATION_KEYS,
+    )
+    platform = _exact_text(item.get("test_platform"), field=f"{field}.test_platform")
+    if platform not in {"EditMode", "PlayMode"}:
+        raise WorkflowContractError(
+            f"{field}.test_platform must be EditMode or PlayMode"
+        )
+    test_filter = _exact_text(
+        item.get("test_filter"),
+        field=f"{field}.test_filter",
+    )
+    return platform, test_filter
+
+
+def _validate_automated_validation_details(
+    state: IssueWorkflowState,
+    details: Mapping[str, Any],
+) -> None:
+    """Validate one exact, synthetic-gauntlet-only Unity evidence envelope.
+
+    This is intentionally a narrow mapping contract at the Issue-state boundary.
+    The future caller remains responsible for loading the committed policy and
+    Unity manifests before asking the store to append this authoritative event.
+    """
+
+    evidence = _exact_object_keys(
+        details,
+        field="automated validation evidence",
+        expected=_AUTOMATED_VALIDATION_DETAIL_KEYS,
+    )
+    exact_literals = {
+        "schema_version": AUTOMATED_VALIDATION_EVIDENCE_SCHEMA_VERSION,
+        "authority": AUTOMATED_VALIDATION_EVIDENCE_AUTHORITY,
+        "repository": AUTOMATED_VALIDATION_REPOSITORY,
+        "repository_private": True,
+        "gauntlet_id": AUTOMATED_VALIDATION_GAUNTLET_ID,
+    }
+    for key, expected in exact_literals.items():
+        if evidence.get(key) != expected or type(evidence.get(key)) is not type(expected):
+            raise WorkflowContractError(
+                f"automated validation evidence {key} must be exactly {expected!r}"
+            )
+
+    try:
+        task_id = validate_task_id(evidence.get("task_id"))
+    except TaskReviewContractError as exc:
+        raise WorkflowContractError(
+            "automated validation evidence task_id has an invalid identity"
+        ) from exc
+    if task_id != state.task_id:
+        raise WorkflowContractError(
+            "automated validation evidence task_id does not match Issue state"
+        )
+    handoff_event_id = _sha(
+        evidence.get("handoff_event_id"),
+        field="automated validation handoff_event_id",
+        sha256=True,
+    )
+    if handoff_event_id != state.last_event_id:
+        raise WorkflowContractError(
+            "automated validation evidence does not bind the current handoff event"
+        )
+    branch = _exact_text(
+        evidence.get("branch"), field="automated validation branch"
+    )
+    if branch != state.branch:
+        raise WorkflowContractError(
+            "automated validation evidence branch does not match Issue state"
+        )
+    commit = _sha(evidence.get("commit"), field="automated validation commit")
+    if commit != state.head_commit or commit != state.human_handoff_commit:
+        raise WorkflowContractError(
+            "automated validation evidence commit does not match the current handoff"
+        )
+    tree = _sha(evidence.get("tree"), field="automated validation tree")
+    contract_hash = _sha(
+        evidence.get("task_contract_sha256"),
+        field="automated validation task_contract_sha256",
+        sha256=True,
+    )
+    if contract_hash != state.task_contract_sha256:
+        raise WorkflowContractError(
+            "automated validation evidence task contract does not match Issue state"
+        )
+    policy_authority = _exact_text(
+        evidence.get("validation_policy_authority"),
+        field="automated validation policy authority",
+    )
+    if policy_authority not in AUTOMATED_VALIDATION_POLICY_AUTHORITIES:
+        raise WorkflowContractError(
+            "automated validation policy authority is not an approved synthetic policy"
+        )
+    _sha(
+        evidence.get("validation_policy_sha256"),
+        field="automated validation policy_sha256",
+        sha256=True,
+    )
+
+    required_raw = evidence.get("required_validations")
+    if type(required_raw) is not list or not required_raw:
+        raise WorkflowContractError(
+            "automated validation required_validations must be a non-empty list"
+        )
+    required = [
+        _validation_key(item, field=f"required_validations[{index}]")
+        for index, item in enumerate(required_raw)
+    ]
+    if required != sorted(set(required)):
+        raise WorkflowContractError(
+            "automated validation required_validations must be sorted and unique"
+        )
+
+    unity_raw = evidence.get("unity_validations")
+    if type(unity_raw) is not list or len(unity_raw) != len(required):
+        raise WorkflowContractError(
+            "automated validation unity_validations must exactly cover required_validations"
+        )
+    observed: list[tuple[str, str]] = []
+    for index, raw in enumerate(unity_raw):
+        field = f"unity_validations[{index}]"
+        item = _exact_object_keys(raw, field=field, expected=_UNITY_VALIDATION_KEYS)
+        key = _validation_key(
+            {name: item.get(name) for name in _REQUIRED_VALIDATION_KEYS},
+            field=field,
+        )
+        observed.append(key)
+        for name in ("manifest_sha256", "xml_sha256", "log_sha256"):
+            _sha(item.get(name), field=f"{field}.{name}", sha256=True)
+        for name, expected in (
+            ("commit", commit),
+            ("tree", tree),
+            ("post_commit", commit),
+            ("post_tree", tree),
+        ):
+            identity = _sha(item.get(name), field=f"{field}.{name}")
+            if identity != expected:
+                raise WorkflowContractError(
+                    f"{field}.{name} does not match the validated handoff identity"
+                )
+        for name in ("repository_clean_before", "repository_clean_after"):
+            if item.get(name) is not True:
+                raise WorkflowContractError(f"{field}.{name} must be exactly true")
+        counts: dict[str, int] = {}
+        for name in ("total", "passed", "failed", "skipped"):
+            value = item.get(name)
+            if type(value) is not int or value < 0:
+                raise WorkflowContractError(
+                    f"{field}.{name} must be a non-negative integer"
+                )
+            counts[name] = value
+        if counts["passed"] <= 0 or counts["failed"] != 0:
+            raise WorkflowContractError(
+                f"{field} must record one or more passing tests and zero failures"
+            )
+        if counts["total"] != (
+            counts["passed"] + counts["failed"] + counts["skipped"]
+        ):
+            raise WorkflowContractError(
+                f"{field}.total must equal passed + failed + skipped"
+            )
+    if observed != required:
+        raise WorkflowContractError(
+            "automated validation Unity platform/filter evidence does not exactly match "
+            "required_validations"
+        )
 
 
 def _validate_transition(
@@ -1100,6 +1361,20 @@ def _validate_transition(
         )
         if to_phase is not expected_phase:
             raise WorkflowContractError("human result selected the wrong next phase")
+    if event_type is WorkflowEventType.AUTOMATED_VALIDATION_PASSED:
+        if state.phase is not WorkflowPhase.UNITY_RUNTIME_VALIDATION:
+            raise WorkflowContractError(
+                "automated validation requires unity_runtime_validation phase"
+            )
+        if to_phase is not WorkflowPhase.DELIVERY_EVIDENCE:
+            raise WorkflowContractError(
+                "automated validation must enter delivery_evidence"
+            )
+        if state.human_result is not None:
+            raise WorkflowContractError(
+                "automated validation cannot replace an existing human result"
+            )
+        _validate_automated_validation_details(state, details)
     if event_type in (
         WorkflowEventType.DECOMPOSITION_APPLICATION_APPROVED,
         WorkflowEventType.DECOMPOSITION_APPLICATION_REJECTED,
@@ -1309,6 +1584,41 @@ def validate_event_chain(
                 )
             expected_history_head = parsed["new_head_commit"]
             expected_history_handoff = parsed["new_human_handoff_commit"]
+        if event.event_type is WorkflowEventType.AUTOMATED_VALIDATION_PASSED:
+            if (
+                previous is None
+                or previous.event_type is not WorkflowEventType.HUMAN_HANDOFF_CREATED
+            ):
+                raise WorkflowContractError(
+                    "automated validation must immediately follow its human handoff event"
+                )
+            handoff_head = _sha(
+                previous.details.get("head_commit"),
+                field="automated validation preceding handoff head_commit",
+            )
+            prior_state = IssueWorkflowState(
+                task_id=event.task_id,
+                state=event.from_state,
+                phase=event.from_phase,
+                current_actor=WorkflowActor.HUMAN,
+                task_contract_sha256=event.task_contract_sha256,
+                state_version=event.sequence - 1,
+                last_event_id=previous.event_id,
+                branch=previous.details.get("branch"),
+                head_commit=handoff_head,
+                checkout_path=previous.details.get("checkout_path"),
+                human_handoff_commit=handoff_head,
+                human_result=None,
+                updated_at_utc=previous.occurred_at_utc,
+            )
+            _validate_transition(
+                prior_state,
+                event.event_type,
+                event.actor_type,
+                event.to_state,
+                event.to_phase,
+                event.details,
+            )
         previous = event
     if expected_contract_sha256 != state.task_contract_sha256:
         raise WorkflowContractError("Issue state does not use the final migrated contract hash")

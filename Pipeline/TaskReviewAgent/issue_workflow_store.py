@@ -2389,6 +2389,109 @@ class IssueWorkflowService:
         )
         return {"status": "agent_ready", **verified.to_dict()}
 
+    def apply_automated_validation(
+        self,
+        *,
+        task_id: str,
+        evidence: Mapping[str, Any],
+        actor_id: str,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        """Append one authoritative private-gauntlet validation transition.
+
+        The evidence contract is deliberately enforced by ``transition()`` so
+        direct state-machine callers and persisted-store callers cannot drift.
+        This method owns only the verified Issue mutation; its future caller
+        must first load and validate the committed policy and Unity artifacts.
+        """
+
+        snapshot = self.find(task_id)
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "automated validation requires a valid managed Issue"
+            )
+        state = snapshot.state
+        if (
+            state.state is not WorkflowState.HUMAN_ACTION_REQUIRED
+            or state.phase is not WorkflowPhase.UNITY_RUNTIME_VALIDATION
+        ):
+            raise IssueWorkflowStoreError(
+                "automated validation requires "
+                "human_action_required/unity_runtime_validation, found "
+                f"{state.state.value}/{state.phase.value}"
+            )
+        if type(actor_id) is not str:
+            raise IssueWorkflowStoreError(
+                "automated validation actor_id must be an exact non-empty identity"
+            )
+        normalized_actor = actor_id.strip()
+        if not normalized_actor or normalized_actor != actor_id:
+            raise IssueWorkflowStoreError(
+                "automated validation actor_id must be an exact non-empty identity"
+            )
+        if normalized_actor != self.worker_id:
+            raise IssueWorkflowStoreError(
+                "automated validation actor_id must match the authenticated service worker"
+            )
+        try:
+            next_state, event = transition(
+                state,
+                event_type=WorkflowEventType.AUTOMATED_VALIDATION_PASSED,
+                actor_type=WorkflowActor.AGENT,
+                actor_id=normalized_actor,
+                to_state=WorkflowState.AGENT_READY,
+                to_phase=WorkflowPhase.DELIVERY_EVIDENCE,
+                details=evidence,
+                now=now or utc_now(),
+            )
+        except WorkflowContractError as exc:
+            raise IssueWorkflowStoreError(
+                f"automated validation evidence is invalid: {exc}"
+            ) from exc
+        if next_state.human_result is not None:
+            raise IssueWorkflowStoreError(
+                "automated validation must not synthesize a human result"
+            )
+        self.backend.add_comment(
+            snapshot.issue_number,
+            render_event_comment(
+                event,
+                (
+                    "Authoritative automated Unity validation passed for the exact "
+                    f"synthetic task handoff commit `{state.human_handoff_commit}`. "
+                    "No human validation result was recorded. The next agent phase is "
+                    "`delivery_evidence`."
+                ),
+            ),
+        )
+        self.backend.update_issue(
+            snapshot.issue_number,
+            body=update_issue_body(
+                snapshot.body,
+                next_state,
+                next_action=(
+                    "A generic agent should resume this synthetic Issue from the exact "
+                    "validated branch and commit and continue delivery evidence."
+                ),
+            ),
+            labels=labels_for_state(next_state.state, snapshot.labels),
+            assignees=[self.assignee],
+        )
+        verified = self.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="automated validation",
+        )
+        if verified.state is None or verified.state.human_result is not None:
+            raise IssueWorkflowStoreError(
+                "automated validation post-verification found a human result"
+            )
+        return {
+            "status": "agent_ready",
+            "automated_validation_event_id": event.event_id,
+            **verified.to_dict(),
+        }
+
     def resource_conflicts(
         self,
         task: Mapping[str, Any],
