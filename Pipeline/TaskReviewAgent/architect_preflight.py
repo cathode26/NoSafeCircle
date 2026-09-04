@@ -878,6 +878,12 @@ Execution capability recommendation (advisory only):
   reasoning; and `deep` for cross-system architecture, refactors,
   decomposition-adjacent work, or high uncertainty. These are judgment heuristics, not
   deterministic eligibility rules.
+- The tier also recommends a rigor profile: `fast` may use a lean implementation crew
+  and exact targeted tests; `standard` uses the normal independent crew and task-specific
+  validation; `deep` uses the full crew and the broadest relevant validation. Deterministic
+  repository policy may only raise your recommendation. Explicit completion gates are
+  always mandatory. Human verification may be omitted only when committed policy, not
+  your prose, explicitly permits exact machine evidence for the effective tier and surface.
 - Consider task size and scope, architectural uncertainty, the number and sharedness of
   systems, Unity serialized-asset risk, subsystem familiarity, the strength of existing
   patterns and tests, and expected rework cost.

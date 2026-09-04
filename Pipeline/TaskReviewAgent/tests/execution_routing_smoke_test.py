@@ -35,6 +35,7 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     ExecutionRoutingError,
     load_execution_routing_policy,
     resolve_execution_route,
+    resolve_task_rigor,
 )
 from Pipeline.TaskReviewAgent.execution_bridge import ExecutionCrewBridge  # noqa: E402
 from Pipeline.TaskReviewAgent.polling_orchestrator import (  # noqa: E402
@@ -81,6 +82,40 @@ def policy_environment() -> dict[str, str]:
         environment[f"{prefix}_OPENAI_MODEL"] = f"openai-{tier}-policy"
         environment[f"{prefix}_SUPERVISOR_MODEL"] = f"supervisor-{tier}-policy"
     return environment
+
+
+def rigor_task(*, synthetic: bool = False, scope: str = "single_agent") -> dict[str, object]:
+    value: dict[str, object] = {
+        "execution_scope": scope,
+        "decomposition_state": "concrete",
+        "exclusive_resources": [
+            "repo-file:Assets/NoSafeCircle/Feature/FastValue.cs",
+            "repo-file:Assets/NoSafeCircle/Feature/FastValue.cs.meta",
+        ],
+        "completion_gates": [{"gate_id": "VAL-001"}],
+    }
+    if synthetic:
+        value["provenance"] = {
+            "origin": "human_approved_synthetic_gauntlet",
+            "gauntlet_id": "synthetic-architect-gauntlet-v1",
+        }
+    return value
+
+
+def surface(
+    *paths: str,
+    patterns: tuple[str, ...] = (),
+    serialized: tuple[str, ...] = (),
+    symbols: tuple[str, ...] = (),
+    shared: tuple[str, ...] = (),
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        exact_paths=paths,
+        path_patterns=patterns,
+        unity_serialized_assets=serialized,
+        symbols_or_components=symbols,
+        shared_systems=shared,
+    )
 
 
 def test_recommendation_parses_all_tiers_strictly() -> None:
@@ -460,6 +495,98 @@ def test_resumed_worker_exception_keeps_admitted_issue_in_pipeline_result() -> N
             setattr(run_pipeline_agent, name, value)
 
 
+def test_fast_synthetic_task_resolves_lean_but_keeps_human_verification() -> None:
+    decision = resolve_task_rigor(
+        recommendation("fast"),
+        task=rigor_task(synthetic=True),
+        predicted_change_surface=surface(
+            "Assets/NoSafeCircle/Feature/FastValue.cs",
+            "Assets/NoSafeCircle/Feature/FastValue.cs.meta",
+        ),
+    )
+    require(decision.minimum_capability_tier == "fast", str(decision))
+    require(decision.effective_capability_tier == "fast", str(decision))
+    require(decision.crew_profile == "lean", str(decision))
+    require(decision.validation_profile == "targeted", str(decision))
+    require(
+        decision.human_verification_policy == "required",
+        str(decision),
+    )
+    route = resolve_execution_route(
+        recommendation("fast"),
+        load_execution_routing_policy(policy_environment()),
+        rigor=decision,
+    )
+    event = route.to_event_dict()
+    require(event["crew_profile"] == "lean", str(event))
+    require(event["architect_capability_tier"] == "fast", str(event))
+
+
+def test_policy_raises_fast_serialized_and_infrastructure_work_to_deep() -> None:
+    policy = load_execution_routing_policy(policy_environment())
+    for changed_surface in (
+        surface(
+            "Assets/Scenes/Arena.unity",
+            serialized=("Assets/Scenes/Arena.unity",),
+        ),
+        surface("Pipeline/TaskReviewAgent/polling_orchestrator.py"),
+    ):
+        decision = resolve_task_rigor(
+            recommendation("fast"),
+            task=rigor_task(synthetic=True),
+            predicted_change_surface=changed_surface,
+        )
+        route = resolve_execution_route(
+            recommendation("fast"), policy, rigor=decision
+        )
+        require(decision.minimum_capability_tier == "deep", str(decision))
+        require(route.capability_tier == "deep", str(route))
+        require(
+            route.rigor is not None and route.rigor.crew_profile == "full",
+            str(route),
+        )
+        require(
+            route.rigor.human_verification_policy == "required", str(route)
+        )
+
+
+def test_policy_raises_unknown_or_broad_surface_and_never_lowers_architect() -> None:
+    broad = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(), "exclusive_resources": []},
+        predicted_change_surface=surface(patterns=("Assets/**/*.cs",)),
+    )
+    require(broad.minimum_capability_tier == "standard", str(broad))
+    require(broad.effective_capability_tier == "standard", str(broad))
+    require(broad.human_verification_policy == "required", str(broad))
+
+    conservative = resolve_task_rigor(
+        recommendation("deep"),
+        task=rigor_task(),
+        predicted_change_surface=surface(
+            "Assets/NoSafeCircle/Feature/FastValue.cs"
+        ),
+    )
+    require(conservative.minimum_capability_tier == "fast", str(conservative))
+    require(conservative.effective_capability_tier == "deep", str(conservative))
+    require(conservative.crew_profile == "full", str(conservative))
+
+
+def test_decomposition_and_shared_systems_always_require_full_profile() -> None:
+    for task, changed_surface in (
+        (rigor_task(scope="needs_execution_decomposition"), surface("Assets/A.cs")),
+        (rigor_task(), surface("Assets/A.cs", shared=("DoorRuntime",))),
+    ):
+        decision = resolve_task_rigor(
+            recommendation("fast"),
+            task=task,
+            predicted_change_surface=changed_surface,
+        )
+        require(decision.effective_capability_tier == "deep", str(decision))
+        require(decision.validation_profile == "full_relevant", str(decision))
+        require(decision.human_verification_policy == "required", str(decision))
+
+
 def test_worker_entrypoint_propagates_routed_values_without_changing_defaults() -> None:
     captured_controller: dict[str, object] = {}
     captured_supervisor: dict[str, object] = {}
@@ -634,6 +761,10 @@ def main() -> int:
         test_provider_preferences_resolve_deterministically,
         test_unavailable_preference_uses_only_allowed_default_and_records_fallback,
         test_tier_strength_and_budget_are_policy_owned,
+        test_fast_synthetic_task_resolves_lean_but_keeps_human_verification,
+        test_policy_raises_fast_serialized_and_infrastructure_work_to_deep,
+        test_policy_raises_unknown_or_broad_surface_and_never_lowers_architect,
+        test_decomposition_and_shared_systems_always_require_full_profile,
         test_architect_text_cannot_supply_a_model_identifier,
         test_malformed_policy_fails_closed,
         test_host_launcher_turn_range_matches_routing_contract,

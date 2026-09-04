@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Mapping
+from pathlib import PurePosixPath
+from typing import Any, Mapping
 
 
 CAPABILITY_TIERS = ("fast", "standard", "deep")
@@ -30,6 +31,37 @@ MAX_MODEL_IDENTIFIER_CHARACTERS = 200
 MIN_SUPERVISOR_TURNS = 4
 MAX_SUPERVISOR_TURNS = 160
 
+CREW_PROFILES = ("lean", "standard", "full")
+VALIDATION_PROFILES = ("targeted", "task_specific", "full_relevant")
+HUMAN_VERIFICATION_POLICIES = ("required", "machine_evidence_permitted")
+
+_TIER_RANK = {"fast": 0, "standard": 1, "deep": 2}
+_FULL_RIGOR_ROOTS = (
+    ".github/",
+    "packages/",
+    "pipeline/",
+    "projectsettings/",
+)
+_FULL_RIGOR_NAMES = {
+    "agents.md",
+    "compose.yaml",
+    "dockerfile",
+}
+_FULL_RIGOR_SUFFIXES = {
+    ".anim",
+    ".asmdef",
+    ".asset",
+    ".controller",
+    ".inputactions",
+    ".mat",
+    ".physicsmaterial2d",
+    ".playable",
+    ".prefab",
+    ".rendertexture",
+    ".unity",
+}
+_FAST_SURFACE_SUFFIXES = {".cs", ".md", ".meta"}
+
 _TIER_DEFAULTS = {
     "fast": {"reasoning": "medium", "max_turns": 40},
     "standard": {"reasoning": "high", "max_turns": 80},
@@ -41,6 +73,192 @@ _DEFAULT_OPENAI_MODEL = "gpt-5.6-sol"
 
 class ExecutionRoutingError(ValueError):
     """A recommendation or deterministic routing policy is unusable."""
+
+
+@dataclass(frozen=True)
+class TaskRigorDecision:
+    """Policy-owned minimum rigor applied to one architect recommendation.
+
+    The architect chooses a requested capability tier. Repository facts may
+    only preserve or raise that tier. They also select the executable crew,
+    validation, and human-verification policies; free-form architect text can
+    never name or waive one of these controls.
+    """
+
+    architect_capability_tier: str
+    minimum_capability_tier: str
+    effective_capability_tier: str
+    crew_profile: str
+    validation_profile: str
+    human_verification_policy: str
+    reasons: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        for field in (
+            "architect_capability_tier",
+            "minimum_capability_tier",
+            "effective_capability_tier",
+        ):
+            if getattr(self, field) not in CAPABILITY_TIERS:
+                raise ExecutionRoutingError(f"{field} must be a capability tier")
+        if self.crew_profile not in CREW_PROFILES:
+            raise ExecutionRoutingError("crew_profile is unsupported")
+        if self.validation_profile not in VALIDATION_PROFILES:
+            raise ExecutionRoutingError("validation_profile is unsupported")
+        if self.human_verification_policy not in HUMAN_VERIFICATION_POLICIES:
+            raise ExecutionRoutingError("human_verification_policy is unsupported")
+        if not self.reasons or any(
+            type(item) is not str or not item for item in self.reasons
+        ):
+            raise ExecutionRoutingError("rigor decision requires non-empty reasons")
+
+    def to_event_dict(self) -> dict[str, object]:
+        return {
+            "architect_capability_tier": self.architect_capability_tier,
+            "minimum_capability_tier": self.minimum_capability_tier,
+            "capability_tier": self.effective_capability_tier,
+            "crew_profile": self.crew_profile,
+            "validation_profile": self.validation_profile,
+            "human_verification_policy": self.human_verification_policy,
+            "rigor_reasons": list(self.reasons),
+        }
+
+
+def _surface_values(surface: object, field: str) -> tuple[str, ...]:
+    value = getattr(surface, field, ())
+    if not isinstance(value, (list, tuple)):
+        raise ExecutionRoutingError(
+            f"predicted_change_surface.{field} must be an array"
+        )
+    return tuple(str(item) for item in value)
+
+
+def _resource_paths(task: Mapping[str, Any]) -> tuple[str, ...]:
+    resources = task.get("exclusive_resources") or ()
+    if not isinstance(resources, (list, tuple)):
+        raise ExecutionRoutingError("task exclusive_resources must be an array")
+    return tuple(
+        item[len("repo-file:") :]
+        for item in resources
+        if type(item) is str and item.startswith("repo-file:")
+    )
+
+
+def resolve_task_rigor(
+    recommendation: "ExecutionRecommendation",
+    *,
+    task: Mapping[str, Any],
+    predicted_change_surface: object,
+) -> TaskRigorDecision:
+    """Resolve architect judgment against deterministic minimum safeguards."""
+
+    if not isinstance(recommendation, ExecutionRecommendation):
+        raise ExecutionRoutingError(
+            "recommendation must be an ExecutionRecommendation"
+        )
+    if not isinstance(task, Mapping):
+        raise ExecutionRoutingError("task must be an object")
+
+    exact_paths = tuple(
+        dict.fromkeys(
+            (
+                *_surface_values(predicted_change_surface, "exact_paths"),
+                *_surface_values(predicted_change_surface, "unity_serialized_assets"),
+                *_resource_paths(task),
+            )
+        )
+    )
+    patterns = _surface_values(predicted_change_surface, "path_patterns")
+    serialized = _surface_values(
+        predicted_change_surface, "unity_serialized_assets"
+    )
+    shared_systems = _surface_values(predicted_change_surface, "shared_systems")
+    _surface_values(predicted_change_surface, "symbols_or_components")
+
+    minimum = "fast"
+    reasons: list[str] = []
+
+    def raise_floor(tier: str, reason: str) -> None:
+        nonlocal minimum
+        if _TIER_RANK[tier] > _TIER_RANK[minimum]:
+            minimum = tier
+        reasons.append(reason)
+
+    if task.get("execution_scope") != "single_agent" or task.get(
+        "decomposition_state"
+    ) != "concrete":
+        raise_floor(
+            "deep", "non-concrete or decomposable work requires the full profile"
+        )
+    if not exact_paths:
+        raise_floor("standard", "no exact repository path surface was established")
+    if patterns:
+        raise_floor("standard", "path patterns require broader-than-exact review")
+    if shared_systems:
+        raise_floor("deep", "shared-system changes require the full profile")
+    if serialized:
+        raise_floor("deep", "Unity serialized assets require the full profile")
+
+    for raw_path in exact_paths:
+        path = raw_path.replace("\\", "/").lstrip("./")
+        folded = path.casefold()
+        name = PurePosixPath(path).name.casefold()
+        suffix = PurePosixPath(path).suffix.casefold()
+        if folded.startswith(_FULL_RIGOR_ROOTS) or name in _FULL_RIGOR_NAMES:
+            raise_floor("deep", f"protected infrastructure surface: {path}")
+        if suffix in _FULL_RIGOR_SUFFIXES:
+            raise_floor("deep", f"serialized or project-wide asset surface: {path}")
+
+    if minimum == "fast":
+        if len(exact_paths) > 4:
+            raise_floor(
+                "standard", "more than four exact paths exceed the lean-change bound"
+            )
+        elif any(
+            PurePosixPath(path.replace("\\", "/")).suffix.casefold()
+            not in _FAST_SURFACE_SUFFIXES
+            for path in exact_paths
+        ):
+            raise_floor(
+                "standard", "the exact surface contains a non-lean file type"
+            )
+
+    if not reasons:
+        reasons.append("exact isolated surface satisfies the lean-profile policy")
+
+    requested = recommendation.capability_tier
+    effective = (
+        requested
+        if _TIER_RANK[requested] >= _TIER_RANK[minimum]
+        else minimum
+    )
+    if _TIER_RANK[effective] > _TIER_RANK[requested]:
+        reasons.append(
+            f"deterministic policy raised architect tier {requested} to {effective}"
+        )
+    elif _TIER_RANK[requested] > _TIER_RANK[minimum]:
+        reasons.append(
+            f"architect selected {requested}, stronger than the {minimum} minimum"
+        )
+
+    crew_profile, validation_profile = {
+        "fast": ("lean", "targeted"),
+        "standard": ("standard", "task_specific"),
+        "deep": ("full", "full_relevant"),
+    }[effective]
+    # The separate automated-evidence workflow is not yet authoritative. Until
+    # that transition exists and validates the committed test policy, routing
+    # must never turn synthetic provenance into a fabricated human PASS.
+    human_policy = "required"
+    return TaskRigorDecision(
+        architect_capability_tier=requested,
+        minimum_capability_tier=minimum,
+        effective_capability_tier=effective,
+        crew_profile=crew_profile,
+        validation_profile=validation_profile,
+        human_verification_policy=human_policy,
+        reasons=tuple(reasons),
+    )
 
 
 def _bounded_text(value: object, *, field: str, maximum: int) -> str:
@@ -209,9 +427,10 @@ class ResolvedExecutionRoute:
     supervisor_reasoning_effort: str
     max_supervisor_turns: int
     route_reason: str
+    rigor: TaskRigorDecision | None = None
 
     def to_event_dict(self) -> dict[str, object]:
-        return {
+        value = {
             "capability_tier": self.capability_tier,
             "provider_preference": self.provider_preference,
             "preference_honored": self.preference_honored,
@@ -223,11 +442,16 @@ class ResolvedExecutionRoute:
             "max_turns": self.max_supervisor_turns,
             "route_reason": self.route_reason,
         }
+        if self.rigor is not None:
+            value.update(self.rigor.to_event_dict())
+        return value
 
 
 def resolve_execution_route(
     recommendation: ExecutionRecommendation,
     policy: ExecutionRoutingPolicy,
+    *,
+    rigor: TaskRigorDecision | None = None,
 ) -> ResolvedExecutionRoute:
     if not isinstance(recommendation, ExecutionRecommendation):
         raise ExecutionRoutingError(
@@ -235,7 +459,19 @@ def resolve_execution_route(
         )
     if not isinstance(policy, ExecutionRoutingPolicy):
         raise ExecutionRoutingError("policy must be an ExecutionRoutingPolicy")
-    tier = policy.for_tier(recommendation.capability_tier)
+    capability_tier = (
+        rigor.effective_capability_tier
+        if rigor is not None
+        else recommendation.capability_tier
+    )
+    if (
+        rigor is not None
+        and rigor.architect_capability_tier != recommendation.capability_tier
+    ):
+        raise ExecutionRoutingError(
+            "rigor decision does not match the architect recommendation"
+        )
+    tier = policy.for_tier(capability_tier)
     if recommendation.provider_preference == "no_preference":
         provider = tier.default_execution_provider
         preference_honored = True
@@ -257,7 +493,7 @@ def resolve_execution_route(
             "resolved execution provider is not allowed by the tier policy"
         )
     return ResolvedExecutionRoute(
-        capability_tier=recommendation.capability_tier,
+        capability_tier=capability_tier,
         provider_preference=recommendation.provider_preference,
         preference_honored=preference_honored,
         execution_provider=provider,
@@ -271,6 +507,7 @@ def resolve_execution_route(
         supervisor_reasoning_effort=tier.supervisor_reasoning_effort,
         max_supervisor_turns=tier.max_supervisor_turns,
         route_reason=reason,
+        rigor=rigor,
     )
 
 
@@ -407,11 +644,14 @@ __all__ = [
     "ExecutionRecommendation",
     "ExecutionRoutingError",
     "ExecutionRoutingPolicy",
+    "HUMAN_VERIFICATION_POLICIES",
     "MAX_RECOMMENDATION_RATIONALE_CHARACTERS",
     "OPENAI_REASONING_EFFORTS",
     "PROVIDER_PREFERENCES",
     "ResolvedExecutionRoute",
+    "TaskRigorDecision",
     "TierExecutionRoutingPolicy",
     "load_execution_routing_policy",
     "resolve_execution_route",
+    "resolve_task_rigor",
 ]
