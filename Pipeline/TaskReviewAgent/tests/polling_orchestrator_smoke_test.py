@@ -32,6 +32,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import Pipeline.TaskReviewAgent.polling_orchestrator as scheduler_module  # noqa: E402
+import Pipeline.TaskReviewAgent.decomposition_policy_audit as decomposition_policy_module  # noqa: E402
 from Pipeline.AgentRuntime.provider_sessions import ProviderSessionBinding  # noqa: E402
 from Pipeline.TaskReviewAgent.architect_session_owner import (  # noqa: E402
     ArchitectSessionCompatibility,
@@ -889,6 +890,103 @@ def test_unprovable_decomposition_policy_is_surfaced_and_offers_no_decomposition
             ),
             "an unprovable decomposition policy also suppressed implementation work",
         )
+
+
+def test_mixed_portfolio_audits_decomposition_policy_once() -> None:
+    """One portfolio proof serves every candidate in the same source snapshot."""
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        plan = candidate_plan(head, TASK_A, TASK_B)
+        tasks = {
+            TASK_A: decomposition_task(TASK_A),
+            TASK_B: decomposition_task(TASK_B),
+        }
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([plan]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks=tasks,
+        )
+        counts = {"audit": 0, "policy_read": 0, "task_read": 0, "selection": 0}
+        original_audit = decomposition_policy_module.audit_decomposition_policy
+        original_policy_reader = decomposition_policy_module.read_policy_document
+        original_task_reader = decomposition_policy_module.read_committed_tasks
+        selection_name = (
+            "validate_decomposition_task_selection"
+            if hasattr(scheduler_module, "validate_decomposition_task_selection")
+            else "validate_decomposition_selection"
+        )
+        policy_reader_name = (
+            "read_policy_document"
+            if hasattr(scheduler_module, "read_policy_document")
+            else "read_decomposition_policy_document"
+        )
+        original_selection = getattr(scheduler_module, selection_name)
+
+        def counted_audit(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            counts["audit"] += 1
+            return original_audit(*args, **kwargs)
+
+        def counted_policy_reader(*args: Any, **kwargs: Any) -> Mapping[str, Any]:
+            counts["policy_read"] += 1
+            return original_policy_reader(*args, **kwargs)
+
+        def counted_task_reader(
+            *args: Any, **kwargs: Any
+        ) -> Mapping[str, Mapping[str, Any]]:
+            counts["task_read"] += 1
+            return original_task_reader(*args, **kwargs)
+
+        def counted_selection(*args: Any, **kwargs: Any) -> Any:
+            counts["selection"] += 1
+            return original_selection(*args, **kwargs)
+
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch.object(
+                    decomposition_policy_module,
+                    "audit_decomposition_policy",
+                    counted_audit,
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    decomposition_policy_module,
+                    "read_policy_document",
+                    counted_policy_reader,
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    decomposition_policy_module,
+                    "read_committed_tasks",
+                    counted_task_reader,
+                )
+            )
+            stack.enter_context(
+                patch.object(scheduler_module, "audit_decomposition_policy", counted_audit)
+            )
+            stack.enter_context(
+                patch.object(scheduler_module, policy_reader_name, counted_policy_reader)
+            )
+            stack.enter_context(
+                patch.object(scheduler_module, "read_committed_tasks", counted_task_reader)
+            )
+            stack.enter_context(
+                patch.object(scheduler_module, selection_name, counted_selection)
+            )
+            portfolio = orchestrator._mixed_portfolio(
+                plan,
+                orchestrator._ordered_candidates(plan),
+            )
+
+        require(len(portfolio) == 2, str(portfolio))
+        require(counts["selection"] == 2, str(counts))
+        require(counts["audit"] == 1, str(counts))
+        require(counts["policy_read"] == 1, str(counts))
+        require(counts["task_read"] == 1, str(counts))
 
 
 def test_no_safe_work_launches_nothing() -> None:
@@ -5456,6 +5554,7 @@ def main() -> int:
         test_shared_checkout_root_lock_collides_across_source_clones,
         test_no_safe_work_launches_nothing,
         test_unprovable_decomposition_policy_is_surfaced_and_offers_no_decomposition,
+        test_mixed_portfolio_audits_decomposition_policy_once,
         test_scheduler_idle_without_candidate_never_budgets_an_architect_session,
         test_blocked_invalid_state_fails_closed,
         test_resume_existing_remains_stage2_priority,

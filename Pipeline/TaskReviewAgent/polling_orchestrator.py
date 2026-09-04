@@ -140,15 +140,13 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
 )
 from Pipeline.TaskDecomposition.context_builder import (  # noqa: E402
     DecompositionPreflightError,
+    validate_task_selection as validate_decomposition_task_selection,
 )
 from Pipeline.TaskReviewAgent.decomposition_policy_audit import (  # noqa: E402
     ValidationPolicyAuditError,
     audit_decomposition_policy,
-    decomposition_preflight as validate_decomposition_selection,
     read_committed_tasks,
-)
-from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
-    read_decomposition_policy_document,
+    read_policy_document,
 )
 from Pipeline.AgentRuntime.contracts import (  # noqa: E402
     ContractValidationError,
@@ -2337,7 +2335,13 @@ class PollingOrchestrator:
         policy_document: Mapping[str, Any] | None = None
         policy_tasks: Mapping[str, Mapping[str, Any]] | None = None
         try:
-            audit_decomposition_policy(self.source)
+            policy_document = read_policy_document(self.source)
+            policy_tasks = read_committed_tasks(self.source)
+            audit_decomposition_policy(
+                self.source,
+                document=policy_document,
+                tasks=policy_tasks,
+            )
         except ValidationPolicyAuditError as exc:
             self.events.emit(
                 "decomposition_policy_unprovable",
@@ -2349,8 +2353,6 @@ class PollingOrchestrator:
             decomposition_offerable = False
         else:
             decomposition_offerable = True
-            policy_document = read_decomposition_policy_document(self.source)
-            policy_tasks = read_committed_tasks(self.source)
         for candidate, resume_phase in ordered:
             task_id = validate_task_id(candidate.get("task_id"))
             task = self._load_candidate(plan, candidate, task_id)
@@ -2363,13 +2365,7 @@ class PollingOrchestrator:
                 work_types = ["implementation"]
             if resume_phase is None and decomposition_offerable:
                 try:
-                    validate_decomposition_selection(
-                        self.source,
-                        task_id,
-                        task,
-                        document=policy_document,
-                        tasks=policy_tasks,
-                    )
+                    validate_decomposition_task_selection(task_id, task)
                 except DecompositionPreflightError:
                     # This contract is not decomposition-relevant. The
                     # repository-wide policy was already proven above, so this
@@ -2410,13 +2406,7 @@ class PollingOrchestrator:
             task_id = validate_task_id(task_id_raw)
             task = self._load_candidate(plan, candidate, task_id)
             try:
-                validate_decomposition_selection(
-                    self.source,
-                    task_id,
-                    task,
-                    document=policy_document,
-                    tasks=policy_tasks,
-                )
+                validate_decomposition_task_selection(task_id, task)
             except DecompositionPreflightError:
                 continue
             by_id[task_id] = (
