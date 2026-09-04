@@ -578,7 +578,7 @@ def _bounded_subprocess_detail(raw: bytes, limit: int = 1000) -> str:
     return detail[:limit] + "... [truncated]"
 
 
-def _taskcontrol_states_snapshot(
+def taskcontrol_states_snapshot(
     root: Path,
     *,
     expected_task_ids: Iterable[str],
@@ -698,6 +698,12 @@ def _taskcontrol_states_snapshot(
     return snapshot
 
 
+# Compatibility alias for existing internal callers and tests. New production
+# composition should import the public name above so this one authoritative
+# bulk-state parser is shared instead of copied.
+_taskcontrol_states_snapshot = taskcontrol_states_snapshot
+
+
 class _LazyTaskcontrolStateProvider:
     """Load one complete bulk snapshot only when fresh planning asks for state."""
 
@@ -748,7 +754,7 @@ class _LazyTaskcontrolStateProvider:
         return entry
 
 
-class _PlanScopedIssueBackend:
+class PlanScopedIssueBackend:
     """Read-through Issue-snapshot cache scoped to one dispatch-plan call.
 
     Without this, ``IssueWorkflowService.find`` and ``.resource_conflicts``
@@ -824,6 +830,11 @@ class _PlanScopedIssueBackend:
         raise IssueWorkflowStoreError(
             "Stage 2 dispatch planning is read-only and must never mutate GitHub labels"
         )
+
+
+# Compatibility alias for callers written before this read-only cache became a
+# reusable production observation boundary.
+_PlanScopedIssueBackend = PlanScopedIssueBackend
 
 
 def _read_only_claim_observation(
@@ -1063,7 +1074,7 @@ def evaluate_committed_fresh_candidate(
     policy = policy or load_dispatch_policy()
     root = repo_root(Path(source).resolve())
     issue_workflow = IssueWorkflowService(
-        backend=_PlanScopedIssueBackend(GhIssueBackend(source_root=root)),
+        backend=PlanScopedIssueBackend(GhIssueBackend(source_root=root)),
         task_loader=lambda selected: load_committed_task(root, selected),
         worker_id=worker_id,
     )
@@ -1132,10 +1143,12 @@ __all__ = [
     "DependencyObservation",
     "DispatchPlan",
     "FreshCandidateEvaluation",
+    "PlanScopedIssueBackend",
     "TaskcontrolStateObservationError",
     "build_dispatch_plan",
     "evaluate_committed_fresh_candidate",
     "evaluate_fresh_candidate",
     "list_committed_task_ids",
     "plan_dispatch",
+    "taskcontrol_states_snapshot",
 ]

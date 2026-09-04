@@ -110,13 +110,16 @@ from Pipeline.TaskReviewAgent.human_action_wait import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     STATE_RE,
+    WorkflowContractError,
     WorkflowPhase,
     WorkflowState,
+    parse_state,
 )
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
     IssueBackend,
     IssueConsistencyRetryBudget,
+    IssueWorkflowSnapshot,
     IssueWorkflowService,
     IssueWorkflowStoreError,
     _consistent_snapshots,
@@ -316,6 +319,37 @@ class IntegrationReservation:
                 self.authorized_decomposition_apply_commit
             ),
         }
+
+
+@dataclass(frozen=True)
+class DurableWorkflowObservation:
+    """One shared managed-Issue batch and reservations derived from it."""
+
+    snapshots: tuple[IssueWorkflowSnapshot, ...]
+    reservations: tuple[IntegrationReservation, ...]
+
+    def __post_init__(self) -> None:
+        if type(self.snapshots) not in {tuple, list} or not all(
+            hasattr(item, "issue_number") and hasattr(item, "state")
+            for item in self.snapshots
+        ):
+            raise IntegrationObservationError(
+                "durable workflow snapshots must contain parsed Issue workflow values"
+            )
+        if not all(type(item) is IntegrationReservation for item in self.reservations):
+            raise IntegrationObservationError(
+                "durable workflow reservations must contain exact IntegrationReservation values"
+            )
+        snapshots = tuple(sorted(self.snapshots, key=lambda item: item.issue_number))
+        reservations = tuple(
+            sorted(self.reservations, key=lambda item: (item.task_id, item.evidence_type))
+        )
+        if len({item.issue_number for item in snapshots}) != len(snapshots):
+            raise IntegrationObservationError(
+                "durable workflow observation contains duplicate Issue numbers"
+            )
+        object.__setattr__(self, "snapshots", snapshots)
+        object.__setattr__(self, "reservations", reservations)
 
 
 @dataclass
@@ -606,7 +640,7 @@ def refresh_source_main(source: Path | str) -> dict[str, Any]:
     return {"before": before, "after": after, "changed": before != after}
 
 
-def _authorized_local_ahead_recovery_task(
+def authorized_local_ahead_recovery_task(
     refresh: Mapping[str, Any],
     reservations: Iterable[IntegrationReservation],
 ) -> str | None:
@@ -638,6 +672,9 @@ def _authorized_local_ahead_recovery_task(
             "authorized decomposition-apply recovery"
         )
     return matches[0].task_id
+
+
+_authorized_local_ahead_recovery_task = authorized_local_ahead_recovery_task
 
 
 def _decode_z_paths(raw: bytes) -> tuple[str, ...]:
@@ -718,7 +755,7 @@ def read_branch_changed_paths(
     return _decode_z_paths(result.stdout)
 
 
-def observe_durable_integration_reservations(
+def observe_durable_workflows(
     *,
     source: Path | str,
     checkout_root: Path | str,
@@ -726,8 +763,8 @@ def observe_durable_integration_reservations(
     backend: IssueBackend | None = None,
     task_loader: Callable[[str], Mapping[str, Any]] | None = None,
     consistency_retry_budget: IssueConsistencyRetryBudget | None = None,
-) -> tuple[IntegrationReservation, ...]:
-    """Enumerate incomplete valid managed workflows through existing parsing.
+) -> DurableWorkflowObservation:
+    """Observe valid managed workflows and derive reservations from one batch.
 
     ``IssueWorkflowService`` currently exposes no public all-incomplete
     enumeration. The observer therefore reuses the store's bounded consistency
@@ -743,15 +780,22 @@ def observe_durable_integration_reservations(
         lambda task_id: load_committed_task(source_root, task_id)
     )
     reservations: list[IntegrationReservation] = []
+    snapshots: list[IssueWorkflowSnapshot] = []
     candidates: list[Mapping[str, Any]] = []
     for issue in selected_backend.list_issues():
-        if str(issue.get("state") or "").upper() == "CLOSED":
-            continue
         body = str(issue.get("body") or "")
         if STATE_RE.search(body) is None:
             continue
         if not issue_author_authorized(issue):
             continue
+        issue_is_open = str(issue.get("state") or "").upper() != "CLOSED"
+        if not issue_is_open:
+            try:
+                closed_state = parse_state(body)
+            except WorkflowContractError:
+                continue
+            if closed_state is None or closed_state.state is not WorkflowState.COMPLETE:
+                continue
         candidates.append(issue)
     scanned = _consistent_snapshots(
         selected_backend,
@@ -790,6 +834,7 @@ def observe_durable_integration_reservations(
                 f"managed Issue #{snapshot.issue_number} is invalid: "
                 + "; ".join(snapshot.reasons)
             )
+        snapshots.append(snapshot)
         state = snapshot.state
         if state.state is WorkflowState.COMPLETE:
             continue
@@ -918,9 +963,31 @@ def observe_durable_integration_reservations(
                 authorized_decomposition_apply_commit=authorized_apply_commit,
             )
         )
-    return tuple(
-        sorted(reservations, key=lambda item: (item.task_id, item.evidence_type))
+    return DurableWorkflowObservation(
+        snapshots=tuple(snapshots),
+        reservations=tuple(reservations),
     )
+
+
+def observe_durable_integration_reservations(
+    *,
+    source: Path | str,
+    checkout_root: Path | str,
+    worker_id: str,
+    backend: IssueBackend | None = None,
+    task_loader: Callable[[str], Mapping[str, Any]] | None = None,
+    consistency_retry_budget: IssueConsistencyRetryBudget | None = None,
+) -> tuple[IntegrationReservation, ...]:
+    """Compatibility view over :func:`observe_durable_workflows`."""
+
+    return observe_durable_workflows(
+        source=source,
+        checkout_root=checkout_root,
+        worker_id=worker_id,
+        backend=backend,
+        task_loader=task_loader,
+        consistency_retry_budget=consistency_retry_budget,
+    ).reservations
 
 
 class _FreshPoolWorkflow:
@@ -3897,6 +3964,7 @@ if __name__ == "__main__":
 __all__ = [
     "ActiveAssignment",
     "DockerArchitectRunner",
+    "DurableWorkflowObservation",
     "FRESH_POOL_UNAVAILABLE_REASON",
     "IntegrationObservationError",
     "IntegrationReservation",
@@ -3908,10 +3976,12 @@ __all__ = [
     "SchedulerAlreadyActive",
     "SchedulerLock",
     "build_production_orchestrator",
+    "authorized_local_ahead_recovery_task",
     "build_worker_command",
     "build_poll_dispatch_plan",
     "is_git_checkout",
     "observe_durable_integration_reservations",
+    "observe_durable_workflows",
     "read_branch_changed_paths",
     "read_working_tree_changed_paths",
     "scheduler_lock_path",
