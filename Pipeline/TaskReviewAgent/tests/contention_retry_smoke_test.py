@@ -76,11 +76,17 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
-def run(*args: str, cwd: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
+def run(
+    *args: str,
+    cwd: Path,
+    check: bool = True,
+    input_text: str | None = None,
+) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(
         args,
         cwd=str(cwd),
         text=True,
+        input=input_text,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
@@ -185,6 +191,24 @@ def create_fixture(
     remote = root / "remote.git"
     seed = root / "seed"
     run("git", "init", "--bare", str(remote), cwd=root)
+    # Every claim commit uses Git's canonical empty tree. Without pre-seeding
+    # that shared object, simultaneous local receive-pack processes on Windows
+    # can all try to migrate 4b825dc... into the bare repository and one loses
+    # to an NTFS/antivirus file lock. GitHub already has this universal object;
+    # the fixture must model that stable remote instead of introducing an
+    # unrelated, repeatable local-filesystem flake into the contention test.
+    empty_tree = run(
+        "git",
+        "--git-dir",
+        str(remote),
+        "mktree",
+        cwd=root,
+        input_text="",
+    ).stdout.strip()
+    require(
+        empty_tree == "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        f"fixture did not pre-seed Git's canonical empty tree: {empty_tree}",
+    )
     run("git", "init", "-b", "main", str(seed), cwd=root)
     git(seed, "config", "user.name", "Stage 4 Fixture")
     git(seed, "config", "user.email", "stage4-fixture@example.invalid")
