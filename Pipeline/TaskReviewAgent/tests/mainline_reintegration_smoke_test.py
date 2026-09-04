@@ -556,7 +556,9 @@ def test_runtime_sensitive_integration_creates_new_handoff() -> None:
         )
 
 
-def test_partial_evidence_closeout_integrates_new_main_before_pr() -> None:
+def _run_partial_evidence_closeout_integration(
+    *, workflow_head_tracks_evidence: bool
+) -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-mainline-partial-evidence-") as temporary:
         checkout, _base, implementation, main_head = create_fixture(
             Path(temporary),
@@ -593,7 +595,9 @@ def test_partial_evidence_closeout_integrates_new_main_before_pr() -> None:
                     "state": "agent_working",
                     "phase": "merge_closeout",
                     "worker_id": "worker-a",
-                    "head_commit": implementation,
+                    "head_commit": (
+                        evidence if workflow_head_tracks_evidence else implementation
+                    ),
                     "human_handoff_commit": implementation,
                     "branch": BRANCH,
                 }
@@ -603,12 +607,16 @@ def test_partial_evidence_closeout_integrates_new_main_before_pr() -> None:
                 "head_commit": evidence,
                 "branch": BRANCH,
                 "clean": True,
-                "persisted_evidence_recovery": {
-                    "status": "recovered",
-                    "implementation_commit": implementation,
-                    "evidence_commit": evidence,
-                    "created_paths": [evidence_path],
-                },
+                "persisted_evidence_recovery": (
+                    None
+                    if workflow_head_tracks_evidence
+                    else {
+                        "status": "recovered",
+                        "implementation_commit": implementation,
+                        "evidence_commit": evidence,
+                        "created_paths": [evidence_path],
+                    }
+                ),
             },
         }
         controller.observe = lambda: observation
@@ -645,13 +653,22 @@ def test_partial_evidence_closeout_integrates_new_main_before_pr() -> None:
         require(controller.state["validation_manifests"] == [], "stale tests survived")
 
 
+def test_interrupted_evidence_closeout_integrates_new_main_before_pr() -> None:
+    _run_partial_evidence_closeout_integration(workflow_head_tracks_evidence=False)
+
+
+def test_released_evidence_head_integrates_new_main_after_pr_checks() -> None:
+    _run_partial_evidence_closeout_integration(workflow_head_tracks_evidence=True)
+
+
 def main() -> int:
     tests = (
         test_classifier_is_narrow,
         test_action_and_terminal_contract_installed,
         test_automation_only_integration_creates_new_handoff,
         test_runtime_sensitive_integration_creates_new_handoff,
-        test_partial_evidence_closeout_integrates_new_main_before_pr,
+        test_interrupted_evidence_closeout_integrates_new_main_before_pr,
+        test_released_evidence_head_integrates_new_main_after_pr_checks,
     )
     for test in tests:
         test()

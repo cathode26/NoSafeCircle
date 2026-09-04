@@ -602,6 +602,106 @@ def _invalidated_evidence_paths_for_integration(
     return normalized
 
 
+def _verified_evidence_head_for_integration(
+    controller: Any,
+    *,
+    workflow_state: Mapping[str, Any],
+    task_head: str,
+    recovery: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Bind a merge-closeout evidence HEAD back to its human-tested commit.
+
+    A normal pending-check release advances the Issue's ``head_commit`` to the
+    published evidence commit while preserving ``human_handoff_commit`` as the
+    exact implementation commit Vincent tested.  An interrupted publication
+    can retain the older Issue head and expose the same identity through the
+    validated checkout recovery record.  Accept only those two exact shapes,
+    then independently re-prove the persisted evidence tree and changed paths.
+    """
+
+    if workflow_state.get("phase") != WorkflowPhase.MERGE_CLOSEOUT.value:
+        return None
+    implementation_commit = controller.state.get("implementation_commit")
+    evidence_commit = controller.state.get("evidence_commit")
+    evidence_tree = controller.state.get("evidence_tree")
+    created_paths = controller.state.get("created_paths")
+    if (
+        not isinstance(implementation_commit, str)
+        or not _SHA40.fullmatch(implementation_commit)
+        or not isinstance(evidence_commit, str)
+        or not _SHA40.fullmatch(evidence_commit)
+        or not isinstance(evidence_tree, str)
+        or not _SHA40.fullmatch(evidence_tree)
+        or not isinstance(created_paths, list)
+        or not created_paths
+        or task_head != evidence_commit
+        or workflow_state.get("human_handoff_commit") != implementation_commit
+    ):
+        return None
+
+    workflow_head = workflow_state.get("head_commit")
+    canonical_published = workflow_head == evidence_commit
+    interrupted_recovery = (
+        workflow_head == implementation_commit
+        and isinstance(recovery, Mapping)
+        and recovery.get("status") == "recovered"
+        and recovery.get("implementation_commit") == implementation_commit
+        and recovery.get("evidence_commit") == evidence_commit
+        and _normalized_paths(recovery.get("created_paths") or [])
+        == _normalized_paths(created_paths)
+    )
+    if not canonical_published and not interrupted_recovery:
+        return None
+
+    normalized_paths = _normalized_paths(created_paths)
+    evidence_root = f"Pipeline/TaskGraph/evidence/{controller.task_id}/".casefold()
+    if (
+        len(normalized_paths) != len(created_paths)
+        or any(
+            not path.casefold().startswith(evidence_root)
+            for path in normalized_paths
+        )
+        or _git(
+            controller.command_runner,
+            controller.checkout,
+            "merge-base",
+            "--is-ancestor",
+            implementation_commit,
+            evidence_commit,
+            check=False,
+        ).returncode
+        != 0
+        or _git_text(
+            controller.command_runner,
+            controller.checkout,
+            "rev-parse",
+            f"{evidence_commit}^{{tree}}",
+            check=False,
+        )
+        != evidence_tree
+        or _diff_paths(
+            controller,
+            implementation_commit,
+            evidence_commit,
+            label="persisted evidence diff",
+        )
+        != normalized_paths
+    ):
+        return None
+    return {
+        "status": "recovered",
+        "implementation_commit": implementation_commit,
+        "evidence_commit": evidence_commit,
+        "evidence_tree": evidence_tree,
+        "created_paths": normalized_paths,
+        "authority": (
+            "published_evidence_issue_head_and_exact_git_identity"
+            if canonical_published
+            else "persisted_checkout_recovery_and_exact_git_identity"
+        ),
+    }
+
+
 def _patched_next_action(
     self: Any,
     observation: Mapping[str, Any],
@@ -730,17 +830,14 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
         "--show-current",
     )
     recovery = checkout_state.get("persisted_evidence_recovery")
-    recovered_evidence = (
-        phase == WorkflowPhase.MERGE_CLOSEOUT.value
-        and isinstance(recovery, Mapping)
-        and recovery.get("status") == "recovered"
-        and recovery.get("evidence_commit") == task_head
-        and recovery.get("implementation_commit") == workflow_state.get("head_commit")
-        and self.state.get("evidence_commit") == task_head
-        and self.state.get("implementation_commit") == workflow_state.get("head_commit")
+    evidence_head = _verified_evidence_head_for_integration(
+        self,
+        workflow_state=workflow_state,
+        task_head=task_head,
+        recovery=recovery if isinstance(recovery, Mapping) else None,
     )
     if (
-        (task_head != workflow_state.get("head_commit") and not recovered_evidence)
+        (task_head != workflow_state.get("head_commit") and evidence_head is None)
         or branch != workflow_state.get("branch")
     ):
         raise DownstreamPipelineError(
@@ -748,8 +845,8 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
         )
     human = self._latest_human_validation()
     expected_human_commit = (
-        str(self.state.get("implementation_commit"))
-        if recovered_evidence
+        str(evidence_head["implementation_commit"])
+        if evidence_head is not None
         else task_head
     )
     if (
@@ -859,7 +956,7 @@ def _integrate_current_main(self: Any) -> dict[str, Any]:
     invalidated_evidence_paths = _invalidated_evidence_paths_for_integration(
         self,
         task_head=task_head,
-        recovery=recovery if isinstance(recovery, Mapping) else None,
+        recovery=evidence_head,
     )
 
     self._ensure_git_identity()
