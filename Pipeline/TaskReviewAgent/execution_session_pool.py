@@ -224,7 +224,12 @@ class ExecutionCrewSessionPoolOwner:
         return value
 
     def checkout_manifest_identity(
-        self, *, task_id: str, task_contract_sha256: str | None = None
+        self,
+        *,
+        task_id: str,
+        worker_slot_id: str,
+        source_commit: str,
+        task_contract_sha256: str | None = None,
     ) -> str:
         task_id = validate_task_id(task_id)
         try:
@@ -244,9 +249,13 @@ class ExecutionCrewSessionPoolOwner:
             raise ExecutionCrewSessionPoolError(
                 "external checkout identity manifest hash is invalid"
             )
-        if value.get("authority") != "durable_checkout_identity":
+        manifest_contract = (value.get("schema_version"), value.get("authority"))
+        if manifest_contract not in {
+            ("1.0", "checkout_preparation_only"),
+            ("2.0", "durable_checkout_identity"),
+        }:
             raise ExecutionCrewSessionPoolError(
-                "external checkout identity manifest has the wrong authority"
+                "external checkout identity manifest has an unsupported contract"
             )
         if value.get("task_id") != task_id:
             raise ExecutionCrewSessionPoolError(
@@ -274,6 +283,38 @@ class ExecutionCrewSessionPoolOwner:
         ):
             raise ExecutionCrewSessionPoolError(
                 "external checkout identity manifest names a different repository"
+            )
+        try:
+            current_head = subprocess.run(
+                ("git", "rev-parse", "HEAD"),
+                cwd=str(self.checkout),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+                timeout=30.0,
+            ).stdout.decode("utf-8").strip()
+            current_branch = subprocess.run(
+                ("git", "branch", "--show-current"),
+                cwd=str(self.checkout),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+                timeout=30.0,
+            ).stdout.decode("utf-8").strip()
+        except (OSError, UnicodeDecodeError, subprocess.SubprocessError) as exc:
+            raise ExecutionCrewSessionPoolError(
+                "task checkout branch and commit identity could not be read"
+            ) from exc
+        if current_head != source_commit or value.get("branch") != current_branch:
+            raise ExecutionCrewSessionPoolError(
+                "external checkout identity manifest differs from the current branch or commit"
+            )
+        if manifest_contract == ("1.0", "checkout_preparation_only") and (
+            value.get("worker_id") != worker_slot_id
+            or value.get("source_head") != source_commit
+        ):
+            raise ExecutionCrewSessionPoolError(
+                "prepared checkout manifest differs from the scheduler worker or source commit"
             )
         return CHECKOUT_IDENTITY_PREFIX + hashlib.sha256(payload).hexdigest()
 
@@ -310,7 +351,10 @@ class ExecutionCrewSessionPoolOwner:
                 "pooled Claude execution does not accept a reasoning effort"
             )
         checkout_identity = self.checkout_manifest_identity(
-            task_id=task_id, task_contract_sha256=task_contract_sha256
+            task_id=task_id,
+            worker_slot_id=worker_slot_id,
+            source_commit=source_commit,
+            task_contract_sha256=task_contract_sha256,
         )
         with _exclusive_file_lock(self.lock_path):
             state, pool, telemetry = self._load()
@@ -420,12 +464,16 @@ class ExecutionCrewSessionPoolOwner:
                 raise ExecutionCrewSessionPoolError(
                     "pooled crew result path differs from the durable assignment"
                 )
-            if assignment["status"] == "settled":
+            if assignment["status"] != "active":
+                if assignment["result_sha256"] is None:
+                    raise ExecutionCrewSessionPoolError(
+                        f"{assignment['status']} pooled assignment cannot accept a later result"
+                    )
                 if assignment["result_sha256"] != digest:
                     raise ExecutionCrewSessionPoolError(
-                        "settled pooled result replay has different bytes"
+                        f"{assignment['status']} pooled result replay has different bytes"
                     )
-                return "already_settled"
+                return f"already_{assignment['status']}"
             try:
                 self._settle_payload(pool, assignment, result, path.parent)
             except (ExecutionCrewSessionPoolError, SessionPoolError) as exc:

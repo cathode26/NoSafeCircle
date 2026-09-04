@@ -1501,6 +1501,8 @@ def build_worker_command(
         command.extend(
             ("--execution-reasoning-effort", execution_reasoning_effort)
         )
+    if route is not None and provider == "claude" and execution_model:
+        command.append("--enable-execution-session-pool")
     result_identity = (run_id, admission_source_head, task_contract_sha256)
     if any(value is not None for value in result_identity):
         if not all(isinstance(value, str) and value for value in result_identity):

@@ -208,8 +208,11 @@ The production host owner is
 `<checkout-root>/.task-review-agent/session-pools/<repository-sha256>/execution-crew.json`
 and uses an operating-system file lock only around load, transition, atomic
 save, and verification. Docker/provider work never runs under that lock. Each
-run receives one no-overwrite lease bundle plus the task's external durable
-checkout manifest through read-only mounts. The lease binds to the SHA-256 of
+run receives one no-overwrite lease bundle plus the task's external canonical
+checkout manifest through read-only mounts. Both the schema-1
+`checkout_preparation_only` manifest and schema-2 `durable_checkout_identity`
+manifest are consumed according to their producer contracts. Schema 1 also
+binds the scheduler worker and exact source commit. The lease binds to the SHA-256 of
 the exact manifest bytes, not to either the Windows checkout path or Docker's
 `/workspace` spelling; Docker independently verifies the manifest's semantic
 hash, task, branch, repository, and authority before any provider work.
@@ -270,8 +273,9 @@ recycled on this run's silence. Supplying no pool arguments leaves every run
 exactly as it was. The CLI exposes this only as the all-or-nothing production
 bundle `--run-id`, `--role-session-leases`,
 `--scheduler-repository-identity`, and `--checkout-identity-manifest` contract.
-Ordinary manual CLI runs that omit the bundle remain ephemeral. Production
-pooling is Claude-only until the host can bind and verify Codex's resume sandbox
+Ordinary manual CLI runs that omit the bundle remain ephemeral. Pooling is an
+explicit polling-scheduler opt-in; direct/manual launcher runs remain ephemeral
+even when they select a model. Production pooling is Claude-only until the host can bind and verify Codex's resume sandbox
 argument; Codex runs remain ephemeral rather than resuming under uncertain
 permissions.
 

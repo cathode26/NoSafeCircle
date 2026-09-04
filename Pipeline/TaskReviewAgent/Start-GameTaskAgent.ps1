@@ -35,6 +35,8 @@ param(
     [ValidateSet('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max')]
     [string]$ExecutionReasoningEffort,
 
+    [switch]$EnableExecutionSessionPool,
+
     [string]$Source,
 
     [ValidateRange(4, 160)]
@@ -293,6 +295,9 @@ if (-not [string]::IsNullOrWhiteSpace($ExecutionModel)) {
 }
 if (-not [string]::IsNullOrWhiteSpace($ExecutionReasoningEffort)) {
     $Arguments += @('--execution-reasoning-effort', $ExecutionReasoningEffort)
+}
+if ($EnableExecutionSessionPool) {
+    $Arguments += '--enable-execution-session-pool'
 }
 if (-not [string]::IsNullOrWhiteSpace($RunId)) {
     if (

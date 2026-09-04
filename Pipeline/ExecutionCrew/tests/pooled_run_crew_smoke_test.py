@@ -64,6 +64,7 @@ from Pipeline.ExecutionCrew.session_pool import (  # noqa: E402
     SessionPool,
     SessionPoolError,
 )
+from Pipeline.TaskReviewAgent.real_checkout import RealTaskCheckoutManager  # noqa: E402
 
 TASK = "NSC-005"
 RELATED_TASK = "NSC-010"
@@ -157,10 +158,10 @@ def task_contract(task_id: str, key: str, title: str) -> dict:
     }
 
 
-def fixture(parent: Path) -> Path:
+def fixture(parent: Path, *, directory_name: str = "source") -> Path:
     """Create one throwaway source checkout with a valid persistent work graph."""
 
-    root = parent / "source"
+    root = parent / directory_name
     root.mkdir()
     subprocess.run(("git", "init", "-q", str(root)), check=True)
     cmd(root, "config", "user.name", "Pooled Crew Smoke")
@@ -404,8 +405,8 @@ def all_leases(pool: SessionPool, *, head: str, checkout: str, run_id: str,
                now: dt.datetime | None = None) -> dict[str, AssignmentLease]:
     return {
         role: lease_for(pool, role, head=head, checkout=checkout, run_id=run_id,
-                        slot=f"worker-slot-{index + 1}", now=now)
-        for index, role in enumerate(ROLE_CLASSES)
+                        slot="worker-slot-1", now=now)
+        for role in ROLE_CLASSES
     }
 
 
@@ -990,40 +991,43 @@ def test_a_nested_protocol_mismatch_is_refused_by_the_full_run() -> None:
 def test_full_run_uses_external_manifest_bytes_as_cross_os_checkout_identity() -> None:
     with tempfile.TemporaryDirectory(prefix="pooled-crew-manifest-") as text:
         parent = Path(text)
-        source = fixture(parent)
+        source = fixture(parent, directory_name=TASK)
         outputs = parent / "outputs-manifest"
+        cmd(source, "branch", "-m", "nsc-005-manifest-fixture")
         head, _ = source_identity(source)
         branch = cmd(source, "branch", "--show-current")
         task_bytes = (source / f"Tasks/{TASK}.yaml").read_bytes()
-        body = {
-            "schema_version": "2.0",
-            "task_id": TASK,
-            "checkout_path": str(source.resolve()),
-            "branch": branch,
-            "remote_url": REPOSITORY,
-            "initial_source_head": head,
-            "initial_source_tree": cmd(source, "rev-parse", "HEAD^{tree}"),
-            "task_contract_path": f"Tasks/{TASK}.yaml",
-            "task_contract_revision": 1,
-            "task_contract_sha256": hashlib.sha256(task_bytes).hexdigest(),
-            "authority": "durable_checkout_identity",
+        contract_hash = hashlib.sha256(task_bytes).hexdigest()
+        observation = {
+            "task": {
+                "task_id": TASK,
+                "title": "Manifest fixture",
+                "contract_path": f"Tasks/{TASK}.yaml",
+                "contract_revision": 1,
+                "task_contract_sha256": contract_hash,
+            },
+            "environment": {
+                "source_head": head,
+                "source_tree": cmd(source, "rev-parse", "HEAD^{tree}"),
+            },
         }
-        canonical = json.dumps(
-            body, ensure_ascii=False, allow_nan=False, separators=(",", ":"), sort_keys=True
-        ).encode("utf-8")
-        manifest = {"manifest_sha256": hashlib.sha256(canonical).hexdigest(), **body}
-        manifest_path = parent / "external-checkout.json"
-        manifest_path.write_text(
-            json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-            newline="\n",
+        manager = RealTaskCheckoutManager(
+            source_root=source,
+            task_id=TASK,
+            checkout_root=parent,
+            worker_id="worker-slot-1",
+            allow_local_remote_for_tests=True,
         )
+        manager._write_manifest(observation, REPOSITORY)
+        manifest_path = manager.manifest_path
         checkout_identity = checkout_manifest_identity(
             manifest_path,
             task_id=TASK,
             repository_identity=REPOSITORY,
             source_branch=branch,
-            task_contract_sha256=body["task_contract_sha256"],
+            source_commit=head,
+            worker_slot_id="worker-slot-1",
+            task_contract_sha256=contract_hash,
         )
         run_id = "nsc-005-manifest-identity"
         pool = new_pool()

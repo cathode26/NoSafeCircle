@@ -7,7 +7,8 @@ name: TaskReviewAgent Deterministic Validation
 #
 # Branch protection depends on this exact workflow name and the windows-smoke
 # job id, so the trigger below fires on every PR touching
-# Pipeline/TaskReviewAgent/** (no path is excluded from the trigger itself):
+# Pipeline/TaskReviewAgent/**, Pipeline/ExecutionCrew/**, or
+# Pipeline/AgentRuntime/** (no owned path is excluded from the trigger itself):
 # an unrecognized future file must still make this legacy check appear.
 #
 # Within the job, "Determine Core suite relevance" decides whether the
@@ -25,6 +26,8 @@ on:
       - "Tasks/**"
       - "Pipeline/TaskReviewAgent/**"
       - "Gauntlet/SoftwareArchitectAcceptance/**"
+      - "Pipeline/ExecutionCrew/**"
+      - "Pipeline/AgentRuntime/**"
   workflow_dispatch:
 
 permissions:

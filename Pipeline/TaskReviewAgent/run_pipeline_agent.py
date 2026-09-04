@@ -131,6 +131,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=OPENAI_REASONING_EFFORTS,
         help="Explicit OpenAI/Codex ExecutionCrew reasoning effort.",
     )
+    parser.add_argument(
+        "--enable-execution-session-pool",
+        action="store_true",
+        help="Scheduler-owned opt-in for production Claude ExecutionCrew pooling.",
+    )
     parser.add_argument("--max-turns", type=int, default=120)
     parser.add_argument(
         "--mode",
@@ -331,6 +336,16 @@ def main(argv: list[str] | None = None) -> int:
     scheduler_result = False
     try:
         scheduler_result = _scheduler_result_enabled(args)
+        if args.enable_execution_session_pool and not scheduler_result:
+            raise GenericSelectionError(
+                "ExecutionCrew session pooling requires scheduler-owned run identity"
+            )
+        if args.enable_execution_session_pool and (
+            args.execution_provider != "claude" or args.execution_model is None
+        ):
+            raise GenericSelectionError(
+                "ExecutionCrew session pooling requires a routed Claude model"
+            )
         selection = None
         if args.task_id:
             request = TaskReviewRequest(args.task_id)
@@ -506,6 +521,7 @@ def main(argv: list[str] | None = None) -> int:
             controller_options: dict[str, Any] = {
                 "workflow": workflow,
                 "execution_provider": args.execution_provider,
+                "enable_execution_session_pool": args.enable_execution_session_pool,
             }
             # Keep the historical manual/default constructor call shape when
             # no routed values were supplied. Scheduler-launched workers carry

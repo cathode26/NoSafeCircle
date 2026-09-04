@@ -51,7 +51,7 @@ class ProductionTaskController:
         execution_reasoning_effort: str | None = None,
         execution_command_runner=None,
         execution_session_pool_owner=None,
-        enable_execution_session_pool: bool | None = None,
+        enable_execution_session_pool: bool = False,
     ) -> None:
         self.workflow = workflow
         self.task_id = workflow.task_id
@@ -111,11 +111,7 @@ class ProductionTaskController:
                 command_runner=self.execution_command_runner,
                 worker_slot_id=self.workflow.worker_id,
                 session_pool_owner=self.execution_session_pool_owner,
-                enable_session_pool=(
-                    self.execution_command_runner is None
-                    if self.enable_execution_session_pool is None
-                    else self.enable_execution_session_pool
-                ),
+                enable_session_pool=self.enable_execution_session_pool,
             )
             self.integrator = CandidateIntegrator(
                 checkout=checkout["path"],

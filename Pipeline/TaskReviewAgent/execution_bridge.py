@@ -208,7 +208,7 @@ class ExecutionCrewBridge:
         compose_project: str = "nosafecircle",
         worker_slot_id: str | None = None,
         session_pool_owner: ExecutionCrewSessionPoolOwner | None = None,
-        enable_session_pool: bool | None = None,
+        enable_session_pool: bool = False,
     ) -> None:
         self.checkout = Path(checkout).resolve()
         self.scope = scope
@@ -238,9 +238,7 @@ class ExecutionCrewBridge:
         if not self.compose_project:
             raise ExecutionBridgeError("Docker Compose project name must be non-empty")
         self.worker_slot_id = str(worker_slot_id).strip() if worker_slot_id else None
-        self.enable_session_pool = (
-            command_runner is None if enable_session_pool is None else bool(enable_session_pool)
-        )
+        self.enable_session_pool = bool(enable_session_pool)
         self.session_pool_owner = session_pool_owner
         self.output_root = self.checkout / "Pipeline" / "ExecutionCrew" / "outputs"
         self.state_root = self.checkout.parent / ".task-review-agent"

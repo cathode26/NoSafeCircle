@@ -1243,6 +1243,7 @@ def load_role_session_lease_bundle(path: Path, *, run_id: str) -> dict[str, Assi
 
 def checkout_manifest_identity(path: Path, *, task_id: str,
                                repository_identity: str, source_branch: str,
+                               source_commit: str, worker_slot_id: str,
                                task_contract_sha256: str) -> str:
     """Prove the external host checkout manifest and return its byte identity.
 
@@ -1264,10 +1265,12 @@ def checkout_manifest_identity(path: Path, *, task_id: str,
     ).hexdigest()
     if manifest_hash != semantic:
         raise CrewBlocked("checkout identity manifest semantic hash is invalid")
-    if value.get("schema_version") != "2.0":
-        raise CrewBlocked("checkout identity manifest schema is unsupported")
-    if value.get("authority") != "durable_checkout_identity":
-        raise CrewBlocked("checkout identity manifest authority is invalid")
+    manifest_contract = (value.get("schema_version"), value.get("authority"))
+    if manifest_contract not in {
+        ("1.0", "checkout_preparation_only"),
+        ("2.0", "durable_checkout_identity"),
+    }:
+        raise CrewBlocked("checkout identity manifest contract is unsupported")
     if value.get("task_id") != task_id:
         raise CrewBlocked("checkout identity manifest names a different task")
     if (
@@ -1282,6 +1285,13 @@ def checkout_manifest_identity(path: Path, *, task_id: str,
     checkout_path = value.get("checkout_path")
     if type(checkout_path) is not str or not PureWindowsPath(checkout_path).is_absolute():
         raise CrewBlocked("checkout identity manifest lacks an absolute Windows host path")
+    if manifest_contract == ("1.0", "checkout_preparation_only") and (
+        value.get("worker_id") != worker_slot_id
+        or value.get("source_head") != source_commit
+    ):
+        raise CrewBlocked(
+            "prepared checkout manifest differs from the scheduler worker or source commit"
+        )
     return CHECKOUT_IDENTITY_PREFIX + hashlib.sha256(payload).hexdigest()
 
 
@@ -1742,11 +1752,16 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 f"the source checkout's repository {pooled_repository_identity!r}"
             )
         if checkout_identity_manifest is not None:
+            worker_slots = {lease.worker_slot_id for lease in role_session_leases.values()}
+            if len(worker_slots) != 1:
+                raise CrewBlocked("pooled role leases disagree on scheduler worker slot")
             pooled_checkout_identity = checkout_manifest_identity(
                 checkout_identity_manifest,
                 task_id=task_id,
                 repository_identity=pooled_repository_identity,
                 source_branch=identity.branch,
+                source_commit=identity.head,
+                worker_slot_id=next(iter(worker_slots)),
                 task_contract_sha256=contract_identity.sha256,
             )
     pooled_leases = validate_role_session_leases(

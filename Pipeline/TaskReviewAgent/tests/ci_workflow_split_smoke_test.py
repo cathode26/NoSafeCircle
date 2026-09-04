@@ -109,6 +109,11 @@ REPRESENTATIVE_DELIVERY_ONLY_PATHS = (
     "Pipeline/TaskReviewAgent/tests/delivery_review_smoke_test.py",
 )
 UNKNOWN_FUTURE_PATH = "Pipeline/TaskReviewAgent/claim_refs.py"
+REPRESENTATIVE_POOL_CORE_PATHS = (
+    "Pipeline/ExecutionCrew/session_pool.py",
+    "Pipeline/ExecutionCrew/run_crew.py",
+    "Pipeline/AgentRuntime/session_lifecycle.py",
+)
 
 
 def require(value: bool, message: str) -> None:
@@ -272,6 +277,21 @@ def test_core_owned_change_selects_full_core() -> None:
     )
 
 
+def test_pool_and_runtime_changes_trigger_full_core() -> None:
+    core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
+    core_paths = _extract_paths_block(core_text)
+    scope_allowlist = _extract_core_scope_allowlist(core_text)
+    for changed in REPRESENTATIVE_POOL_CORE_PATHS:
+        require(
+            _triggers(core_paths, changed),
+            f"{changed} must trigger the Core workflow that owns pool regressions",
+        )
+        require(
+            _core_selects_full_suite(scope_allowlist, changed),
+            f"{changed} must select the full Core regression suite",
+        )
+
+
 def _core_steps(core_workflow_text: str) -> list[str]:
     """Split Core's job body into per-step blocks (one per `- name:` entry)
     so a step's `if:` gating can be checked independently of every other
@@ -331,6 +351,7 @@ def main() -> int:
     test_supervisor_only_change_keeps_legacy_check_but_skips_full_core()
     test_delivery_only_change_keeps_legacy_check_but_skips_full_core()
     test_core_owned_change_selects_full_core()
+    test_pool_and_runtime_changes_trigger_full_core()
     test_core_owned_tests_run_in_core_gated_like_other_core_tests()
     test_unknown_task_review_agent_file_routes_to_core()
     print("ci_workflow_split_smoke_test: PASS")

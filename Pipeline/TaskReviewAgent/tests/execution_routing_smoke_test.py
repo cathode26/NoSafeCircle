@@ -242,6 +242,7 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
     require(command[0] == sys.executable and command[1] == "-u", str(command))
     require(Path(command[2]).name == "host_worker_launcher.py", str(command))
     require("docker" not in command, str(command))
+    require("--enable-execution-session-pool" not in command, str(command))
     expected = {
         "--execution-provider": "codex",
         "--execution-model": "openai-deep-policy",
@@ -260,6 +261,7 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
     host_args = build_host_worker_parser().parse_args(list(command[3:]))
     powershell = build_powershell_command(host_args)
     require(powershell[0] == "powershell.exe", str(powershell))
+    require("-EnableExecutionSessionPool" not in powershell, str(powershell))
     require(
         any(item.endswith("Start-GameTaskAgent.ps1") for item in powershell),
         str(powershell),
@@ -281,6 +283,26 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
     for option, value in powershell_expected.items():
         require(powershell[powershell.index(option) + 1] == value, str(powershell))
 
+    claude_route = resolve_execution_route(
+        recommendation("deep", "claude"),
+        load_execution_routing_policy(policy_environment()),
+    )
+    claude_command = build_worker_command(
+        task_id="NSC-101",
+        worker_id="routing-claude-worker",
+        source=Path("/tmp/routing-smoke-source"),
+        checkout_root=Path("/tmp/routing-smoke-checkouts"),
+        route=claude_route,
+        run_id="scheduler-nsc-101-claude-fixture",
+        admission_source_head="1" * 40,
+        task_contract_sha256="a" * 64,
+        admission_issue_number=101,
+    )
+    require("--enable-execution-session-pool" in claude_command, str(claude_command))
+    claude_host_args = build_host_worker_parser().parse_args(list(claude_command[3:]))
+    claude_powershell = build_powershell_command(claude_host_args)
+    require("-EnableExecutionSessionPool" in claude_powershell, str(claude_powershell))
+
     starter_text = (
         ROOT / "Pipeline" / "TaskReviewAgent" / "Start-GameTaskAgent.ps1"
     ).read_text(encoding="utf-8-sig")
@@ -288,9 +310,11 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
         "$SupervisorReasoningEffort",
         "$ExecutionModel",
         "$ExecutionReasoningEffort",
+        "$EnableExecutionSessionPool",
         "'--supervisor-reasoning-effort'",
         "'--execution-model'",
         "'--execution-reasoning-effort'",
+        "'--enable-execution-session-pool'",
         "'--run-id'",
         "'--admission-source-head'",
         "'--task-contract-sha256'",
@@ -304,6 +328,7 @@ def test_worker_parser_preserves_manual_defaults_and_accepts_route() -> None:
     defaults = build_parser().parse_args(["--task-id", "NSC-101"])
     require(defaults.execution_provider == "claude", str(defaults))
     require(defaults.model is None and defaults.execution_model is None, str(defaults))
+    require(defaults.enable_execution_session_pool is False, str(defaults))
     require(defaults.max_turns == 120, str(defaults))
     routed = build_parser().parse_args(
         [
@@ -318,6 +343,30 @@ def test_worker_parser_preserves_manual_defaults_and_accepts_route() -> None:
     )
     require(routed.execution_model == "openai-deep-policy", str(routed))
     require(routed.supervisor_reasoning_effort == "xhigh", str(routed))
+    pooled = build_parser().parse_args(
+        [
+            "--task-id", "NSC-101",
+            "--execution-provider", "claude",
+            "--execution-model", "claude-standard-policy",
+            "--enable-execution-session-pool",
+        ]
+    )
+    require(pooled.enable_execution_session_pool is True, str(pooled))
+
+
+def test_manual_entrypoint_cannot_claim_scheduler_pool_authority() -> None:
+    stderr = io.StringIO()
+    with contextlib.redirect_stderr(stderr):
+        code = run_pipeline_agent.main(
+            [
+                "--task-id", "NSC-101",
+                "--execution-provider", "claude",
+                "--execution-model", "claude-standard-policy",
+                "--enable-execution-session-pool",
+            ]
+        )
+    require(code == 2, stderr.getvalue())
+    require("requires scheduler-owned run identity" in stderr.getvalue(), stderr.getvalue())
 
 
 def test_host_wrapper_authenticates_and_republishes_nested_worker_result() -> None:
@@ -644,6 +693,7 @@ def test_worker_entrypoint_propagates_routed_values_without_changing_defaults() 
         require(captured_controller["execution_provider"] == "codex", str(captured_controller))
         require(captured_controller["execution_model"] == "openai-deep-policy", str(captured_controller))
         require(captured_controller["execution_reasoning_effort"] == "xhigh", str(captured_controller))
+        require(captured_controller["enable_execution_session_pool"] is False, str(captured_controller))
         require(captured_supervisor["model"] == "supervisor-deep-policy", str(captured_supervisor))
         require(captured_supervisor["reasoning_effort"] == "xhigh", str(captured_supervisor))
         require(captured_supervisor["max_turns"] == 120, str(captured_supervisor))
@@ -770,6 +820,7 @@ def main() -> int:
         test_host_launcher_turn_range_matches_routing_contract,
         test_worker_argv_contains_exact_resolved_route,
         test_worker_parser_preserves_manual_defaults_and_accepts_route,
+        test_manual_entrypoint_cannot_claim_scheduler_pool_authority,
         test_host_wrapper_authenticates_and_republishes_nested_worker_result,
         test_host_wrapper_start_failure_writes_authenticated_error_result,
         test_resumed_worker_exception_keeps_admitted_issue_in_pipeline_result,

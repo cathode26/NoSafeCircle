@@ -50,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--supervisor-reasoning-effort")
     parser.add_argument("--execution-model")
     parser.add_argument("--execution-reasoning-effort")
+    parser.add_argument("--enable-execution-session-pool", action="store_true")
     return parser
 
 
@@ -121,6 +122,8 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
         command.extend(
             ("-ExecutionReasoningEffort", str(args.execution_reasoning_effort))
         )
+    if args.enable_execution_session_pool:
+        command.append("-EnableExecutionSessionPool")
     return tuple(command)
 
 

@@ -912,6 +912,10 @@ def test_every_worker_command_has_exact_task_and_unique_worker_id() -> None:
         require(command[command.index("--task-id") + 1] == expected_task, str(command))
         require(command.count("--worker-id") == 1, str(command))
         require(command[command.index("--worker-id") + 1] == expected_worker, str(command))
+        require(
+            "--enable-execution-session-pool" not in command,
+            "legacy/manual-style worker command enabled scheduler pooling without a routed Claude model",
+        )
     require("worker-one" != "worker-two", "worker IDs were not unique")
 
 

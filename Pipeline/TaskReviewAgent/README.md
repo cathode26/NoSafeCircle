@@ -277,7 +277,9 @@ Production Claude ExecutionCrew runs use a repository-scoped pool of four
 role-isolated provider conversations per active task: Contract Locality Auditor,
 Implementer, Test Author, and Validator. The host reserves those sessions only
 after the exact task checkout, routed model, worker slot, source commit, and
-external durable checkout manifest are known. It passes one strict lease bundle,
+external canonical checkout manifest are known. The polling scheduler alone
+enables pooling; direct/manual launchers remain ephemeral even when a model is
+selected. The host passes one strict lease bundle,
 the exact run ID, repository identity, and the read-only manifest into Docker.
 The manifest's byte hash is the cross-OS checkout identity, so a Windows path is
 never compared directly with `/workspace`.

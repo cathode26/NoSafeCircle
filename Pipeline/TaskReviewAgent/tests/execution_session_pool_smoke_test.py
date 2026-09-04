@@ -40,6 +40,7 @@ from Pipeline.ExecutionCrew.session_pool import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
 from Pipeline.TaskReviewAgent.execution_bridge import ExecutionCrewBridge  # noqa: E402
+from Pipeline.TaskReviewAgent.real_checkout import RealTaskCheckoutManager  # noqa: E402
 from Pipeline.TaskReviewAgent.execution_session_pool import (  # noqa: E402
     ExecutionCrewSessionPoolError,
     ExecutionCrewSessionPoolOwner,
@@ -50,6 +51,7 @@ from Pipeline.TaskReviewAgent.execution_session_pool import (  # noqa: E402
 
 TASK_ID = "NSC-900"
 MODEL = "claude-pool-smoke"
+WORKER_SLOT_ID = "pool-owner-worker"
 
 
 def require(condition: bool, message: str) -> None:
@@ -67,7 +69,8 @@ def run(*args: str, cwd: Path) -> str:
 def fixture(root: Path) -> tuple[Path, Path, str, dict]:
     checkout = root / TASK_ID
     checkout.mkdir(parents=True)
-    run("git", "init", "-b", "main", cwd=checkout)
+    branch = "nsc-900-session-pool-fixture"
+    run("git", "init", "-b", branch, cwd=checkout)
     run("git", "config", "user.name", "Pool Smoke", cwd=checkout)
     run("git", "config", "user.email", "pool-smoke@example.invalid", cwd=checkout)
     (checkout / "tracked.txt").write_text("fixture\n", encoding="utf-8", newline="\n")
@@ -76,28 +79,31 @@ def fixture(root: Path) -> tuple[Path, Path, str, dict]:
     repository = "https://github.com/cathode26/NoSafeCircle.git"
     run("git", "remote", "add", "origin", repository, cwd=checkout)
     head = run("git", "rev-parse", "HEAD", cwd=checkout)
-    body = {
-        "schema_version": "2.0",
-        "task_id": TASK_ID,
-        "checkout_path": str(checkout.resolve()),
-        "branch": "main",
-        "remote_url": repository,
-        "initial_source_head": head,
-        "initial_source_tree": run("git", "rev-parse", "HEAD^{tree}", cwd=checkout),
-        "task_contract_path": f"Tasks/{TASK_ID}.yaml",
-        "task_contract_revision": 1,
-        "task_contract_sha256": "a" * 64,
-        "authority": "durable_checkout_identity",
+    observation = {
+        "task": {
+            "task_id": TASK_ID,
+            "title": "Session pool fixture",
+            "contract_path": f"Tasks/{TASK_ID}.yaml",
+            "contract_revision": 1,
+            "task_contract_sha256": "a" * 64,
+        },
+        "environment": {
+            "source_head": head,
+            "source_tree": run("git", "rev-parse", "HEAD^{tree}", cwd=checkout),
+        },
     }
-    manifest = {"manifest_sha256": semantic_sha256(body), **body}
-    manifest_path = root / ".task-review-agent" / f"{TASK_ID}.json"
-    manifest_path.parent.mkdir(parents=True)
-    manifest_path.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-        newline="\n",
+    manager = RealTaskCheckoutManager(
+        source_root=checkout,
+        task_id=TASK_ID,
+        checkout_root=root,
+        worker_id=WORKER_SLOT_ID,
+        allow_local_remote_for_tests=True,
     )
-    return checkout, manifest_path, head, manifest
+    # Exercise the canonical producer rather than duplicating its JSON shape.
+    manager._write_manifest(observation, repository)
+    manifest = json.loads(manager.manifest_path.read_text(encoding="utf-8"))
+    require(manifest["branch"] == branch, "real manifest branch differs from checkout")
+    return checkout, manager.manifest_path, head, manifest
 
 
 def crew_result(
@@ -210,7 +216,7 @@ def prepared(owner: ExecutionCrewSessionPoolOwner, head: str, suffix: str) -> di
     return owner.prepare(
         run_id=f"nsc-900-{suffix}",
         task_id=TASK_ID,
-        worker_slot_id=f"slot-{suffix}",
+        worker_slot_id=WORKER_SLOT_ID,
         source_commit=head,
         task_contract_sha256="a" * 64,
         model=MODEL,
@@ -223,14 +229,16 @@ def state(owner: ExecutionCrewSessionPoolOwner) -> dict:
 
 def test_exact_manifest_and_transport_bundle() -> None:
     with tempfile.TemporaryDirectory(prefix="execution-pool-manifest-") as text:
-        checkout, manifest_path, head, _ = fixture(Path(text))
+        checkout, manifest_path, head, manifest = fixture(Path(text))
         owner = ExecutionCrewSessionPoolOwner(checkout=checkout)
         assignment = prepared(owner, head, "manifest")
         docker_identity = checkout_manifest_identity(
             manifest_path,
             task_id=TASK_ID,
             repository_identity=owner.repository_identity,
-            source_branch="main",
+            source_branch=manifest["branch"],
+            source_commit=head,
+            worker_slot_id=WORKER_SLOT_ID,
             task_contract_sha256="a" * 64,
         )
         require(docker_identity == assignment["checkout_identity"], "host/container identity differs")
@@ -248,14 +256,36 @@ def test_exact_manifest_and_transport_bundle() -> None:
         else:
             raise AssertionError("lease bundle was accepted for another run")
         tampered = json.loads(manifest_path.read_text(encoding="utf-8"))
-        tampered["checkout_path"] = r"C:\wrong"
+        tampered["worker_id"] = "another-worker"
+        tampered_body = {
+            key: value for key, value in tampered.items() if key != "manifest_sha256"
+        }
+        tampered["manifest_sha256"] = semantic_sha256(tampered_body)
         manifest_path.write_text(json.dumps(tampered), encoding="utf-8")
         try:
-            owner.checkout_manifest_identity(task_id=TASK_ID)
+            owner.checkout_manifest_identity(
+                task_id=TASK_ID,
+                worker_slot_id=WORKER_SLOT_ID,
+                source_commit=head,
+            )
         except ExecutionCrewSessionPoolError:
             pass
         else:
-            raise AssertionError("tampered manifest was accepted")
+            raise AssertionError("cross-worker manifest was accepted by the host owner")
+        try:
+            checkout_manifest_identity(
+                manifest_path,
+                task_id=TASK_ID,
+                repository_identity=owner.repository_identity,
+                source_branch=manifest["branch"],
+                source_commit=head,
+                worker_slot_id=WORKER_SLOT_ID,
+                task_contract_sha256="a" * 64,
+            )
+        except CrewBlocked:
+            pass
+        else:
+            raise AssertionError("cross-worker manifest was accepted in the container")
 
 
 def test_success_reuse_unused_cancel_and_exact_once_replay() -> None:
@@ -368,12 +398,49 @@ def test_tampered_result_quarantines_and_terminal_missing_quarantines() -> None:
         current = state(owner)
         require(current["assignments"][assignment["run_id"]]["status"] == "failed", "tamper not fenced")
         require(all(x["state"] in {"quarantined", "retired"} for x in current["pool"]["sessions"]), "tampered sessions remained reusable")
+        failed_snapshot = current
+        require(
+            owner.settle(run_id=assignment["run_id"], result_path=path) == "already_failed",
+            "exact failed-result replay was not a no-op",
+        )
+        require(state(owner) == failed_snapshot, "failed-result replay mutated durable state")
+        changed = json.loads(path.read_text(encoding="utf-8"))
+        changed["rejection_reasons"] = ["different terminal bytes"]
+        path.write_text(json.dumps(changed), encoding="utf-8")
+        try:
+            owner.settle(run_id=assignment["run_id"], result_path=path)
+        except ExecutionCrewSessionPoolError:
+            pass
+        else:
+            raise AssertionError("different failed-result replay was accepted")
+        require(state(owner) == failed_snapshot, "different failed replay mutated durable state")
 
         missing = prepared(owner, head, "missing")
         owner.terminal_without_result(run_id=missing["run_id"], reason="exit 2")
         current = state(owner)
         missing_records = {x["record_id"] for x in missing["leases"].values()}
         require(all(x["state"] in {"quarantined", "retired"} for x in current["pool"]["sessions"] if x["record_id"] in missing_records), "missing evidence remained reusable")
+        missing_snapshot = current
+        late_missing_result = crew_result(owner, missing, invoked=())
+        try:
+            owner.settle(run_id=missing["run_id"], result_path=late_missing_result)
+        except ExecutionCrewSessionPoolError:
+            pass
+        else:
+            raise AssertionError("missing-result terminal accepted a later result")
+        require(state(owner) == missing_snapshot, "missing-result replay mutated durable state")
+
+        cancelled = prepared(owner, head, "cancelled")
+        owner.cancel_unstarted(run_id=cancelled["run_id"])
+        cancelled_snapshot = state(owner)
+        late_cancelled_result = crew_result(owner, cancelled, invoked=())
+        try:
+            owner.settle(run_id=cancelled["run_id"], result_path=late_cancelled_result)
+        except ExecutionCrewSessionPoolError:
+            pass
+        else:
+            raise AssertionError("cancelled assignment accepted a later result")
+        require(state(owner) == cancelled_snapshot, "cancelled replay mutated durable state")
 
 
 def test_bridge_supplies_exact_four_lease_transport_and_manual_path_is_ephemeral() -> None:
@@ -414,6 +481,82 @@ def test_bridge_supplies_exact_four_lease_transport_and_manual_path_is_ephemeral
             feedback_file=None,
         )
         require("--run-id" not in manual and "--role-session-leases" not in manual, "manual path stopped being ephemeral")
+
+
+def test_full_manual_bridge_never_prepares_scheduler_owned_pool() -> None:
+    with tempfile.TemporaryDirectory(prefix="execution-pool-manual-bridge-") as text:
+        checkout, _, head, _ = fixture(Path(text))
+        accepted = SimpleNamespace(
+            task_id=TASK_ID,
+            plan_id="plan-manual-bridge",
+            lease_id="lease-manual-bridge",
+            source_head=head,
+            task_contract_sha256="a" * 64,
+            plan=SimpleNamespace(
+                existing_implementation_paths=("Assets/A.cs",),
+                new_implementation_paths=(),
+                existing_test_paths=("Assets/ATests.cs",),
+                new_test_paths=(),
+            ),
+        )
+
+        class Scope:
+            task_id = TASK_ID
+
+            def __init__(self) -> None:
+                self.accepted = accepted
+
+            def require(self, plan_id: str):
+                require(plan_id == accepted.plan_id, "manual bridge changed plan identity")
+                return accepted
+
+        class SpyOwner:
+            prepare_calls = 0
+
+            def prepare(self, **_values):
+                self.prepare_calls += 1
+                raise AssertionError("manual bridge prepared a scheduler-owned pool")
+
+        class RunnerReached(RuntimeError):
+            pass
+
+        commands: list[tuple[str, ...]] = []
+
+        def manual_runner(args, _cwd, _timeout):
+            commands.append(tuple(args))
+            raise RunnerReached()
+
+        for provider, model in (
+            ("claude", None),
+            ("claude", "manual-claude-model"),
+            ("codex", "manual-codex-model"),
+        ):
+            owner = SpyOwner()
+            # Construct exactly like a manual/default caller (no injected
+            # runner), then replace only the subprocess seam before run so no
+            # Docker daemon is touched by this deterministic regression.
+            bridge = ExecutionCrewBridge(
+                checkout=checkout,
+                scope=Scope(),
+                execution_model=model,
+                worker_slot_id=WORKER_SLOT_ID,
+                session_pool_owner=owner,
+            )
+            bridge.command_runner = manual_runner
+            try:
+                bridge.run(plan_id=accepted.plan_id, provider=provider)
+            except RunnerReached:
+                pass
+            else:
+                raise AssertionError("manual bridge did not reach the ephemeral runner")
+            require(owner.prepare_calls == 0, f"manual {provider}/{model} prepared the pool")
+            command = commands[-1]
+            require(
+                "--role-session-leases" not in command
+                and "--checkout-identity-manifest" not in command
+                and "--run-id" not in command,
+                f"manual {provider}/{model} received pooled transport",
+            )
 
 
 def test_bridge_run_owns_full_pooled_call_and_degrades_only_the_optimization() -> None:
@@ -491,7 +634,7 @@ def test_bridge_run_owns_full_pooled_call_and_degrades_only_the_optimization() -
             scope=Scope(accepted),
             execution_model=MODEL,
             command_runner=fake_runner,
-            worker_slot_id="scheduler-slot-full-call",
+            worker_slot_id=WORKER_SLOT_ID,
             session_pool_owner=owner,
             enable_session_pool=True,
         )
@@ -531,7 +674,7 @@ def test_bridge_run_owns_full_pooled_call_and_degrades_only_the_optimization() -
             scope=Scope(accepted),
             execution_model=MODEL,
             command_runner=degraded_runner,
-            worker_slot_id="scheduler-slot-degraded",
+            worker_slot_id=WORKER_SLOT_ID,
             session_pool_owner=DegradedOwner(),
             enable_session_pool=True,
         )
@@ -551,6 +694,7 @@ def main() -> int:
         test_restart_recovers_exact_terminal_result_and_never_steals_unknown,
         test_tampered_result_quarantines_and_terminal_missing_quarantines,
         test_bridge_supplies_exact_four_lease_transport_and_manual_path_is_ephemeral,
+        test_full_manual_bridge_never_prepares_scheduler_owned_pool,
         test_bridge_run_owns_full_pooled_call_and_degrades_only_the_optimization,
     )
     for test in tests:
