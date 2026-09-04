@@ -99,6 +99,17 @@ implementation and decomposition provider runs from its own canonical
 standalone task checkout, so this refresh cannot move the repository beneath an
 active worker.
 
+One local-ahead controller state has a deterministic recovery path. If D1C
+created its canonical graph-application commit but the ordinary push did not
+reach `origin/main`, the next poll proves the exact approved `plan_id`, the
+commit's sole authorized parent, the fully applied graph, and the unchanged
+remote parent. It then excludes every other committed task and resumes only
+that decomposition application to retry the same non-force push. Any other
+local-ahead or diverged history still stops without reset, rebase, overwrite,
+or force-push. A timed-out Git command is reported through the same durable
+lease-release and worker-result path rather than escaping as an unrecorded
+process failure.
+
 One scheduler poll may admit multiple workers, bounded by both `--max-workers`
 and `--architect-max-invocations-per-poll`. After every launch it repeats the
 source refresh, Stage-2 plan, and reservation observation before paying for the

@@ -38,10 +38,15 @@ def require(condition: bool, message: str) -> None:
 class RecordingService:
     def __init__(self) -> None:
         self.releases: list[dict] = []
+        self.completions: list[dict] = []
 
     def release_decomposition_lease(self, **values):
         self.releases.append(dict(values))
         return {"status": "agent_ready"}
+
+    def complete_decomposition(self, **values):
+        self.completions.append(dict(values))
+        return {"status": "complete"}
 
     @staticmethod
     def find(_task_id):
@@ -68,6 +73,74 @@ def arguments() -> SimpleNamespace:
         providers="codex,claude",
         max_calls=4,
     )
+
+
+def test_git_timeout_is_normalized_for_lease_and_artifact_cleanup() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source = Path(text)
+        timeout = subprocess.TimeoutExpired(
+            cmd=("git", "push", "origin", "fixture:refs/heads/main"),
+            timeout=180.0,
+        )
+        with patch.object(launcher.subprocess, "run", side_effect=timeout):
+            try:
+                launcher._git(source, "push", "origin", "fixture:refs/heads/main")
+            except RuntimeError as exc:
+                require("git push origin" in str(exc), str(exc))
+                require("timed out after 180 seconds" in str(exc), str(exc))
+                require(exc.__cause__ is timeout, repr(exc.__cause__))
+            except subprocess.TimeoutExpired as exc:
+                raise AssertionError(
+                    "raw TimeoutExpired bypassed launcher cleanup"
+                ) from exc
+            else:
+                raise AssertionError("timed-out git call unexpectedly succeeded")
+
+
+def test_exact_d1c_commit_uses_subject_and_sole_authorized_parent() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source = Path(text) / "source"
+        source.mkdir()
+
+        def fixture_git(*args: str) -> str:
+            result = subprocess.run(
+                ("git", "-C", str(source), *args),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=30.0,
+            )
+            if result.returncode != 0:
+                raise AssertionError(
+                    f"fixture git failed ({result.returncode}): {args}\n{result.stderr}"
+                )
+            return result.stdout.strip()
+
+        fixture_git("init", "-b", "main")
+        fixture_git("config", "user.name", "D1C Fixture")
+        fixture_git(
+            "config", "user.email", "d1c-fixture@nosafecircle.invalid"
+        )
+        (source / "base.txt").write_text("base\n", encoding="utf-8")
+        fixture_git("add", "base.txt")
+        fixture_git("commit", "-m", "fixture base")
+        authorized_head = fixture_git("rev-parse", "HEAD")
+        subject = f"taskgraph: apply {TASK_ID} decomposition {PLAN_ID}"
+        fixture_git("commit", "--allow-empty", "-m", subject)
+        exact_commit = fixture_git("rev-parse", "HEAD")
+        fixture_git("commit", "--allow-empty", "-m", "later unrelated main change")
+        fixture_git("commit", "--allow-empty", "-m", subject)
+        current_head = fixture_git("rev-parse", "HEAD")
+
+        found = launcher._exact_d1c_commit(
+            source,
+            task_id=TASK_ID,
+            plan_id=PLAN_ID,
+            authorized_head=authorized_head,
+            current_head=current_head,
+        )
+        require(found == exact_commit, f"expected {exact_commit}, found {found}")
 
 
 def test_proposal_failure_releases_durable_lease_without_killing_scheduler() -> None:
@@ -352,6 +425,117 @@ def test_apply_artifact_error_releases_global_claim() -> None:
         launcher._git = original_git
         launcher.inspect_authorized_decomposition_replay = original_replay
     require(claims.released == [claims.receipt], str(claims.released))
+
+
+def test_unpushed_local_d1c_commit_is_retried_without_reapplying_graph() -> None:
+    """A genuine first push failure must not strand main ahead of origin/main."""
+
+    service = RecordingService()
+    claims = RecordingClaimClient()
+    applied_commit = "2" * 40
+    remote = {"head": SOURCE_HEAD}
+    push_attempts: list[tuple[str, ...]] = []
+    fail_first_push = {"value": True}
+    decomposition = SimpleNamespace(
+        parent_task=SimpleNamespace(to_dict=lambda: {"id": TASK_ID})
+    )
+    replay = SimpleNamespace(
+        plan_id=PLAN_ID,
+        authorized_source_head=SOURCE_HEAD,
+        artifact_root=Path("C:/fixture/decomposition-output"),
+        graph_delta=object(),
+        inspection=SimpleNamespace(
+            status="already_applied",
+            reason="the exact D1C graph is already present locally",
+        ),
+    )
+
+    def fake_git(_source, *git_args):
+        if git_args == ("fetch", "origin", "main"):
+            return ""
+        if git_args == ("rev-parse", "origin/main"):
+            return remote["head"]
+        if git_args == (
+            "push",
+            "origin",
+            f"{applied_commit}:refs/heads/main",
+        ):
+            push_attempts.append(git_args)
+            if fail_first_push["value"]:
+                fail_first_push["value"] = False
+                raise RuntimeError("fixture genuine transport failure")
+            remote["head"] = applied_commit
+            return ""
+        raise AssertionError(f"unexpected git call: {git_args}")
+
+    patches = (
+        patch.object(
+            launcher,
+            "inspect_authorized_decomposition_replay",
+            return_value=replay,
+        ),
+        patch.object(
+            launcher,
+            "_exact_d1c_commit",
+            return_value=applied_commit,
+        ),
+        patch.object(launcher, "_git", side_effect=fake_git),
+        patch.object(launcher, "_load_json", return_value={}),
+        patch.object(
+            launcher.DecompositionResult,
+            "from_dict",
+            return_value=decomposition,
+        ),
+        patch.object(
+            launcher,
+            "apply_graph_delta",
+            return_value=SimpleNamespace(
+                status="already_applied",
+                reason="fixture exact replay",
+                new_commit_sha=None,
+            ),
+        ),
+    )
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+        try:
+            launcher._apply_approved_plan(
+                args=arguments(),
+                source=Path("C:/fixture/source"),
+                source_head=applied_commit,
+                service=service,
+                claim_client=claims,
+                prelease_snapshot=SimpleNamespace(),
+            )
+        except RuntimeError as exc:
+            require("transport failure" in str(exc), str(exc))
+        else:
+            raise AssertionError("genuine D1C push failure was reported as success")
+
+        result = launcher._apply_approved_plan(
+            args=arguments(),
+            source=Path("C:/fixture/source"),
+            source_head=applied_commit,
+            service=service,
+            claim_client=claims,
+            prelease_snapshot=SimpleNamespace(),
+        )
+
+    require(result == 0, str(result))
+    require(remote["head"] == applied_commit, str(remote))
+    require(len(push_attempts) == 2, str(push_attempts))
+    require(claims.released == [claims.receipt, claims.receipt], str(claims.released))
+    require(
+        service.completions
+        == [
+            {
+                "task_id": TASK_ID,
+                "graph_delta_plan_id": PLAN_ID,
+                "applied_commit": applied_commit,
+            }
+        ],
+        str(service.completions),
+    )
+    require(not service.releases, str(service.releases))
 
 
 def test_compose_command_is_exact_review_only_service() -> None:
@@ -813,6 +997,8 @@ def test_apply_resume_uses_historical_contract_and_skips_fresh_validation() -> N
 
 def main() -> int:
     tests = (
+        test_git_timeout_is_normalized_for_lease_and_artifact_cleanup,
+        test_exact_d1c_commit_uses_subject_and_sole_authorized_parent,
         test_proposal_failure_releases_durable_lease_without_killing_scheduler,
         test_stale_authorized_plan_releases_to_fresh_decomposition,
         test_malformed_proposal_artifact_releases_durable_lease,
@@ -820,6 +1006,7 @@ def main() -> int:
         test_output_observation_error_releases_durable_lease,
         test_scheduler_proposal_rejects_wrong_run_directory_and_escaped_paths,
         test_apply_artifact_error_releases_global_claim,
+        test_unpushed_local_d1c_commit_is_retried_without_reapplying_graph,
         test_compose_command_is_exact_review_only_service,
         test_scheduler_decomposition_run_writes_identity_bound_terminal_result,
         test_apply_resume_uses_historical_contract_and_skips_fresh_validation,

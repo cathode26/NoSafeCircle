@@ -79,6 +79,7 @@ from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     validate_task_id,
 )
 from Pipeline.TaskReviewAgent.decomposition_replay import (  # noqa: E402
+    find_exact_d1c_commit,
     inspect_authorized_decomposition_replay,
 )
 from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
@@ -230,6 +231,10 @@ class IntegrationReservation:
     # transition. The task is never admitted while set, but its resources stay
     # reserved and the rest of the poll continues normally.
     pending_transition: Mapping[str, Any] | None = None
+    # Exact canonical D1C commit proven from the approved plan and current
+    # controller ancestry. This permits only that task to recover when a prior
+    # push failed after creating the local D1C commit.
+    authorized_decomposition_apply_commit: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "task_id", validate_task_id(self.task_id))
@@ -255,6 +260,16 @@ class IntegrationReservation:
             raise IntegrationObservationError("reservation evidence_type must be non-empty")
         if type(self.surface_unknown) is not bool or type(self.local_active) is not bool:
             raise IntegrationObservationError("reservation flags must be boolean")
+        if (
+            self.authorized_decomposition_apply_commit is not None
+            and re.fullmatch(
+                r"[0-9a-f]{40}", self.authorized_decomposition_apply_commit
+            )
+            is None
+        ):
+            raise IntegrationObservationError(
+                "authorized decomposition apply commit must be one exact Git SHA"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -273,6 +288,14 @@ class IntegrationReservation:
             "evidence_type": self.evidence_type,
             "surface_unknown": self.surface_unknown,
             "local_active": self.local_active,
+            "pending_transition": (
+                dict(self.pending_transition)
+                if self.pending_transition is not None
+                else None
+            ),
+            "authorized_decomposition_apply_commit": (
+                self.authorized_decomposition_apply_commit
+            ),
         }
 
 
@@ -524,6 +547,24 @@ def refresh_source_main(source: Path | str) -> dict[str, Any]:
     remote = _git_text(root, "rev-parse", "--verify", "origin/main")
     ancestry = _run_git(root, "merge-base", "--is-ancestor", before, remote)
     if ancestry.returncode != 0:
+        reverse_ancestry = _run_git(
+            root, "merge-base", "--is-ancestor", remote, before
+        )
+        if reverse_ancestry.returncode == 0:
+            verified_status = _git_text(
+                root, "status", "--porcelain=v1", "--untracked-files=all"
+            )
+            if verified_status:
+                raise IntegrationObservationError(
+                    "scheduler controller became dirty while observing local-ahead main"
+                )
+            return {
+                "before": before,
+                "after": before,
+                "changed": False,
+                "local_ahead": True,
+                "remote_head": remote,
+            }
         raise IntegrationObservationError(
             "scheduler controller main diverged from origin/main; refusing rewrite"
         )
@@ -544,6 +585,40 @@ def refresh_source_main(source: Path | str) -> dict[str, Any]:
             "scheduler controller refresh did not verify exact clean origin/main"
         )
     return {"before": before, "after": after, "changed": before != after}
+
+
+def _authorized_local_ahead_recovery_task(
+    refresh: Mapping[str, Any],
+    reservations: Iterable[IntegrationReservation],
+) -> str | None:
+    """Identify the sole D1C resume allowed to run from local-ahead main."""
+
+    if refresh.get("local_ahead") is not True:
+        return None
+    local_commit = str(refresh.get("after") or "")
+    before = str(refresh.get("before") or "")
+    remote_head = str(refresh.get("remote_head") or "")
+    if (
+        re.fullmatch(r"[0-9a-f]{40}", local_commit) is None
+        or before != local_commit
+        or refresh.get("changed") is not False
+        or re.fullmatch(r"[0-9a-f]{40}", remote_head) is None
+    ):
+        raise IntegrationObservationError(
+            "scheduler source refresher returned malformed local-ahead evidence"
+        )
+    matches = [
+        item
+        for item in reservations
+        if item.phase == WorkflowPhase.DECOMPOSITION_APPLY.value
+        and item.authorized_decomposition_apply_commit == local_commit
+    ]
+    if len(matches) != 1:
+        raise IntegrationObservationError(
+            "scheduler controller main is ahead of origin/main without one exact "
+            "authorized decomposition-apply recovery"
+        )
+    return matches[0].task_id
 
 
 def _decode_z_paths(raw: bytes) -> tuple[str, ...]:
@@ -705,18 +780,20 @@ def observe_durable_integration_reservations(
             raise IntegrationObservationError(
                 f"could not load committed task {state.task_id}: {_bounded_error(exc)}"
             ) from exc
+        authorized_apply_commit: str | None = None
         if task.get("task_contract_sha256") != state.task_contract_sha256:
             if state.phase is not WorkflowPhase.DECOMPOSITION_APPLY:
                 raise IntegrationObservationError(
                     f"durable {state.task_id} task-contract hash differs from committed HEAD"
                 )
             try:
+                current_source_head = _git_text(
+                    source_root, "rev-parse", "--verify", "HEAD"
+                )
                 replay = inspect_authorized_decomposition_replay(
                     source=source_root,
                     snapshot=snapshot,
-                    expected_head=_git_text(
-                        source_root, "rev-parse", "--verify", "HEAD"
-                    ),
+                    expected_head=current_source_head,
                 )
             except Exception as exc:
                 raise IntegrationObservationError(
@@ -730,6 +807,20 @@ def observe_durable_integration_reservations(
                     "but the authorized plan is not exactly applied: "
                     f"{replay.inspection.status}: {replay.inspection.reason}"
                 )
+            try:
+                authorized_apply_commit = find_exact_d1c_commit(
+                    source_root,
+                    task_id=state.task_id,
+                    plan_id=replay.plan_id,
+                    authorized_head=replay.authorized_source_head,
+                    current_head=current_source_head,
+                )
+            except Exception as exc:
+                raise IntegrationObservationError(
+                    f"durable {state.task_id} decomposition_apply graph is present "
+                    "but its exact canonical D1C commit is not provable: "
+                    f"{_bounded_error(exc)}"
+                ) from exc
 
         candidate_checkouts: list[Path] = []
         if state.checkout_path:
@@ -805,6 +896,7 @@ def observe_durable_integration_reservations(
                 surface_unknown=surface_unknown,
                 local_active=False,
                 pending_transition=pending_transition,
+                authorized_decomposition_apply_commit=authorized_apply_commit,
             )
         )
     return tuple(
@@ -2035,6 +2127,7 @@ class PollingOrchestrator:
             excluded_task_ids=sorted(self.excluded_task_ids),
             dry_run=self.dry_run,
         )
+        refresh: dict[str, Any] = {}
         if not self.dry_run:
             try:
                 refresh = dict(self.source_refresher(self.source))
@@ -2166,12 +2259,59 @@ class PollingOrchestrator:
                 ),
             )
 
+        try:
+            local_ahead_recovery_task_id = _authorized_local_ahead_recovery_task(
+                refresh, reservations
+            )
+        except IntegrationObservationError as exc:
+            self.events.emit(
+                "scheduler_blocked",
+                reason=(
+                    "controller main is locally ahead without exact durable D1C "
+                    "recovery authority"
+                ),
+                error=_bounded_error(exc),
+            )
+            return PollCycleResult("unproved_local_ahead", fatal=True)
+
         integration_fingerprint = active_surface_fingerprint(reservations)
         temporary_exclusions = set(self.active_assignments).union(
             self.excluded_task_ids,
             just_reaped_task_ids,
             (item["task_id"] for item in pending_transitions),
         )
+        if local_ahead_recovery_task_id is not None:
+            try:
+                committed_task_ids = dispatch_plan_module.list_committed_task_ids(
+                    self.source
+                )
+            except (IssueWorkflowStoreError, OSError) as exc:
+                self.events.emit(
+                    "scheduler_blocked",
+                    reason=(
+                        "could not enumerate committed tasks while isolating exact "
+                        "D1C local-ahead recovery"
+                    ),
+                    task_id=local_ahead_recovery_task_id,
+                    error=_bounded_error(exc),
+                )
+                return PollCycleResult("local_ahead_inventory_failed", fatal=True)
+            temporary_exclusions.update(
+                task_id
+                for task_id in committed_task_ids
+                if task_id != local_ahead_recovery_task_id
+            )
+            self.events.emit(
+                "source_main_local_ahead_recovery",
+                task_id=local_ahead_recovery_task_id,
+                local_commit=refresh["after"],
+                remote_head=refresh["remote_head"],
+                excluded_task_count=len(temporary_exclusions),
+                reason=(
+                    "only the exact approved decomposition-apply resume may retry "
+                    "publishing this local D1C commit"
+                ),
+            )
         if shared_issue_backend is not None:
             plan = build_poll_dispatch_plan(
                 source=self.source,
@@ -2221,10 +2361,20 @@ class PollingOrchestrator:
             return PollCycleResult("unsupported_plan", fatal=True)
 
         candidates = self._ordered_candidates(plan)
+        if local_ahead_recovery_task_id is not None:
+            candidates = tuple(
+                entry
+                for entry in candidates
+                if entry[0].get("task_id") == local_ahead_recovery_task_id
+            )
         if not candidates:
             self.events.emit(
                 "scheduler_blocked",
-                reason="Stage-2 plan omitted its ordered candidate data",
+                reason=(
+                    "Stage-2 plan omitted the sole authorized local-ahead D1C recovery"
+                    if local_ahead_recovery_task_id is not None
+                    else "Stage-2 plan omitted its ordered candidate data"
+                ),
             )
             return PollCycleResult("missing_candidate", fatal=True)
 
@@ -2237,6 +2387,12 @@ class PollingOrchestrator:
                 error=_bounded_error(exc),
             )
             return PollCycleResult("candidate_verification_failed", fatal=True)
+        if local_ahead_recovery_task_id is not None:
+            mixed_portfolio = tuple(
+                entry
+                for entry in mixed_portfolio
+                if entry[2]["task"]["id"] == local_ahead_recovery_task_id
+            )
         if not mixed_portfolio:
             self.events.emit(
                 "scheduler_blocked",
@@ -2560,13 +2716,16 @@ class PollingOrchestrator:
                 )
                 temporary_exclusions.add(task_id)
                 self.events.emit(
-                    "architect_batch_truncated",
+                    "architect_batch_candidate_withdrawn",
                     task_id=task_id,
                     reasons=reasons,
                     retained_task_ids=[item[3].task_id for item in safe_candidates],
-                    discarded_task_ids=[item[3].task_id for item in candidates[len(safe_candidates):]],
+                    reason=(
+                        "this admission failed its deterministic gate; later ordered "
+                        "admissions remain independently eligible"
+                    ),
                 )
-                break
+                continue
             safe_candidates.append((candidate, resume_phase, portfolio_entry, advisory))
             planned_reservations.append(
                 IntegrationReservation(
@@ -2633,6 +2792,31 @@ class PollingOrchestrator:
                     backend=fresh_backend,
                     consistency_retry_budget=fresh_budget,
                 )
+                refreshed_recovery_task_id = _authorized_local_ahead_recovery_task(
+                    refresh, fresh_reservations
+                )
+                if (
+                    local_ahead_recovery_task_id is not None
+                    and refreshed_recovery_task_id
+                    not in {None, local_ahead_recovery_task_id}
+                ):
+                    raise PollingOrchestratorError(
+                        "local-ahead D1C recovery authority changed after architect batching"
+                    )
+                if refreshed_recovery_task_id is not None:
+                    if refreshed_recovery_task_id != task_id:
+                        raise PollingOrchestratorError(
+                            "architect selected a task other than the sole authorized "
+                            "local-ahead D1C recovery"
+                        )
+                    revalidation_exclusion_ids = (
+                        dispatch_plan_module.list_committed_task_ids(self.source)
+                    )
+                    temporary_exclusions.update(
+                        item
+                        for item in revalidation_exclusion_ids
+                        if item != refreshed_recovery_task_id
+                    )
                 revalidation_exclusions = set(self.active_assignments).union(
                     self.excluded_task_ids, temporary_exclusions
                 )

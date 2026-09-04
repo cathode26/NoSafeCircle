@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import hashlib
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +34,65 @@ _GIT_OBJECT_ID_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
 class DecompositionReplayError(RuntimeError):
     """Raised when durable Issue authority cannot prove an exact D1C replay."""
+
+
+def _git_text(source: Path, *args: str) -> str:
+    try:
+        completed = subprocess.run(
+            ("git", "-C", str(source), *args),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+            timeout=180.0,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise DecompositionReplayError(
+            f"could not inspect D1C Git history: {type(exc).__name__}: {exc}"
+        ) from exc
+    if completed.returncode != 0:
+        detail = " ".join(completed.stderr.split())[:700]
+        raise DecompositionReplayError(
+            f"git {' '.join(args)} failed while inspecting D1C history"
+            + (f": {detail}" if detail else "")
+        )
+    return completed.stdout.strip()
+
+
+def find_exact_d1c_commit(
+    source: Path,
+    *,
+    task_id: str,
+    plan_id: str,
+    authorized_head: str,
+    current_head: str,
+) -> str:
+    """Locate the unique canonical D1C child of the authorized source commit."""
+
+    subject = f"taskgraph: apply {task_id} decomposition {plan_id}"
+    commits = tuple(
+        line
+        for line in _git_text(
+            source,
+            "rev-list",
+            "--ancestry-path",
+            f"{authorized_head}..{current_head}",
+        ).splitlines()
+        if line
+    )
+    matches = []
+    for commit in commits:
+        if _git_text(source, "show", "-s", "--format=%s", commit) != subject:
+            continue
+        parents = _git_text(source, "show", "-s", "--format=%P", commit).split()
+        if parents == [authorized_head]:
+            matches.append(commit)
+    if len(matches) != 1:
+        raise DecompositionReplayError(
+            "exact already-applied D1C commit could not be identified uniquely "
+            f"from {authorized_head} to {current_head}; matches={matches}"
+        )
+    return matches[0]
 
 
 @dataclass(frozen=True)
@@ -178,5 +238,6 @@ def inspect_authorized_decomposition_replay(
 __all__ = [
     "AuthorizedDecompositionReplay",
     "DecompositionReplayError",
+    "find_exact_d1c_commit",
     "inspect_authorized_decomposition_replay",
 ]

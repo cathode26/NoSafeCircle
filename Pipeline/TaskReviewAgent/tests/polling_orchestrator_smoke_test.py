@@ -904,6 +904,67 @@ def test_conflicting_batch_truncates_before_second_launch() -> None:
         )
 
 
+def test_unsafe_first_admission_does_not_discard_safe_later_candidate() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner([candidate_plan(head, TASK_A, TASK_B)])
+        processes = ProcessFactory()
+        reservation = IntegrationReservation(
+            task_id=TASK_C,
+            workflow_state=WorkflowState.HUMAN_ACTION_REQUIRED.value,
+            phase=WorkflowPhase.UNITY_RUNTIME_VALIDATION.value,
+            branch="nsc-103-fixture",
+            head=head,
+            checkout_path=None,
+            exclusive_resources=(),
+            predicted_paths=(),
+            actual_paths=("Assets/NoSafeCircle/Gameplay/Conflict.cs",),
+            unity_serialized_assets=(),
+            shared_systems=(),
+            confidence=1.0,
+            evidence_type="fixture_known_path",
+            surface_unknown=False,
+            local_active=False,
+        )
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=FakeArchitect(
+                {
+                    TASK_A: advisory(
+                        TASK_A,
+                        head,
+                        exact_paths=("Assets/NoSafeCircle/Gameplay/Conflict.cs",),
+                    ),
+                    TASK_B: advisory(
+                        TASK_B,
+                        head,
+                        exact_paths=("Assets/NoSafeCircle/Gameplay/Disjoint.cs",),
+                    ),
+                }
+            ),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
+            reservations=(reservation,),
+            max_workers=2,
+        )
+
+        result = orchestrator.poll_once()
+        events = stream.getvalue()
+        require(
+            result.status == "worker_launched" and result.task_id == TASK_B,
+            str(result),
+        )
+        require(len(processes.calls) == 1, str(processes.calls))
+        command = processes.calls[0][0]
+        require(command[command.index("--task-id") + 1] == TASK_B, str(command))
+        require(
+            '"event": "architect_batch_candidate_withdrawn"' in events,
+            events,
+        )
+        require('"event": "architect_batch_truncated"' not in events, events)
+
+
 def test_active_task_ids_feed_stage2_exclusions() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -2705,6 +2766,8 @@ def test_decomposition_apply_hash_change_requires_exact_replay() -> None:
         )
         scanned = (SimpleNamespace(error=None, snapshot=snapshot),)
         replay = SimpleNamespace(
+            plan_id="plan-fixture",
+            authorized_source_head=head,
             inspection=SimpleNamespace(
                 status="already_applied",
                 reason="fixture exact plan is present",
@@ -2721,6 +2784,11 @@ def test_decomposition_apply_hash_change_requires_exact_replay() -> None:
                 "inspect_authorized_decomposition_replay",
                 return_value=replay,
             ) as inspector,
+            patch.object(
+                scheduler_module,
+                "find_exact_d1c_commit",
+                return_value=head,
+            ) as commit_finder,
         ):
             reservations = observe_durable_integration_reservations(
                 source=source,
@@ -2731,6 +2799,17 @@ def test_decomposition_apply_hash_change_requires_exact_replay() -> None:
             )
         require(len(reservations) == 1, str(reservations))
         inspector.assert_called_once()
+        commit_finder.assert_called_once_with(
+            source.resolve(),
+            task_id=TASK_A,
+            plan_id="plan-fixture",
+            authorized_head=head,
+            current_head=head,
+        )
+        require(
+            reservations[0].authorized_decomposition_apply_commit == head,
+            str(reservations[0]),
+        )
 
         stale = SimpleNamespace(
             inspection=SimpleNamespace(
@@ -3729,6 +3808,143 @@ def test_source_refresh_fast_forwards_exact_remote_main_without_rewrite() -> Non
         require(git(source, "status", "--porcelain") == "", "refresh dirtied source")
 
 
+def test_source_refresh_reports_clean_local_ahead_without_rewrite() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, remote_head = create_source(root)
+        remote = root / "remote.git"
+        git(root, "init", "--bare", str(remote))
+        git(source, "remote", "add", "origin", str(remote))
+        git(source, "push", "-u", "origin", "main")
+
+        (source / "local-apply.txt").write_text("D1C apply\n", encoding="utf-8")
+        git(source, "add", "local-apply.txt")
+        git(source, "commit", "-m", "Apply approved decomposition fixture")
+        local_head = git(source, "rev-parse", "HEAD")
+
+        result = refresh_source_main(source)
+        require(
+            result
+            == {
+                "before": local_head,
+                "after": local_head,
+                "changed": False,
+                "local_ahead": True,
+                "remote_head": remote_head,
+            },
+            str(result),
+        )
+        require(git(source, "rev-parse", "HEAD") == local_head, "local HEAD changed")
+        require(git(source, "rev-parse", "origin/main") == remote_head, "remote changed")
+        require(git(source, "status", "--porcelain") == "", "refresh dirtied source")
+
+
+def test_unproved_local_ahead_stops_before_stage2() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner([candidate_plan(head, TASK_A)])
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=FakeArchitect({TASK_A: advisory(TASK_A, head)}),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+            source_refresher=lambda _source: {
+                "before": head,
+                "after": head,
+                "changed": False,
+                "local_ahead": True,
+                "remote_head": "d" * 40,
+            },
+        )
+
+        result = orchestrator.poll_once()
+        require(result.status == "unproved_local_ahead", str(result))
+        require(result.fatal, str(result))
+        require(planner.calls == [], str(planner.calls))
+        require(processes.calls == [], str(processes.calls))
+        require("exact durable D1C recovery authority" in stream.getvalue(), stream.getvalue())
+
+
+def test_exact_d1c_local_ahead_excludes_every_other_task() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        plan = resume_plan(
+            head,
+            TASK_A,
+            TASK_B,
+            TASK_C,
+            phase=WorkflowPhase.DECOMPOSITION_APPLY.value,
+        )
+        planner = SequencePlanner([plan, plan])
+        processes = ProcessFactory()
+        reservation = IntegrationReservation(
+            task_id=TASK_A,
+            workflow_state=WorkflowState.AGENT_READY.value,
+            phase=WorkflowPhase.DECOMPOSITION_APPLY.value,
+            branch="main",
+            head=head,
+            checkout_path=str(source),
+            exclusive_resources=(),
+            predicted_paths=(),
+            actual_paths=(),
+            unity_serialized_assets=(),
+            shared_systems=(),
+            confidence=1.0,
+            evidence_type="exact_d1c_local_ahead_fixture",
+            surface_unknown=False,
+            local_active=False,
+            authorized_decomposition_apply_commit=head,
+        )
+        architect = FakeArchitect(
+            {
+                TASK_A: advisory(TASK_A, head, work_type="decomposition"),
+                TASK_B: advisory(TASK_B, head),
+                TASK_C: advisory(TASK_C, head),
+            }
+        )
+        refresh = {
+            "before": head,
+            "after": head,
+            "changed": False,
+            "local_ahead": True,
+            "remote_head": "d" * 40,
+        }
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={
+                TASK_A: decomposition_task(TASK_A),
+                TASK_B: task(TASK_B),
+                TASK_C: task(TASK_C),
+            },
+            reservations=(reservation,),
+            max_workers=3,
+            source_refresher=lambda _source: refresh,
+        )
+
+        with patch.object(
+            scheduler_module.dispatch_plan_module,
+            "list_committed_task_ids",
+            return_value=[TASK_A, TASK_B, TASK_C],
+        ):
+            result = orchestrator.poll_once()
+
+        require(result.status == "worker_launched", str(result))
+        require(result.task_id == TASK_A, str(result))
+        require(len(processes.calls) == 1, str(processes.calls))
+        require(architect.portfolio_calls == [(TASK_A,)], str(architect.portfolio_calls))
+        require(len(planner.calls) == 2, str(planner.calls))
+        require(
+            all({TASK_B, TASK_C} <= exclusions for exclusions in planner.calls),
+            str(planner.calls),
+        )
+        require("source_main_local_ahead_recovery" in stream.getvalue(), stream.getvalue())
+
+
 def test_source_refresh_refuses_dirty_controller_without_overwrite() -> None:
     with tempfile.TemporaryDirectory() as text:
         root = Path(text)
@@ -4240,6 +4456,7 @@ def main() -> int:
         test_scheduler_has_no_generic_contention_retry_or_taskless_launch,
         test_max_workers_blocks_launch,
         test_conflicting_batch_truncates_before_second_launch,
+        test_unsafe_first_admission_does_not_discard_safe_later_candidate,
         test_active_task_ids_feed_stage2_exclusions,
         test_session_exclusions_feed_every_stage2_poll,
         test_exclude_task_id_cli_is_repeatable_and_validated,
@@ -4326,6 +4543,9 @@ def main() -> int:
         test_agent_working_to_complete_label_is_not_pending,
         test_default_max_workers_is_one_until_live_acceptance,
         test_source_refresh_fast_forwards_exact_remote_main_without_rewrite,
+        test_source_refresh_reports_clean_local_ahead_without_rewrite,
+        test_unproved_local_ahead_stops_before_stage2,
+        test_exact_d1c_local_ahead_excludes_every_other_task,
         test_source_refresh_refuses_dirty_controller_without_overwrite,
     )
     for test in tests:

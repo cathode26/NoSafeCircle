@@ -241,6 +241,15 @@ admissions; the scheduler never rebases or resets the controller. This keeps
 later task admissions and both task-branch synchronization boundaries based on
 the exact mainline produced by earlier completed workers.
 
+If a D1C commit was created locally and its push genuinely failed while
+`origin/main` remained at the approved parent, the scheduler recognizes only
+the exact canonical commit for that approved `plan_id`. During recovery it
+excludes every other task and resumes only that decomposition application, which
+retries the identical ordinary push without reapplying the graph. Arbitrary
+local-ahead history, a moved remote, an ambiguous D1C commit, or an unprovable
+Issue/plan binding remains a hard stop; the controller is never reset, rebased,
+or force-pushed.
+
 Durable reservation discovery and Stage-2 planning share one plan-scoped
 read-only Issue/comment cache. Each worker launch begins a fresh capacity pass
 and therefore a fresh GitHub snapshot, while one admission decision avoids a

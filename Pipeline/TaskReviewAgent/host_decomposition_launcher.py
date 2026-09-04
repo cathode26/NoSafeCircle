@@ -33,6 +33,7 @@ from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     validate_task_id,
 )
 from Pipeline.TaskReviewAgent.decomposition_replay import (  # noqa: E402
+    find_exact_d1c_commit,
     inspect_authorized_decomposition_replay,
 )
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
@@ -117,14 +118,20 @@ def build_compose_command(
 
 
 def _git(source: Path, *args: str) -> str:
-    completed = subprocess.run(
-        ("git", "-C", str(source), *args),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        check=False,
-        timeout=180.0,
-    )
+    timeout_seconds = 180.0
+    try:
+        completed = subprocess.run(
+            ("git", "-C", str(source), *args),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"git {' '.join(args)} timed out after {timeout_seconds:g} seconds"
+        ) from exc
     if completed.returncode != 0:
         raise RuntimeError(
             f"git {' '.join(args)} failed: {' '.join(completed.stderr.split())[:700]}"
@@ -147,32 +154,15 @@ def _exact_d1c_commit(
     authorized_head: str,
     current_head: str,
 ) -> str:
-    """Locate the one canonical D1C commit in current main ancestry."""
+    """Compatibility wrapper around the shared scheduler/launcher proof."""
 
-    subject = f"taskgraph: apply {task_id} decomposition {plan_id}"
-    commits = tuple(
-        line
-        for line in _git(
-            source,
-            "rev-list",
-            "--ancestry-path",
-            f"{authorized_head}..{current_head}",
-        ).splitlines()
-        if line
+    return find_exact_d1c_commit(
+        source,
+        task_id=task_id,
+        plan_id=plan_id,
+        authorized_head=authorized_head,
+        current_head=current_head,
     )
-    matches = []
-    for commit in commits:
-        if _git(source, "show", "-s", "--format=%s", commit) != subject:
-            continue
-        parents = _git(source, "show", "-s", "--format=%P", commit).split()
-        if parents == [authorized_head]:
-            matches.append(commit)
-    if len(matches) != 1:
-        raise RuntimeError(
-            "exact already-applied D1C commit could not be identified uniquely "
-            f"from {authorized_head} to {current_head}; matches={matches}"
-        )
-    return matches[0]
 
 
 def _exact_handoff_is_durable(
@@ -620,6 +610,7 @@ def _apply_approved_plan(
     )
     plan_id = replay.plan_id
     authorized_head = replay.authorized_source_head
+    recovered_local_apply_commit: str | None = None
     if (
         source_head != authorized_head
         and replay.inspection.status != "already_applied"
@@ -634,9 +625,22 @@ def _apply_approved_plan(
             ),
         )
         return 3
+    if replay.inspection.status == "already_applied":
+        recovered_local_apply_commit = _exact_d1c_commit(
+            source,
+            task_id=args.task_id,
+            plan_id=plan_id,
+            authorized_head=authorized_head,
+            current_head=source_head,
+        )
     _git(source, "fetch", "origin", "main")
     remote_main = _git(source, "rev-parse", "origin/main")
-    if remote_main != source_head:
+    recover_unpushed_apply = (
+        recovered_local_apply_commit is not None
+        and source_head == recovered_local_apply_commit
+        and remote_main == authorized_head
+    )
+    if remote_main != source_head and not recover_unpushed_apply:
         service.release_decomposition_lease(
             task_id=args.task_id,
             reason=(
@@ -676,7 +680,7 @@ def _apply_approved_plan(
             )
         applied_commit = applied.new_commit_sha
         if applied.status == "already_applied":
-            applied_commit = _exact_d1c_commit(
+            applied_commit = recovered_local_apply_commit or _exact_d1c_commit(
                 source,
                 task_id=args.task_id,
                 plan_id=plan_id,
@@ -685,7 +689,8 @@ def _apply_approved_plan(
             )
         if applied_commit is None:
             raise RuntimeError("D1C success omitted its exact application commit")
-        if applied.status == "applied":
+        publish_apply_commit = applied.status == "applied" or recover_unpushed_apply
+        if publish_apply_commit:
             try:
                 _git(source, "push", "origin", f"{applied_commit}:refs/heads/main")
             except RuntimeError:
@@ -696,7 +701,7 @@ def _apply_approved_plan(
                     raise
         _git(source, "fetch", "origin", "main")
         expected_remote_head = (
-            applied_commit if applied.status == "applied" else source_head
+            applied_commit if publish_apply_commit else source_head
         )
         if _git(source, "rev-parse", "origin/main") != expected_remote_head:
             raise RuntimeError(
