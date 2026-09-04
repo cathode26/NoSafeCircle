@@ -1018,6 +1018,9 @@ def _validate_transition(
         plan_id = _string(details.get("graph_delta_plan_id"), field="graph_delta_plan_id")
         if re.fullmatch(r"GDP-[0-9a-f]{64}", plan_id or "") is None:
             raise WorkflowContractError("graph_delta_plan_id has an invalid identity")
+        graph_hash = details.get("graph_delta_sha256")
+        if graph_hash is not None:
+            _sha(graph_hash, field="graph_delta_sha256", sha256=True)
         if to_phase is not WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION:
             raise WorkflowContractError(
                 "decomposition handoff must enter decomposition_apply_authorization"

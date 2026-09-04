@@ -167,6 +167,18 @@ class _ReplayInspection:
     failures: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class GraphApplyReplayInspection:
+    """Read-only evidence describing whether one reviewed plan is in HEAD."""
+
+    status: Literal["already_applied", "fresh_source", "stale_or_partial"]
+    plan_id: str
+    parent_task_id: str
+    reason: str
+    failures: tuple[str, ...]
+    current_head: str
+
+
 MaterializeOperation = Callable[
     [GraphApplyPlanResult, Path],
     GraphApplyMaterializationResult,
@@ -707,6 +719,63 @@ def _inspect_replay(
             + "."
         ),
         failures=failures,
+    )
+
+
+def inspect_graph_delta_replay(
+    target_root: Path,
+    original_parent_selector: Any,
+    stored_graph_delta: GraphDeltaPlan,
+    *,
+    expected_head: str | None = None,
+) -> GraphApplyReplayInspection:
+    """Inspect exact reviewed-plan presence without materializing or committing.
+
+    The repository and stored authority receive the same clean-source and
+    exact-plan validation used by D1C. Unlike :func:`apply_graph_delta`, this
+    function never consults commit identity, hooks, or any mutation seam and
+    cannot advance Git state.
+    """
+
+    asserted_head = _require_expected_head(expected_head)
+    root = Path(target_root).resolve()
+    if not root.is_dir():
+        raise GraphApplyRepositoryError(
+            "target_root must be an existing local Git repository directory: "
+            f"{root}"
+        )
+    try:
+        identity = capture_clean_source(root)
+    except DecompositionPreflightError as exc:
+        raise GraphApplyRepositoryError(
+            f"Target repository precondition failed: {_bounded_detail(exc)}"
+        ) from exc
+    if identity.root != root:
+        raise GraphApplyRepositoryError(
+            "target_root must be the exact local Git repository root, not a subdirectory."
+        )
+    if asserted_head is not None and identity.head != asserted_head:
+        raise GraphApplyRepositoryError(
+            "Target repository HEAD does not match caller-observed expected_head "
+            f"(expected={asserted_head}, actual={identity.head})."
+        )
+    authority = _stored_authority(stored_graph_delta, original_parent_selector)
+    try:
+        graph = load_persistent_work_graph(root)
+    except Exception as exc:
+        raise GraphApplyRepositoryError(
+            "Current committed graph failed full persistent replay validation: "
+            f"{_bounded_detail(exc)}"
+        ) from exc
+    _require_same_clean_head(root, identity.head)
+    replay = _inspect_replay(graph, authority)
+    return GraphApplyReplayInspection(
+        status=replay.status,
+        plan_id=authority.plan_id,
+        parent_task_id=authority.parent_task_id,
+        reason=replay.reason,
+        failures=replay.failures,
+        current_head=identity.head,
     )
 
 
@@ -1397,9 +1466,11 @@ __all__ = [
     "GraphApplyError",
     "GraphApplyInputError",
     "GraphApplyRepositoryError",
+    "GraphApplyReplayInspection",
     "GraphApplyResult",
     "GraphApplyRollbackError",
     "GraphApplyStatus",
     "GraphApplyValidationSummary",
     "apply_graph_delta",
+    "inspect_graph_delta_replay",
 ]

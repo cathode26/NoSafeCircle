@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -28,11 +29,15 @@ def load_committed_task(
     task_id: str,
     *,
     expected_sha256: str | None = None,
+    commit: str | None = None,
 ) -> dict[str, Any]:
-    """Read ``Tasks/<TASK-ID>.yaml`` from committed HEAD and verify identity.
+    """Read ``Tasks/<TASK-ID>.yaml`` from a proven commit and verify identity.
 
-    Returns the parsed contract plus its exact ``task_contract_sha256``. Fails
-    closed when the file is missing at HEAD, is not valid JSON, declares a
+    ``commit`` defaults to ``HEAD``. When supplied it must be one exact,
+    lowercase Git object ID; symbolic refs and revision expressions are never
+    accepted. Returns the parsed contract plus its exact
+    ``task_contract_sha256``. Fails closed when the file is missing, is not
+    valid JSON, declares a
     different task ``id``, carries a malformed ``exclusive_resources`` list, or
     (when ``expected_sha256`` is given) does not match the expected bytes.
     """
@@ -40,8 +45,17 @@ def load_committed_task(
     task_id = validate_task_id(task_id)
     root = Path(root)
     path = f"Tasks/{task_id}.yaml"
+    selected_commit = "HEAD"
+    if commit is not None:
+        if type(commit) is not str or re.fullmatch(
+            r"(?:[0-9a-f]{40}|[0-9a-f]{64})", commit
+        ) is None:
+            raise CommittedTaskError(
+                "committed task revision must be an exact lowercase Git object ID"
+            )
+        selected_commit = commit
     result = subprocess.run(
-        ("git", "-C", str(root), "show", f"HEAD:{path}"),
+        ("git", "-C", str(root), "show", f"{selected_commit}:{path}"),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         check=False,
@@ -49,7 +63,7 @@ def load_committed_task(
     )
     if result.returncode != 0:
         raise CommittedTaskError(
-            f"committed task contract is missing at HEAD: {path}"
+            f"committed task contract is missing at {selected_commit}: {path}"
         )
     try:
         value = json.loads(result.stdout.decode("utf-8-sig"))

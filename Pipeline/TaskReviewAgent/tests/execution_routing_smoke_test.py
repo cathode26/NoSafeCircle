@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
+import os
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -18,6 +21,7 @@ if str(ROOT) not in sys.path:
 
 import Pipeline.TaskReviewAgent.openai_pipeline as openai_pipeline  # noqa: E402
 import Pipeline.TaskReviewAgent.run_pipeline_agent as run_pipeline_agent  # noqa: E402
+import Pipeline.TaskReviewAgent.host_worker_launcher as host_worker_launcher  # noqa: E402
 from Pipeline.ExecutionCrew.run_crew import (  # noqa: E402
     construct_real_provider,
     runtime_configuration,
@@ -42,6 +46,10 @@ from Pipeline.TaskReviewAgent.host_worker_launcher import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.progress import NullProgress  # noqa: E402
 from Pipeline.TaskReviewAgent.run_pipeline_agent import build_parser  # noqa: E402
+from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
+    initialize_worker_run,
+    write_pipeline_result,
+)
 
 
 def require(condition: bool, message: str) -> None:
@@ -191,6 +199,10 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
         source=Path("/tmp/routing-smoke-source"),
         checkout_root=Path("/tmp/routing-smoke-checkouts"),
         route=route,
+        run_id="scheduler-nsc-101-routing-fixture",
+        admission_source_head="1" * 40,
+        task_contract_sha256="a" * 64,
+        admission_issue_number=101,
     )
     require(command[0] == sys.executable and command[1] == "-u", str(command))
     require(Path(command[2]).name == "host_worker_launcher.py", str(command))
@@ -202,6 +214,10 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
         "--model": "supervisor-deep-policy",
         "--supervisor-reasoning-effort": "xhigh",
         "--max-turns": "120",
+        "--run-id": "scheduler-nsc-101-routing-fixture",
+        "--admission-source-head": "1" * 40,
+        "--task-contract-sha256": "a" * 64,
+        "--admission-issue-number": "101",
     }
     for option, value in expected.items():
         require(command[command.index(option) + 1] == value, str(command))
@@ -222,6 +238,10 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
         "-Model": "supervisor-deep-policy",
         "-SupervisorReasoningEffort": "xhigh",
         "-MaxTurns": "120",
+        "-RunId": "scheduler-nsc-101-routing-fixture",
+        "-AdmissionSourceHead": "1" * 40,
+        "-TaskContractSha256": "a" * 64,
+        "-AdmissionIssueNumber": "101",
     }
     for option, value in powershell_expected.items():
         require(powershell[powershell.index(option) + 1] == value, str(powershell))
@@ -236,6 +256,11 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
         "'--supervisor-reasoning-effort'",
         "'--execution-model'",
         "'--execution-reasoning-effort'",
+        "'--run-id'",
+        "'--admission-source-head'",
+        "'--task-contract-sha256'",
+        "'--admission-issue-number'",
+        "exit $AgentExitCode",
     ):
         require(token in starter_text, f"host starter does not propagate {token}")
 
@@ -258,6 +283,181 @@ def test_worker_parser_preserves_manual_defaults_and_accepts_route() -> None:
     )
     require(routed.execution_model == "openai-deep-policy", str(routed))
     require(routed.supervisor_reasoning_effort == "xhigh", str(routed))
+
+
+def test_host_wrapper_authenticates_and_republishes_nested_worker_result() -> None:
+    with tempfile.TemporaryDirectory(prefix="host-worker-result-") as text:
+        root = Path(text)
+        source = root / "source"
+        starter = source / "Pipeline" / "TaskReviewAgent" / "Start-GameTaskAgent.ps1"
+        starter.parent.mkdir(parents=True)
+        starter.write_text("exit 0\n", encoding="utf-8")
+        output_root = root / "outputs"
+        run_id = "scheduler-nsc-101-host-wrapper-fixture"
+        worker_id = "polling-worker-nsc-101-host-wrapper"
+        original_run = host_worker_launcher.subprocess.run
+
+        def nested_worker(command, **_values):
+            run_dir = initialize_worker_run(
+                output_root=output_root,
+                task_id="NSC-101",
+                run_id=run_id,
+                worker_id=worker_id,
+                started_at_utc=host_worker_launcher._utc_now(),
+            )
+            write_pipeline_result(
+                run_dir=run_dir,
+                run_id=run_id,
+                worker_id=worker_id,
+                task_id="NSC-101",
+                source_head="1" * 40,
+                task_contract_sha256="a" * 64,
+                terminal_status="blocked",
+                outcome_authority="fixture_nested_pipeline",
+                issue_number=101,
+                exit_code=3,
+                pid=9876,
+            )
+            return subprocess.CompletedProcess(command, 3)
+
+        host_worker_launcher.subprocess.run = nested_worker
+        try:
+            code = host_worker_launcher.main(
+                [
+                    "--task-id",
+                    "NSC-101",
+                    "--source",
+                    str(source),
+                    "--checkout-root",
+                    str(root / "checkouts"),
+                    "--worker-id",
+                    worker_id,
+                    "--execution-provider",
+                    "claude",
+                    "--max-turns",
+                    "12",
+                    "--output-root",
+                    str(output_root),
+                    "--run-id",
+                    run_id,
+                    "--admission-source-head",
+                    "1" * 40,
+                    "--task-contract-sha256",
+                    "a" * 64,
+                    "--admission-issue-number",
+                    "101",
+                ]
+            )
+        finally:
+            host_worker_launcher.subprocess.run = original_run
+        require(code == 3, str(code))
+        final_path = output_root / "NSC-101" / run_id / "run_result.json"
+        payload = json.loads(final_path.read_text(encoding="utf-8"))
+        require(payload["terminal_status"] == "blocked", str(payload))
+        require(payload["exit_code"] == 3, str(payload))
+        require(payload["pid"] == os.getpid(), str(payload))
+        require(payload["issue_number"] == 101, str(payload))
+
+
+def test_host_wrapper_start_failure_writes_authenticated_error_result() -> None:
+    with tempfile.TemporaryDirectory(prefix="host-worker-start-error-") as text:
+        root = Path(text)
+        source = root / "source"
+        source.mkdir()
+        output_root = root / "outputs"
+        run_id = "scheduler-nsc-101-wrapper-start-error"
+        worker_id = "polling-worker-nsc-101-wrapper-start-error"
+        code = host_worker_launcher.main(
+            [
+                "--task-id", "NSC-101",
+                "--source", str(source),
+                "--checkout-root", str(root / "checkouts"),
+                "--worker-id", worker_id,
+                "--execution-provider", "claude",
+                "--max-turns", "12",
+                "--output-root", str(output_root),
+                "--run-id", run_id,
+                "--admission-source-head", "1" * 40,
+                "--task-contract-sha256", "a" * 64,
+                "--admission-issue-number", "101",
+            ]
+        )
+        require(code == 2, str(code))
+        payload = json.loads(
+            (
+                output_root / "NSC-101" / run_id / "run_result.json"
+            ).read_text(encoding="utf-8")
+        )
+        require(payload["terminal_status"] == "error", str(payload))
+        require(payload["outcome_authority"] == "host_launcher_missing", str(payload))
+        require(payload["issue_number"] == 101, str(payload))
+        require(payload["exit_code"] == 2 and payload["pid"] == os.getpid(), str(payload))
+
+
+def test_resumed_worker_exception_keeps_admitted_issue_in_pipeline_result() -> None:
+    names = (
+        "_scheduler_result_enabled",
+        "_managed_issue_phase",
+        "_require_explicit_fresh_admission",
+        "RealTaskReviewWorkflow",
+        "ProductionTaskController",
+        "GuardedTaskController",
+        "run_openai_production_pipeline",
+    )
+    originals = {name: getattr(run_pipeline_agent, name) for name in names}
+
+    class Workflow:
+        def __init__(self, *, source: Path, **_values: object) -> None:
+            self.base_observer = SimpleNamespace(root=source)
+
+        @staticmethod
+        def observe_goal_state() -> dict[str, object]:
+            return {"coordination": {"workflow_state": {"phase": "implementation"}}}
+
+    try:
+        run_pipeline_agent._scheduler_result_enabled = lambda _args: True
+        run_pipeline_agent._managed_issue_phase = lambda **_values: "implementation"
+        run_pipeline_agent._require_explicit_fresh_admission = lambda **_values: None
+        run_pipeline_agent.RealTaskReviewWorkflow = Workflow
+        run_pipeline_agent.ProductionTaskController = lambda **_values: object()
+        run_pipeline_agent.GuardedTaskController = lambda value, progress=None: value
+
+        def fail_pipeline(*_args: object, **_values: object) -> dict[str, object]:
+            raise ValueError("fixture resumed pipeline failure")
+
+        run_pipeline_agent.run_openai_production_pipeline = fail_pipeline
+        with tempfile.TemporaryDirectory(prefix="resumed-worker-error-") as text:
+            root = Path(text)
+            run_id = "scheduler-nsc-101-resumed-error"
+            code = run_pipeline_agent.main(
+                [
+                    "--task-id", "NSC-101",
+                    "--source", str(root / "source"),
+                    "--checkout-root", str(root / "checkouts"),
+                    "--output-root", str(root / "outputs"),
+                    "--worker-id", "resumed-worker-error-fixture",
+                    "--run-id", run_id,
+                    "--admission-source-head", "1" * 40,
+                    "--task-contract-sha256", "a" * 64,
+                    "--admission-issue-number", "101",
+                ]
+            )
+            require(code == 2, str(code))
+            payload = json.loads(
+                (
+                    root
+                    / "outputs"
+                    / "NSC-101"
+                    / run_id
+                    / "pipeline_result.json"
+                ).read_text(encoding="utf-8")
+            )
+            require(payload["terminal_status"] == "error", str(payload))
+            require(payload["issue_number"] == 101, str(payload))
+            require(payload["exit_code"] == 2, str(payload))
+    finally:
+        for name, value in originals.items():
+            setattr(run_pipeline_agent, name, value)
 
 
 def test_worker_entrypoint_propagates_routed_values_without_changing_defaults() -> None:
@@ -287,7 +487,7 @@ def test_worker_entrypoint_propagates_routed_values_without_changing_defaults() 
 
     def supervisor(*_args: object, **values: object) -> dict[str, str]:
         captured_supervisor.update(values)
-        return {"status": "succeeded"}
+        return {"status": "human_action_required"}
 
     try:
         run_pipeline_agent._managed_issue_phase = lambda **_values: None
@@ -439,6 +639,9 @@ def main() -> int:
         test_host_launcher_turn_range_matches_routing_contract,
         test_worker_argv_contains_exact_resolved_route,
         test_worker_parser_preserves_manual_defaults_and_accepts_route,
+        test_host_wrapper_authenticates_and_republishes_nested_worker_result,
+        test_host_wrapper_start_failure_writes_authenticated_error_result,
+        test_resumed_worker_exception_keeps_admitted_issue_in_pipeline_result,
         test_worker_entrypoint_propagates_routed_values_without_changing_defaults,
         test_execution_bridge_builds_exact_normal_and_retry_route_commands,
         test_supervisor_reasoning_reaches_existing_provider_constructor,

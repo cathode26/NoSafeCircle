@@ -246,10 +246,19 @@ read-only Issue/comment cache. Each worker launch begins a fresh capacity pass
 and therefore a fresh GitHub snapshot, while one admission decision avoids a
 second full Issue listing and contradictory within-pass observations.
 
-Scheduler-launched worker processes exit zero only for known successful
-handoff/closeout outcomes. A `blocked`, `needs_human`, malformed, or unknown
-terminal outcome exits nonzero, causing the scheduler to stop admissions and
-supervise its already-running children through the bounded fatal drain.
+Scheduler-launched workers publish an identity-bound `run_result.json` beside
+their `run.json` as their final durable write. The scheduler derives that path
+itself and accepts a terminal result only when the run ID, worker ID, task,
+source commit, task-contract hash, process ID, timestamps, status, and observed
+exit code agree. Missing, stale, malformed, or contradictory results fail
+closed even when the operating-system exit code is zero.
+
+Exit `0` is reserved for `human_action_required` or `completed`; exit `3`
+reports a deterministic `blocked` state, and exit `4` reports
+`no_safe_work`. Blocked and idle workers free local capacity without being
+counted as completed work or stopping other safe admissions. Exit `2` and all
+unknown operating-system codes are fatal and trigger the bounded drain of
+already-running children.
 
 ## Human handoff
 

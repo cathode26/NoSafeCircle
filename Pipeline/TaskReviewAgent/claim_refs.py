@@ -919,6 +919,7 @@ def _resume_durable_lease_despite_claim_conflict(
     checkout_path: str,
     planned_approach: str,
     expected_validation: str,
+    expected_workflow_contract_sha256: str | None,
     now: str | None,
 ) -> dict[str, Any] | None:
     """Resume this worker's existing durable Issue lease past a stale claim.
@@ -942,15 +943,20 @@ def _resume_durable_lease_despite_claim_conflict(
         return None
     if state.task_id != task_id or state.worker_id != issue_workflow.worker_id:
         return None
-    result = issue_workflow.acquire_agent_lease(
-        task=task,
-        source_head=source_head,
-        branch=branch,
-        checkout_path=checkout_path,
-        planned_approach=planned_approach,
-        expected_validation=expected_validation,
-        now=now,
-    )
+    lease_kwargs = {
+        "task": task,
+        "source_head": source_head,
+        "branch": branch,
+        "checkout_path": checkout_path,
+        "planned_approach": planned_approach,
+        "expected_validation": expected_validation,
+        "now": now,
+    }
+    if expected_workflow_contract_sha256 is not None:
+        lease_kwargs["expected_workflow_contract_sha256"] = (
+            expected_workflow_contract_sha256
+        )
+    result = issue_workflow.acquire_agent_lease(**lease_kwargs)
     if result.get("status") != "resumed":
         return None
     failures = _exact_authority_failures(
@@ -989,6 +995,7 @@ def acquire_issue_lease_with_claims(
     checkout_path: str,
     planned_approach: str,
     expected_validation: str,
+    expected_workflow_contract_sha256: str | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
     """Guard durable Issue lease acquisition with short-lived claim refs.
@@ -1040,6 +1047,7 @@ def acquire_issue_lease_with_claims(
             checkout_path=checkout_path,
             planned_approach=planned_approach,
             expected_validation=expected_validation,
+            expected_workflow_contract_sha256=expected_workflow_contract_sha256,
             now=now,
         )
         if resumed is not None:
@@ -1055,15 +1063,20 @@ def acquire_issue_lease_with_claims(
             ],
             "ephemeral_claim": claim.to_dict(),
         }
-    result = issue_workflow.acquire_agent_lease(
-        task=task,
-        source_head=source_head,
-        branch=branch,
-        checkout_path=checkout_path,
-        planned_approach=planned_approach,
-        expected_validation=expected_validation,
-        now=now,
-    )
+    lease_kwargs = {
+        "task": task,
+        "source_head": source_head,
+        "branch": branch,
+        "checkout_path": checkout_path,
+        "planned_approach": planned_approach,
+        "expected_validation": expected_validation,
+        "now": now,
+    }
+    if expected_workflow_contract_sha256 is not None:
+        lease_kwargs["expected_workflow_contract_sha256"] = (
+            expected_workflow_contract_sha256
+        )
+    result = issue_workflow.acquire_agent_lease(**lease_kwargs)
     if result.get("status") not in ("acquired", "resumed"):
         # Normal initialization failure by this still-active process: release
         # its own still-exact claims and pass the Issue outcome through.

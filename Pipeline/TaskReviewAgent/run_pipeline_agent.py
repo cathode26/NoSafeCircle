@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import socket
+import subprocess
 import sys
 import uuid
 from pathlib import Path
@@ -72,6 +73,10 @@ from Pipeline.TaskReviewAgent.taskgraph_review_issues import (  # noqa: E402
     materialize_taskgraph_review_issues,
     observe_taskgraph_review_snapshot,
 )
+from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
+    WorkerResultError,
+    write_pipeline_result,
+)
 
 
 _DOWNSTREAM_PHASES = {"delivery_evidence", "merge_closeout"}
@@ -108,6 +113,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--unity-executable")
     parser.add_argument("--output-root", type=Path)
+    parser.add_argument("--run-id")
+    parser.add_argument("--admission-source-head")
+    parser.add_argument("--task-contract-sha256")
+    parser.add_argument("--admission-issue-number", type=int)
     parser.add_argument("--model")
     parser.add_argument(
         "--supervisor-reasoning-effort",
@@ -244,20 +253,80 @@ def _outcome_status(result: dict[str, Any]) -> str:
     return "unknown_outcome"
 
 
-_SUCCESSFUL_OPENAI_OUTCOME_STATUSES = frozenset(
-    {
-        "human_action_required",
-        "human_delivery_review",
-        "checks_pending",
-        "complete",
-    }
-)
+def _worker_terminal_contract(status: str) -> tuple[str, int]:
+    if status in {"human_action_required", "human_delivery_review"}:
+        return "human_action_required", 0
+    if status == "complete":
+        return "completed", 0
+    if status in {"blocked", "needs_human", "checks_pending"}:
+        return "blocked", 3
+    if status == "no_safe_work":
+        return "no_safe_work", 4
+    return "error", 2
+
+
+def _scheduler_result_enabled(args: argparse.Namespace) -> bool:
+    values = (
+        args.run_id,
+        args.admission_source_head,
+        args.task_contract_sha256,
+    )
+    if all(value is None for value in values):
+        if args.admission_issue_number is not None:
+            raise ValueError("admission Issue number requires scheduler result identity")
+        return False
+    if any(value is None for value in values):
+        raise ValueError(
+            "scheduler result identity requires run-id, admission source HEAD, "
+            "and task-contract SHA-256 together"
+        )
+    if args.task_id is None or args.output_root is None:
+        raise ValueError("scheduler result identity requires task-id and output-root")
+    if args.admission_issue_number is not None and args.admission_issue_number < 1:
+        raise ValueError("admission Issue number must be a positive integer")
+    observed_head = subprocess.run(
+        ("git", "-C", str(args.source.resolve()), "rev-parse", "HEAD"),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+        timeout=60.0,
+    )
+    if (
+        observed_head.returncode != 0
+        or observed_head.stdout.strip() != args.admission_source_head
+    ):
+        raise ValueError("scheduler admission source HEAD no longer matches the controller")
+    load_committed_task(
+        args.source.resolve(),
+        args.task_id,
+        expected_sha256=args.task_contract_sha256,
+    )
+    return True
+
+
+def _result_issue_number(result: dict[str, Any]) -> int | None:
+    selection = result.get("selection")
+    if isinstance(selection, dict) and type(selection.get("issue_number")) is int:
+        return selection["issue_number"]
+    outcome = result.get("outcome")
+    if isinstance(outcome, dict):
+        final = outcome.get("deterministic_final_state")
+        coordination = final.get("coordination") if isinstance(final, dict) else None
+        if (
+            isinstance(coordination, dict)
+            and type(coordination.get("issue_number")) is int
+        ):
+            return coordination["issue_number"]
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     progress: ProgressLog | None = None
+    scheduler_result = False
     try:
+        scheduler_result = _scheduler_result_enabled(args)
         selection = None
         if args.task_id:
             request = TaskReviewRequest(args.task_id)
@@ -384,6 +453,7 @@ def main(argv: list[str] | None = None) -> int:
                 task_id=request.task_id,
                 worker_id=args.worker_id,
                 pipeline=pipeline_name,
+                run_id=args.run_id,
             )
             progress.emit(
                 "routing_started",
@@ -507,13 +577,44 @@ def main(argv: list[str] | None = None) -> int:
                 "outcome": outcome,
             }
         status = _outcome_status(result)
+        terminal_status, exit_code = _worker_terminal_contract(status)
         if progress is not None:
             progress.finish(status)
+        if scheduler_result:
+            if progress is None:
+                raise WorkerResultError("scheduler run completed without a progress directory")
+            outcome = result.get("outcome")
+            authority = (
+                outcome.get("authority")
+                if isinstance(outcome, dict)
+                else "task_review_pipeline_terminal_result"
+            )
+            issue_number = _result_issue_number(result)
+            if (
+                args.admission_issue_number is not None
+                and issue_number is not None
+                and issue_number != args.admission_issue_number
+            ):
+                raise WorkerResultError(
+                    "pipeline result Issue number does not match scheduler admission"
+                )
+            if issue_number is None:
+                issue_number = args.admission_issue_number
+            write_pipeline_result(
+                run_dir=progress.run_dir,
+                run_id=args.run_id,
+                worker_id=args.worker_id,
+                task_id=args.task_id,
+                source_head=args.admission_source_head,
+                task_contract_sha256=args.task_contract_sha256,
+                terminal_status=terminal_status,
+                outcome_authority=str(authority or "task_review_pipeline_terminal_result"),
+                issue_number=issue_number,
+                exit_code=exit_code,
+                pid=os.getpid(),
+            )
         print(json.dumps(result, indent=2, sort_keys=True))
-        if (
-            args.mode == "openai"
-            and status not in _SUCCESSFUL_OPENAI_OUTCOME_STATUSES
-        ):
+        if args.mode == "openai" and exit_code != 0:
             # The entry point is also the worker-process contract used by the
             # polling scheduler. Only known successful handoff/closeout states
             # may exit zero; blocked, needs-human, malformed, and future unknown
@@ -526,8 +627,8 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
                 flush=True,
             )
-            return 2
-        return 0
+            return exit_code
+        return exit_code if args.mode == "openai" else 0
     except (
         TaskReviewContractError,
         TaskcontrolStateObservationError,
@@ -535,6 +636,7 @@ def main(argv: list[str] | None = None) -> int:
         GenericSelectionError,
         IssueWorkflowStoreError,
         OpenAIDownstreamPipelineError,
+        WorkerResultError,
         OSError,
         ValueError,
     ) as exc:
@@ -544,6 +646,20 @@ def main(argv: list[str] | None = None) -> int:
                 error_type=type(exc).__name__,
                 error=" ".join(str(exc).split())[:900],
             )
+            if scheduler_result and not isinstance(exc, WorkerResultError):
+                write_pipeline_result(
+                    run_dir=progress.run_dir,
+                    run_id=args.run_id,
+                    worker_id=args.worker_id,
+                    task_id=args.task_id,
+                    source_head=args.admission_source_head,
+                    task_contract_sha256=args.task_contract_sha256,
+                    terminal_status="error",
+                    outcome_authority="task_review_pipeline_exception",
+                    issue_number=args.admission_issue_number,
+                    exit_code=2,
+                    pid=os.getpid(),
+                )
         print(f"GAME TASK AGENT: STOP\n{exc}", file=sys.stderr, flush=True)
         return 2
 

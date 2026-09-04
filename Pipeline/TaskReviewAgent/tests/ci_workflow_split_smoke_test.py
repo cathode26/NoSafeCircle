@@ -85,6 +85,7 @@ CORE_ONLY_STEP_COMMANDS = (
     "Pipeline/TaskReviewAgent/tests/taskgraph_review_issue_materialization_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/synthetic_gauntlet_approver_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/polling_orchestrator_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/execution_routing_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/dispatch_plan_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/fresh_dispatch_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py",

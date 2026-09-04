@@ -28,6 +28,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import time
@@ -77,6 +78,9 @@ from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     TaskReviewContractError,
     validate_task_id,
 )
+from Pipeline.TaskReviewAgent.decomposition_replay import (  # noqa: E402
+    inspect_authorized_decomposition_replay,
+)
 from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
     DispatchPlan,
     TaskcontrolStateObservationError,
@@ -99,6 +103,10 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     issue_author_authorized,
 )
 from Pipeline.TaskReviewAgent.real_checkout import default_checkout_root  # noqa: E402
+from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
+    WorkerResultError,
+    validate_worker_result,
+)
 from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     ExecutionRoutingError,
     ExecutionRoutingPolicy,
@@ -275,6 +283,11 @@ class ActiveAssignment:
     architect_confidence: float
     advisory_artifact_path: Path
     start_time_utc: str
+    run_id: str
+    result_artifact_path: Path
+    source_head: str
+    task_contract_sha256: str
+    issue_number: int | None = None
     actual_changed_paths: tuple[str, ...] = field(default_factory=tuple)
     observation_error: str | None = None
     checkout_observed_once: bool = False
@@ -675,9 +688,30 @@ def observe_durable_integration_reservations(
                 f"could not load committed task {state.task_id}: {_bounded_error(exc)}"
             ) from exc
         if task.get("task_contract_sha256") != state.task_contract_sha256:
-            raise IntegrationObservationError(
-                f"durable {state.task_id} task-contract hash differs from committed HEAD"
-            )
+            if state.phase is not WorkflowPhase.DECOMPOSITION_APPLY:
+                raise IntegrationObservationError(
+                    f"durable {state.task_id} task-contract hash differs from committed HEAD"
+                )
+            try:
+                replay = inspect_authorized_decomposition_replay(
+                    source=source_root,
+                    snapshot=snapshot,
+                    expected_head=_git_text(
+                        source_root, "rev-parse", "--verify", "HEAD"
+                    ),
+                )
+            except Exception as exc:
+                raise IntegrationObservationError(
+                    f"durable {state.task_id} decomposition_apply contract changed "
+                    "without an exact authorized-plan replay proof: "
+                    f"{_bounded_error(exc)}"
+                ) from exc
+            if replay.inspection.status != "already_applied":
+                raise IntegrationObservationError(
+                    f"durable {state.task_id} decomposition_apply contract changed "
+                    "but the authorized plan is not exactly applied: "
+                    f"{replay.inspection.status}: {replay.inspection.reason}"
+                )
 
         candidate_checkouts: list[Path] = []
         if state.checkout_path:
@@ -925,6 +959,31 @@ def build_poll_dispatch_plan(
                 "final Stage-2 admission boundary",
             ),
         )
+    additional_resumes = []
+    ready_task_ids = {selected_task_id}
+    for snapshot in agent_ready[1:]:
+        ready_state = snapshot.get("workflow_state") or {}
+        ready_task_id = ready_state.get("task_id")
+        if ready_task_id in excluded_resume_task_ids:
+            continue
+        ready_task_ids.add(ready_task_id)
+        additional_resumes.append(
+            {
+                "task_id": ready_task_id,
+                "issue_number": snapshot.get("issue_number"),
+                "issue_url": snapshot.get("issue_url"),
+                "phase": ready_state.get("phase"),
+                "resume_phase": ready_state.get("phase"),
+                "branch": ready_state.get("branch"),
+                "commit": ready_state.get("head_commit"),
+                "human_result": ready_state.get("human_result"),
+            }
+        )
+    fresh_candidates = tuple(
+        candidate
+        for candidate in fresh_plan.ranked_eligible_candidates
+        if candidate.get("task_id") not in ready_task_ids
+    )
     return DispatchPlan(
         schema_version=fresh_plan.schema_version,
         source_commit=source_commit,
@@ -941,7 +1000,7 @@ def build_poll_dispatch_plan(
             "human_result": state.get("human_result"),
         },
         selected_fresh_candidate=fresh_plan.selected_fresh_candidate,
-        ranked_eligible_candidates=fresh_plan.ranked_eligible_candidates,
+        ranked_eligible_candidates=tuple(additional_resumes) + fresh_candidates,
         skipped_candidates=fresh_plan.skipped_candidates,
         agent_ready_count=len(agent_ready),
         claim_observation=fresh_plan.claim_observation,
@@ -1150,6 +1209,10 @@ def build_worker_command(
     model: str | None = None,
     max_turns: int | None = None,
     route: ResolvedExecutionRoute | None = None,
+    run_id: str | None = None,
+    admission_source_head: str | None = None,
+    task_contract_sha256: str | None = None,
+    admission_issue_number: int | None = None,
 ) -> tuple[str, ...]:
     # The Game Task Agent controller owns Git/GitHub/claim/Issue/checkout
     # authority and therefore runs on the Windows host. Claude/Codex remain
@@ -1219,6 +1282,34 @@ def build_worker_command(
         command.extend(
             ("--execution-reasoning-effort", execution_reasoning_effort)
         )
+    result_identity = (run_id, admission_source_head, task_contract_sha256)
+    if any(value is not None for value in result_identity):
+        if not all(isinstance(value, str) and value for value in result_identity):
+            raise PollingOrchestratorError(
+                "worker result identity requires run id, source HEAD, and contract hash"
+            )
+        command.extend(
+            (
+                "--run-id",
+                str(run_id),
+                "--admission-source-head",
+                str(admission_source_head),
+                "--task-contract-sha256",
+                str(task_contract_sha256),
+            )
+        )
+        if admission_issue_number is not None:
+            if type(admission_issue_number) is not int or admission_issue_number < 1:
+                raise PollingOrchestratorError(
+                    "worker admission Issue number must be a positive integer"
+                )
+            command.extend(
+                ("--admission-issue-number", str(admission_issue_number))
+            )
+    elif admission_issue_number is not None:
+        raise PollingOrchestratorError(
+            "worker admission Issue number requires result identity"
+        )
     return tuple(command)
 
 
@@ -1229,6 +1320,11 @@ def build_decomposition_worker_command(
     source: Path | str,
     checkout_root: Path | str,
     output_root: Path | str | None = None,
+    scheduler_output_root: Path | str | None = None,
+    run_id: str | None = None,
+    admission_source_head: str | None = None,
+    task_contract_sha256: str | None = None,
+    admission_issue_number: int | None = None,
 ) -> tuple[str, ...]:
     """Build the distinct host boundary for review-only decomposition work."""
 
@@ -1245,7 +1341,7 @@ def build_decomposition_worker_command(
         )
     else:
         selected_output = Path(output_root).resolve()
-    return (
+    command = [
         sys.executable,
         "-u",
         str(root / "Pipeline" / "TaskReviewAgent" / "host_decomposition_launcher.py"),
@@ -1259,7 +1355,47 @@ def build_decomposition_worker_command(
         str(worker_id),
         "--output-root",
         str(selected_output),
+    ]
+    result_identity = (
+        scheduler_output_root,
+        run_id,
+        admission_source_head,
+        task_contract_sha256,
     )
+    if any(value is not None for value in result_identity):
+        if scheduler_output_root is None or not all(
+            isinstance(value, str) and value
+            for value in (run_id, admission_source_head, task_contract_sha256)
+        ):
+            raise PollingOrchestratorError(
+                "decomposition result identity requires output root, run id, source "
+                "HEAD, and contract hash"
+            )
+        command.extend(
+            (
+                "--scheduler-output-root",
+                str(Path(scheduler_output_root).resolve()),
+                "--run-id",
+                str(run_id),
+                "--admission-source-head",
+                str(admission_source_head),
+                "--task-contract-sha256",
+                str(task_contract_sha256),
+            )
+        )
+        if admission_issue_number is not None:
+            if type(admission_issue_number) is not int or admission_issue_number < 1:
+                raise PollingOrchestratorError(
+                    "decomposition admission Issue number must be a positive integer"
+                )
+            command.extend(
+                ("--admission-issue-number", str(admission_issue_number))
+            )
+    elif admission_issue_number is not None:
+        raise PollingOrchestratorError(
+            "decomposition admission Issue number requires result identity"
+        )
+    return tuple(command)
 
 
 @dataclass(frozen=True)
@@ -1453,8 +1589,9 @@ class PollingOrchestrator:
                 "architect_min_confidence must be in [0, 1]"
             )
 
-    def _reap_workers(self) -> bool:
+    def _reap_workers(self) -> tuple[bool, frozenset[str]]:
         failed = False
+        reaped_task_ids: set[str] = set()
         for task_id, assignment in list(self.active_assignments.items()):
             try:
                 returncode = assignment.process.poll()
@@ -1477,6 +1614,42 @@ class PollingOrchestrator:
             if returncode is None:
                 continue
             del self.active_assignments[task_id]
+            reaped_task_ids.add(task_id)
+            try:
+                if assignment.pid is None:
+                    raise WorkerResultError(
+                        "active assignment has no observable process identity"
+                    )
+                worker_result = validate_worker_result(
+                    assignment.result_artifact_path,
+                    expected_run_id=assignment.run_id,
+                    expected_worker_id=assignment.worker_id,
+                    expected_task_id=assignment.task_id,
+                    expected_source_head=assignment.source_head,
+                    expected_task_contract_sha256=(
+                        assignment.task_contract_sha256
+                    ),
+                    expected_pid=assignment.pid,
+                    observed_exit_code=int(returncode),
+                    started_at_utc=assignment.start_time_utc,
+                    observed_at_utc=utc_now(),
+                    expected_issue_number=assignment.issue_number,
+                )
+            except (OSError, ValueError, WorkerResultError) as exc:
+                failed = True
+                self.failed_child = (task_id, assignment.pid, int(returncode))
+                self.events.emit(
+                    "worker_failed",
+                    task_id=task_id,
+                    worker_id=assignment.worker_id,
+                    pid=assignment.pid,
+                    checkout_path=str(assignment.checkout_path),
+                    returncode=returncode,
+                    reason="worker terminal artifact was missing or invalid",
+                    error=_bounded_error(exc),
+                )
+                continue
+            terminal_status = worker_result["terminal_status"]
             if returncode == 0:
                 self.events.emit(
                     "worker_finished",
@@ -1485,6 +1658,30 @@ class PollingOrchestrator:
                     pid=assignment.pid,
                     checkout_path=str(assignment.checkout_path),
                     returncode=0,
+                    terminal_status=terminal_status,
+                    run_id=assignment.run_id,
+                )
+                continue
+            if terminal_status == "blocked":
+                self.events.emit(
+                    "worker_blocked",
+                    task_id=task_id,
+                    worker_id=assignment.worker_id,
+                    pid=assignment.pid,
+                    checkout_path=str(assignment.checkout_path),
+                    returncode=returncode,
+                    run_id=assignment.run_id,
+                )
+                continue
+            if terminal_status == "no_safe_work":
+                self.events.emit(
+                    "worker_idle",
+                    task_id=task_id,
+                    worker_id=assignment.worker_id,
+                    pid=assignment.pid,
+                    checkout_path=str(assignment.checkout_path),
+                    returncode=returncode,
+                    run_id=assignment.run_id,
                 )
                 continue
             failed = True
@@ -1497,7 +1694,7 @@ class PollingOrchestrator:
                 checkout_path=str(assignment.checkout_path),
                 returncode=returncode,
             )
-        return failed
+        return failed, frozenset(reaped_task_ids)
 
     def _drain_active_workers(self, *, poll_seconds: float) -> bool:
         """Supervise existing children for a bounded interval after fatal stop."""
@@ -1623,7 +1820,7 @@ class PollingOrchestrator:
             ordered.append((resume, resume.get("phase")))
         if plan.decision in {"resume_existing", "fresh_candidate"}:
             ordered.extend(
-                (dict(candidate), None)
+                (dict(candidate), candidate.get("resume_phase"))
                 for candidate in plan.ranked_eligible_candidates
             )
         return tuple(ordered)
@@ -1659,10 +1856,16 @@ class PollingOrchestrator:
                     pass
                 else:
                     work_types.append("decomposition")
+            portfolio_entry = {
+                "task": task,
+                "eligible_work_types": sorted(work_types),
+            }
+            if resume_phase is not None:
+                portfolio_entry["resume_phase"] = resume_phase
             by_id[task_id] = (
                 dict(candidate),
                 resume_phase,
-                {"task": task, "eligible_work_types": sorted(work_types)},
+                portfolio_entry,
             )
 
         for candidate in plan.skipped_candidates:
@@ -1799,7 +2002,8 @@ class PollingOrchestrator:
     def poll_once(self, *, reset_architect_budget: bool = True) -> PollCycleResult:
         if reset_architect_budget:
             self.architect_invocations_this_poll = 0
-        if self._reap_workers():
+        worker_failed, just_reaped_task_ids = self._reap_workers()
+        if worker_failed:
             self.events.emit(
                 "scheduler_blocked",
                 reason="worker_failed; no further admissions are allowed",
@@ -1923,7 +2127,8 @@ class PollingOrchestrator:
 
         integration_fingerprint = active_surface_fingerprint(reservations)
         temporary_exclusions = set(self.active_assignments).union(
-            self.excluded_task_ids
+            self.excluded_task_ids,
+            just_reaped_task_ids,
         )
         if shared_issue_backend is not None:
             plan = build_poll_dispatch_plan(
@@ -2494,12 +2699,53 @@ class PollingOrchestrator:
                 design_advice=advisory.design_advice.to_dict(),
             )
             worker_id = f"polling-worker-{task_id.casefold()}-{uuid.uuid4().hex[:12]}"
+            worker_run_id = f"scheduler-{task_id.casefold()}-{uuid.uuid4().hex[:16]}"
+            worker_output_root = (
+                self.checkout_root / ".task-review-agent" / "outputs"
+            )
+            task_contract_sha256 = str(task.get("task_contract_sha256") or "")
+            expected_issue_number = candidate.get("issue_number")
+            if expected_issue_number is not None and (
+                type(expected_issue_number) is not int or expected_issue_number < 1
+            ):
+                self.events.emit(
+                    "worker_failed",
+                    task_id=task_id,
+                    worker_id=worker_id,
+                    pid=None,
+                    checkout_path=str(self.checkout_root / task_id),
+                    returncode=None,
+                    reason="scheduler admission Issue identity was malformed",
+                )
+                return PollCycleResult(
+                    "worker_launch_failed", task_id=task_id, fatal=True
+                )
+            if not GIT_SHA_RE.fullmatch(plan.source_commit) or not re.fullmatch(
+                r"[0-9a-f]{64}", task_contract_sha256
+            ):
+                self.events.emit(
+                    "worker_failed",
+                    task_id=task_id,
+                    worker_id=worker_id,
+                    pid=None,
+                    checkout_path=str(self.checkout_root / task_id),
+                    returncode=None,
+                    reason="scheduler admission identity was malformed",
+                )
+                return PollCycleResult(
+                    "worker_launch_failed", task_id=task_id, fatal=True
+                )
             if advisory.work_type_recommendation == "decomposition":
                 command = build_decomposition_worker_command(
                     task_id=task_id,
                     worker_id=worker_id,
                     source=self.source,
                     checkout_root=self.checkout_root,
+                    scheduler_output_root=worker_output_root,
+                    run_id=worker_run_id,
+                    admission_source_head=plan.source_commit,
+                    task_contract_sha256=task_contract_sha256,
+                    admission_issue_number=expected_issue_number,
                 )
                 route_event = {
                     "work_type": "decomposition",
@@ -2542,8 +2788,13 @@ class PollingOrchestrator:
                     source=self.source,
                     checkout_root=self.checkout_root,
                     route=route,
+                    run_id=worker_run_id,
+                    admission_source_head=plan.source_commit,
+                    task_contract_sha256=task_contract_sha256,
+                    admission_issue_number=expected_issue_number,
                 )
                 route_event = {"work_type": "implementation", **route.to_event_dict()}
+            launch_started_utc = utc_now()
             try:
                 process_kwargs: dict[str, Any] = {
                     "cwd": str(self.source),
@@ -2576,7 +2827,17 @@ class PollingOrchestrator:
                 architect_surface=advisory.predicted_change_surface,
                 architect_confidence=advisory.confidence,
                 advisory_artifact_path=analysis.artifact_path,
-                start_time_utc=utc_now(),
+                start_time_utc=launch_started_utc,
+                run_id=worker_run_id,
+                result_artifact_path=(
+                    worker_output_root
+                    / task_id
+                    / worker_run_id
+                    / "run_result.json"
+                ),
+                source_head=plan.source_commit,
+                task_contract_sha256=task_contract_sha256,
+                issue_number=expected_issue_number,
             )
             self.active_assignments[task_id] = assignment
             self.events.emit(
@@ -2586,6 +2847,8 @@ class PollingOrchestrator:
                 pid=assignment.pid,
                 checkout_path=str(assignment.checkout_path),
                 advisory_artifact_path=str(analysis.artifact_path),
+                run_id=worker_run_id,
+                result_artifact_path=str(assignment.result_artifact_path),
                 argv=list(command),
                 **route_event,
             )

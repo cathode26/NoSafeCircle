@@ -888,6 +888,37 @@ def test_mixed_portfolio_request_exposes_both_work_types_read_only() -> None:
     require("glob or wildcard (`*` or `?`)" in request.prompt, request.prompt)
 
 
+def test_portfolio_preserves_valid_resume_phase_and_rejects_unknown_phase() -> None:
+    candidates = portfolio()
+    candidates[1]["resume_phase"] = "decomposition_apply"
+    request = build_portfolio_request(
+        candidates=candidates,
+        source_head=SOURCE_HEAD,
+        reservations=[],
+        provider_configuration_key=PROVIDER_KEY,
+        run_id="architect-resume-phase-fixture",
+    )
+    require('"resume_phase": "decomposition_apply"' in request.prompt, request.prompt)
+    require(
+        "exact plan is already human-approved" in request.prompt,
+        request.prompt,
+    )
+
+    candidates[1]["resume_phase"] = "invented_phase"
+    try:
+        build_portfolio_request(
+            candidates=candidates,
+            source_head=SOURCE_HEAD,
+            reservations=[],
+            provider_configuration_key=PROVIDER_KEY,
+            run_id="architect-invalid-resume-phase-fixture",
+        )
+    except ArchitectPreflightError as exc:
+        require("invalid resume_phase" in str(exc), str(exc))
+    else:
+        raise AssertionError("portfolio accepted an unknown resume phase")
+
+
 def test_portfolio_returns_ordered_batch_and_persists_full_decision() -> None:
     with tempfile.TemporaryDirectory() as text:
         analysis, captured = portfolio_analysis(Path(text), portfolio_result_value())
@@ -1003,6 +1034,7 @@ def main() -> int:
         test_advisory_artifact_safe_write,
         test_same_inputs_yield_same_deterministic_enforcement,
         test_mixed_portfolio_request_exposes_both_work_types_read_only,
+        test_portfolio_preserves_valid_resume_phase_and_rejects_unknown_phase,
         test_portfolio_returns_ordered_batch_and_persists_full_decision,
         test_portfolio_rejects_pair_outside_deterministic_eligibility,
         test_portfolio_rejects_missing_pair_consideration,

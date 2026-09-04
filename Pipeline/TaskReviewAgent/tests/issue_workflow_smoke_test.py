@@ -586,6 +586,7 @@ def test_decomposition_handoff_binds_exact_plan_and_resumes_apply_phase() -> Non
         decomposition_run_id="nsc-777-fixture-run",
         artifact_root=r"C:\Users\VincentLiguori\Downloads\NoSafeCircleOutput\NSC-777\fixture",
         graph_delta_plan_id=plan_id,
+        graph_delta_sha256="e" * 64,
         summary="Split the parent into two tiny ordered children.",
         now="2026-09-03T10:01:00Z",
     )
@@ -624,13 +625,21 @@ def test_decomposition_handoff_binds_exact_plan_and_resumes_apply_phase() -> Non
         task_loader=lambda task_id: tasks[task_id],
         worker_id="decomposition-agent-b",
     )
+    current_parent = {
+        **tasks[TASK_ID],
+        "task_contract_sha256": "d" * 64,
+        "exclusive_resources": [],
+    }
     resumed = applier.acquire_agent_lease(
-        task=tasks[TASK_ID],
+        task=current_parent,
         source_head=SOURCE_HEAD,
         branch="main",
         checkout_path=CHECKOUT,
         planned_approach="Apply the exact approved graph plan.",
         expected_validation="Validate committed graph and push main.",
+        expected_workflow_contract_sha256=tasks[TASK_ID][
+            "task_contract_sha256"
+        ],
         now="2026-09-03T10:03:00Z",
     )
     require(resumed["status"] == "acquired", str(resumed))

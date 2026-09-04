@@ -17,6 +17,14 @@ param(
 
     [string]$OutputRoot,
 
+    [string]$RunId,
+
+    [string]$AdmissionSourceHead,
+
+    [string]$TaskContractSha256,
+
+    [int]$AdmissionIssueNumber,
+
     [string]$Model,
 
     [ValidateSet('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max')]
@@ -280,6 +288,25 @@ if (-not [string]::IsNullOrWhiteSpace($ExecutionModel)) {
 if (-not [string]::IsNullOrWhiteSpace($ExecutionReasoningEffort)) {
     $Arguments += @('--execution-reasoning-effort', $ExecutionReasoningEffort)
 }
+if (-not [string]::IsNullOrWhiteSpace($RunId)) {
+    if (
+        [string]::IsNullOrWhiteSpace($AdmissionSourceHead) -or
+        [string]::IsNullOrWhiteSpace($TaskContractSha256)
+    ) {
+        throw 'Scheduler run identity requires run ID, source HEAD, and task-contract hash.'
+    }
+    $Arguments += @(
+        '--run-id', $RunId,
+        '--admission-source-head', $AdmissionSourceHead,
+        '--task-contract-sha256', $TaskContractSha256
+    )
+    if ($AdmissionIssueNumber -gt 0) {
+        $Arguments += @('--admission-issue-number', $AdmissionIssueNumber)
+    }
+}
+elseif ($AdmissionIssueNumber -gt 0) {
+    throw 'Scheduler admission Issue number requires scheduler run identity.'
+}
 
 Write-Host "Worker: $WorkerId"
 if ([string]::IsNullOrWhiteSpace($TaskId)) {
@@ -316,5 +343,6 @@ finally {
     }
 }
 if ($AgentExitCode -ne 0) {
-    throw "Game Task Agent stopped with exit code $AgentExitCode."
+    [Console]::Error.WriteLine("Game Task Agent stopped with exit code $AgentExitCode.")
 }
+exit $AgentExitCode

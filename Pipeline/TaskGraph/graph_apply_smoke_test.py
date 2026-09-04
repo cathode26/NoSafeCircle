@@ -30,6 +30,7 @@ from apply_graph_delta import (
     GraphApplyRollbackError,
     GraphApplyValidationSummary,
     apply_graph_delta,
+    inspect_graph_delta_replay,
 )
 from decomposition_graph_semantics import validate_decomposition_graph_semantics
 from graph_apply_materialize import (
@@ -1063,6 +1064,86 @@ def verify_no_network_or_remote_git_operation() -> None:
     assert "github" not in source.casefold()
 
 
+def verify_read_only_exact_replay_inspection() -> None:
+    with tempfile.TemporaryDirectory(prefix="d1c-replay-inspection-") as temporary:
+        fixture = create_fixture(Path(temporary))
+        initial_count = commit_count(fixture.root)
+        before = worktree_snapshot(fixture.root)
+        fresh = inspect_graph_delta_replay(
+            fixture.root,
+            fixture.selector,
+            fixture.stored_plan,
+            expected_head=fixture.initial_head,
+        )
+        assert fresh.status == "fresh_source"
+        assert fresh.current_head == fixture.initial_head
+        assert_no_new_commit(fixture.root, fixture.initial_head, initial_count)
+        assert worktree_snapshot(fixture.root) == before
+
+        with approved_identity_environment():
+            applied = apply_fixture(fixture)
+        assert applied.status == "applied"
+        applied_head = git(fixture.root, "rev-parse", "HEAD")
+        applied_count = commit_count(fixture.root)
+        applied_before = worktree_snapshot(fixture.root)
+        replay = inspect_graph_delta_replay(
+            fixture.root,
+            fixture.selector,
+            fixture.stored_plan,
+            expected_head=applied_head,
+        )
+        assert replay.status == "already_applied"
+        assert replay.plan_id == fixture.stored_plan.plan_id
+        assert_no_new_commit(fixture.root, applied_head, applied_count)
+        assert worktree_snapshot(fixture.root) == applied_before
+
+        (fixture.root / UNRELATED_TRACKED_PATH).write_text(
+            "Later unrelated committed evolution.\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        later_head = commit_fixture_change(
+            fixture.root,
+            "fixture: unrelated later evolution",
+            UNRELATED_TRACKED_PATH,
+        )
+        later_count = commit_count(fixture.root)
+        later_before = worktree_snapshot(fixture.root)
+        later = inspect_graph_delta_replay(
+            fixture.root,
+            fixture.selector,
+            fixture.stored_plan,
+            expected_head=later_head,
+        )
+        assert later.status == "already_applied"
+        assert_no_new_commit(fixture.root, later_head, later_count)
+        assert worktree_snapshot(fixture.root) == later_before
+
+    with tempfile.TemporaryDirectory(prefix="d1c-replay-unrelated-") as temporary:
+        fixture = create_fixture(Path(temporary))
+        (fixture.root / UNRELATED_TRACKED_PATH).write_text(
+            "Unrelated movement before application.\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        moved_head = commit_fixture_change(
+            fixture.root,
+            "fixture: unrelated movement before D1C",
+            UNRELATED_TRACKED_PATH,
+        )
+        moved_count = commit_count(fixture.root)
+        moved_before = worktree_snapshot(fixture.root)
+        moved = inspect_graph_delta_replay(
+            fixture.root,
+            fixture.selector,
+            fixture.stored_plan,
+            expected_head=moved_head,
+        )
+        assert moved.status == "fresh_source"
+        assert_no_new_commit(fixture.root, moved_head, moved_count)
+        assert worktree_snapshot(fixture.root) == moved_before
+
+
 def verify_exact_default_identity_is_required() -> None:
     with tempfile.TemporaryDirectory(prefix="d1c-slice3-identity-") as temporary:
         fixture = create_fixture(Path(temporary))
@@ -1172,6 +1253,7 @@ def run_tests() -> int:
     verify_concurrent_work_refuses_destructive_rollback()
     verify_post_commit_rollback_and_severe_failure()
     verify_collision_and_fresh_next_id_authority()
+    verify_read_only_exact_replay_inspection()
     verify_no_network_or_remote_git_operation()
     verify_exact_default_identity_is_required()
     verify_commit_stage_hook_detection()

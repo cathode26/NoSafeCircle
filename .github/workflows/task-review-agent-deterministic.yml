@@ -228,6 +228,10 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/polling_orchestrator_smoke_test.py
 
+      - name: Run execution routing and worker-boundary smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/execution_routing_smoke_test.py
+
       - name: Run host decomposition lifecycle smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/host_decomposition_launcher_smoke_test.py

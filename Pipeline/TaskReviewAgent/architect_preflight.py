@@ -143,6 +143,7 @@ EVIDENCE_OBSERVATION_SCHEMA = _strict_object(
         "observation": _STRING,
     }
 )
+from Pipeline.TaskReviewAgent.issue_workflow import WorkflowPhase  # noqa: E402
 
 ESCALATION_SCHEMA = _strict_object(
     {
@@ -952,13 +953,12 @@ def _portfolio_candidates(
     normalized: list[dict[str, Any]] = []
     seen: set[str] = set()
     for index, candidate in enumerate(candidates):
-        if not isinstance(candidate, Mapping) or set(candidate) != {
-            "task",
-            "eligible_work_types",
-        }:
+        if not isinstance(candidate, Mapping) or not set(candidate).issubset(
+            {"task", "eligible_work_types", "resume_phase"}
+        ) or not {"task", "eligible_work_types"}.issubset(candidate):
             raise ArchitectPreflightError(
-                f"portfolio candidate {index} must contain exactly task and "
-                "eligible_work_types"
+                f"portfolio candidate {index} must contain task, "
+                "eligible_work_types, and optional resume_phase"
             )
         task = candidate["task"]
         work_types = candidate["eligible_work_types"]
@@ -992,12 +992,20 @@ def _portfolio_candidates(
             raise ArchitectPreflightError(
                 f"portfolio task {task_id} has invalid eligible_work_types"
             )
-        normalized.append(
-            {
-                "task": _json_safe(task),
-                "eligible_work_types": sorted(work_types),
-            }
-        )
+        resume_phase = candidate.get("resume_phase")
+        if resume_phase is not None and resume_phase not in {
+            phase.value for phase in WorkflowPhase
+        }:
+            raise ArchitectPreflightError(
+                f"portfolio task {task_id} has invalid resume_phase"
+            )
+        normalized_candidate = {
+            "task": _json_safe(task),
+            "eligible_work_types": sorted(work_types),
+        }
+        if resume_phase is not None:
+            normalized_candidate["resume_phase"] = resume_phase
+        normalized.append(normalized_candidate)
     return sorted(normalized, key=lambda item: item["task"]["id"])
 
 
@@ -1039,6 +1047,10 @@ Authority and safety rules:
   an oversized/uncertain parent executable. Prefer implementation when it is the most
   useful coherent ready unit. The presence of implementation work does not disqualify
   decomposition.
+- A candidate with `resume_phase: decomposition_apply` is not asking for another
+  decomposition proposal. Its exact plan is already human-approved; START means run the
+  deterministic apply/completion recovery. Do not mark it ineligible merely because its
+  current parent contract is already decomposed or non-executable.
 - Apply the same conservative parallel-integration policy as ordinary architect
   preflight: uncertainty is WAIT, design/canon ambiguity alone is HUMAN_REVIEW, and
   START requires positive evidence of disjointness from every supplied reservation.

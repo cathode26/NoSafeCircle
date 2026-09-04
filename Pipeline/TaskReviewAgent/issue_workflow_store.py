@@ -1086,6 +1086,7 @@ class IssueWorkflowService:
         checkout_path: str,
         planned_approach: str,
         expected_validation: str,
+        expected_workflow_contract_sha256: str | None = None,
         now: str | None = None,
     ) -> dict[str, Any]:
         task_id = validate_task_id(task.get("id"))
@@ -1111,7 +1112,21 @@ class IssueWorkflowService:
                 + "; ".join(snapshot.reasons)
             )
         state = snapshot.state
-        if state.task_contract_sha256 != task.get("task_contract_sha256"):
+        expected_contract_hash = task.get("task_contract_sha256")
+        if expected_workflow_contract_sha256 is not None:
+            if re.fullmatch(
+                r"[0-9a-f]{64}", expected_workflow_contract_sha256
+            ) is None:
+                raise IssueWorkflowStoreError(
+                    "expected workflow contract hash has an invalid identity"
+                )
+            if state.phase is not WorkflowPhase.DECOMPOSITION_APPLY:
+                raise IssueWorkflowStoreError(
+                    "historical workflow contract authority is valid only for "
+                    "decomposition_apply"
+                )
+            expected_contract_hash = expected_workflow_contract_sha256
+        if state.task_contract_sha256 != expected_contract_hash:
             raise IssueWorkflowStoreError(
                 "Issue workflow uses a different task contract hash"
             )
@@ -1542,6 +1557,7 @@ class IssueWorkflowService:
         decomposition_run_id: str,
         artifact_root: str,
         graph_delta_plan_id: str,
+        graph_delta_sha256: str | None = None,
         summary: str,
         branch: str = "main",
         now: str | None = None,
@@ -1556,6 +1572,10 @@ class IssueWorkflowService:
         state = snapshot.state
         if re.fullmatch(r"GDP-[0-9a-f]{64}", graph_delta_plan_id) is None:
             raise IssueWorkflowStoreError("graph_delta_plan_id has an invalid identity")
+        if graph_delta_sha256 is not None and re.fullmatch(
+            r"[0-9a-f]{64}", graph_delta_sha256
+        ) is None:
+            raise IssueWorkflowStoreError("graph_delta_sha256 has an invalid identity")
         if state.state is WorkflowState.HUMAN_ACTION_REQUIRED:
             events = parse_events(self.backend.get_comments(snapshot.issue_number))
             handoff = events[-1] if events else None
@@ -1565,6 +1585,8 @@ class IssueWorkflowService:
                 and handoff.event_type
                 is WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED
                 and handoff.details.get("graph_delta_plan_id") == graph_delta_plan_id
+                and handoff.details.get("graph_delta_sha256")
+                == graph_delta_sha256
                 and handoff.details.get("decomposition_run_id") == decomposition_run_id
                 and handoff.details.get("artifact_root") == artifact_root
                 and state.branch == branch
@@ -1595,6 +1617,11 @@ class IssueWorkflowService:
                 "decomposition_run_id": decomposition_run_id,
                 "artifact_root": artifact_root,
                 "graph_delta_plan_id": graph_delta_plan_id,
+                **(
+                    {"graph_delta_sha256": graph_delta_sha256}
+                    if graph_delta_sha256 is not None
+                    else {}
+                ),
             },
             now=occurred,
         )

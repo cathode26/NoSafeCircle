@@ -11,12 +11,14 @@ from __future__ import annotations
 import io
 import inspect
 import json
+import os
 import subprocess
 import sys
 import tempfile
 from contextlib import ExitStack, redirect_stdout
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Mapping
 from unittest.mock import patch
 
@@ -40,6 +42,10 @@ from Pipeline.TaskReviewAgent.contracts import TaskReviewContractError  # noqa: 
 from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
     DispatchPlan,
     TaskcontrolStateObservationError,
+)
+from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    WorkflowPhase,
+    WorkflowState,
 )
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowSnapshot,
@@ -69,6 +75,11 @@ from Pipeline.TaskReviewAgent.polling_orchestrator import (  # noqa: E402
     read_working_tree_changed_paths,
     refresh_source_main,
     scheduler_lock_path,
+)
+from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
+    WorkerResultError,
+    initialize_worker_run,
+    write_worker_result,
 )
 
 
@@ -229,6 +240,46 @@ def resume_plan(
         ranked_eligible_candidates=fresh_candidates,
         skipped_candidates=(),
         agent_ready_count=1,
+        claim_observation={"status": "fixture"},
+    )
+
+
+def multi_resume_plan(
+    head: str,
+    first_task_id: str,
+    second_task_id: str,
+    *fresh_task_ids: str,
+    first_phase: str = "repair",
+    second_phase: str = "decomposition_apply",
+) -> DispatchPlan:
+    fresh_candidates = tuple(_candidate(item) for item in fresh_task_ids)
+    return DispatchPlan(
+        schema_version="1.0",
+        source_commit=head,
+        mode="read_only_poll_authority",
+        autonomous_dispatch=False,
+        decision="resume_existing",
+        resume={
+            "task_id": first_task_id,
+            "phase": first_phase,
+            "issue_number": 1,
+            "branch": f"{first_task_id.casefold()}-fixture",
+            "commit": head,
+        },
+        selected_fresh_candidate=(fresh_candidates[0] if fresh_candidates else None),
+        ranked_eligible_candidates=(
+            {
+                "task_id": second_task_id,
+                "phase": second_phase,
+                "resume_phase": second_phase,
+                "issue_number": 2,
+                "branch": f"{second_task_id.casefold()}-fixture",
+                "commit": head,
+            },
+            *fresh_candidates,
+        ),
+        skipped_candidates=(),
+        agent_ready_count=2,
         claim_observation={"status": "fixture"},
     )
 
@@ -630,6 +681,7 @@ def add_active(
     process: FakeProcess,
     predicted: tuple[str, ...] = ("Assets/Active.cs",),
 ) -> None:
+    run_id = f"scheduler-{task_id.casefold()}-active{process.pid}"
     orchestrator.active_assignments[task_id] = ActiveAssignment(
         task_id=task_id,
         worker_id=f"active-{task_id.casefold()}",
@@ -640,6 +692,17 @@ def add_active(
         architect_confidence=0.9,
         advisory_artifact_path=Path(f"/fixture/{task_id}.json"),
         start_time_utc="2026-09-01T00:00:00+00:00",
+        run_id=run_id,
+        result_artifact_path=(
+            orchestrator.checkout_root
+            / ".task-review-agent"
+            / "outputs"
+            / task_id
+            / run_id
+            / "run_result.json"
+        ),
+        source_head=git(orchestrator.source, "rev-parse", "HEAD"),
+        task_contract_sha256=CONTRACTS[task_id],
     )
 
 
@@ -901,6 +964,88 @@ def test_exclude_task_id_cli_is_repeatable_and_validated() -> None:
         pass
     else:
         raise AssertionError("invalid permanent scheduler exclusion was accepted")
+
+
+def add_result_active(
+    orchestrator: PollingOrchestrator,
+    *,
+    root: Path,
+    task_id: str,
+    process: FakeProcess,
+    terminal_status: str | None,
+    artifact_worker_id: str | None = None,
+    artifact_pid: int | None = None,
+    artifact_exit_code: int | None = None,
+    artifact_issue_number: int | None = 101,
+    assignment_issue_number: int | None = 101,
+    assigned_result_path: Path | None = None,
+    result_output_root: Path | None = None,
+) -> Path:
+    """Install one identity-bound assignment and optionally its terminal artifact."""
+
+    if process.returncode is None and artifact_exit_code is None:
+        raise AssertionError(
+            "a running result fixture requires its eventual artifact exit code"
+        )
+    worker_id = f"polling-worker-{task_id.casefold()}-fixture{process.pid}"
+    result_worker_id = artifact_worker_id or worker_id
+    run_id = f"scheduler-{task_id.casefold()}-fixture{process.pid}"
+    source_head = git(orchestrator.source, "rev-parse", "HEAD")
+    contract_sha256 = CONTRACTS[task_id]
+    output_root = result_output_root or (root / "worker-results")
+    run_dir = initialize_worker_run(
+        output_root=output_root,
+        task_id=task_id,
+        run_id=run_id,
+        worker_id=result_worker_id,
+        started_at_utc="2026-08-31T23:59:59Z",
+    )
+    # Implementation workers use ProgressLog schema 1.1. Prove the terminal
+    # validator does not incorrectly require its own result schema on run.json.
+    metadata_path = run_dir / "run.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["schema_version"] = "1.1"
+    metadata_path.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    result_path = run_dir / "run_result.json"
+    if terminal_status is not None:
+        write_worker_result(
+            run_dir=run_dir,
+            run_id=run_id,
+            worker_id=result_worker_id,
+            task_id=task_id,
+            source_head=source_head,
+            task_contract_sha256=contract_sha256,
+            terminal_status=terminal_status,
+            outcome_authority="fixture_terminal_authority",
+            issue_number=artifact_issue_number,
+            exit_code=(
+                int(process.returncode)
+                if artifact_exit_code is None
+                else artifact_exit_code
+            ),
+            pid=process.pid if artifact_pid is None else artifact_pid,
+        )
+    orchestrator.active_assignments[task_id] = ActiveAssignment(
+        task_id=task_id,
+        worker_id=worker_id,
+        process=process,
+        checkout_path=orchestrator.checkout_root / task_id,
+        exclusive_resources=(),
+        architect_surface=PredictedChangeSurface(("Assets/Active.cs",), (), (), (), ()),
+        architect_confidence=0.9,
+        advisory_artifact_path=Path(f"/fixture/{task_id}.json"),
+        start_time_utc="2026-09-01T00:00:00+00:00",
+        run_id=run_id,
+        result_artifact_path=assigned_result_path or result_path,
+        source_head=source_head,
+        task_contract_sha256=contract_sha256,
+        issue_number=assignment_issue_number,
+    )
+    return result_path
 
 
 def test_architect_portfolio_selects_disjoint_candidate_in_one_call() -> None:
@@ -1216,6 +1361,11 @@ def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> No
         source=Path("C:/fixture/source"),
         checkout_root=Path("C:/fixture/checkouts"),
         output_root=Path("C:/fixture/outputs/NSC-102"),
+        scheduler_output_root=Path("C:/fixture/scheduler-results"),
+        run_id="scheduler-nsc-102-decomposition-fixture",
+        admission_source_head="1" * 40,
+        task_contract_sha256="b" * 64,
+        admission_issue_number=102,
     )
     require(command[command.index("--task-id") + 1] == TASK_B, str(command))
     require(
@@ -1231,6 +1381,28 @@ def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> No
     require(
         command[command.index("--checkout-root") + 1].replace("\\", "/")
         == "C:/fixture/checkouts",
+        str(command),
+    )
+    require(
+        command[command.index("--scheduler-output-root") + 1].replace("\\", "/")
+        == "C:/fixture/scheduler-results",
+        str(command),
+    )
+    require(
+        command[command.index("--run-id") + 1]
+        == "scheduler-nsc-102-decomposition-fixture",
+        str(command),
+    )
+    require(
+        command[command.index("--admission-source-head") + 1] == "1" * 40,
+        str(command),
+    )
+    require(
+        command[command.index("--task-contract-sha256") + 1] == "b" * 64,
+        str(command),
+    )
+    require(
+        command[command.index("--admission-issue-number") + 1] == "102",
         str(command),
     )
 
@@ -1299,6 +1471,161 @@ def test_resume_wait_does_not_starve_stage2_ranked_fresh_work() -> None:
         )
         require(architect.calls == [TASK_B], str(architect.calls))
         require(architect.portfolio_calls == [(TASK_A, TASK_B)], str(architect.portfolio_calls))
+
+
+def test_first_resume_wait_does_not_hide_later_decomposition_apply_resume() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner(
+            [multi_resume_plan(head, TASK_A, TASK_B, TASK_C)]
+        )
+        architect = FakeArchitect(
+            {
+                TASK_A: advisory(TASK_A, head, risk="medium"),
+                TASK_B: advisory(
+                    TASK_B,
+                    head,
+                    work_type="decomposition",
+                    exact_paths=(f"Tasks/{TASK_B}.yaml",),
+                ),
+                TASK_C: advisory(TASK_C, head, risk="medium"),
+            }
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={
+                TASK_A: task(TASK_A),
+                TASK_B: decomposition_task(TASK_B),
+                TASK_C: task(TASK_C),
+            },
+            max_workers=2,
+        )
+
+        result = orchestrator.poll_once()
+
+        require(
+            result.status == "worker_launched" and result.task_id == TASK_B,
+            str(result),
+        )
+        require(
+            architect.portfolio_calls == [(TASK_A, TASK_B, TASK_C)],
+            str(architect.portfolio_calls),
+        )
+        require(len(processes.calls) == 1, str(processes.calls))
+        command = processes.calls[0][0]
+        require("host_decomposition_launcher.py" in " ".join(command), str(command))
+        started = next(
+            item
+            for item in map(json.loads, stream.getvalue().splitlines())
+            if item["event"] == "architect_started"
+        )
+        require(
+            started["eligible_pairs"]
+            == [
+                {"task_id": TASK_A, "work_types": ["implementation"]},
+                {"task_id": TASK_B, "work_types": ["decomposition"]},
+                {"task_id": TASK_C, "work_types": ["implementation"]},
+            ],
+            str(started),
+        )
+
+
+def test_production_poll_plan_batches_every_ready_resume_before_fresh_work() -> None:
+    class NoopStateProvider:
+        def ensure_snapshot(self) -> None:
+            return None
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        workflow = Stage2WorkflowFixture(head=head, resume_task_id=TASK_A)
+        workflow.agent_ready.extend(
+            [
+                {
+                    "issue_number": 102,
+                    "issue_url": "https://example.invalid/issues/102",
+                    "workflow_state": {
+                        "task_id": TASK_B,
+                        "phase": "decomposition_apply",
+                        "branch": f"{TASK_B.casefold()}-fixture",
+                        "head_commit": head,
+                        "human_result": "pass",
+                    },
+                }
+            ]
+        )
+        fresh = candidate_plan(head, TASK_C, TASK_A)
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch.object(scheduler_module, "IssueWorkflowService", return_value=workflow)
+            )
+            stack.enter_context(
+                patch.object(
+                    scheduler_module,
+                    "repo_root",
+                    side_effect=lambda value: Path(value).resolve(),
+                )
+            )
+            stack.enter_context(
+                patch.object(scheduler_module, "GhIssueBackend", return_value=object())
+            )
+            stack.enter_context(
+                patch.object(
+                    scheduler_module.dispatch_plan_module,
+                    "list_committed_task_ids",
+                    return_value=[TASK_A, TASK_B, TASK_C],
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    scheduler_module.dispatch_plan_module,
+                    "_read_only_claim_observation",
+                    return_value=({}, None, {"status": "fixture"}, ()),
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    scheduler_module.dispatch_plan_module,
+                    "_LazyTaskcontrolStateProvider",
+                    return_value=NoopStateProvider(),
+                )
+            )
+            stack.enter_context(
+                patch.object(scheduler_module, "plan_dispatch", return_value=fresh)
+            )
+            plan = scheduler_module.build_poll_dispatch_plan(
+                source=source,
+                worker_id="polling-test-worker",
+            )
+
+        require(plan.decision == "resume_existing", str(plan))
+        require(plan.resume is not None and plan.resume["task_id"] == TASK_A, str(plan))
+        require(plan.agent_ready_count == 2, str(plan.agent_ready_count))
+        require(
+            [item["task_id"] for item in plan.ranked_eligible_candidates]
+            == [TASK_B, TASK_C],
+            str(plan.ranked_eligible_candidates),
+        )
+        require(
+            plan.ranked_eligible_candidates[0]["resume_phase"]
+            == "decomposition_apply",
+            str(plan.ranked_eligible_candidates[0]),
+        )
+        require(
+            [
+                (item[0]["task_id"], item[1])
+                for item in PollingOrchestrator._ordered_candidates(plan)
+            ]
+            == [
+                (TASK_A, "repair"),
+                (TASK_B, "decomposition_apply"),
+                (TASK_C, None),
+            ],
+            str(PollingOrchestrator._ordered_candidates(plan)),
+        )
 
 
 def test_excluded_task_id_is_not_admitted_via_resume_slot() -> None:
@@ -2170,6 +2497,16 @@ def test_actual_working_tree_paths_become_reservation_evidence() -> None:
             architect_confidence=0.9,
             advisory_artifact_path=Path("/fixture/working-tree.json"),
             start_time_utc="2026-09-01T00:00:00+00:00",
+            run_id="scheduler-nsc-101-working-tree-fixture",
+            result_artifact_path=(
+                Path(text)
+                / "worker-results"
+                / TASK_A
+                / "scheduler-nsc-101-working-tree-fixture"
+                / "run_result.json"
+            ),
+            source_head=git(source, "rev-parse", "HEAD"),
+            task_contract_sha256=CONTRACTS[TASK_A],
         )
         orchestrator.active_assignments[TASK_A] = assignment
         reservations = orchestrator._refresh_active_reservations()
@@ -2339,6 +2676,88 @@ def test_reservations_and_stage2_can_share_one_issue_listing() -> None:
         )
 
 
+def test_decomposition_apply_hash_change_requires_exact_replay() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        fixture_task = task(TASK_A)
+        state = SimpleNamespace(
+            task_id=TASK_A,
+            task_contract_sha256="0" * 64,
+            state=WorkflowState.AGENT_READY,
+            phase=WorkflowPhase.DECOMPOSITION_APPLY,
+            branch="main",
+            head_commit=head,
+            checkout_path=str(source),
+        )
+        snapshot = SimpleNamespace(
+            valid=True,
+            managed=True,
+            issue_number=101,
+            reasons=(),
+            state=state,
+            events=(),
+        )
+        scanned = (SimpleNamespace(error=None, snapshot=snapshot),)
+        replay = SimpleNamespace(
+            inspection=SimpleNamespace(
+                status="already_applied",
+                reason="fixture exact plan is present",
+            )
+        )
+        with (
+            patch.object(
+                scheduler_module,
+                "_consistent_snapshots",
+                return_value=scanned,
+            ),
+            patch.object(
+                scheduler_module,
+                "inspect_authorized_decomposition_replay",
+                return_value=replay,
+            ) as inspector,
+        ):
+            reservations = observe_durable_integration_reservations(
+                source=source,
+                checkout_root=source.parent,
+                worker_id="decomposition-replay-observer",
+                backend=MemoryIssueBackend(),
+                task_loader=lambda _task_id: fixture_task,
+            )
+        require(len(reservations) == 1, str(reservations))
+        inspector.assert_called_once()
+
+        stale = SimpleNamespace(
+            inspection=SimpleNamespace(
+                status="stale_or_partial",
+                reason="fixture plan is absent",
+            )
+        )
+        with (
+            patch.object(
+                scheduler_module,
+                "_consistent_snapshots",
+                return_value=scanned,
+            ),
+            patch.object(
+                scheduler_module,
+                "inspect_authorized_decomposition_replay",
+                return_value=stale,
+            ),
+        ):
+            try:
+                observe_durable_integration_reservations(
+                    source=source,
+                    checkout_root=source.parent,
+                    worker_id="decomposition-stale-observer",
+                    backend=MemoryIssueBackend(),
+                    task_loader=lambda _task_id: fixture_task,
+                )
+            except IntegrationObservationError as exc:
+                require("not exactly applied" in str(exc), str(exc))
+            else:
+                raise AssertionError("stale decomposition replay bypassed hash mismatch")
+
+
 def test_actual_branch_path_overlap_prevents_launch() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -2383,11 +2802,363 @@ def test_successful_child_exit_frees_local_capacity() -> None:
             processes=ProcessFactory(),
             tasks={TASK_A: task(TASK_A)},
         )
-        add_active(orchestrator, task_id=TASK_A, process=FakeProcess(returncode=0))
+        add_result_active(
+            orchestrator,
+            root=Path(text),
+            task_id=TASK_A,
+            process=FakeProcess(returncode=0),
+            terminal_status="completed",
+        )
         result = orchestrator.poll_once()
         require(result.status == "idle", str(result))
         require(not orchestrator.active_assignments, "successful child kept capacity")
         require('"event": "worker_finished"' in stream.getvalue(), stream.getvalue())
+
+
+def make_result_orchestrator(
+    root: Path,
+) -> tuple[PollingOrchestrator, io.StringIO]:
+    source, head = create_source(root)
+    orchestrator, stream = make_orchestrator(
+        source=source,
+        planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+        architect=FakeArchitect({}),
+        processes=ProcessFactory(),
+        tasks={TASK_A: task(TASK_A)},
+    )
+    return orchestrator, stream
+
+
+def test_blocked_run_exits_nonzero_and_is_not_worker_finished() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=3),
+            terminal_status="blocked",
+        )
+        result = orchestrator.poll_once()
+        events = stream.getvalue()
+        require(result.status == "idle" and not result.fatal, str(result))
+        require('"event": "worker_blocked"' in events, events)
+        require('"event": "worker_finished"' not in events, events)
+
+
+def test_exit_zero_without_result_artifact_is_failure() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=0),
+            terminal_status=None,
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_failed" and result.fatal, str(result))
+        require("missing or invalid" in stream.getvalue(), stream.getvalue())
+
+
+def test_stale_artifact_from_prior_run_is_rejected() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=0),
+            terminal_status="completed",
+            artifact_worker_id="polling-worker-nsc-101-stale-prior-run",
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_failed" and result.fatal, str(result))
+        require("worker_id" in stream.getvalue(), stream.getvalue())
+
+
+def test_artifact_pid_mismatch_is_rejected() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        process = FakeProcess(returncode=0)
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=process,
+            terminal_status="completed",
+            artifact_pid=process.pid + 1,
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_failed" and result.fatal, str(result))
+        require("pid" in stream.getvalue(), stream.getvalue())
+
+
+def test_artifact_issue_mismatch_is_rejected_for_resumed_work() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=0),
+            terminal_status="completed",
+            artifact_issue_number=102,
+            assignment_issue_number=101,
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_failed" and result.fatal, str(result))
+        require("issue_number" in stream.getvalue(), stream.getvalue())
+
+
+def test_artifact_mtime_before_launch_is_rejected() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        result_path = add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=0),
+            terminal_status="completed",
+        )
+        os.utime(result_path, (0, 0))
+        result = orchestrator.poll_once()
+        require(result.status == "worker_failed" and result.fatal, str(result))
+        require("mtime" in stream.getvalue(), stream.getvalue())
+
+
+def test_unrepresentable_artifact_mtime_fails_closed_without_crashing() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        result_path = add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=0),
+            terminal_status="completed",
+        )
+        original_stat = Path.stat
+        expected_result_path = str(result_path.resolve())
+
+        def oversized_stat(path: Path, *args: object, **kwargs: object):
+            if str(path) == expected_result_path:
+                return type("FixtureStat", (), {"st_mtime": 10**400})()
+            return original_stat(path, *args, **kwargs)
+
+        with patch.object(Path, "stat", oversized_stat):
+            result = orchestrator.poll_once()
+        require(result.status == "worker_failed" and result.fatal, str(result))
+        require("mtime" in stream.getvalue(), stream.getvalue())
+
+
+def test_human_action_required_and_completed_both_succeed_via_artifact() -> None:
+    for terminal_status in ("human_action_required", "completed"):
+        with tempfile.TemporaryDirectory() as text:
+            root = Path(text)
+            orchestrator, stream = make_result_orchestrator(root)
+            add_result_active(
+                orchestrator,
+                root=root,
+                task_id=TASK_A,
+                process=FakeProcess(returncode=0),
+                terminal_status=terminal_status,
+            )
+            result = orchestrator.poll_once()
+            events = stream.getvalue()
+            require(result.status == "idle" and not result.fatal, str(result))
+            require('"event": "worker_finished"' in events, events)
+            require(f'"terminal_status": "{terminal_status}"' in events, events)
+
+
+def test_no_safe_work_artifact_emits_worker_idle_nonfatally() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=4),
+            terminal_status="no_safe_work",
+            artifact_issue_number=None,
+            assignment_issue_number=None,
+        )
+        result = orchestrator.poll_once()
+        events = stream.getvalue()
+        require(result.status == "idle" and not result.fatal, str(result))
+        require('"event": "worker_idle"' in events, events)
+        require('"event": "worker_finished"' not in events, events)
+
+
+def test_no_safe_work_artifact_rejects_claimed_issue_identity() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, _stream = make_result_orchestrator(root)
+        try:
+            add_result_active(
+                orchestrator,
+                root=root,
+                task_id=TASK_A,
+                process=FakeProcess(returncode=4),
+                terminal_status="no_safe_work",
+                artifact_issue_number=101,
+                assignment_issue_number=None,
+            )
+        except WorkerResultError as exc:
+            require("cannot carry an Issue" in str(exc), str(exc))
+        else:
+            raise AssertionError("no-safe-work artifact accepted an Issue identity")
+
+
+def test_just_reaped_blocked_task_is_excluded_for_the_current_poll() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+
+        class ExclusionAwarePlanner:
+            calls: list[set[str]] = []
+
+            def __call__(self, **values: Any) -> DispatchPlan:
+                excluded = set(values.get("excluded_task_ids") or ())
+                self.calls.append(excluded)
+                if TASK_A in excluded:
+                    return terminal_plan(head, "no_safe_work")
+                return candidate_plan(head, TASK_A)
+
+        planner = ExclusionAwarePlanner()
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=FakeArchitect({TASK_A: advisory(TASK_A, head)}),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+        )
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=3),
+            terminal_status="blocked",
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "idle" and not result.fatal, str(result))
+        require(planner.calls == [{TASK_A}], str(planner.calls))
+        require(not processes.calls, "just-blocked task relaunched in the same poll")
+        require('"event": "worker_blocked"' in stream.getvalue(), stream.getvalue())
+
+
+def test_error_artifact_remains_a_fatal_worker_failure() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=2),
+            terminal_status="error",
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_failed" and result.fatal, str(result))
+        require('"event": "worker_failed"' in stream.getvalue(), stream.getvalue())
+
+
+def test_malformed_artifact_scalar_types_fail_closed_without_crashing() -> None:
+    mutations = (
+        ("exit_code", False),
+        ("pid", True),
+        ("terminal_status", ["completed"]),
+        ("outcome_authority", "   "),
+    )
+    for field, malformed in mutations:
+        with tempfile.TemporaryDirectory() as text:
+            root = Path(text)
+            orchestrator, stream = make_result_orchestrator(root)
+            result_path = add_result_active(
+                orchestrator,
+                root=root,
+                task_id=TASK_A,
+                process=FakeProcess(returncode=0),
+                terminal_status="completed",
+            )
+            payload = json.loads(result_path.read_text(encoding="utf-8"))
+            payload[field] = malformed
+            result_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            result = orchestrator.poll_once()
+            require(
+                result.status == "worker_failed" and result.fatal,
+                f"{field}: {result}",
+            )
+            require('"event": "worker_failed"' in stream.getvalue(), stream.getvalue())
+
+
+def test_exit_code_and_artifact_disagreement_fails_closed() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=0),
+            terminal_status="blocked",
+            artifact_exit_code=3,
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_failed" and result.fatal, str(result))
+        require("exit_code" in stream.getvalue(), stream.getvalue())
+
+
+def test_scheduler_never_reads_child_supplied_artifact_path() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        orchestrator, stream = make_result_orchestrator(root)
+        untrusted_root = root / "child-selected-output"
+        scheduler_path = (
+            root
+            / "scheduler-derived-output"
+            / TASK_A
+            / "scheduler-nsc-101-fixture"
+            / "run_result.json"
+        )
+        actual = add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=FakeProcess(returncode=0),
+            terminal_status="completed",
+            assigned_result_path=scheduler_path,
+            result_output_root=untrusted_root,
+        )
+        require(actual.is_file(), "child-selected fixture artifact is missing")
+        require(not scheduler_path.exists(), "scheduler-derived path unexpectedly exists")
+        result = orchestrator.poll_once()
+        require(result.status == "worker_failed" and result.fatal, str(result))
+        failure = next(
+            event
+            for event in map(json.loads, stream.getvalue().splitlines())
+            if event["event"] == "worker_failed"
+        )
+        require(
+            str(scheduler_path.relative_to(root)) in failure["error"],
+            str(failure),
+        )
+        require(
+            str(untrusted_root.relative_to(root)) not in failure["error"],
+            str(failure),
+        )
 
 
 def test_nonzero_child_exit_stops_new_admissions() -> None:
@@ -2434,7 +3205,14 @@ def test_fatal_child_exit_drains_other_workers_before_scheduler_stops() -> None:
 
         survivor = FinishesDuringDrain()
         add_active(orchestrator, task_id=TASK_A, process=failed)
-        add_active(orchestrator, task_id=TASK_B, process=survivor)
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_B,
+            process=survivor,
+            terminal_status="completed",
+            artifact_exit_code=0,
+        )
 
         with patch.object(scheduler_module.time, "sleep", return_value=None):
             exit_code = orchestrator.run(
@@ -2559,7 +3337,14 @@ def test_poll_exception_keeps_worker_supervised_until_observable() -> None:
                 return 0
 
         child = PollRaisesOnce()
-        add_active(orchestrator, task_id=TASK_A, process=child)
+        add_result_active(
+            orchestrator,
+            root=root,
+            task_id=TASK_A,
+            process=child,
+            terminal_status="completed",
+            artifact_exit_code=0,
+        )
         with patch.object(scheduler_module.time, "sleep", return_value=None):
             exit_code = orchestrator.run(
                 lock=SchedulerLock(root / "poll-error.lock"),
@@ -2712,6 +3497,32 @@ def test_worker_popen_uses_host_controller_boundary_and_shell_false() -> None:
             command[command.index("--checkout-root") + 1]
             == str(orchestrator.checkout_root.resolve()),
             str(command),
+        )
+        assignment = orchestrator.active_assignments[TASK_A]
+        require(
+            command[command.index("--run-id") + 1] == assignment.run_id,
+            str(command),
+        )
+        require(
+            command[command.index("--admission-source-head") + 1] == head,
+            str(command),
+        )
+        require(
+            command[command.index("--task-contract-sha256") + 1]
+            == CONTRACTS[TASK_A],
+            str(command),
+        )
+        require(
+            assignment.result_artifact_path
+            == (
+                orchestrator.checkout_root
+                / ".task-review-agent"
+                / "outputs"
+                / TASK_A
+                / str(assignment.run_id)
+                / "run_result.json"
+            ),
+            str(assignment.result_artifact_path),
         )
 
 
@@ -2958,6 +3769,8 @@ def main() -> int:
         test_decomposition_worker_command_binds_exact_task_and_output_policy,
         test_approved_decomposition_resume_cannot_route_to_implementation,
         test_resume_wait_does_not_starve_stage2_ranked_fresh_work,
+        test_first_resume_wait_does_not_hide_later_decomposition_apply_resume,
+        test_production_poll_plan_batches_every_ready_resume_before_fresh_work,
         test_excluded_task_id_is_not_admitted_via_resume_slot,
         test_resume_survives_typed_taskgraph_observation_failure,
         test_fresh_only_typed_taskgraph_observation_failure_remains_blocked,
@@ -2983,8 +3796,24 @@ def main() -> int:
         test_previously_observed_checkout_disappearing_becomes_unknown,
         test_durable_human_action_branch_becomes_reservation,
         test_reservations_and_stage2_can_share_one_issue_listing,
+        test_decomposition_apply_hash_change_requires_exact_replay,
         test_actual_branch_path_overlap_prevents_launch,
         test_successful_child_exit_frees_local_capacity,
+        test_blocked_run_exits_nonzero_and_is_not_worker_finished,
+        test_exit_zero_without_result_artifact_is_failure,
+        test_stale_artifact_from_prior_run_is_rejected,
+        test_artifact_pid_mismatch_is_rejected,
+        test_artifact_issue_mismatch_is_rejected_for_resumed_work,
+        test_artifact_mtime_before_launch_is_rejected,
+        test_unrepresentable_artifact_mtime_fails_closed_without_crashing,
+        test_human_action_required_and_completed_both_succeed_via_artifact,
+        test_no_safe_work_artifact_emits_worker_idle_nonfatally,
+        test_no_safe_work_artifact_rejects_claimed_issue_identity,
+        test_just_reaped_blocked_task_is_excluded_for_the_current_poll,
+        test_error_artifact_remains_a_fatal_worker_failure,
+        test_malformed_artifact_scalar_types_fail_closed_without_crashing,
+        test_exit_code_and_artifact_disagreement_fails_closed,
+        test_scheduler_never_reads_child_supplied_artifact_path,
         test_nonzero_child_exit_stops_new_admissions,
         test_fatal_child_exit_drains_other_workers_before_scheduler_stops,
         test_ctrl_c_during_fatal_drain_preserves_failure_exit,

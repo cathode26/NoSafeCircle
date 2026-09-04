@@ -31,7 +31,7 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
-def git(root: Path, *args: str) -> None:
+def git(root: Path, *args: str) -> str:
     result = subprocess.run(
         ("git", "-C", str(root), *args),
         text=True,
@@ -41,6 +41,7 @@ def git(root: Path, *args: str) -> None:
     )
     if result.returncode != 0:
         raise AssertionError(f"git {' '.join(args)} failed: {result.stderr}")
+    return result.stdout.strip()
 
 
 def create_repo(root: Path, *, contract_id: str = TASK_ID) -> bytes:
@@ -117,6 +118,43 @@ def test_missing_and_mismatched_contracts_fail_closed() -> None:
             raise AssertionError("identity mismatch was accepted")
 
 
+def test_exact_historical_commit_load_is_hash_bound() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-committed-task-") as temporary:
+        root = Path(temporary)
+        original_raw = create_repo(root)
+        original_head = git(root, "rev-parse", "HEAD")
+        changed = {
+            "schema_version": "2.0",
+            "id": TASK_ID,
+            "title": "Changed committed loader fixture",
+            "exclusive_resources": [],
+        }
+        (root / f"Tasks/{TASK_ID}.yaml").write_text(
+            json.dumps(changed, indent=2) + "\n", encoding="utf-8"
+        )
+        git(root, "add", "Tasks")
+        git(root, "commit", "--quiet", "-m", "Change fixture contract")
+        historical_hash = hashlib.sha256(original_raw).hexdigest()
+        historical = load_committed_task(
+            root,
+            TASK_ID,
+            commit=original_head,
+            expected_sha256=historical_hash,
+        )
+        require(historical["exclusive_resources"] == RESOURCES, str(historical))
+        require(
+            load_committed_task(root, TASK_ID)["exclusive_resources"] == [],
+            "default load did not remain bound to current HEAD",
+        )
+        for unsafe in ("HEAD", f"{original_head}^", original_head.upper()):
+            try:
+                load_committed_task(root, TASK_ID, commit=unsafe)
+            except CommittedTaskError as exc:
+                require("exact lowercase" in str(exc), str(exc))
+            else:
+                raise AssertionError(f"unsafe revision expression was accepted: {unsafe}")
+
+
 def test_shared_loader_is_used_by_selection_and_workflow() -> None:
     """No coordination-facing module should keep a private near-duplicate loader
     or a synthesized empty-resource task_loader lambda."""
@@ -158,6 +196,7 @@ def main() -> int:
     tests = (
         test_real_committed_exclusive_resources_are_loaded,
         test_missing_and_mismatched_contracts_fail_closed,
+        test_exact_historical_commit_load_is_hash_bound,
         test_shared_loader_is_used_by_selection_and_workflow,
     )
     for test in tests:

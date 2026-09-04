@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -385,6 +387,7 @@ def test_main_never_exits_zero_for_non_success_outcome() -> None:
         "ProductionTaskController",
         "GuardedTaskController",
         "run_openai_production_pipeline",
+        "_scheduler_result_enabled",
     )
     originals = {name: getattr(run_pipeline_agent, name) for name in patched}
     try:
@@ -444,7 +447,6 @@ def test_main_never_exits_zero_for_non_success_outcome() -> None:
             for successful_status in (
                 "human_action_required",
                 "human_delivery_review",
-                "checks_pending",
                 "complete",
             ):
                 code, stdout_text, _ = run_main({"status": successful_status})
@@ -456,6 +458,59 @@ def test_main_never_exits_zero_for_non_success_outcome() -> None:
                     f'"status": "{successful_status}"' in stdout_text,
                     "result JSON was not printed",
                 )
+            code, _, stderr_text = run_main({"status": "checks_pending"})
+            require(code == 3, f"checks_pending returned {code}")
+            require(
+                "cannot be treated as a successful worker process" in stderr_text,
+                f"checks_pending omitted its blocked-worker diagnostic: {stderr_text}",
+            )
+
+            run_pipeline_agent._scheduler_result_enabled = lambda _args: True
+            for index, (pipeline_status, terminal_status, expected_code) in enumerate(
+                (
+                    ("human_action_required", "human_action_required", 0),
+                    ("blocked", "blocked", 3),
+                ),
+                start=1,
+            ):
+                run_id = f"scheduler-nsc-777-result-fixture-{index}"
+                worker_id = f"result-fixture-worker-{index}"
+                run_pipeline_agent.run_openai_production_pipeline = (
+                    lambda *_args, _status=pipeline_status, **_kwargs: {
+                        "status": _status,
+                        "authority": "fixture_pipeline_authority",
+                        "deterministic_final_state": {
+                            "coordination": {"issue_number": 777}
+                        },
+                    }
+                )
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
+                    io.StringIO()
+                ):
+                    code = run_pipeline_agent.main(
+                        [
+                            "--task-id",
+                            TASK_A,
+                            "--mode",
+                            "openai",
+                            "--output-root",
+                            tmp,
+                            "--worker-id",
+                            worker_id,
+                            "--run-id",
+                            run_id,
+                            "--admission-source-head",
+                            SOURCE_HEAD,
+                            "--task-contract-sha256",
+                            "a" * 64,
+                        ]
+                    )
+                require(code == expected_code, f"{pipeline_status} returned {code}")
+                result_path = Path(tmp) / TASK_A / run_id / "pipeline_result.json"
+                result_payload = json.loads(result_path.read_text(encoding="utf-8"))
+                require(result_payload["terminal_status"] == terminal_status, str(result_payload))
+                require(result_payload["exit_code"] == expected_code, str(result_payload))
+                require(result_payload["pid"] == os.getpid(), str(result_payload))
     finally:
         for name, value in originals.items():
             setattr(run_pipeline_agent, name, value)

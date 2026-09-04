@@ -130,10 +130,21 @@ release their leases. Ctrl+C during a fatal drain preserves the failure exit
 code, and the final event reports any worker whose operating-system survival
 cannot be guaranteed.
 
-The worker process exits zero only for a known successful handoff or closeout
-state (`human_action_required`, `human_delivery_review`, `checks_pending`, or
-`complete`). A durable `blocked` or `needs_human` outcome exits nonzero so the
-parent scheduler stops admitting new work and performs its bounded drain.
+Every scheduler-launched worker writes `run_result.json` beside its `run.json`
+as its last durable result. The scheduler derives the artifact path from its
+own task/run identity; it never trusts a path supplied by the child. It accepts
+the result only when the run ID, unguessable worker ID, task, admitted main
+commit, task-contract hash, process ID, timestamps, status, and observed exit
+code all agree. A missing, stale, malformed, or contradictory artifact is a
+fatal child failure even when the process exits zero.
+
+Exit `0` is reserved for the successful `human_action_required` and
+`completed` artifact states. Exit `3` means a deterministic `blocked` result
+(including `needs_human` and `checks_pending`); it emits `worker_blocked` and
+frees capacity without counting the task as complete or halting other safe
+admissions. Exit `4` means `no_safe_work` and emits `worker_idle`. Exit `2` or
+any unknown/operating-system code emits `worker_failed`, stops new admissions,
+and starts the bounded drain.
 
 For a bounded rehearsal that must leave a legitimate task untouched, pass a
 repeatable session exclusion such as `--exclude-task-id NSC-042` to
