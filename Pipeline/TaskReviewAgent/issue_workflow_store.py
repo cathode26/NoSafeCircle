@@ -152,6 +152,25 @@ class IssueConsistencyRetryOverflowError(IssueWorkflowStoreError):
         )
 
 
+@dataclass
+class IssueConsistencyRetryBudget:
+    """One monotonic consistency deadline shared by a logical admission.
+
+    Ordinary workflow operations omit this object and retain one bounded retry
+    ladder per operation. Read-only admission code passes one instance through
+    every Issue view it evaluates, preventing the seven-second allowance from
+    being re-armed once per candidate while preserving the same fail-closed
+    behavior after the shared deadline is exhausted.
+    """
+
+    deadline_monotonic: float | None = None
+
+    def deadline(self) -> float:
+        if self.deadline_monotonic is None:
+            self.deadline_monotonic = _consistency_deadline()
+        return self.deadline_monotonic
+
+
 def _redact_origin(url: str) -> str:
     """Strip embedded HTTPS basic-auth credentials before an error message."""
 
@@ -770,11 +789,13 @@ class IssueWorkflowService:
         worker_id: str,
         assignee: str = DEFAULT_ASSIGNEE,
         vincent_inbox_title: str | None = None,
+        consistency_retry_budget: IssueConsistencyRetryBudget | None = None,
     ) -> None:
         self.backend = backend
         self.task_loader = task_loader
         self.worker_id = str(worker_id).strip()
         self.assignee = str(assignee).strip()
+        self.consistency_retry_budget = consistency_retry_budget
         if not self.worker_id or not self.assignee:
             raise IssueWorkflowStoreError("worker_id and assignee must be non-empty")
         self.vincent_inbox_title = None
@@ -793,7 +814,15 @@ class IssueWorkflowService:
                 + ", ".join(str(item.get("number")) for item in candidates)
             )
         return (
-            _consistent_snapshot(self.backend, candidates[0])
+            _consistent_snapshot(
+                self.backend,
+                candidates[0],
+                deadline=(
+                    self.consistency_retry_budget.deadline()
+                    if self.consistency_retry_budget is not None
+                    else None
+                ),
+            )
             if candidates
             else None
         )
@@ -937,7 +966,15 @@ class IssueWorkflowService:
         # the same bounded consistency ladder instead of the first Issue
         # spending the entire scan deadline.
         try:
-            scanned = _consistent_snapshots(self.backend, candidates)
+            scanned = _consistent_snapshots(
+                self.backend,
+                candidates,
+                deadline=(
+                    self.consistency_retry_budget.deadline()
+                    if self.consistency_retry_budget is not None
+                    else None
+                ),
+            )
         except IssueConsistencyRetryOverflowError as exc:
             # An untruncated but only partially readable reservation picture is
             # a repair-worthy inspection failure, never benign contention.
@@ -1932,7 +1969,15 @@ class IssueWorkflowService:
             for issue in self.backend.list_issues()
             if str(issue.get("state") or "").upper() != "CLOSED"
         ]
-        for entry in _consistent_snapshots(self.backend, open_issues):
+        for entry in _consistent_snapshots(
+            self.backend,
+            open_issues,
+            deadline=(
+                self.consistency_retry_budget.deadline()
+                if self.consistency_retry_budget is not None
+                else None
+            ),
+        ):
             if entry.error is not None:
                 raise entry.error
             snapshot = entry.snapshot
@@ -1959,7 +2004,15 @@ class IssueWorkflowService:
             if STATE_RE.search(body) is None or not issue_author_authorized(issue):
                 continue
             candidates.append(issue)
-        for entry in _consistent_snapshots(self.backend, candidates):
+        for entry in _consistent_snapshots(
+            self.backend,
+            candidates,
+            deadline=(
+                self.consistency_retry_budget.deadline()
+                if self.consistency_retry_budget is not None
+                else None
+            ),
+        ):
             if entry.error is not None:
                 raise entry.error
             snapshot = entry.snapshot

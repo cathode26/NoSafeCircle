@@ -354,15 +354,22 @@ def seed_scan_issues(backend: MemoryIssueBackend, *, count: int) -> dict[str, di
 def scan_service(
     backend: MemoryIssueBackend,
     tasks: dict[str, dict],
+    *,
+    consistency_retry_budget: object | None = None,
 ) -> IssueWorkflowService:
     """Build the scanning worker whose own task overlaps nothing."""
 
     loader = dict(tasks)
     loader[CHECKER_TASK_ID] = CHECKER_TASK
+    values = {
+        "backend": backend,
+        "task_loader": lambda task_id: loader[task_id],
+        "worker_id": "agent-scan",
+    }
+    if consistency_retry_budget is not None:
+        values["consistency_retry_budget"] = consistency_retry_budget
     return IssueWorkflowService(
-        backend=backend,
-        task_loader=lambda task_id: loader[task_id],
-        worker_id="agent-scan",
+        **values,
     )
 
 
@@ -1230,6 +1237,31 @@ def test_shared_ladder_bounds_injected_sleep_for_one_and_many_issues() -> None:
     )
 
 
+def test_shared_budget_bounds_repeated_candidate_scans() -> None:
+    """B6: one admission cannot re-arm seven seconds for every candidate."""
+
+    backend = PerIssueSkewMemoryBackend()
+    tasks = seed_scan_issues(backend, count=1)
+    issue_number = next(iter(backend.issues))
+    backend.hidden_comment_reads[issue_number] = NEVER_CONVERGES
+
+    with fake_consistency_clock() as clock:
+        budget = issue_workflow_store_module.IssueConsistencyRetryBudget()
+        checker = scan_service(
+            backend,
+            tasks,
+            consistency_retry_budget=budget,
+        )
+        first_conflicts, _first_diagnostics = checker.resource_conflicts(CHECKER_TASK)
+        second_conflicts, _second_diagnostics = checker.resource_conflicts(CHECKER_TASK)
+
+    require(len(first_conflicts) == 1 and len(second_conflicts) == 1, str((first_conflicts, second_conflicts)))
+    require(
+        clock.sleeps == [1.0, 2.0, 4.0],
+        f"the consistency deadline was re-armed across candidates: {clock.sleeps}",
+    )
+
+
 def test_exact_reads_are_bounded_without_per_issue_sleep_amplification() -> None:
     """B6: exact reads stay bounded per Issue and sleeps do not multiply."""
 
@@ -1904,6 +1936,7 @@ def main() -> int:
         test_resource_scan_skips_only_positively_closed_exact_issue,
         test_deferred_retry_gives_a_late_listed_issue_the_same_rounds,
         test_shared_ladder_bounds_injected_sleep_for_one_and_many_issues,
+        test_shared_budget_bounds_repeated_candidate_scans,
         test_exact_reads_are_bounded_without_per_issue_sleep_amplification,
         test_pending_retry_cap_overflow_is_explicit_and_fails_closed,
         test_persistent_incoherence_still_fails_closed_after_the_ladder,
