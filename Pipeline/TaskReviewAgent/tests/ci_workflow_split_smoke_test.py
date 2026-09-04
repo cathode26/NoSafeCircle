@@ -84,6 +84,8 @@ MONOLITH_TEST_COMMANDS = (
 CORE_ONLY_STEP_COMMANDS = (
     "Pipeline/TaskReviewAgent/tests/taskgraph_review_issue_materialization_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/synthetic_gauntlet_approver_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/architect_session_owner_smoke_test.py",
+    "Gauntlet/SoftwareArchitectAcceptance/scheduler_adapter_contract_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/polling_orchestrator_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/autonomous_graph_run_smoke_test.py",
     "Pipeline/TaskReviewAgent/tests/execution_routing_smoke_test.py",

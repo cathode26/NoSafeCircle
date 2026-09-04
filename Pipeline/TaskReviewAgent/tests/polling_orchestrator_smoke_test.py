@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 from contextlib import contextmanager
 import datetime
+import hashlib
 import inspect
 import json
 import os
@@ -31,6 +32,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import Pipeline.TaskReviewAgent.polling_orchestrator as scheduler_module  # noqa: E402
+from Pipeline.AgentRuntime.provider_sessions import ProviderSessionBinding  # noqa: E402
+from Pipeline.TaskReviewAgent.architect_session_owner import (  # noqa: E402
+    ArchitectSessionCompatibility,
+    ArchitectSessionInvocationError,
+    ArchitectSessionOwner,
+    JsonArchitectSessionStore,
+)
 from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ARCHITECT_BATCH_SCHEMA_VERSION,
     ArchitectAdvisory,
@@ -644,7 +652,6 @@ def make_orchestrator(
     max_workers: int = 4,
     dry_run: bool = False,
     max_architect_invocations_per_poll: int = 8,
-    max_architect_invocations_per_session: int = 20,
     architect_min_reanalysis_seconds: float = 300.0,
     max_consecutive_observation_failures: int = 3,
     fatal_drain_seconds: float = scheduler_module.DEFAULT_FATAL_DRAIN_SECONDS,
@@ -669,7 +676,6 @@ def make_orchestrator(
         routing_policy=routing_policy,
         routing_policy_loader=routing_policy_loader,
         max_architect_invocations_per_poll=max_architect_invocations_per_poll,
-        max_architect_invocations_per_session=max_architect_invocations_per_session,
         architect_min_reanalysis_seconds=architect_min_reanalysis_seconds,
         max_consecutive_observation_failures=max_consecutive_observation_failures,
         fatal_drain_seconds=fatal_drain_seconds,
@@ -803,6 +809,46 @@ def test_no_safe_work_launches_nothing() -> None:
         result = orchestrator.poll_once()
         require(result.status == "idle", str(result))
         require(not processes.calls and not architect.calls, "idle plan invoked work")
+
+
+def test_scheduler_idle_without_candidate_never_budgets_an_architect_session() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        calls: list[dict[str, Any]] = []
+
+        def forbidden_architect(**values: Any) -> Any:
+            calls.append(values)
+            raise AssertionError("idle scheduler invoked the architect")
+
+        lifecycle_root = root / "architect-lifecycle"
+        compatibility = ArchitectSessionCompatibility(
+            "claude-code",
+            "polling_architect",
+            "claude-fixture",
+            None,
+            "architect-protocol-fixture-v1",
+            ("repository_read", "repository_search"),
+        )
+        owned_architect = ArchitectSessionOwner(
+            architect_runner=forbidden_architect,
+            provider_identifier="claude-code",
+            role="polling_architect",
+            store=JsonArchitectSessionStore(lifecycle_root),
+            compatibility=compatibility,
+            session_id_factory=lambda: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+        )
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=owned_architect,
+            processes=ProcessFactory(),
+            tasks={},
+        )
+        require(orchestrator.poll_once().status == "idle", "no-work poll was not idle")
+        require(not calls, "no-work poll reached a paid architect callable")
+        require(owned_architect.state is None, "no-work poll created lifecycle budget")
+        require(not lifecycle_root.exists(), "no-work poll persisted lifecycle artifacts")
 
 
 def test_blocked_invalid_state_fails_closed() -> None:
@@ -1498,6 +1544,12 @@ def test_docker_architect_runner_parses_batch_envelope() -> None:
         artifact_name = "fixture-batch.json"
         (artifacts / artifact_name).write_text("{}\n", encoding="utf-8", newline="\n")
         selected = advisory(TASK_A, head)
+        binding = ProviderSessionBinding(
+            "claude-code",
+            "polling_architect",
+            "start",
+            "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+        )
         batch = ArchitectBatch(
             source_head=head,
             batch_rationale="Fixture batch envelope.",
@@ -1522,7 +1574,13 @@ def test_docker_architect_runner_parses_batch_envelope() -> None:
                 "batch": batch.to_dict(),
                 "artifact_name": artifact_name,
                 "active_surface_fingerprint": "f" * 64,
-                "invocation_metadata": {"provider": "fake", "model": "fake-model"},
+                "invocation_metadata": {
+                    "provider": "fake",
+                    "model": "fake-model",
+                    "provider_session_confirmation": binding.confirm(
+                        binding.session_id
+                    ).to_dict(),
+                },
             }
             return subprocess.CompletedProcess(
                 args=command,
@@ -1547,11 +1605,204 @@ def test_docker_architect_runner_parses_batch_envelope() -> None:
             reservations=(),
             scheduler_id="fixture-scheduler",
             admission_limit=1,
+            session_binding=binding,
         )
         require(isinstance(analysis, ArchitectBatchAnalysis), str(type(analysis)))
         require(analysis.batch.admissions == (selected,), str(analysis.batch))
         require(captured["request"]["admission_limit"] == 1, str(captured))
         require("candidates" in captured["request"], str(captured))
+        require(
+            captured["request"]["provider_session"] == binding.to_dict(),
+            "exact provider session binding was not transported",
+        )
+
+
+def test_docker_architect_runner_rejects_mismatched_confirmation_and_preserves_typed_failure() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        artifacts = root / "architect-artifacts"
+        artifacts.mkdir()
+        (artifacts / "fixture-batch.json").write_text("{}\n", encoding="utf-8")
+        binding = ProviderSessionBinding(
+            "claude-code",
+            "polling_architect",
+            "start",
+            "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+        )
+        batch = ArchitectBatch(
+            source_head=head,
+            batch_rationale="Fixture batch envelope.",
+            considered=(
+                ArchitectBatchConsideration(
+                    task_id=TASK_A,
+                    work_type="implementation",
+                    disposition="wait",
+                    rationale="Fixture waits.",
+                ),
+            ),
+            admissions=(),
+        )
+
+        def mismatch(command: Any, **_values: Any) -> subprocess.CompletedProcess[bytes]:
+            envelope = {
+                "schema_version": ARCHITECT_BATCH_SCHEMA_VERSION,
+                "analysis_id": "fixture-batch-analysis",
+                "batch": batch.to_dict(),
+                "artifact_name": "fixture-batch.json",
+                "active_surface_fingerprint": "f" * 64,
+                "invocation_metadata": {
+                    "provider_session_confirmation": {
+                        **binding.confirm(binding.session_id).to_dict(),
+                        "session_id": "9c858901-8a57-4791-81fe-4c455b099bc9",
+                    }
+                },
+            }
+            return subprocess.CompletedProcess(
+                command, 0, (json.dumps(envelope) + "\n").encode(), b""
+            )
+
+        runner = DockerArchitectRunner(
+            source=source,
+            artifact_root=artifacts,
+            provider="claude",
+            model=None,
+            max_turns=5,
+            command_runner=mismatch,
+        )
+        try:
+            runner(
+                candidates=[{"task": task(TASK_A), "eligible_work_types": ["implementation"]}],
+                source_head=head,
+                reservations=(),
+                scheduler_id="fixture-scheduler",
+                admission_limit=1,
+                session_binding=binding,
+            )
+        except ArchitectSessionInvocationError as exc:
+            require(exc.lifecycle_outcome == "identity_failure", str(exc))
+            require(
+                exc.confirmed_session_id
+                == "9c858901-8a57-4791-81fe-4c455b099bc9",
+                str(exc),
+            )
+        else:
+            raise AssertionError("mismatched architect session confirmation was accepted")
+
+        def typed_failure(command: Any, **_values: Any) -> subprocess.CompletedProcess[bytes]:
+            failure = {
+                "schema_version": "1.0",
+                "status": "architect_session_invocation_failed",
+                "error_type": "ArchitectSessionInvocationError",
+                "error": "provider timed out",
+                "failure_classification": "timeout",
+                "lifecycle_outcome": "provider_failure",
+                "confirmed_session_id": None,
+            }
+            return subprocess.CompletedProcess(
+                command, 2, b"", json.dumps(failure).encode("utf-8")
+            )
+
+        runner.command_runner = typed_failure
+        try:
+            runner(
+                candidates=[{"task": task(TASK_A), "eligible_work_types": ["implementation"]}],
+                source_head=head,
+                reservations=(),
+                scheduler_id="fixture-scheduler",
+                admission_limit=1,
+                session_binding=binding,
+            )
+        except ArchitectSessionInvocationError as exc:
+            require(exc.lifecycle_outcome == "provider_failure", str(exc))
+            require(exc.failure_classification == "timeout", str(exc))
+        else:
+            raise AssertionError("typed architect failure was collapsed into an untyped error")
+
+
+def test_two_confirmed_missing_artifacts_retire_the_full_owner_docker_session() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        artifacts = root / "architect-artifacts"
+        artifacts.mkdir()
+        task_id = TASK_A
+        batch = ArchitectBatch(
+            source_head=head,
+            batch_rationale="Confirmed fixture intentionally omits its artifact.",
+            considered=(
+                ArchitectBatchConsideration(
+                    task_id=task_id,
+                    work_type="implementation",
+                    disposition="wait",
+                    rationale="Fixture waits.",
+                ),
+            ),
+            admissions=(),
+        )
+        observed_modes: list[str] = []
+
+        def missing_artifact(command: Any, **values: Any) -> subprocess.CompletedProcess[bytes]:
+            request = json.loads(values["input_bytes"].decode("utf-8"))
+            binding = ProviderSessionBinding.from_dict(request["provider_session"])
+            observed_modes.append(binding.mode)
+            envelope = {
+                "schema_version": ARCHITECT_BATCH_SCHEMA_VERSION,
+                "analysis_id": f"missing-artifact-{len(observed_modes)}",
+                "batch": batch.to_dict(),
+                "artifact_name": "does-not-exist.json",
+                "active_surface_fingerprint": "f" * 64,
+                "invocation_metadata": {
+                    "provider_session_confirmation": binding.confirm(
+                        binding.session_id
+                    ).to_dict(),
+                    "provider_session_compatibility": (
+                        transport.session_compatibility.to_dict()
+                    ),
+                },
+            }
+            return subprocess.CompletedProcess(
+                command, 0, (json.dumps(envelope) + "\n").encode("utf-8"), b""
+            )
+
+        transport = DockerArchitectRunner(
+            source=source,
+            artifact_root=artifacts,
+            provider="claude",
+            model=None,
+            max_turns=5,
+            command_runner=missing_artifact,
+        )
+        managed = ArchitectSessionOwner(
+            architect_runner=transport,
+            provider_identifier="claude-code",
+            role="polling_architect",
+            store=JsonArchitectSessionStore(root / "lifecycle"),
+            compatibility=transport.session_compatibility,
+            session_id_factory=lambda: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+        )
+        invoke = lambda: managed(
+            candidates=[
+                {"task": task(task_id), "eligible_work_types": ["implementation"]}
+            ],
+            source_head=head,
+            reservations=(),
+            scheduler_id="fixture-scheduler",
+            admission_limit=1,
+        )
+        for expected_streak in (1, 2):
+            try:
+                invoke()
+            except ArchitectSessionInvocationError as exc:
+                require(exc.lifecycle_outcome == "output_failure", str(exc))
+            else:
+                raise AssertionError("confirmed missing artifact was accepted")
+            require(
+                managed.state.consecutive_provider_output_failures == expected_streak,
+                "confirmed host output failure did not advance the exact streak",
+            )
+        require(managed.state.phase == "retired", "two confirmed output failures did not retire")
+        require(observed_modes == ["start", "resume"], str(observed_modes))
 
 
 def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> None:
@@ -2452,41 +2703,49 @@ def test_mixed_portfolio_uses_one_paid_call_per_poll() -> None:
         require(not processes.calls, "portfolio WAIT launched a worker")
 
 
-def test_cumulative_architect_session_cap_stops_new_admissions() -> None:
+def test_scheduler_does_not_preempt_provider_lifecycle_with_attempt_cap() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
-        planner = SequencePlanner(
-            [candidate_plan(head, TASK_A), candidate_plan(head, TASK_B)]
-        )
-        architect = FakeArchitect(
-            {
-                TASK_A: advisory(TASK_A, head, risk="high"),
-                TASK_B: advisory(TASK_B, head),
-            }
-        )
-        processes = ProcessFactory()
-        orchestrator, stream = make_orchestrator(
-            source=source,
-            planner=planner,
-            architect=architect,
-            processes=processes,
-            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
-            max_architect_invocations_per_session=1,
-        )
-        require(orchestrator.poll_once().status == "idle", "first WAIT launched")
-        result = orchestrator.poll_once()
-        require(
-            result.fatal
-            and result.status == "architect_session_budget_exhausted",
-            str(result),
-        )
-        require(architect.calls == [TASK_A], str(architect.calls))
-        require(not processes.calls, "session-budget exhaustion launched a worker")
-        require(
-            "cumulative architect session invocation cap is exhausted"
-            in stream.getvalue(),
-            stream.getvalue(),
-        )
+        task_ids = tuple(f"NSC-{200 + index}" for index in range(1, 14))
+        for task_id in task_ids:
+            CONTRACTS[task_id] = hashlib.sha256(task_id.encode("ascii")).hexdigest()
+        try:
+            planner = SequencePlanner(
+                [candidate_plan(head, task_id) for task_id in task_ids]
+            )
+            architect = FakeArchitect(
+                {
+                    task_id: advisory(
+                        task_id,
+                        head,
+                        risk=("low" if task_id == task_ids[-1] else "high"),
+                    )
+                    for task_id in task_ids
+                }
+            )
+            processes = ProcessFactory()
+            orchestrator, _stream = make_orchestrator(
+                source=source,
+                planner=planner,
+                architect=architect,
+                processes=processes,
+                tasks={task_id: task(task_id) for task_id in task_ids},
+            )
+            for cycle in range(12):
+                require(
+                    orchestrator.poll_once().status == "idle",
+                    f"WAIT cycle {cycle + 1} launched",
+                )
+            result = orchestrator.poll_once()
+            require(result.status == "worker_launched" and not result.fatal, str(result))
+            require(architect.calls == list(task_ids), str(architect.calls))
+            require(
+                len(processes.calls) == 1,
+                "13th admission was preempted by an attempt cap",
+            )
+        finally:
+            for task_id in task_ids:
+                CONTRACTS.pop(task_id, None)
 
 
 def test_resume_is_not_blocked_by_its_own_durable_reservation() -> None:
@@ -4679,6 +4938,7 @@ def main() -> int:
         test_event_emitter_persists_exact_stdout_journal,
         test_shared_checkout_root_lock_collides_across_source_clones,
         test_no_safe_work_launches_nothing,
+        test_scheduler_idle_without_candidate_never_budgets_an_architect_session,
         test_blocked_invalid_state_fails_closed,
         test_resume_existing_remains_stage2_priority,
         test_safe_resume_is_selected_before_fresh_start,
@@ -4686,6 +4946,8 @@ def main() -> int:
         test_batch_candidate_withdrawal_does_not_starve_later_admission,
         test_source_move_after_architect_discards_batch_before_launch,
         test_docker_architect_runner_parses_batch_envelope,
+        test_docker_architect_runner_rejects_mismatched_confirmation_and_preserves_typed_failure,
+        test_two_confirmed_missing_artifacts_retire_the_full_owner_docker_session,
         test_every_worker_command_has_exact_task_and_unique_worker_id,
         test_scheduler_has_no_generic_contention_retry_or_taskless_launch,
         test_max_workers_blocks_launch,
@@ -4721,7 +4983,7 @@ def main() -> int:
         test_wait_reanalysis_cooldown_survives_unrelated_membership_change,
         test_wait_is_reconsidered_when_head_or_in_flight_state_changes,
         test_mixed_portfolio_uses_one_paid_call_per_poll,
-        test_cumulative_architect_session_cap_stops_new_admissions,
+        test_scheduler_does_not_preempt_provider_lifecycle_with_attempt_cap,
         test_resume_is_not_blocked_by_its_own_durable_reservation,
         test_resume_waits_when_other_active_work_overlaps,
         test_resume_own_actual_unity_path_conflicts_with_other_branch,

@@ -1143,9 +1143,9 @@ def test_pump_evidence_is_proven_before_a_poll_appends_a_lease_event() -> None:
     )
 
 
-def test_old_architect_invocation_cap_fails_closed_without_fake_lifecycle_rotation() -> None:
+def test_scheduler_fatal_remains_blocked_without_fake_lifecycle_rotation() -> None:
     fake = FakeScheduler(
-        statuses=(("architect_session_budget_exhausted", True),),
+        statuses=(("worker_failed", True),),
         architect_calls=(12,),
     )
     pending = snapshot(
@@ -1154,8 +1154,8 @@ def test_old_architect_invocation_cap_fails_closed_without_fake_lifecycle_rotati
     )
 
     result = controller(state=pending, scheduler=fake).run(max_steps=1)
-    require(result.evaluation.classification == "blocked", "old cap did not fail closed")
-    require(result.scheduler_fatal, "old cap was presented as nonfatal lifecycle retirement")
+    require(result.evaluation.classification == "blocked", "scheduler fatal did not fail closed")
+    require(result.scheduler_fatal, "scheduler fatal was presented as lifecycle retirement")
     require(result.progress.architect_invocations_total == 12, "architect total was lost")
 
 
@@ -1320,7 +1320,7 @@ def main() -> int:
         test_external_wait_never_becomes_deadlock_from_unchanged_state,
         test_synthetic_pump_requires_exact_post_observation_proof,
         test_pump_evidence_is_proven_before_a_poll_appends_a_lease_event,
-        test_old_architect_invocation_cap_fails_closed_without_fake_lifecycle_rotation,
+        test_scheduler_fatal_remains_blocked_without_fake_lifecycle_rotation,
         test_malformed_scheduler_accounting_fails_closed,
         test_launch_count_and_memory_resume_are_monotonic_without_live_mutation,
         test_same_task_relaunch_uses_scheduler_emitted_launch_count,

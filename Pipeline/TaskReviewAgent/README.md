@@ -420,10 +420,30 @@ selection, structured synthetic-evidence pump adapter, command-line entry point,
 and launcher wiring remain intentionally unwired. No caller should approximate
 those authority-bearing adapters from mutable or partial observations.
 
-The current scheduler's cumulative architect-invocation cap still fails closed.
-The separate real lifecycle owner that rotates an architect provider only after
-100 completed graph cycles is not implemented here, and the controller does not
-claim that the older invocation cap represents lifecycle retirement.
+The production polling entry point now decorates its existing architect callable
+with a durable provider-session lifecycle owner; it does not replace or restart
+`PollingOrchestrator`, so active worker assignments survive architect rotation.
+One paid, successfully confirmed portfolio call is one completed
+`admission_cycle`, including a valid all-WAIT batch. Cached decisions, capacity
+waits, Issue waits, worker waits, and every poll that makes no provider call cost
+zero. Provider/output failures do not increase the completed-cycle count. The
+shared AgentRuntime policy retires after 100 completed architect cycles, two
+consecutive provider/output failures, an exact incompatibility or identity
+failure, or explicit context-window evidence at its threshold. Latency retirement
+stays disabled until a caller can supply an exact comparison key and baseline.
+
+Current state and append-only transition telemetry live below
+`Pipeline/ArchitectureReview/outputs/orchestrator/architect-sessions/<provider>/<role>`.
+The durable binding also records the exact provider, model, reasoning effort,
+protocol, and capability set; a restart with any different value retires the old
+session before the next paid call instead of silently resuming it.
+An interrupted persisted `assigned` state blocks reuse pending explicit
+reconciliation. Claude supports caller-bound fresh and resumed UUIDs. A fresh
+Codex pooled session deliberately fails before a paid call because Codex assigns
+its UUID only after launch; an already-known Codex resume still passes through
+the adapter's verified sandbox-policy guard and fails closed if that guard is not
+available. The previous 12-attempt scheduler-fatal cap has been removed; the
+independent per-poll admission-call cap remains an operator safety bound.
 <!-- autonomous-graph-controller:end -->
 
 ## Validation

@@ -12,6 +12,8 @@ produces HUMAN_REVIEW.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import sys
 import tempfile
@@ -26,6 +28,11 @@ if str(ROOT) not in sys.path:
 from Pipeline.AgentRuntime.agent_runner import AgentRunner  # noqa: E402
 from Pipeline.AgentRuntime.config import RuntimeConfiguration  # noqa: E402
 from Pipeline.AgentRuntime.providers.fake import FakeProvider  # noqa: E402
+from Pipeline.AgentRuntime.provider_sessions import (  # noqa: E402
+    ProviderSessionBinding,
+    ProviderSessionConfirmation,
+)
+import Pipeline.TaskReviewAgent.architect_preflight as architect_module  # noqa: E402
 from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ARCHITECT_ADVISORY_SCHEMA,
     ARCHITECT_BATCH_SCHEMA,
@@ -34,6 +41,7 @@ from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ArchitectPolicyDecision,
     ArchitectPreflightError,
     PredictedChangeSurface,
+    RuntimeArchitectInvoker,
     active_surface_fingerprint,
     analyze_candidate,
     analyze_portfolio,
@@ -46,12 +54,16 @@ from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     persist_architect_advisory,
     unconfirmed_unknown_surface_task_ids,
 )
+from Pipeline.TaskReviewAgent.architect_session_owner import (  # noqa: E402
+    ArchitectSessionInvocationError,
+)
 
 
 TASK_ID = "NSC-101"
 SOURCE_HEAD = "1" * 40
 CONTRACT_SHA = "a" * 64
 PROVIDER_KEY = "polling-architect-fake"
+SESSION_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 
 
 def require(condition: bool, message: str) -> None:
@@ -1004,6 +1016,116 @@ def test_portfolio_rejects_admissions_above_host_capacity() -> None:
             raise AssertionError("portfolio exceeded the host admission capacity")
 
 
+def test_confirmed_invalid_output_uses_typed_session_failure_transport() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        binding = ProviderSessionBinding(
+            "claude-code", "polling_architect", "start", SESSION_ID
+        )
+
+        class ConfirmedInvalidRuntime:
+            configuration_key = PROVIDER_KEY
+            confirmed_session = ProviderSessionConfirmation(
+                "claude-code", "polling_architect", "start", SESSION_ID
+            )
+
+            def __init__(self, **values: Any) -> None:
+                require(values["session_binding"] == binding, "CLI lost exact binding")
+                configuration = RuntimeConfiguration(
+                    {
+                        PROVIDER_KEY: {
+                            "provider": "fake",
+                            "models": {
+                                "low_cost": "fake-model",
+                                "standard": "fake-model",
+                                "high_reasoning": "fake-model",
+                            },
+                        }
+                    }
+                )
+                self.runner = AgentRunner(
+                    root / "agent-runtime",
+                    configuration,
+                    {"fake": FakeProvider(structured_output={})},
+                )
+
+            def __call__(self, request: Any) -> Any:
+                return self.runner.run(request)
+
+        original = architect_module.RuntimeArchitectInvoker
+        stdin = io.StringIO(
+            json.dumps(
+                {
+                    "source_head": SOURCE_HEAD,
+                    "candidates": portfolio(),
+                    "reservations": [],
+                    "admission_limit": 1,
+                    "provider_session": binding.to_dict(),
+                }
+            )
+        )
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        architect_module.RuntimeArchitectInvoker = ConfirmedInvalidRuntime
+        try:
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                old_stdin = sys.stdin
+                sys.stdin = stdin
+                try:
+                    code = architect_module.main(
+                        [
+                            "--source",
+                            str(ROOT),
+                            "--artifact-root",
+                            str(root / "advisories"),
+                            "--scheduler-id",
+                            "typed-output-fixture",
+                        ]
+                    )
+                finally:
+                    sys.stdin = old_stdin
+        finally:
+            architect_module.RuntimeArchitectInvoker = original
+        require(code == 2, f"invalid output exit was {code}")
+        require(not stdout.getvalue(), "invalid output emitted a success envelope")
+        failure = json.loads(stderr.getvalue())
+        require(failure["status"] == "architect_session_invocation_failed", str(failure))
+        require(failure["lifecycle_outcome"] == "output_failure", str(failure))
+        require(failure["confirmed_session_id"] == SESSION_ID, str(failure))
+
+
+def test_known_codex_resume_retains_the_verified_sandbox_guard() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        binding = ProviderSessionBinding(
+            "openai-codex", "polling_architect", "resume", SESSION_ID
+        )
+        invoker = RuntimeArchitectInvoker(
+            source=ROOT,
+            artifact_root=root,
+            provider="codex",
+            model="gpt-fixture",
+            session_binding=binding,
+        )
+        request = architect_module.build_portfolio_request(
+            candidates=portfolio(),
+            source_head=SOURCE_HEAD,
+            reservations=[],
+            provider_configuration_key=invoker.configuration_key,
+            max_turns=1,
+            timeout_seconds=1.0,
+            admission_limit=1,
+        )
+        try:
+            invoker(request)
+        except ArchitectSessionInvocationError as exc:
+            require(exc.lifecycle_outcome == "session_incompatibility", str(exc))
+            require(exc.failure_classification == "invalid_request", str(exc))
+            require("sandbox" in str(exc).casefold(), str(exc))
+        else:
+            raise AssertionError("Codex resume bypassed the verified sandbox guard")
+
+
 def main() -> int:
     tests = (
         test_schema_accepts_complete_advisory,
@@ -1041,6 +1163,8 @@ def main() -> int:
         test_portfolio_rejects_duplicate_task_admissions,
         test_portfolio_rejects_admit_disposition_without_admission,
         test_portfolio_rejects_admissions_above_host_capacity,
+        test_confirmed_invalid_output_uses_typed_session_failure_transport,
+        test_known_codex_resume_retains_the_verified_sandbox_guard,
     )
     for test in tests:
         test()

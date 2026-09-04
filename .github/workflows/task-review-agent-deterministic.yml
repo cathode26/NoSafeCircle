@@ -24,6 +24,7 @@ on:
       - "Pipeline/Testing/**"
       - "Tasks/**"
       - "Pipeline/TaskReviewAgent/**"
+      - "Gauntlet/SoftwareArchitectAcceptance/**"
   workflow_dispatch:
 
 permissions:
@@ -227,6 +228,14 @@ jobs:
       - name: Run software architect preflight smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/architect_preflight_smoke_test.py
+
+      - name: Run architect session lifecycle owner smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/architect_session_owner_smoke_test.py
+
+      - name: Run Software Architect adapter constructor-contract tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Gauntlet/SoftwareArchitectAcceptance/scheduler_adapter_contract_smoke_test.py
 
       - name: Run polling orchestrator smoke tests
         if: steps.scope.outputs.run_full_core == 'true'

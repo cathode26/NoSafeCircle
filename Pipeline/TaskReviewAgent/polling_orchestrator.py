@@ -50,6 +50,8 @@ if str(PIPELINE_ROOT) not in sys.path:
 from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ARCHITECT_ADVISORY_SCHEMA_VERSION,
     ARCHITECT_BATCH_SCHEMA_VERSION,
+    ARCHITECT_SESSION_CAPABILITIES,
+    ARCHITECT_SESSION_PROTOCOL,
     DEFAULT_ARCHITECT_MAX_TURNS,
     DEFAULT_ARCHITECT_MIN_CONFIDENCE,
     DEFAULT_ARCHITECT_TIMEOUT_SECONDS,
@@ -69,6 +71,19 @@ from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     effective_candidate_surface,
     evaluate_architect_policy,
     unconfirmed_unknown_surface_task_ids,
+    _default_architecture_review_model,
+)
+from Pipeline.TaskReviewAgent.architect_session_owner import (  # noqa: E402
+    ARCHITECT_SESSION_ROLE,
+    ArchitectSessionCompatibility,
+    ArchitectSessionInvocationError,
+    ArchitectSessionOwner,
+    ArchitectSessionOwnerError,
+    JsonArchitectSessionStore,
+    provider_session_confirmation_from_dict,
+)
+from Pipeline.AgentRuntime.provider_sessions import (  # noqa: E402
+    ProviderSessionBinding,
 )
 from Pipeline.TaskReviewAgent.committed_tasks import (  # noqa: E402
     CommittedTaskError,
@@ -134,7 +149,6 @@ SCHEDULER_SCHEMA_VERSION = "1.0"
 DEFAULT_POLL_SECONDS = 300.0
 DEFAULT_MAX_WORKERS = 1
 DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL = 3
-DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_SESSION = 12
 DEFAULT_ARCHITECT_MIN_REANALYSIS_SECONDS = 300.0
 DEFAULT_MAX_CONSECUTIVE_OBSERVATION_FAILURES = 3
 DEFAULT_FATAL_DRAIN_SECONDS = 1800.0
@@ -1145,11 +1159,23 @@ class DockerArchitectRunner:
         self.provider = str(provider).strip().casefold()
         if self.provider not in {"claude", "codex"}:
             raise PollingOrchestratorError("architect provider must be claude or codex")
-        self.model = str(model).strip() if model else None
+        self.model = (
+            str(model).strip()
+            if model
+            else _default_architecture_review_model(self.provider)
+        )
         self.max_turns = max_turns
         self.timeout_seconds = timeout_seconds
         self.compose_project = str(compose_project).strip()
         self.command_runner = command_runner or self._run
+        self.session_compatibility = ArchitectSessionCompatibility(
+            "claude-code" if self.provider == "claude" else "openai-codex",
+            ARCHITECT_SESSION_ROLE,
+            self.model,
+            None if self.provider == "claude" else "max",
+            ARCHITECT_SESSION_PROTOCOL,
+            ARCHITECT_SESSION_CAPABILITIES,
+        )
 
     @staticmethod
     def _run(
@@ -1200,8 +1226,7 @@ class DockerArchitectRunner:
             "--timeout-seconds",
             str(self.timeout_seconds),
         ]
-        if self.model:
-            command.extend(("--model", self.model))
+        command.extend(("--model", self.model))
         return tuple(command)
 
     def __call__(
@@ -1213,6 +1238,7 @@ class DockerArchitectRunner:
         reservations: Sequence[IntegrationReservation],
         scheduler_id: str,
         admission_limit: int | None = None,
+        session_binding: ProviderSessionBinding | None = None,
     ) -> ArchitectAnalysis | ArchitectBatchAnalysis:
         if (task is None) == (candidates is None):
             raise ArchitectPreflightError(
@@ -1222,6 +1248,12 @@ class DockerArchitectRunner:
             "source_head": source_head,
             "reservations": [item.to_dict() for item in reservations],
         }
+        if session_binding is not None:
+            if type(session_binding) is not ProviderSessionBinding:
+                raise ArchitectPreflightError(
+                    "architect session binding must be an exact ProviderSessionBinding"
+                )
+            request["provider_session"] = session_binding.to_dict()
         if task is not None:
             request["task"] = dict(task)
         else:
@@ -1254,6 +1286,32 @@ class DockerArchitectRunner:
         )
         if completed.returncode != 0:
             detail = completed.stderr.decode("utf-8", errors="replace").strip()
+            try:
+                failure = json.loads(detail)
+            except json.JSONDecodeError:
+                failure = None
+            if (
+                type(failure) is dict
+                and set(failure)
+                == {
+                    "schema_version",
+                    "status",
+                    "error_type",
+                    "error",
+                    "failure_classification",
+                    "lifecycle_outcome",
+                    "confirmed_session_id",
+                }
+                and failure["schema_version"] == "1.0"
+                and failure["status"] == "architect_session_invocation_failed"
+                and failure["error_type"] == "ArchitectSessionInvocationError"
+            ):
+                raise ArchitectSessionInvocationError(
+                    failure["lifecycle_outcome"],
+                    failure["failure_classification"],
+                    failure["confirmed_session_id"],
+                    failure["error"],
+                )
             raise ArchitectPreflightError(
                 f"architect container exited {completed.returncode}"
                 + (f": {detail[:900]}" if detail else "")
@@ -1264,6 +1322,48 @@ class DockerArchitectRunner:
             raise ArchitectPreflightError(
                 "architect container did not return one JSON result"
             ) from exc
+        confirmation = None
+        if session_binding is not None:
+            candidate_metadata = (
+                value.get("invocation_metadata") if isinstance(value, dict) else None
+            )
+            try:
+                confirmation = provider_session_confirmation_from_dict(
+                    candidate_metadata.get("provider_session_confirmation")
+                    if isinstance(candidate_metadata, Mapping)
+                    else None
+                )
+            except ArchitectSessionOwnerError as exc:
+                raise ArchitectSessionInvocationError(
+                    "identity_failure",
+                    "schema_error",
+                    None,
+                    str(exc),
+                ) from exc
+            if (
+                confirmation.provider_identifier
+                != session_binding.provider_identifier
+                or confirmation.role != session_binding.role
+                or confirmation.mode != session_binding.mode
+                or confirmation.session_id != session_binding.session_id
+            ):
+                raise ArchitectSessionInvocationError(
+                    "identity_failure",
+                    "schema_error",
+                    confirmation.session_id,
+                    "architect container returned a mismatched session confirmation",
+                )
+
+        def output_failure(message: str) -> Exception:
+            if confirmation is None:
+                return ArchitectPreflightError(message)
+            return ArchitectSessionInvocationError(
+                "output_failure",
+                "schema_error",
+                confirmation.session_id,
+                message,
+            )
+
         result_key = "advisory" if task is not None else "batch"
         expected = {
             "schema_version",
@@ -1274,35 +1374,38 @@ class DockerArchitectRunner:
             "invocation_metadata",
         }
         if not isinstance(value, dict) or set(value) != expected:
-            raise ArchitectPreflightError("architect container result envelope is invalid")
+            raise output_failure("architect container result envelope is invalid")
         expected_version = (
             ARCHITECT_ADVISORY_SCHEMA_VERSION
             if task is not None
             else ARCHITECT_BATCH_SCHEMA_VERSION
         )
         if value.get("schema_version") != expected_version:
-            raise ArchitectPreflightError("architect container schema version is invalid")
-        advisory = (
-            ArchitectAdvisory.from_dict(value["advisory"])
-            if task is not None
-            else None
-        )
-        batch = ArchitectBatch.from_dict(value["batch"]) if task is None else None
+            raise output_failure("architect container schema version is invalid")
+        try:
+            advisory = (
+                ArchitectAdvisory.from_dict(value["advisory"])
+                if task is not None
+                else None
+            )
+            batch = ArchitectBatch.from_dict(value["batch"]) if task is None else None
+        except ArchitectPreflightError as exc:
+            raise output_failure(str(exc)) from exc
         artifact_name = value["artifact_name"]
         if (
             type(artifact_name) is not str
             or Path(artifact_name).name != artifact_name
             or not artifact_name.endswith(".json")
         ):
-            raise ArchitectPreflightError("architect artifact name is invalid")
+            raise output_failure("architect artifact name is invalid")
         artifact_path = self.artifact_root / artifact_name
         if not artifact_path.is_file():
-            raise ArchitectPreflightError(
+            raise output_failure(
                 f"architect advisory artifact is not visible on the host: {artifact_path}"
             )
         metadata = value["invocation_metadata"]
         if not isinstance(metadata, Mapping):
-            raise ArchitectPreflightError("architect invocation metadata is invalid")
+            raise output_failure("architect invocation metadata is invalid")
         analysis_values = {
             "analysis_id": str(value["analysis_id"]),
             "artifact_path": artifact_path,
@@ -1550,9 +1653,6 @@ class PollingOrchestrator:
         max_architect_invocations_per_poll: int = (
             DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL
         ),
-        max_architect_invocations_per_session: int = (
-            DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_SESSION
-        ),
         architect_min_reanalysis_seconds: float = (
             DEFAULT_ARCHITECT_MIN_REANALYSIS_SECONDS
         ),
@@ -1600,9 +1700,6 @@ class PollingOrchestrator:
             )
         )
         self.max_architect_invocations_per_poll = max_architect_invocations_per_poll
-        self.max_architect_invocations_per_session = (
-            max_architect_invocations_per_session
-        )
         self.architect_min_reanalysis_seconds = architect_min_reanalysis_seconds
         self.max_consecutive_observation_failures = (
             max_consecutive_observation_failures
@@ -1610,7 +1707,6 @@ class PollingOrchestrator:
         self.fatal_drain_seconds = fatal_drain_seconds
         self.decision_cache = decision_cache or ArchitectDecisionCache()
         self.architect_invocations_this_poll = 0
-        self.architect_invocations_this_session = 0
         self.worker_launches_this_poll = 0
         self.worker_launches_total = 0
         self._worker_launch_task_ids_this_poll: list[str] | None = None
@@ -1671,14 +1767,6 @@ class PollingOrchestrator:
         ):
             raise PollingOrchestratorError(
                 "max_architect_invocations_per_poll must be a positive integer"
-            )
-        if (
-            isinstance(max_architect_invocations_per_session, bool)
-            or not isinstance(max_architect_invocations_per_session, int)
-            or max_architect_invocations_per_session < 1
-        ):
-            raise PollingOrchestratorError(
-                "max_architect_invocations_per_session must be a positive integer"
             )
         if (
             isinstance(max_consecutive_observation_failures, bool)
@@ -2700,15 +2788,6 @@ class PollingOrchestrator:
             )
             return PollCycleResult("dry_run_candidate", task_id=selected_id)
         if (
-            self.architect_invocations_this_session
-            >= self.max_architect_invocations_per_session
-        ):
-            self.events.emit(
-                "scheduler_blocked",
-                reason="cumulative architect session invocation cap is exhausted",
-            )
-            return PollCycleResult("architect_session_budget_exhausted", fatal=True)
-        if (
             self.architect_invocations_this_poll
             >= self.max_architect_invocations_per_poll
         ):
@@ -2735,7 +2814,6 @@ class PollingOrchestrator:
             ],
         )
         self.architect_invocations_this_poll += 1
-        self.architect_invocations_this_session += 1
         try:
             portfolio_analysis = self.architect_runner(
                 candidates=portfolio_request,
@@ -3422,9 +3500,6 @@ class PollingOrchestrator:
             architect_max_invocations_per_poll=(
                 self.max_architect_invocations_per_poll
             ),
-            architect_max_invocations_per_session=(
-                self.max_architect_invocations_per_session
-            ),
             architect_min_reanalysis_seconds=(
                 self.architect_min_reanalysis_seconds
             ),
@@ -3583,15 +3658,6 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--architect-max-invocations-per-session",
-        type=_positive_int,
-        default=DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_SESSION,
-        help=(
-            "Hard cumulative paid architect-call cap for this scheduler session. "
-            "Exhaustion stops new admissions with a non-success result."
-        ),
-    )
-    parser.add_argument(
         "--architect-min-reanalysis-seconds",
         type=_non_negative_float,
         default=DEFAULT_ARCHITECT_MIN_REANALYSIS_SECONDS,
@@ -3639,12 +3705,29 @@ def main(argv: list[str] | None = None) -> int:
         events = JsonEventEmitter(
             journal_path=operational_root / "events" / f"{scheduler_id}.jsonl"
         )
-        architect_runner = DockerArchitectRunner(
+        architect_transport = DockerArchitectRunner(
             source=source,
             artifact_root=artifact_root,
             provider=args.architect_provider,
             model=args.architect_model,
             max_turns=args.architect_max_turns,
+        )
+        architect_provider_identifier = (
+            "claude-code"
+            if args.architect_provider == "claude"
+            else "openai-codex"
+        )
+        architect_runner = ArchitectSessionOwner(
+            architect_runner=architect_transport,
+            provider_identifier=architect_provider_identifier,
+            role=ARCHITECT_SESSION_ROLE,
+            store=JsonArchitectSessionStore(
+                operational_root
+                / "architect-sessions"
+                / architect_provider_identifier
+                / ARCHITECT_SESSION_ROLE
+            ),
+            compatibility=architect_transport.session_compatibility,
         )
         orchestrator = PollingOrchestrator(
             source=source,
@@ -3657,9 +3740,6 @@ def main(argv: list[str] | None = None) -> int:
             architect_min_confidence=args.architect_min_confidence,
             architect_runner=architect_runner,
             max_architect_invocations_per_poll=args.architect_max_invocations_per_poll,
-            max_architect_invocations_per_session=(
-                args.architect_max_invocations_per_session
-            ),
             architect_min_reanalysis_seconds=(
                 args.architect_min_reanalysis_seconds
             ),
@@ -3685,6 +3765,7 @@ def main(argv: list[str] | None = None) -> int:
     except (
         PollingOrchestratorError,
         ArchitectPreflightError,
+        ArchitectSessionOwnerError,
         IssueWorkflowStoreError,
         TaskReviewContractError,
         ExecutionRoutingError,

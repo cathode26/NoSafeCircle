@@ -44,6 +44,12 @@ from Pipeline.AgentRuntime.contracts import (  # noqa: E402
     validate_repository_path,
 )
 from Pipeline.AgentRuntime.json_values import thaw_json  # noqa: E402
+from Pipeline.AgentRuntime.provider_sessions import (  # noqa: E402
+    PROVIDER_SESSION_SCHEMA_VERSION,
+    ProviderSessionBinding,
+    ProviderSessionConfirmation,
+    ProviderSessionLedger,
+)
 from Pipeline.AgentRuntime.providers.claude_code import (  # noqa: E402
     ClaudeCodeProvider,
 )
@@ -60,6 +66,10 @@ from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     TaskReviewContractError,
     validate_task_id,
 )
+from Pipeline.TaskReviewAgent.architect_session_owner import (  # noqa: E402
+    ArchitectSessionCompatibility,
+    ArchitectSessionInvocationError,
+)
 from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     CAPABILITY_TIERS,
     MAX_RECOMMENDATION_RATIONALE_CHARACTERS,
@@ -71,6 +81,12 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
 
 ARCHITECT_ADVISORY_SCHEMA_VERSION = "1.2"
 ARCHITECT_BATCH_SCHEMA_VERSION = "1.0"
+ARCHITECT_SESSION_PROTOCOL = (
+    f"architect-advisory-{ARCHITECT_ADVISORY_SCHEMA_VERSION}+"
+    f"batch-{ARCHITECT_BATCH_SCHEMA_VERSION}+"
+    f"provider-session-{PROVIDER_SESSION_SCHEMA_VERSION}"
+)
+ARCHITECT_SESSION_CAPABILITIES = ("repository_read", "repository_search")
 ARCHITECT_PROVIDER_CONFIGURATION_KEYS = {
     "claude": "polling-architect-claude",
     "codex": "polling-architect-codex",
@@ -1224,6 +1240,8 @@ def analyze_candidate(
     )
     try:
         result = invoker(request)
+    except ArchitectSessionInvocationError:
+        raise
     except Exception as exc:
         raise ArchitectPreflightError(
             f"architect AgentRuntime invocation failed: {type(exc).__name__}: {exc}"
@@ -1259,6 +1277,15 @@ def analyze_candidate(
         "usage": result_dict.get("usage"),
         "agent_runtime_artifacts": f"agent_runtime/{result.run_id}",
     }
+    confirmation = getattr(invoker, "confirmed_session", None)
+    if confirmation is not None:
+        if type(confirmation) is not ProviderSessionConfirmation:
+            raise ArchitectPreflightError("architect session confirmation type is invalid")
+        invocation_metadata["provider_session_confirmation"] = confirmation.to_dict()
+        compatibility = getattr(invoker, "session_compatibility", None)
+        if type(compatibility) is not ArchitectSessionCompatibility:
+            raise ArchitectPreflightError("architect session compatibility type is invalid")
+        invocation_metadata["provider_session_compatibility"] = compatibility.to_dict()
     artifact_path = persist_architect_advisory(
         artifact_root=artifact_root,
         analysis_id=analysis_id,
@@ -1317,6 +1344,8 @@ def analyze_portfolio(
     )
     try:
         result = invoker(request)
+    except ArchitectSessionInvocationError:
+        raise
     except Exception as exc:
         raise ArchitectPreflightError(
             f"architect AgentRuntime invocation failed: {type(exc).__name__}: {exc}"
@@ -1375,6 +1404,15 @@ def analyze_portfolio(
         "usage": result_dict.get("usage"),
         "agent_runtime_artifacts": f"agent_runtime/{result.run_id}",
     }
+    confirmation = getattr(invoker, "confirmed_session", None)
+    if confirmation is not None:
+        if type(confirmation) is not ProviderSessionConfirmation:
+            raise ArchitectPreflightError("architect session confirmation type is invalid")
+        invocation_metadata["provider_session_confirmation"] = confirmation.to_dict()
+        compatibility = getattr(invoker, "session_compatibility", None)
+        if type(compatibility) is not ArchitectSessionCompatibility:
+            raise ArchitectPreflightError("architect session compatibility type is invalid")
+        invocation_metadata["provider_session_compatibility"] = compatibility.to_dict()
     _safe_write_json(
         artifact_path,
         {
@@ -1837,6 +1875,7 @@ class RuntimeArchitectInvoker:
         artifact_root: Path | str,
         provider: str,
         model: str | None = None,
+        session_binding: ProviderSessionBinding | None = None,
     ) -> None:
         self.source = Path(source).resolve()
         self.artifact_root = Path(artifact_root)
@@ -1847,16 +1886,38 @@ class RuntimeArchitectInvoker:
             self.provider_name
         )
         self.configuration_key = ARCHITECT_PROVIDER_CONFIGURATION_KEYS[self.provider_name]
+        if session_binding is not None and type(session_binding) is not ProviderSessionBinding:
+            raise ArchitectPreflightError(
+                "architect session binding must be an exact ProviderSessionBinding"
+            )
+        self.session_binding = session_binding
+        self.session_ledger = ProviderSessionLedger() if session_binding is not None else None
         if self.provider_name == "claude":
             provider_identifier = "claude-code"
-            provider_adapter: Any = ClaudeCodeProvider(repository_root=self.source)
+            reasoning_effort = None
+            provider_adapter: Any = ClaudeCodeProvider(
+                repository_root=self.source,
+                session=session_binding,
+                session_ledger=self.session_ledger,
+            )
         else:
             provider_identifier = "openai-codex"
+            reasoning_effort = "max"
             provider_adapter = OpenAICodexProvider(
                 reasoning_effort="max",
                 externally_enforced_read_only_repository=True,
                 repository_root=self.source,
+                session=session_binding,
+                session_ledger=self.session_ledger,
             )
+        self.session_compatibility = ArchitectSessionCompatibility(
+            provider_identifier,
+            "polling_architect",
+            self.model,
+            reasoning_effort,
+            ARCHITECT_SESSION_PROTOCOL,
+            ARCHITECT_SESSION_CAPABILITIES,
+        )
         configuration = RuntimeConfiguration(
             {
                 self.configuration_key: {
@@ -1875,12 +1936,36 @@ class RuntimeArchitectInvoker:
             {provider_identifier: provider_adapter},
         )
 
+    @property
+    def confirmed_session(self) -> ProviderSessionConfirmation | None:
+        return None if self.session_ledger is None else self.session_ledger.confirmed
+
     def __call__(self, request: AgentInvocationRequest) -> AgentResult:
         if request.provider_configuration_key != self.configuration_key:
             raise ArchitectPreflightError(
                 "architect request/provider configuration identity mismatch"
             )
-        return self.runner.run(request)
+        result = self.runner.run(request)
+        if self.session_binding is not None and result.status != "succeeded":
+            classification = str(result.failure_classification)
+            confirmation = self.confirmed_session
+            if classification == "schema_error":
+                lifecycle_outcome = (
+                    "output_failure" if confirmation is not None else "identity_failure"
+                )
+            elif classification in {"provider_error", "timeout", "budget_exhausted"}:
+                lifecycle_outcome = "provider_failure"
+            elif classification in {"invalid_request", "permission_denied"}:
+                lifecycle_outcome = "session_incompatibility"
+            else:
+                lifecycle_outcome = "other_failure"
+            raise ArchitectSessionInvocationError(
+                lifecycle_outcome,
+                classification,
+                None if confirmation is None else confirmation.session_id,
+                result.failure_message or "architect AgentRuntime invocation failed",
+            )
+        return result
 
 
 def _strict_json(text: str) -> Any:
@@ -1916,6 +2001,26 @@ def _positive_float(value: str) -> float:
     return parsed
 
 
+def _emit_session_invocation_failure(exc: ArchitectSessionInvocationError) -> int:
+    print(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "status": "architect_session_invocation_failed",
+                "error_type": type(exc).__name__,
+                "error": " ".join(str(exc).split())[:900],
+                "failure_classification": exc.failure_classification,
+                "lifecycle_outcome": exc.lifecycle_outcome,
+                "confirmed_session_id": exc.confirmed_session_id,
+            },
+            sort_keys=True,
+        ),
+        file=sys.stderr,
+        flush=True,
+    )
+    return 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=ROOT)
@@ -1936,9 +2041,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    invoker: RuntimeArchitectInvoker | None = None
     try:
         payload = _strict_json(sys.stdin.read())
-        if not isinstance(payload, Mapping) or set(payload) not in ({
+        if not isinstance(payload, Mapping):
+            raise ArchitectPreflightError("stdin must contain one JSON object")
+        payload_fields = set(payload)
+        payload_fields.discard("provider_session")
+        if payload_fields not in ({
             "source_head",
             "task",
             "reservations",
@@ -1955,11 +2065,17 @@ def main(argv: list[str] | None = None) -> int:
         reservations = payload["reservations"]
         if not isinstance(reservations, list):
             raise ArchitectPreflightError("stdin reservations type is invalid")
+        session_binding = (
+            None
+            if "provider_session" not in payload
+            else ProviderSessionBinding.from_dict(payload["provider_session"])
+        )
         invoker = RuntimeArchitectInvoker(
             source=args.source,
             artifact_root=args.artifact_root,
             provider=args.provider,
             model=args.model,
+            session_binding=session_binding,
         )
         if "task" in payload:
             task = payload["task"]
@@ -2001,7 +2117,26 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0
+    except ArchitectSessionInvocationError as exc:
+        return _emit_session_invocation_failure(exc)
     except (ArchitectPreflightError, ContractValidationError, ValueError, OSError) as exc:
+        # A provider-confirmed call whose advisory then fails deterministic
+        # architect validation is an output failure. Typed confirmation state,
+        # never error-message parsing, decides this classification.
+        confirmation = None if invoker is None else invoker.confirmed_session
+        if isinstance(exc, ArchitectPreflightError) and confirmation is not None:
+            if type(confirmation) is not ProviderSessionConfirmation:
+                raise ArchitectPreflightError(
+                    "architect session confirmation type is invalid"
+                ) from exc
+            return _emit_session_invocation_failure(
+                ArchitectSessionInvocationError(
+                    "output_failure",
+                    "schema_error",
+                    confirmation.session_id,
+                    str(exc),
+                )
+            )
         print(
             json.dumps(
                 {
