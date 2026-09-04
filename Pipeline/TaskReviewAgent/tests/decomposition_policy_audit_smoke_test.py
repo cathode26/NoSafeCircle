@@ -217,19 +217,42 @@ def test_committed_policy_satisfies_the_decomposition_reader_schema() -> None:
 
 
 def test_committed_policy_audits_clean_against_the_committed_graph() -> None:
+    tasks = read_committed_tasks(ROOT)
+    policy = read_policy_document(ROOT)
+    expected_eligible = sorted(
+        task_id
+        for task_id, task in tasks.items()
+        if is_decomposition_eligible_parent(task)
+    )
+    expected_required = sorted(
+        task_id
+        for task_id, task in tasks.items()
+        if requires_decomposition_child_template(task)
+    )
+    expected_templates = sorted(policy["decomposition_child_templates"])
     receipt = audit_decomposition_policy(ROOT)
-    require(receipt["templates_required"] == [], str(receipt["templates_required"]))
-    require(receipt["templates_audited"] == [], str(receipt["templates_audited"]))
-    require(receipt["committed_task_count"] >= 60, str(receipt))
-    # The five committed parents are decomposition-eligible but human-approved, so
-    # none of them requires -- or may carry -- a private-gauntlet template.
-    eligible = receipt["eligible_decomposition_parents"]
     require(
-        set(eligible) == {"NSC-014", "NSC-015", "NSC-025", "NSC-033", "NSC-035"},
+        receipt["templates_required"] == expected_required,
+        str(receipt["templates_required"]),
+    )
+    require(
+        [item["parent_task_id"] for item in receipt["templates_audited"]]
+        == expected_templates,
+        str(receipt["templates_audited"]),
+    )
+    require(receipt["committed_task_count"] >= 60, str(receipt))
+    eligible = receipt["eligible_decomposition_parents"]
+    require(eligible == expected_eligible, str(eligible))
+    # These production parents are decomposition-eligible but human-approved, so
+    # none requires -- or may carry -- a private-gauntlet template. A private
+    # rehearsal graph may additionally contain machine-approved parents, which
+    # must appear in both expected_required and the committed template map.
+    human_approved = {"NSC-014", "NSC-015", "NSC-025", "NSC-033", "NSC-035"}
+    require(
+        human_approved.issubset(eligible),
         str(eligible),
     )
-    tasks = read_committed_tasks(ROOT)
-    for task_id in eligible:
+    for task_id in human_approved:
         require(is_decomposition_eligible_parent(tasks[task_id]), task_id)
         require(
             not requires_decomposition_child_template(tasks[task_id]),
