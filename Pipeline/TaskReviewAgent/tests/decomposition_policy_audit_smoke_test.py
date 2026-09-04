@@ -56,6 +56,7 @@ from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
 from Pipeline.TaskReviewAgent.prepare_synthetic_gauntlet import (  # noqa: E402
     POLICY_RELATIVE,
     build_bundle,
+    build_validation_repair_bundle,
 )
 import Pipeline.TaskReviewAgent.prepare_synthetic_gauntlet as gauntlet  # noqa: E402
 
@@ -668,7 +669,18 @@ def test_the_generated_synthetic_gauntlet_policy_passes_the_audit() -> None:
     with tempfile.TemporaryDirectory(prefix="decomposition-policy-gauntlet-") as text:
         target = Path(text) / "source"
         _copy_graph(target)
-        bundle, summary = build_bundle(target)
+        synthetic_paths = [
+            target / "Tasks" / f"NSC-{number:03d}.yaml"
+            for number in range(gauntlet.GAUNTLET_FIRST_ID, 991)
+        ]
+        if all(path.is_file() for path in synthetic_paths):
+            bundle, _summary = build_validation_repair_bundle(target)
+        else:
+            require(
+                not any(path.is_file() for path in synthetic_paths),
+                "fixture has only a partial synthetic gauntlet",
+            )
+            bundle, _summary = build_bundle(target)
         original_run = gauntlet._run
         gauntlet._run = lambda _source, *_command: ""
         try:
@@ -677,7 +689,7 @@ def test_the_generated_synthetic_gauntlet_policy_passes_the_audit() -> None:
             gauntlet._run = original_run
         document = json.loads((target / POLICY_RELATIVE).read_text(encoding="utf-8"))
         receipt = audit_decomposition_policy(target, document=document)
-        parents = sorted(summary["decomposition_parents"])
+        parents = sorted(document["decomposition_child_templates"])
         require(receipt["templates_required"] == parents, str(receipt["templates_required"]))
         require(
             [item["parent_task_id"] for item in receipt["templates_audited"]] == parents,
