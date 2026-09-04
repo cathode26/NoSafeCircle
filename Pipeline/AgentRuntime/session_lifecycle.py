@@ -491,6 +491,7 @@ class SessionLifecycleTelemetry:
         if self.event not in {
             "assignment_started",
             "assignment_completed",
+            "assignment_cancelled",
             "assignment_refused",
             "idle_observed",
             "waiting_observed",
@@ -569,6 +570,16 @@ class SessionLifecycleTelemetry:
                 or self.outcome is None
             ):
                 raise SessionLifecycleError("assignment-completion telemetry is inconsistent")
+        elif self.event == "assignment_cancelled":
+            if (
+                self.phase_before != "assigned"
+                or self.phase_after != "between_assignments"
+                or self.assignment_id is None
+                or self.workload_class is None
+                or self.outcome is not None
+                or self.budget_delta != 0
+            ):
+                raise SessionLifecycleError("assignment-cancellation telemetry is inconsistent")
         elif self.event == "assignment_refused":
             if (
                 self.phase_before != "between_assignments"
@@ -877,6 +888,51 @@ def start_assignment(
             state,
             after,
             event="assignment_started",
+            assignment_id=assignment_id,
+            workload_class=workload_class,
+            outcome=None,
+            budget_delta=0,
+            context_percent=after.known_context_window_percent,
+            latency_sample=None,
+        ),
+    )
+
+
+def cancel_assignment(
+    state: SessionLifecycleState,
+    *,
+    assignment_id: str,
+) -> SessionLifecycleTransition:
+    """Return an uninvoked assignment without consuming lifetime budget.
+
+    ExecutionCrew may stop after an early role and never invoke later roles.
+    Their exclusive leases still need a durable boundary, but treating that as
+    completed or failed would charge work that never happened. Cancellation is
+    valid only for the exact active assignment and preserves every counter.
+    """
+
+    state = _require_state(state)
+    assignment_id = _assignment_id(assignment_id)
+    if state.phase != "assigned" or state.active_assignment_id != assignment_id:
+        raise SessionLifecycleError(
+            "only the exact active assignment may be cancelled"
+        )
+    workload_class = state.active_workload_class
+    assert workload_class is not None
+    after = replace(
+        state,
+        phase="between_assignments",
+        sequence=state.sequence + 1,
+        active_assignment_id=None,
+        active_workload_class=None,
+        active_weighted_units=0,
+    )
+    return SessionLifecycleTransition(
+        after,
+        _telemetry(
+            state,
+            after,
+            event="assignment_cancelled",
             assignment_id=assignment_id,
             workload_class=workload_class,
             outcome=None,

@@ -67,6 +67,8 @@ ENGINEERING_STANDARDS_PATH = "Docs/Engineering/ENGINEERING_STANDARDS.md"
 MAX_REVIEW_FEEDBACK_BYTES = 64 * 1024
 MAX_RETRY_CANDIDATE_BYTES = 16 * 1024 * 1024
 OPENAI_REASONING_EFFORTS = ("none","minimal","low","medium","high","xhigh","max")
+CHECKOUT_IDENTITY_PREFIX = "manifest-sha256:"
+LEASE_BUNDLE_SCHEMA_VERSION = "1.0"
 
 class CrewBlocked(RuntimeError): pass
 
@@ -1193,6 +1195,96 @@ def crew_repository_identity(root: Path) -> str:
     return origin
 
 
+def _strict_json_file(path: Path, *, label: str) -> Any:
+    try:
+        payload = path.read_bytes()
+    except OSError as exc:
+        raise CrewBlocked(f"{label} is missing or unreadable") from exc
+
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate key {key!r}")
+            result[key] = value
+        return result
+
+    try:
+        value = json.loads(
+            payload.decode("utf-8"),
+            object_pairs_hook=reject_duplicates,
+            parse_constant=lambda item: (_ for _ in ()).throw(
+                ValueError(f"invalid JSON constant {item}")
+            ),
+        )
+    except (UnicodeError, json.JSONDecodeError, ValueError, RecursionError) as exc:
+        raise CrewBlocked(f"{label} is not strict UTF-8 JSON: {exc}") from exc
+    return value, payload
+
+
+def load_role_session_lease_bundle(path: Path, *, run_id: str) -> dict[str, AssignmentLease]:
+    """Load the exact host-authored lease bundle mounted read-only into Docker."""
+
+    value, _ = _strict_json_file(path, label="role-session lease bundle")
+    if type(value) is not dict or set(value) != {"schema_version", "run_id", "leases"}:
+        raise CrewBlocked("role-session lease bundle fields differ from schema")
+    if value["schema_version"] != LEASE_BUNDLE_SCHEMA_VERSION:
+        raise CrewBlocked("role-session lease bundle has an unsupported schema")
+    if value["run_id"] != run_id:
+        raise CrewBlocked("role-session lease bundle names a different run")
+    leases = value["leases"]
+    if type(leases) is not dict or set(leases) != set(ROLE_CAPABILITY_CLASSES):
+        raise CrewBlocked("role-session lease bundle must carry all four crew roles")
+    try:
+        return {role: AssignmentLease.from_dict(leases[role]) for role in leases}
+    except SessionPoolError as exc:
+        raise CrewBlocked(f"role-session lease bundle is invalid: {exc}") from exc
+
+
+def checkout_manifest_identity(path: Path, *, task_id: str,
+                               repository_identity: str, source_branch: str,
+                               task_contract_sha256: str) -> str:
+    """Prove the external host checkout manifest and return its byte identity.
+
+    The manifest deliberately contains a Windows host path that cannot equal
+    Docker's `/workspace`.  Both sides instead bind the lease to the SHA-256 of
+    these exact mounted bytes, while Docker independently checks the task,
+    branch, repository, authority, and internal semantic hash.
+    """
+
+    value, payload = _strict_json_file(path, label="checkout identity manifest")
+    if type(value) is not dict:
+        raise CrewBlocked("checkout identity manifest must be an object")
+    manifest_hash = value.get("manifest_sha256")
+    body = {key: item for key, item in value.items() if key != "manifest_sha256"}
+    semantic = hashlib.sha256(
+        json.dumps(
+            body, ensure_ascii=False, allow_nan=False, separators=(",", ":"), sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest()
+    if manifest_hash != semantic:
+        raise CrewBlocked("checkout identity manifest semantic hash is invalid")
+    if value.get("schema_version") != "2.0":
+        raise CrewBlocked("checkout identity manifest schema is unsupported")
+    if value.get("authority") != "durable_checkout_identity":
+        raise CrewBlocked("checkout identity manifest authority is invalid")
+    if value.get("task_id") != task_id:
+        raise CrewBlocked("checkout identity manifest names a different task")
+    if (
+        value.get("task_contract_path") != f"Tasks/{task_id}.yaml"
+        or value.get("task_contract_sha256") != task_contract_sha256
+    ):
+        raise CrewBlocked("checkout identity manifest names a different task contract")
+    if value.get("branch") != source_branch:
+        raise CrewBlocked("checkout identity manifest names a different branch")
+    if value.get("remote_url") != repository_identity:
+        raise CrewBlocked("checkout identity manifest names a different repository")
+    checkout_path = value.get("checkout_path")
+    if type(checkout_path) is not str or not PureWindowsPath(checkout_path).is_absolute():
+        raise CrewBlocked("checkout identity manifest lacks an absolute Windows host path")
+    return CHECKOUT_IDENTITY_PREFIX + hashlib.sha256(payload).hexdigest()
+
+
 def validate_role_session_leases(role_session_leases: Mapping[str, Any]|None, *, task_id: str,
                                  run_id: str, provider_identifier: str, model: str|None,
                                  reasoning_effort: str|None, source_commit: str,
@@ -1496,6 +1588,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
              role_session_bindings: Mapping[str, ProviderSessionBinding]|None=None,
              role_session_leases: Mapping[str, AssignmentLease]|None=None,
              scheduler_repository_identity: str|None=None,
+             checkout_identity_manifest: Path|None=None,
              codex_resume_sandbox_argument: tuple[str,...]|None=None,
              _persistent_work_graph_loader: Callable[[Path], PersistentWorkGraph]|None=None):
     started=time.monotonic()
@@ -1637,6 +1730,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     usage_invocations: list[dict[str, Any]] = []
     provider_session_records: list[dict[str, Any]] = []
     pooled_repository_identity = None
+    pooled_checkout_identity = identity.root
     if role_session_leases:
         # The repository is proven from the checkout itself and then required to
         # equal the scheduler's proven value, so neither the caller nor a lease
@@ -1647,11 +1741,19 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 f"scheduler-proven repository {scheduler_repository_identity!r} differs from "
                 f"the source checkout's repository {pooled_repository_identity!r}"
             )
+        if checkout_identity_manifest is not None:
+            pooled_checkout_identity = checkout_manifest_identity(
+                checkout_identity_manifest,
+                task_id=task_id,
+                repository_identity=pooled_repository_identity,
+                source_branch=identity.branch,
+                task_contract_sha256=contract_identity.sha256,
+            )
     pooled_leases = validate_role_session_leases(
         role_session_leases, task_id=task_id, run_id=run_id,
         provider_identifier=crew_provider_identifier(provider_name) if provider_name in ("claude","codex") else "",
         model=execution_model, reasoning_effort=execution_reasoning_effort,
-        source_commit=identity.head, checkout_identity=identity.root,
+        source_commit=identity.head, checkout_identity=pooled_checkout_identity,
         repository_identity=pooled_repository_identity or "",
     ) if role_session_leases else {}
     role_durable_results: dict[str, DurableAssignmentResult] = {}
@@ -1751,7 +1853,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 lease, role=role, capability_class=capability_class, task_id=task_id,
                 run_id=run_id, provider_identifier=crew_provider_identifier(provider_name),
                 model=execution_model, reasoning_effort=execution_reasoning_effort,
-                source_commit=identity.head, checkout_identity=identity.root,
+                source_commit=identity.head, checkout_identity=pooled_checkout_identity,
                 repository_identity=pooled_repository_identity or "",
             )
         if pooled_leases or role_session_bindings:
@@ -2191,6 +2293,10 @@ def main():
     parser.add_argument("--source",type=Path,default=ROOT)
     parser.add_argument("--output-root",type=Path,default=default_output_root)
     parser.add_argument("--host-output-root",help="Human-facing HOST (e.g. Windows) absolute path mirroring --output-root, for display only")
+    parser.add_argument("--run-id")
+    parser.add_argument("--role-session-leases",type=Path)
+    parser.add_argument("--scheduler-repository-identity")
+    parser.add_argument("--checkout-identity-manifest",type=Path)
     args=parser.parse_args()
     host_output_root=args.host_output_root if args.host_output_root is not None else os.getenv("NSC_EXECUTION_HOST_OUTPUT_ROOT")
     if args.retry_run:
@@ -2211,7 +2317,26 @@ def main():
             parser.error("normal mode requires " + ", ".join(missing))
         if args.review_feedback_file is not None:
             parser.error("--review-feedback-file requires --retry-run")
-    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root,execution_model=args.model,openai_reasoning_effort=args.openai_reasoning_effort,retry_expected_provider=args.expected_provider)
+    pooled_options = (
+        args.run_id,
+        args.role_session_leases,
+        args.scheduler_repository_identity,
+        args.checkout_identity_manifest,
+    )
+    if any(value is not None for value in pooled_options):
+        if not all(value is not None for value in pooled_options):
+            parser.error("pooled execution requires --run-id, --role-session-leases, --scheduler-repository-identity, and --checkout-identity-manifest together")
+        if args.provider == "codex" or (args.retry_run and args.expected_provider == "codex"):
+            parser.error("production session pooling currently supports Claude only")
+    role_session_leases = None
+    if args.role_session_leases is not None:
+        try:
+            role_session_leases = load_role_session_lease_bundle(
+                args.role_session_leases, run_id=args.run_id
+            )
+        except CrewBlocked as exc:
+            parser.error(str(exc))
+    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),run_id=args.run_id,retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root,execution_model=args.model,openai_reasoning_effort=args.openai_reasoning_effort,retry_expected_provider=args.expected_provider,role_session_leases=role_session_leases,scheduler_repository_identity=args.scheduler_repository_identity,checkout_identity_manifest=args.checkout_identity_manifest)
     except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc:
         reason=str(exc)
         print(f"ExecutionCrew blocked: {reason}",file=sys.stderr)

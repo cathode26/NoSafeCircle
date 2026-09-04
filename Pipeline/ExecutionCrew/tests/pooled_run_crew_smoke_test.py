@@ -51,6 +51,7 @@ from Pipeline.AgentRuntime.contracts import Usage  # noqa: E402
 from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse  # noqa: E402
 from Pipeline.ExecutionCrew.run_crew import (  # noqa: E402
     CrewBlocked,
+    checkout_manifest_identity,
     crew_repository_identity,
     run_crew,
     validate_role_session_leases,
@@ -409,13 +410,15 @@ def all_leases(pool: SessionPool, *, head: str, checkout: str, run_id: str,
 
 
 def pooled_run(source: Path, outputs: Path, *, run_id: str, leases, state: State,
-               repository: str = REPOSITORY, factory_kind=factory):
+               repository: str = REPOSITORY, factory_kind=factory,
+               checkout_identity_manifest: Path | None = None):
     return run_crew(
         source=source, output_root=outputs, task_id=TASK, provider_name="claude",
         implementation_paths=(IMPL,), test_paths=(TEST,), run_id=run_id,
         execution_model=MODEL, provider_factory=factory_kind(state),
         _require_physical_read_only_source=False, role_session_leases=leases,
         scheduler_repository_identity=repository,
+        checkout_identity_manifest=checkout_identity_manifest,
     ), outputs / run_id
 
 
@@ -984,6 +987,68 @@ def test_a_nested_protocol_mismatch_is_refused_by_the_full_run() -> None:
             require(not session.is_reusable_at(BASE), f"{role}: an unproven lease stayed reusable")
 
 
+def test_full_run_uses_external_manifest_bytes_as_cross_os_checkout_identity() -> None:
+    with tempfile.TemporaryDirectory(prefix="pooled-crew-manifest-") as text:
+        parent = Path(text)
+        source = fixture(parent)
+        outputs = parent / "outputs-manifest"
+        head, _ = source_identity(source)
+        branch = cmd(source, "branch", "--show-current")
+        task_bytes = (source / f"Tasks/{TASK}.yaml").read_bytes()
+        body = {
+            "schema_version": "2.0",
+            "task_id": TASK,
+            "checkout_path": str(source.resolve()),
+            "branch": branch,
+            "remote_url": REPOSITORY,
+            "initial_source_head": head,
+            "initial_source_tree": cmd(source, "rev-parse", "HEAD^{tree}"),
+            "task_contract_path": f"Tasks/{TASK}.yaml",
+            "task_contract_revision": 1,
+            "task_contract_sha256": hashlib.sha256(task_bytes).hexdigest(),
+            "authority": "durable_checkout_identity",
+        }
+        canonical = json.dumps(
+            body, ensure_ascii=False, allow_nan=False, separators=(",", ":"), sort_keys=True
+        ).encode("utf-8")
+        manifest = {"manifest_sha256": hashlib.sha256(canonical).hexdigest(), **body}
+        manifest_path = parent / "external-checkout.json"
+        manifest_path.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        checkout_identity = checkout_manifest_identity(
+            manifest_path,
+            task_id=TASK,
+            repository_identity=REPOSITORY,
+            source_branch=branch,
+            task_contract_sha256=body["task_contract_sha256"],
+        )
+        run_id = "nsc-005-manifest-identity"
+        pool = new_pool()
+        leases = all_leases(
+            pool, head=head, checkout=checkout_identity, run_id=run_id
+        )
+        result, run_dir = pooled_run(
+            source,
+            outputs,
+            run_id=run_id,
+            leases=leases,
+            state=State("pass"),
+            checkout_identity_manifest=manifest_path,
+        )
+        require(result["crew_status"] == "review_ready", str(result["crew_status"]))
+        require(
+            all(
+                value["checkout_identity"] == checkout_identity
+                for value in result["pooled_role_leases"].values()
+            ),
+            "full run did not bind every role to the external manifest bytes",
+        )
+        require((run_dir / "crew_result.json").is_file(), "full run result missing")
+
+
 TESTS = (
     test_full_run_refuses_a_lease_from_another_execution,
     test_a_lease_from_another_crew_protocol_is_refused,
@@ -997,6 +1062,7 @@ TESTS = (
     test_a_pooled_lease_requires_a_session_aware_provider,
     test_a_pooled_role_is_never_invoked_through_another_provider_or_model,
     test_a_nested_protocol_mismatch_is_refused_by_the_full_run,
+    test_full_run_uses_external_manifest_bytes_as_cross_os_checkout_identity,
 )
 
 

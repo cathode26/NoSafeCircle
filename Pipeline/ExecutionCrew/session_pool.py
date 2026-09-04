@@ -78,6 +78,8 @@ from Pipeline.AgentRuntime.session_lifecycle import (
     LatencySample,
     SessionLifecycleError,
     SessionLifecycleState,
+    SessionLifecycleTelemetry,
+    cancel_assignment,
     finish_assignment,
     observe_between_assignments,
     start_assignment,
@@ -983,6 +985,7 @@ class SessionPool:
         max_concurrent_assignments: int = DEFAULT_MAX_CONCURRENT_ASSIGNMENTS,
         clock: Callable[[], dt.datetime] = utc_now,
         identity_factory: Callable[[], str] | None = None,
+        telemetry_sink: Callable[[SessionLifecycleTelemetry], None] | None = None,
     ) -> None:
         if (
             isinstance(max_concurrent_assignments, bool)
@@ -996,6 +999,7 @@ class SessionPool:
         self.max_concurrent_assignments = max_concurrent_assignments
         self.clock = clock
         self.identity_factory = identity_factory or (lambda: str(uuid.uuid4()))
+        self.telemetry_sink = telemetry_sink
         self._sessions: dict[str, PooledSession] = {}
         for session in sessions:
             self._insert(session)
@@ -1264,11 +1268,13 @@ class SessionPool:
         if session.lifecycle is None:
             raise SessionPoolError("a reusable session must carry its lifecycle state")
         try:
-            return start_assignment(
+            transition = start_assignment(
                 session.lifecycle,
                 assignment_id=lease_id,
                 workload_class=session.compatibility.workload_class,
-            ).state
+            )
+            self._emit_telemetry(transition.telemetry)
+            return transition.state
         except SessionLifecycleError as exc:
             raise SessionPoolError(str(exc)) from exc
 
@@ -1391,6 +1397,41 @@ class SessionPool:
         self._validate_pool_state()
         return returned
 
+    def cancel(self, lease: AssignmentLease) -> PooledSession | None:
+        """Return an exact never-invoked lease without charging an assignment.
+
+        A fresh Claude conversation has not been contacted yet, so its
+        provisional record is removed. A warm conversation was moved to the
+        assigned phase at checkout; the lifecycle's cancellation transition
+        returns it to idle while preserving every completion and budget count.
+        """
+
+        session = self._leased_session(lease)
+        if session.lifecycle is None:
+            del self._sessions[session.record_id]
+            self._validate_pool_state()
+            return None
+        try:
+            transition = cancel_assignment(
+                session.lifecycle,
+                assignment_id=lease.assignment_id,
+            )
+        except SessionLifecycleError as exc:
+            raise SessionPoolError(str(exc)) from exc
+        self._emit_telemetry(transition.telemetry)
+        returned = PooledSession(
+            record_id=session.record_id,
+            compatibility=session.compatibility,
+            state="idle",
+            session_id=session.session_id,
+            completed_assignment_count=session.completed_assignment_count,
+            idle_since_utc=session.idle_since_utc or lease.checked_out_at_utc,
+            lifecycle=transition.state,
+        )
+        self._sessions[session.record_id] = returned
+        self._validate_pool_state()
+        return returned
+
     def quarantine(
         self,
         lease: AssignmentLease,
@@ -1440,11 +1481,13 @@ class SessionPool:
         if session.state != "idle" or session.lifecycle is None:
             raise SessionPoolError("only an idle session can be observed between assignments")
         try:
-            lifecycle = observe_between_assignments(
+            transition = observe_between_assignments(
                 session.lifecycle,
                 observation=observation,
                 known_context_window_percent=known_context_window_percent,
-            ).state
+            )
+            self._emit_telemetry(transition.telemetry)
+            lifecycle = transition.state
         except SessionLifecycleError as exc:
             raise SessionPoolError(str(exc)) from exc
         if lifecycle.phase == "retired":
@@ -1592,17 +1635,19 @@ class SessionPool:
                     session_id=session_id,
                     session_class=session.compatibility.session_class,
                 )
-                lifecycle = start_assignment(
+                started = start_assignment(
                     created,
                     assignment_id=session.active_lease.assignment_id,
                     workload_class=session.compatibility.workload_class,
-                ).state
+                )
+                self._emit_telemetry(started.telemetry)
+                lifecycle = started.state
             except SessionLifecycleError as exc:
                 raise SessionPoolError(str(exc)) from exc
         if lifecycle.phase != "assigned":
             return lifecycle
         try:
-            return finish_assignment(
+            transition = finish_assignment(
                 lifecycle,
                 assignment_id=lifecycle.active_assignment_id or "",
                 outcome=outcome,
@@ -1610,9 +1655,15 @@ class SessionPool:
                     None if result is None else result.known_context_window_percent
                 ),
                 latency_sample=None if result is None else result.latency_sample,
-            ).state
+            )
+            self._emit_telemetry(transition.telemetry)
+            return transition.state
         except SessionLifecycleError as exc:
             raise SessionPoolError(str(exc)) from exc
+
+    def _emit_telemetry(self, telemetry: SessionLifecycleTelemetry) -> None:
+        if self.telemetry_sink is not None:
+            self.telemetry_sink(telemetry)
 
     def _leased_session(self, lease: AssignmentLease) -> PooledSession:
         if type(lease) is not AssignmentLease:
@@ -1673,6 +1724,7 @@ class SessionPool:
         *,
         clock: Callable[[], dt.datetime] = utc_now,
         identity_factory: Callable[[], str] | None = None,
+        telemetry_sink: Callable[[SessionLifecycleTelemetry], None] | None = None,
     ) -> "SessionPool":
         fields = {"schema_version", "protocol_version", "max_concurrent_assignments", "sessions"}
         _expect_fields(value, fields, where="session pool state")
@@ -1689,6 +1741,7 @@ class SessionPool:
             max_concurrent_assignments=value["max_concurrent_assignments"],
             clock=clock,
             identity_factory=identity_factory,
+            telemetry_sink=telemetry_sink,
         )
 
 

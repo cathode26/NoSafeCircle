@@ -273,6 +273,26 @@ read-only Issue/comment cache. Each worker launch begins a fresh capacity pass
 and therefore a fresh GitHub snapshot, while one admission decision avoids a
 second full Issue listing and contradictory within-pass observations.
 
+Production Claude ExecutionCrew runs use a repository-scoped pool of four
+role-isolated provider conversations per active task: Contract Locality Auditor,
+Implementer, Test Author, and Validator. The host reserves those sessions only
+after the exact task checkout, routed model, worker slot, source commit, and
+external durable checkout manifest are known. It passes one strict lease bundle,
+the exact run ID, repository identity, and the read-only manifest into Docker.
+The manifest's byte hash is the cross-OS checkout identity, so a Windows path is
+never compared directly with `/workspace`.
+
+Pool state is outside the repository under
+`<checkout-root>/.task-review-agent/session-pools/<repository-sha256>/` and is
+protected by a short cross-process lock. Up to ten tasks may hold four leases
+each. Active leases are never stolen after a restart; exact terminal role
+evidence settles once, explicit uninvoked roles return without consuming worker
+budget, and invalid evidence withdraws the session from reuse. A pool-state
+persistence failure after a valid ExecutionCrew result writes pool-degraded
+evidence but does not invalidate the candidate. Codex and manual ExecutionCrew
+runs remain ephemeral unless and until their exact resume sandbox contract is
+available to this host owner.
+
 Scheduler-launched workers publish an identity-bound `run_result.json` beside
 their `run.json` as their final durable write. The scheduler derives that path
 itself and accepts a terminal result only when the run ID, worker ID, task,

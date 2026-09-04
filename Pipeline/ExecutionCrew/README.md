@@ -198,9 +198,33 @@ record must carry the lease's own history: its prior completed-assignment count
 must equal the conversation's, its assigned workload class must be the one its
 capability class actually costs, and it may hold no lifecycle at all only for a
 genuinely fresh `start` lease with no completed assignments -- a warm resume can
-never drop its accounted history and silently restart at zero. The future architect scheduler is the
-authoritative writer; nothing here mutates an Issue or makes a scheduling
+never drop its accounted history and silently restart at zero. The production
+TaskReviewAgent pool owner is the authoritative writer; nothing here mutates an Issue or makes a scheduling
 decision.
+
+The production host owner is
+`Pipeline/TaskReviewAgent/execution_session_pool.py`. It stores the combined
+40-assignment pool at
+`<checkout-root>/.task-review-agent/session-pools/<repository-sha256>/execution-crew.json`
+and uses an operating-system file lock only around load, transition, atomic
+save, and verification. Docker/provider work never runs under that lock. Each
+run receives one no-overwrite lease bundle plus the task's external durable
+checkout manifest through read-only mounts. The lease binds to the SHA-256 of
+the exact manifest bytes, not to either the Windows checkout path or Docker's
+`/workspace` spelling; Docker independently verifies the manifest's semantic
+hash, task, branch, repository, and authority before any provider work.
+
+The owner records a generation and exact run settlement. A matching settlement
+replay is a no-op, a different replay fails closed, an active assignment is
+never stolen, and a terminal `crew_result.json` found after restart is settled
+from its exact bytes. A role that the crew explicitly reports as uninvoked uses
+the lifecycle's `assignment_cancelled` transition: a warm conversation returns
+to idle and no completed-assignment or weighted-unit count changes; a fresh,
+never-contacted provisional conversation is discarded. Missing, tampered, or
+cross-assignment evidence makes the affected conversations unavailable. If a
+valid candidate exists but the pool state cannot be persisted, the candidate
+remains valid and the run writes `pool_degraded.json`; the still-active durable
+leases prevent those sessions from being reused.
 
 `run_crew(..., role_session_leases=..., scheduler_repository_identity=...)` gives
 each role's lease to that role's provider invocation. Pooled leases fail closed
@@ -243,7 +267,13 @@ that was never invoked -- because the contract-locality audit stopped the run, o
 an earlier role failed -- appears in `pooled_role_leases` with `invoked: false`
 and no durable result, so its lease is returned deliberately rather than
 recycled on this run's silence. Supplying no pool arguments leaves every run
-exactly as it was.
+exactly as it was. The CLI exposes this only as the all-or-nothing production
+bundle `--run-id`, `--role-session-leases`,
+`--scheduler-repository-identity`, and `--checkout-identity-manifest` contract.
+Ordinary manual CLI runs that omit the bundle remain ephemeral. Production
+pooling is Claude-only until the host can bind and verify Codex's resume sandbox
+argument; Codex runs remain ephemeral rather than resuming under uncertain
+permissions.
 
 ## Exact approved new files
 

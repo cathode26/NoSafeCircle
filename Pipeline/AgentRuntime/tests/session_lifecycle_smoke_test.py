@@ -29,6 +29,7 @@ from Pipeline.AgentRuntime.session_lifecycle import (  # noqa: E402
     SessionLifecycleState,
     SessionLifecycleTelemetry,
     SessionLifecycleTransition,
+    cancel_assignment,
     finish_assignment,
     observe_between_assignments,
     start_assignment,
@@ -407,6 +408,26 @@ def test_invalid_or_contradictory_state_fails_closed() -> None:
     rejects(lambda: LatencySample("fast-read", True, 100))
 
 
+def test_uninvoked_assignment_cancel_preserves_every_budget_counter() -> None:
+    prior = complete(session(), 1, workload="standard").state
+    active = start_assignment(
+        prior, assignment_id="unused-role", workload_class="deep"
+    ).state
+    cancelled = cancel_assignment(active, assignment_id="unused-role")
+    require(cancelled.state.phase == "between_assignments", "cancel did not return idle")
+    require(
+        cancelled.state.completed_assignments == prior.completed_assignments,
+        "cancel counted a completed assignment",
+    )
+    require(
+        cancelled.state.worker_weighted_units == prior.worker_weighted_units,
+        "cancel consumed weighted units",
+    )
+    require(cancelled.telemetry.event == "assignment_cancelled", "wrong telemetry")
+    require(cancelled.telemetry.budget_delta == 0, "cancel telemetry charged budget")
+    rejects(lambda: cancel_assignment(active, assignment_id="different"))
+
+
 TESTS = (
     test_worker_weighted_limits_are_exact,
     test_mixed_worker_assignment_that_would_exceed_limit_is_never_started,
@@ -420,6 +441,7 @@ TESTS = (
     test_serialization_is_strict_and_round_trips_deterministically,
     test_role_and_provider_names_are_data_not_policy,
     test_invalid_or_contradictory_state_fails_closed,
+    test_uninvoked_assignment_cancel_preserves_every_budget_counter,
 )
 
 

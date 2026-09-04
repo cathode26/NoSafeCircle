@@ -249,6 +249,18 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/execution_routing_smoke_test.py
 
+      - name: Run provider-session pool state-machine smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/ExecutionCrew/tests/session_pool_smoke_test.py
+
+      - name: Run pooled ExecutionCrew role smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/ExecutionCrew/tests/pooled_run_crew_smoke_test.py
+
+      - name: Run production ExecutionCrew pool-owner smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/execution_session_pool_smoke_test.py
+
       - name: Run host decomposition lifecycle smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/host_decomposition_launcher_smoke_test.py

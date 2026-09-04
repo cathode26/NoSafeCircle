@@ -50,6 +50,8 @@ class ProductionTaskController:
         execution_model: str | None = None,
         execution_reasoning_effort: str | None = None,
         execution_command_runner=None,
+        execution_session_pool_owner=None,
+        enable_execution_session_pool: bool | None = None,
     ) -> None:
         self.workflow = workflow
         self.task_id = workflow.task_id
@@ -69,6 +71,8 @@ class ProductionTaskController:
                 "execution_reasoning_effort is supported only for codex"
             )
         self.execution_command_runner = execution_command_runner
+        self.execution_session_pool_owner = execution_session_pool_owner
+        self.enable_execution_session_pool = enable_execution_session_pool
         self.scope: RepositoryScopeAuthority | None = None
         self.execution: ExecutionCrewBridge | None = None
         self.integrator: CandidateIntegrator | None = None
@@ -105,6 +109,13 @@ class ProductionTaskController:
                 execution_model=self.execution_model,
                 execution_reasoning_effort=self.execution_reasoning_effort,
                 command_runner=self.execution_command_runner,
+                worker_slot_id=self.workflow.worker_id,
+                session_pool_owner=self.execution_session_pool_owner,
+                enable_session_pool=(
+                    self.execution_command_runner is None
+                    if self.enable_execution_session_pool is None
+                    else self.enable_execution_session_pool
+                ),
             )
             self.integrator = CandidateIntegrator(
                 checkout=checkout["path"],
