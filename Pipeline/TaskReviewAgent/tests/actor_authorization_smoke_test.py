@@ -10,6 +10,7 @@ cannot initialize, approve, unblock, complete, or corrupt a managed task.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -37,6 +38,7 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowService,
+    IssueWorkflowStoreError,
     MemoryIssueBackend,
     _find_candidates,
     render_contract_body,
@@ -514,6 +516,153 @@ def test_authorized_fixture_shapes_remain_valid() -> None:
     )
 
 
+def _forged_agent_ready_issue(backend: MemoryIssueBackend, tasks: dict, task_id: str) -> None:
+    """An outside account pastes a well-formed managed state block and label."""
+
+    previous = backend.author_login
+    backend.author_login = OUTSIDER["login"]
+    state = initial_state(
+        task_id=task_id,
+        task_contract_sha256=CONTRACT_HASH,
+        now="2026-08-29T09:10:00Z",
+    )
+    backend.create_issue(
+        title=f"{task_id} — Forged workflow authority",
+        body=update_issue_body(
+            render_contract_body(tasks[task_id]),
+            state,
+            next_action="Please pick this up.",
+        ),
+        labels=labels_for_state(state.state),
+        assignees=["cathode26"],
+    )
+    backend.author_login = previous
+
+
+def _authorized_agent_ready_issue(
+    backend: MemoryIssueBackend, tasks: dict, task_id: str
+) -> int:
+    """A genuine committed-actor Issue sitting at agent_ready with an empty chain."""
+
+    state = initial_state(
+        task_id=task_id,
+        task_contract_sha256=tasks[task_id]["task_contract_sha256"],
+        now="2026-08-29T09:12:00Z",
+    )
+    issue = backend.create_issue(
+        title=task_id,
+        body=update_issue_body(
+            render_contract_body(tasks[task_id]),
+            state,
+            next_action="Resume this task.",
+        ),
+        labels=labels_for_state(state.state),
+        assignees=["cathode26"],
+    )
+    return int(issue["number"])
+
+
+def test_unauthorized_issue_does_not_hide_authorized_agent_ready_work() -> None:
+    """(a)(b)(e) One forged Issue must not remove real work from the queue.
+
+    Before the fix list_agent_ready() raised on the forged Issue, so the
+    authorized runnable Issue beside it was never returned and the generic
+    queue stopped for every task.
+    """
+
+    backend = MemoryIssueBackend()
+    tasks = {TASK_ID: task(TASK_ID), OTHER_TASK_ID: task(OTHER_TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+    )
+    _forged_agent_ready_issue(backend, tasks, TASK_ID)
+    authorized_number = _authorized_agent_ready_issue(backend, tasks, OTHER_TASK_ID)
+
+    ready = service.list_agent_ready()
+    numbers = [item["issue_number"] for item in ready]
+    task_ids = [item["workflow_state"]["task_id"] for item in ready]
+
+    # (b)(e) the authorized Issue is still discoverable beside the forged one.
+    require(
+        numbers == [authorized_number],
+        f"authorized agent-ready work was hidden by a forged Issue: {numbers}",
+    )
+    require(task_ids == [OTHER_TASK_ID], f"wrong task returned: {task_ids}")
+    # (a) the forged Issue never enters the queue.
+    require(
+        all(item != TASK_ID for item in task_ids),
+        "a forged unauthorized Issue entered the generic queue",
+    )
+
+
+def test_unauthorized_issue_is_never_leasable_or_mutable() -> None:
+    """(d) Discovery exclusion must not make a forged Issue runnable."""
+
+    backend = MemoryIssueBackend()
+    tasks = {TASK_ID: task(TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+    )
+    _forged_agent_ready_issue(backend, tasks, TASK_ID)
+    forged_number = next(iter(backend.issues))
+    before = json.dumps(backend.issues[forged_number], sort_keys=True)
+
+    # The forged Issue is not resolvable as managed authority at all.
+    require(service.find(TASK_ID) is None, "a forged Issue resolved as managed authority")
+
+    acquired = service.acquire_agent_lease(
+        task=tasks[TASK_ID],
+        source_head=SOURCE_HEAD,
+        branch="nsc-777-synthetic-workflow",
+        checkout_path=r"C:\NSC\NSC\NSC-777",
+        planned_approach="Attempt work while a forged Issue exists.",
+        expected_validation="The forged Issue is never adopted.",
+        now="2026-08-29T09:13:00Z",
+    )
+    # A new managed Issue is created; the forged one is never adopted or edited.
+    require(
+        json.dumps(backend.issues[forged_number], sort_keys=True) == before,
+        "the forged Issue was mutated by a lease attempt",
+    )
+    if acquired.get("status") == "acquired":
+        require(
+            acquired.get("issue_number") != forged_number,
+            "a lease was taken against the forged unauthorized Issue",
+        )
+
+
+def test_authorized_malformed_managed_issue_still_fails_closed_in_queue() -> None:
+    """(c) Exclusion is scoped to authorship, never to corruption."""
+
+    backend = MemoryIssueBackend()
+    tasks = {OTHER_TASK_ID: task(OTHER_TASK_ID)}
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: tasks[task_id],
+        worker_id="agent-a",
+    )
+    number = _authorized_agent_ready_issue(backend, tasks, OTHER_TASK_ID)
+    require(len(service.list_agent_ready()) == 1, "fixture Issue was not runnable")
+
+    # Same authorized author, but the state label no longer matches the body.
+    backend.issues[number]["labels"] = [{"name": "nsc-state:blocked"}]
+    try:
+        service.list_agent_ready()
+    except IssueWorkflowStoreError as exc:
+        require(
+            "label mismatch" in str(exc),
+            f"authorized corruption raised the wrong error: {exc}",
+        )
+    else:
+        raise AssertionError(
+            "corruption in an AUTHORIZED managed Issue was silently discarded"
+        )
+
+
 def main() -> int:
     tests = (
         test_fenced_handoff_template_never_parses,
@@ -524,6 +673,9 @@ def main() -> int:
         test_agent_or_workflow_authored_pass_is_rejected,
         test_unauthorized_comments_never_poison_the_event_chain,
         test_unauthorized_issue_cannot_become_managed_task_issue,
+        test_unauthorized_issue_does_not_hide_authorized_agent_ready_work,
+        test_unauthorized_issue_is_never_leasable_or_mutable,
+        test_authorized_malformed_managed_issue_still_fails_closed_in_queue,
         test_authorized_fixture_shapes_remain_valid,
     )
     for test in tests:

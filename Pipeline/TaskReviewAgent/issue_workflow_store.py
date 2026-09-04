@@ -1990,11 +1990,27 @@ class IssueWorkflowService:
         return self._resource_conflicts(task)
 
     def list_agent_ready(self) -> list[dict[str, Any]]:
+        """Return coherent open agent-ready workflows, failing on managed corruption.
+
+        An Issue whose author is not a committed workflow actor carries no
+        workflow authority at all, so it is excluded during discovery exactly as
+        _find_candidates, _resource_conflicts_classified and
+        list_human_action_required already exclude it. Otherwise any public
+        account could halt the generic queue for every task simply by pasting a
+        well-formed state block and a state label into a new Issue.
+
+        Exclusion is scoped to discovery only. It never hides corruption in an
+        AUTHORIZED managed Issue, which still fails closed below, and it cannot
+        make a forged Issue runnable: find() already refuses to resolve one, so
+        no lease, transition, or mutation can target it.
+        """
+
         ready = []
         open_issues = [
             issue
             for issue in self.backend.list_issues()
             if str(issue.get("state") or "").upper() != "CLOSED"
+            and issue_author_authorized(issue)
         ]
         for entry in _consistent_snapshots(
             self.backend,
