@@ -35,6 +35,33 @@ A Validator that later reports `blocked_by_design` with a `criteria_results` `re
 
 The Implementer has `repository_read`, `repository_search`, and `repository_write`, model class `standard`, and may edit existing `--implementation-path` values or create exact `--new-implementation-path` values. The fresh Unity Test Author has the same capabilities, model class `low_cost`, and equivalent test-path authority. Requested role paths and pipeline sidecars are disjoint under conservative case-insensitive comparison. Its prompt includes the committed Unity testing policy and exact implementation diff. The fresh Validator is `high_reasoning` with only `repository_read` and `repository_search`; it reads the physically read-only committed source checkout as baseline context and semantically evaluates the candidate state represented by that baseline plus the exact candidate patch and actual changed paths. The baseline is intentionally unchanged, so absence of candidate edits there is not a defect and the Validator must not require them to be committed or applied before review. A pass is semantic review only, never a Unity, delivery, readiness, integration, or conformance claim. The source remains unchanged until a human approves and manually applies `candidate.patch`.
 
+## Optional role-scoped provider sessions
+
+`run_crew(..., role_session_bindings=...)` is opt-in plumbing for a future
+worker pool. Each entry maps one ExecutionCrew role to one
+`ProviderSessionBinding`, and that binding is handed to that role's provider
+invocation so a compatible conversation can be resumed instead of restarted.
+Supplying nothing leaves every role exactly ephemeral, so existing runs,
+retries, and provider factories are unchanged; a binding supplied alongside a
+`provider_factory` is refused rather than silently ignored.
+
+Sessions are role-specific and provider-specific. `resolve_role_session` refuses
+a binding filed under one role but naming another, and one naming another
+provider, before any adapter sees it; the adapters independently enforce the
+same two facts against `request.role`. A role that asked for a session but whose
+provider transcript proved no identity stops the run rather than being reported
+as a successful ephemeral invocation. `crew_result.json` gains
+`provider_sessions`, the confirmed role/provider/mode/UUID receipts a later
+compatible assignment could resume. Session reuse changes nothing about
+authority: every role still receives its current task, capabilities, and write
+boundaries, and the deterministic incremental changed-path check still decides
+what the run produced.
+
+Codex resume additionally requires `codex_resume_sandbox_argument`, an
+operator-verified fragment reproducing the start-time sandbox policy, because
+`codex exec resume` does not accept `--sandbox`. Without it the resume is
+refused rather than run under a different permission policy.
+
 ## Exact approved new files
 
 **Migration/operator note: Do not scaffold absent files just to make them tracked.** Select the flag from the path state:

@@ -17,6 +17,10 @@ from Pipeline.AgentRuntime.config import RuntimeConfiguration
 from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION, AgentInvocationRequest, Budgets, WriteBoundaries, validate_repository_path
 from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider, ClaudeLiveRenderer
 from Pipeline.AgentRuntime.providers.openai_codex import OpenAICodexProvider
+from Pipeline.AgentRuntime.provider_sessions import (
+    ProviderSessionBinding,
+    ProviderSessionLedger,
+)
 from Pipeline.AgentRuntime.json_values import thaw_json
 from Pipeline.TaskExecution.contracts import TASK_EXECUTION_REQUEST_SCHEMA_VERSION, TaskContractIdentity, TaskExecutionRequest
 from Pipeline.TaskExecution.task_runner import TaskExecutionRunner
@@ -1085,8 +1089,49 @@ def aggregate_token_usage(invocations: Sequence[Mapping[str, Any]]) -> dict[str,
         "missing_usage_invocation_count": missing,
     }
 
+def resolve_role_session(role_session_bindings: Mapping[str, Any]|None, role: str,
+                         provider_identifier: str) -> ProviderSessionBinding|None:
+    """Return the exact opt-in session binding for this role, or None.
+
+    Sessions are role-specific and provider-specific. A binding filed under one
+    role but naming another, or naming another provider, is refused here rather
+    than being handed to an adapter, so a pooled worker can never silently
+    continue an Implementer conversation as a Validator or a Claude
+    conversation through Codex.
+    """
+
+    if not role_session_bindings:
+        return None
+    binding = role_session_bindings.get(role)
+    if binding is None:
+        return None
+    if type(binding) is not ProviderSessionBinding:
+        raise CrewBlocked("provider session binding must be an exact ProviderSessionBinding")
+    if binding.role != role:
+        raise CrewBlocked(
+            f"provider session is bound to role {binding.role!r} and cannot be used for role {role!r}"
+        )
+    if binding.provider_identifier != provider_identifier:
+        raise CrewBlocked(
+            f"provider session is bound to provider {binding.provider_identifier!r} "
+            f"and cannot be used through {provider_identifier!r}"
+        )
+    return binding
+
+
+def crew_provider_identifier(provider_name: str) -> str:
+    if provider_name == "claude":
+        return "claude-code"
+    if provider_name == "codex":
+        return "openai-codex"
+    raise CrewBlocked("provider must be claude or codex")
+
+
 def construct_real_provider(provider_name: str, repository_root: Path, writable: bool,
-                            openai_reasoning_effort: str|None=None):
+                            openai_reasoning_effort: str|None=None,
+                            session: ProviderSessionBinding|None=None,
+                            session_ledger: ProviderSessionLedger|None=None,
+                            codex_resume_sandbox_argument: tuple[str,...]|None=None):
     if provider_name == "claude":
         # ExecutionCrew always wants live, human-readable Claude activity on
         # stderr while a real Claude-backed role is running. This is
@@ -1094,7 +1139,8 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
         # ClaudeCodeProvider directly do not get an observer unless they ask.
         return ClaudeCodeProvider(repository_root=repository_root,
                                   externally_isolated_writable_repository=writable,
-                                  live_observer=ClaudeLiveRenderer().feed)
+                                  live_observer=ClaudeLiveRenderer().feed,
+                                  session=session, session_ledger=session_ledger)
     if provider_name == "codex":
         effort = openai_reasoning_effort or "high"
         if effort not in OPENAI_REASONING_EFFORTS:
@@ -1104,6 +1150,8 @@ def construct_real_provider(provider_name: str, repository_root: Path, writable:
             externally_isolated_writable_repository=writable,
             externally_enforced_read_only_repository=not writable,
             reasoning_effort=effort,
+            session=session, session_ledger=session_ledger,
+            resume_sandbox_argument=codex_resume_sandbox_argument,
         )
     raise CrewBlocked("provider must be claude or codex")
 
@@ -1114,6 +1162,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
              execution_model: str|None=None, openai_reasoning_effort: str|None=None,
              retry_expected_provider: str|None=None,
              provider_factory: ProviderFactory|None=None, _require_physical_read_only_source: bool=True,
+             role_session_bindings: Mapping[str, ProviderSessionBinding]|None=None,
+             codex_resume_sandbox_argument: tuple[str,...]|None=None,
              _persistent_work_graph_loader: Callable[[Path], PersistentWorkGraph]|None=None):
     started=time.monotonic()
     host_root_path = validate_host_output_root(host_output_root) if host_output_root is not None else None
@@ -1244,6 +1294,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     test_bounds = WriteBoundaries(test_paths, implementation_paths)
     role_records=[]; reasons=[]; impl_actual=set(); test_actual=set(); pipeline_generated=set(); validator_status=None; attempts=0
     usage_invocations: list[dict[str, Any]] = []
+    provider_session_records: list[dict[str, Any]] = []
     latest_impl={}; latest_test={}; candidate_path=None; diagnostic_path=None; accepted_candidate=None
     contract_locality_status=None; contract_locality_audit_path=None; contract_locality_audit_host_path=None
     crew_status=None; final_paths: list[str]=[]
@@ -1253,12 +1304,22 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     def invoke(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries):
         invocation_id=f"{task_id.lower()}-{role.replace('_','-')}-{attempt}-{hashlib.sha256(run_id.encode()).hexdigest()[:12]}"
         caps=("repository_read","repository_search","repository_write") if writable else ("repository_read","repository_search")
-        if provider_factory: key,config,registry=provider_factory(provider_name,repo,writable,role)
+        session_binding=None; session_ledger=None
+        if provider_factory:
+            if role_session_bindings:
+                raise CrewBlocked("provider session bindings require the real provider path")
+            key,config,registry=provider_factory(provider_name,repo,writable,role)
         else:
             key,config=runtime_configuration(provider_name,execution_model)
+            session_binding=resolve_role_session(
+                role_session_bindings,role,crew_provider_identifier(provider_name)
+            )
+            if session_binding is not None: session_ledger=ProviderSessionLedger()
             provider=construct_real_provider(
                 provider_name,repo,writable,
                 openai_reasoning_effort=execution_reasoning_effort,
+                session=session_binding,session_ledger=session_ledger,
+                codex_resume_sandbox_argument=codex_resume_sandbox_argument,
             )
             registry={provider.provider_identifier:provider}
         inv=AgentInvocationRequest(AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,invocation_id,role,prompt,
@@ -1298,6 +1359,18 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 "usage": result.usage,
             }
         )
+        if session_ledger is not None:
+            # The adapter records only an identity the provider transcript
+            # actually proved, so a persistent role that reached here without a
+            # confirmation is a contradiction rather than a silent ephemeral run.
+            confirmed = session_ledger.confirmed
+            if confirmed is None:
+                raise CrewBlocked(
+                    f"{role} requested a provider session but no confirmed session identity was proven"
+                )
+            provider_session_records.append(
+                {"role": role, "attempt": attempt, "run_id": result.run_id, **confirmed.to_dict()}
+            )
         progress.emit("role_completed",f"{display} {attempt} completed: {result.status} ({duration:.1f}s)",role=role,attempt=attempt,status=result.status,duration_seconds=duration)
         return inv,result
     locality_prompt=contract_locality_auditor_prompt(
@@ -1503,7 +1576,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
         human_commands = patch_commands(human_artifact, applyable=False)
     human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action,"commands":human_commands}
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"token_usage":aggregate_token_usage(usage_invocations),"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"token_usage":aggregate_token_usage(usage_invocations),"provider_sessions":provider_session_records,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result

@@ -10,6 +10,13 @@ from typing import Any, Mapping
 
 from ..contracts import AgentInvocationRequest, Usage
 from ..json_values import thaw_json
+from ..provider_sessions import (
+    ProviderSessionBinding,
+    ProviderSessionError,
+    ProviderSessionLedger,
+    prompt_with_resumed_authority,
+    require_compatible_binding,
+)
 from ..process_runner import ProcessResult, ProcessRunner, ProcessTimeoutError, StandardProcessRunner
 from .base import (
     ProviderFailure, ProviderInvocationResponse, ProviderOutputInvalid,
@@ -30,6 +37,21 @@ _VALID_REASONING_EFFORTS = frozenset(
 _SOURCE_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 _MISSING = object()
 
+# `codex exec` accepts `--sandbox <mode>`; `codex exec resume` does not expose
+# that option at all. This adapter pins `--sandbox danger-full-access` on every
+# start because the surrounding container, not the CLI, enforces isolation.
+# Resuming without reproducing that exact policy would run the same role under a
+# silently different permission policy, so a resume fails closed unless the
+# operator supplies a verified equivalent for a channel resume does accept.
+CODEX_RESUME_SANDBOX_BLOCKER = (
+    "codex exec resume does not accept --sandbox, so the exact "
+    "'--sandbox danger-full-access' permission policy pinned at session start "
+    "cannot be reproduced on a resumed invocation. Resuming is refused rather "
+    "than silently running under a different sandbox policy. Supply an "
+    "operator-verified resume_sandbox_argument that reproduces that exact policy "
+    "through an option `codex exec resume` does accept."
+)
+
 
 class OpenAICodexProvider:
     def __init__(
@@ -42,9 +64,29 @@ class OpenAICodexProvider:
         process_runner: ProcessRunner | None = None,
         temporary_directory_parent: Path | None = None,
         repository_root: Path | None = None,
+        session: ProviderSessionBinding | None = None,
+        session_ledger: ProviderSessionLedger | None = None,
+        resume_sandbox_argument: tuple[str, ...] | None = None,
     ) -> None:
         if type(executable) is not str or not executable:
             raise ValueError("executable must be a non-empty string")
+        if session is not None and type(session) is not ProviderSessionBinding:
+            raise ValueError("session must be an exact ProviderSessionBinding")
+        if session_ledger is not None and type(session_ledger) is not ProviderSessionLedger:
+            raise ValueError("session_ledger must be an exact ProviderSessionLedger")
+        if session_ledger is not None and session is None:
+            raise ValueError("session_ledger requires an explicit provider session")
+        if resume_sandbox_argument is not None and (
+            type(resume_sandbox_argument) is not tuple
+            or not resume_sandbox_argument
+            or any(
+                type(item) is not str or not item
+                for item in resume_sandbox_argument
+            )
+        ):
+            raise ValueError(
+                "resume_sandbox_argument must be a non-empty tuple of non-empty strings"
+            )
         if reasoning_effort not in _VALID_REASONING_EFFORTS:
             raise ValueError("unsupported Codex reasoning effort")
         if type(externally_enforced_read_only_repository) is not bool:
@@ -62,6 +104,10 @@ class OpenAICodexProvider:
         self.repository_root = (
             _SOURCE_REPOSITORY_ROOT if repository_root is None else Path(repository_root)
         ).resolve()
+        # Opt-in only. ``None`` keeps the historical ephemeral invocation shape.
+        self.session = session
+        self.session_ledger = session_ledger
+        self.resume_sandbox_argument = resume_sandbox_argument
 
     @property
     def provider_identifier(self) -> str:
@@ -125,6 +171,71 @@ class OpenAICodexProvider:
             )
         if request.budgets.token_limit is not None:
             raise ProviderRequestRejected("Codex currently requires token_limit to be null")
+        self._validate_session_policy(request)
+
+    def _validate_session_policy(self, request: AgentInvocationRequest) -> None:
+        """Bind the session to this exact provider and role, and fail closed on
+        a resume whose safety-relevant controls cannot be reproduced."""
+
+        session = self.session
+        if session is None:
+            return
+        try:
+            require_compatible_binding(
+                session,
+                provider_identifier=self.provider_identifier,
+                role=request.role,
+            )
+        except ProviderSessionError as exc:
+            raise ProviderRequestRejected(str(exc)) from exc
+        if session.is_resume:
+            if self.resume_sandbox_argument is None:
+                raise ProviderRequestRejected(CODEX_RESUME_SANDBOX_BLOCKER)
+        elif session.session_id is not None:
+            raise ProviderRequestRejected(
+                "Codex assigns its own thread UUID, so a persistent start must "
+                "not bind a caller-chosen session_id; the assigned identity is "
+                "captured from the transcript instead"
+            )
+
+    def _confirm_session(
+        self,
+        events: list[dict[str, Any]],
+        raw_log: str,
+    ) -> None:
+        """Capture or verify the exact UUID from the pinned session-start event.
+
+        The pinned JSONL transcript opens with one `thread.started` event
+        carrying `thread_id`. A start adopts that exact UUID; a resume requires
+        it to equal the UUID the invocation named. Missing, malformed,
+        duplicated, and mismatched identities all fail closed, and a zero exit
+        code alone is never accepted as proof.
+        """
+
+        session = self.session
+        if session is None:
+            return
+        started = [event for event in events if event.get("type") == "thread.started"]
+        if not started:
+            raise ProviderOutputInvalid(
+                "Codex persistent transcript has no thread.started session event",
+                raw_log=raw_log,
+            )
+        if len(started) != 1:
+            raise ProviderOutputInvalid(
+                "Codex persistent transcript reported more than one thread.started "
+                "session event",
+                raw_log=raw_log,
+            )
+        try:
+            confirmation = session.confirm(started[0].get("thread_id"))
+        except ProviderSessionError as exc:
+            raise ProviderOutputInvalid(
+                f"Codex persistent session identity failed closed: {exc}",
+                raw_log=raw_log,
+            ) from exc
+        if self.session_ledger is not None:
+            self.session_ledger.record(confirmation)
 
     @staticmethod
     def _validate_model(model: str) -> None:
@@ -132,8 +243,27 @@ class OpenAICodexProvider:
             raise ProviderTransportError("Codex requires a concrete configured model identifier")
 
     def _argv(self, model: str, schema_path: Path, final_path: Path) -> tuple[str, ...]:
+        session = self.session
+        if session is not None and session.is_resume:
+            # `codex exec resume [OPTIONS] [SESSION_ID] [PROMPT]`. The exact UUID
+            # is always supplied positionally; `--last` is never emitted because
+            # it names whichever recorded session happens to be newest. Options
+            # absent from `codex exec resume` (--sandbox, --color) are handled by
+            # _validate_session_policy rather than silently dropped here.
+            return (
+                self.executable, "exec", "resume", "--ignore-user-config",
+                "--ignore-rules", "--strict-config", "--skip-git-repo-check",
+                *(self.resume_sandbox_argument or ()), "--model", model,
+                "-c", f"model_reasoning_effort={self.reasoning_effort}",
+                "--output-schema", str(schema_path), "--json",
+                "--output-last-message", str(final_path),
+                str(session.session_id), "-",
+            )
+        # A persistent start is the ephemeral argv without `--ephemeral`, so the
+        # session files the resume needs survive the invocation.
+        ephemeral = () if session is not None else ("--ephemeral",)
         return (
-            self.executable, "exec", "--ephemeral", "--ignore-user-config",
+            self.executable, "exec", *ephemeral, "--ignore-user-config",
             "--ignore-rules", "--strict-config", "--skip-git-repo-check",
             "--sandbox", "danger-full-access", "--model", model,
             "-c", f"model_reasoning_effort={self.reasoning_effort}",
@@ -179,6 +309,9 @@ class OpenAICodexProvider:
                     "instructions, not native path-level enforcement. Higher-level "
                     "deterministic Git diff validation decides acceptability."
                 )
+        # A resumed conversation already holds remembered instructions, so the
+        # revocation must be read before the new assignment.
+        prompt = prompt_with_resumed_authority(prompt, self.session)
         try:
             return prompt.encode("utf-8")
         except UnicodeError as exc:
@@ -243,8 +376,7 @@ class OpenAICodexProvider:
             raise ProviderTransportError("Codex process transport returned invalid local metadata")
         return result
 
-    @staticmethod
-    def _response(result: ProcessResult, final_path: Path) -> ProviderInvocationResponse:
+    def _response(self, result: ProcessResult, final_path: Path) -> ProviderInvocationResponse:
         raw_log = _decode_stdout(result.stdout)
         stderr = result.stderr.decode("utf-8", errors="replace").strip()
         if result.returncode != 0:
@@ -258,6 +390,7 @@ class OpenAICodexProvider:
                 raw_log=raw_log,
             )
         events = _parse_jsonl(raw_log)
+        self._confirm_session(events, raw_log)
         completed = [event for event in events if event.get("type") == "turn.completed"]
         if not completed:
             raise ProviderOutputInvalid("Codex transcript has no completed turn", raw_log=raw_log)

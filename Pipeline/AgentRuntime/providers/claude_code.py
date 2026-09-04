@@ -11,6 +11,13 @@ from typing import Any, Callable, IO, Mapping
 
 from ..contracts import AgentInvocationRequest, Usage
 from ..json_values import thaw_json
+from ..provider_sessions import (
+    ProviderSessionBinding,
+    ProviderSessionError,
+    ProviderSessionLedger,
+    prompt_with_resumed_authority,
+    require_compatible_binding,
+)
 from ..process_runner import (
     ProcessResult,
     ProcessRunner,
@@ -149,6 +156,8 @@ class ClaudeCodeProvider:
         repository_root: Path | None = None,
         externally_isolated_writable_repository: bool = False,
         live_observer: Callable[[bytes], None] | None = None,
+        session: ProviderSessionBinding | None = None,
+        session_ledger: ProviderSessionLedger | None = None,
     ) -> None:
         if type(executable) is not str or not executable:
             raise ValueError("executable must be a non-empty string")
@@ -156,6 +165,12 @@ class ClaudeCodeProvider:
             raise ValueError("isolated writable repository profile must be boolean")
         if live_observer is not None and not callable(live_observer):
             raise ValueError("live_observer must be callable when provided")
+        if session is not None and type(session) is not ProviderSessionBinding:
+            raise ValueError("session must be an exact ProviderSessionBinding")
+        if session_ledger is not None and type(session_ledger) is not ProviderSessionLedger:
+            raise ValueError("session_ledger must be an exact ProviderSessionLedger")
+        if session_ledger is not None and session is None:
+            raise ValueError("session_ledger requires an explicit provider session")
         self.executable = executable
         self.process_runner = (
             StandardProcessRunner() if process_runner is None else process_runner
@@ -172,6 +187,9 @@ class ClaudeCodeProvider:
             externally_isolated_writable_repository
         )
         self.live_observer = live_observer
+        # Opt-in only. ``None`` keeps the historical ephemeral invocation shape.
+        self.session = session
+        self.session_ledger = session_ledger
 
     @property
     def provider_identifier(self) -> str:
@@ -246,6 +264,87 @@ class ClaudeCodeProvider:
             raise ProviderRequestRejected(
                 "Claude Code currently requires token_limit to be null"
             )
+        self._validate_session_policy(request)
+
+    def _validate_session_policy(self, request: AgentInvocationRequest) -> None:
+        """Bind the session to this exact provider and this exact role.
+
+        Compatibility is checked before any subprocess exists, so a Codex
+        conversation or another role's conversation is refused as an invalid
+        request rather than being handed to the Claude CLI.
+        """
+
+        session = self.session
+        if session is None:
+            return
+        try:
+            require_compatible_binding(
+                session,
+                provider_identifier=self.provider_identifier,
+                role=request.role,
+            )
+        except ProviderSessionError as exc:
+            raise ProviderRequestRejected(str(exc)) from exc
+        if session.session_id is None:
+            raise ProviderRequestRejected(
+                "Claude Code names the conversation itself, so a persistent "
+                "invocation requires an exact caller-chosen session UUID"
+            )
+
+    def _session_arguments(self) -> tuple[str, ...]:
+        """Return the exact, mutually exclusive session argv fragment.
+
+        No binding keeps the historical ``--no-session-persistence`` flag. A
+        persistent start pins the caller-chosen UUID with ``--session-id``; a
+        resume names that same exact UUID with ``--resume``. The two are never
+        emitted together, ``--no-session-persistence`` is never emitted for a
+        persistent invocation, and ``--resume`` is never emitted bare because a
+        bare ``--resume`` opens the CLI's interactive picker instead of naming
+        one exact conversation.
+        """
+
+        session = self.session
+        if session is None:
+            return ("--no-session-persistence",)
+        if session.session_id is None:
+            raise ProviderRequestRejected(
+                "Claude Code persistent invocation requires an exact session UUID"
+            )
+        if session.is_resume:
+            return ("--resume", session.session_id)
+        return ("--session-id", session.session_id)
+
+    def _confirm_session(
+        self,
+        envelope: Mapping[str, Any],
+        raw_log: str,
+    ) -> None:
+        """Fail closed unless the transcript proves the exact bound conversation.
+
+        A zero exit code is never on its own proof that the intended session was
+        used. The pinned stream-json terminal result envelope exposes
+        ``session_id``; a persistent invocation that omits or contradicts it is
+        rejected instead of being reported as a successful resume.
+        """
+
+        session = self.session
+        if session is None:
+            return
+        observed = envelope.get("session_id", _MISSING)
+        if observed is _MISSING:
+            raise ProviderOutputInvalid(
+                "Claude Code persistent invocation omitted its terminal session_id",
+                raw_log=raw_log,
+            )
+        try:
+            confirmation = session.confirm(observed)
+        except ProviderSessionError as exc:
+            raise ProviderOutputInvalid(
+                f"Claude Code persistent session identity failed closed: {exc}",
+                raw_log=raw_log,
+            ) from exc
+        if self.session_ledger is not None:
+            self.session_ledger.record(confirmation)
 
     @staticmethod
     def _validate_model(model: str) -> None:
@@ -307,7 +406,7 @@ class ClaudeCodeProvider:
             "--include-partial-messages",
             "--json-schema",
             schema,
-            "--no-session-persistence",
+            *self._session_arguments(),
             "--setting-sources",
             "user,project",
             "--tools",
@@ -361,6 +460,11 @@ class ClaudeCodeProvider:
                     "path-level Claude enforcement. Higher-level deterministic Git "
                     "diff validation will decide whether this invocation is acceptable."
                 )
+        # A resumed conversation already holds remembered instructions, so the
+        # revocation must be read before the new assignment.
+        effective_prompt = prompt_with_resumed_authority(
+            effective_prompt, self.session
+        )
         try:
             return effective_prompt.encode("utf-8")
         except UnicodeError as exc:
@@ -464,8 +568,7 @@ class ClaudeCodeProvider:
             )
         return result
 
-    @staticmethod
-    def _response_from_result(result: ProcessResult) -> ProviderInvocationResponse:
+    def _response_from_result(self, result: ProcessResult) -> ProviderInvocationResponse:
         raw_log = _decode_stdout(result.stdout)
         stderr = _safe_stderr(result.stderr)
         if result.returncode != 0:
@@ -483,6 +586,7 @@ class ClaudeCodeProvider:
 
         envelope = _parse_stream(raw_log)
         _require_success(envelope, raw_log)
+        self._confirm_session(envelope, raw_log)
         try:
             usage = _normalize_usage(envelope)
         except ProviderTransportError as exc:
