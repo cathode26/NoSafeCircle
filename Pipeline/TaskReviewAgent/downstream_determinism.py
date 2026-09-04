@@ -37,6 +37,7 @@ from .downstream_pipeline import (
     _git_text,
 )
 from .issue_workflow import (
+    WorkflowActor,
     WorkflowEventType,
     WorkflowPhase,
     WorkflowState,
@@ -172,6 +173,168 @@ def _authoritative_human_validation(self: Any) -> dict[str, Any] | None:
             "authoritative human validation comment is missing, duplicated, or changed"
         )
     return matches[0]
+
+
+_AUTOMATED_VALIDATION_FIELDS = frozenset(
+    {
+        "schema_version",
+        "authority",
+        "repository",
+        "repository_private",
+        "gauntlet_id",
+        "task_id",
+        "handoff_event_id",
+        "branch",
+        "commit",
+        "tree",
+        "task_contract_sha256",
+        "validation_policy_authority",
+        "validation_policy_sha256",
+        "required_validations",
+        "unity_validations",
+    }
+)
+
+
+def _authoritative_automated_validation(self: Any) -> dict[str, Any] | None:
+    """Resolve exact synthetic validation authority without inventing human approval."""
+
+    automated_type = getattr(
+        WorkflowEventType,
+        "AUTOMATED_VALIDATION_PASSED",
+        None,
+    )
+    if automated_type is None:
+        return None
+    service = self.workflow.issue_workflow
+    if service is None:
+        return None
+    snapshot = service.find(self.task_id)
+    if snapshot is None or not snapshot.valid or snapshot.state is None:
+        return None
+    state = snapshot.state
+    if state.human_result is not None:
+        return None
+
+    matches = [
+        event
+        for event in reversed(snapshot.events)
+        if event.event_type is automated_type
+    ]
+    if not matches:
+        return None
+    event = matches[0]
+    if event.actor_type is not WorkflowActor.AGENT:
+        raise DownstreamPipelineError(
+            "automated validation authority was not recorded by an agent"
+        )
+    details = event.details
+    if set(details) != _AUTOMATED_VALIDATION_FIELDS:
+        raise DownstreamPipelineError(
+            "automated validation event details differ from the strict evidence schema"
+        )
+    if (
+        details.get("schema_version") != "1.0"
+        or details.get("authority")
+        != "committed_private_synthetic_gauntlet_validation_evidence"
+        or details.get("repository_private") is not True
+        or details.get("gauntlet_id") != "synthetic-architect-gauntlet-v1"
+        or details.get("task_id") != self.task_id
+        or details.get("branch") != state.branch
+        or details.get("commit") != state.head_commit
+        or details.get("task_contract_sha256") != state.task_contract_sha256
+    ):
+        raise DownstreamPipelineError(
+            "automated validation event does not match the current Issue state"
+        )
+
+    repository = getattr(service.backend, "repository", None)
+    if repository is not None and str(repository).casefold() != str(
+        details.get("repository")
+    ).casefold():
+        raise DownstreamPipelineError(
+            "automated validation event targets a different repository"
+        )
+
+    task = service.task_loader(self.task_id)
+    if not isinstance(task, Mapping):
+        raise DownstreamPipelineError("current task contract is unavailable")
+    task = dict(task)
+    task.setdefault("id", self.task_id)
+    if task.get("task_contract_sha256") != state.task_contract_sha256:
+        raise DownstreamPipelineError(
+            "automated validation event targets a stale task contract"
+        )
+    from .downstream_resilience import validation_plan_for
+
+    plan = validation_plan_for(self.checkout, task)
+    if plan is None:
+        raise DownstreamPipelineError(
+            "automated validation has no committed validation policy"
+        )
+    if (
+        plan.get("policy_sha256") != details.get("validation_policy_sha256")
+        or plan.get("authority") != details.get("validation_policy_authority")
+    ):
+        raise DownstreamPipelineError(
+            "automated validation event targets a stale validation policy"
+        )
+    expected_required = sorted(
+        (
+            {
+                "test_platform": platform,
+                "test_filter": test_filter,
+            }
+            for platform, test_filter in plan["test_filters"].items()
+        ),
+        key=lambda item: (item["test_platform"], item["test_filter"]),
+    )
+    if details.get("required_validations") != expected_required:
+        raise DownstreamPipelineError(
+            "automated validation event does not match the committed test plan"
+        )
+
+    head = _git_text(self.command_runner, self.checkout, "rev-parse", "HEAD")
+    tree = _git_text(
+        self.command_runner,
+        self.checkout,
+        "rev-parse",
+        f"{head}^{{tree}}",
+    )
+    branch = _git_text(
+        self.command_runner,
+        self.checkout,
+        "branch",
+        "--show-current",
+    )
+    if (
+        head != details.get("commit")
+        or tree != details.get("tree")
+        or branch != details.get("branch")
+    ):
+        raise DownstreamPipelineError(
+            "automated validation event does not match the current checkout"
+        )
+    return {
+        "kind": "automated",
+        "result": "pass",
+        "tested_commit": head,
+        "tree": tree,
+        "event_id": event.event_id,
+        "actor_id": event.actor_id,
+        "policy_authority": plan["authority"],
+        "policy_sha256": plan["policy_sha256"],
+        "handoff_event_id": details["handoff_event_id"],
+        "details": dict(details),
+        "authority": "validated_automated_workflow_event_and_committed_policy",
+    }
+
+
+def _authoritative_validation(self: Any) -> dict[str, Any] | None:
+    human = _authoritative_human_validation(self)
+    if human is not None:
+        return {"kind": "human", **human}
+    return _authoritative_automated_validation(self)
 
 
 def _schema_types(value: Any) -> set[str]:
@@ -754,7 +917,47 @@ def _patched_assert_human_tested_head(
     state: Mapping[str, Any],
 ) -> None:
     _assert_current_main_integrated(self, state)
-    return _ORIGINALS["assert_human_tested_head"](self, state)
+    original_error: DownstreamPipelineError | None = None
+    try:
+        return _ORIGINALS["assert_human_tested_head"](self, state)
+    except DownstreamPipelineError as original:
+        message = str(original)
+        if not (
+            "human PASS" in message
+            or "original human PASS" in message
+        ):
+            raise
+        original_error = original
+    authority = _authoritative_automated_validation(self)
+    if authority is None or authority.get("tested_commit") != state.get("head_commit"):
+        assert original_error is not None
+        raise original_error
+    existing = self.state.get("validation_authority")
+    if existing is not None and existing != authority:
+        raise DownstreamPipelineError(
+            "automated validation authority changed after downstream work began"
+        )
+    if existing is None:
+        self.state["validation_authority"] = authority
+    current_main = _git_text(
+        self.command_runner,
+        self.checkout,
+        "rev-parse",
+        "origin/main",
+    )
+    if current_main == state.get("head_commit"):
+        raise DownstreamPipelineError(
+            "automated-validated task branch contains no commits beyond current main"
+        )
+    existing_base = self.state.get("delivery_base_commit")
+    if existing_base is not None and existing_base != current_main:
+        raise DownstreamPipelineError(
+            "origin/main changed after authoritative downstream work began. "
+            "Integrate current main and repeat automated validation."
+        )
+    if existing_base is None:
+        self.state["delivery_base_commit"] = current_main
+    self._persist()
 
 
 def _same_state_rejection_identity(controller: Any) -> tuple[str, dict[str, Any]]:
@@ -894,6 +1097,7 @@ def install_downstream_determinism() -> None:
             "next_action": controller._next_action,
             "search_repository": controller.search_repository,
             "latest_human_validation": downstream_pipeline.DownstreamTaskController._latest_human_validation,
+            "latest_validation_authority": downstream_pipeline.DownstreamTaskController._latest_validation_authority,
             "automation_receipt_for": mainline_reintegration._automation_receipt_for,
             "assert_human_tested_head": controller._assert_human_tested_head,
             "record_action_rejection": GuardedTaskController.record_action_rejection,
@@ -908,7 +1112,11 @@ def install_downstream_determinism() -> None:
     downstream_pipeline.DownstreamTaskController._latest_human_validation = (
         _authoritative_human_validation
     )
+    downstream_pipeline.DownstreamTaskController._latest_validation_authority = (
+        _authoritative_validation
+    )
     controller._latest_human_validation = _authoritative_human_validation
+    controller._latest_validation_authority = _authoritative_validation
     controller._next_action = _patched_next_action
     controller.search_repository = _patched_search_repository
     controller._assert_human_tested_head = _patched_assert_human_tested_head

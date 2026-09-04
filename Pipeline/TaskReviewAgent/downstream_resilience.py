@@ -311,6 +311,135 @@ def validation_plan_for(
     return {**payload, "policy_sha256": semantic_sha256(payload)}
 
 
+def decomposition_validation_policy_for(
+    root: Path | str,
+    task: Mapping[str, Any],
+    *,
+    parent_semantic_hash: str,
+) -> dict[str, Any]:
+    """Resolve the exact committed validation template for a decomposition parent."""
+
+    repository = Path(root).resolve()
+    policy_path = repository / _VALIDATION_POLICY_RELATIVE
+    try:
+        document = json.loads(policy_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise DownstreamPipelineError(
+            "authoritative decomposition validation policy is unreadable"
+        ) from exc
+    if (
+        not isinstance(document, Mapping)
+        or document.get("schema_version") != VALIDATION_POLICY_SCHEMA_VERSION
+        or set(document)
+        != {"schema_version", "tasks", "decomposition_child_templates"}
+        or not isinstance(document.get("tasks"), Mapping)
+    ):
+        raise DownstreamPipelineError(
+            "authoritative decomposition validation policy schema is unsupported"
+        )
+    task_id = task.get("task_id") or task.get("id")
+    if not isinstance(task_id, str) or not task_id.strip():
+        raise DownstreamPipelineError("decomposition parent task identity is missing")
+    if re.fullmatch(r"[0-9a-f]{64}", parent_semantic_hash) is None:
+        raise DownstreamPipelineError(
+            "decomposition parent semantic hash is invalid"
+        )
+    templates = document.get("decomposition_child_templates")
+    if not isinstance(templates, Mapping):
+        raise DownstreamPipelineError(
+            "authoritative validation policy omitted decomposition templates"
+        )
+    raw = templates.get(task_id)
+    if not isinstance(raw, Mapping):
+        raise DownstreamPipelineError(
+            f"authoritative validation template for {task_id} is missing"
+        )
+    expected_fields = {
+        "parent_task_contract_sha256",
+        "validation_variants",
+        "authority",
+    }
+    if set(raw) != expected_fields:
+        raise DownstreamPipelineError(
+            f"authoritative validation template for {task_id} has invalid fields"
+        )
+    if raw.get("parent_task_contract_sha256") != parent_semantic_hash:
+        raise DownstreamPipelineError(
+            f"authoritative validation template for {task_id} is stale"
+        )
+    expected_authority = (
+        "committed_private_synthetic_gauntlet_decomposition_child_policy"
+    )
+    if raw.get("authority") != expected_authority:
+        raise DownstreamPipelineError(
+            f"authoritative validation template for {task_id} has invalid authority"
+        )
+    raw_variants = raw.get("validation_variants")
+    if not isinstance(raw_variants, list) or not raw_variants:
+        raise DownstreamPipelineError(
+            f"authoritative validation template for {task_id} has no variants"
+        )
+    normalized: list[dict[str, Any]] = []
+    seen_resources: set[tuple[str, ...]] = set()
+    for variant in raw_variants:
+        if not isinstance(variant, Mapping) or set(variant) != {
+            "required_exclusive_resources",
+            "required_test_platforms",
+            "test_filters",
+        }:
+            raise DownstreamPipelineError(
+                f"authoritative validation template for {task_id} has invalid variant fields"
+            )
+        resources = variant.get("required_exclusive_resources")
+        platforms = variant.get("required_test_platforms")
+        filters = variant.get("test_filters")
+        if (
+            not isinstance(resources, list)
+            or not resources
+            or any(type(item) is not str or not item.strip() for item in resources)
+            or len(set(resources)) != len(resources)
+            or not isinstance(platforms, list)
+            or not platforms
+            or any(item not in _VALID_PLATFORMS for item in platforms)
+            or len(set(platforms)) != len(platforms)
+            or not isinstance(filters, Mapping)
+            or set(filters) != set(platforms)
+            or any(
+                not isinstance(filters.get(platform), str)
+                or not str(filters[platform]).strip()
+                for platform in platforms
+            )
+        ):
+            raise DownstreamPipelineError(
+                f"authoritative validation template for {task_id} has invalid variant values"
+            )
+        resource_tuple = tuple(sorted((item.strip() for item in resources), key=str.casefold))
+        if resource_tuple in seen_resources:
+            raise DownstreamPipelineError(
+                f"authoritative validation template for {task_id} has duplicate variants"
+            )
+        seen_resources.add(resource_tuple)
+        normalized.append(
+            {
+                "required_exclusive_resources": list(resource_tuple),
+                "required_test_platforms": list(platforms),
+                "test_filters": {
+                    platform: str(filters[platform]).strip()
+                    for platform in platforms
+                },
+            }
+        )
+    normalized.sort(key=lambda item: tuple(item["required_exclusive_resources"]))
+    payload = {
+        "parent_task_id": task_id,
+        "parent_contract_sha256": parent_semantic_hash,
+        "validation_variants": normalized,
+        "authority": expected_authority,
+        "policy_path": _VALIDATION_POLICY_RELATIVE.as_posix(),
+    }
+    return {**payload, "policy_sha256": semantic_sha256(payload)}
+
+
 def _migration_ledger_entry(
     controller: Any,
     event: Any,
@@ -1309,6 +1438,7 @@ def install_downstream_resilience() -> None:
 
 
 __all__ = [
+    "decomposition_validation_policy_for",
     "install_downstream_resilience",
     "validation_plan_for",
 ]

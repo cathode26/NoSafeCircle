@@ -24,8 +24,10 @@ from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
     _build_contract_migration_receipt,
     _prepare_contract_migration_mainline_bridge,
     _wrap_run,
+    decomposition_validation_policy_for,
     validation_plan_for,
 )
+from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
     ResumableDownstreamTaskController,
 )
@@ -640,6 +642,69 @@ def test_decomposition_child_selects_exact_resource_validation_variant() -> None
             raise AssertionError("child with a widened resource set inherited a variant")
 
 
+def test_decomposition_parent_policy_is_exact_normalized_and_hash_bound() -> None:
+    parent_hash = "a" * 64
+    with tempfile.TemporaryDirectory(prefix="nsc-parent-validation-policy-") as temporary:
+        root = Path(temporary)
+        policy_path = root / "Pipeline" / "TaskReviewAgent" / "authoritative_validation_policy.json"
+        policy_path.parent.mkdir(parents=True)
+        template = {
+            "parent_task_contract_sha256": parent_hash,
+            "validation_variants": [
+                {
+                    "required_exclusive_resources": ["repo-file:Beta.cs.meta", "repo-file:Beta.cs"],
+                    "required_test_platforms": ["PlayMode", "EditMode"],
+                    "test_filters": {"EditMode": "Fixture.Beta.Edit", "PlayMode": "Fixture.Beta.Play"},
+                },
+                {
+                    "required_exclusive_resources": ["repo-file:Alpha.cs.meta", "repo-file:Alpha.cs"],
+                    "required_test_platforms": ["EditMode"],
+                    "test_filters": {"EditMode": "Fixture.Alpha"},
+                },
+            ],
+            "authority": "committed_private_synthetic_gauntlet_decomposition_child_policy",
+        }
+        document = {
+            "schema_version": "1.0",
+            "tasks": {},
+            "decomposition_child_templates": {"NSC-911": template},
+        }
+        policy_path.write_text(json.dumps(document), encoding="utf-8")
+        resolved = decomposition_validation_policy_for(
+            root,
+            {"id": "NSC-911"},
+            parent_semantic_hash=parent_hash,
+        )
+        require(
+            [item["required_exclusive_resources"] for item in resolved["validation_variants"]]
+            == [
+                ["repo-file:Alpha.cs", "repo-file:Alpha.cs.meta"],
+                ["repo-file:Beta.cs", "repo-file:Beta.cs.meta"],
+            ],
+            str(resolved),
+        )
+        require(
+            resolved["validation_variants"][1]["required_test_platforms"]
+            == ["PlayMode", "EditMode"],
+            "platform order was not preserved",
+        )
+        payload = {key: value for key, value in resolved.items() if key != "policy_sha256"}
+        require(resolved["policy_sha256"] == semantic_sha256(payload), str(resolved))
+
+        document["decomposition_child_templates"]["NSC-911"]["unexpected"] = True
+        policy_path.write_text(json.dumps(document), encoding="utf-8")
+        try:
+            decomposition_validation_policy_for(
+                root,
+                {"id": "NSC-911"},
+                parent_semantic_hash=parent_hash,
+            )
+        except DownstreamPipelineError as exc:
+            require("invalid fields" in str(exc), str(exc))
+        else:
+            raise AssertionError("decomposition policy accepted an unknown template field")
+
+
 def test_second_identical_rejection_releases_lease() -> None:
     service, controller = guard_fixture("progress")
     error = DownstreamPipelineError("deterministic synthetic rejection")
@@ -699,6 +764,7 @@ def main() -> int:
         test_nsc020_validation_policy_is_playmode_only,
         test_decomposition_child_inherits_only_exact_parent_validation_template,
         test_decomposition_child_selects_exact_resource_validation_variant,
+        test_decomposition_parent_policy_is_exact_normalized_and_hash_bound,
         test_second_identical_rejection_releases_lease,
         test_fatal_pipeline_error_releases_exact_active_lease,
     )

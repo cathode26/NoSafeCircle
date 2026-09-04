@@ -18,6 +18,7 @@ from .delivery_review import (
     DeliveryReviewError,
     create_delivery_review_proposal,
     file_sha256,
+    materialize_automated_review,
     materialize_approved_review,
 )
 from .downstream_issue import DownstreamIssueCoordinator, DownstreamIssueError
@@ -710,6 +711,12 @@ class DownstreamTaskController:
     def create_delivery_review_draft(self) -> dict[str, Any]:
         observation, workflow_state = self._require_lease(WorkflowPhase.DELIVERY_EVIDENCE)
         self._assert_human_tested_head(workflow_state)
+        authority = self._latest_validation_authority()
+        if authority is None:
+            raise DownstreamPipelineError("exact validation authority is unavailable")
+        validation_label = (
+            "validated" if authority.get("kind") == "automated" else "human-tested"
+        )
         required = set(_required_platforms(observation["task"]))
         manifests = [
             _manifest(Path(item["path"]))
@@ -723,9 +730,15 @@ class DownstreamTaskController:
             )
         for item in manifests:
             if item["commit"] != workflow_state["head_commit"]:
-                raise DownstreamPipelineError("validation manifest is stale for the human-tested commit")
+                raise DownstreamPipelineError(
+                    f"validation manifest is stale for the {validation_label} commit"
+                )
 
-        human = self._human_validation_artifact(workflow_state["head_commit"])
+        human = (
+            self._human_validation_artifact(workflow_state["head_commit"])
+            if authority.get("kind") == "human"
+            else None
+        )
         output_root = self._output_root(workflow_state["head_commit"])
         draft_path = output_root / "delivery-review-draft.json"
         if draft_path.exists():
@@ -750,11 +763,10 @@ class DownstreamTaskController:
             self.task_id,
             "--base-commit",
             base_commit,
-            "--human-validation",
-            human["path"],
-            "--output",
-            str(draft_path),
         ]
+        if human is not None:
+            command.extend(("--human-validation", human["path"]))
+        command.extend(("--output", str(draft_path)))
         for manifest in manifests:
             command.extend(("--validation-manifest", manifest["path"]))
         _run(self.command_runner, command, cwd=self.checkout, timeout_seconds=900.0)
@@ -772,6 +784,8 @@ class DownstreamTaskController:
                 "proposal_sha256": None,
             }
         )
+        if authority.get("kind") == "automated":
+            self.state["validation_authority"] = authority
         self._persist()
         return self.delivery_review_facts()
 
@@ -855,8 +869,12 @@ class DownstreamTaskController:
                 "delivery acceptance requires a clean canonical checkout"
             )
         self._assert_checkout()
+        validation_authority = None
         if active_delivery:
             self._assert_human_tested_head(workflow_state)
+            validation_authority = self._latest_validation_authority()
+            if validation_authority is None:
+                raise DownstreamPipelineError("exact validation authority is unavailable")
         facts = self.delivery_review_facts()
         proposal_path = self.state.get("proposal_path")
         proposal_sha = self.state.get("proposal_sha256")
@@ -865,7 +883,13 @@ class DownstreamTaskController:
         proposal = _json_object(Path(proposal_path).read_bytes(), "delivery proposal")
         if proposal.get("validated_commit") != workflow_state.get("head_commit"):
             raise DownstreamPipelineError(
-                "delivery proposal does not target the unchanged human-tested commit"
+                "delivery proposal does not target the unchanged "
+                + (
+                    "validated commit"
+                    if validation_authority is not None
+                    and validation_authority.get("kind") == "automated"
+                    else "human-tested commit"
+                )
             )
         return self.issue.accept_unchanged_delivery_after_human_pass(
             task_id=self.task_id,
@@ -876,13 +900,21 @@ class DownstreamTaskController:
             draft_sha256=facts["draft_sha256"],
             proposal_path=proposal_path,
             proposal_sha256=proposal_sha,
+            validation_authority=validation_authority,
         )
 
     def finalize_delivery_evidence_and_open_pr(self) -> dict[str, Any]:
         observation, workflow_state = self._require_lease(WorkflowPhase.MERGE_CLOSEOUT)
         approval = self._latest_delivery_approval()
         if approval is None or approval.get("decision") != "approve":
-            raise DownstreamPipelineError("current delivery proposal has not been human-approved")
+            automated = (
+                isinstance(self.state.get("validation_authority"), Mapping)
+                and self.state["validation_authority"].get("kind") == "automated"
+            )
+            raise DownstreamPipelineError(
+                "current delivery proposal has not been "
+                + ("machine-accepted" if automated else "human-approved")
+            )
         proposal_path = self.state.get("proposal_path")
         proposal_sha = self.state.get("proposal_sha256")
         if not isinstance(proposal_path, str) or proposal_sha != approval.get("proposal_sha256"):
@@ -891,12 +923,33 @@ class DownstreamTaskController:
         output_root = self._output_root(workflow_state["head_commit"])
         approved_review = output_root / "delivery-review-approved.json"
         if not approved_review.exists():
-            materialized = materialize_approved_review(
-                proposal_path=Path(proposal_path),
-                expected_proposal_sha256=proposal_sha,
-                output_path=approved_review,
-                approved_by=approval.get("actor_id") or "Vincent",
-            )
+            if approval.get("approval_basis") == "unchanged_automated_validated_commit":
+                authority = self._latest_validation_authority()
+                if (
+                    authority is None
+                    or authority.get("kind") != "automated"
+                    or authority.get("event_id")
+                    != approval.get("automated_validation_event_id")
+                    or authority.get("policy_sha256")
+                    != approval.get("validation_policy_sha256")
+                ):
+                    raise DownstreamPipelineError(
+                        "automated delivery acceptance no longer matches validation authority"
+                    )
+                materialized = materialize_automated_review(
+                    proposal_path=Path(proposal_path),
+                    expected_proposal_sha256=proposal_sha,
+                    output_path=approved_review,
+                    validation_event_id=authority["event_id"],
+                    validation_policy_sha256=authority["policy_sha256"],
+                )
+            else:
+                materialized = materialize_approved_review(
+                    proposal_path=Path(proposal_path),
+                    expected_proposal_sha256=proposal_sha,
+                    output_path=approved_review,
+                    approved_by=approval.get("actor_id") or "Vincent",
+                )
             self.state.update(materialized)
         elif self.state.get("approved_review_sha256") != file_sha256(approved_review):
             raise DownstreamPipelineError("approved delivery review identity changed")
@@ -1288,6 +1341,12 @@ class DownstreamTaskController:
                 }
         return None
 
+    def _latest_validation_authority(self) -> dict[str, Any] | None:
+        """Return the legacy human authority unless an installed extension adds more."""
+
+        human = self._latest_human_validation()
+        return {"kind": "human", **human} if human is not None else None
+
     def _human_validation_artifact(self, commit: str) -> dict[str, Any]:
         current = self.state.get("human_validation")
         if isinstance(current, Mapping):
@@ -1335,13 +1394,29 @@ class DownstreamTaskController:
                 and event.details.get("review_kind") == "delivery_spec"
                 and event.details.get("decision") in ("approve", "request_changes")
             ):
-                return {
+                approval = {
                     "decision": event.details.get("decision"),
                     "proposal_sha256": event.details.get("proposal_sha256"),
                     "actor_id": event.details.get("authorized_by") or event.actor_id,
                     "event_id": event.event_id,
                     "comment_body": event.details.get("human_comment_body"),
                 }
+                if (
+                    event.details.get("approval_basis")
+                    == "unchanged_automated_validated_commit"
+                ):
+                    approval.update(
+                        {
+                            "approval_basis": event.details["approval_basis"],
+                            "automated_validation_event_id": event.details.get(
+                                "automated_validation_event_id"
+                            ),
+                            "validation_policy_sha256": event.details.get(
+                                "validation_policy_sha256"
+                            ),
+                        }
+                    )
+                return approval
         return None
 
     def _validate_staged_whitespace(self, created: list[str]) -> None:

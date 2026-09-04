@@ -187,6 +187,26 @@ class TaskDeliverySmokeTest(unittest.TestCase):
         self.assertFalse((self.fx.root/"Pipeline/TaskGraph/evidence").exists())
         with self.assertRaises(delivery.TaskDeliveryError): self.fx.finalize(review,name=output.name)
 
+    def test_finalize_accepts_explicit_non_required_human_approval(self):
+        _, review = self.fx.draft()
+        self.fx.approve(review)
+        review["human_approval"] = {
+            "required": False,
+            "decision": "not_required",
+            "approved_by": "",
+            "notes": (
+                f"Automated validation event {'e' * 64}; committed validation "
+                f"policy {'d' * 64}."
+            ),
+        }
+        output = self.fx.finalize(review, name="automated-spec.json")
+        spec = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(spec["human_approval"], review["human_approval"])
+        parsed = parse_delivery_spec(spec)
+        self.assertFalse(parsed.human_approval.required)
+        self.assertEqual(parsed.human_approval.decision, "not_required")
+        self.assertEqual(parsed.human_approval.approved_by, "")
+
     def test_finalize_one_and_multiple_manifest_happy_paths(self):
         _, one = self.fx.draft(); self.fx.approve(one)
         self.assertTrue(self.fx.finalize(one, name="one-spec.json").is_file())

@@ -358,6 +358,11 @@ def test_delivery_draft_uses_stable_main_base() -> None:
             {"head_commit": human_head, "branch": BRANCH},
         )
         controller._assert_human_tested_head = lambda state: None
+        controller._latest_validation_authority = lambda: {
+            "kind": "human",
+            "result": "pass",
+            "tested_commit": human_head,
+        }
         controller._human_validation_artifact = lambda commit: {
             "path": str(human_path),
             "sha256": hashlib.sha256(human_path.read_bytes()).hexdigest(),
@@ -373,6 +378,41 @@ def test_delivery_draft_uses_stable_main_base() -> None:
             "draft used only the final repair parent",
         )
         require(facts["validated_commit"] == human_head, "draft commit changed")
+
+        captured.clear()
+        automated_output = root / "automated-output"
+        automated_output.mkdir()
+        automated = object.__new__(ResumableDownstreamTaskController)
+        automated.task_id = TASK_ID
+        automated.checkout = repository
+        automated.command_runner = runner
+        automated.state = {
+            "validation_manifests": [_manifest(manifest_path)],
+            "delivery_base_commit": main_commit,
+        }
+        automated._require_lease = controller._require_lease
+        automated._assert_human_tested_head = lambda state: None
+        automated._latest_validation_authority = lambda: {
+            "kind": "automated",
+            "event_id": "automation-event-123",
+            "policy_sha256": "f" * 64,
+            "tested_commit": human_head,
+        }
+        automated._human_validation_artifact = lambda commit: (_ for _ in ()).throw(
+            AssertionError("automated authority created a human validation artifact")
+        )
+        automated._output_root = lambda commit: automated_output
+        automated._persist = lambda: None
+        automated.create_delivery_review_draft()
+        automated_command = captured["command"]
+        require(
+            "--human-validation" not in automated_command,
+            "automated authority was passed through the human-validation CLI",
+        )
+        require(
+            automated.state["human_validation"] is None,
+            "automated authority persisted a human validation artifact",
+        )
 
 
 class CompleteIssue:

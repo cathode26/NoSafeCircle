@@ -446,6 +446,12 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
             WorkflowPhase.DELIVERY_EVIDENCE
         )
         self._assert_human_tested_head(workflow_state)
+        authority = self._latest_validation_authority()
+        if authority is None:
+            raise DownstreamPipelineError("exact validation authority is unavailable")
+        validation_label = (
+            "validated" if authority.get("kind") == "automated" else "human-tested"
+        )
         required = set(_required_platforms(observation["task"]))
         manifests = [
             _manifest(Path(item["path"]))
@@ -461,11 +467,12 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
         for item in manifests:
             if item["commit"] != workflow_state["head_commit"]:
                 raise DownstreamPipelineError(
-                    "validation manifest is stale for the human-tested commit"
+                    f"validation manifest is stale for the {validation_label} commit"
                 )
-
-        human = self._human_validation_artifact(
-            workflow_state["head_commit"]
+        human = (
+            self._human_validation_artifact(workflow_state["head_commit"])
+            if authority.get("kind") == "human"
+            else None
         )
         output_root = self._output_root(workflow_state["head_commit"])
         draft_path = output_root / "delivery-review-draft.json"
@@ -498,7 +505,7 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
             != 0
         ):
             raise DownstreamPipelineError(
-                "delivery base is not an ancestor of the human-tested commit"
+                f"delivery base is not an ancestor of the {validation_label} commit"
             )
         script = (
             self.checkout
@@ -516,11 +523,10 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
             self.task_id,
             "--base-commit",
             base_commit,
-            "--human-validation",
-            human["path"],
-            "--output",
-            str(draft_path),
         ]
+        if human is not None:
+            command.extend(("--human-validation", human["path"]))
+        command.extend(("--output", str(draft_path)))
         for manifest in manifests:
             command.extend(("--validation-manifest", manifest["path"]))
         _run(
@@ -553,6 +559,8 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
                 "proposal_sha256": None,
             }
         )
+        if authority.get("kind") == "automated":
+            self.state["validation_authority"] = authority
         self._persist()
         return self.delivery_review_facts()
 

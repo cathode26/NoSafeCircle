@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, replace
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from .actor_policy import default_actor_policy
 from .contracts import SHA256_RE, TaskReviewContractError
@@ -213,9 +213,10 @@ class DownstreamIssueCoordinator:
         draft_sha256: str,
         proposal_path: str,
         proposal_sha256: str,
+        validation_authority: Mapping[str, Any] | None = None,
         now: str | None = None,
     ) -> dict[str, Any]:
-        """Carry an exact-commit human PASS into merge closeout.
+        """Carry exact human or policy-bound machine authority into merge closeout.
 
         The caller must first prove that the canonical checkout is clean. This
         transition removes the redundant second human approval when downstream
@@ -229,7 +230,16 @@ class DownstreamIssueCoordinator:
         state = snapshot.state
         if state.phase is not WorkflowPhase.DELIVERY_EVIDENCE:
             raise DownstreamIssueError("automatic delivery acceptance requires delivery_evidence")
-        if state.human_result != "pass":
+        automated = (
+            isinstance(validation_authority, Mapping)
+            and validation_authority.get("kind") == "automated"
+        )
+        if automated:
+            if state.human_result is not None:
+                raise DownstreamIssueError(
+                    "automated delivery acceptance cannot relabel a human result"
+                )
+        elif state.human_result != "pass":
             raise DownstreamIssueError("automatic delivery acceptance requires a human PASS")
 
         branch = _meaningful(branch, "branch")
@@ -247,33 +257,77 @@ class DownstreamIssueCoordinator:
             or state.human_handoff_commit != head_commit
         ):
             raise DownstreamIssueError(
-                "automatic delivery acceptance requires the unchanged human-tested commit"
+                "automatic delivery acceptance requires the unchanged "
+                + ("validated commit" if automated else "human-tested commit")
             )
 
-        pass_event = next(
-            (
-                event
-                for event in reversed(snapshot.events)
-                if event.event_type is WorkflowEventType.HUMAN_VALIDATION_PASSED
-                and event.details.get("tested_commit") == head_commit
-            ),
-            None,
-        )
+        if automated:
+            if (
+                validation_authority.get("authority")
+                != "validated_automated_workflow_event_and_committed_policy"
+                or validation_authority.get("tested_commit") != head_commit
+                or not isinstance(validation_authority.get("details"), Mapping)
+            ):
+                raise DownstreamIssueError(
+                    "automated delivery acceptance received unverified authority"
+                )
+            automated_type = getattr(
+                WorkflowEventType,
+                "AUTOMATED_VALIDATION_PASSED",
+                None,
+            )
+            event_id = validation_authority.get("event_id")
+            pass_event = next(
+                (
+                    event
+                    for event in reversed(snapshot.events)
+                    if event.event_type is automated_type
+                    and event.event_id == event_id
+                    and event.actor_type is WorkflowActor.AGENT
+                    and event.actor_id == validation_authority.get("actor_id")
+                    and event.details == validation_authority.get("details")
+                    and event.details.get("commit") == head_commit
+                    and event.details.get("validation_policy_sha256")
+                    == validation_authority.get("policy_sha256")
+                    and event.details.get("task_contract_sha256")
+                    == state.task_contract_sha256
+                ),
+                None,
+            )
+        else:
+            pass_event = next(
+                (
+                    event
+                    for event in reversed(snapshot.events)
+                    if event.event_type is WorkflowEventType.HUMAN_VALIDATION_PASSED
+                    and event.details.get("tested_commit") == head_commit
+                ),
+                None,
+            )
         if pass_event is None:
             raise DownstreamIssueError(
-                "automatic delivery acceptance could not prove the human PASS event"
+                "automatic delivery acceptance could not prove "
+                + (
+                    "its automated validation event"
+                    if automated
+                    else "the human PASS event"
+                )
             )
 
         details = {
             "reason": (
-                "The exact human-tested commit remained unchanged and the canonical "
+                f"The exact {'validated' if automated else 'human-tested'} commit remained "
+                "unchanged and the canonical "
                 "checkout was deterministically proven clean."
             ),
             "review_kind": "delivery_spec",
             "decision": "approve",
-            "approval_basis": "unchanged_human_validated_commit",
+            "approval_basis": (
+                "unchanged_automated_validated_commit"
+                if automated
+                else "unchanged_human_validated_commit"
+            ),
             "authorized_by": pass_event.actor_id,
-            "human_validation_event_id": pass_event.event_id,
             "tested_commit": head_commit,
             "branch": branch,
             "checkout_path": checkout_path,
@@ -282,6 +336,15 @@ class DownstreamIssueCoordinator:
             "proposal_path": proposal_path,
             "proposal_sha256": proposal_sha256,
         }
+        if automated:
+            details.update(
+                {
+                    "automated_validation_event_id": pass_event.event_id,
+                    "validation_policy_sha256": validation_authority["policy_sha256"],
+                }
+            )
+        else:
+            details["human_validation_event_id"] = pass_event.event_id
 
         if state.state is WorkflowState.AGENT_WORKING:
             if state.worker_id != self.worker_id:
@@ -292,7 +355,7 @@ class DownstreamIssueCoordinator:
             actor_type = WorkflowActor.AGENT
             actor_id = self.worker_id
             target_phase = WorkflowPhase.MERGE_CLOSEOUT
-        elif state.state is WorkflowState.BLOCKED:
+        elif state.state is WorkflowState.BLOCKED and not automated:
             if state.current_actor is not WorkflowActor.HUMAN or not snapshot.events:
                 raise DownstreamIssueError(
                     "legacy delivery-review recovery requires a human-owned blocker"
@@ -333,14 +396,27 @@ class DownstreamIssueCoordinator:
             details=details,
             now=now or utc_now(),
         )
+        authority_label = (
+            "automated validation"
+            if automated
+            else "human validation"
+        )
         summary = "\n".join(
             (
-                "The existing human PASS now authorizes delivery closeout without a second approval.",
+                (
+                    "The unchanged commit's automated validation now authorizes delivery closeout."
+                    if automated
+                    else "The existing human PASS now authorizes delivery closeout without a second approval."
+                ),
                 "",
-                f"- **Human-tested commit:** `{head_commit}`",
+                f"- **{'Validated' if automated else 'Human-tested'} commit:** `{head_commit}`",
                 f"- **Proposal SHA-256:** `{proposal_sha256}`",
-                "- **Checkout condition:** clean; no post-PASS repository changes",
-                f"- **Authorization source:** human validation event `{pass_event.event_id}`",
+                (
+                    "- **Checkout condition:** clean; no post-validation repository changes"
+                    if automated
+                    else "- **Checkout condition:** clean; no post-PASS repository changes"
+                ),
+                f"- **Authorization source:** {authority_label} event `{pass_event.event_id}`",
                 "",
                 (
                     "A generic agent may continue verified merge closeout."
@@ -360,7 +436,9 @@ class DownstreamIssueCoordinator:
                 next_state,
                 next_action=(
                     (
-                        "Resume merge closeout for the unchanged human-tested commit; "
+                        "Resume merge closeout for the unchanged "
+                        + ("validated" if automated else "human-tested")
+                        + " commit; "
                         "stop if any new or uncommitted repository change appears."
                         if target_phase is WorkflowPhase.MERGE_CLOSEOUT
                         else "Resume delivery evidence, reconcile current main, and retain "
@@ -374,7 +452,11 @@ class DownstreamIssueCoordinator:
         verified = self.service.verify_post_mutation_state(
             task_id,
             next_state,
-            transition_name="unchanged human PASS delivery acceptance",
+            transition_name=(
+                "unchanged automated validation delivery acceptance"
+                if automated
+                else "unchanged human PASS delivery acceptance"
+            ),
         )
         return {"status": "agent_ready", **verified.to_dict()}
 

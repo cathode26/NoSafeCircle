@@ -456,13 +456,30 @@ def finalize_review(*, root: Path, review_path: Path, output: Path) -> Path:
         gates.append({"gate_id": item["gate_id"], "evidence": evidence, "notes": _meaningful(item["notes"], f"gate {item['gate_id']} notes")})
 
     approval = _exact_object(review["human_approval"], "human_approval", {"required", "decision", "approved_by", "notes"})
-    if approval["required"] is not True or approval["decision"] != "approved":
-        raise TaskDeliveryError("Required human approval must be internally consistent and approved.")
-    approved_by = _meaningful(approval["approved_by"], "human_approval.approved_by")
-    approval_notes = _meaningful(approval["notes"], "human_approval.notes")
+    if approval["required"] is True:
+        if approval["decision"] != "approved":
+            raise TaskDeliveryError("Required human approval must be internally consistent and approved.")
+        approved_by = _meaningful(approval["approved_by"], "human_approval.approved_by")
+        approval_notes = _meaningful(approval["notes"], "human_approval.notes")
+    elif approval["required"] is False:
+        if approval["decision"] != "not_required" or approval["approved_by"] != "":
+            raise TaskDeliveryError(
+                "Non-required human approval must use decision not_required and blank approved_by."
+            )
+        approved_by = ""
+        approval_notes = _meaningful(approval["notes"], "human_approval.notes")
+        if re.fullmatch(
+            r"Automated validation event [0-9a-f]{64}; committed validation policy [0-9a-f]{64}\.\Z",
+            approval_notes,
+        ) is None:
+            raise TaskDeliveryError(
+                "Non-required human approval notes must bind exact automated validation event and policy IDs."
+            )
+    else:
+        raise TaskDeliveryError("human_approval.required must be boolean.")
     spec = {"schema_version": "1.0", "task_id": task_meta["id"], "validated_commit": head, "base_commit": base,
             "candidate_commit": candidate, "surfaces": surfaces, "artifacts": artifacts, "gates": gates,
-            "human_approval": {"required": True, "decision": "approved", "approved_by": approved_by, "notes": approval_notes}}
+            "human_approval": {"required": approval["required"], "decision": approval["decision"], "approved_by": approved_by, "notes": approval_notes}}
     try:
         parse_delivery_spec(spec)
     except RecordDeliveryError as exc:
