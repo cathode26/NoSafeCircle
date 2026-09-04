@@ -32,6 +32,7 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowService,
     IssueWorkflowSnapshot,
     IssueWorkflowStoreError,
+    VINCENT_INBOX_TITLE,
 )
 from Pipeline.TaskReviewAgent.human_action_wait import publish_resume_hint  # noqa: E402
 from Pipeline.TaskReviewAgent.safe_unity_churn import (  # noqa: E402
@@ -422,6 +423,24 @@ def _poke_waiting_game_task_launcher(
         return None
 
 
+def _clear_vincent_notification(
+    service: IssueWorkflowService,
+    *,
+    task_id: str,
+) -> str:
+    """Clean the exact inbox notification without blocking an approved task."""
+
+    try:
+        return service.clear_vincent_notification(task_id)
+    except (IssueWorkflowStoreError, OSError, subprocess.TimeoutExpired) as exc:
+        print(
+            "PASS AND RESUME: WARNING\n"
+            f"GitHub is agent_ready, but its NSC-Vincent notification was not removed: {exc}",
+            file=sys.stderr,
+        )
+        return "warning"
+
+
 def _launch(
     root: Path,
     *,
@@ -519,6 +538,7 @@ def main() -> int:
             backend=backend,
             task_loader=lambda requested: load_committed_task(root, requested),
             worker_id="pass-and-resume-task",
+            vincent_inbox_title=VINCENT_INBOX_TITLE,
         )
         snapshot = service.find(task_id)
         if snapshot is None:
@@ -606,6 +626,10 @@ def main() -> int:
             f"GitHub ready: Issue #{snapshot.issue_number} is agent_ready / delivery_evidence "
             f"at {tested_commit}"
         )
+        notification_status = _clear_vincent_notification(
+            service, task_id=task_id
+        )
+        print(f"NSC-Vincent notification: {notification_status}.")
         if args.defer_launch:
             hint_path = _poke_waiting_game_task_launcher(
                 root, task_id=task_id, snapshot=snapshot

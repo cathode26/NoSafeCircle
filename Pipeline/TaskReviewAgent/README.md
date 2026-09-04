@@ -304,9 +304,12 @@ human_action_required / unity_runtime_validation
 On the real production composition, that verified transition also posts one routing comment to the
 open authorized `NSC-Vincent` Issue. The notification points back to the source task Issue and exact
 commit/checkout; it does not duplicate the Unity checklist or become workflow/evidence authority.
-Vincent records PASS/FAIL on the source Issue, then manually deletes the corresponding
-`NSC-Vincent` notification comment. An exact handoff retry is notification-idempotent and does not
-repeat the source Issue transition.
+Vincent records PASS/FAIL on the source Issue. The canonical approval helper
+deletes the one task-, source-Issue-, and commit-bound `NSC-Vincent`
+notification after GitHub confirms the human-result transition. If the helper
+is not used, Vincent may still delete that routing comment manually. An exact
+handoff retry is notification-idempotent and does not repeat the source Issue
+transition.
 
 Vincent posts a result such as:
 

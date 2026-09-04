@@ -556,6 +556,7 @@ class IssueBackend(Protocol):
         assignees: list[str] | None = None,
     ) -> dict[str, Any]: ...
     def add_comment(self, issue_number: int, body: str) -> dict[str, Any]: ...
+    def delete_comment(self, issue_number: int, comment_id: int | str) -> None: ...
     def ensure_labels(self) -> None: ...
 
 
@@ -1641,7 +1642,7 @@ class IssueWorkflowService:
                 f"Why: `{task_id}` is waiting for your Unity/runtime validation.",
                 "Action: Open the source Issue and follow its current human checklist.",
                 "Report result: Comment on the source Issue, not here.",
-                "Afterward: Delete this NSC-Vincent notification comment.",
+                "Afterward: The approval helper removes this notification comment.",
                 "",
                 f"- **Branch:** `{branch}`",
                 f"- **Commit to test:** `{head_commit}`",
@@ -1705,6 +1706,108 @@ class IssueWorkflowService:
             f"NSC-Vincent notification could not be verified after {attempts} bounded "
             f"read attempt(s): {last_reason}; the notification mutation was not repeated"
             f"{suffix}"
+        )
+
+    def clear_vincent_notification(self, task_id: str) -> str:
+        """Delete the one exact authorized inbox notification after human result."""
+
+        snapshot = self.find(validate_task_id(task_id))
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "Vincent notification cleanup requires a valid managed source Issue"
+            )
+        state = snapshot.state
+        expected_phase = (
+            WorkflowPhase.DELIVERY_EVIDENCE
+            if state.human_result == "pass"
+            else WorkflowPhase.REPAIR
+        )
+        if (
+            state.state is not WorkflowState.AGENT_READY
+            or state.current_actor is not WorkflowActor.AGENT
+            or state.human_result not in {"pass", "fail"}
+            or state.phase is not expected_phase
+            or state.human_handoff_commit != state.head_commit
+        ):
+            raise IssueWorkflowStoreError(
+                "Vincent notification cleanup requires an exact approved or failed "
+                "human handoff that is already agent_ready"
+            )
+
+        inbox = self._find_vincent_inbox()
+        if inbox is None:
+            return "disabled"
+        inbox_number = inbox.get("number")
+        if type(inbox_number) is not int:
+            raise IssueWorkflowStoreError("configured Vincent inbox has no integer Issue number")
+        marker = self._vincent_notification_marker(
+            task_id=state.task_id,
+            source_issue_number=snapshot.issue_number,
+            head_commit=state.human_handoff_commit,
+        )
+        matches = self._matching_vincent_notifications(
+            issue_number=inbox_number,
+            marker=marker,
+        )
+        if len(matches) > 1:
+            raise IssueWorkflowStoreError(
+                "multiple authorized NSC-Vincent notifications match the completed handoff"
+            )
+        if not matches:
+            return "absent"
+        comment_id = matches[0].get("id")
+        if not (
+            (type(comment_id) is int and comment_id > 0)
+            or (isinstance(comment_id, str) and bool(comment_id.strip()))
+        ):
+            raise IssueWorkflowStoreError(
+                "matching NSC-Vincent notification has no deletable comment identity"
+            )
+
+        uncertain_error_types = (
+            IssueWorkflowStoreError,
+            OSError,
+            subprocess.TimeoutExpired,
+        )
+        mutation_error: Exception | None = None
+        try:
+            self.backend.delete_comment(inbox_number, comment_id)
+        except uncertain_error_types as exc:
+            mutation_error = exc
+
+        attempts = 0
+        last_reason = "matching notification is still visible"
+        for delay_seconds in POST_MUTATION_VERIFICATION_DELAYS_SECONDS:
+            if delay_seconds > 0:
+                time.sleep(delay_seconds)
+            attempts += 1
+            try:
+                remaining = self._matching_vincent_notifications(
+                    issue_number=inbox_number,
+                    marker=marker,
+                )
+            except uncertain_error_types as exc:
+                last_reason = (
+                    f"verification read attempt {attempts} failed transiently: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                continue
+            if not remaining:
+                return "deleted"
+            if len(remaining) > 1:
+                raise IssueWorkflowStoreError(
+                    "multiple authorized NSC-Vincent notifications appeared during cleanup"
+                )
+
+        suffix = (
+            f"; delete_comment reported uncertain outcome: "
+            f"{type(mutation_error).__name__}: {mutation_error}"
+            if mutation_error is not None
+            else ""
+        )
+        raise IssueWorkflowStoreError(
+            f"NSC-Vincent notification deletion could not be verified after {attempts} "
+            f"bounded read attempt(s): {last_reason}; the deletion was not repeated{suffix}"
         )
 
     def publish_human_handoff(
@@ -2566,6 +2669,17 @@ class MemoryIssueBackend:
         self.comments.setdefault(issue_number, []).append(comment)
         return json.loads(json.dumps(comment))
 
+    def delete_comment(self, issue_number: int, comment_id: int | str) -> None:
+        comments = self.comments.get(issue_number, [])
+        matches = [
+            index for index, item in enumerate(comments) if item.get("id") == comment_id
+        ]
+        if len(matches) != 1:
+            raise IssueWorkflowStoreError(
+                "comment deletion requires one exact comment in the named Issue"
+            )
+        comments.pop(matches[0])
+
     def ensure_labels(self) -> None:
         self.labels.update(LABEL_DEFINITIONS)
 
@@ -2863,6 +2977,27 @@ class GhIssueBackend:
             )
         )
         return {"url": result.stdout.strip(), "body": body}
+
+    def delete_comment(self, issue_number: int, comment_id: int | str) -> None:
+        if type(issue_number) is not int or issue_number < 1:
+            raise IssueWorkflowStoreError("Issue number must be a positive integer")
+        if not isinstance(comment_id, str) or re.fullmatch(
+            r"[A-Za-z0-9_=-]+", comment_id
+        ) is None:
+            raise IssueWorkflowStoreError(
+                "GitHub comment deletion requires an exact GraphQL node ID"
+            )
+        self._run(
+            (
+                "gh",
+                "api",
+                "graphql",
+                "-f",
+                "query=mutation($id: ID!) { deleteIssueComment(input: {id: $id}) { clientMutationId } }",
+                "-f",
+                f"id={comment_id}",
+            )
+        )
 
     def ensure_labels(self) -> None:
         for name, (color, description) in LABEL_DEFINITIONS.items():

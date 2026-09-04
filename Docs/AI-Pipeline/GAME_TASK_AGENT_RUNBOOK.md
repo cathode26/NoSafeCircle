@@ -215,6 +215,9 @@ also publishes a task- and commit-bound local wake hint after it verifies that
 exact GitHub transition, so the launcher normally re-reads GitHub immediately
 instead of waiting for its next minute poll. The hint is advisory only: it never
 authorizes work, and the launcher still requires the validated GitHub Issue.
+The helper also deletes only the exact matching routing comment from the
+configured `NSC-Vincent` Issue; a missing or ambiguous match is reported and
+left untouched.
 The wait makes no provider calls and performs no Issue mutation. It exits
 cleanly when the timeout expires or the Issue enters another state.
 

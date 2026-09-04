@@ -697,7 +697,7 @@ def test_human_handoff_notifies_vincent_once_and_exact_retry_is_notification_onl
     require(f"Source Issue: #{task_issue}" in body, body)
     require(HANDOFF_HEAD in body, body)
     require("Report result: Comment on the source Issue, not here." in body, body)
-    require("Delete this NSC-Vincent notification comment." in body, body)
+    require("approval helper removes this notification comment." in body, body)
     require(issue_workflow_store_module.VINCENT_NOTIFICATION_MARKER_PREFIX in body, body)
 
     retry = service.publish_human_handoff(
@@ -714,6 +714,54 @@ def test_human_handoff_notifies_vincent_once_and_exact_retry_is_notification_onl
     require(retry["vincent_notification"] == "existing", str(retry))
     require(len(backend.get_comments(task_issue)) == source_comments_before_retry, "exact handoff retry repeated a source Issue mutation")
     require(len(backend.get_comments(vincent_issue)) == 1, "exact handoff retry duplicated the NSC-Vincent notification")
+
+    ready = service.apply_human_result(
+        task_id=TASK_ID,
+        result_body=(
+            "## Human validation result\n\n"
+            f"Result: PASS\nTested commit: {HANDOFF_HEAD}\n"
+        ),
+        actor_id="cathode26",
+        now="2026-09-01T20:03:00Z",
+    )
+    require(ready["status"] == "agent_ready", str(ready))
+    delete_calls: list[tuple[int, int | str]] = []
+
+    def accepted_delete_timeout(issue_number: int, comment_id: int | str) -> None:
+        delete_calls.append((issue_number, comment_id))
+        MemoryIssueBackend.delete_comment(backend, issue_number, comment_id)
+        raise subprocess.TimeoutExpired(
+            cmd=("gh", "api", "graphql"),
+            timeout=180,
+        )
+
+    backend.delete_comment = accepted_delete_timeout  # type: ignore[method-assign]
+    require(
+        service.clear_vincent_notification(TASK_ID) == "deleted",
+        "exact NSC-Vincent notification was not deleted",
+    )
+    require(len(delete_calls) == 1, f"uncertain deletion was repeated: {delete_calls}")
+    require(
+        backend.get_comments(vincent_issue) == [],
+        "notification remained after verified deletion",
+    )
+    require(
+        service.clear_vincent_notification(TASK_ID) == "absent",
+        "notification cleanup was not safely idempotent",
+    )
+
+
+def test_github_notification_deletion_uses_exact_graphql_node_id() -> None:
+    calls: list[tuple[str, ...]] = []
+    backend = SimpleNamespace(_run=lambda args: calls.append(tuple(args)))
+    GhIssueBackend.delete_comment(backend, 17, "IC_kwDOFixture123")
+    require(len(calls) == 1, str(calls))
+    require(calls[0][:3] == ("gh", "api", "graphql"), str(calls[0]))
+    require(calls[0][-1] == "id=IC_kwDOFixture123", str(calls[0]))
+    expect_error(
+        lambda: GhIssueBackend.delete_comment(backend, 17, 123),
+        "GraphQL node ID",
+    )
 
 
 def test_configured_vincent_inbox_is_preflighted_before_source_handoff_mutation() -> None:
@@ -1934,6 +1982,7 @@ def main() -> int:
         test_issue_service_handoff_human_result_and_resume,
         test_decomposition_handoff_binds_exact_plan_and_resumes_apply_phase,
         test_human_handoff_notifies_vincent_once_and_exact_retry_is_notification_only,
+        test_github_notification_deletion_uses_exact_graphql_node_id,
         test_configured_vincent_inbox_is_preflighted_before_source_handoff_mutation,
         test_vincent_notification_accepted_write_timeout_and_stale_reads_never_rewrite,
         test_post_mutation_verification_retries_stale_reads_without_repeating_writes,
