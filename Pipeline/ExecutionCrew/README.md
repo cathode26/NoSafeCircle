@@ -171,7 +171,19 @@ own it.
 repository; mutable scheduler state is not repository content. Writes are
 atomic, and loading rejects duplicate JSON keys, unknown schema or protocol
 versions, malformed UUIDs, duplicate session identities, duplicate active
-leases, and impossible state combinations. The future architect scheduler is the
+leases, and impossible state combinations.
+
+Pool state and committed lifecycle state must agree, and that correlation is
+enforced wherever a `PooledSession` is constructed -- in memory and on
+restoration alike, because the record is immutable and every transition builds a
+new one. `idle` requires a counted provider/output failure streak of exactly 0
+and `probation` exactly 1, so a restored or forged record can never re-label a
+counted failure as ordinary idle and have `checkout` advertise it. An active
+record must carry the lease's own history: its prior completed-assignment count
+must equal the conversation's, its assigned workload class must be the one its
+capability class actually costs, and it may hold no lifecycle at all only for a
+genuinely fresh `start` lease with no completed assignments -- a warm resume can
+never drop its accounted history and silently restart at zero. The future architect scheduler is the
 authoritative writer; nothing here mutates an Issue or makes a scheduling
 decision.
 

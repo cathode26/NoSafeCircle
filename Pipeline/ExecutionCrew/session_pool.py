@@ -827,8 +827,27 @@ class PooledSession:
                 raise SessionPoolError("active lease names a different session record")
             if self.idle_since_utc is not None:
                 raise SessionPoolError("an active session cannot also be idle")
-            if self.lifecycle is not None and self.lifecycle.phase != "assigned":
-                raise SessionPoolError("an active session requires an assigned lifecycle")
+            if self.active_lease.prior_completed_assignment_count != self.completed_assignment_count:
+                raise SessionPoolError(
+                    "active lease prior assignment count differs from the conversation's history"
+                )
+            if self.lifecycle is None:
+                # A conversation has no lifecycle only before its very first
+                # assignment is accounted, which is exactly the cold start of a
+                # provider-named thread. A warm resume must still carry the
+                # assigned lifecycle it was started with, so a restored payload
+                # cannot drop that history and have it silently restart at zero.
+                if self.active_lease.mode != "start" or self.completed_assignment_count != 0:
+                    raise SessionPoolError(
+                        "only a fresh start lease may hold no lifecycle state"
+                    )
+            else:
+                if self.lifecycle.phase != "assigned":
+                    raise SessionPoolError("an active session requires an assigned lifecycle")
+                if self.lifecycle.active_workload_class != self.compatibility.workload_class:
+                    raise SessionPoolError(
+                        "assigned lifecycle workload class differs from its session compatibility"
+                    )
         elif self.active_lease is not None:
             raise SessionPoolError(f"a {self.state} session must not hold a lease")
         elif self.lifecycle is not None and self.lifecycle.phase == "assigned":
@@ -843,6 +862,21 @@ class PooledSession:
             if self.lifecycle is None or self.lifecycle.phase != "between_assignments":
                 raise SessionPoolError(
                     f"a {self.state} session requires an available lifecycle between assignments"
+                )
+            # The committed policy already counted this conversation's history, so
+            # the pool state must say the same thing as the lifecycle it carries:
+            # ordinary idle means no counted provider/output failure, and
+            # probation means exactly the one the policy counted. (A second
+            # consecutive failure retires the conversation, so a between-
+            # assignments streak is only ever 0 or 1.) Without this correlation a
+            # restored or forged record could re-advertise a failed conversation
+            # as ordinary idle and bypass the deliberate probation-retry gate.
+            expected_streak = 0 if self.state == "idle" else 1
+            if self.lifecycle.consecutive_provider_output_failures != expected_streak:
+                raise SessionPoolError(
+                    f"pool state {self.state!r} requires a counted failure streak of "
+                    f"{expected_streak}, not "
+                    f"{self.lifecycle.consecutive_provider_output_failures}"
                 )
             _parse_utc(self.idle_since_utc, field="idle_since_utc")
         elif self.state != "active" and self.idle_since_utc is not None:

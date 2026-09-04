@@ -1432,6 +1432,162 @@ def test_an_evidenced_success_between_failures_resets_the_streak() -> None:
     require(again.completed_assignment_count == 3, str(again.completed_assignment_count))
 
 
+def restored(payload: dict) -> SessionPool:
+    """Restore durable pool state exactly as a scheduler would."""
+
+    return SessionPool.from_dict(json.loads(json.dumps(payload)),
+                                 identity_factory=identity_factory(start=500),
+                                 clock=lambda: BASE)
+
+
+def probation_payload() -> tuple[dict, str]:
+    """Return durable state holding one genuine probation, plus its record ID."""
+
+    session_pool = pool()
+    lease = checkout(session_pool)
+    placed = failed(session_pool, lease, outcome="output_failure", now=at(30))
+    require(placed.state == "probation", str(placed.state))
+    payload = json.loads(json.dumps(session_pool.to_dict()))
+    require(payload["sessions"][0]["lifecycle"]["consecutive_provider_output_failures"] == 1,
+            str(payload["sessions"][0]["lifecycle"]))
+    return payload, placed.record_id
+
+
+def test_pool_state_and_lifecycle_state_cannot_disagree() -> None:
+    # A genuine probation survives durable state as a probation, and is still
+    # invisible to ordinary checkout after restoration.
+    payload, record_id = probation_payload()
+    session_pool = restored(payload)
+    session = session_pool.sessions[0]
+    require(session.state == "probation", str(session.state))
+    require(not session.is_reusable_at(at(31)), "a restored probation was advertised")
+    ordinary = checkout(session_pool, run_id="nsc-050-run-2", now=at(31))
+    require(ordinary.mode == "start" and ordinary.record_id != record_id,
+            "a restored probation was handed out by ordinary checkout")
+    session_pool.quarantine(ordinary, "fixture cleanup", outcome="other_failure")
+    retry = session_pool.offer_probation_retry(
+        compatibility=compatibility(), record_id=record_id, worker_slot_id="worker-slot-1",
+        task_id="NSC-050", worker_run_id="nsc-050-run-3", source_commit=COMMIT,
+        checkout_identity=CHECKOUT, now=at(32),
+    )
+    require(retry.mode == "resume", "the restored probation refused its one deliberate retry")
+    rejects(
+        lambda: session_pool.offer_probation_retry(
+            compatibility=compatibility(), record_id=record_id, worker_slot_id="worker-slot-1",
+            task_id="NSC-050", worker_run_id="nsc-050-run-4", source_commit=COMMIT,
+            checkout_identity=CHECKOUT, now=at(33),
+        ),
+        SessionPoolError,
+    )
+
+    # Re-labelling that exact conversation as ordinary idle is refused at the
+    # restoration boundary, before any checkout can advertise it.
+    forged, _ = probation_payload()
+    forged["sessions"][0]["state"] = "idle"
+    forged["sessions"][0]["probation_reason"] = None
+    blocked = rejects(lambda: restored(forged), SessionPoolError)
+    require("state 'idle' requires a counted failure streak of 0" in str(blocked),
+            str(blocked))
+    rejects(lambda: PooledSession.from_dict(forged["sessions"][0]), SessionPoolError)
+    # The same contradiction is refused in memory, so nothing can construct it.
+    genuine = restored(probation_payload()[0]).sessions[0]
+    rejects(lambda: PooledSession(
+        record_id=genuine.record_id, compatibility=genuine.compatibility, state="idle",
+        session_id=genuine.session_id,
+        completed_assignment_count=genuine.completed_assignment_count,
+        idle_since_utc=genuine.idle_since_utc, lifecycle=genuine.lifecycle,
+    ), SessionPoolError)
+    # And a clean conversation may not claim probation either.
+    clean = pool()
+    clean_lease = checkout(clean)
+    idle_session = complete(clean, clean_lease, now=at(30))
+    blocked = rejects(lambda: PooledSession(
+        record_id=idle_session.record_id, compatibility=idle_session.compatibility,
+        state="probation", session_id=idle_session.session_id,
+        completed_assignment_count=idle_session.completed_assignment_count,
+        idle_since_utc=idle_session.idle_since_utc, probation_reason="claimed without a failure",
+        lifecycle=idle_session.lifecycle,
+    ), SessionPoolError)
+    require("state 'probation' requires a counted failure streak of 1" in str(blocked),
+            str(blocked))
+
+
+def active_payload(*, resumed: bool = True) -> dict:
+    """Return durable state holding one active assignment."""
+
+    session_pool = pool()
+    lease = checkout(session_pool)
+    if not resumed:
+        return json.loads(json.dumps(session_pool.to_dict()))
+    complete(session_pool, lease, now=at(30))
+    warm = checkout(session_pool, run_id="nsc-050-run-2", now=at(31))
+    require(warm.mode == "resume", "the fixture did not resume a warm conversation")
+    payload = json.loads(json.dumps(session_pool.to_dict()))
+    require(payload["sessions"][0]["state"] == "active", str(payload["sessions"][0]["state"]))
+    return payload
+
+
+def test_an_active_assignment_cannot_contradict_its_own_history() -> None:
+    # A genuinely fresh provider-named conversation legitimately has no
+    # lifecycle yet, so the invariant must not refuse a real cold start.
+    codex = compatibility(provider="openai-codex", model=CODEX_MODEL, reasoning="high")
+    cold = pool()
+    cold_lease = cold.checkout(compatibility=codex, worker_slot_id="worker-slot-1",
+                               task_id="NSC-050", worker_run_id="nsc-050-run-1",
+                               source_commit=COMMIT, checkout_identity=CHECKOUT, now=BASE)
+    require(cold_lease.mode == "start" and cold_lease.session_id is None, str(cold_lease))
+    require(restored(cold.to_dict()).sessions[0].lifecycle is None, "a cold start was refused")
+
+    # A warm resume may not drop its accounted history and restart at zero.
+    payload = active_payload()
+    require(payload["sessions"][0]["active_lease"]["mode"] == "resume",
+            str(payload["sessions"][0]["active_lease"]["mode"]))
+    require(payload["sessions"][0]["completed_assignment_count"] == 1,
+            str(payload["sessions"][0]["completed_assignment_count"]))
+    forged = json.loads(json.dumps(payload))
+    forged["sessions"][0]["lifecycle"] = None
+    blocked = rejects(lambda: restored(forged), SessionPoolError)
+    require("only a fresh start lease may hold no lifecycle state" in str(blocked), str(blocked))
+
+    # The lease's prior count must equal the conversation's accounted history.
+    forged = json.loads(json.dumps(payload))
+    forged["sessions"][0]["active_lease"]["prior_completed_assignment_count"] = 0
+    blocked = rejects(lambda: restored(forged), SessionPoolError)
+    require("prior assignment count differs" in str(blocked), str(blocked))
+
+    # The assigned workload must be the workload this session's capability class
+    # actually costs, so a standard session cannot be accounted as fast work.
+    forged = json.loads(json.dumps(payload))
+    lifecycle = forged["sessions"][0]["lifecycle"]
+    require(lifecycle["active_workload_class"] == "standard", str(lifecycle))
+    lifecycle["active_workload_class"] = "fast"
+    lifecycle["active_weighted_units"] = WORKER_WEIGHTS["fast"]
+    blocked = rejects(lambda: restored(forged), SessionPoolError)
+    require("workload class differs from its session compatibility" in str(blocked), str(blocked))
+
+    # Retired and quarantined records stay internally consistent too.
+    genuine_probation, _ = probation_payload()
+    between = genuine_probation["sessions"][0]["lifecycle"]
+    for label, mutation in (
+        ("retired without a retirement decision",
+         {"state": "retired", "probation_reason": None, "idle_since_utc": None}),
+        ("retired but still idle-timed",
+         {"state": "retired", "probation_reason": None}),
+        ("quarantined but still idle-timed",
+         {"state": "quarantined", "probation_reason": None,
+          "quarantine_reason": "fixture"}),
+    ):
+        forged = json.loads(json.dumps(genuine_probation))
+        forged["sessions"][0].update(mutation)
+        require(forged["sessions"][0]["lifecycle"] == between, f"{label}: fixture drifted")
+        rejects(lambda forged=forged: restored(forged), SessionPoolError)
+    # A quarantined record may not hold an assigned lifecycle either.
+    forged = active_payload()
+    forged["sessions"][0].update({"state": "quarantined", "quarantine_reason": "fixture",
+                                  "active_lease": None})
+    rejects(lambda: restored(forged), SessionPoolError)
+
+
 def test_retirement_never_interrupts_an_active_assignment() -> None:
     session_pool = pool()
     lease = checkout(session_pool, now=at(0))
@@ -1563,6 +1719,8 @@ TESTS = (
     test_every_early_retirement_condition_is_enforced,
     test_two_counted_failures_retire_a_conversation_through_the_real_pool,
     test_an_evidenced_success_between_failures_resets_the_streak,
+    test_pool_state_and_lifecycle_state_cannot_disagree,
+    test_an_active_assignment_cannot_contradict_its_own_history,
     test_retirement_never_interrupts_an_active_assignment,
     test_no_pool_code_path_terminates_a_worker,
     test_pool_schema_identity_is_pinned,
