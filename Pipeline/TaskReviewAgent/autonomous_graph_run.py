@@ -32,7 +32,7 @@ from typing import Any, Callable, Mapping, Protocol, Sequence
 from Pipeline.TaskReviewAgent.issue_workflow import WorkflowPhase, WorkflowState
 
 
-AUTONOMOUS_GRAPH_RUN_SCHEMA_VERSION = "1.0"
+AUTONOMOUS_GRAPH_RUN_SCHEMA_VERSION = "2.0"
 AUTONOMOUS_GRAPH_PROGRESS_SCHEMA_VERSION = "1.0"
 GRAPH_COMPLETE_RECEIPT_SCHEMA_VERSION = "1.0"
 DEFAULT_FALLBACK_SECONDS = 300.0
@@ -43,6 +43,10 @@ _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _GIT_SHA_RE = re.compile(r"[0-9a-f]{40}")
 _RUN_ID_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,126}[a-z0-9])?")
 _GRAPH_PLAN_ID_RE = re.compile(r"GDP-[0-9a-f]{64}")
+_GITHUB_REPOSITORY_RE = re.compile(
+    r"[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})/"
+    r"[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,99})"
+)
 _LIFETIME_COUNTER_FIELDS = (
     "architect_invocations_total",
     "fallback_waits_total",
@@ -189,6 +193,7 @@ class AutonomousRunManifest:
     schema_version: str
     run_id: str
     source_repository: str
+    github_repository: str
     initial_source_commit: str
     initial_source_tree: str
     target_task_ids: tuple[str, ...]
@@ -204,6 +209,13 @@ class AutonomousRunManifest:
         source = _text(self.source_repository, field="source_repository")
         if not Path(source).is_absolute():
             raise AutonomousGraphRunError("source_repository must be an absolute path")
+        github_repository = _text(
+            self.github_repository, field="github_repository"
+        )
+        if _GITHUB_REPOSITORY_RE.fullmatch(github_repository) is None:
+            raise AutonomousGraphRunError(
+                "github_repository must be an exact GitHub owner/repository identity"
+            )
         _git_sha(self.initial_source_commit, field="initial_source_commit")
         _git_sha(self.initial_source_tree, field="initial_source_tree")
         targets = _task_ids(
@@ -231,6 +243,7 @@ class AutonomousRunManifest:
             "schema_version": self.schema_version,
             "run_id": self.run_id,
             "source_repository": self.source_repository,
+            "github_repository": self.github_repository,
             "initial_source_commit": self.initial_source_commit,
             "initial_source_tree": self.initial_source_tree,
             "target_task_ids": list(self.target_task_ids),
@@ -246,6 +259,7 @@ class AutonomousRunManifest:
                 "schema_version",
                 "run_id",
                 "source_repository",
+                "github_repository",
                 "initial_source_commit",
                 "initial_source_tree",
                 "target_task_ids",
@@ -258,6 +272,7 @@ class AutonomousRunManifest:
             schema_version=item["schema_version"],
             run_id=item["run_id"],
             source_repository=item["source_repository"],
+            github_repository=item["github_repository"],
             initial_source_commit=item["initial_source_commit"],
             initial_source_tree=item["initial_source_tree"],
             target_task_ids=tuple(item["target_task_ids"]),
@@ -272,6 +287,136 @@ class AutonomousRunManifest:
     @property
     def sha256(self) -> str:
         return _sha256(self.canonical_json)
+
+
+@dataclass(frozen=True)
+class AutonomousRunPaths:
+    """Host-owned artifact paths for one repository-bound autonomous run."""
+
+    root: Path
+    manifest: Path
+    progress: Path
+    receipt: Path
+    events: Path
+
+
+def autonomous_run_paths(
+    *,
+    checkout_root: Path | str,
+    github_repository: str,
+    run_id: str,
+) -> AutonomousRunPaths:
+    root = Path(checkout_root)
+    if not root.is_absolute():
+        raise AutonomousGraphRunError("checkout_root must be an absolute path")
+    repository = _text(github_repository, field="github_repository")
+    if _GITHUB_REPOSITORY_RE.fullmatch(repository) is None:
+        raise AutonomousGraphRunError(
+            "github_repository must be an exact GitHub owner/repository identity"
+        )
+    normalized_run_id = _text(run_id, field="run_id")
+    if _RUN_ID_RE.fullmatch(normalized_run_id) is None:
+        raise AutonomousGraphRunError("run_id must be a lowercase ASCII slug")
+    repository_identity = _sha256(repository.casefold())
+    run_root = (
+        root
+        / ".task-review-agent"
+        / "autonomous-runs"
+        / repository_identity
+        / normalized_run_id
+    )
+    return AutonomousRunPaths(
+        root=run_root,
+        manifest=run_root / "manifest.json",
+        progress=run_root / "progress.json",
+        receipt=run_root / "graph-complete.json",
+        events=run_root / "events.jsonl",
+    )
+
+
+class JsonManifestStore:
+    """Create or load one immutable exact run manifest."""
+
+    def __init__(self, path: Path | str) -> None:
+        self.path = Path(path)
+
+    def load(self) -> AutonomousRunManifest | None:
+        if not self.path.exists():
+            return None
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise AutonomousGraphRunError(
+                f"autonomous run manifest is unreadable: {self.path}"
+            ) from exc
+        return AutonomousRunManifest.from_dict(payload)
+
+    def create_or_load(
+        self, expected: AutonomousRunManifest
+    ) -> AutonomousRunManifest:
+        existing = self.load()
+        if existing is not None:
+            if existing != expected:
+                raise AutonomousGraphRunError(
+                    "persisted manifest differs from the exact requested run"
+                )
+            return existing
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        claim_path = self.path.with_name(self.path.name + ".claim")
+        temporary_path: Path | None = None
+        claim_descriptor: int | None = None
+        claim_owned = False
+        try:
+            try:
+                claim_descriptor = os.open(
+                    claim_path,
+                    os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                    0o600,
+                )
+            except FileExistsError as exc:
+                existing = self.load()
+                if existing is not None:
+                    if existing != expected:
+                        raise AutonomousGraphRunError(
+                            "persisted manifest differs from the exact requested run"
+                        ) from exc
+                    return existing
+                raise AutonomousGraphRunError(
+                    "autonomous run manifest publication is already claimed"
+                ) from exc
+            claim_owned = True
+            os.close(claim_descriptor)
+            claim_descriptor = None
+            existing = self.load()
+            if existing is not None:
+                if existing != expected:
+                    raise AutonomousGraphRunError(
+                        "persisted manifest differs from the exact requested run"
+                    )
+                return existing
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                newline="\n",
+                prefix=self.path.name + ".",
+                suffix=".tmp",
+                dir=self.path.parent,
+                delete=False,
+            ) as handle:
+                temporary_path = Path(handle.name)
+                handle.write(expected.canonical_json + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary_path, self.path)
+            temporary_path = None
+            return expected
+        finally:
+            if claim_descriptor is not None:
+                os.close(claim_descriptor)
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+            if claim_owned:
+                claim_path.unlink(missing_ok=True)
 
 
 @dataclass(frozen=True)
@@ -976,12 +1121,16 @@ class GraphCompleteReceipt:
 
 
 class ReceiptStore(Protocol):
+    def load(self) -> GraphCompleteReceipt | None: ...
     def save(self, receipt: GraphCompleteReceipt) -> None: ...
 
 
 class MemoryReceiptStore:
     def __init__(self) -> None:
         self.value: GraphCompleteReceipt | None = None
+
+    def load(self) -> GraphCompleteReceipt | None:
+        return self.value
 
     def save(self, receipt: GraphCompleteReceipt) -> None:
         if self.value is not None and self.value != receipt:
@@ -995,15 +1144,23 @@ class JsonReceiptStore:
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
 
-    def _require_same_existing(self, receipt: GraphCompleteReceipt) -> None:
+    def load(self) -> GraphCompleteReceipt | None:
+        if not self.path.exists():
+            return None
         try:
-            existing = GraphCompleteReceipt.from_dict(
-                json.loads(self.path.read_text(encoding="utf-8"))
-            )
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             raise AutonomousGraphRunError(
                 f"existing graph-complete receipt is unreadable: {self.path}"
             ) from exc
+        return GraphCompleteReceipt.from_dict(payload)
+
+    def _require_same_existing(self, receipt: GraphCompleteReceipt) -> None:
+        existing = self.load()
+        if existing is None:
+            raise AutonomousGraphRunError(
+                f"existing graph-complete receipt disappeared: {self.path}"
+            )
         if existing != receipt:
             raise AutonomousGraphRunError(
                 "a different graph-complete receipt already exists"
@@ -1146,6 +1303,36 @@ class AutonomousGraphController:
                 raise AutonomousGraphRunError(f"lifetime counter regressed: {field}")
         self.progress_store.save(progress)
         self.progress = progress
+
+    def _completed_result_from_receipt(self) -> AutonomousStepResult | None:
+        receipt = self.receipt_store.load()
+        if receipt is None:
+            return None
+        if receipt.manifest_sha256 != self.manifest.sha256:
+            raise AutonomousGraphRunError(
+                "graph-complete receipt belongs to a different exact run manifest"
+            )
+        counters = dict(receipt.lifetime_counters)
+        progress = replace(
+            self.progress,
+            **counters,
+            baseline_verified=True,
+            last_fingerprint=receipt.evidence_fingerprint,
+            last_fallback_fingerprint=None,
+        )
+        evaluation = GraphStateEvaluation(
+            "complete",
+            receipt.evidence_fingerprint,
+            receipt.relevant_task_ids,
+            ("existing_graph_complete_receipt",),
+            False,
+        )
+        return AutonomousStepResult(
+            evaluation=evaluation,
+            progress=progress,
+            cycle_status="already_complete",
+            receipt=receipt,
+        )
 
     def _snapshot(self) -> CoherentGraphSnapshot:
         snapshot = self.snapshotter()
@@ -1465,6 +1652,9 @@ class AutonomousGraphController:
             raise AutonomousGraphRunError("max_steps must be a positive integer")
         if self._run_owned:
             raise AutonomousGraphRunError("autonomous run lifecycle is already active")
+        completed = self._completed_result_from_receipt()
+        if completed is not None:
+            return completed
         steps = 0
         lock_acquired = False
         drain_attempted = False
@@ -1520,12 +1710,14 @@ __all__ = [
     "AutonomousGraphController",
     "AutonomousGraphRunError",
     "AutonomousRunManifest",
+    "AutonomousRunPaths",
     "AutonomousRunProgress",
     "AutonomousStepResult",
     "CoherentGraphSnapshot",
     "GraphCompleteReceipt",
     "GraphStateEvaluation",
     "JsonProgressStore",
+    "JsonManifestStore",
     "JsonReceiptStore",
     "ManagedIssueObservation",
     "MemoryProgressStore",
@@ -1533,5 +1725,6 @@ __all__ = [
     "SchedulerLockPort",
     "SyntheticEvidencePumpResult",
     "TaskObservation",
+    "autonomous_run_paths",
     "evaluate_graph_state",
 ]

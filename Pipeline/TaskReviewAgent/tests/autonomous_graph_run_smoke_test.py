@@ -37,12 +37,14 @@ from Pipeline.TaskReviewAgent.autonomous_graph_run import (  # noqa: E402
     AutonomousRunManifest,
     CoherentGraphSnapshot,
     GraphCompleteReceipt,
+    JsonManifestStore,
     JsonReceiptStore,
     ManagedIssueObservation,
     MemoryProgressStore,
     MemoryReceiptStore,
     SyntheticEvidencePumpResult,
     TaskObservation,
+    autonomous_run_paths,
     evaluate_graph_state,
 )
 
@@ -77,6 +79,7 @@ def manifest(
         schema_version=AUTONOMOUS_GRAPH_RUN_SCHEMA_VERSION,
         run_id="gauntlet-run-1",
         source_repository=str(ROOT),
+        github_repository="cathode26/NoSafeCircle-Homework-Rehearsal",
         initial_source_commit=HEAD,
         initial_source_tree=TREE,
         target_task_ids=targets,
@@ -307,6 +310,7 @@ def test_manifest_is_exact_and_capacity_is_capped_at_ten() -> None:
     rejects(lambda: manifest(capacity=11))
     rejects(lambda: manifest(targets=(TASK, TASK)))
     rejects(lambda: manifest(targets=(TASK,), excluded=(TASK,)))
+    rejects(lambda: replace(value, github_repository="not-a-repository"))
     malformed = value.to_dict()
     malformed["extra"] = True
     rejects(lambda: AutonomousRunManifest.from_dict(malformed))
@@ -878,6 +882,85 @@ def test_json_receipt_final_creation_is_exclusive_and_never_overwrites() -> None
         )
 
 
+def test_repository_bound_run_paths_and_immutable_manifest_resume() -> None:
+    expected = manifest()
+    with tempfile.TemporaryDirectory(
+        prefix=".autonomous-manifest-test-", dir=ROOT
+    ) as text:
+        paths = autonomous_run_paths(
+            checkout_root=Path(text),
+            github_repository=expected.github_repository,
+            run_id=expected.run_id,
+        )
+        repository_hash = hashlib.sha256(
+            expected.github_repository.casefold().encode("utf-8")
+        ).hexdigest()
+        require(paths.root.parent.name == repository_hash, "run path was not repository-bound")
+        require(paths.manifest.parent == paths.root, "manifest escaped run root")
+        require(paths.progress.name == "progress.json", "wrong progress path")
+        require(paths.receipt.name == "graph-complete.json", "wrong receipt path")
+        require(paths.events.name == "events.jsonl", "wrong event journal path")
+
+        store = JsonManifestStore(paths.manifest)
+        require(store.load() is None, "new run unexpectedly had a manifest")
+        require(store.create_or_load(expected) == expected, "manifest creation changed identity")
+        original = paths.manifest.read_bytes()
+        require(store.create_or_load(expected) == expected, "exact resume was rejected")
+        require(paths.manifest.read_bytes() == original, "exact resume rewrote manifest")
+        for changed in (
+            replace(expected, github_repository="cathode26/another-rehearsal"),
+            replace(expected, target_task_ids=(CHILD,)),
+            replace(expected, max_capacity=9),
+            replace(expected, initial_source_commit="3" * 40),
+            replace(expected, initial_source_tree="4" * 40),
+        ):
+            rejects(lambda changed=changed: store.create_or_load(changed))
+            require(paths.manifest.read_bytes() == original, "mismatch changed manifest")
+
+        receipt = controller(state=snapshot()).run(max_steps=1).receipt
+        require(receipt is not None, "complete fixture did not create receipt")
+        receipt_store = JsonReceiptStore(paths.receipt)
+        require(receipt_store.load() is None, "new run unexpectedly had a receipt")
+        receipt_store.save(receipt)
+        require(receipt_store.load() == receipt, "receipt did not load exactly")
+
+
+def test_existing_receipt_short_circuits_before_scheduler_or_observation() -> None:
+    completed = controller(state=snapshot()).run(max_steps=1)
+    require(completed.receipt is not None, "complete fixture did not create receipt")
+    receipts = MemoryReceiptStore()
+    receipts.save(completed.receipt)
+    fake = FakeScheduler()
+    lock = FakeLock()
+    snapshots = SnapshotSequence(snapshot())
+    resumed = AutonomousGraphController(
+        manifest=manifest(),
+        scheduler=fake,
+        scheduler_lock=lock,
+        snapshotter=snapshots,
+        progress_store=MemoryProgressStore(),
+        receipt_store=receipts,
+    ).run()
+    require(resumed.cycle_status == "already_complete", "receipt did not short-circuit")
+    require(resumed.receipt == completed.receipt, "resume returned a different receipt")
+    require(snapshots.calls == 0, "completed resume observed Git or GitHub state")
+    require(fake.lifecycle_events == [], "completed resume started the scheduler")
+    require(lock.events == [], "completed resume acquired the scheduler lock")
+
+    wrong = MemoryReceiptStore()
+    wrong.save(completed.receipt)
+    rejects(
+        lambda: AutonomousGraphController(
+            manifest=replace(manifest(), run_id="different-run"),
+            scheduler=FakeScheduler(),
+            scheduler_lock=FakeLock(),
+            snapshotter=SnapshotSequence(snapshot()),
+            progress_store=MemoryProgressStore(),
+            receipt_store=wrong,
+        ).run()
+    )
+
+
 def test_run_drains_live_out_of_scope_assignment_before_terminating() -> None:
     run_manifest = manifest(excluded=(EXCLUDED,))
     observed = snapshot(active=(EXCLUDED,))
@@ -1312,6 +1395,8 @@ def main() -> int:
         test_fatal_cycle_drains_children_before_listener_and_lock_release,
         test_receipt_is_persisted_atomically_while_run_lock_is_held,
         test_json_receipt_final_creation_is_exclusive_and_never_overwrites,
+        test_repository_bound_run_paths_and_immutable_manifest_resume,
+        test_existing_receipt_short_circuits_before_scheduler_or_observation,
         test_run_drains_live_out_of_scope_assignment_before_terminating,
         test_real_scheduler_listener_methods_are_idempotent_and_restartable,
         test_progress_change_reloops_without_sleeping,
