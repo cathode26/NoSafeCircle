@@ -30,17 +30,22 @@ One scheduler process runs one loop. **Implemented now**, except where marked.
        conflict -> WAIT this candidate, continue in the same ordered plan
   8. unknown-surface preflight (no model call)
        cannot establish disjointness -> WAIT this candidate, continue
-  9. reuse cached/cooldown WAIT/HUMAN_REVIEW, or spend one architect call
-       per-poll cap -> end this poll; cumulative session cap -> stop non-success
- 10. deterministic admission from the advisory and effective candidate surface
-       WAIT / HUMAN_REVIEW -> continue to the next Stage-2-ranked candidate
-       START               -> launch exactly one worker, end the pass
+  9. reuse cached/cooldown WAIT/HUMAN_REVIEW, then spend one architect call for
+       one complete mixed-work portfolio and a capacity-bounded ordered batch
+ 10. validate every pair disposition and every admitted identity before launch
+ 11. for each ordered admission: refresh source, Issue snapshot, Stage 2, and
+       reservations; skip a withdrawn item and discard the remainder on a global failure
+ 12. deterministic admission from the advisory and effective candidate surface
+       WAIT / HUMAN_REVIEW -> cache the non-start and do not launch it
+       START               -> launch the exact worker and continue while capacity remains
 [SLEEP]
 ```
 
 Properties the loop must preserve:
 
-- at most one new worker per poll;
+- at most one architect invocation and one capacity-bounded worker batch per poll;
+- every candidate/work-type pair receives exactly one disposition, and at most one work
+  type for any task may be admitted;
 - every launch carries an exact `--task-id` and a unique `--worker-id`, passed as argv with
   `shell=False`;
 - the scheduler never calls the mutating generic dispatcher, never pre-acquires an Issue or
@@ -64,8 +69,8 @@ The singleton is the *normal* mutual-exclusion mechanism. It is not the only one
 
 Explicit assignment model:
 
-- Stage 2 selects; the architect advises; deterministic Python admits; the scheduler
-  launches one exact task.
+- Stage 2 selects; the architect advises an ordered batch; deterministic Python admits;
+  the scheduler launches each exact task that remains safe at its own launch boundary.
 - The worker receives the task ID it must do. It does not re-select, and the scheduler does
   not hand it a generic "go find work" entry point.
 - The worker still performs its own claim/lease/Issue lifecycle inside its own checkout.
@@ -83,7 +88,7 @@ Explicit assignment model:
 | Workflow phase, lease, human handoff | GitHub Issue managed state block + hash-chained events | yes |
 | Claim/lease refs | Git refs | yes |
 | Branch/checkout work in progress | task checkouts and pushed branches | yes |
-| Architect advisory artifacts | `Pipeline/ArchitectureReview/outputs/orchestrator/architect/*.json` | yes (evidence only, `advisory_only_not_applied`) |
+| Architect advisory artifacts | `Pipeline/ArchitectureReview/outputs/orchestrator/architect/*.json` | yes (evidence only, `advisory_only_not_applied` or `advisory_batch_only_not_applied`) |
 | Active assignment map, WAIT cache/cooldown, per-poll and cumulative session invocation budgets | scheduler process memory | **no, by design** |
 
 Nothing in the ephemeral column is authority. Losing it costs at most one recomputation:

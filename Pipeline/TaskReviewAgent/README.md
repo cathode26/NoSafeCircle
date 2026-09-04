@@ -140,10 +140,12 @@ permission to overwrite either side.
 
 ## Decomposition handoff and application
 
-The software architect may select one eligible `work_type: decomposition`
-candidate from the same mixed portfolio as implementation work. Decomposition
-does not wait for the implementation portfolio to become empty. The selected
-parent acquires the ordinary durable Issue/task claim, while the Docker
+The software architect may include eligible `work_type: decomposition`
+candidates in the same ordered admission batch as implementation work. It must
+record a disposition for every candidate/work-type pair and may admit at most
+one work type per task up to current local capacity. Decomposition does not wait
+for the implementation portfolio to become empty. Each selected parent acquires
+the ordinary durable Issue/task claim, while the Docker
 round-robin service receives a physically read-only repository and writes only
 to the external no-overwrite output root.
 
@@ -154,13 +156,15 @@ the repository beneath an active decomposition provider. A wrong, dirty,
 stale, or differently bound `C:\NSC\NSC\<TASK-ID>` checkout stops visibly and
 is never reset or replaced.
 
-Validated resumable work, including an approved decomposition apply, receives
-its own architect decision before fresh implementation work. A safe resume is
-therefore not starved behind newly eligible tasks. A resume that the architect
-must defer is cached as a non-start, allowing the same bounded capacity batch
-to consider unrelated fresh work. The batch can launch multiple workers up to
-the configured per-poll architect budget and local worker capacity, but it
-re-runs source, Stage-2, and reservation checks after every launch.
+Validated resumable work, including an approved decomposition apply, appears
+first without hiding fresh implementation or decomposition work from the same
+architect call. A safe resume is therefore not starved behind newly eligible
+tasks, while a deferred resume cannot consume another paid call before fresh
+work is considered. One response may launch multiple workers up to local
+capacity. Before every launch, the scheduler refreshes source main, obtains a
+new Issue snapshot and consistency budget, reruns Stage 2, and rechecks current
+reservations. A withdrawn candidate is skipped; a global observation failure or
+moved source HEAD discards the remaining batch.
 
 When a committed validation policy contains a decomposition-child template,
 only a D1C-generated child whose provenance names that exact parent and exact

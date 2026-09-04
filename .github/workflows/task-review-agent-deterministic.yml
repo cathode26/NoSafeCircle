@@ -220,6 +220,10 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/issue_workflow_smoke_test.py
 
+      - name: Run software architect preflight smoke tests
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/TaskReviewAgent/tests/architect_preflight_smoke_test.py
+
       - name: Run polling orchestrator smoke tests
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/polling_orchestrator_smoke_test.py

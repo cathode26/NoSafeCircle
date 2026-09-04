@@ -27,8 +27,12 @@ if str(ROOT) not in sys.path:
 
 import Pipeline.TaskReviewAgent.polling_orchestrator as scheduler_module  # noqa: E402
 from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
+    ARCHITECT_BATCH_SCHEMA_VERSION,
     ArchitectAdvisory,
     ArchitectAnalysis,
+    ArchitectBatch,
+    ArchitectBatchAnalysis,
+    ArchitectBatchConsideration,
     PredictedChangeSurface,
     evaluate_architect_policy,
 )
@@ -51,6 +55,7 @@ from Pipeline.TaskReviewAgent.polling_orchestrator import (  # noqa: E402
     ActiveAssignment,
     DEFAULT_POLL_SECONDS,
     DEFAULT_MAX_WORKERS,
+    DockerArchitectRunner,
     IntegrationObservationError,
     IntegrationReservation,
     JsonEventEmitter,
@@ -492,33 +497,58 @@ class FakeArchitect:
     def __init__(self, values: Mapping[str, Any]) -> None:
         self.values = dict(values)
         self.calls: list[str] = []
+        self.portfolio_calls: list[tuple[str, ...]] = []
 
-    def __call__(self, **values: Any) -> ArchitectAnalysis:
+    def __call__(self, **values: Any) -> ArchitectAnalysis | ArchitectBatchAnalysis:
         if "candidates" in values:
             ids = [item["task"]["id"] for item in values["candidates"]]
-            work_types = {
-                item["task"]["id"]: set(item["eligible_work_types"])
-                for item in values["candidates"]
-            }
-            usable = [
-                task_id
-                for task_id in ids
-                if task_id in self.values
-                and not isinstance(self.values[task_id], Exception)
-                and self.values[task_id].work_type_recommendation
-                in work_types[task_id]
-            ]
-            starts = [
-                task_id
-                for task_id in usable
-                if evaluate_architect_policy(self.values[task_id]).decision == "start"
-            ]
-            if starts:
-                task_id = starts[0]
-            elif usable:
-                task_id = usable[0]
-            else:
-                task_id = ids[0]
+            self.portfolio_calls.append(tuple(ids))
+            considerations: list[ArchitectBatchConsideration] = []
+            admissions: list[ArchitectAdvisory] = []
+            admission_limit = int(values.get("admission_limit", len(ids)))
+            for item in values["candidates"]:
+                task_id = item["task"]["id"]
+                selected = self.values[task_id]
+                if isinstance(selected, Exception):
+                    raise selected
+                gate = evaluate_architect_policy(selected)
+                selected_pair = selected.work_type_recommendation
+                for work_type in item["eligible_work_types"]:
+                    matches = work_type == selected_pair
+                    disposition = (
+                        "admit"
+                        if matches
+                        and gate.decision == "start"
+                        and len(admissions) < admission_limit
+                        else (
+                            gate.decision
+                            if matches and gate.decision in {"wait", "human_review"}
+                            else "wait"
+                        )
+                    )
+                    considerations.append(
+                        ArchitectBatchConsideration(
+                            task_id=task_id,
+                            work_type=work_type,
+                            disposition=disposition,
+                            rationale=f"Fixture {disposition} decision for {task_id}.",
+                        )
+                    )
+                    if disposition == "admit":
+                        admissions.append(selected)
+            self.calls.append(admissions[0].task_id if admissions else ids[0])
+            return ArchitectBatchAnalysis(
+                analysis_id=f"analysis-batch-{len(self.calls)}",
+                batch=ArchitectBatch(
+                    source_head=values["source_head"],
+                    batch_rationale="Fixture ordered admission batch.",
+                    considered=tuple(considerations),
+                    admissions=tuple(admissions),
+                ),
+                artifact_path=Path(f"/fixture/batch-{len(self.calls)}.json"),
+                active_surface_fingerprint="f" * 64,
+                invocation_metadata={"provider": "fake", "model": "fake-model"},
+            )
         else:
             task_id = values["task"]["id"]
         self.calls.append(task_id)
@@ -553,6 +583,7 @@ def make_orchestrator(
     routing_policy: Any = None,
     routing_policy_loader: Any = None,
     excluded_task_ids: tuple[str, ...] = (),
+    source_refresher: Any = None,
 ) -> tuple[PollingOrchestrator, io.StringIO]:
     stream = io.StringIO()
     orchestrator = PollingOrchestrator(
@@ -575,11 +606,14 @@ def make_orchestrator(
         plan_builder=planner,
         task_loader=lambda task_id: tasks[task_id],
         reservation_observer=lambda: reservations,
-        source_refresher=lambda _source: {
-            "before": git(source, "rev-parse", "HEAD"),
-            "after": git(source, "rev-parse", "HEAD"),
-            "changed": False,
-        },
+        source_refresher=source_refresher
+        or (
+            lambda _source: {
+                "before": git(source, "rev-parse", "HEAD"),
+                "after": git(source, "rev-parse", "HEAD"),
+                "changed": False,
+            }
+        ),
         process_factory=processes,
         event_emitter=JsonEventEmitter(stream),
         excluded_task_ids=excluded_task_ids,
@@ -780,7 +814,7 @@ def test_max_workers_blocks_launch() -> None:
         require(not processes.calls, "capacity-full poll launched a worker")
 
 
-def test_at_most_one_new_worker_per_poll() -> None:
+def test_conflicting_batch_truncates_before_second_launch() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
         planner = SequencePlanner([candidate_plan(head, TASK_A, TASK_B)])
@@ -795,8 +829,11 @@ def test_at_most_one_new_worker_per_poll() -> None:
             tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
         )
         orchestrator.poll_once()
-        require(len(processes.calls) == 1, f"poll launched {len(processes.calls)} workers")
-        require(len(planner.calls) == 1, f"planner was rebuilt after successful launch")
+        require(len(processes.calls) == 1, f"conflicting batch launched {len(processes.calls)} workers")
+        require(
+            len(planner.calls) == 2,
+            f"retained admission was not revalidated exactly once: {planner.calls}",
+        )
 
 
 def test_active_task_ids_feed_stage2_exclusions() -> None:
@@ -890,7 +927,7 @@ def test_architect_portfolio_selects_disjoint_candidate_in_one_call() -> None:
         )
         result = orchestrator.poll_once()
         require(result.status == "worker_launched" and result.task_id == TASK_B, str(result))
-        require(planner.calls == [set()], str(planner.calls))
+        require(planner.calls == [set(), {TASK_A}], str(planner.calls))
         require(architect.calls == [TASK_B], str(architect.calls))
         require('"portfolio_size": 2' in stream.getvalue(), stream.getvalue())
 
@@ -1006,6 +1043,7 @@ def test_capacity_batch_uses_per_poll_budget_to_fill_slots() -> None:
         planner = SequencePlanner(
             [
                 candidate_plan(head, TASK_A, TASK_B, TASK_C),
+                candidate_plan(head, TASK_A, TASK_B, TASK_C),
                 candidate_plan(head, TASK_B, TASK_C),
                 candidate_plan(head, TASK_C),
             ]
@@ -1029,12 +1067,146 @@ def test_capacity_batch_uses_per_poll_budget_to_fill_slots() -> None:
         )
         result = orchestrator.poll_capacity_batch()
         require(result.status == "worker_launched" and result.task_id == TASK_C, str(result))
-        require(architect.calls == [TASK_A, TASK_B, TASK_C], str(architect.calls))
+        require(architect.calls == [TASK_A], str(architect.calls))
+        require(
+            architect.portfolio_calls == [(TASK_A, TASK_B, TASK_C)],
+            str(architect.portfolio_calls),
+        )
         require(len(processes.calls) == 3 and len(orchestrator.active_assignments) == 3, str(processes.calls))
         events = [json.loads(line) for line in stream.getvalue().splitlines()]
         completed = [item for item in events if item["event"] == "poll_capacity_batch_completed"][-1]
         require(completed["launched_task_ids"] == [TASK_A, TASK_B, TASK_C], str(completed))
-        require(completed["architect_invocations"] == 3, str(completed))
+        require(completed["architect_invocations"] == 1, str(completed))
+
+
+def test_batch_candidate_withdrawal_does_not_starve_later_admission() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner(
+            [
+                candidate_plan(head, TASK_A, TASK_B),
+                candidate_plan(head, TASK_B),
+                candidate_plan(head, TASK_B),
+            ]
+        )
+        architect = FakeArchitect(
+            {
+                TASK_A: advisory(TASK_A, head, exact_paths=(f"Assets/{TASK_A}.cs",)),
+                TASK_B: advisory(TASK_B, head, exact_paths=(f"Assets/{TASK_B}.cs",)),
+            }
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
+            max_workers=2,
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_launched" and result.task_id == TASK_B, str(result))
+        require(
+            [command[command.index("--task-id") + 1] for command, _ in processes.calls]
+            == [TASK_B],
+            str(processes.calls),
+        )
+        require(architect.calls == [TASK_A], str(architect.calls))
+        require('"event": "architect_batch_candidate_withdrawn"' in stream.getvalue(), stream.getvalue())
+
+
+def test_source_move_after_architect_discards_batch_before_launch() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        refresh_calls = {"count": 0}
+
+        def moving_source(_source: Path) -> dict[str, Any]:
+            refresh_calls["count"] += 1
+            return {
+                "before": head,
+                "after": head if refresh_calls["count"] == 1 else "2" * 40,
+                "changed": refresh_calls["count"] > 1,
+            }
+
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([candidate_plan(head, TASK_A)]),
+            architect=FakeArchitect({TASK_A: advisory(TASK_A, head)}),
+            processes=processes,
+            tasks={TASK_A: task(TASK_A)},
+            source_refresher=moving_source,
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "batch_revalidation_failed" and not result.fatal, str(result))
+        require(not processes.calls, str(processes.calls))
+        require(refresh_calls["count"] == 2, str(refresh_calls))
+        require('"event": "architect_batch_discarded"' in stream.getvalue(), stream.getvalue())
+
+
+def test_docker_architect_runner_parses_batch_envelope() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        artifacts = root / "architect-artifacts"
+        artifacts.mkdir()
+        artifact_name = "fixture-batch.json"
+        (artifacts / artifact_name).write_text("{}\n", encoding="utf-8", newline="\n")
+        selected = advisory(TASK_A, head)
+        batch = ArchitectBatch(
+            source_head=head,
+            batch_rationale="Fixture batch envelope.",
+            considered=(
+                ArchitectBatchConsideration(
+                    task_id=TASK_A,
+                    work_type="implementation",
+                    disposition="admit",
+                    rationale="Fixture admits the ready HUD task.",
+                ),
+            ),
+            admissions=(selected,),
+        )
+        captured: dict[str, Any] = {}
+
+        def command_runner(command: Any, **values: Any) -> subprocess.CompletedProcess[bytes]:
+            captured["command"] = tuple(command)
+            captured["request"] = json.loads(values["input_bytes"].decode("utf-8"))
+            envelope = {
+                "schema_version": ARCHITECT_BATCH_SCHEMA_VERSION,
+                "analysis_id": "fixture-batch-analysis",
+                "batch": batch.to_dict(),
+                "artifact_name": artifact_name,
+                "active_surface_fingerprint": "f" * 64,
+                "invocation_metadata": {"provider": "fake", "model": "fake-model"},
+            }
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout=(json.dumps(envelope) + "\n").encode("utf-8"),
+                stderr=b"",
+            )
+
+        runner = DockerArchitectRunner(
+            source=source,
+            artifact_root=artifacts,
+            provider="claude",
+            model=None,
+            max_turns=5,
+            command_runner=command_runner,
+        )
+        analysis = runner(
+            candidates=[
+                {"task": task(TASK_A), "eligible_work_types": ["implementation"]}
+            ],
+            source_head=head,
+            reservations=(),
+            scheduler_id="fixture-scheduler",
+            admission_limit=1,
+        )
+        require(isinstance(analysis, ArchitectBatchAnalysis), str(type(analysis)))
+        require(analysis.batch.admissions == (selected,), str(analysis.batch))
+        require(captured["request"]["admission_limit"] == 1, str(captured))
+        require("candidates" in captured["request"], str(captured))
 
 
 def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> None:
@@ -1122,10 +1294,11 @@ def test_resume_wait_does_not_starve_stage2_ranked_fresh_work() -> None:
             str(result),
         )
         require(
-            planner.calls == [set(), set(), {TASK_B}],
+            planner.calls == [set(), {TASK_A}],
             f"unexpected Stage-2 passes: {planner.calls}",
         )
-        require(architect.calls == [TASK_A, TASK_B], str(architect.calls))
+        require(architect.calls == [TASK_B], str(architect.calls))
+        require(architect.portfolio_calls == [(TASK_A, TASK_B)], str(architect.portfolio_calls))
 
 
 def test_excluded_task_id_is_not_admitted_via_resume_slot() -> None:
@@ -1219,7 +1392,7 @@ def test_resume_survives_typed_taskgraph_observation_failure() -> None:
             and not result.fatal,
             str(result),
         )
-        require(len(planner.plans) == 1, str(planner.plans))
+        require(len(planner.plans) == 2, str(planner.plans))
         plan = planner.plans[0]
         require(
             plan.resume
@@ -1243,9 +1416,9 @@ def test_resume_survives_typed_taskgraph_observation_failure() -> None:
             ),
             str(plan.reasons),
         )
-        require(planner.calls == [set()], f"Stage 2 ran more than once: {planner.calls}")
-        require(workflow.list_agent_ready_calls == 1, str(workflow.list_agent_ready_calls))
-        require(observations["count"] == 1, str(observations))
+        require(planner.calls == [set(), set()], f"unexpected Stage 2 passes: {planner.calls}")
+        require(workflow.list_agent_ready_calls == 2, str(workflow.list_agent_ready_calls))
+        require(observations["count"] == 2, str(observations))
         require(architect.calls == [TASK_A], str(architect.calls))
         require(len(processes.calls) == 1, str(processes.calls))
         require(
@@ -1391,7 +1564,7 @@ def test_merge_uncertainty_waits_and_never_asks_a_human() -> None:
         require('"event": "architect_human_review"' not in events, events)
 
 
-def test_portfolio_architect_can_select_usable_candidate() -> None:
+def test_unusable_batch_launches_zero_workers() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
         planner = SequencePlanner([candidate_plan(head, TASK_A, TASK_B)])
@@ -1415,18 +1588,12 @@ def test_portfolio_architect_can_select_usable_candidate() -> None:
         )
         result = orchestrator.poll_once()
         events = stream.getvalue()
-        require(
-            result.status == "worker_launched" and result.task_id == TASK_B, str(result)
-        )
-        require(not result.fatal, "portfolio selection was treated as fatal")
-        require(architect.calls == [TASK_B], str(architect.calls))
+        require(result.status == "idle" and not result.fatal, str(result))
+        require(not architect.calls, str(architect.calls))
         require('"portfolio_size": 2' in events, events)
         require(planner.calls == [set()], str(planner.calls))
-        require(
-            [command[command.index("--task-id") + 1] for command, _ in processes.calls]
-            == [TASK_B],
-            str(processes.calls),
-        )
+        require(not processes.calls, str(processes.calls))
+        require('"event": "architect_wait"' in events, events)
 
 
 def unknown_surface_reservation(task_id: str, *, resources: tuple[str, ...]) -> IntegrationReservation:
@@ -2774,10 +2941,13 @@ def main() -> int:
         test_resume_existing_remains_stage2_priority,
         test_safe_resume_is_selected_before_fresh_start,
         test_capacity_batch_uses_per_poll_budget_to_fill_slots,
+        test_batch_candidate_withdrawal_does_not_starve_later_admission,
+        test_source_move_after_architect_discards_batch_before_launch,
+        test_docker_architect_runner_parses_batch_envelope,
         test_every_worker_command_has_exact_task_and_unique_worker_id,
         test_scheduler_has_no_generic_contention_retry_or_taskless_launch,
         test_max_workers_blocks_launch,
-        test_at_most_one_new_worker_per_poll,
+        test_conflicting_batch_truncates_before_second_launch,
         test_active_task_ids_feed_stage2_exclusions,
         test_session_exclusions_feed_every_stage2_poll,
         test_exclude_task_id_cli_is_repeatable_and_validated,
@@ -2794,7 +2964,7 @@ def main() -> int:
         test_resume_waits_safely_when_fresh_pool_observation_is_unavailable,
         test_design_escalation_reaches_human_review_and_launches_nothing,
         test_merge_uncertainty_waits_and_never_asks_a_human,
-        test_portfolio_architect_can_select_usable_candidate,
+        test_unusable_batch_launches_zero_workers,
         test_unknown_in_flight_surface_waits_before_paying_for_the_architect,
         test_unknown_surface_does_not_deadlock_provably_disjoint_work,
         test_unjustified_unknown_surface_waits_after_the_architect_answers,

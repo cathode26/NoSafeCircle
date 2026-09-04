@@ -70,6 +70,7 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
 
 
 ARCHITECT_ADVISORY_SCHEMA_VERSION = "1.2"
+ARCHITECT_BATCH_SCHEMA_VERSION = "1.0"
 ARCHITECT_PROVIDER_CONFIGURATION_KEYS = {
     "claude": "polling-architect-claude",
     "codex": "polling-architect-codex",
@@ -204,6 +205,34 @@ ARCHITECT_ADVISORY_SCHEMA: dict[str, Any] = _strict_object(
         "evidence": _array(EVIDENCE_OBSERVATION_SCHEMA),
         "confidence": {"type": "number", "minimum": 0, "maximum": 1},
         "assumptions": _STRING_ARRAY,
+    }
+)
+
+ARCHITECT_BATCH_CONSIDERATION_SCHEMA: dict[str, Any] = _strict_object(
+    {
+        "task_id": _STRING,
+        "work_type": {
+            "type": "string",
+            "enum": ["implementation", "decomposition"],
+        },
+        "disposition": {
+            "type": "string",
+            "enum": ["admit", "wait", "human_review", "ineligible"],
+        },
+        "rationale": _STRING,
+    }
+)
+
+ARCHITECT_BATCH_SCHEMA: dict[str, Any] = _strict_object(
+    {
+        "schema_version": {
+            "type": "string",
+            "enum": [ARCHITECT_BATCH_SCHEMA_VERSION],
+        },
+        "source_head": _STRING,
+        "batch_rationale": _STRING,
+        "considered": _array(ARCHITECT_BATCH_CONSIDERATION_SCHEMA),
+        "admissions": _array(ARCHITECT_ADVISORY_SCHEMA),
     }
 )
 
@@ -528,6 +557,119 @@ class ArchitectAdvisory:
 
 
 @dataclass(frozen=True)
+class ArchitectBatchConsideration:
+    task_id: str
+    work_type: str
+    disposition: str
+    rationale: str
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "ArchitectBatchConsideration":
+        try:
+            validate_instance(value, ARCHITECT_BATCH_CONSIDERATION_SCHEMA)
+        except SchemaValidationError as exc:
+            raise ArchitectPreflightError(
+                f"architect batch consideration schema rejected: {exc}"
+            ) from exc
+        if not isinstance(value, Mapping):
+            raise ArchitectPreflightError("architect batch consideration must be an object")
+        try:
+            task_id = validate_task_id(value["task_id"])
+        except TaskReviewContractError as exc:
+            raise ArchitectPreflightError(str(exc)) from exc
+        return cls(
+            task_id=task_id,
+            work_type=value["work_type"],
+            disposition=value["disposition"],
+            rationale=_nonempty_text(value["rationale"], field="considered.rationale"),
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "task_id": self.task_id,
+            "work_type": self.work_type,
+            "disposition": self.disposition,
+            "rationale": self.rationale,
+        }
+
+
+@dataclass(frozen=True)
+class ArchitectBatch:
+    source_head: str
+    batch_rationale: str
+    considered: tuple[ArchitectBatchConsideration, ...]
+    admissions: tuple[ArchitectAdvisory, ...]
+
+    @classmethod
+    def from_dict(cls, value: Any) -> "ArchitectBatch":
+        try:
+            validate_instance(value, ARCHITECT_BATCH_SCHEMA)
+        except SchemaValidationError as exc:
+            raise ArchitectPreflightError(f"architect batch schema rejected: {exc}") from exc
+        if not isinstance(value, Mapping):
+            raise ArchitectPreflightError("architect batch must be an object")
+        source_head = _nonempty_text(value["source_head"], field="source_head")
+        if GIT_SHA_RE.fullmatch(source_head) is None:
+            raise ArchitectPreflightError("source_head must be a 40-character Git SHA")
+        considered = tuple(
+            ArchitectBatchConsideration.from_dict(item) for item in value["considered"]
+        )
+        considered_pairs = tuple((item.task_id, item.work_type) for item in considered)
+        if len(set(considered_pairs)) != len(considered_pairs):
+            raise ArchitectPreflightError(
+                "architect batch considered the same task/work-type pair more than once"
+            )
+        admissions = tuple(
+            ArchitectAdvisory.from_dict(item) for item in value["admissions"]
+        )
+        admission_pairs = tuple(
+            (item.task_id, item.work_type_recommendation) for item in admissions
+        )
+        if len({item.task_id for item in admissions}) != len(admissions):
+            raise ArchitectPreflightError(
+                "architect batch contains duplicate task admissions"
+            )
+        if len(set(admission_pairs)) != len(admission_pairs):
+            raise ArchitectPreflightError(
+                "architect batch contains duplicate task/work-type admissions"
+            )
+        admitted_considerations = {
+            (item.task_id, item.work_type)
+            for item in considered
+            if item.disposition == "admit"
+        }
+        if admitted_considerations != set(admission_pairs):
+            raise ArchitectPreflightError(
+                "architect batch admit dispositions do not exactly match admissions"
+            )
+        if any(item.parallel_recommendation != "start" for item in admissions):
+            raise ArchitectPreflightError(
+                "architect batch admissions must have parallel_recommendation=start"
+            )
+        if any(item.source_head != source_head for item in admissions):
+            raise ArchitectPreflightError(
+                "architect batch admission changed the batch source HEAD identity"
+            )
+        return cls(
+            source_head=source_head,
+            batch_rationale=_nonempty_text(
+                value["batch_rationale"], field="batch_rationale"
+            ),
+            considered=considered,
+            admissions=admissions,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": ARCHITECT_BATCH_SCHEMA_VERSION,
+            "source_head": self.source_head,
+            "batch_rationale": self.batch_rationale,
+            "considered": [item.to_dict() for item in self.considered],
+            "admissions": [item.to_dict() for item in self.admissions],
+        }
+
+
+@dataclass(frozen=True)
 class ArchitectPolicyDecision:
     decision: str
     reasons: tuple[str, ...]
@@ -560,6 +702,25 @@ class ArchitectAnalysis:
             "schema_version": ARCHITECT_ADVISORY_SCHEMA_VERSION,
             "analysis_id": self.analysis_id,
             "advisory": self.advisory.to_dict(),
+            "artifact_name": self.artifact_path.name,
+            "active_surface_fingerprint": self.active_surface_fingerprint,
+            "invocation_metadata": dict(self.invocation_metadata),
+        }
+
+
+@dataclass(frozen=True)
+class ArchitectBatchAnalysis:
+    analysis_id: str
+    batch: ArchitectBatch
+    artifact_path: Path
+    active_surface_fingerprint: str
+    invocation_metadata: Mapping[str, Any]
+
+    def to_transport_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": ARCHITECT_BATCH_SCHEMA_VERSION,
+            "analysis_id": self.analysis_id,
+            "batch": self.batch.to_dict(),
             "artifact_name": self.artifact_path.name,
             "active_surface_fingerprint": self.active_surface_fingerprint,
             "invocation_metadata": dict(self.invocation_metadata),
@@ -845,27 +1006,35 @@ def build_portfolio_prompt(
     candidates: Sequence[Mapping[str, Any]],
     source_head: str,
     reservations: Sequence[Any],
+    admission_limit: int,
 ) -> str:
-    """Ask for one exact task/work-type choice from a mixed safe pool."""
+    """Ask for one bounded ordered admission batch from a mixed safe pool."""
 
     if GIT_SHA_RE.fullmatch(str(source_head)) is None:
         raise ArchitectPreflightError("source_head must be a 40-character Git SHA")
+    if type(admission_limit) is not int or admission_limit < 1:
+        raise ArchitectPreflightError("admission_limit must be a positive integer")
     portfolio = _portfolio_candidates(candidates)
     reservations_value = _reservation_dicts(reservations)
     return f"""# Polling orchestrator mixed-work portfolio selection
 
-You are the read-only software architect selecting exactly one next work item at
+You are the read-only software architect selecting an ordered batch of next work items at
 committed source HEAD `{source_head}`. Deterministic Python has already computed the
 eligible work types for every candidate. You may choose implementation or decomposition
 even while both kinds are available; do not treat decomposition as a fallback.
 
 Authority and safety rules:
-- Select exactly one supplied candidate and one value from that candidate's
-  `eligible_work_types`. Never invent or alter a task, work type, identity, dependency,
-  resource, TaskGraph contract, or repository file.
-- Return the existing complete strict architect advisory schema for the selected task.
-  Echo its task ID, task-contract SHA-256, and source HEAD exactly. Put the selected work
-  type in `work_type_recommendation`.
+- Consider every supplied candidate/work-type pair exactly once. Return one `considered`
+  entry for each pair, with a disposition of `admit`, `wait`, `human_review`, or
+  `ineligible`. Never invent or alter a task, work type, identity, dependency, resource,
+  TaskGraph contract, or repository file.
+- Admit at most {admission_limit} tasks and at most one work type for any task. Put every
+  admitted pair in `admissions`, in launch order, using the existing complete strict
+  architect advisory schema. Every pair marked `admit` must have exactly one advisory,
+  and every advisory must correspond to a pair marked `admit`.
+- Echo the source HEAD and each task-contract SHA-256 exactly. Each admission must use
+  `parallel_recommendation: start` and put the selected work type in
+  `work_type_recommendation`. Return an empty `admissions` list when nothing is safe.
 - Prefer useful near-frontier decomposition when it unlocks safe parallel work or makes
   an oversized/uncertain parent executable. Prefer implementation when it is the most
   useful coherent ready unit. The presence of implementation work does not disqualify
@@ -873,6 +1042,9 @@ Authority and safety rules:
 - Apply the same conservative parallel-integration policy as ordinary architect
   preflight: uncertainty is WAIT, design/canon ambiguity alone is HUMAN_REVIEW, and
   START requires positive evidence of disjointness from every supplied reservation.
+- Treat earlier entries in `admissions` as additional in-flight work when deciding every
+  later entry. Order the most useful mutually compatible work first; do not reorder around
+  a conflict that makes a later admission unsafe.
 - `execution_recommendation` is advisory only. Inspect repository evidence as needed,
   but use read/search capability only and claim no commands, tests, or changes.
 - Return every schema field and every list, including empty lists. Every
@@ -904,8 +1076,14 @@ def build_portfolio_request(
     max_turns: int = DEFAULT_ARCHITECT_MAX_TURNS,
     timeout_seconds: float = DEFAULT_ARCHITECT_TIMEOUT_SECONDS,
     run_id: str | None = None,
+    admission_limit: int | None = None,
 ) -> AgentInvocationRequest:
     portfolio = _portfolio_candidates(candidates)
+    resolved_admission_limit = (
+        len(portfolio) if admission_limit is None else admission_limit
+    )
+    if type(resolved_admission_limit) is not int or resolved_admission_limit < 1:
+        raise ArchitectPreflightError("admission_limit must be a positive integer")
     generated_run_id = run_id or f"architect-portfolio-{uuid.uuid4().hex[:16]}"
     task_paths = tuple(f"Tasks/{item['task']['id']}.yaml" for item in portfolio)
     return AgentInvocationRequest(
@@ -916,11 +1094,12 @@ def build_portfolio_request(
             candidates=portfolio,
             source_head=source_head,
             reservations=reservations,
+            admission_limit=resolved_admission_limit,
         ),
         context_paths=(*task_paths, "Assets", "Packages", "ProjectSettings"),
         allowed_capabilities=("repository_read", "repository_search"),
         write_boundaries=WriteBoundaries((), ()),
-        output_schema=ARCHITECT_ADVISORY_SCHEMA,
+        output_schema=ARCHITECT_BATCH_SCHEMA,
         model_capability_class="high_reasoning",
         budgets=Budgets(max_turns, timeout_seconds, None),
         provider_configuration_key=provider_configuration_key,
@@ -1092,8 +1271,9 @@ def analyze_portfolio(
     provider_configuration_key: str,
     max_turns: int = DEFAULT_ARCHITECT_MAX_TURNS,
     timeout_seconds: float = DEFAULT_ARCHITECT_TIMEOUT_SECONDS,
-) -> ArchitectAnalysis:
-    """Select and bind one exact candidate/work-type pair from a mixed pool."""
+    admission_limit: int | None = None,
+) -> ArchitectBatchAnalysis:
+    """Select and bind one bounded ordered batch from a mixed candidate pool."""
 
     portfolio = _portfolio_candidates(candidates)
     allowed = {
@@ -1101,6 +1281,13 @@ def analyze_portfolio(
         for item in portfolio
         for work_type in item["eligible_work_types"]
     }
+    resolved_admission_limit = (
+        len({item[0] for item in allowed})
+        if admission_limit is None
+        else admission_limit
+    )
+    if type(resolved_admission_limit) is not int or resolved_admission_limit < 1:
+        raise ArchitectPreflightError("admission_limit must be a positive integer")
     request = build_portfolio_request(
         candidates=portfolio,
         source_head=source_head,
@@ -1108,6 +1295,7 @@ def analyze_portfolio(
         provider_configuration_key=provider_configuration_key,
         max_turns=max_turns,
         timeout_seconds=timeout_seconds,
+        admission_limit=resolved_admission_limit,
     )
     try:
         result = invoker(request)
@@ -1130,20 +1318,32 @@ def analyze_portfolio(
         raise ArchitectPreflightError(
             "read-only architect claimed repository changes, command execution, or tests"
         )
-    advisory = ArchitectAdvisory.from_dict(thaw_json(result.structured_output))
-    pair = (advisory.task_id, advisory.work_type_recommendation)
-    selected = allowed.get(pair)
-    if selected is None:
-        raise ArchitectPreflightError(
-            "architect selected a task/work-type pair outside the deterministic portfolio"
-        )
-    if advisory.source_head != source_head:
+    batch = ArchitectBatch.from_dict(thaw_json(result.structured_output))
+    if batch.source_head != source_head:
         raise ArchitectPreflightError("architect changed source HEAD identity")
-    if advisory.task_contract_sha256 != selected["task_contract_sha256"]:
-        raise ArchitectPreflightError("architect changed task-contract hash identity")
+    considered_pairs = {(item.task_id, item.work_type) for item in batch.considered}
+    if considered_pairs != set(allowed):
+        raise ArchitectPreflightError(
+            "architect batch did not consider every deterministic portfolio pair exactly once"
+        )
+    if len(batch.admissions) > resolved_admission_limit:
+        raise ArchitectPreflightError(
+            "architect batch exceeded the deterministic admission limit"
+        )
+    for advisory in batch.admissions:
+        pair = (advisory.task_id, advisory.work_type_recommendation)
+        selected = allowed.get(pair)
+        if selected is None:
+            raise ArchitectPreflightError(
+                "architect selected a task/work-type pair outside the deterministic portfolio"
+            )
+        if advisory.source_head != source_head:
+            raise ArchitectPreflightError("architect changed source HEAD identity")
+        if advisory.task_contract_sha256 != selected["task_contract_sha256"]:
+            raise ArchitectPreflightError("architect changed task-contract hash identity")
 
     analysis_id = (
-        f"architect-portfolio-{advisory.task_id.casefold()}-"
+        "architect-portfolio-batch-"
         f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-"
         f"{uuid.uuid4().hex[:12]}"
     )
@@ -1160,27 +1360,34 @@ def analyze_portfolio(
     _safe_write_json(
         artifact_path,
         {
-            "schema_version": ARCHITECT_ADVISORY_SCHEMA_VERSION,
+            "schema_version": ARCHITECT_BATCH_SCHEMA_VERSION,
             "analysis_id": analysis_id,
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
             "scheduler": {
                 "scheduler_id": _nonempty_text(scheduler_id, field="scheduler_id"),
-                "selected_task_id": advisory.task_id,
-                "selected_work_type": advisory.work_type_recommendation,
+                "admission_limit": resolved_admission_limit,
+                "admission_count": len(batch.admissions),
+                "admitted_pairs": [
+                    {
+                        "task_id": item.task_id,
+                        "work_type": item.work_type_recommendation,
+                    }
+                    for item in batch.admissions
+                ],
             },
             "source_head": source_head,
             "eligible_portfolio": portfolio,
             "active_integration_surface_fingerprint": active_surface_fingerprint(
                 reservations
             ),
-            "structured_architect_output": advisory.to_dict(),
+            "structured_architect_output": batch.to_dict(),
             "invocation": invocation_metadata,
-            "authority": "advisory_selection_only_not_applied",
+            "authority": "advisory_batch_only_not_applied",
         },
     )
-    return ArchitectAnalysis(
+    return ArchitectBatchAnalysis(
         analysis_id=analysis_id,
-        advisory=advisory,
+        batch=batch,
         artifact_path=artifact_path,
         active_surface_fingerprint=active_surface_fingerprint(reservations),
         invocation_metadata=invocation_metadata,
@@ -1721,6 +1928,7 @@ def main(argv: list[str] | None = None) -> int:
             "source_head",
             "candidates",
             "reservations",
+            "admission_limit",
         }):
             raise ArchitectPreflightError(
                 "stdin must contain source_head/reservations and exactly one of task "
@@ -1764,6 +1972,7 @@ def main(argv: list[str] | None = None) -> int:
                 provider_configuration_key=invoker.configuration_key,
                 max_turns=args.max_turns,
                 timeout_seconds=args.timeout_seconds,
+                admission_limit=payload["admission_limit"],
             )
         print(
             json.dumps(
@@ -1798,6 +2007,9 @@ if __name__ == "__main__":
 __all__ = [
     "ARCHITECT_ADVISORY_SCHEMA",
     "ARCHITECT_ADVISORY_SCHEMA_VERSION",
+    "ARCHITECT_BATCH_CONSIDERATION_SCHEMA",
+    "ARCHITECT_BATCH_SCHEMA",
+    "ARCHITECT_BATCH_SCHEMA_VERSION",
     "ARCHITECT_ESCALATION_CATEGORIES",
     "ARCHITECT_PROVIDER_CONFIGURATION_KEYS",
     "DEFAULT_ARCHITECT_DECISION_CACHE_ENTRIES",
@@ -1809,6 +2021,9 @@ __all__ = [
     "UNITY_SERIALIZED_SUFFIXES",
     "ArchitectAdvisory",
     "ArchitectAnalysis",
+    "ArchitectBatch",
+    "ArchitectBatchAnalysis",
+    "ArchitectBatchConsideration",
     "ArchitectDecisionCache",
     "ArchitectEscalation",
     "ArchitectPolicyDecision",

@@ -4,7 +4,7 @@
 Stage 2 remains the only task-selection authority. This scheduler supplies
 temporary per-poll exclusions, observes integration occupancy, asks the
 architect for advice, applies deterministic conservative admission, and
-launches at most one exact-task worker per poll. It never claims a task or
+launches one bounded ordered batch of exact-task workers per poll. It never claims a task or
 mutates an Issue itself.
 
 Admission optimizes for clean parallelism. Any uncertainty about parallel
@@ -47,12 +47,15 @@ if str(PIPELINE_ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ARCHITECT_ADVISORY_SCHEMA_VERSION,
+    ARCHITECT_BATCH_SCHEMA_VERSION,
     DEFAULT_ARCHITECT_MAX_TURNS,
     DEFAULT_ARCHITECT_MIN_CONFIDENCE,
     DEFAULT_ARCHITECT_TIMEOUT_SECONDS,
     UNITY_SERIALIZED_SUFFIXES,
     ArchitectAdvisory,
     ArchitectAnalysis,
+    ArchitectBatch,
+    ArchitectBatchAnalysis,
     ArchitectDecisionCache,
     ArchitectPolicyDecision,
     ArchitectPreflightError,
@@ -1034,7 +1037,8 @@ class DockerArchitectRunner:
         source_head: str,
         reservations: Sequence[IntegrationReservation],
         scheduler_id: str,
-    ) -> ArchitectAnalysis:
+        admission_limit: int | None = None,
+    ) -> ArchitectAnalysis | ArchitectBatchAnalysis:
         if (task is None) == (candidates is None):
             raise ArchitectPreflightError(
                 "architect runner requires exactly one task or candidate portfolio"
@@ -1047,6 +1051,17 @@ class DockerArchitectRunner:
             request["task"] = dict(task)
         else:
             request["candidates"] = [dict(item) for item in candidates or ()]
+            resolved_admission_limit = (
+                len(candidates or ()) if admission_limit is None else admission_limit
+            )
+            if (
+                type(resolved_admission_limit) is not int
+                or resolved_admission_limit < 1
+            ):
+                raise ArchitectPreflightError(
+                    "architect batch admission limit must be a positive integer"
+                )
+            request["admission_limit"] = resolved_admission_limit
         completed = self.command_runner(
             self.command(scheduler_id=scheduler_id),
             cwd=self.source,
@@ -1074,19 +1089,30 @@ class DockerArchitectRunner:
             raise ArchitectPreflightError(
                 "architect container did not return one JSON result"
             ) from exc
+        result_key = "advisory" if task is not None else "batch"
         expected = {
             "schema_version",
             "analysis_id",
-            "advisory",
+            result_key,
             "artifact_name",
             "active_surface_fingerprint",
             "invocation_metadata",
         }
         if not isinstance(value, dict) or set(value) != expected:
             raise ArchitectPreflightError("architect container result envelope is invalid")
-        if value.get("schema_version") != ARCHITECT_ADVISORY_SCHEMA_VERSION:
+        expected_version = (
+            ARCHITECT_ADVISORY_SCHEMA_VERSION
+            if task is not None
+            else ARCHITECT_BATCH_SCHEMA_VERSION
+        )
+        if value.get("schema_version") != expected_version:
             raise ArchitectPreflightError("architect container schema version is invalid")
-        advisory = ArchitectAdvisory.from_dict(value["advisory"])
+        advisory = (
+            ArchitectAdvisory.from_dict(value["advisory"])
+            if task is not None
+            else None
+        )
+        batch = ArchitectBatch.from_dict(value["batch"]) if task is None else None
         artifact_name = value["artifact_name"]
         if (
             type(artifact_name) is not str
@@ -1102,13 +1128,16 @@ class DockerArchitectRunner:
         metadata = value["invocation_metadata"]
         if not isinstance(metadata, Mapping):
             raise ArchitectPreflightError("architect invocation metadata is invalid")
-        return ArchitectAnalysis(
-            analysis_id=str(value["analysis_id"]),
-            advisory=advisory,
-            artifact_path=artifact_path,
-            active_surface_fingerprint=str(value["active_surface_fingerprint"]),
-            invocation_metadata=dict(metadata),
-        )
+        analysis_values = {
+            "analysis_id": str(value["analysis_id"]),
+            "artifact_path": artifact_path,
+            "active_surface_fingerprint": str(value["active_surface_fingerprint"]),
+            "invocation_metadata": dict(metadata),
+        }
+        if advisory is not None:
+            return ArchitectAnalysis(advisory=advisory, **analysis_values)
+        assert batch is not None
+        return ArchitectBatchAnalysis(batch=batch, **analysis_values)
 
 
 def build_worker_command(
@@ -1263,7 +1292,7 @@ class PollingOrchestrator:
         max_turns: int | None,
         max_workers: int,
         architect_min_confidence: float,
-        architect_runner: Callable[..., ArchitectAnalysis],
+        architect_runner: Callable[..., ArchitectAnalysis | ArchitectBatchAnalysis],
         routing_policy: ExecutionRoutingPolicy | None = None,
         routing_policy_loader: Callable[[], ExecutionRoutingPolicy] | None = None,
         max_architect_invocations_per_poll: int = (
@@ -1719,7 +1748,7 @@ class PollingOrchestrator:
         cache_key: str,
         cooldown_key: str,
         decision: ArchitectPolicyDecision,
-        analysis: ArchitectAnalysis | None = None,
+        analysis: ArchitectAnalysis | ArchitectBatchAnalysis | None = None,
         cached: bool = False,
     ) -> None:
         """Emit and remember one non-start admission decision.
@@ -2052,16 +2081,24 @@ class PollingOrchestrator:
             entry for entry in mixed_portfolio if entry[1] is not None
         )
         if resume_portfolio:
-            # A durable resume already passed through human or prior agent work. Give
-            # it a dedicated architect decision before offering fresh work. If the
-            # architect returns WAIT/HUMAN_REVIEW, the decision cache removes the
-            # resume on the next capacity pass and fresh work can still proceed.
-            mixed_portfolio = resume_portfolio[:1]
+            # A durable resume already passed through human or prior agent work, so
+            # present it first without hiding fresh implementation or decomposition
+            # work from the same bounded architect batch.
+            resume_ids = {entry[2]["task"]["id"] for entry in resume_portfolio}
+            mixed_portfolio = (
+                *resume_portfolio,
+                *(
+                    entry
+                    for entry in mixed_portfolio
+                    if entry[2]["task"]["id"] not in resume_ids
+                ),
+            )
             self.events.emit(
                 "resume_priority_applied",
                 task_id=mixed_portfolio[0][2]["task"]["id"],
                 resume_phase=mixed_portfolio[0][1],
-                deferred_fresh_candidate_count=len(prefiltered_portfolio) - 1,
+                deferred_fresh_candidate_count=0,
+                same_batch_fresh_candidate_count=len(mixed_portfolio) - len(resume_portfolio),
             )
         if self.dry_run:
             selected_id = mixed_portfolio[0][2]["task"]["id"]
@@ -2094,6 +2131,10 @@ class PollingOrchestrator:
             )
             return PollCycleResult("architect_budget_exhausted")
         portfolio_request = [item[2] for item in mixed_portfolio]
+        admission_limit = min(
+            self.max_workers - len(self.active_assignments),
+            MAX_CANDIDATES_PER_POLL,
+        )
         self.events.emit(
             "architect_started",
             source_head=plan.source_commit,
@@ -2114,25 +2155,29 @@ class PollingOrchestrator:
                 source_head=plan.source_commit,
                 reservations=reservations,
                 scheduler_id=self.scheduler_id,
+                admission_limit=admission_limit,
             )
-            selected_advisory = portfolio_analysis.advisory
-            selected_key = (
-                selected_advisory.task_id,
-                selected_advisory.work_type_recommendation,
-            )
-            selected_entry = next(
-                (
-                    item
-                    for item in mixed_portfolio
-                    if item[2]["task"]["id"] == selected_key[0]
-                    and selected_key[1] in item[2]["eligible_work_types"]
-                ),
-                None,
-            )
-            if selected_entry is None:
+            if not isinstance(portfolio_analysis, ArchitectBatchAnalysis):
                 raise ArchitectPreflightError(
-                    "architect selected a pair outside the revalidated mixed portfolio"
+                    "mixed-portfolio architect did not return a batch analysis"
                 )
+            entry_by_pair = {
+                (item[2]["task"]["id"], work_type): item
+                for item in mixed_portfolio
+                for work_type in item[2]["eligible_work_types"]
+            }
+            ordered_admissions = []
+            for advisory in portfolio_analysis.batch.admissions:
+                selected_key = (
+                    advisory.task_id,
+                    advisory.work_type_recommendation,
+                )
+                selected_entry = entry_by_pair.get(selected_key)
+                if selected_entry is None:
+                    raise ArchitectPreflightError(
+                        "architect selected a pair outside the revalidated mixed portfolio"
+                    )
+                ordered_admissions.append((*selected_entry, advisory))
         except Exception as exc:
             self.events.emit(
                 "architect_wait",
@@ -2143,63 +2188,29 @@ class PollingOrchestrator:
                 cached=False,
             )
             return PollCycleResult("idle")
-        candidates = ((selected_entry[0], selected_entry[1]),)
+        candidates = tuple(ordered_admissions)
 
-        considered: set[str] = set()
-        for candidate, resume_phase in candidates[:MAX_CANDIDATES_PER_POLL]:
-            task_id_raw = candidate.get("task_id")
-            if type(task_id_raw) is not str:
-                self.events.emit(
-                    "scheduler_blocked",
-                    reason="Stage-2 plan omitted the selected task identity",
-                )
-                return PollCycleResult("missing_candidate", fatal=True)
-            task_id = validate_task_id(task_id_raw)
-            if task_id in considered:
-                self.events.emit(
-                    "scheduler_blocked",
-                    task_id=task_id,
-                    reason="Stage 2 emitted a duplicate task in one ordered poll plan",
-                )
-                return PollCycleResult(
-                    "duplicate_planned_candidate", task_id=task_id, fatal=True
-                )
-            considered.add(task_id)
-            if resume_phase == "unity_runtime_validation":
-                self.events.emit(
-                    "scheduler_blocked",
-                    task_id=task_id,
-                    reason="human_action_required/unity_runtime_validation is never agent work",
-                )
-                temporary_exclusions.add(task_id)
+        analysis = portfolio_analysis
+        admitted_task_ids = {
+            advisory.task_id for advisory in analysis.batch.admissions
+        }
+        considerations_by_task: dict[str, list[Any]] = {}
+        for item in analysis.batch.considered:
+            considerations_by_task.setdefault(item.task_id, []).append(item)
+        for task_id, task_considerations in considerations_by_task.items():
+            if task_id in admitted_task_ids:
                 continue
-            try:
-                task = self._load_candidate(plan, candidate, task_id)
-            except (PollingOrchestratorError, CommittedTaskError, OSError) as exc:
-                self.events.emit(
-                    "scheduler_blocked",
-                    task_id=task_id,
-                    reason="candidate identity could not be re-verified",
-                    error=_bounded_error(exc),
-                )
-                return PollCycleResult("candidate_verification_failed", task_id=task_id, fatal=True)
-
-            empty_surface = effective_candidate_surface(
-                candidate_task_id=task_id,
-                predicted_surface=PredictedChangeSurface((), (), (), (), ()),
-                reservations=reservations,
+            matching_entry = next(
+                (
+                    entry
+                    for entry in mixed_portfolio
+                    if entry[2]["task"]["id"] == task_id
+                ),
+                None,
             )
-            preflight_conflict = detect_deterministic_conflict(
-                candidate_task_id=task_id,
-                candidate_exclusive_resources=task.get("exclusive_resources") or (),
-                candidate_surface=empty_surface,
-                reservations=reservations,
-            )
-            if preflight_conflict is not None:
-                self._emit_conflict(task_id, preflight_conflict)
-                temporary_exclusions.add(task_id)
+            if matching_entry is None:
                 continue
-
+            task = matching_entry[2]["task"]
             cache_key = architect_decision_cache_key(
                 task_id=task_id,
                 task_contract_sha256=str(task["task_contract_sha256"]),
@@ -2211,34 +2222,265 @@ class PollingOrchestrator:
                 task_contract_sha256=str(task["task_contract_sha256"]),
                 source_head=plan.source_commit,
             )
+            human = next(
+                (
+                    item
+                    for item in task_considerations
+                    if item.disposition == "human_review"
+                ),
+                None,
+            )
+            chosen = human or task_considerations[0]
+            decision = ArchitectPolicyDecision(
+                "human_review" if human is not None else "wait",
+                (chosen.rationale,),
+            )
+            self._record_gate(
+                task_id=task_id,
+                cache_key=cache_key,
+                cooldown_key=cooldown_key,
+                decision=decision,
+                analysis=analysis,
+            )
+            temporary_exclusions.add(task_id)
+
+        # Validate the complete ordered prefix before spawning anything. This is a
+        # policy check, not schema recovery: malformed/incomplete batches have
+        # already failed above and therefore launch zero workers.
+        safe_candidates: list[tuple[Any, Any, Any, ArchitectAdvisory]] = []
+        planned_reservations = list(reservations)
+        for candidate, resume_phase, portfolio_entry, advisory in candidates:
+            task_id = advisory.task_id
+            task = portfolio_entry["task"]
+            effective_surface = effective_candidate_surface(
+                candidate_task_id=task_id,
+                predicted_surface=advisory.predicted_change_surface,
+                reservations=planned_reservations,
+            )
+            conflict = detect_deterministic_conflict(
+                candidate_task_id=task_id,
+                candidate_exclusive_resources=task.get("exclusive_resources") or (),
+                candidate_surface=effective_surface,
+                reservations=planned_reservations,
+            )
             unknown_surface = assess_unknown_surface_reservations(
                 candidate_task_id=task_id,
                 candidate_exclusive_resources=task.get("exclusive_resources") or (),
-                reservations=reservations,
+                reservations=planned_reservations,
             )
-            if unknown_surface.blocks_without_architect:
-                self.events.emit(
-                    "candidate_wait_unknown_surface",
+            unconfirmed = unconfirmed_unknown_surface_task_ids(advisory, unknown_surface)
+            gate = evaluate_architect_policy(
+                advisory, min_confidence=self.architect_min_confidence
+            )
+            if (
+                conflict is not None
+                or unknown_surface.blocks_without_architect
+                or unconfirmed
+                or gate.decision != "start"
+            ):
+                reasons = []
+                if conflict is not None:
+                    reasons.append(conflict.reason)
+                reasons.extend(unknown_surface.reasons if unknown_surface.blocks_without_architect else ())
+                reasons.extend(
+                    f"the architect did not establish that {task_id} is disjoint "
+                    f"from the unobservable integration surface of {other_id}"
+                    for other_id in unconfirmed
+                )
+                reasons.extend(gate.reasons if gate.decision != "start" else ())
+                if conflict is not None:
+                    self._emit_conflict(task_id, conflict)
+                cache_key = architect_decision_cache_key(
                     task_id=task_id,
-                    blocking_task_ids=list(unknown_surface.blocking_task_ids),
-                    reasons=list(unknown_surface.reasons),
-                    scope=(
-                        "excluded for this scheduling pass only; unrelated candidates "
-                        "remain eligible"
+                    task_contract_sha256=str(task["task_contract_sha256"]),
+                    source_head=plan.source_commit,
+                    integration_fingerprint=integration_fingerprint,
+                )
+                cooldown_key = self._cooldown_key(
+                    task_id=task_id,
+                    task_contract_sha256=str(task["task_contract_sha256"]),
+                    source_head=plan.source_commit,
+                )
+                self._record_gate(
+                    task_id=task_id,
+                    cache_key=cache_key,
+                    cooldown_key=cooldown_key,
+                    decision=ArchitectPolicyDecision(
+                        "human_review" if gate.decision == "human_review" else "wait",
+                        tuple(reasons) or ("ordered architect admission was not safe",),
+                    ),
+                    analysis=analysis,
+                )
+                temporary_exclusions.add(task_id)
+                self.events.emit(
+                    "architect_batch_truncated",
+                    task_id=task_id,
+                    reasons=reasons,
+                    retained_task_ids=[item[3].task_id for item in safe_candidates],
+                    discarded_task_ids=[item[3].task_id for item in candidates[len(safe_candidates):]],
+                )
+                break
+            safe_candidates.append((candidate, resume_phase, portfolio_entry, advisory))
+            planned_reservations.append(
+                IntegrationReservation(
+                    task_id=task_id,
+                    workflow_state="architect_batch_planned",
+                    phase=resume_phase,
+                    branch=None,
+                    head=plan.source_commit,
+                    checkout_path=None,
+                    exclusive_resources=_text_tuple(task.get("exclusive_resources") or ()),
+                    predicted_paths=advisory.predicted_change_surface.exact_paths,
+                    actual_paths=(),
+                    unity_serialized_assets=(
+                        advisory.predicted_change_surface.unity_serialized_assets
+                    ),
+                    shared_systems=advisory.predicted_change_surface.shared_systems,
+                    confidence=advisory.confidence,
+                    evidence_type="architect_batch_ordered_prediction",
+                    surface_unknown=False,
+                    local_active=True,
+                )
+            )
+
+        last_launch: PollCycleResult | None = None
+        considered: set[str] = set()
+        for candidate, resume_phase, _portfolio_entry, advisory in safe_candidates:
+            task_id = advisory.task_id
+            if task_id in considered:
+                self.events.emit(
+                    "scheduler_blocked",
+                    task_id=task_id,
+                    reason="architect batch repeated a task after validation",
+                )
+                return PollCycleResult("duplicate_planned_candidate", task_id=task_id, fatal=True)
+            considered.add(task_id)
+            if len(self.active_assignments) >= self.max_workers:
+                self.events.emit(
+                    "architect_batch_capacity_truncated",
+                    task_id=task_id,
+                    launched_task_ids=sorted(considered - {task_id}),
+                    reason="local capacity filled before launch",
+                )
+                break
+
+            # Provider reasoning may take minutes. Refresh main, reservations, and
+            # Stage 2 immediately before every launch, and throw away each Issue
+            # cache after use because the newly spawned child can claim an Issue.
+            try:
+                refresh = dict(self.source_refresher(self.source))
+                refreshed_head = str(refresh.get("after") or "")
+                if refreshed_head != plan.source_commit:
+                    raise PollingOrchestratorError(
+                        f"source HEAD moved from {plan.source_commit} to {refreshed_head} "
+                        "after architect batching"
+                    )
+                fresh_backend: IssueBackend | None = None
+                fresh_budget: IssueConsistencyRetryBudget | None = None
+                if self._uses_default_plan_builder and self._uses_default_reservation_observer:
+                    fresh_backend = dispatch_plan_module._PlanScopedIssueBackend(
+                        GhIssueBackend(source_root=self.source)
+                    )
+                    fresh_budget = IssueConsistencyRetryBudget()
+                fresh_reservations = self._integration_reservations(
+                    backend=fresh_backend,
+                    consistency_retry_budget=fresh_budget,
+                )
+                revalidation_exclusions = set(self.active_assignments).union(
+                    self.excluded_task_ids, temporary_exclusions
+                )
+                if fresh_backend is not None:
+                    fresh_plan = build_poll_dispatch_plan(
+                        source=self.source,
+                        worker_id=self.scheduler_id,
+                        excluded_task_ids=revalidation_exclusions,
+                        backend=fresh_backend,
+                        consistency_retry_budget=fresh_budget,
+                    )
+                else:
+                    fresh_plan = self.plan_builder(
+                        source=self.source,
+                        worker_id=self.scheduler_id,
+                        excluded_task_ids=revalidation_exclusions,
+                    )
+                if fresh_plan.source_commit != plan.source_commit:
+                    raise PollingOrchestratorError(
+                        "Stage 2 returned a different source HEAD during batch revalidation"
+                    )
+                if fresh_plan.decision == "blocked_invalid_state" or fresh_plan.decision not in {
+                    "fresh_candidate",
+                    "resume_existing",
+                    "no_safe_work",
+                }:
+                    raise PollingOrchestratorError(
+                        "Stage 2 returned an unusable decision during batch revalidation: "
+                        f"{fresh_plan.decision}"
+                    )
+                fresh_entries = self._mixed_portfolio(
+                    fresh_plan, self._ordered_candidates(fresh_plan)
+                )
+                fresh_entry = next(
+                    (
+                        entry
+                        for entry in fresh_entries
+                        if entry[2]["task"]["id"] == task_id
+                        and advisory.work_type_recommendation
+                        in entry[2]["eligible_work_types"]
+                    ),
+                    None,
+                )
+            except Exception as exc:
+                self.events.emit(
+                    "architect_batch_discarded",
+                    task_id=task_id,
+                    launched_task_ids=sorted(considered - {task_id}),
+                    reason="global source/reservation/Stage-2 revalidation failed",
+                    error=_bounded_error(exc),
+                )
+                return last_launch or PollCycleResult("batch_revalidation_failed")
+            if fresh_entry is None:
+                self.events.emit(
+                    "architect_batch_candidate_withdrawn",
+                    task_id=task_id,
+                    work_type=advisory.work_type_recommendation,
+                    reason="candidate pair was no longer admissible in fresh Stage 2",
+                )
+                temporary_exclusions.add(task_id)
+                continue
+            candidate, resume_phase, portfolio_entry = fresh_entry
+            task = portfolio_entry["task"]
+            effective_surface = effective_candidate_surface(
+                candidate_task_id=task_id,
+                predicted_surface=advisory.predicted_change_surface,
+                reservations=fresh_reservations,
+            )
+            conflict = detect_deterministic_conflict(
+                candidate_task_id=task_id,
+                candidate_exclusive_resources=task.get("exclusive_resources") or (),
+                candidate_surface=effective_surface,
+                reservations=fresh_reservations,
+            )
+            unknown_surface = assess_unknown_surface_reservations(
+                candidate_task_id=task_id,
+                candidate_exclusive_resources=task.get("exclusive_resources") or (),
+                reservations=fresh_reservations,
+            )
+            unconfirmed = unconfirmed_unknown_surface_task_ids(advisory, unknown_surface)
+            if conflict is not None or unknown_surface.blocks_without_architect or unconfirmed:
+                if conflict is not None:
+                    self._emit_conflict(task_id, conflict)
+                self.events.emit(
+                    "architect_batch_candidate_withdrawn",
+                    task_id=task_id,
+                    work_type=advisory.work_type_recommendation,
+                    reason="fresh integration reservations no longer permit launch",
+                    blocking_task_ids=list(
+                        unknown_surface.blocking_task_ids or unconfirmed
                     ),
                 )
                 temporary_exclusions.add(task_id)
                 continue
 
-            analysis = portfolio_analysis
-            advisory = selected_advisory
-            if advisory.task_id != task_id:
-                self.events.emit(
-                    "scheduler_blocked",
-                    task_id=task_id,
-                    reason="portfolio advisory identity changed after selection",
-                )
-                return PollCycleResult("candidate_verification_failed", fatal=True)
             self.events.emit(
                 "architect_completed",
                 task_id=task_id,
@@ -2248,73 +2490,9 @@ class PollingOrchestrator:
                 parallel_recommendation=advisory.parallel_recommendation,
                 work_type_recommendation=advisory.work_type_recommendation,
                 confidence=advisory.confidence,
-                execution_recommendation=(
-                    advisory.execution_recommendation.to_dict()
-                ),
+                execution_recommendation=advisory.execution_recommendation.to_dict(),
                 design_advice=advisory.design_advice.to_dict(),
             )
-
-            effective_surface = effective_candidate_surface(
-                candidate_task_id=task_id,
-                predicted_surface=advisory.predicted_change_surface,
-                reservations=reservations,
-            )
-            conflict = detect_deterministic_conflict(
-                candidate_task_id=task_id,
-                candidate_exclusive_resources=task.get("exclusive_resources") or (),
-                candidate_surface=effective_surface,
-                reservations=reservations,
-            )
-            if conflict is not None:
-                self._emit_conflict(task_id, conflict)
-                self._remember_nonstart(
-                    cache_key=cache_key,
-                    cooldown_key=cooldown_key,
-                    decision=ArchitectPolicyDecision(
-                        "wait", (conflict.reason,)
-                    ),
-                )
-                temporary_exclusions.add(task_id)
-                continue
-            unconfirmed = unconfirmed_unknown_surface_task_ids(advisory, unknown_surface)
-            if unconfirmed:
-                self._record_gate(
-                    task_id=task_id,
-                    cache_key=cache_key,
-                    cooldown_key=cooldown_key,
-                    decision=ArchitectPolicyDecision(
-                        "wait",
-                        tuple(
-                            f"the architect did not establish that {task_id} is disjoint "
-                            f"from the unobservable integration surface of {other_id}"
-                            for other_id in unconfirmed
-                        ),
-                    ),
-                    analysis=analysis,
-                )
-                temporary_exclusions.add(task_id)
-                continue
-            gate = evaluate_architect_policy(
-                advisory, min_confidence=self.architect_min_confidence
-            )
-            if gate.decision in {"wait", "human_review"}:
-                self._record_gate(
-                    task_id=task_id,
-                    cache_key=cache_key,
-                    cooldown_key=cooldown_key,
-                    decision=gate,
-                    analysis=analysis,
-                )
-                temporary_exclusions.add(task_id)
-                continue
-
-            if len(self.active_assignments) >= self.max_workers:
-                self.events.emit(
-                    "scheduler_blocked",
-                    task_id=task_id,
-                    reason="local capacity filled before launch",
-                )
-                return PollCycleResult("capacity_full")
             worker_id = f"polling-worker-{task_id.casefold()}-{uuid.uuid4().hex[:12]}"
             if advisory.work_type_recommendation == "decomposition":
                 command = build_decomposition_worker_command(
@@ -2411,14 +2589,13 @@ class PollingOrchestrator:
                 argv=list(command),
                 **route_event,
             )
-            return PollCycleResult("worker_launched", task_id=task_id, worker_id=worker_id)
-
-        if len(candidates) > MAX_CANDIDATES_PER_POLL:
-            self.events.emit(
-                "scheduler_blocked",
-                reason="candidate evaluation exceeded the finite per-poll safety bound",
+            last_launch = PollCycleResult(
+                "worker_launched", task_id=task_id, worker_id=worker_id
             )
-            return PollCycleResult("candidate_bound_exceeded", fatal=True)
+            temporary_exclusions.add(task_id)
+
+        if last_launch is not None:
+            return last_launch
         self.events.emit(
             "plan_idle",
             decision="all_ordered_candidates_waited",
@@ -2431,46 +2608,19 @@ class PollingOrchestrator:
     def poll_capacity_batch(self) -> PollCycleResult:
         """Fill available local capacity within one bounded scheduling poll.
 
-        Each launch is followed by a complete source refresh, Stage-2 plan, and
-        reservation re-observation through ``poll_once``. This preserves the
-        integration safety boundary while making the per-poll architect budget and
-        ``max_workers`` settings operational rather than merely descriptive.
+        One architect call returns a bounded ordered admission batch. ``poll_once``
+        refreshes source, Stage 2, and reservations before every launch in that
+        batch, so capacity can be filled without repurchasing invariant context.
         """
 
         self.architect_invocations_this_poll = 0
-        launched_task_ids: list[str] = []
-        last_launch: PollCycleResult | None = None
-        while True:
-            invocations_before = self.architect_invocations_this_poll
-            cycle = self.poll_once(reset_architect_budget=False)
-            architect_invoked = (
-                self.architect_invocations_this_poll > invocations_before
-            )
-            if cycle.status == "worker_launched" and cycle.task_id is not None:
-                launched_task_ids.append(cycle.task_id)
-                last_launch = cycle
-            if cycle.fatal:
-                break
-            if len(self.active_assignments) >= self.max_workers:
-                break
-            if (
-                self.architect_invocations_this_poll
-                >= self.max_architect_invocations_per_poll
-            ):
-                break
-            if cycle.status == "worker_launched":
-                continue
-            # One paid WAIT/HUMAN_REVIEW decision may have removed a candidate
-            # from the next pass through the decision cache. Continue within the
-            # same bounded poll so an unrelated candidate is not starved.
-            if cycle.status == "idle" and architect_invoked:
-                continue
-            break
-        reported_cycle = (
-            last_launch
-            if last_launch is not None and not cycle.fatal
-            else cycle
-        )
+        active_before = set(self.active_assignments)
+        reported_cycle = self.poll_once(reset_architect_budget=False)
+        launched_task_ids = [
+            task_id
+            for task_id in self.active_assignments
+            if task_id not in active_before
+        ]
         self.events.emit(
             "poll_capacity_batch_completed",
             launched_task_ids=launched_task_ids,
@@ -2478,7 +2628,7 @@ class PollingOrchestrator:
             active_worker_count=len(self.active_assignments),
             architect_invocations=self.architect_invocations_this_poll,
             result_status=reported_cycle.status,
-            terminal_pass_status=cycle.status,
+            terminal_pass_status=reported_cycle.status,
             fatal=reported_cycle.fatal,
         )
         return reported_cycle

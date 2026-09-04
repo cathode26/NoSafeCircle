@@ -28,6 +28,7 @@ from Pipeline.AgentRuntime.config import RuntimeConfiguration  # noqa: E402
 from Pipeline.AgentRuntime.providers.fake import FakeProvider  # noqa: E402
 from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ARCHITECT_ADVISORY_SCHEMA,
+    ARCHITECT_BATCH_SCHEMA,
     ArchitectAdvisory,
     ArchitectDecisionCache,
     ArchitectPolicyDecision,
@@ -77,6 +78,9 @@ def task() -> dict[str, Any]:
 
 def advisory_value(
     *,
+    task_id: str = TASK_ID,
+    contract_sha: str = CONTRACT_SHA,
+    work_type: str = "implementation",
     risk: str = "low",
     recommendation: str = "start",
     confidence: float = 0.9,
@@ -91,9 +95,9 @@ def advisory_value(
     execution_rationale: str = "Ordinary local gameplay work with established tests.",
 ) -> dict[str, Any]:
     return {
-        "task_id": TASK_ID,
+        "task_id": task_id,
         "source_head": SOURCE_HEAD,
-        "task_contract_sha256": CONTRACT_SHA,
+        "task_contract_sha256": contract_sha,
         "predicted_change_surface": {
             "exact_paths": exact_paths or ["Assets/NoSafeCircle/UI/PlayerHud.cs"],
             "path_patterns": ["Assets/NoSafeCircle/UI/*.cs"],
@@ -103,7 +107,7 @@ def advisory_value(
         },
         "integration_risk": risk,
         "parallel_recommendation": recommendation,
-        "work_type_recommendation": "implementation",
+        "work_type_recommendation": work_type,
         "execution_recommendation": {
             "capability_tier": capability_tier,
             "provider_preference": provider_preference,
@@ -204,19 +208,50 @@ def portfolio() -> list[dict[str, Any]]:
     ]
 
 
-def portfolio_result_value(*, work_type: str = "decomposition") -> dict[str, Any]:
-    value = advisory_value()
-    value.update(
-        {
-            "task_id": "NSC-102",
-            "task_contract_sha256": "b" * 64,
-            "work_type_recommendation": work_type,
-        }
-    )
-    return value
+def portfolio_result_value() -> dict[str, Any]:
+    return {
+        "schema_version": "1.0",
+        "source_head": SOURCE_HEAD,
+        "batch_rationale": (
+            "Decompose the broad encounter task, then implement the independent HUD task."
+        ),
+        "considered": [
+            {
+                "task_id": TASK_ID,
+                "work_type": "implementation",
+                "disposition": "admit",
+                "rationale": "The HUD work is independent and ready.",
+            },
+            {
+                "task_id": "NSC-102",
+                "work_type": "decomposition",
+                "disposition": "admit",
+                "rationale": "Decomposition unlocks smaller encounter tasks.",
+            },
+            {
+                "task_id": "NSC-102",
+                "work_type": "implementation",
+                "disposition": "wait",
+                "rationale": "The broad implementation is not yet atomic.",
+            },
+        ],
+        "admissions": [
+            advisory_value(),
+            advisory_value(
+                task_id="NSC-102",
+                contract_sha="b" * 64,
+                work_type="decomposition",
+            ),
+        ],
+    }
 
 
-def portfolio_analysis(root: Path, value: dict[str, Any]) -> tuple[Any, list[Any]]:
+def portfolio_analysis(
+    root: Path,
+    value: dict[str, Any],
+    *,
+    admission_limit: int | None = None,
+) -> tuple[Any, list[Any]]:
     configuration = RuntimeConfiguration(
         {
             PROVIDER_KEY: {
@@ -250,6 +285,7 @@ def portfolio_analysis(root: Path, value: dict[str, Any]) -> tuple[Any, list[Any
         provider_configuration_key=PROVIDER_KEY,
         max_turns=7,
         timeout_seconds=30.0,
+        admission_limit=admission_limit,
     )
     return analysis, captured
 
@@ -840,6 +876,11 @@ def test_mixed_portfolio_request_exposes_both_work_types_read_only() -> None:
     )
     require(request.write_boundaries.allowed_paths == (), str(request.write_boundaries))
     require(request.write_boundaries.denied_paths == (), str(request.write_boundaries))
+    require(
+        request.to_dict()["output_schema"] == ARCHITECT_BATCH_SCHEMA,
+        "portfolio did not request a batch",
+    )
+    require("at most 2 tasks" in request.prompt, request.prompt)
     require("decomposition as a fallback" in request.prompt, request.prompt)
     require('"decomposition"' in request.prompt, request.prompt)
     require("NSC-101" in request.prompt and "NSC-102" in request.prompt, request.prompt)
@@ -847,35 +888,89 @@ def test_mixed_portfolio_request_exposes_both_work_types_read_only() -> None:
     require("glob or wildcard (`*` or `?`)" in request.prompt, request.prompt)
 
 
-def test_portfolio_selects_exact_eligible_task_work_type_pair() -> None:
+def test_portfolio_returns_ordered_batch_and_persists_full_decision() -> None:
     with tempfile.TemporaryDirectory() as text:
-        analysis, captured = portfolio_analysis(
-            Path(text), portfolio_result_value(work_type="decomposition")
-        )
-        require(analysis.advisory.task_id == "NSC-102", str(analysis.advisory))
+        analysis, captured = portfolio_analysis(Path(text), portfolio_result_value())
         require(
-            analysis.advisory.work_type_recommendation == "decomposition",
-            str(analysis.advisory),
+            [item.task_id for item in analysis.batch.admissions]
+            == [TASK_ID, "NSC-102"],
+            str(analysis.batch),
         )
         artifact = json.loads(analysis.artifact_path.read_text(encoding="utf-8"))
         require(len(artifact["eligible_portfolio"]) == 2, str(artifact))
         require(
-            artifact["scheduler"]["selected_work_type"] == "decomposition",
+            artifact["scheduler"]["admission_count"] == 2,
             str(artifact),
         )
+        require(len(artifact["structured_architect_output"]["considered"]) == 3, str(artifact))
         require(len(captured) == 1, str(captured))
 
 
 def test_portfolio_rejects_pair_outside_deterministic_eligibility() -> None:
-    value = advisory_value()
-    value["work_type_recommendation"] = "decomposition"
+    value = portfolio_result_value()
+    value["admissions"][0]["work_type_recommendation"] = "decomposition"
+    value["considered"][0]["work_type"] = "decomposition"
     with tempfile.TemporaryDirectory() as text:
         try:
             portfolio_analysis(Path(text), value)
         except ArchitectPreflightError as exc:
-            require("outside the deterministic portfolio" in str(exc), str(exc))
+            require("deterministic portfolio" in str(exc), str(exc))
         else:
             raise AssertionError("portfolio accepted an ineligible task/work-type pair")
+
+
+def test_portfolio_rejects_missing_pair_consideration() -> None:
+    value = portfolio_result_value()
+    value["considered"].pop()
+    with tempfile.TemporaryDirectory() as text:
+        try:
+            portfolio_analysis(Path(text), value)
+        except ArchitectPreflightError as exc:
+            require("consider" in str(exc).casefold(), str(exc))
+        else:
+            raise AssertionError("portfolio accepted an incomplete consideration set")
+
+
+def test_portfolio_rejects_duplicate_task_admissions() -> None:
+    value = portfolio_result_value()
+    value["admissions"].append(
+        advisory_value(
+            task_id="NSC-102",
+            contract_sha="b" * 64,
+            work_type="implementation",
+        )
+    )
+    value["considered"][2]["disposition"] = "admit"
+    with tempfile.TemporaryDirectory() as text:
+        try:
+            portfolio_analysis(Path(text), value)
+        except ArchitectPreflightError as exc:
+            require("duplicate task" in str(exc).casefold(), str(exc))
+        else:
+            raise AssertionError("portfolio accepted two admissions for one task")
+
+
+def test_portfolio_rejects_admit_disposition_without_admission() -> None:
+    value = portfolio_result_value()
+    value["admissions"].pop()
+    with tempfile.TemporaryDirectory() as text:
+        try:
+            portfolio_analysis(Path(text), value)
+        except ArchitectPreflightError as exc:
+            require("admit" in str(exc).casefold(), str(exc))
+        else:
+            raise AssertionError("portfolio silently omitted a pair marked admit")
+
+
+def test_portfolio_rejects_admissions_above_host_capacity() -> None:
+    value = portfolio_result_value()
+    with tempfile.TemporaryDirectory() as text:
+        try:
+            portfolio_analysis(Path(text), value, admission_limit=1)
+        except ArchitectPreflightError as exc:
+            require("admission limit" in str(exc).casefold(), str(exc))
+        else:
+            raise AssertionError("portfolio exceeded the host admission capacity")
 
 
 def main() -> int:
@@ -908,8 +1003,12 @@ def main() -> int:
         test_advisory_artifact_safe_write,
         test_same_inputs_yield_same_deterministic_enforcement,
         test_mixed_portfolio_request_exposes_both_work_types_read_only,
-        test_portfolio_selects_exact_eligible_task_work_type_pair,
+        test_portfolio_returns_ordered_batch_and_persists_full_decision,
         test_portfolio_rejects_pair_outside_deterministic_eligibility,
+        test_portfolio_rejects_missing_pair_consideration,
+        test_portfolio_rejects_duplicate_task_admissions,
+        test_portfolio_rejects_admit_disposition_without_admission,
+        test_portfolio_rejects_admissions_above_host_capacity,
     )
     for test in tests:
         test()

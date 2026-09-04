@@ -115,11 +115,20 @@ per-task cooldown keyed by task + contract + source HEAD; v1 defaults to 300 sec
 repurchasing analysis after other stable inputs change. The cache and cooldown are bounded
 to scheduler-process lifetime.
 
-A per-poll architect invocation budget (default 3) bounds paid model calls when many
-candidates wait in one pass. A cumulative per-session cap (default 12) is a second hard
-bound. Exhausting the per-poll cap ends that poll; exhausting the session cap stops new
+One paid architect invocation considers the complete prefiltered mixed-work portfolio and
+returns an ordered batch bounded by the currently available worker slots. The response must
+account for every candidate/work-type pair exactly once, and host validation rejects a
+missing, duplicate, invented, or over-capacity admission before any worker starts. A
+cumulative per-session cap (default 12) remains a hard bound. Exhausting it stops new
 admissions with `scheduler_blocked` and a non-success result. The operator must explicitly
 start another supervised session if more spend is authorized.
+
+The host revalidates source main, a fresh Issue snapshot and consistency budget, Stage 2,
+and current integration reservations before every ordered launch. A candidate withdrawn by
+fresh Stage 2 or newly conflicting reservations is skipped. A moved source HEAD or global
+observation failure discards the unlaunched remainder. Pairwise host conflict validation
+truncates at the first conflicting ordered admission rather than reordering the model's
+batch.
 
 ## 4. HUMAN_REVIEW is narrow
 
