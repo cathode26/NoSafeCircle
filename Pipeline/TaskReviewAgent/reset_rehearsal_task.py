@@ -296,13 +296,43 @@ def _resolve_main_state(
         return head, False
     if task_trailer != task_id or merge_trailer is None or GIT_SHA_RE.fullmatch(merge_trailer) is None:
         raise RehearsalResetError("current reset-commit trailers do not match this task")
-    if parents != (merge_trailer,):
-        raise RehearsalResetError("reset commit is not the direct child of its recorded merge")
+    if len(parents) != 1:
+        raise RehearsalResetError("reset commit must have exactly one parent")
+    reset_parent = parents[0]
+    if (
+        _git(
+            runner,
+            root,
+            "merge-base",
+            "--is-ancestor",
+            merge_trailer,
+            reset_parent,
+            check=False,
+        ).returncode
+        != 0
+    ):
+        raise RehearsalResetError(
+            "recorded task merge is not an ancestor of the reset commit parent"
+        )
     merge_parents = _commit_parents(runner, root, merge_trailer)
     if len(merge_parents) != 2:
         raise RehearsalResetError("recorded task merge is not a two-parent merge commit")
-    if _commit_tree(runner, root, head) != _commit_tree(runner, root, merge_parents[0]):
-        raise RehearsalResetError("reset commit tree does not equal the task merge first parent")
+    changed_paths = _changed_paths(runner, root, merge_parents[0], merge_trailer)
+    _require_task_paths_unchanged_since_merge(
+        runner,
+        root,
+        merge_commit=merge_trailer,
+        current_main=reset_parent,
+        paths=changed_paths,
+    )
+    _validate_additive_revert_commit(
+        runner,
+        root,
+        previous_main=reset_parent,
+        revert_commit=head,
+        merge_parent=merge_parents[0],
+        expected_paths=changed_paths,
+    )
     return merge_trailer, True
 
 
@@ -1292,23 +1322,34 @@ class RehearsalTaskReset:
             cwd=self.source,
         )
         reported_url = transfer.stdout.strip()
+        last_observation_error: RehearsalResetError | None = None
         for delay in (0.0, 1.0, 2.0, 4.0):
             if delay:
                 time.sleep(delay)
-            archived = _find_complete_issue(
-                self.runner,
-                self.source,
-                self.archive_repository,
-                self.task_id,
-                self.branch,
-                str(plan["task_head"]),
-                require_state_label=False,
-            )
+            try:
+                archived = _find_complete_issue(
+                    self.runner,
+                    self.source,
+                    self.archive_repository,
+                    self.task_id,
+                    self.branch,
+                    str(plan["task_head"]),
+                    require_state_label=False,
+                )
+            except RehearsalResetError as exc:
+                last_observation_error = exc
+                continue
             if archived is not None:
                 return str(archived["url"])
+        detail = (
+            f"; last archive observation error: {last_observation_error}"
+            if last_observation_error is not None
+            else ""
+        )
         raise RehearsalResetError(
             "Issue transfer ran but the exact completed Issue was not visible in the archive"
             + (f"; gh reported {reported_url}" if reported_url else "")
+            + detail
         )
 
     def _delete_task_branch(self, plan: dict[str, Any]) -> None:

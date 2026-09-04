@@ -398,6 +398,16 @@ commit or the undo commit. See
 `Docs/AI-Pipeline/FRESH_TASK_RESET_RUNBOOK.md` for the guarded commands and full
 refusal conditions.
 
+If that exact additive undo was already published without a reset receipt and
+unrelated private-rehearsal commits followed it, use the separate
+`--recover-published-decomposition-undo` mode. It does not relax the ordinary
+undo's exact-HEAD rule and never creates or pushes another commit. The recovery
+binds the completed parent Issue to the reviewed plan and apply commit, proves
+the immediate undo commit and untouched later history, refuses every child
+consumption signal, then closes the stale parent Issue, removes its exact clean
+manifest-bound checkout, and archives its active state. Applied and resumed
+recovery require explicit repository, plan-ID, and undo-commit confirmations.
+
 ## Current real command
 
 For an eligible explicit task, the deterministic mode can initialize/acquire the Issue lease and prepare the checkout in one bounded stage:

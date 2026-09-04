@@ -147,6 +147,40 @@ If any child was already consumed, any later history exists, the source is
 dirty, or the receipt identities no longer match, stop and handle the dependency
 explicitly rather than trying to erase the decomposition.
 
+#### Recover an undo that was already published
+
+Do not weaken the exact-HEAD undo when the additive undo commit already reached
+`main` but its reset receipt and operational cleanup did not. In a disposable
+private rehearsal repository only, use the explicit recovery mode:
+
+```powershell
+python Pipeline/TaskReviewAgent/reset_task.py NSC-### --source C:\path\to\rehearsal --checkout-root C:\path\to\checkout-root --recover-published-decomposition-undo --graph-delta C:\path\to\graph_delta.json
+```
+
+The dry run requires one valid open `complete` decomposition Issue whose
+terminal hashed event binds the exact plan and D1C apply commit. It then proves
+there is exactly one immediate additive undo commit with the expected subject,
+automation identity, parent, inverse path set, source tree, and source-graph
+hash, and that this undo is in current `main`'s first-parent history. Every
+later commit must leave the original D1C paths, every child-owned repository
+path, and each child's delivery-evidence path untouched. Any child Issue
+(including a closed Issue), branch, checkout, worktree, claim, active state,
+current contract, implementation file, or delivery evidence refuses recovery.
+
+After reviewing the exact undo SHA, apply cleanup with all three confirmations:
+
+```powershell
+python Pipeline/TaskReviewAgent/reset_task.py NSC-### --source C:\path\to\rehearsal --checkout-root C:\path\to\checkout-root --recover-published-decomposition-undo --graph-delta C:\path\to\graph_delta.json --apply --confirm-repository owner/private-rehearsal --confirm-plan-id <exact-GDP-plan-id> --confirm-undo-commit <exact-40-character-SHA>
+```
+
+This recovery creates no Git commit and performs no push. It first writes a
+no-overwrite receipt, then adds one marker-bound audit comment and closes the
+completed parent Issue without editing its hashed workflow history, removes
+only the exact clean manifest-bound parent checkout/local branch, and archives
+the parent's active controller state. If an external interruption occurs,
+resume the exact receipt with the same repository, plan, and undo confirmations;
+already completed cleanup steps are verified and not repeated.
+
 ### 1. Close the abandoned pull request
 
 Close the open PR with a comment that identifies:
@@ -304,6 +338,15 @@ against the source checkout's actual `origin`, not trusted as repository
 authority. The helper refuses repositories that are public, archived, do not
 contain `rehearsal` in their GitHub name, or whose exact merge/Issue/PR/checkout
 identities cannot be proven.
+
+If the additive reset commit was successfully pushed and the completed Issue
+was transferred before a transient archive-observation failure, rerun the
+identical applied command. The helper recognizes a trailer-bound reset commit
+on top of later unrelated `main` history, revalidates the original merge path
+set and preserved unrelated files, reuses that exact commit, and continues the
+remaining cleanup without creating a second revert. It still refuses an
+unrelated recorded merge, any intervening task-path change, or any extra path in
+the reset commit.
 
 “Uncommit” in this procedure always means a new additive revert commit. The
 helper never resets, rebases, force-pushes, or deletes the original merge from

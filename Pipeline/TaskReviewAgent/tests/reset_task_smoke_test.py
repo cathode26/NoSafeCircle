@@ -369,6 +369,7 @@ for _module_root in (str(ROOT / "Pipeline"), str(TASK_GRAPH_DIR)):
         sys.path.insert(0, _module_root)
 
 from apply_graph_delta import apply_graph_delta  # noqa: E402
+from undo_graph_delta import undo_graph_delta  # noqa: E402
 from graph_apply_smoke_test import (  # noqa: E402
     approved_identity_environment,
     create_fixture,
@@ -377,11 +378,17 @@ from Pipeline.TaskReviewAgent.real_checkout import branch_name  # noqa: E402
 from Pipeline.TaskReviewAgent.reset_rehearsal_task import CommandResult  # noqa: E402
 from Pipeline.TaskReviewAgent.reset_task import (  # noqa: E402
     DecompositionUndoReset,
+    PublishedDecompositionUndoRecovery,
     _decomposition_children,
     main as reset_task_main,
 )
+from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    IssueWorkflowService,
+    MemoryIssueBackend,
+)
 
-FIXTURE_REPOSITORY = "cathode26/NoSafeCircle-UndoFixture"
+FIXTURE_REPOSITORY = "cathode26/NoSafeCircle-Rehearsal-UndoFixture"
 FIXTURE_ORIGIN_URL = "https://github.com/" + FIXTURE_REPOSITORY + ".git"
 
 
@@ -456,6 +463,65 @@ class FakeGitHubRunner(CommandRunner):
         return json.dumps([])
 
 
+class RecoveryGitHubRunner(FakeGitHubRunner):
+    def __init__(self, backend: MemoryIssueBackend, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.backend = backend
+
+    def run(self, args, *, cwd, check: bool = True, timeout: float = 600.0):
+        argv = tuple(args)
+        if argv[:3] == ("gh", "repo", "view"):
+            return CommandResult(
+                argv,
+                0,
+                json.dumps(
+                    {
+                        "nameWithOwner": FIXTURE_REPOSITORY,
+                        "visibility": "PRIVATE",
+                        "isArchived": False,
+                        "url": "https://example.invalid/rehearsal",
+                    }
+                ),
+                "",
+            )
+        if argv[:3] == ("gh", "issue", "list"):
+            state = argv[argv.index("--state") + 1].upper()
+            task_id = argv[argv.index("--search") + 1].split(" ", 1)[0]
+            issues = [
+                issue
+                for issue in self.backend.list_issues()
+                if (state == "ALL" or issue.get("state") == state)
+                and (
+                    str(issue.get("title") or "") == task_id
+                    or str(issue.get("title") or "").startswith(task_id + " —")
+                    or f"<!-- no-safe-circle-task: {task_id} -->"
+                    in str(issue.get("body") or "")
+                )
+            ]
+            return CommandResult(argv, 0, json.dumps(issues), "")
+        if argv[:3] == ("gh", "issue", "view"):
+            number = int(argv[3])
+            issue = self.backend.get_issue(number)
+            if issue is None:
+                return CommandResult(argv, 1, "", "missing issue")
+            issue["comments"] = self.backend.get_comments(number)
+            return CommandResult(argv, 0, json.dumps(issue), "")
+        if argv[:3] == ("gh", "issue", "comment"):
+            number = int(argv[3])
+            self.backend.add_comment(number, argv[argv.index("--body") + 1])
+            return CommandResult(argv, 0, "", "")
+        if argv[:3] == ("gh", "issue", "close"):
+            self.backend.issues[int(argv[3])]["state"] = "CLOSED"
+            return CommandResult(argv, 0, "", "")
+        if argv[:3] == ("gh", "pr", "list"):
+            return CommandResult(argv, 0, "[]", "")
+        if argv[:3] == ("docker", "ps", "-q"):
+            return CommandResult(argv, 0, "", "")
+        if argv and argv[0].casefold().endswith("powershell.exe"):
+            return CommandResult(argv, 0, "", "")
+        return super().run(argv, cwd=cwd, check=check, timeout=timeout)
+
+
 class UndoEnvironment:
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -508,6 +574,140 @@ class UndoEnvironment:
 
     def commit_count(self) -> int:
         return int(run("git", "rev-list", "--count", "HEAD", cwd=self.work))
+
+
+class PublishedUndoEnvironment(UndoEnvironment):
+    def __init__(self, root: Path) -> None:
+        super().__init__(root)
+        with approved_identity_environment():
+            undone = undo_graph_delta(
+                self.work,
+                self.fixture.stored_plan,
+                expected_head=self.applied.new_commit_sha,
+            )
+        self.undo_commit = undone.undo_commit
+        run("git", "push", "-q", "origin", "HEAD:refs/heads/main", cwd=self.work)
+        (self.work / "LaterUnrelated.txt").write_text(
+            "preserved later work\n", encoding="utf-8", newline="\n"
+        )
+        run("git", "add", "--", "LaterUnrelated.txt", cwd=self.work)
+        run(
+            "git",
+            "commit",
+            "-q",
+            "--no-gpg-sign",
+            "-m",
+            "fixture: later unrelated work",
+            cwd=self.work,
+        )
+        run("git", "push", "-q", "origin", "HEAD:refs/heads/main", cwd=self.work)
+        run("git", "fetch", "-q", "origin", "main", cwd=self.work)
+        self.later_head = self.head()
+        self.task = load_committed_task(self.work, self.parent_id)
+        self.branch = branch_name(self.parent_id, self.task.get("title"))
+        self.checkout = self.checkout_root / self.parent_id
+        run(
+            "git",
+            "clone",
+            "-q",
+            "--no-checkout",
+            str(self.bare),
+            str(self.checkout),
+            cwd=root,
+        )
+        run(
+            "git",
+            "checkout",
+            "-q",
+            "-b",
+            self.branch,
+            self.fixture.initial_head,
+            cwd=self.checkout,
+        )
+        source_tree = run(
+            "git", "rev-parse", self.fixture.initial_head + "^{tree}", cwd=self.work
+        )
+        state_root = self.checkout_root / ".task-review-agent"
+        state_root.mkdir(parents=True, exist_ok=True)
+        manifest = {
+            "schema_version": "2.0",
+            "task_id": self.parent_id,
+            "checkout_path": str(self.checkout),
+            "branch": self.branch,
+            "task_contract_path": f"Tasks/{self.parent_id}.yaml",
+            "task_contract_revision": self.task["contract_revision"],
+            "task_contract_sha256": self.task["task_contract_sha256"],
+            "authority": "durable_checkout_identity",
+            "checkout_purpose": "decomposition",
+            "initial_source_head": self.fixture.initial_head,
+            "initial_source_tree": source_tree,
+            "remote_url": FIXTURE_ORIGIN_URL,
+        }
+        manifest["manifest_sha256"] = semantic_sha256(manifest)
+        (state_root / f"{self.parent_id}.json").write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+        self.backend = MemoryIssueBackend()
+        service = IssueWorkflowService(
+            backend=self.backend,
+            task_loader=lambda _task_id: self.task,
+            worker_id="fixture-worker",
+        )
+        service.acquire_agent_lease(
+            task=self.task,
+            source_head=self.fixture.initial_head,
+            branch=self.branch,
+            checkout_path=str(self.checkout),
+            planned_approach="Review and apply the exact decomposition.",
+            expected_validation="Validate the applied TaskGraph.",
+            now="2026-09-04T01:00:00Z",
+        )
+        service.publish_decomposition_handoff(
+            task_id=self.parent_id,
+            source_head=self.fixture.initial_head,
+            checkout_path=str(self.checkout),
+            decomposition_run_id="fixture-decomposition-run",
+            artifact_root=str(root / "artifacts"),
+            graph_delta_plan_id=self.plan_id,
+            summary="Two exact children.",
+            branch=self.branch,
+            now="2026-09-04T01:01:00Z",
+        )
+        service.apply_decomposition_result(
+            task_id=self.parent_id,
+            result_body=(
+                "## Decomposition application result\n\n"
+                f"Result: APPROVE\nReviewed plan_id: {self.plan_id}\n"
+            ),
+            actor_id="cathode26",
+            now="2026-09-04T01:02:00Z",
+        )
+        service.acquire_agent_lease(
+            task=self.task,
+            source_head=self.fixture.initial_head,
+            branch=self.branch,
+            checkout_path=str(self.checkout),
+            planned_approach="Apply the approved graph delta.",
+            expected_validation="Validate the exact graph commit.",
+            now="2026-09-04T01:03:00Z",
+        )
+        service.complete_decomposition(
+            task_id=self.parent_id,
+            graph_delta_plan_id=self.plan_id,
+            applied_commit=self.applied.new_commit_sha,
+            now="2026-09-04T01:04:00Z",
+        )
+
+    def recovery(self, runner=None) -> PublishedDecompositionUndoRecovery:
+        return PublishedDecompositionUndoRecovery(
+            source=self.work,
+            checkout_root=self.checkout_root,
+            task_id=self.parent_id,
+            graph_delta=self.graph_delta,
+            runner=runner or RecoveryGitHubRunner(self.backend),
+        )
 
 
 def _expect_refusal(callable_, fragment: str, message: str) -> str:
@@ -932,6 +1132,131 @@ def test_undo_decomposition_resume_refuses_wrong_head(root: Path) -> None:
     )
 
 
+def test_published_decomposition_undo_recovery_cleans_only_stale_coordination(
+    root: Path,
+) -> None:
+    environment = PublishedUndoEnvironment(root)
+    runner = RecoveryGitHubRunner(environment.backend)
+    operation = environment.recovery(runner)
+    before_head = environment.head()
+    before_count = environment.commit_count()
+    plan = operation.preflight()
+    expect(plan["undo_commit"] == environment.undo_commit, "wrong undo was adopted")
+    expect(plan["main_head"] == environment.later_head, "later main was not preserved")
+    expect(plan["git_commit_created"] is False, "dry run claimed to create Git history")
+    report = operation.apply(plan)
+    expect(report["status"] == "complete", "published undo recovery did not complete")
+    expect(environment.head() == before_head, "recovery moved main")
+    expect(environment.commit_count() == before_count, "recovery created another commit")
+    expect(not runner.push_calls, "recovery attempted a Git push")
+    issue = environment.backend.list_issues()[0]
+    expect(issue["state"] == "CLOSED", "completed parent Issue remains open")
+    expect(not environment.checkout.exists(), "stale parent checkout remains")
+    expect(
+        not (
+            environment.checkout_root
+            / ".task-review-agent"
+            / f"{environment.parent_id}.json"
+        ).exists(),
+        "active parent state remains",
+    )
+    expect(report["parent_eligible_for_fresh_decomposition"] is True, "parent not freed")
+    expect(
+        (environment.work / "LaterUnrelated.txt").read_text(encoding="utf-8")
+        == "preserved later work\n",
+        "later unrelated work was not preserved",
+    )
+
+
+def test_published_decomposition_undo_recovery_refuses_later_protected_path(
+    root: Path,
+) -> None:
+    environment = PublishedUndoEnvironment(root)
+    id_map = environment.work / "Pipeline" / "TaskGraph" / "WORK_ID_MAP.json"
+    id_map.write_text(id_map.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    run(
+        "git",
+        "add",
+        "--",
+        "Pipeline/TaskGraph/WORK_ID_MAP.json",
+        cwd=environment.work,
+    )
+    run(
+        "git",
+        "commit",
+        "-q",
+        "--no-gpg-sign",
+        "-m",
+        "fixture: touch recovered parent",
+        cwd=environment.work,
+    )
+    run("git", "push", "-q", "origin", "HEAD:refs/heads/main", cwd=environment.work)
+    _expect_refusal(
+        environment.recovery().preflight,
+        "later history touched decomposition or child-owned paths",
+        "later parent-path change was not refused",
+    )
+
+
+def test_published_decomposition_undo_recovery_refuses_any_child_issue(
+    root: Path,
+) -> None:
+    environment = PublishedUndoEnvironment(root)
+    environment.backend.create_issue(
+        title="NSC-043 — consumed child",
+        body="<!-- no-safe-circle-task: NSC-043 -->\n",
+        labels=[],
+        assignees=[],
+    )
+    _expect_refusal(
+        environment.recovery().preflight,
+        "children were consumed or remain reserved",
+        "child Issue was not refused",
+    )
+
+
+def test_published_decomposition_undo_recovery_resumes_partial_cleanup(
+    root: Path,
+) -> None:
+    environment = PublishedUndoEnvironment(root)
+    first = environment.recovery(RecoveryGitHubRunner(environment.backend))
+    plan = first.preflight()
+    original_remove = first._remove_exact_checkout
+
+    def remove_then_interrupt(report):
+        original_remove(report)
+        raise TaskResetError("fixture interruption after checkout removal")
+
+    first._remove_exact_checkout = remove_then_interrupt
+    try:
+        first.apply(plan)
+    except TaskResetError as exc:
+        expect("fixture interruption" in str(exc), "unexpected interruption error")
+    else:
+        raise AssertionError("fixture interruption did not stop recovery")
+    receipts = sorted(
+        (
+            environment.checkout_root
+            / ".task-review-agent"
+            / "reset-runs"
+            / environment.parent_id
+        ).glob("*-recover-published-decomposition-undo.json")
+    )
+    expect(len(receipts) == 1, "partial recovery receipt was not preserved")
+    before_count = environment.commit_count()
+    resumed = environment.recovery(
+        RecoveryGitHubRunner(environment.backend)
+    ).resume(receipts[0])
+    expect(resumed["status"] == "complete", "partial recovery did not resume")
+    expect(environment.commit_count() == before_count, "resume created Git history")
+    marker = f"nsc-published-decomposition-undo-recovery: {environment.undo_commit}"
+    comments = environment.backend.get_comments(1)
+    expect(
+        sum(marker in str(item.get("body") or "") for item in comments) == 1,
+        "resume duplicated the recovery audit comment",
+    )
+
+
 def test_undo_decomposition_rejects_invalid_graph_delta_cleanly(root: Path) -> None:
     environment = UndoEnvironment(root)
     invalid = root / "invalid_graph_delta.json"
@@ -1021,6 +1346,10 @@ def main() -> int:
             test_undo_decomposition_resume_refuses_dirty_controller,
             test_undo_decomposition_resume_refuses_wrong_branch,
             test_undo_decomposition_resume_refuses_wrong_head,
+            test_published_decomposition_undo_recovery_cleans_only_stale_coordination,
+            test_published_decomposition_undo_recovery_refuses_later_protected_path,
+            test_published_decomposition_undo_recovery_refuses_any_child_issue,
+            test_published_decomposition_undo_recovery_resumes_partial_cleanup,
             test_undo_decomposition_rejects_invalid_graph_delta_cleanly,
             test_ordinary_reset_modes_are_unchanged,
         )
