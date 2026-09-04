@@ -104,9 +104,52 @@ _TRANSIENT_RESERVATION_SNAPSHOT_REASONS = frozenset(
     }
 )
 
+# One scan sweeps the whole listing before it sleeps, so every Issue shares
+# the ladder above instead of paying it per Issue. The queue of Issues still
+# awaiting an exact re-read is capped because each pending Issue costs one
+# exact GitHub read per remaining round. Overflow is never silently truncated:
+# an unreadable coordination picture fails closed with a deterministic
+# diagnostic instead of a partially scanned reservation set.
+MAX_PENDING_CONSISTENCY_RETRIES = 32
+
+# Number of overflowing Issue numbers named in the overflow diagnostic before
+# it is summarized, so the message stays bounded and comparable.
+_MAX_REPORTED_PENDING_ISSUE_NUMBERS = 10
+
+# Narrow seam for the separate PENDING_TRANSITION work: a workflow state value
+# listed here is accepted from the sleepless sweep as-is and never enters the
+# shared retry queue. It is deliberately empty in this branch, so every
+# recognizable skew still uses the full shared ladder.
+_CONSISTENCY_RETRY_EXCLUDED_STATE_VALUES: frozenset[str] = frozenset()
+
 
 class IssueWorkflowStoreError(TaskReviewContractError):
     """Raised when GitHub Issue workflow state cannot be changed safely."""
+
+
+class IssueConsistencyRetryOverflowError(IssueWorkflowStoreError):
+    """Raised when more Issues need a consistency retry than the cap allows.
+
+    The scan refuses to truncate the pending queue, because a silently
+    shortened scan would report a reservation picture it never actually read.
+    ``pending_issue_numbers`` is sorted so the diagnostic is deterministic for
+    the caller and for the append-only event layer.
+    """
+
+    def __init__(self, pending_issue_numbers: Iterable[int]) -> None:
+        self.pending_issue_numbers = tuple(sorted(set(pending_issue_numbers)))
+        self.cap = MAX_PENDING_CONSISTENCY_RETRIES
+        named = self.pending_issue_numbers[:_MAX_REPORTED_PENDING_ISSUE_NUMBERS]
+        listed = ", ".join(f"#{number}" for number in named)
+        remainder = len(self.pending_issue_numbers) - len(named)
+        if remainder > 0:
+            listed += f", and {remainder} more"
+        super().__init__(
+            f"consistency retry queue overflow: {len(self.pending_issue_numbers)} "
+            f"open Issue(s) remained incoherent after one immediate exact re-read, "
+            f"exceeding the pending retry cap of {self.cap}; the scan failed closed "
+            f"without truncating pending Issues {listed}"
+        )
 
 
 def _redact_origin(url: str) -> str:
@@ -486,13 +529,150 @@ def _consistency_deadline() -> float:
     return time.monotonic() + sum(RESERVATION_CONSISTENCY_DELAYS_SECONDS)
 
 
+def _snapshot_is_settled(snapshot: IssueWorkflowSnapshot) -> bool:
+    """Report whether a snapshot needs no further consistency re-read.
+
+    A coherent snapshot is settled. An incoherent snapshot is settled unless
+    every one of its reasons is the narrowly recognizable body/event
+    visibility skew; any other invalid snapshot is a real coordination
+    conflict and must not be re-read.
+    """
+
+    if snapshot.valid:
+        return True
+    if not (set(snapshot.reasons) & _TRANSIENT_RESERVATION_SNAPSHOT_REASONS):
+        return True
+    state = snapshot.state
+    # Narrow seam for the separate PENDING_TRANSITION work: an excluded state
+    # leaves the sweep as-is instead of joining the shared retry queue. The
+    # excluded set is empty here, so this branch is never taken today.
+    return (
+        state is not None
+        and state.state.value in _CONSISTENCY_RETRY_EXCLUDED_STATE_VALUES
+    )
+
+
+@dataclass(frozen=True)
+class _ConsistencyScanEntry:
+    """One listed Issue's outcome from the deferred-retry consistency scan.
+
+    ``error`` names an inspection failure the caller must fail closed on. A
+    ``None`` snapshot without an error means an exact read positively proved
+    the Issue is closed; it is never inferred from a missing read.
+    """
+
+    issue_number: int
+    snapshot: IssueWorkflowSnapshot | None = None
+    error: IssueWorkflowStoreError | None = None
+
+
+def _consistent_snapshots(
+    backend: IssueBackend,
+    issues: Sequence[Mapping[str, Any]],
+    *,
+    deadline: float | None = None,
+) -> list[_ConsistencyScanEntry]:
+    """Read many reservation snapshots through ONE shared consistency ladder.
+
+    Phase 0 sweeps every listed Issue without sleeping: a settled snapshot is
+    accepted immediately, and a recognizable body/event skew gets at most one
+    immediate exact re-read. Issues that are still unsettled are deferred.
+
+    Phase 1 then walks one shared backoff ladder. Each round sleeps once and
+    exact-reads every pending Issue, so a late-listed Issue receives the same
+    retry rounds as the first one and no Issue can spend another Issue's retry
+    time. Total injected sleep stays bounded by the scan deadline regardless of
+    how many Issues were listed.
+
+    The first ladder entry is the sleepless phase-0 re-read; the remaining
+    entries are the shared sleeping rounds. Persistent incoherence is preserved
+    as an unsettled snapshot for the caller to fail closed on. This helper
+    never mutates or repairs an Issue.
+    """
+
+    deadline = _consistency_deadline() if deadline is None else deadline
+    delays = tuple(RESERVATION_CONSISTENCY_DELAYS_SECONDS)
+    entries: dict[int, _ConsistencyScanEntry] = {}
+    order: list[int] = []
+    pending: list[int] = []
+
+    def read_exactly(number: int) -> bool:
+        """Exact-read one pending Issue; return True when its outcome is final."""
+
+        try:
+            current = backend.get_issue(number)
+        except IssueWorkflowStoreError as exc:
+            # Keep the failing Issue identified: a shared scan must not turn one
+            # unreadable Issue into an unattributed whole-scan failure.
+            entries[number] = _ConsistencyScanEntry(
+                issue_number=number,
+                error=IssueWorkflowStoreError(
+                    f"exact read of Issue #{number} failed: {exc}"
+                ),
+            )
+            return True
+        if current is None:
+            entries[number] = _ConsistencyScanEntry(
+                issue_number=number,
+                error=IssueWorkflowStoreError(
+                    f"exact read could not find Issue #{number}; "
+                    "closure was not proven"
+                ),
+            )
+            return True
+        if str(current.get("state") or "").upper() == "CLOSED":
+            entries[number] = _ConsistencyScanEntry(issue_number=number)
+            return True
+        snapshot = _snapshot(backend, current)
+        entries[number] = _ConsistencyScanEntry(
+            issue_number=number,
+            snapshot=snapshot,
+        )
+        return _snapshot_is_settled(snapshot)
+
+    for issue in issues:
+        snapshot = _snapshot(backend, issue)
+        number = snapshot.issue_number
+        if number in entries:
+            # The same Issue listed twice is still one durable Issue.
+            continue
+        order.append(number)
+        entries[number] = _ConsistencyScanEntry(
+            issue_number=number,
+            snapshot=snapshot,
+        )
+        if _snapshot_is_settled(snapshot) or not delays:
+            continue
+        if not read_exactly(number):
+            pending.append(number)
+
+    if len(pending) > MAX_PENDING_CONSISTENCY_RETRIES:
+        raise IssueConsistencyRetryOverflowError(pending)
+
+    for delay_seconds in delays[1:]:
+        if not pending:
+            break
+        if delay_seconds > 0:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(delay_seconds, remaining))
+        still_pending: list[int] = []
+        for number in pending:
+            if not read_exactly(number):
+                still_pending.append(number)
+        pending = still_pending
+
+    return [entries[number] for number in order]
+
+
 def _consistent_snapshot(
     backend: IssueBackend,
     issue: Mapping[str, Any],
     *,
     deadline: float | None = None,
 ) -> IssueWorkflowSnapshot | None:
-    """Read a reservation snapshot through bounded GitHub consistency skew.
+    """Read one reservation snapshot through bounded GitHub consistency skew.
 
     ``None`` is returned only after an exact Issue read positively proves the
     Issue is closed. A missing exact read is an inspection failure, never
@@ -500,33 +680,10 @@ def _consistent_snapshot(
     or repairs an Issue.
     """
 
-    snapshot = _snapshot(backend, issue)
-    if snapshot.valid or not (
-        set(snapshot.reasons) & _TRANSIENT_RESERVATION_SNAPSHOT_REASONS
-    ):
-        return snapshot
-
-    number = snapshot.issue_number
-    deadline = _consistency_deadline() if deadline is None else deadline
-    for delay_seconds in RESERVATION_CONSISTENCY_DELAYS_SECONDS:
-        if delay_seconds > 0:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                break
-            time.sleep(min(delay_seconds, remaining))
-        current = backend.get_issue(number)
-        if current is None:
-            raise IssueWorkflowStoreError(
-                f"exact read could not find Issue #{number}; closure was not proven"
-            )
-        if str(current.get("state") or "").upper() == "CLOSED":
-            return None
-        snapshot = _snapshot(backend, current)
-        if snapshot.valid or not (
-            set(snapshot.reasons) & _TRANSIENT_RESERVATION_SNAPSHOT_REASONS
-        ):
-            return snapshot
-    return snapshot
+    entry = _consistent_snapshots(backend, (issue,), deadline=deadline)[0]
+    if entry.error is not None:
+        raise entry.error
+    return entry.snapshot
 
 
 class IssueWorkflowReader(Protocol):
@@ -752,11 +909,11 @@ class IssueWorkflowService:
         conflicts: list[str] = []
         diagnostics: list[str] = []
         all_benign = True
-        consistency_deadline = _consistency_deadline()
         # A resource-less candidate still scans every open Issue: an authorized
         # Issue claiming managed workflow state with an invalid event chain has
         # untrustworthy ownership/reservation state and must block coordination
         # until repaired, even when the selected task reserves nothing itself.
+        candidates: list[Mapping[str, Any]] = []
         for issue in self.backend.list_issues():
             if str(issue.get("state") or "").upper() == "CLOSED":
                 # A closed COMPLETE Issue reserves nothing; a closed incomplete
@@ -775,18 +932,31 @@ class IssueWorkflowService:
                         "state but carries no authority and reserves no resources"
                     )
                 continue
-            try:
-                snapshot = _consistent_snapshot(
-                    self.backend,
-                    issue,
-                    deadline=consistency_deadline,
-                )
-            except IssueWorkflowStoreError as exc:
+            candidates.append(issue)
+        # One deferred-retry scan for the whole listing: every candidate shares
+        # the same bounded consistency ladder instead of the first Issue
+        # spending the entire scan deadline.
+        try:
+            scanned = _consistent_snapshots(self.backend, candidates)
+        except IssueConsistencyRetryOverflowError as exc:
+            # An untruncated but only partially readable reservation picture is
+            # a repair-worthy inspection failure, never benign contention.
+            return [str(exc)], diagnostics, None
+        except IssueWorkflowStoreError as exc:
+            return (
+                [f"the open workflow Issue listing could not be inspected: {exc}"],
+                diagnostics,
+                None,
+            )
+        for entry in scanned:
+            number = entry.issue_number
+            if entry.error is not None:
                 conflicts.append(
-                    f"workflow Issue #{number} could not be inspected: {exc}"
+                    f"workflow Issue #{number} could not be inspected: {entry.error}"
                 )
                 all_benign = False
                 continue
+            snapshot = entry.snapshot
             if snapshot is None:
                 continue
             if snapshot.state is not None and snapshot.state.task_id == task.get("id"):
@@ -1757,15 +1927,15 @@ class IssueWorkflowService:
 
     def list_agent_ready(self) -> list[dict[str, Any]]:
         ready = []
-        consistency_deadline = _consistency_deadline()
-        for issue in self.backend.list_issues():
-            if str(issue.get("state") or "").upper() == "CLOSED":
-                continue
-            snapshot = _consistent_snapshot(
-                self.backend,
-                issue,
-                deadline=consistency_deadline,
-            )
+        open_issues = [
+            issue
+            for issue in self.backend.list_issues()
+            if str(issue.get("state") or "").upper() != "CLOSED"
+        ]
+        for entry in _consistent_snapshots(self.backend, open_issues):
+            if entry.error is not None:
+                raise entry.error
+            snapshot = entry.snapshot
             if snapshot is None or not snapshot.managed:
                 continue
             if not snapshot.valid or snapshot.state is None:
@@ -1781,18 +1951,18 @@ class IssueWorkflowService:
         """Return coherent open human-owned workflows, failing on managed corruption."""
 
         waiting: list[dict[str, Any]] = []
-        consistency_deadline = _consistency_deadline()
+        candidates: list[Mapping[str, Any]] = []
         for issue in self.backend.list_issues():
             if str(issue.get("state") or "").upper() == "CLOSED":
                 continue
             body = str(issue.get("body") or "")
             if STATE_RE.search(body) is None or not issue_author_authorized(issue):
                 continue
-            snapshot = _consistent_snapshot(
-                self.backend,
-                issue,
-                deadline=consistency_deadline,
-            )
+            candidates.append(issue)
+        for entry in _consistent_snapshots(self.backend, candidates):
+            if entry.error is not None:
+                raise entry.error
+            snapshot = entry.snapshot
             if snapshot is None:
                 continue
             if not snapshot.managed:

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 import sys
@@ -248,6 +249,121 @@ class MissingExactReadMemoryBackend(BodyBeforeCommentMemoryBackend):
             self.hide_exact_issue_once = False
             return None
         return super().get_issue(issue_number)
+
+
+class PerIssueSkewMemoryBackend(MemoryIssueBackend):
+    """Hide each Issue's newest event comment for its own read budget.
+
+    ``hidden_comment_reads`` is per Issue so one scan can hold several Issues
+    inside the GitHub body/event visibility window at the same time, which is
+    the case where a shared retry ladder and a per-Issue ladder differ.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.hidden_comment_reads: dict[int, int] = {}
+        self.comment_reads: dict[int, int] = {}
+        self.exact_reads: dict[int, int] = {}
+
+    def get_comments(self, issue_number: int) -> list[dict]:
+        self.comment_reads[issue_number] = self.comment_reads.get(issue_number, 0) + 1
+        comments = super().get_comments(issue_number)
+        remaining = self.hidden_comment_reads.get(issue_number, 0)
+        if remaining > 0:
+            self.hidden_comment_reads[issue_number] = remaining - 1
+            return comments[:-1]
+        return comments
+
+    def get_issue(self, issue_number: int) -> dict | None:
+        self.exact_reads[issue_number] = self.exact_reads.get(issue_number, 0) + 1
+        return super().get_issue(issue_number)
+
+
+class FakeConsistencyClock:
+    """Monotonic clock advanced only by injected sleeps.
+
+    Real wall-clock time must never decide how many retry rounds a
+    deterministic test observes, and the recorded sleeps are the evidence that
+    the scan deadline is shared rather than paid per Issue.
+    """
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+        self.sleeps: list[float] = []
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(float(seconds))
+        self.now += float(seconds)
+
+
+@contextlib.contextmanager
+def fake_consistency_clock():
+    """Bind the store module's ``time`` name to a fake clock for one scan."""
+
+    clock = FakeConsistencyClock()
+    original = issue_workflow_store_module.time
+    issue_workflow_store_module.time = clock
+    try:
+        yield clock
+    finally:
+        issue_workflow_store_module.time = original
+
+
+# A skew budget no bounded ladder can outlast, used to prove fail-closed
+# behavior instead of accidental convergence.
+NEVER_CONVERGES = 99
+CHECKER_TASK_ID = "NSC-999"
+CHECKER_TASK = task(
+    CHECKER_TASK_ID,
+    resource="unity-scene:Assets/Scenes/ScanChecker.unity",
+)
+
+
+def seed_scan_issues(backend: MemoryIssueBackend, *, count: int) -> dict[str, dict]:
+    """Create ``count`` coherent agent_working Issues with disjoint resources."""
+
+    tasks = {
+        f"NSC-{901 + offset}": task(
+            f"NSC-{901 + offset}",
+            resource=f"unity-scene:Assets/Scenes/Scan{offset:02d}.unity",
+        )
+        for offset in range(count)
+    }
+    for offset, task_id in enumerate(sorted(tasks)):
+        owner = IssueWorkflowService(
+            backend=backend,
+            task_loader=lambda requested: tasks[requested],
+            worker_id=f"agent-{offset:02d}",
+        )
+        acquired = owner.acquire_agent_lease(
+            task=tasks[task_id],
+            source_head=SOURCE_HEAD,
+            branch=f"nsc-{task_id[4:]}-scan",
+            checkout_path=rf"C:\NSC\NSC\{task_id}",
+            planned_approach="Reserve one distinct scene.",
+            expected_validation="The listing is coherent before skew is injected.",
+            now=f"2026-09-03T22:{offset:02d}:00Z",
+        )
+        require(acquired["status"] == "acquired", str(acquired))
+    return tasks
+
+
+def scan_service(
+    backend: MemoryIssueBackend,
+    tasks: dict[str, dict],
+) -> IssueWorkflowService:
+    """Build the scanning worker whose own task overlaps nothing."""
+
+    loader = dict(tasks)
+    loader[CHECKER_TASK_ID] = CHECKER_TASK
+    return IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: loader[task_id],
+        worker_id="agent-scan",
+    )
 
 
 class ClosingExactReadMemoryBackend(BodyBeforeCommentMemoryBackend):
@@ -1043,6 +1159,219 @@ def test_resource_scan_skips_only_positively_closed_exact_issue() -> None:
     require(backend.issues[issue_number]["state"] == "CLOSED", "closure was not positive")
 
 
+def test_deferred_retry_gives_a_late_listed_issue_the_same_rounds() -> None:
+    """B6: every listed Issue shares one backoff ladder.
+
+    Four Issues open the same body/event skew at once. Under the previous
+    per-Issue sleeping retry the first Issues spent the whole scan deadline and
+    the last-listed Issue converged with fewer rounds or not at all. The
+    deferred queue must give each Issue the same rounds.
+    """
+
+    backend = PerIssueSkewMemoryBackend()
+    tasks = seed_scan_issues(backend, count=4)
+    checker = scan_service(backend, tasks)
+    for issue_number in backend.issues:
+        backend.hidden_comment_reads[issue_number] = 3
+    backend.comment_reads.clear()
+
+    with fake_consistency_clock() as clock:
+        conflicts, diagnostics = checker.resource_conflicts(CHECKER_TASK)
+
+    require(conflicts == [] and diagnostics == [], str((conflicts, diagnostics)))
+    require(clock.sleeps == [1.0, 2.0], f"unexpected shared ladder: {clock.sleeps}")
+    reads = dict(backend.comment_reads)
+    require(
+        sorted(reads) == sorted(backend.issues),
+        f"the scan did not read every listed Issue: {reads}",
+    )
+    require(
+        set(reads.values()) == {4},
+        f"a late-listed Issue did not receive the same retry rounds: {reads}",
+    )
+
+
+def test_shared_ladder_bounds_injected_sleep_for_one_and_many_issues() -> None:
+    """B6: total injected sleep stays at the seven-second scan deadline."""
+
+    single_backend = PerIssueSkewMemoryBackend()
+    single_tasks = seed_scan_issues(single_backend, count=1)
+    single_checker = scan_service(single_backend, single_tasks)
+    for issue_number in single_backend.issues:
+        single_backend.hidden_comment_reads[issue_number] = NEVER_CONVERGES
+
+    with fake_consistency_clock() as single_clock:
+        single_conflicts, _diagnostics = single_checker.resource_conflicts(CHECKER_TASK)
+
+    require(len(single_conflicts) == 1, str(single_conflicts))
+    require(
+        sum(single_clock.sleeps) <= 7.0,
+        f"one Issue exceeded the scan deadline: {single_clock.sleeps}",
+    )
+
+    many_backend = PerIssueSkewMemoryBackend()
+    many_tasks = seed_scan_issues(many_backend, count=24)
+    many_checker = scan_service(many_backend, many_tasks)
+    for issue_number in many_backend.issues:
+        many_backend.hidden_comment_reads[issue_number] = NEVER_CONVERGES
+
+    with fake_consistency_clock() as many_clock:
+        many_conflicts, _diagnostics = many_checker.resource_conflicts(CHECKER_TASK)
+
+    require(len(many_conflicts) == 24, str(len(many_conflicts)))
+    require(
+        sum(many_clock.sleeps) <= 7.0,
+        f"a 24-Issue listing exceeded the scan deadline: {many_clock.sleeps}",
+    )
+    require(
+        single_clock.sleeps == many_clock.sleeps,
+        f"listing size changed the sleep ladder: {single_clock.sleeps} vs "
+        f"{many_clock.sleeps}",
+    )
+
+
+def test_exact_reads_are_bounded_without_per_issue_sleep_amplification() -> None:
+    """B6: exact reads stay bounded per Issue and sleeps do not multiply."""
+
+    backend = PerIssueSkewMemoryBackend()
+    tasks = seed_scan_issues(backend, count=12)
+    checker = scan_service(backend, tasks)
+    for issue_number in backend.issues:
+        backend.hidden_comment_reads[issue_number] = NEVER_CONVERGES
+    backend.exact_reads.clear()
+
+    with fake_consistency_clock() as clock:
+        conflicts, _diagnostics = checker.resource_conflicts(CHECKER_TASK)
+
+    ladder = issue_workflow_store_module.RESERVATION_CONSISTENCY_DELAYS_SECONDS
+    require(len(conflicts) == 12, str(len(conflicts)))
+    require(
+        len(clock.sleeps) == len(ladder) - 1,
+        f"the shared ladder slept {len(clock.sleeps)} time(s) for 12 Issues: "
+        f"{clock.sleeps}",
+    )
+    exact_reads = dict(backend.exact_reads)
+    require(
+        set(exact_reads.values()) == {len(ladder)},
+        f"exact reads per Issue are not bounded by the ladder: {exact_reads}",
+    )
+    require(
+        sum(exact_reads.values()) == 12 * len(ladder),
+        f"unexpected total exact reads: {exact_reads}",
+    )
+
+
+def test_pending_retry_cap_overflow_is_explicit_and_fails_closed() -> None:
+    """B6: an oversized pending queue is never silently truncated."""
+
+    require(
+        issue_workflow_store_module.MAX_PENDING_CONSISTENCY_RETRIES == 32,
+        "the committed pending retry cap changed",
+    )
+
+    backend = PerIssueSkewMemoryBackend()
+    tasks = seed_scan_issues(backend, count=3)
+    checker = scan_service(backend, tasks)
+    for issue_number in backend.issues:
+        backend.hidden_comment_reads[issue_number] = NEVER_CONVERGES
+
+    original_cap = issue_workflow_store_module.MAX_PENDING_CONSISTENCY_RETRIES
+    issue_workflow_store_module.MAX_PENDING_CONSISTENCY_RETRIES = 2
+    try:
+        with fake_consistency_clock() as clock:
+            conflicts, diagnostics, blocked_kind = (
+                checker._resource_conflicts_classified(CHECKER_TASK)
+            )
+        require(clock.sleeps == [], f"overflow slept before failing closed: {clock.sleeps}")
+        require(len(conflicts) == 1 and diagnostics == [], str((conflicts, diagnostics)))
+        require(
+            blocked_kind is None,
+            f"an unreadable reservation picture must never be typed benign "
+            f"contention: {blocked_kind}",
+        )
+        overflow_reason = conflicts[0]
+        require(
+            "consistency retry queue overflow" in overflow_reason,
+            overflow_reason,
+        )
+        require(
+            "exceeding the pending retry cap of 2" in overflow_reason,
+            overflow_reason,
+        )
+        expected_numbers = tuple(sorted(backend.issues))
+        for number in expected_numbers:
+            require(f"#{number}" in overflow_reason, overflow_reason)
+
+        blocked = checker.acquire_agent_lease(
+            task=CHECKER_TASK,
+            source_head=SOURCE_HEAD,
+            branch="nsc-999-scan",
+            checkout_path=r"C:\NSC\NSC\NSC-999",
+            planned_approach="Attempt work while the listing cannot be read.",
+            expected_validation="Overflow must fail closed, never retry.",
+            now="2026-09-03T23:30:00Z",
+        )
+        require(blocked["status"] == "blocked", str(blocked))
+        require(
+            "blocked_kind" not in blocked,
+            f"retry-cap overflow must not be retryable contention: {blocked}",
+        )
+
+        expect_error(checker.list_agent_ready, "consistency retry queue overflow")
+        try:
+            checker.list_agent_ready()
+        except issue_workflow_store_module.IssueConsistencyRetryOverflowError as exc:
+            require(
+                exc.pending_issue_numbers == expected_numbers,
+                f"overflow diagnostic is not deterministic: {exc.pending_issue_numbers}",
+            )
+        else:
+            raise AssertionError("list_agent_ready accepted an overflowing scan")
+    finally:
+        issue_workflow_store_module.MAX_PENDING_CONSISTENCY_RETRIES = original_cap
+
+    require(
+        len(backend.issues) == 3,
+        "the overflow path must not create or repair Issues",
+    )
+
+
+def test_persistent_incoherence_still_fails_closed_after_the_ladder() -> None:
+    """B6: exhausting the shared ladder is a blocking coordination conflict."""
+
+    backend = PerIssueSkewMemoryBackend()
+    tasks = seed_scan_issues(backend, count=1)
+    checker = scan_service(backend, tasks)
+    issue_number = next(iter(backend.issues))
+    backend.hidden_comment_reads[issue_number] = NEVER_CONVERGES
+
+    with fake_consistency_clock() as clock:
+        conflicts, diagnostics, blocked_kind = (
+            checker._resource_conflicts_classified(CHECKER_TASK)
+        )
+
+    require(clock.sleeps == [1.0, 2.0, 4.0], f"unexpected ladder: {clock.sleeps}")
+    require(len(conflicts) == 1 and diagnostics == [], str((conflicts, diagnostics)))
+    require(
+        f"Issue #{issue_number} claims managed workflow state but is invalid"
+        in conflicts[0],
+        conflicts[0],
+    )
+    require(
+        "state_version does not match workflow event count" in conflicts[0],
+        conflicts[0],
+    )
+    require(blocked_kind is None, f"unreadable state was typed benign: {blocked_kind}")
+
+    with fake_consistency_clock():
+        expect_error(checker.list_agent_ready, "is invalid")
+
+    require(
+        backend.issues[issue_number]["state"] == "OPEN",
+        "the failing scan must not mutate the Issue",
+    )
+
+
 def test_queue_reads_retry_body_before_comment_visibility_skew() -> None:
     backend = BodyBeforeCommentMemoryBackend()
     tasks = {TASK_ID: task(TASK_ID)}
@@ -1573,6 +1902,11 @@ def main() -> int:
         test_resource_scan_retries_body_before_comment_visibility_skew,
         test_resource_scan_never_treats_missing_exact_read_as_closed,
         test_resource_scan_skips_only_positively_closed_exact_issue,
+        test_deferred_retry_gives_a_late_listed_issue_the_same_rounds,
+        test_shared_ladder_bounds_injected_sleep_for_one_and_many_issues,
+        test_exact_reads_are_bounded_without_per_issue_sleep_amplification,
+        test_pending_retry_cap_overflow_is_explicit_and_fails_closed,
+        test_persistent_incoherence_still_fails_closed_after_the_ladder,
         test_queue_reads_retry_body_before_comment_visibility_skew,
         test_durable_ownership_by_other_is_typed_blocked_kind,
         test_operational_resource_inspection_failure_is_not_benign,
