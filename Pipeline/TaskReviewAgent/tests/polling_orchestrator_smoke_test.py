@@ -4440,6 +4440,45 @@ def test_new_script_meta_companion_launches_the_lean_fast_profile() -> None:
         )
 
 
+def test_committed_path_probe_is_case_insensitive_and_fails_closed() -> None:
+    """The Unity/Windows path oracle must not mistake uncertainty for newness."""
+
+    with tempfile.TemporaryDirectory() as text:
+        source, _head = create_source(Path(text))
+        script = source / "Assets" / "Fixture" / "Existing.cs"
+        script.parent.mkdir(parents=True)
+        script.write_text("internal sealed class Existing {}\n", encoding="utf-8")
+        sidecar = script.with_suffix(".cs.meta")
+        sidecar.write_text("fileFormatVersion: 2\nguid: fixture\n", encoding="utf-8")
+        git(
+            source,
+            "add",
+            "Assets/Fixture/Existing.cs",
+            "Assets/Fixture/Existing.cs.meta",
+        )
+        git(source, "commit", "-m", "add existing script fixture")
+        head = git(source, "rev-parse", "HEAD")
+
+        probe = scheduler_module.committed_path_probe(source, head)
+        require(probe("Assets/Fixture/Existing.cs.meta"), "exact path was missed")
+        require(
+            probe("ASSETS/FIXTURE/EXISTING.CS.META"),
+            "case-only spelling incorrectly treated an existing sidecar as new",
+        )
+        require(
+            not probe("Assets/Fixture/New.cs.meta"),
+            "a genuinely missing sidecar was reported as committed",
+        )
+
+        invalid_probe = scheduler_module.committed_path_probe(source, "0" * 40)
+        try:
+            invalid_probe("Assets/Fixture/New.cs.meta")
+        except IntegrationObservationError:
+            pass
+        else:
+            raise AssertionError("an invalid commit was reported as a missing path")
+
+
 def test_scene_surface_still_launches_the_full_deep_profile() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -5411,8 +5450,9 @@ def main() -> int:
         test_dry_run_never_invokes_models_or_workers,
         test_worker_popen_uses_host_controller_boundary_and_shell_false,
         test_new_script_meta_companion_launches_the_lean_fast_profile,
-    test_scene_surface_still_launches_the_full_deep_profile,
-    test_worker_launch_records_and_carries_exact_resolved_route,
+        test_committed_path_probe_is_case_insensitive_and_fails_closed,
+        test_scene_surface_still_launches_the_full_deep_profile,
+        test_worker_launch_records_and_carries_exact_resolved_route,
         test_malformed_routing_policy_launches_nothing,
         test_ctrl_c_does_not_kill_children_or_release_leases,
         test_scheduler_source_has_no_issue_or_claim_mutation_calls,

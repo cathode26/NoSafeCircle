@@ -558,19 +558,48 @@ def committed_path_probe(source: Path, commit: str) -> Callable[[str], bool]:
     """Return a bounded "does this exact path already exist at this commit" oracle.
 
     The rigor policy uses it to tell a brand-new deterministic `<script>.cs.meta`
-    import sidecar apart from an edit to one that already exists. A change
-    surface names only a handful of paths, and each answer is cached, so this
-    stays a few `git cat-file` probes per admission.
+    import sidecar apart from an edit to one that already exists. The committed
+    tree is loaded once, compared case-insensitively for the Windows/Unity
+    checkout contract, and cached for the complete admission batch. A Git
+    observation failure raises instead of being misreported as a missing path.
     """
 
-    cache: dict[str, bool] = {}
+    committed_paths: frozenset[str] | None = None
+
+    def load_committed_paths() -> frozenset[str]:
+        nonlocal committed_paths
+        if committed_paths is not None:
+            return committed_paths
+        result = _run_git(
+            source,
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "-z",
+            commit,
+        )
+        if result.returncode != 0:
+            detail = result.stderr.decode("utf-8", errors="replace").strip()
+            raise IntegrationObservationError(
+                f"could not inspect committed paths at {commit}"
+                + (f": {detail[:500]}" if detail else "")
+            )
+        try:
+            values = result.stdout.decode("utf-8").split("\x00")
+        except UnicodeDecodeError as exc:
+            raise IntegrationObservationError(
+                "committed path observation was not UTF-8"
+            ) from exc
+        committed_paths = frozenset(
+            value.replace("\\", "/").casefold() for value in values if value
+        )
+        return committed_paths
 
     def probe(path: str) -> bool:
         normalized = str(path).replace("\\", "/")
-        if normalized not in cache:
-            result = _run_git(source, "cat-file", "-e", f"{commit}:{normalized}")
-            cache[normalized] = result.returncode == 0
-        return cache[normalized]
+        while normalized.startswith("./"):
+            normalized = normalized[2:]
+        return normalized.casefold() in load_committed_paths()
 
     return probe
 
@@ -3125,6 +3154,7 @@ class PollingOrchestrator:
             )
 
         last_launch: PollCycleResult | None = None
+        admission_path_probe = committed_path_probe(self.source, plan.source_commit)
         considered: set[str] = set()
         for candidate, resume_phase, _portfolio_entry, advisory in safe_candidates:
             task_id = advisory.task_id
@@ -3371,9 +3401,7 @@ class PollingOrchestrator:
                         advisory.execution_recommendation,
                         task=task,
                         predicted_change_surface=advisory.predicted_change_surface,
-                        committed_path_probe=committed_path_probe(
-                            self.source, plan.source_commit
-                        ),
+                        committed_path_probe=admission_path_probe,
                     )
                     route = resolve_execution_route(
                         advisory.execution_recommendation,
