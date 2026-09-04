@@ -8,16 +8,25 @@ repository file is involved. Each test proves an explicit regression-only
 invariant of the pooled-session contract.
 
 The load-bearing claims are: a lease is refused unless every identity matches
-this exact execution; a role becomes reusable only when its AgentRuntime result,
-its semantic validation, and the deterministic changed-path check all accepted
-the work; the exact persisted role artifact is what a later check-in verifies;
-a role that never ran leaves no evidence and cannot be recycled; and a repair
-attempt continues the same conversation instead of opening a second one.
+this exact execution, including the provider and routed model the role is really
+invoked through; a role becomes reusable only when its AgentRuntime result, its
+semantic validation, and the deterministic changed-path check all accepted the
+work; the exact persisted role artifact -- hashed as the bytes on disk and bound
+in those bytes to this exact assignment -- is what a later check-in verifies; a
+role that never ran leaves no evidence and cannot be recycled; a proven failure
+waits on non-advertised probation for at most one deliberate retry before the
+committed streak policy retires it; and a repair attempt continues the same
+conversation instead of opening a second one.
+
+Every artifact this file writes or rewrites is written as exact bytes and hashed
+from disk, so a Windows checkout cannot make an evidence regression pass or fail
+for a newline-translation reason instead of the reason it states.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import itertools
 import json
 import os
@@ -61,6 +70,9 @@ IMPL = "Assets/Scripts/PlayerMana.cs"
 TEST = "Assets/Tests/PlayerManaTests.cs"
 OTHER = "Assets/Scripts/Other.cs"
 MODEL = "pooled-crew-model"
+OTHER_MODEL = "pooled-crew-other-model"
+PROVIDER = "claude-code"
+OTHER_PROVIDER = "openai-codex"
 REPOSITORY = "https://github.com/cathode26/NoSafeCircle.git"
 OTHER_REPOSITORY = "https://github.com/cathode26/Other.git"
 OTHER_COMMIT = "b" * 40
@@ -95,6 +107,32 @@ def cmd(root: Path, *args: str) -> str:
 def write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8", newline="\n")
+
+
+def artifact_digest(path: Path) -> str:
+    """Return the SHA-256 of the bytes this artifact actually holds on disk.
+
+    Pooled evidence is decided by bytes, so every fixture hashes the file as it
+    exists rather than the string it hoped to write. Text-mode writing translates
+    "\\n" to "\\r\\n" on Windows, which would silently make a tamper test hash
+    bytes it never wrote and pass for the wrong reason.
+    """
+
+    payload = path.read_bytes()
+    require(b"\r\n" not in payload, f"{path.name} was newline-translated on disk")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def rewrite_role_artifact(run_dir: Path, artifact: str, mutate) -> str:
+    """Rewrite one persisted role artifact as exact bytes; return its on-disk digest."""
+
+    path = run_dir / artifact
+    record = json.loads(path.read_bytes().decode("utf-8"))
+    mutate(record)
+    payload = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    path.write_bytes(payload)
+    require(path.read_bytes() == payload, "the artifact on disk is not the bytes written")
+    return artifact_digest(path)
 
 
 def task_contract(task_id: str, key: str, title: str) -> dict:
@@ -190,9 +228,15 @@ class State:
 
 
 class PooledFakeProvider:
-    """A fake provider that honors an exact session binding and confirms it."""
+    """A fake provider that honors an exact session binding and confirms it.
 
-    provider_identifier = "fake"
+    It answers to the exact provider identity the lease authorizes. A fake that
+    called itself something else would let the evidence claim `claude-code` while
+    a different provider actually ran, which is the identity the pooled boundary
+    exists to prove.
+    """
+
+    provider_identifier = "claude-code"
 
     def __init__(self, state, repo, writable, role, session, session_ledger):
         self.state = state
@@ -283,16 +327,23 @@ class PooledFakeProvider:
         }
 
 
-def factory(state: State):
+def factory(state: State, *, provider_identity: str = PROVIDER, model: str = MODEL):
+    """Return a session-aware provider factory bound to one exact identity.
+
+    The configuration provider and model are what AgentRuntime resolves and what
+    `AgentResult` then reports, so a scenario can state a wrong provider or a
+    wrong routed model and the pooled boundary must refuse it.
+    """
+
     def create(provider, repo, writable, role, session=None, session_ledger=None):
         key = f"{provider}-crew"
         config = RuntimeConfiguration({
-            key: {"provider": "fake",
-                  "models": {"low_cost": MODEL, "standard": MODEL, "high_reasoning": MODEL}}
+            key: {"provider": provider_identity,
+                  "models": {"low_cost": model, "standard": model, "high_reasoning": model}}
         })
-        return key, config, {
-            "fake": PooledFakeProvider(state, repo, writable, role, session, session_ledger)
-        }
+        fake = PooledFakeProvider(state, repo, writable, role, session, session_ledger)
+        fake.provider_identifier = provider_identity
+        return key, config, {provider_identity: fake}
 
     return create
 
@@ -306,8 +357,8 @@ def ephemeral_factory(state: State):
     return create
 
 
-def identity_factory():
-    counter = itertools.count(1)
+def identity_factory(start: int = 1):
+    counter = itertools.count(start)
 
     def make() -> str:
         value = next(counter)
@@ -323,8 +374,8 @@ def source_identity(root: Path) -> tuple[str, str]:
     return cmd(top, "rev-parse", "--verify", "HEAD"), str(top)
 
 
-def new_pool() -> SessionPool:
-    return SessionPool(identity_factory=identity_factory(), clock=lambda: BASE)
+def new_pool(*, identity_start: int = 1) -> SessionPool:
+    return SessionPool(identity_factory=identity_factory(identity_start), clock=lambda: BASE)
 
 
 def compatibility(role: str, *, repository: str = REPOSITORY,
@@ -495,10 +546,17 @@ def test_a_scope_rejected_implementer_is_never_reusable() -> None:
             result=DurableAssignmentResult.from_dict(evidence),
             evidence_root=run_dir,
         )
-        require(session.state == "quarantined", str(session.state))
-        require("changed paths rejected" in (session.quarantine_reason or ""),
-                str(session.quarantine_reason))
+        # A proven output failure is counted by the committed policy and held on
+        # probation: never advertised, never reusable, never offered by checkout.
+        require(session.state == "probation", str(session.state))
+        require("changed paths rejected" in (session.probation_reason or ""),
+                str(session.probation_reason))
         require(not session.is_reusable_at(BASE), "a scope-rejected session stayed reusable")
+        require(session.lifecycle.consecutive_provider_output_failures == 1,
+                str(session.lifecycle))
+        later = lease_for(pool, "implementer", head=head, checkout=checkout,
+                          run_id="nsc-005-scope-2", now=BASE + dt.timedelta(seconds=60))
+        require(later.mode == "start", "a scope-rejected conversation was offered as warm")
 
 
 def test_failed_role_output_is_never_reusable() -> None:
@@ -527,7 +585,34 @@ def test_failed_role_output_is_never_reusable() -> None:
             result=DurableAssignmentResult.from_dict(evidence),
             evidence_root=run_dir,
         )
-        require(session.state == "quarantined", str(session.state))
+        require(session.state == "probation", str(session.state))
+        require(not session.is_reusable_at(BASE), "a failed role stayed reusable")
+        # The committed streak is reachable from a real run: one deliberate,
+        # compatible retry is offered, and a second counted failure retires it.
+        retry = pool.offer_probation_retry(
+            compatibility=compatibility("implementer"), record_id=session.record_id,
+            worker_slot_id="worker-slot-2", task_id=TASK, worker_run_id="nsc-005-schema-2",
+            source_commit=head, checkout_identity=checkout,
+            now=BASE + dt.timedelta(seconds=60),
+        )
+        require(retry.mode == "resume" and retry.session_id == session.session_id, str(retry))
+        second, second_dir = pooled_run(source, parent / "outputs-retry",
+                                        run_id="nsc-005-schema-2",
+                                        leases={"implementer": retry},
+                                        state=State("schema_invalid_implementer"))
+        require("implementer" not in second["reusable_role_sessions"],
+                str(second["reusable_role_sessions"]))
+        retired = pool.check_in(
+            lease=retry,
+            result=DurableAssignmentResult.from_dict(
+                second["durable_assignment_results"]["implementer"]
+            ),
+            evidence_root=second_dir,
+        )
+        require(retired.retirement_reason == "consecutive_provider_output_failures",
+                str(retired.retirement_reason))
+        require(not retired.is_reusable_at(BASE) and not retired.is_retry_offerable_at(BASE),
+                "a retired conversation was still offerable")
 
 
 def test_a_successful_roles_exact_artifact_checks_in_and_resumes() -> None:
@@ -552,6 +637,22 @@ def test_a_successful_roles_exact_artifact_checks_in_and_resumes() -> None:
             require(evidence.crew_run_id == run_id, f"{role}: {evidence.crew_run_id}")
             require(evidence.source_commit == head and evidence.checkout_identity == checkout,
                     f"{role}: {evidence}")
+            # The provider and model that actually ran are the lease's, and the
+            # artifact on disk hashes exactly to the durable claim on any
+            # platform and binds itself to this exact assignment.
+            require(evidence.provider_identifier == PROVIDER and evidence.model == MODEL,
+                    f"{role}: {evidence.provider_identifier} {evidence.model}")
+            payload = (run_dir / evidence.role_result_artifact).read_bytes()
+            require(hashlib.sha256(payload).hexdigest() == evidence.role_result_sha256,
+                    f"{role}: the on-disk artifact does not hash to its durable claim")
+            require(b"\r\n" not in payload, f"{role}: the artifact was newline-translated")
+            record = json.loads(payload.decode("utf-8"))
+            require(record["provider"] == PROVIDER and record["model"] == MODEL,
+                    f"{role}: {record['provider']} {record['model']}")
+            require(record["pooled_assignment_evidence"] == evidence.role_evidence_binding(),
+                    f"{role}: the artifact binding differs from its durable claim")
+            require(record["pooled_assignment_evidence"]["confirmed_session"]
+                    == evidence.confirmed_session.to_dict(), role)
             returned = pool.check_in(lease=lease, result=evidence, evidence_root=run_dir)
             require(returned.state == "idle", f"{role}: {returned.state}")
             require(returned.completed_assignment_count == 1, f"{role}: {returned}")
@@ -600,30 +701,36 @@ def test_missing_or_tampered_role_evidence_cannot_check_in() -> None:
         require("missing or unreadable" in (session.quarantine_reason or ""),
                 str(session.quarantine_reason))
 
-        # A tampered artifact no longer hashes to the recorded digest.
+        # A tampered artifact no longer hashes to the recorded digest. The
+        # tamper and the hash are both taken from the bytes on disk, so this
+        # rejection cannot come from platform newline translation.
         pool, lease, evidence, run_dir = prepared()
-        artifact = run_dir / evidence.role_result_artifact
-        record = json.loads(artifact.read_text(encoding="utf-8"))
-        record["scope_check_reasons"] = ["invented after the fact"]
-        artifact.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        require(artifact_digest(run_dir / evidence.role_result_artifact)
+                == evidence.role_result_sha256,
+                "the run's own artifact does not hash to its durable claim")
+        tampered = rewrite_role_artifact(
+            run_dir, evidence.role_result_artifact,
+            lambda record: record.update({"scope_check_reasons": ["invented after the fact"]}),
+        )
+        require(tampered != evidence.role_result_sha256, "the tamper did not change the bytes")
         session = pool.check_in(lease=lease, result=evidence, evidence_root=run_dir)
         require(session.state == "quarantined", str(session.state))
         require("SHA-256" in (session.quarantine_reason or ""), str(session.quarantine_reason))
 
         # Re-hashing a rewritten decision does not help: the artifact must still
-        # agree with the durable claim.
+        # agree with the durable claim. The rehashed claim is the exact on-disk
+        # digest, so the only remaining contradiction is the semantic one.
         pool, lease, evidence, run_dir = prepared()
-        artifact = run_dir / evidence.role_result_artifact
-        record = json.loads(artifact.read_text(encoding="utf-8"))
-        record["deterministic_changed_path_validation"] = "rejected"
-        payload = json.dumps(record, indent=2, sort_keys=True) + "\n"
-        artifact.write_text(payload, encoding="utf-8")
-        import hashlib as _hashlib
-
+        digest = rewrite_role_artifact(
+            run_dir, evidence.role_result_artifact,
+            lambda record: record.update({"deterministic_changed_path_validation": "rejected"}),
+        )
         rehashed = DurableAssignmentResult.from_dict({
-            **evidence.to_dict(),
-            "role_result_sha256": _hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+            **evidence.to_dict(), "role_result_sha256": digest,
         })
+        require(artifact_digest(run_dir / rehashed.role_result_artifact)
+                == rehashed.role_result_sha256,
+                "the rehashed claim is not the on-disk digest")
         session = pool.check_in(lease=lease, result=rehashed, evidence_root=run_dir)
         require(session.state == "quarantined", str(session.state))
         require("disagrees with the durable claim" in (session.quarantine_reason or ""),
@@ -636,6 +743,34 @@ def test_missing_or_tampered_role_evidence_cannot_check_in() -> None:
         })
         session = pool.check_in(lease=lease, result=borrowed, evidence_root=run_dir)
         require(session.state == "quarantined", str(session.state))
+
+        # The same role's successful artifact from another crew run, lease, and
+        # task cannot be copied in either, byte-for-byte and rehashed.
+        donor_pool = new_pool(identity_start=200)
+        donor_leases = all_leases(donor_pool, head=head, checkout=checkout,
+                                  run_id="nsc-005-evidence-donor")
+        donor, donor_dir = pooled_run(source, parent / "outputs-donor",
+                                      run_id="nsc-005-evidence-donor", leases=donor_leases,
+                                      state=State("pass"))
+        donor_evidence = DurableAssignmentResult.from_dict(
+            donor["durable_assignment_results"]["implementer"]
+        )
+        pool, lease, evidence, run_dir = prepared()
+        require(donor_evidence.role_result_artifact == evidence.role_result_artifact,
+                "the copy must reuse the same run-relative path")
+        donor_bytes = (donor_dir / donor_evidence.role_result_artifact).read_bytes()
+        (run_dir / evidence.role_result_artifact).write_bytes(donor_bytes)
+        copied = DurableAssignmentResult.from_dict({
+            **evidence.to_dict(),
+            "role_result_sha256": hashlib.sha256(donor_bytes).hexdigest(),
+        })
+        session = pool.check_in(lease=lease, result=copied, evidence_root=run_dir)
+        require(session.state == "quarantined", str(session.state))
+        reason = session.quarantine_reason or ""
+        require("binding disagrees with the durable claim" in reason, reason)
+        for field in ("crew_run_id", "lease_id", "record_id", "worker_run_id"):
+            require(f"'{field}'" in reason, f"{field} was not compared: {reason}")
+        require(not session.is_reusable_at(BASE), "a copied artifact recycled a session")
 
 
 # ------------------------------------- 3: uninvoked roles and repair cycles
@@ -760,6 +895,95 @@ def test_a_pooled_lease_requires_a_session_aware_provider() -> None:
         require("session binding and ledger" in str(blocked), str(blocked))
 
 
+# -------------------------------- 4: the identity that is actually invoked
+
+
+def test_a_pooled_role_is_never_invoked_through_another_provider_or_model() -> None:
+    with tempfile.TemporaryDirectory(prefix="pooled-crew-") as text:
+        parent = Path(text)
+        source = fixture(parent)
+        head, checkout = source_identity(source)
+        for label, kind, expected in (
+            ("provider",
+             lambda state: factory(state, provider_identity=OTHER_PROVIDER),
+             f"resolves provider {OTHER_PROVIDER!r}"),
+            ("model",
+             lambda state: factory(state, model=OTHER_MODEL),
+             f"resolves model {OTHER_MODEL!r}"),
+        ):
+            pool = new_pool()
+            run_id = f"nsc-005-route-{label}"
+            leases = all_leases(pool, head=head, checkout=checkout, run_id=run_id)
+            state = State("pass")
+            blocked = rejects(
+                lambda kind=kind, run_id=run_id, leases=leases, state=state, label=label:
+                    pooled_run(source, parent / f"outputs-{label}", run_id=run_id,
+                               leases=leases, state=state, factory_kind=kind),
+                CrewBlocked,
+            )
+            require(expected in str(blocked), f"{label}: {blocked}")
+            require("its lease authorizes" in str(blocked), f"{label}: {blocked}")
+            require(not state.invocations,
+                    f"{label}: a provider ran before its identity was proven")
+            # Nothing ran, so nothing is advertised and no lease can be checked
+            # in as reusable on this run's word.
+            for role, lease in leases.items():
+                session = pool.check_in(lease=lease, result=None, evidence_root=None)
+                require(session.state == "quarantined", f"{label}/{role}: {session.state}")
+                require(not session.is_reusable_at(BASE),
+                        f"{label}/{role}: an uninvoked lease stayed reusable")
+                fresh = lease_for(pool, role, head=head, checkout=checkout,
+                                  run_id=f"{run_id}-2", now=BASE + dt.timedelta(seconds=60))
+                require(fresh.mode == "start",
+                        f"{label}/{role}: an unproven conversation was offered again")
+
+
+def forged_lease(lease: AssignmentLease, **overrides) -> AssignmentLease:
+    """Return an adversarial lease object that never passed lease construction.
+
+    `AssignmentLease` correctly refuses another crew/session protocol outright,
+    so the only way to prove that `run_crew` itself refuses one is to hand it an
+    object that skipped that construction entirely.
+    """
+
+    forged = object.__new__(AssignmentLease)
+    for name, value in {**lease.to_dict(), **overrides}.items():
+        object.__setattr__(forged, name, value)
+    return forged
+
+
+def test_a_nested_protocol_mismatch_is_refused_by_the_full_run() -> None:
+    with tempfile.TemporaryDirectory(prefix="pooled-crew-") as text:
+        parent = Path(text)
+        source = fixture(parent)
+        head, checkout = source_identity(source)
+        pool = new_pool()
+        run_id = "nsc-005-protocol-run"
+        leases = all_leases(pool, head=head, checkout=checkout, run_id=run_id)
+        # Normal construction refuses it, so the regression uses the adversarial
+        # object instead of asserting a state that cannot exist.
+        rejects(lambda: AssignmentLease.from_dict(
+            {**leases["implementer"].to_dict(), "protocol_version": "9.9"}), SessionPoolError)
+        forged = forged_lease(leases["implementer"], protocol_version="9.9")
+        require(type(forged) is AssignmentLease, str(type(forged)))
+        require(forged.protocol_version == "9.9", forged.protocol_version)
+        state = State("pass")
+        blocked = rejects(
+            lambda: pooled_run(source, parent / "outputs-protocol", run_id=run_id,
+                               leases={**leases, "implementer": forged}, state=state),
+            CrewBlocked,
+        )
+        require("crew/session protocol" in str(blocked), str(blocked))
+        require(not state.invocations,
+                "a provider ran for an unknown crew/session protocol")
+        # The run produced no result at all, so no conversation can be recycled
+        # on its word: every lease returns deliberately with no evidence.
+        for role, lease in leases.items():
+            session = pool.check_in(lease=lease, result=None, evidence_root=None)
+            require(session.state == "quarantined", f"{role}: {session.state}")
+            require(not session.is_reusable_at(BASE), f"{role}: an unproven lease stayed reusable")
+
+
 TESTS = (
     test_full_run_refuses_a_lease_from_another_execution,
     test_a_lease_from_another_crew_protocol_is_refused,
@@ -771,6 +995,8 @@ TESTS = (
     test_a_repair_attempt_keeps_the_same_role_session,
     test_a_reused_session_receives_the_capsule_once,
     test_a_pooled_lease_requires_a_session_aware_provider,
+    test_a_pooled_role_is_never_invoked_through_another_provider_or_model,
+    test_a_nested_protocol_mismatch_is_refused_by_the_full_run,
 )
 
 

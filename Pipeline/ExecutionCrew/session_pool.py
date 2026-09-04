@@ -24,23 +24,30 @@ other assignment. Checking in requires the exact lease, task, worker run, crew
 run, role, provider, routed model and reasoning effort, source commit, checkout
 identity, repository identity, protocol version, and the provider-confirmed
 session identity, plus a durable result whose persisted role artifact is present,
-hash-exact, and internally consistent with the deterministic changed-path and
-semantic decisions it claims. A process exit code proves nothing here, and
-neither does a caller assertion or a bare session ID.
+hash-exact, internally consistent with the deterministic changed-path and
+semantic decisions it claims, and bound in its own bytes to this exact
+assignment. A process exit code proves nothing here, and neither does a caller
+assertion, a bare session ID, or another assignment's perfectly valid artifact.
 
 Committed lifetime policy, applied once per boundary. Budgets, failure streaks,
 context-window and latency retirement all come from
 `Pipeline/AgentRuntime/session_lifecycle.py`; this module owns no second copy of
 those numbers. Its transitions are applied only between assignments, so an active
-assignment is never interrupted or retired.
+assignment is never interrupted or retired. A proven provider/output failure that
+the committed policy counted but did not retire leaves the conversation on
+explicit probation: never advertised, never reusable, and offered again only by
+one deliberate, exactly compatible retry through `offer_probation_retry`, whose
+own result either resets the streak or lets the committed policy retire it.
 
 Fail closed into quarantine. Anything unproven -- missing or malformed session
 identity, transport failure, uncertain timeout, mismatched lease fields, missing
-durable result, missing or tampered role evidence, rejected changed paths,
-rejected semantics, corrupt state, or an unknown protocol -- quarantines the
-conversation instead of recycling it. Quarantine, retirement, and expiry only
-stop the pool selecting a session; they never delete provider history or
-credentials, and they never touch a running worker.
+durable result, missing or tampered role evidence, evidence bound to another
+assignment, rejected changed paths, rejected semantics, corrupt state, or an
+unknown protocol -- quarantines the conversation instead of recycling it, and an
+unproven provider confirmation never replaces the identity the lease or session
+already established. Quarantine, probation, retirement, and expiry only stop the
+pool selecting a session; they never delete provider history or credentials, and
+they never touch a running worker.
 """
 
 from __future__ import annotations
@@ -78,6 +85,7 @@ from Pipeline.AgentRuntime.session_lifecycle import (
 
 
 POOL_SCHEMA_VERSION = "1.0"
+ROLE_EVIDENCE_SCHEMA_VERSION = "1.0"
 # Bumped whenever the crew/session interaction contract changes in a way that
 # makes an older live conversation unsafe to continue. It is part of the
 # compatibility key, so a version change starts fresh sessions instead of
@@ -89,6 +97,37 @@ DURABLE_ASSIGNMENT_RESULT_SCHEMA_VERSION = "1.0"
 # this age is already expired; reusability is the half-open window [0, 3600).
 IDLE_SESSION_LIFETIME_SECONDS = 3600.0
 DEFAULT_MAX_CONCURRENT_ASSIGNMENTS = 10
+
+# Every field the persisted role artifact must itself carry, so durable evidence
+# can never be separated from the exact assignment that produced it. A perfectly
+# valid artifact from another crew run, lease, task, checkout, or role disagrees
+# here and fails closed instead of proving somebody else's work.
+ROLE_EVIDENCE_FIELDS = (
+    "schema_version",
+    "pool_schema_version",
+    "protocol_version",
+    "crew_run_id",
+    "lease_id",
+    "record_id",
+    "task_id",
+    "worker_run_id",
+    "worker_slot_id",
+    "session_class",
+    "role",
+    "capability_class",
+    "repository_identity",
+    "source_commit",
+    "checkout_identity",
+    "provider_identifier",
+    "model",
+    "reasoning_effort",
+    "confirmed_session",
+    "status",
+    "assignment_outcome",
+    "semantic_validation",
+    "changed_path_validation",
+    "role_result_artifact",
+)
 
 CREW_SESSION_ROLES = (
     "contract_locality_auditor",
@@ -106,7 +145,13 @@ CAPABILITY_WORKLOAD_CLASSES = {
     "standard": "standard",
     "high_reasoning": "deep",
 }
-SESSION_STATES = frozenset({"idle", "active", "quarantined", "expired", "retired"})
+SESSION_STATES = frozenset(
+    {"idle", "active", "probation", "quarantined", "expired", "retired"}
+)
+# States that hold a returned conversation on the idle clock. Only `idle` is ever
+# advertised; `probation` is invisible to `checkout` and reachable exclusively
+# through one deliberate `offer_probation_retry`.
+_TIMED_STATES = frozenset({"idle", "probation"})
 # Outcomes a finished assignment may report. `idle` and `waiting` are
 # between-assignment observations and never describe a completed assignment.
 ASSIGNMENT_RESULT_OUTCOMES = frozenset(ASSIGNMENT_OUTCOMES - {"idle", "waiting"})
@@ -409,6 +454,70 @@ class AssignmentLease:
 _LEASE_FIELDS = tuple(AssignmentLease.__dataclass_fields__)
 
 
+def pooled_assignment_evidence(
+    *,
+    lease: AssignmentLease,
+    confirmed: Any,
+    crew_run_id: str,
+    artifact: str,
+    status: str,
+    assignment_outcome: str,
+    semantic_validation: str,
+    changed_path_validation: str,
+) -> dict[str, Any]:
+    """Return the exact assignment binding one role artifact must carry in its bytes.
+
+    The writer builds this block from the lease it actually ran on and persists
+    it inside the role artifact, so the artifact and its assignment are one
+    object. ``DurableAssignmentResult.evidence_reason`` rebuilds the same block
+    from the trusted lease/result at check-in and requires an exact match, which
+    is why a successful artifact borrowed from another run, lease, task, or
+    source can never be presented as this assignment's evidence.
+    """
+
+    if type(lease) is not AssignmentLease:
+        raise SessionPoolError("role evidence binding requires an exact AssignmentLease")
+    if type(confirmed) is not ProviderSessionConfirmation:
+        raise SessionPoolError(
+            "role evidence binding requires an exact ProviderSessionConfirmation"
+        )
+    value = {
+        "schema_version": ROLE_EVIDENCE_SCHEMA_VERSION,
+        "pool_schema_version": lease.pool_schema_version,
+        "protocol_version": lease.protocol_version,
+        "crew_run_id": _text(crew_run_id, field="crew_run_id", pattern=_SLOT),
+        "lease_id": lease.lease_id,
+        "record_id": lease.record_id,
+        "task_id": lease.task_id,
+        "worker_run_id": lease.worker_run_id,
+        "worker_slot_id": lease.worker_slot_id,
+        "session_class": lease.session_class,
+        "role": lease.role,
+        "capability_class": lease.capability_class,
+        "repository_identity": lease.repository_identity,
+        "source_commit": lease.source_commit,
+        "checkout_identity": lease.checkout_identity,
+        "provider_identifier": lease.provider_identifier,
+        "model": lease.model,
+        "reasoning_effort": lease.reasoning_effort,
+        "confirmed_session": confirmed.to_dict(),
+        "status": _member(status, {"completed", "failed"}, field="status"),
+        "assignment_outcome": _member(
+            assignment_outcome, ASSIGNMENT_RESULT_OUTCOMES, field="assignment_outcome"
+        ),
+        "semantic_validation": _member(
+            semantic_validation, {"accepted", "rejected"}, field="semantic_validation"
+        ),
+        "changed_path_validation": _member(
+            changed_path_validation, {"accepted", "rejected"}, field="changed_path_validation"
+        ),
+        "role_result_artifact": _artifact_path(artifact, field="role_result_artifact"),
+    }
+    if tuple(value) != ROLE_EVIDENCE_FIELDS:
+        raise SessionPoolError("role evidence binding fields drifted from the schema")
+    return value
+
+
 def _confirmation_from_dict(value: Any) -> ProviderSessionConfirmation:
     fields = {"provider_identifier", "role", "mode", "session_id"}
     _expect_fields(value, fields | {"schema_version"}, where="provider session confirmation")
@@ -574,13 +683,31 @@ class DurableAssignmentResult:
             mismatches.append("confirmed_session.mode")
         return tuple(sorted(set(mismatches)))
 
+    def role_evidence_binding(self) -> dict[str, Any]:
+        """Return the exact assignment binding this result's role artifact must carry.
+
+        ``check_in`` proves every field of this result against the trusted lease
+        before the artifact is read, so this block is the lease's identity in the
+        artifact's own bytes rather than a second, weaker copy of it.
+        """
+
+        value: dict[str, Any] = {"schema_version": ROLE_EVIDENCE_SCHEMA_VERSION}
+        for name in ROLE_EVIDENCE_FIELDS[1:]:
+            value[name] = (
+                self.confirmed_session.to_dict()
+                if name == "confirmed_session"
+                else getattr(self, name)
+            )
+        return value
+
     def evidence_reason(self, evidence_root: Any) -> str | None:
         """Return why the persisted role artifact fails to prove this result.
 
         ``None`` means the exact named artifact exists under the crew run
-        directory, hashes to the recorded SHA-256, and itself records the role,
-        agent status, and deterministic scope decision this evidence claims. A
-        tampered or missing artifact always produces a reason.
+        directory, hashes to the recorded SHA-256, records the role, agent
+        status, and deterministic scope decision this evidence claims, and binds
+        itself to this exact assignment. A missing, tampered, contradictory, or
+        borrowed artifact always produces a reason.
         """
 
         if evidence_root is None:
@@ -620,6 +747,22 @@ class DurableAssignmentResult:
                     f"role result artifact {field}={record.get(field)!r} disagrees with "
                     f"the durable claim {claimed!r}"
                 )
+        binding = record.get("pooled_assignment_evidence")
+        expected = self.role_evidence_binding()
+        if not isinstance(binding, Mapping):
+            return "role result artifact carries no pooled assignment binding"
+        unknown = sorted(set(binding) - set(expected))
+        if unknown:
+            return f"role result artifact assignment binding has unsupported fields: {unknown}"
+        missing = sorted(set(expected) - set(binding))
+        if missing:
+            return f"role result artifact assignment binding is missing fields: {missing}"
+        differing = sorted(name for name in expected if binding[name] != expected[name])
+        if differing:
+            return (
+                "role result artifact assignment binding disagrees with the durable "
+                f"claim: {differing}"
+            )
         return None
 
     def to_dict(self) -> dict[str, Any]:
@@ -654,6 +797,7 @@ class PooledSession:
     idle_since_utc: str | None = None
     active_lease: AssignmentLease | None = None
     quarantine_reason: str | None = None
+    probation_reason: str | None = None
     lifecycle: SessionLifecycleState | None = None
 
     def __post_init__(self) -> None:
@@ -689,14 +833,16 @@ class PooledSession:
             raise SessionPoolError(f"a {self.state} session must not hold a lease")
         elif self.lifecycle is not None and self.lifecycle.phase == "assigned":
             raise SessionPoolError("only an active session may hold an assigned lifecycle")
-        if self.state == "idle":
+        if self.state in _TIMED_STATES:
             if self.idle_since_utc is None:
-                raise SessionPoolError("an idle session requires its idle-since timestamp")
+                raise SessionPoolError(f"a {self.state} session requires its idle-since timestamp")
             if self.session_id is None:
-                raise SessionPoolError("an idle session requires a confirmed session identity")
+                raise SessionPoolError(
+                    f"a {self.state} session requires a confirmed session identity"
+                )
             if self.lifecycle is None or self.lifecycle.phase != "between_assignments":
                 raise SessionPoolError(
-                    "an idle session requires an available lifecycle between assignments"
+                    f"a {self.state} session requires an available lifecycle between assignments"
                 )
             _parse_utc(self.idle_since_utc, field="idle_since_utc")
         elif self.state != "active" and self.idle_since_utc is not None:
@@ -707,16 +853,33 @@ class PooledSession:
             raise SessionPoolError("a retired session requires its lifecycle retirement decision")
         if (self.quarantine_reason is None) != (self.state != "quarantined"):
             raise SessionPoolError("quarantine_reason is required exactly when quarantined")
+        if (self.probation_reason is None) != (self.state != "probation"):
+            raise SessionPoolError("probation_reason is required exactly when on probation")
 
     @property
     def retirement_reason(self) -> str | None:
         return None if self.lifecycle is None else self.lifecycle.retirement_reason
 
+    def _within_idle_window(self, now: dt.datetime) -> bool:
+        idle_for = (now - _parse_utc(self.idle_since_utc, field="idle_since_utc")).total_seconds()
+        return 0 <= idle_for < IDLE_SESSION_LIFETIME_SECONDS
+
     def is_reusable_at(self, now: dt.datetime) -> bool:
         if self.state != "idle" or self.session_id is None:
             return False
-        idle_for = (now - _parse_utc(self.idle_since_utc, field="idle_since_utc")).total_seconds()
-        return 0 <= idle_for < IDLE_SESSION_LIFETIME_SECONDS
+        return self._within_idle_window(now)
+
+    def is_retry_offerable_at(self, now: dt.datetime) -> bool:
+        """Return whether the pool may deliberately offer this probation a retry.
+
+        This is never reusability: a probation conversation is invisible to
+        `checkout` and is offered only by an explicit `offer_probation_retry`
+        naming this exact record.
+        """
+
+        if self.state != "probation" or self.session_id is None:
+            return False
+        return self._within_idle_window(now)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -728,6 +891,7 @@ class PooledSession:
             "idle_since_utc": self.idle_since_utc,
             "active_lease": None if self.active_lease is None else self.active_lease.to_dict(),
             "quarantine_reason": self.quarantine_reason,
+            "probation_reason": self.probation_reason,
             "lifecycle": None if self.lifecycle is None else self.lifecycle.to_dict(),
         }
 
@@ -736,7 +900,7 @@ class PooledSession:
         fields = {
             "record_id", "compatibility", "state", "session_id",
             "completed_assignment_count", "idle_since_utc", "active_lease",
-            "quarantine_reason", "lifecycle",
+            "quarantine_reason", "probation_reason", "lifecycle",
         }
         _expect_fields(value, fields, where="pooled session")
         lease = value["active_lease"]
@@ -755,6 +919,7 @@ class PooledSession:
             idle_since_utc=value["idle_since_utc"],
             active_lease=None if lease is None else AssignmentLease.from_dict(lease),
             quarantine_reason=value["quarantine_reason"],
+            probation_reason=value["probation_reason"],
             lifecycle=lifecycle,
         )
 
@@ -863,19 +1028,13 @@ class SessionPool:
         A compatible idle session is resumed unless the committed lifecycle
         policy refuses the next assignment, in which case that conversation is
         retired between assignments and a fresh one is requested. An active,
-        quarantined, expired, or retired conversation is never taken, and a
-        checked-out session becomes invisible to every other assignment.
+        probation, quarantined, expired, or retired conversation is never taken,
+        and a checked-out session becomes invisible to every other assignment.
         """
 
         if type(compatibility) is not SessionCompatibility:
             raise SessionPoolError("checkout requires an exact SessionCompatibility")
-        moment = self.clock() if now is None else now
-        _utc_text(moment)
-        if self.active_assignment_count >= self.max_concurrent_assignments:
-            raise SessionPoolError(
-                "pool capacity is fully committed to active assignments"
-            )
-        self.expire_idle(now=moment)
+        moment = self._admit(now)
         lease_id = self._new_identity("lease")
         reusable = [
             session
@@ -904,6 +1063,99 @@ class SessionPool:
                 continue
             selected, lifecycle = candidate, started
             break
+        return self._lease(
+            lease_id=lease_id, selected=selected, lifecycle=lifecycle,
+            compatibility=compatibility, worker_slot_id=worker_slot_id, task_id=task_id,
+            worker_run_id=worker_run_id, source_commit=source_commit,
+            checkout_identity=checkout_identity, moment=moment,
+        )
+
+    def offer_probation_retry(
+        self,
+        *,
+        compatibility: SessionCompatibility,
+        record_id: str,
+        worker_slot_id: str,
+        task_id: str,
+        worker_run_id: str,
+        source_commit: str,
+        checkout_identity: str,
+        now: dt.datetime | None = None,
+    ) -> AssignmentLease:
+        """Deliberately offer one exact probation conversation a controlled retry.
+
+        A proven provider/output failure is accounted by the committed policy but
+        is never advertised, so `checkout` cannot reach it. Only this call, which
+        names the exact record and restates the identical stable compatibility,
+        may offer it again. The retry is an ordinary assignment: its own durable
+        result either resets the committed failure streak or lets a second
+        consecutive provider/output failure retire the conversation.
+        """
+
+        if type(compatibility) is not SessionCompatibility:
+            raise SessionPoolError("a probation retry requires an exact SessionCompatibility")
+        moment = self._admit(now)
+        session = self._sessions.get(_session_id(record_id, field="record_id"))
+        if session is None or session.state != "probation":
+            raise SessionPoolError("pool holds no probation conversation with this record")
+        if session.compatibility != compatibility:
+            raise SessionPoolError(
+                "a probation retry must state the identical stable compatibility"
+            )
+        if not session.is_retry_offerable_at(moment):
+            raise SessionPoolError("this probation conversation is no longer offerable")
+        lease_id = self._new_identity("lease")
+        lifecycle = self._start(session, lease_id=lease_id)
+        if lifecycle.phase != "assigned":
+            # The committed budget already ended this conversation, so the retry
+            # is refused here rather than started as work it cannot finish.
+            self._sessions[session.record_id] = PooledSession(
+                record_id=session.record_id,
+                compatibility=session.compatibility,
+                state="retired",
+                session_id=session.session_id,
+                completed_assignment_count=session.completed_assignment_count,
+                lifecycle=lifecycle,
+            )
+            self._validate_pool_state()
+            raise SessionPoolError(
+                "the committed lifetime policy retired this conversation instead of retrying it"
+            )
+        return self._lease(
+            lease_id=lease_id, selected=session, lifecycle=lifecycle,
+            compatibility=compatibility, worker_slot_id=worker_slot_id, task_id=task_id,
+            worker_run_id=worker_run_id, source_commit=source_commit,
+            checkout_identity=checkout_identity, moment=moment,
+        )
+
+    def _admit(self, now: dt.datetime | None) -> dt.datetime:
+        """Return the assignment moment, refusing a pool already at capacity."""
+
+        moment = self.clock() if now is None else now
+        _utc_text(moment)
+        if self.active_assignment_count >= self.max_concurrent_assignments:
+            raise SessionPoolError(
+                "pool capacity is fully committed to active assignments"
+            )
+        self.expire_idle(now=moment)
+        return moment
+
+    def _lease(
+        self,
+        *,
+        lease_id: str,
+        selected: PooledSession | None,
+        lifecycle: SessionLifecycleState | None,
+        compatibility: SessionCompatibility,
+        worker_slot_id: str,
+        task_id: str,
+        worker_run_id: str,
+        source_commit: str,
+        checkout_identity: str,
+        moment: dt.datetime,
+    ) -> AssignmentLease:
+        """Mint one exclusive lease and make its conversation invisible to others."""
+
         if selected is None:
             # Lazily request a brand-new conversation. Claude accepts a
             # pool-chosen `--session-id`, so the record identity is also the
@@ -991,18 +1243,27 @@ class SessionPool:
 
         Every identity on the durable result must equal the lease, and the exact
         persisted role artifact it names must exist under ``evidence_root``, hash
-        to the recorded SHA-256, and agree with the decisions it claims. Anything
-        stale, mismatched, unconfirmed, tampered, semantically rejected, or
-        rejected by the deterministic changed-path check quarantines instead of
-        recycling.
+        to the recorded SHA-256, agree with the decisions it claims, and bind
+        itself to this exact assignment. Anything stale, mismatched, unconfirmed,
+        tampered, borrowed, semantically rejected, or rejected by the
+        deterministic changed-path check quarantines instead of recycling, and
+        never adopts the identity an unproven confirmation asserted.
         """
 
         session = self._leased_session(lease)
+        moment = self.clock() if now is None else now
+        _utc_text(moment)
+        # Until the confirmation is proven exactly, the only trustworthy identity
+        # is the one the lease/session already established. A pre-bound
+        # conversation keeps it; a provider-named cold conversation still has
+        # none, and an unproven confirmation must not supply one.
+        trusted_id = session.session_id
         if type(result) is not DurableAssignmentResult:
             return self._quarantine(
                 session,
                 "check-in supplied no durable assignment result",
                 outcome="output_failure",
+                session_id=trusted_id,
             )
         mismatches = result.lease_mismatches(lease)
         if mismatches:
@@ -1011,6 +1272,7 @@ class SessionPool:
                 f"check-in did not match its lease: {list(mismatches)}",
                 outcome="identity_failure",
                 result=result,
+                session_id=trusted_id,
             )
         if result.compatibility() != session.compatibility:
             return self._quarantine(
@@ -1018,6 +1280,7 @@ class SessionPool:
                 "check-in compatibility differs from the pooled conversation",
                 outcome="session_incompatibility",
                 result=result,
+                session_id=trusted_id,
             )
         evidence = result.evidence_reason(evidence_root)
         if evidence is not None:
@@ -1026,18 +1289,39 @@ class SessionPool:
                 f"durable role evidence is not provable: {evidence}",
                 outcome="output_failure",
                 result=result,
+                session_id=trusted_id,
             )
+        # The confirmation now matches the lease exactly and the persisted role
+        # artifact proves the assignment, so a provider-named cold conversation
+        # may finally be accounted under the identity it confirmed.
+        proven_id = trusted_id or result.confirmed_session.session_id
         if not result.is_reusable:
-            return self._quarantine(
-                session,
+            reason = (
                 f"assignment finished {result.status} with semantics "
                 f"{result.semantic_validation} and changed paths "
-                f"{result.changed_path_validation}",
-                outcome=result.assignment_outcome,
-                result=result,
+                f"{result.changed_path_validation}"
             )
-        moment = self.clock() if now is None else now
-        lifecycle = self._finish(session, outcome="completed", result=result)
+            lifecycle = self._finish(
+                session, outcome=result.assignment_outcome, result=result,
+                session_id=proven_id,
+            )
+            if (
+                lifecycle is not None
+                and lifecycle.phase == "between_assignments"
+                and lifecycle.consecutive_provider_output_failures > 0
+                and lifecycle.session_id is not None
+            ):
+                # The committed policy counted this exact failure into its streak
+                # without retiring the conversation. It is never advertised and
+                # never reusable; it waits on probation for at most one
+                # deliberate, exactly compatible retry.
+                return self._probation(session, reason, lifecycle=lifecycle, now=moment)
+            return self._settle_quarantined(
+                session, reason, lifecycle=lifecycle, session_id=proven_id
+            )
+        lifecycle = self._finish(
+            session, outcome="completed", result=result, session_id=proven_id
+        )
         assert lifecycle is not None
         if lifecycle.phase == "retired":
             # The committed budget, context, or latency policy ended this
@@ -1046,7 +1330,7 @@ class SessionPool:
                 record_id=session.record_id,
                 compatibility=session.compatibility,
                 state="retired",
-                session_id=result.confirmed_session.session_id,
+                session_id=lifecycle.session_id,
                 completed_assignment_count=lifecycle.completed_assignments,
                 lifecycle=lifecycle,
             )
@@ -1055,7 +1339,7 @@ class SessionPool:
                 record_id=session.record_id,
                 compatibility=session.compatibility,
                 state="idle",
-                session_id=result.confirmed_session.session_id,
+                session_id=lifecycle.session_id,
                 completed_assignment_count=lifecycle.completed_assignments,
                 idle_since_utc=_utc_text(moment),
                 lifecycle=lifecycle,
@@ -1077,12 +1361,14 @@ class SessionPool:
         provider history is deleted, and no credential is revoked.
         """
 
+        session = self._leased_session(lease)
         return self._quarantine(
-            self._leased_session(lease),
+            session,
             _text(reason, field="reason"),
             outcome=_member(
                 outcome, FAILED_ASSIGNMENT_OUTCOMES, field="quarantine outcome"
             ),
+            session_id=session.session_id,
         )
 
     def observe(
@@ -1148,15 +1434,31 @@ class SessionPool:
         *,
         outcome: str,
         result: DurableAssignmentResult | None = None,
+        session_id: str | None,
     ) -> PooledSession:
-        lifecycle = self._finish(session, outcome=outcome, result=result)
+        lifecycle = self._finish(
+            session, outcome=outcome, result=result, session_id=session_id
+        )
+        return self._settle_quarantined(
+            session, reason, lifecycle=lifecycle, session_id=session_id
+        )
+
+    def _settle_quarantined(
+        self,
+        session: PooledSession,
+        reason: str,
+        *,
+        lifecycle: SessionLifecycleState | None,
+        session_id: str | None,
+    ) -> PooledSession:
         quarantined = PooledSession(
             record_id=session.record_id,
             compatibility=session.compatibility,
             state="quarantined",
-            # A provider-named conversation only becomes identifiable when its
-            # transcript confirms it, so the accounted identity is authoritative.
-            session_id=session.session_id if lifecycle is None else lifecycle.session_id,
+            # Only a proven identity is recorded: a provider-named conversation
+            # whose confirmation was never proven stays unidentified rather than
+            # adopting whatever the transcript asserted.
+            session_id=session_id if lifecycle is None else lifecycle.session_id,
             completed_assignment_count=(
                 session.completed_assignment_count
                 if lifecycle is None
@@ -1169,31 +1471,57 @@ class SessionPool:
         self._validate_pool_state()
         return quarantined
 
+    def _probation(
+        self,
+        session: PooledSession,
+        reason: str,
+        *,
+        lifecycle: SessionLifecycleState,
+        now: dt.datetime,
+    ) -> PooledSession:
+        """Hold a counted, non-retiring failure for one deliberate retry only."""
+
+        placed = PooledSession(
+            record_id=session.record_id,
+            compatibility=session.compatibility,
+            state="probation",
+            session_id=lifecycle.session_id,
+            completed_assignment_count=lifecycle.completed_assignments,
+            idle_since_utc=_utc_text(now),
+            probation_reason=reason,
+            lifecycle=lifecycle,
+        )
+        self._sessions[session.record_id] = placed
+        self._validate_pool_state()
+        return placed
+
     def _finish(
         self,
         session: PooledSession,
         *,
         outcome: str,
         result: DurableAssignmentResult | None,
+        session_id: str | None,
     ) -> SessionLifecycleState | None:
         """Apply the committed end-of-assignment policy at this exact boundary.
 
         A conversation whose provider named its own thread has no lifecycle state
         until its identity is confirmed, so the first assignment's start and
-        finish are applied together here. Accounting is identical either way; a
-        first assignment that never proved an identity simply has nothing to
-        account against and is quarantined without it.
+        finish are applied together here, under the exact identity the caller
+        proved rather than whatever the transcript claimed. Accounting is
+        identical either way; a first assignment that never proved an identity
+        simply has nothing to account against and is quarantined without one.
         """
 
         lifecycle = session.lifecycle
         if lifecycle is None:
-            if result is None or session.active_lease is None:
+            if result is None or session.active_lease is None or session_id is None:
                 return None
             try:
                 created = SessionLifecycleState.create(
                     provider_identifier=session.compatibility.provider_identifier,
                     role=session.compatibility.role,
-                    session_id=result.confirmed_session.session_id,
+                    session_id=session_id,
                     session_class=session.compatibility.session_class,
                 )
                 lifecycle = start_assignment(
@@ -1233,17 +1561,20 @@ class SessionPool:
     # -------------------------------------------------------------- lifetime
 
     def expire_idle(self, *, now: dt.datetime | None = None) -> tuple[PooledSession, ...]:
-        """Expire idle conversations older than the idle lifetime.
+        """Expire returned conversations older than the idle lifetime.
 
-        Only ``idle`` sessions are considered. An active session is never
-        expired or stolen however long its worker has been running, and expiry
-        never deletes provider history or credentials.
+        Only conversations on the idle clock -- ``idle`` and ``probation`` -- are
+        considered, so a stale probation is never offered a retry hours later. An
+        active session is never expired or stolen however long its worker has
+        been running, and expiry never deletes provider history or credentials.
         """
 
         moment = self.clock() if now is None else now
         expired: list[PooledSession] = []
         for session in self.sessions:
-            if session.state != "idle" or session.is_reusable_at(moment):
+            if session.state not in _TIMED_STATES:
+                continue
+            if session.is_reusable_at(moment) or session.is_retry_offerable_at(moment):
                 continue
             replacement = PooledSession(
                 record_id=session.record_id,
@@ -1428,6 +1759,9 @@ __all__ = [
     "FAILED_ASSIGNMENT_OUTCOMES",
     "IDLE_SESSION_LIFETIME_SECONDS",
     "POOL_SCHEMA_VERSION",
+    "SESSION_STATES",
+    "ROLE_EVIDENCE_FIELDS",
+    "ROLE_EVIDENCE_SCHEMA_VERSION",
     "WORKER_WEIGHTED_UNIT_LIMIT",
     "WORKER_WEIGHTS",
     "AssignmentLease",
@@ -1439,5 +1773,6 @@ __all__ = [
     "SessionPoolError",
     "SessionPoolStore",
     "assignment_capsule",
+    "pooled_assignment_evidence",
     "utc_now",
 ]

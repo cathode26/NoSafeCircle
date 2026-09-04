@@ -12,10 +12,15 @@ The load-bearing claims are: a conversation is reusable only for the same role
 with the same stable provider/model/reasoning/class/capability/repository/
 protocol identity; a checked-out session is invisible to everyone else; only an
 exact matching durable result whose persisted artifact is present, hash-exact,
-and self-consistent returns one; anything unproven quarantines; idle reuse ends
-at exactly one hour while active leases are never touched; the committed
-worker/architect budgets and early-retirement rules are applied only between
-assignments; and nothing in the pool ever ends a worker.
+self-consistent, and bound in its own bytes to this exact assignment returns one;
+anything unproven quarantines and never adopts an unproven confirmation's
+identity; a proven provider/output failure is counted by the committed policy and
+held on non-advertised probation for at most one deliberate retry, so two
+consecutive counted failures retire a conversation and an evidenced success
+between them resets the streak; idle reuse ends at exactly one hour while active
+leases are never touched; the committed worker/architect budgets and
+early-retirement rules are applied only between assignments; and nothing in the
+pool ever ends a worker.
 
 Full-run behavior for pooled leases lives in `pooled_run_crew_smoke_test.py`.
 """
@@ -32,6 +37,7 @@ from pathlib import Path
 import re
 import sys
 import tempfile
+from typing import Mapping
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
@@ -69,6 +75,9 @@ from Pipeline.ExecutionCrew.session_pool import (  # noqa: E402
     DURABLE_ASSIGNMENT_RESULT_SCHEMA_VERSION,
     IDLE_SESSION_LIFETIME_SECONDS,
     POOL_SCHEMA_VERSION,
+    SESSION_STATES,
+    ROLE_EVIDENCE_FIELDS,
+    ROLE_EVIDENCE_SCHEMA_VERSION,
     AssignmentLease,
     DurableAssignmentResult,
     PooledSession,
@@ -113,8 +122,8 @@ def at(seconds: float) -> dt.datetime:
     return BASE + dt.timedelta(seconds=seconds)
 
 
-def identity_factory():
-    counter = itertools.count(1)
+def identity_factory(start: int = 1):
+    counter = itertools.count(start)
 
     def make() -> str:
         value = next(counter)
@@ -176,13 +185,19 @@ def evidence_root() -> Path:
     return _EVIDENCE_ROOT
 
 
-def role_artifact(role: str, *, status: str, changed: str, semantic: str) -> tuple[Path, str, str]:
-    """Write one persisted role result exactly as ExecutionCrew would."""
+def role_artifact(role: str, *, status: str, changed: str, semantic: str,
+                  binding: Mapping[str, object] | None = None) -> tuple[Path, str, str]:
+    """Write one persisted role result exactly as ExecutionCrew would.
+
+    The bytes are written without newline translation and hashed exactly as
+    written, so the digest a Windows reader recomputes is the digest a Linux
+    writer recorded.
+    """
 
     run_dir = evidence_root() / f"run-{next(_EVIDENCE_RUNS)}"
     (run_dir / "role_results").mkdir(parents=True)
     relative = f"role_results/{role}_1.json"
-    record = {
+    record: dict[str, object] = {
         "role": role,
         "attempt": 1,
         "agent_status": "succeeded" if status == "completed" else "failed",
@@ -192,9 +207,13 @@ def role_artifact(role: str, *, status: str, changed: str, semantic: str) -> tup
         "deterministic_changed_path_validation": changed,
         "semantic_validation": semantic,
     }
-    payload = json.dumps(record, indent=2, sort_keys=True) + "\n"
-    (run_dir / relative).write_text(payload, encoding="utf-8", newline="\n")
-    return run_dir, relative, hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    if binding is not None:
+        record["pooled_assignment_evidence"] = dict(binding)
+    payload = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    (run_dir / relative).write_bytes(payload)
+    on_disk = (run_dir / relative).read_bytes()
+    require(on_disk == payload, "the fixture artifact was not written as exact bytes")
+    return run_dir, relative, hashlib.sha256(on_disk).hexdigest()
 
 
 def durable(
@@ -207,9 +226,16 @@ def durable(
     outcome: str | None = None,
     context_percent: int | None = None,
     latency: LatencySample | None = None,
+    binding_overrides: Mapping[str, object] | None = None,
+    omit_binding: bool = False,
     **overrides,
 ) -> tuple[DurableAssignmentResult, Path]:
-    """Return one durable result plus the crew run directory that proves it."""
+    """Return one durable result plus the crew run directory that proves it.
+
+    The persisted artifact carries the exact assignment binding the production
+    accessor derives from the result itself, so the fixture can never drift into
+    hand-maintained agreement with the schema it is meant to test.
+    """
 
     confirmed = ProviderSessionConfirmation(
         overrides.pop("confirmed_provider", lease.provider_identifier),
@@ -238,23 +264,34 @@ def durable(
         "source_commit": lease.source_commit,
         "checkout_identity": lease.checkout_identity,
     }
-    run_dir, artifact, digest = role_artifact(
-        values["role"] if "role" not in overrides else overrides["role"],
-        status=status, changed=changed_paths, semantic=semantic,
-    )
     values.update(overrides)
+    decided = {
+        "status": status,
+        "assignment_outcome": outcome or ("completed" if proved else "output_failure"),
+        "semantic_validation": semantic,
+        "changed_path_validation": changed_paths,
+        "known_context_window_percent": context_percent,
+        "latency_sample": latency,
+        "confirmed_session": confirmed,
+    }
+    # The artifact path is deterministic, so the binding is built before the
+    # bytes exist and the recorded digest is taken from the bytes as written.
+    provisional = DurableAssignmentResult(
+        role_result_artifact=f"role_results/{values['role']}_1.json",
+        role_result_sha256="0" * 64,
+        **decided, **values,
+    )
+    binding = dict(provisional.role_evidence_binding())
+    binding.update(binding_overrides or {})
+    run_dir, artifact, digest = role_artifact(
+        values["role"], status=status, changed=changed_paths, semantic=semantic,
+        binding=None if omit_binding else binding,
+    )
     return (
         DurableAssignmentResult(
-            status=status,
-            assignment_outcome=outcome or ("completed" if proved else "output_failure"),
-            semantic_validation=semantic,
-            changed_path_validation=changed_paths,
             role_result_artifact=artifact,
             role_result_sha256=digest,
-            known_context_window_percent=context_percent,
-            latency_sample=latency,
-            confirmed_session=confirmed,
-            **values,
+            **decided, **values,
         ),
         run_dir,
     )
@@ -517,7 +554,9 @@ def test_provider_failure_quarantines_the_session() -> None:
         fresh = checkout(session_pool, run_id="nsc-050-run-2", now=at(60))
         require(fresh.mode == "start", "a quarantined conversation was reused")
     # A rejected deterministic changed-path check must not recycle either, and
-    # neither may a rejected semantic review.
+    # neither may a rejected semantic review. Both are proven output failures, so
+    # the committed policy counts them and the conversation waits on probation --
+    # never advertised, never reusable, and never offered by `checkout`.
     for label, values in (
         ("changed paths", {"changed_paths": "rejected"}),
         ("semantics", {"semantic": "rejected"}),
@@ -528,8 +567,11 @@ def test_provider_failure_quarantines_the_session() -> None:
         session = session_pool.check_in(
             lease=lease, result=result, evidence_root=run_dir, now=at(30)
         )
-        require(session.state == "quarantined", f"{label} rejection was recycled")
-        require("rejected" in (session.quarantine_reason or ""), str(session.quarantine_reason))
+        require(session.state == "probation", f"{label} rejection was recycled")
+        require("rejected" in (session.probation_reason or ""), str(session.probation_reason))
+        require(not session.is_reusable_at(at(31)), f"{label}: a failed session stayed reusable")
+        fresh = checkout(session_pool, run_id="nsc-050-run-2", now=at(31))
+        require(fresh.mode == "start", f"{label}: probation was advertised to checkout")
     rejects(lambda: session_pool.quarantine(lease, "reason", outcome="completed"), SessionPoolError)
 
 
@@ -540,12 +582,15 @@ def test_missing_durable_result_prevents_reuse() -> None:
     require(session.state == "quarantined", "a missing durable result was accepted")
     require("no durable assignment result" in (session.quarantine_reason or ""),
             str(session.quarantine_reason))
-    # A failed status is not reusable even when the identity all matches.
+    # A failed status is not reusable even when the identity all matches: a
+    # proven provider failure is counted and held on probation, never returned as
+    # a successful reusable result.
     session_pool = pool()
     lease = checkout(session_pool)
     result, run_dir = durable(lease, status="failed", outcome="provider_failure")
     session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(30))
-    require(session.state == "quarantined", "a failed assignment recycled its session")
+    require(session.state == "probation", "a failed assignment recycled its session")
+    require(not session.is_reusable_at(at(31)), "a failed assignment stayed reusable")
     rejects(lambda: durable(lease, status="unknown"), SessionPoolError)
     rejects(lambda: durable(lease, changed_paths="maybe"), SessionPoolError)
     # A durable result may never claim success while reporting a rejection.
@@ -597,6 +642,196 @@ def test_missing_or_tampered_role_evidence_prevents_reuse() -> None:
     require("disagrees with the durable claim" in (session.quarantine_reason or ""),
             str(session.quarantine_reason))
     require(honest_dir != run_dir, "evidence directories must not collide")
+
+
+def rewritten_binding(run_dir: Path, artifact: str, mutate) -> str:
+    """Rewrite one artifact's assignment binding and return its new digest."""
+
+    path = run_dir / artifact
+    record = json.loads(path.read_text(encoding="utf-8"))
+    mutate(record["pooled_assignment_evidence"])
+    payload = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    path.write_bytes(payload)
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_role_evidence_is_inseparable_from_its_exact_assignment() -> None:
+    # A well-formed artifact proves its own assignment.
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease)
+    require(result.evidence_reason(run_dir) is None, str(result.evidence_reason(run_dir)))
+    binding = result.role_evidence_binding()
+    require(tuple(binding) == ROLE_EVIDENCE_FIELDS, str(tuple(binding)))
+    require(binding["schema_version"] == ROLE_EVIDENCE_SCHEMA_VERSION, str(binding))
+
+    # An artifact with no binding at all is not this assignment's evidence.
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease, omit_binding=True)
+    session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(30))
+    require(session.state == "quarantined", str(session.state))
+    require("no pooled assignment binding" in (session.quarantine_reason or ""),
+            str(session.quarantine_reason))
+
+    # Every bound field is compared against the trusted lease/result.
+    for field, value in (
+        ("schema_version", "9.9"),
+        ("pool_schema_version", "9.9"),
+        ("protocol_version", "9.9"),
+        ("crew_run_id", "nsc-999-run-9"),
+        ("lease_id", "dead0000-1111-4111-8111-000000000001"),
+        ("record_id", "dead0000-1111-4111-8111-000000000002"),
+        ("task_id", "NSC-999"),
+        ("worker_run_id", "nsc-999-run-9"),
+        ("worker_slot_id", "worker-slot-9"),
+        ("session_class", "architect"),
+        ("role", "validator"),
+        ("capability_class", "high_reasoning"),
+        ("repository_identity", "https://github.com/cathode26/Other.git"),
+        ("source_commit", OTHER_COMMIT),
+        ("checkout_identity", r"C:\NSC\NSC\NSC-999"),
+        ("provider_identifier", "openai-codex"),
+        ("model", "claude-other-1"),
+        ("reasoning_effort", "high"),
+        ("confirmed_session", {"schema_version": "1.0", "provider_identifier": "claude-code",
+                               "role": "implementer", "mode": "start",
+                               "session_id": "dead0000-1111-4111-8111-000000000003"}),
+        ("status", "failed"),
+        ("assignment_outcome", "output_failure"),
+        ("semantic_validation", "rejected"),
+        ("changed_path_validation", "rejected"),
+        ("role_result_artifact", "role_results/validator_1.json"),
+    ):
+        require(field in ROLE_EVIDENCE_FIELDS, f"{field} is not a bound field")
+        session_pool = pool()
+        lease = checkout(session_pool)
+        result, run_dir = durable(lease, binding_overrides={field: value})
+        session = session_pool.check_in(
+            lease=lease, result=result, evidence_root=run_dir, now=at(30)
+        )
+        require(session.state == "quarantined", f"{field}: {session.state}")
+        require(f"binding disagrees with the durable claim: ['{field}']"
+                in (session.quarantine_reason or ""), f"{field}: {session.quarantine_reason}")
+
+    # An extra field and a missing field are both refused, even when the artifact
+    # is rehashed so its digest still matches.
+    for label, mutate, expected in (
+        ("extra", lambda item: item.update({"surprise": 1}),
+         "binding has unsupported fields: ['surprise']"),
+        ("missing", lambda item: item.pop("lease_id"),
+         "binding is missing fields: ['lease_id']"),
+    ):
+        session_pool = pool()
+        lease = checkout(session_pool)
+        result, run_dir = durable(lease)
+        digest = rewritten_binding(run_dir, result.role_result_artifact, mutate)
+        rehashed = DurableAssignmentResult.from_dict(
+            {**result.to_dict(), "role_result_sha256": digest}
+        )
+        session = session_pool.check_in(
+            lease=lease, result=rehashed, evidence_root=run_dir, now=at(30)
+        )
+        require(session.state == "quarantined", f"{label}: {session.state}")
+        require(expected in (session.quarantine_reason or ""),
+                f"{label}: {session.quarantine_reason}")
+
+    # A successful same-role artifact copied from another run, lease, task, and
+    # source cannot prove this assignment, even byte-for-byte with a rehashed
+    # digest and the same run-relative path.
+    donor_pool = pool(identity_factory=identity_factory(start=200))
+    donor = checkout(donor_pool, task_id="NSC-060", run_id="nsc-060-run-1",
+                     commit=OTHER_COMMIT, checkout_identity=r"C:\NSC\NSC\NSC-060")
+    donor_result, donor_dir = durable(donor)
+    require(donor_result.evidence_reason(donor_dir) is None, "the donor artifact is invalid")
+    donor_bytes = (donor_dir / donor_result.role_result_artifact).read_bytes()
+
+    session_pool = pool()
+    lease = checkout(session_pool)
+    result, run_dir = durable(lease)
+    require(result.role_result_artifact == donor_result.role_result_artifact,
+            "the copy must reuse the same run-relative path")
+    (run_dir / result.role_result_artifact).write_bytes(donor_bytes)
+    borrowed = DurableAssignmentResult.from_dict({
+        **result.to_dict(),
+        "role_result_sha256": hashlib.sha256(donor_bytes).hexdigest(),
+    })
+    session = session_pool.check_in(
+        lease=lease, result=borrowed, evidence_root=run_dir, now=at(30)
+    )
+    require(session.state == "quarantined", str(session.state))
+    reason = session.quarantine_reason or ""
+    require("binding disagrees with the durable claim" in reason, reason)
+    for field in ("checkout_identity", "crew_run_id", "lease_id", "record_id",
+                  "source_commit", "task_id", "worker_run_id"):
+        require(f"'{field}'" in reason, f"{field} was not compared: {reason}")
+    require(not session.is_reusable_at(at(31)), "a borrowed artifact recycled a session")
+
+
+def test_an_unproven_confirmation_never_replaces_a_trusted_identity() -> None:
+    # A pre-bound conversation keeps the identity the pool chose, whatever a
+    # mismatched confirmation asserts.
+    forged_id = "dead0000-1111-4111-8111-000000000009"
+    session_pool = pool()
+    lease = checkout(session_pool)
+    require(lease.session_id is not None and lease.mode == "start", str(lease))
+    result, run_dir = durable(lease, session_id=forged_id)
+    session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(30))
+    require(session.state == "quarantined", str(session.state))
+    require(session.session_id == lease.session_id,
+            f"an unproven confirmation replaced the trusted identity: {session.session_id}")
+    require(session.lifecycle is not None and session.lifecycle.session_id == lease.session_id,
+            str(None if session.lifecycle is None else session.lifecycle.session_id))
+    require(forged_id not in json.dumps(session.to_dict()),
+            "the forged identity survived somewhere in the quarantined record")
+
+    # A provider-named cold conversation has no trusted identity yet, so an
+    # unproven confirmation gives it none.
+    codex = compatibility(provider="openai-codex", model=CODEX_MODEL, reasoning="high")
+    for label, values in (
+        ("wrong provider", {"confirmed_provider": "claude-code"}),
+        ("wrong role", {"confirmed_role": "validator"}),
+        ("wrong mode", {"confirmed_mode": "resume"}),
+        ("mismatched lease", {"task_id": "NSC-999"}),
+    ):
+        session_pool = pool()
+        lease = checkout(session_pool, compat=codex)
+        require(lease.session_id is None, f"{label}: a cold Codex lease claimed an identity")
+        result, run_dir = durable(lease, **values)
+        session = session_pool.check_in(
+            lease=lease, result=result, evidence_root=run_dir, now=at(30)
+        )
+        require(session.state == "quarantined", f"{label}: {session.state}")
+        require(session.session_id is None,
+                f"{label}: an unproven confirmation was adopted: {session.session_id}")
+        require(session.lifecycle is None,
+                f"{label}: an unproven identity was accounted: {session.lifecycle}")
+        fresh = checkout(session_pool, compat=codex, run_id="nsc-050-run-2", now=at(31))
+        require(fresh.mode == "start", f"{label}: an unproven conversation was reused")
+
+    # An exact confirmation whose durable evidence cannot be proven is equally
+    # untrusted: nothing is adopted.
+    session_pool = pool()
+    lease = checkout(session_pool, compat=codex)
+    result, run_dir = durable(lease)
+    (run_dir / result.role_result_artifact).unlink()
+    session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(30))
+    require(session.state == "quarantined", str(session.state))
+    require(session.session_id is None and session.lifecycle is None, str(session))
+
+    # Only an exact confirmation with provable evidence adopts the identity the
+    # provider named.
+    session_pool = pool()
+    lease = checkout(session_pool, compat=codex)
+    result, run_dir = durable(lease)
+    session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(30))
+    require(session.state == "idle", str(session.state))
+    require(session.session_id == result.confirmed_session.session_id, str(session.session_id))
+    require(session.lifecycle.session_id == result.confirmed_session.session_id,
+            str(session.lifecycle.session_id))
+    warm = checkout(session_pool, compat=codex, run_id="nsc-050-run-2", now=at(31))
+    require(warm.mode == "resume" and warm.session_id == result.confirmed_session.session_id,
+            str(warm))
 
 
 # ------------------------------------------------------- 12/13: idle lifetime
@@ -1011,17 +1246,10 @@ def test_every_early_retirement_condition_is_enforced() -> None:
     require(retired.state == "retired" and retired.retirement_reason == "identity_failure",
             str(retired))
 
-    # A second consecutive provider/output failure retires the conversation.
-    streaked = lifecycle_state(completed_assignments=1, worker_weighted_units=3,
-                               consecutive_provider_output_failures=1)
-    failure_pool = pool(sessions=[seeded(streaked, compat=compatibility(),
-                                         record_id="aaaa0000-1111-4111-8111-000000000002")])
-    lease = checkout(failure_pool, run_id="nsc-050-run-2", now=at(1))
-    require(lease.mode == "resume", "the seeded conversation was not offered")
-    result, run_dir = durable(lease, status="failed", outcome="output_failure")
-    session = failure_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(2))
-    require(session.retirement_reason == "consecutive_provider_output_failures",
-            str(session.retirement_reason))
+    # The consecutive provider/output failure streak is proven behaviorally
+    # through the real pool in
+    # `test_two_counted_failures_retire_a_conversation_through_the_real_pool`; a
+    # hand-seeded streak would assert a state the pool can never actually reach.
 
     # Known context-window utilization at the committed threshold retires it.
     require(CONTEXT_WINDOW_RETIRE_PERCENT == 70, str(CONTEXT_WINDOW_RETIRE_PERCENT))
@@ -1065,6 +1293,143 @@ def test_every_early_retirement_condition_is_enforced() -> None:
     require(len(retired) == 1, str(overflow_pool.sessions))
     require(retired[0].retirement_reason == "worker_weighted_unit_limit_would_be_exceeded",
             str(retired[0].retirement_reason))
+
+
+def failed(session_pool: SessionPool, lease: AssignmentLease, *, outcome: str, now):
+    """Check one exactly proven provider/output failure in through the real pool."""
+
+    result, run_dir = durable(lease, status="failed", outcome=outcome)
+    return session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=now)
+
+
+def test_two_counted_failures_retire_a_conversation_through_the_real_pool() -> None:
+    # First failure: counted by the committed policy, never advertised, and held
+    # for exactly one deliberate retry.
+    session_pool = pool()
+    lease = checkout(session_pool)
+    session = failed(session_pool, lease, outcome="provider_failure", now=at(30))
+    require(session.state == "probation", str(session.state))
+    require(session.lifecycle.consecutive_provider_output_failures == 1,
+            str(session.lifecycle.consecutive_provider_output_failures))
+    require(session.retirement_reason is None, str(session.retirement_reason))
+    require(session.quarantine_reason is None, "a probation session claimed a quarantine reason")
+    require("failed" in (session.probation_reason or ""), str(session.probation_reason))
+    require(not session.is_reusable_at(at(31)), "a failed conversation was advertised as reusable")
+    require(session.is_retry_offerable_at(at(31)), "the pool cannot offer its own probation")
+
+    # Nothing else can reach it: normal checkout starts a fresh conversation, and
+    # a probation conversation is not an idle one to observe between assignments.
+    other = checkout(session_pool, run_id="nsc-050-run-2", now=at(31))
+    require(other.mode == "start", "probation was offered to an ordinary checkout")
+    require(other.record_id != lease.record_id, "probation was handed out as a warm session")
+    rejects(lambda: session_pool.observe(lease.record_id, observation="idle"), SessionPoolError)
+    session_pool.quarantine(other, "fixture cleanup", outcome="other_failure")
+
+    # Only a deliberate, exactly compatible retry may offer it, and only while it
+    # is still on the idle clock.
+    rejects(
+        lambda: session_pool.offer_probation_retry(
+            compatibility=compatibility(role="validator", capability_class="high_reasoning"),
+            record_id=lease.record_id, worker_slot_id="worker-slot-1", task_id="NSC-050",
+            worker_run_id="nsc-050-run-3", source_commit=COMMIT, checkout_identity=CHECKOUT,
+            now=at(32),
+        ),
+        SessionPoolError,
+    )
+    rejects(
+        lambda: session_pool.offer_probation_retry(
+            compatibility=compatibility(), record_id=other.record_id,
+            worker_slot_id="worker-slot-1", task_id="NSC-050", worker_run_id="nsc-050-run-3",
+            source_commit=COMMIT, checkout_identity=CHECKOUT, now=at(32),
+        ),
+        SessionPoolError,
+    )
+    retry = session_pool.offer_probation_retry(
+        compatibility=compatibility(), record_id=lease.record_id,
+        worker_slot_id="worker-slot-1", task_id="NSC-050", worker_run_id="nsc-050-run-3",
+        source_commit=COMMIT, checkout_identity=CHECKOUT, now=at(33),
+    )
+    require(retry.mode == "resume", "the controlled retry started a new conversation")
+    require(retry.session_id == lease.session_id, "the controlled retry changed conversation")
+    require(retry.record_id == lease.record_id, str(retry.record_id))
+    # The retry is an ordinary active assignment: it cannot be offered twice and
+    # cannot be interrupted.
+    rejects(
+        lambda: session_pool.offer_probation_retry(
+            compatibility=compatibility(), record_id=lease.record_id,
+            worker_slot_id="worker-slot-1", task_id="NSC-050", worker_run_id="nsc-050-run-4",
+            source_commit=COMMIT, checkout_identity=CHECKOUT, now=at(34),
+        ),
+        SessionPoolError,
+    )
+    require(session_pool.expire_idle(now=at(100_000)) == (), "an active retry was expired")
+
+    # Second consecutive counted failure: the committed policy retires it.
+    retired = failed(session_pool, retry, outcome="output_failure", now=at(40))
+    require(retired.state == "quarantined", str(retired.state))
+    require(retired.retirement_reason == "consecutive_provider_output_failures",
+            str(retired.retirement_reason))
+    require(retired.lifecycle.consecutive_provider_output_failures == 2,
+            str(retired.lifecycle.consecutive_provider_output_failures))
+    require(not retired.is_reusable_at(at(41)) and not retired.is_retry_offerable_at(at(41)),
+            "a retired conversation was still offerable")
+    rejects(
+        lambda: session_pool.offer_probation_retry(
+            compatibility=compatibility(), record_id=lease.record_id,
+            worker_slot_id="worker-slot-1", task_id="NSC-050", worker_run_id="nsc-050-run-5",
+            source_commit=COMMIT, checkout_identity=CHECKOUT, now=at(41),
+        ),
+        SessionPoolError,
+    )
+    replacement = checkout(session_pool, run_id="nsc-050-run-6", now=at(42))
+    require(replacement.mode == "start" and replacement.session_id != lease.session_id,
+            "a retired conversation was reused")
+
+    # A probation conversation expires on the same idle clock rather than being
+    # offered a retry an hour later.
+    stale = pool()
+    stale_lease = checkout(stale)
+    failed(stale, stale_lease, outcome="output_failure", now=at(0))
+    require(stale.sessions[0].state == "probation", str(stale.sessions[0].state))
+    rejects(
+        lambda: stale.offer_probation_retry(
+            compatibility=compatibility(), record_id=stale_lease.record_id,
+            worker_slot_id="worker-slot-1", task_id="NSC-050", worker_run_id="nsc-050-run-2",
+            source_commit=COMMIT, checkout_identity=CHECKOUT,
+            now=at(IDLE_SESSION_LIFETIME_SECONDS),
+        ),
+        SessionPoolError,
+    )
+    require(stale.sessions[0].state == "expired", str(stale.sessions[0].state))
+
+
+def test_an_evidenced_success_between_failures_resets_the_streak() -> None:
+    session_pool = pool()
+    lease = checkout(session_pool)
+    session = failed(session_pool, lease, outcome="output_failure", now=at(10))
+    require(session.state == "probation", str(session.state))
+
+    retry = session_pool.offer_probation_retry(
+        compatibility=compatibility(), record_id=lease.record_id,
+        worker_slot_id="worker-slot-1", task_id="NSC-050", worker_run_id="nsc-050-run-2",
+        source_commit=COMMIT, checkout_identity=CHECKOUT, now=at(11),
+    )
+    recovered = complete(session_pool, retry, now=at(12))
+    require(recovered.state == "idle", str(recovered.state))
+    require(recovered.lifecycle.consecutive_provider_output_failures == 0,
+            "a fully evidenced assignment did not reset the streak")
+    require(recovered.is_reusable_at(at(13)), "a recovered conversation was not reusable")
+
+    # The next failure therefore starts the streak again instead of retiring.
+    warm = checkout(session_pool, run_id="nsc-050-run-3", now=at(13))
+    require(warm.mode == "resume" and warm.session_id == lease.session_id, str(warm))
+    again = failed(session_pool, warm, outcome="provider_failure", now=at(14))
+    require(again.state == "probation", str(again.state))
+    require(again.retirement_reason is None,
+            "an intervening success did not clear the earlier failure")
+    require(again.lifecycle.consecutive_provider_output_failures == 1,
+            str(again.lifecycle.consecutive_provider_output_failures))
+    require(again.completed_assignment_count == 3, str(again.completed_assignment_count))
 
 
 def test_retirement_never_interrupts_an_active_assignment() -> None:
@@ -1137,6 +1502,27 @@ def test_pool_schema_identity_is_pinned() -> None:
     )
     require(tuple(AssignmentLease.__dataclass_fields__) == expected,
             str(tuple(AssignmentLease.__dataclass_fields__)))
+    require(ROLE_EVIDENCE_SCHEMA_VERSION == "1.0", ROLE_EVIDENCE_SCHEMA_VERSION)
+    require(ROLE_EVIDENCE_FIELDS == (
+        "schema_version", "pool_schema_version", "protocol_version", "crew_run_id",
+        "lease_id", "record_id", "task_id", "worker_run_id", "worker_slot_id",
+        "session_class", "role", "capability_class", "repository_identity",
+        "source_commit", "checkout_identity", "provider_identifier", "model",
+        "reasoning_effort", "confirmed_session", "status", "assignment_outcome",
+        "semantic_validation", "changed_path_validation", "role_result_artifact",
+    ), str(ROLE_EVIDENCE_FIELDS))
+    require("probation" in SESSION_STATES, str(sorted(SESSION_STATES)))
+    require(tuple(PooledSession.__dataclass_fields__) == (
+        "record_id", "compatibility", "state", "session_id",
+        "completed_assignment_count", "idle_since_utc", "active_lease",
+        "quarantine_reason", "probation_reason", "lifecycle",
+    ), str(tuple(PooledSession.__dataclass_fields__)))
+    # A probation conversation survives durable state exactly as it was placed.
+    probation_pool = pool()
+    probation_lease = checkout(probation_pool)
+    placed = failed(probation_pool, probation_lease, outcome="output_failure", now=at(5))
+    restored = SessionPool.from_dict(json.loads(json.dumps(probation_pool.to_dict())))
+    require(restored.sessions[0] == placed, str(restored.sessions[0]))
     session_pool = pool()
     lease = checkout(session_pool)
     require(AssignmentLease.from_dict(lease.to_dict()) == lease, "lease round trip failed")
@@ -1159,6 +1545,8 @@ TESTS = (
     test_provider_failure_quarantines_the_session,
     test_missing_durable_result_prevents_reuse,
     test_missing_or_tampered_role_evidence_prevents_reuse,
+    test_role_evidence_is_inseparable_from_its_exact_assignment,
+    test_an_unproven_confirmation_never_replaces_a_trusted_identity,
     test_idle_sessions_expire_after_exactly_one_hour,
     test_active_sessions_are_never_expired_or_stolen,
     test_a_reused_session_receives_the_authority_revocation_capsule,
@@ -1173,6 +1561,8 @@ TESTS = (
     test_architect_retires_after_exactly_one_hundred_cycles,
     test_idle_and_waiting_cost_nothing,
     test_every_early_retirement_condition_is_enforced,
+    test_two_counted_failures_retire_a_conversation_through_the_real_pool,
+    test_an_evidenced_success_between_failures_resets_the_streak,
     test_retirement_never_interrupts_an_active_assignment,
     test_no_pool_code_path_terminates_a_worker,
     test_pool_schema_identity_is_pinned,

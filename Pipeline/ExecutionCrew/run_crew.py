@@ -14,7 +14,7 @@ for module_root in (ROOT, ROOT / "Pipeline/TaskGraph"):
 
 from Pipeline.AgentRuntime.agent_runner import AgentRunner
 from Pipeline.AgentRuntime.config import RuntimeConfiguration
-from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION, AgentInvocationRequest, Budgets, WriteBoundaries, validate_repository_path
+from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION, AgentInvocationRequest, Budgets, ContractValidationError, WriteBoundaries, validate_repository_path
 from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider, ClaudeLiveRenderer
 from Pipeline.AgentRuntime.providers.openai_codex import OpenAICodexProvider
 from Pipeline.AgentRuntime.provider_sessions import (
@@ -30,6 +30,7 @@ from Pipeline.ExecutionCrew.session_pool import (
     DurableAssignmentResult,
     SessionPoolError,
     assignment_capsule,
+    pooled_assignment_evidence,
 )
 from Pipeline.AgentRuntime.json_values import thaw_json
 from Pipeline.TaskExecution.contracts import TASK_EXECUTION_REQUEST_SCHEMA_VERSION, TaskContractIdentity, TaskExecutionRequest
@@ -1273,6 +1274,16 @@ def validate_role_session_leases(role_session_leases: Mapping[str, Any]|None, *,
     return leases
 
 
+def role_result_artifact(role: str, attempt: int) -> str:
+    """Return the exact run-relative path one role attempt's result is persisted at.
+
+    The path is known before the bytes are written, so the durable assignment
+    binding inside the artifact can name the artifact it lives in.
+    """
+
+    return f"role_results/{role}_{attempt}.json"
+
+
 def write_role_result(run_dir: Path, role: str, attempt: int, record: Mapping[str, Any]) -> tuple[str, str]:
     """Persist one role result and return its exact run-relative path and SHA-256.
 
@@ -1281,10 +1292,79 @@ def write_role_result(run_dir: Path, role: str, attempt: int, record: Mapping[st
     any platform must be able to recompute the same digest.
     """
 
-    relative = f"role_results/{role}_{attempt}.json"
+    relative = role_result_artifact(role, attempt)
     payload = (json.dumps(record, indent=2, sort_keys=True) + "\n").encode("utf-8")
     (run_dir / relative).write_bytes(payload)
     return relative, hashlib.sha256(payload).hexdigest()
+
+
+def role_assignment_decision(agent_status: str, failure_classification: str,
+                             semantic_rejected: bool, changed_paths_rejected: bool
+                             ) -> tuple[str, str]:
+    """Return the exact (status, assignment_outcome) one role assignment reached.
+
+    One definition serves both the binding written into the role artifact and the
+    durable result the pool checks in, so the two can never disagree about what
+    this assignment actually produced.
+    """
+
+    if agent_status != "succeeded":
+        return "failed", FAILURE_ASSIGNMENT_OUTCOMES.get(failure_classification, "other_failure")
+    if semantic_rejected or changed_paths_rejected:
+        return "completed", "output_failure"
+    return "completed", "completed"
+
+
+def assert_pooled_provider_route(configuration: Any, registry: Mapping[str, Any], *, key: str,
+                                 capability_class: str, lease: AssignmentLease) -> None:
+    """Prove this invocation resolves exactly the lease's provider and routed model.
+
+    A lease is authority for one conversation on one provider at one model, so the
+    configuration this role is about to be invoked through is resolved by the one
+    runtime resolver and required to name that exact provider and model. An
+    injected provider factory is held to the identical rule: a pooled role can
+    never be invoked through a provider or model its lease did not authorize.
+    """
+
+    if type(lease) is not AssignmentLease:
+        raise CrewBlocked("a pooled invocation requires an exact AssignmentLease")
+    resolve = getattr(configuration, "resolve", None)
+    if resolve is None:
+        raise CrewBlocked("pooled roles require an exact runtime configuration")
+    try:
+        selection = resolve(key, capability_class, registry)
+    except ContractValidationError as exc:
+        raise CrewBlocked(f"pooled provider configuration could not be resolved: {exc}") from exc
+    if selection.provider != lease.provider_identifier:
+        raise CrewBlocked(
+            f"pooled {lease.role} configuration resolves provider {selection.provider!r}; "
+            f"its lease authorizes {lease.provider_identifier!r}"
+        )
+    if selection.model != lease.model:
+        raise CrewBlocked(
+            f"pooled {lease.role} configuration resolves model {selection.model!r}; "
+            f"its lease authorizes {lease.model!r}"
+        )
+
+
+def assert_pooled_result_identity(result: Any, *, lease: AssignmentLease) -> None:
+    """Prove the AgentResult this pooled role produced names the lease's identity.
+
+    ``AgentResult`` reports the provider and model AgentRuntime actually selected.
+    Both must equal the lease. The single exception is the provider-neutral
+    contract's pre-invocation ``invalid_request``, which reports no provider and
+    no model precisely because nothing was invoked; that failure is recorded as a
+    failure and can never become reusable evidence.
+    """
+
+    if (result.provider, result.model) in {
+        (lease.provider_identifier, lease.model), (None, None),
+    }:
+        return
+    raise CrewBlocked(
+        f"pooled {lease.role} ran on provider {result.provider!r} model {result.model!r}; "
+        f"its lease authorizes {lease.provider_identifier!r} {lease.model!r}"
+    )
 
 
 def assert_lease_invocation_identity(lease: AssignmentLease, *, role: str, capability_class: str,
@@ -1320,13 +1400,9 @@ def durable_assignment_result(*, lease: AssignmentLease, confirmed: Any, crew_ru
         raise CrewBlocked("durable role evidence requires an exact AssignmentLease")
     if type(confirmed) is not ProviderSessionConfirmation:
         raise CrewBlocked("durable role evidence requires an exact ProviderSessionConfirmation")
-    completed = agent_status == "succeeded"
-    if not completed:
-        outcome = FAILURE_ASSIGNMENT_OUTCOMES.get(failure_classification, "other_failure")
-    elif semantic_rejected or changed_paths_rejected:
-        outcome = "output_failure"
-    else:
-        outcome = "completed"
+    status, outcome = role_assignment_decision(
+        agent_status, failure_classification, semantic_rejected, changed_paths_rejected
+    )
     try:
         return DurableAssignmentResult(
             schema_version=DURABLE_ASSIGNMENT_RESULT_SCHEMA_VERSION,
@@ -1347,7 +1423,7 @@ def durable_assignment_result(*, lease: AssignmentLease, confirmed: Any, crew_ru
             repository_identity=lease.repository_identity,
             source_commit=lease.source_commit,
             checkout_identity=lease.checkout_identity,
-            status="completed" if completed else "failed",
+            status=status,
             assignment_outcome=outcome,
             semantic_validation="rejected" if semantic_rejected else "accepted",
             changed_path_validation="rejected" if changed_paths_rejected else "accepted",
@@ -1599,33 +1675,66 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     human_review_feedback = retry_context.feedback_text if retry_context is not None else None
     retry_seed_mode = None
     retry_seed_candidate_sha256 = retry_context.candidate_sha256 if retry_context is not None else None
-    def publish_role_evidence(role:str, artifact:str, artifact_sha256:str, *, agent_status:str,
-                              failure_classification:str, semantic_rejected:bool,
-                              changed_paths_rejected:bool) -> None:
-        """Record the durable evidence a pool may later check this role in with.
+    def record_role_result(role:str, attempt:int, record:dict, *, agent_status:str,
+                           failure_classification:str, semantic_rejected:bool,
+                           changed_paths_rejected:bool) -> tuple[str, str]:
+        """Persist one role result and publish the durable evidence bound to it.
 
-        Only a role that actually ran on a pooled lease publishes anything, and
-        what it publishes always states its real AgentRuntime status and both
-        validation decisions. A role that is never invoked -- because the
-        contract audit stopped the run, or an earlier role failed -- leaves no
-        evidence at all, so its lease can never be recycled on this run's word.
+        A pooled role's artifact carries the complete assignment binding in its
+        own persisted bytes -- crew run, lease, session record, task, worker run
+        and slot, source commit, source checkout, repository, role, capability
+        class, protocol, provider, routed model and reasoning, the exact provider
+        confirmation, the outcome and both validation decisions, and the artifact
+        path itself -- so durable evidence and its exact assignment are one
+        object. Only a role that actually ran on a pooled lease publishes
+        anything, and what it publishes always states its real AgentRuntime
+        status and both validation decisions. A role that is never invoked --
+        because the contract audit stopped the run, or an earlier role failed --
+        leaves no evidence at all, so its lease can never be recycled on this
+        run's word.
         """
 
         lease = pooled_leases.get(role)
-        if lease is None:
-            return
-        confirmed = role_confirmations.get(role)
-        if confirmed is None:
-            raise CrewBlocked(
-                f"{role} ran on a pooled lease without a confirmed provider session identity"
+        binding = None
+        if lease is not None:
+            confirmed = role_confirmations.get(role)
+            if confirmed is None:
+                raise CrewBlocked(
+                    f"{role} ran on a pooled lease without a confirmed provider session identity"
+                )
+            status, outcome = role_assignment_decision(
+                agent_status, failure_classification, semantic_rejected, changed_paths_rejected
             )
-        role_durable_results[role] = durable_assignment_result(
-            lease=lease, confirmed=confirmed, crew_run_id=run_id, artifact=artifact,
-            artifact_sha256=artifact_sha256, agent_status=agent_status,
+            try:
+                binding = pooled_assignment_evidence(
+                    lease=lease, confirmed=confirmed, crew_run_id=run_id,
+                    artifact=role_result_artifact(role, attempt), status=status,
+                    assignment_outcome=outcome,
+                    semantic_validation="rejected" if semantic_rejected else "accepted",
+                    changed_path_validation="rejected" if changed_paths_rejected else "accepted",
+                )
+            except SessionPoolError as exc:
+                raise CrewBlocked(f"role assignment binding could not be built: {exc}") from exc
+            record["pooled_assignment_evidence"] = binding
+        artifact, artifact_sha256 = write_role_result(run_dir, role, attempt, record)
+        if lease is None:
+            return artifact, artifact_sha256
+        result_value = durable_assignment_result(
+            lease=lease, confirmed=role_confirmations[role], crew_run_id=run_id,
+            artifact=artifact, artifact_sha256=artifact_sha256, agent_status=agent_status,
             failure_classification=failure_classification,
             semantic_rejected=semantic_rejected,
             changed_paths_rejected=changed_paths_rejected,
         )
+        # The persisted binding and the durable result are built from the same
+        # lease and the same decision, so any drift between the two constructions
+        # is a defect here rather than an unprovable artifact at check-in.
+        if result_value.role_evidence_binding() != binding:
+            raise CrewBlocked(
+                f"{role} durable evidence disagrees with the assignment binding it persisted"
+            )
+        role_durable_results[role] = result_value
+        return artifact, artifact_sha256
 
     def invoke(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries):
         invocation_id=f"{task_id.lower()}-{role.replace('_','-')}-{attempt}-{hashlib.sha256(run_id.encode()).hexdigest()[:12]}"
@@ -1691,6 +1800,12 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 codex_resume_sandbox_argument=codex_resume_sandbox_argument,
             )
             registry={provider.provider_identifier:provider}
+        if lease is not None:
+            # The real pooled invocation boundary. Whatever supplied the
+            # configuration, the provider and model this role is about to be
+            # invoked through must be exactly the ones its lease authorized.
+            assert_pooled_provider_route(config,registry,key=key,
+                                         capability_class=capability_class,lease=lease)
         inv=AgentInvocationRequest(AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,invocation_id,role,prompt,
             tuple(dict.fromkeys((f"Tasks/{task_id}.yaml",GDD_PATH,POLICY_PATH,ENGINEERING_STANDARDS_PATH,*implementation_paths,*test_paths))),caps,boundaries,schema,capability_class,
             Budgets(int(os.getenv(f"NSC_{role.upper()}_TURN_LIMIT","32")),float(os.getenv(f"NSC_{role.upper()}_TIMEOUT_SECONDS","1200"))),
@@ -1720,6 +1835,11 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             raise CrewBlocked(
                 f"AgentRuntime used model {result.model!r}; expected routed model {execution_model!r}"
             )
+        if lease is not None:
+            # The returned identity is proven against the lease as well, so the
+            # provider and model this assignment reports are the ones it was
+            # authorized to use rather than the ones it claims to have used.
+            assert_pooled_result_identity(result,lease=lease)
         usage_invocations.append(
             {
                 "role": role,
@@ -1773,10 +1893,9 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         audit_semantic=validate_locality_audit_output(audit_output,task=task,valid_task_ids=valid_task_ids)
         audit_scope += audit_semantic
     audit_record={"role":"contract_locality_auditor","attempt":1,"agent_status":audit_res.status,"failure_classification":audit_res.failure_classification,"structured_output":audit_output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(audit_res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":audit_scope,"deterministic_changed_path_validation":"rejected" if audit_deterministic else "accepted","semantic_validation":"rejected" if audit_semantic else "accepted","duration_seconds":audit_res.duration_seconds,"model":audit_res.model,"provider":audit_res.provider,"usage":None if audit_res.usage is None else audit_res.usage.to_dict()}
-    audit_artifact_path,audit_artifact_sha256=write_role_result(run_dir,"contract_locality_auditor",1,audit_record)
-    publish_role_evidence("contract_locality_auditor",audit_artifact_path,audit_artifact_sha256,
-                          agent_status=audit_res.status,failure_classification=audit_res.failure_classification,
-                          semantic_rejected=bool(audit_semantic),changed_paths_rejected=bool(audit_deterministic))
+    record_role_result("contract_locality_auditor",1,audit_record,
+                       agent_status=audit_res.status,failure_classification=audit_res.failure_classification,
+                       semantic_rejected=bool(audit_semantic),changed_paths_rejected=bool(audit_deterministic))
     role_records.append("role_results/contract_locality_auditor_1.json")
     progress.emit("contract_locality_audit_completed",f"Contract Locality Auditor completed: {audit_output.get('status') if audit_res.status=='succeeded' else audit_res.status}",role="contract_locality_auditor",attempt=1,status=audit_output.get("status") if audit_res.status=="succeeded" else audit_res.status)
     if audit_scope:
@@ -1827,10 +1946,9 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                         if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
                             (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
                 record={"role":"implementer","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"deterministic_changed_path_validation":"rejected" if deterministic_scope else "accepted","semantic_validation":"rejected" if blockers else "accepted","duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
-                artifact,artifact_sha256=write_role_result(run_dir,"implementer",attempt,record)
-                publish_role_evidence("implementer",artifact,artifact_sha256,agent_status=res.status,
-                                      failure_classification=res.failure_classification,
-                                      semantic_rejected=bool(blockers),changed_paths_rejected=bool(deterministic_scope))
+                record_role_result("implementer",attempt,record,agent_status=res.status,
+                                   failure_classification=res.failure_classification,
+                                   semantic_rejected=bool(blockers),changed_paths_rejected=bool(deterministic_scope))
                 role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
                 progress.emit("scope_check_completed",f"Implementer {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="implementer",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
@@ -1863,10 +1981,9 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                         if before.entries.get(new_path) is None and after.entries.get(new_path) == _entry_state(clone/new_path, tracked=False) and sidecar:
                             (clone/sidecar).write_bytes(unity_meta_bytes(new_path)); generated.append(sidecar); pipeline_generated.add(sidecar)
                 record={"role":"test_author","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":normalized_agent_claimed_paths(output.get("claimed_changed_paths",[])),"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":actual,"pipeline_generated_paths":generated,"scope_check_reasons":scope,"deterministic_changed_path_validation":"rejected" if deterministic_scope else "accepted","semantic_validation":"rejected" if blockers else "accepted","duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
-                artifact,artifact_sha256=write_role_result(run_dir,"test_author",attempt,record)
-                publish_role_evidence("test_author",artifact,artifact_sha256,agent_status=res.status,
-                                      failure_classification=res.failure_classification,
-                                      semantic_rejected=bool(blockers),changed_paths_rejected=bool(deterministic_scope))
+                record_role_result("test_author",attempt,record,agent_status=res.status,
+                                   failure_classification=res.failure_classification,
+                                   semantic_rejected=bool(blockers),changed_paths_rejected=bool(deterministic_scope))
                 role_records.append(f"role_results/test_author_{attempt}.json"); test_actual.update(actual); latest_test=output
                 progress.emit("scope_check_completed",f"Test Author {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="test_author",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
@@ -1891,10 +2008,9 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     validator_semantic=validator_semantic_reasons(output, expected_requirement_ids)
                     scope += validator_semantic
                 record={"role":"validator","attempt":attempt,"agent_status":res.status,"failure_classification":res.failure_classification,"structured_output":output,"role_claimed_paths":[],"agent_runtime_claimed_paths":list(res.claimed_changed_paths),"deterministic_incremental_actual_changed_paths":[],"scope_check_reasons":scope,"deterministic_changed_path_validation":"rejected" if deterministic_scope else "accepted","semantic_validation":"rejected" if validator_semantic else "accepted","duration_seconds":res.duration_seconds,"model":res.model,"provider":res.provider,"usage":None if res.usage is None else res.usage.to_dict(),**_normalization_audit_fields(normalized_discarded)}
-                artifact,artifact_sha256=write_role_result(run_dir,"validator",attempt,record)
-                publish_role_evidence("validator",artifact,artifact_sha256,agent_status=res.status,
-                                      failure_classification=res.failure_classification,
-                                      semantic_rejected=bool(validator_semantic),changed_paths_rejected=bool(deterministic_scope))
+                record_role_result("validator",attempt,record,agent_status=res.status,
+                                   failure_classification=res.failure_classification,
+                                   semantic_rejected=bool(validator_semantic),changed_paths_rejected=bool(deterministic_scope))
                 role_records.append(f"role_results/validator_{attempt}.json"); latest_validator=output
                 progress.emit("validator_completed",f"Validator {attempt} completed: {validator_status or res.status}",role="validator",attempt=attempt,status=validator_status or res.status)
                 if scope: reasons+=scope; crew_status="rejected"; stop=True; break

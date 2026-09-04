@@ -106,9 +106,31 @@ claims. A process exit code, a caller assertion, or a bare session ID proves
 nothing. Anything else quarantines: missing or malformed session identity,
 transport failure, uncertain timeout, mismatched fields, a missing durable result,
 missing or tampered role evidence, rejected changed paths, rejected semantics,
-corrupt state, or an unknown protocol version. Quarantine, retirement, and expiry
-only stop the pool selecting a session; they never delete provider history or
-credentials and never touch a running worker.
+corrupt state, or an unknown protocol version. Quarantine, probation, retirement,
+and expiry only stop the pool selecting a session; they never delete provider
+history or credentials and never touch a running worker.
+
+The role artifact is not merely consistent with its result: it carries the
+assignment itself. `pooled_assignment_evidence` writes a strict
+`pooled_assignment_evidence` block into the persisted role result whose exact
+field set is `ROLE_EVIDENCE_FIELDS` -- role evidence schema, pool schema,
+protocol, crew run ID, lease ID, session record ID, task ID, worker run ID,
+worker slot ID, session class, role, capability class, repository identity,
+source commit, checkout identity, provider, model, reasoning effort, the exact
+provider confirmation, role status, assignment outcome, semantic decision,
+changed-path decision, and the artifact path itself. At check-in
+`DurableAssignmentResult.evidence_reason` rebuilds that block from the already
+lease-proven result and compares every field, refusing an extra field, a missing
+field, or any disagreement. A perfectly valid successful artifact copied from
+another crew run, lease, task, or source checkout therefore fails closed instead
+of proving this assignment.
+
+An unproven provider confirmation never becomes an identity. A pre-bound
+conversation keeps the identity the pool chose, whatever a mismatched
+confirmation asserts; a provider-named cold conversation adopts the identity its
+transcript confirmed only when the confirmation matches the lease exactly and the
+role artifact proves the assignment. Otherwise the quarantined record and its
+lifecycle state retain no adopted identity at all.
 
 Session lifetime is the committed policy in
 `Pipeline/AgentRuntime/session_lifecycle.py`; the pool applies it and owns no
@@ -125,10 +147,25 @@ boundary only: an active assignment is never interrupted, expired, stolen, or
 retired, and a conversation whose next assignment would overflow the budget
 retires at checkout instead of starting work it cannot finish.
 
+The failure streak is reachable through the pool rather than only in theory. A
+first exactly proven provider/output failure is counted by the committed policy
+and the conversation is placed in `probation`: it is never advertised, never
+reusable, and invisible to `checkout`. Only `offer_probation_retry`, naming that
+exact record and restating the identical stable compatibility, may offer it one
+controlled retry, and that retry is an ordinary assignment whose own durable
+result decides what happens next -- a fully evidenced success resets the streak
+and returns the conversation to `idle`, while a second consecutive counted
+failure retires it for `consecutive_provider_output_failures`. A failed role is
+never returned as a successful reusable result, and an active retry is never
+interrupted. Anything unproven -- a missing durable result, a mismatched lease, a
+missing or borrowed artifact -- still quarantines rather than earning probation.
+
 An idle session stays reusable for one hour after a successful check-in, a
 half-open window: reusable below 3600 seconds, expired at exactly 3600. Only
-`idle` sessions expire. An active lease is never expired or stolen however long
-its worker runs, because a slow worker may still own it.
+conversations on that clock -- `idle` and `probation` -- expire, so a stale
+probation is never offered a retry an hour later. An active lease is never
+expired or stolen however long its worker runs, because a slow worker may still
+own it.
 
 `SessionPoolStore` persists pool state at a caller-supplied path outside the
 repository; mutable scheduler state is not repository content. Writes are
@@ -152,6 +189,15 @@ where the routed capability class first exists. A human-review retry, another
 task, another checkout, another repository, or a re-routed role can never inherit
 a warm conversation.
 
+At that same real invocation boundary the crew resolves the provider
+configuration this role will actually be invoked through -- with the one runtime
+resolver, not a second copy of it -- and requires the resolved provider and model
+to equal the lease's provider and routed model. The returned `AgentResult` is
+held to the same identity. An injected `provider_factory` is bound by exactly
+this rule, so a fake or a misconfigured route can never run a pooled role under a
+provider or model its lease did not authorize; the run fails closed before the
+provider is invoked and publishes no evidence at all.
+
 A reused session's first invocation is prefixed with `assignment_capsule`, which
 closes the previous assignment, revokes every authorization it carried, and
 restates the current role, task, source commit, checkout root, capabilities,
@@ -160,9 +206,11 @@ continues that same conversation rather than opening a second one, and no role i
 skipped because its session is warm.
 
 `crew_result.json` gains `provider_sessions` receipts, `pooled_role_leases`,
-`durable_assignment_results`, and `reusable_role_sessions`. A role publishes
-durable evidence only after it actually ran and its AgentRuntime result, semantic
-validation, and deterministic changed-path validation have all been decided, and
+`durable_assignment_results`, and `reusable_role_sessions`, and each pooled role
+result under `role_results/` gains its `pooled_assignment_evidence` binding. A
+role publishes durable evidence only after it actually ran and its AgentRuntime
+result, semantic validation, and deterministic changed-path validation have all
+been decided, and
 only an outcome all three accepted appears in `reusable_role_sessions`. A role
 that was never invoked -- because the contract-locality audit stopped the run, or
 an earlier role failed -- appears in `pooled_role_leases` with `invoked: false`
