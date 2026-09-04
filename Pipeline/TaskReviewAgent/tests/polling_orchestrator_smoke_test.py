@@ -1095,6 +1095,15 @@ def add_result_active(
             ),
             pid=process.pid if artifact_pid is None else artifact_pid,
         )
+        # This fixture fabricates a completed child before it installs the
+        # corresponding ActiveAssignment. Pin the file timestamp inside the
+        # declared assignment lifetime instead of depending on filesystem
+        # clock precision at the instant poll_once() observes it. The stale
+        # artifact tests override this value explicitly.
+        valid_mtime = datetime.datetime(
+            2026, 9, 1, 0, 0, 1, tzinfo=datetime.timezone.utc
+        ).timestamp()
+        os.utime(result_path, (valid_mtime, valid_mtime))
     orchestrator.active_assignments[task_id] = ActiveAssignment(
         task_id=task_id,
         worker_id=worker_id,
@@ -4001,7 +4010,10 @@ class PendingIssueFixture:
     def __init__(
         self, *, checkout_path: str, head_commit: str, handoff: bool = True
     ) -> None:
-        self.backend = MemoryIssueBackend()
+        self.clock = {"offset": 0.0}
+        self.backend = MemoryIssueBackend(
+            now=lambda: _stamp(self.clock["offset"])
+        )
         self.tasks = {PENDING_TASK: workflow_fixture.task(PENDING_TASK)}
         service = IssueWorkflowService(
             backend=self.backend,
@@ -4020,6 +4032,7 @@ class PendingIssueFixture:
         self.issue_number = next(iter(self.backend.issues))
         if not handoff:
             return
+        self.clock["offset"] = 60.0
         service.publish_human_handoff(
             task_id=PENDING_TASK,
             branch=workflow_fixture.BRANCH,
@@ -4053,6 +4066,12 @@ class PendingIssueFixture:
         names.add(label)
         self.issue["labels"] = [{"name": name} for name in sorted(names)]
         self.issue["updated_at"] = _stamp(at_offset)
+        self.clock["offset"] = at_offset
+        self.backend.record_label_event(
+            self.issue_number,
+            label=label,
+            created_at=_stamp(at_offset),
+        )
 
     def state_labels(self) -> set[str]:
         return {
