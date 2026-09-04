@@ -17,6 +17,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import Pipeline.TaskReviewAgent.synthetic_gauntlet_approver as approver  # noqa: E402
+from Pipeline.TaskReviewAgent.autonomous_graph_run import (  # noqa: E402
+    SyntheticEvidencePumpResult,
+)
+from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
 
 
 def require(condition: bool, message: str) -> None:
@@ -597,14 +601,32 @@ def test_main_processes_every_current_synthetic_issue_serially() -> None:
         or {"evidence": {"task_id": task["id"]}}
     )
     approver._apply_automated_decomposition = lambda **values: (
-        order.append(f"apply-decomposition:{values['task_id']}") or {"status": "ok"}
+        order.append(f"apply-decomposition:{values['task_id']}")
+        or {
+            "status": "ok",
+            "automated_decomposition_event_id": "d" * 64,
+            "last_event_id": "d" * 64,
+            "workflow_state": {
+                "task_id": values["task_id"],
+                "human_result": None,
+            },
+        }
     )
     approver._run_unity_validation = lambda **values: (
         order.append(f"validate:{values['task']['id']}")
         or {"evidence": {"task_id": values["task"]["id"]}}
     )
     approver._apply_automated_validation = lambda **values: (
-        order.append(f"apply-validation:{values['task_id']}") or {"status": "ok"}
+        order.append(f"apply-validation:{values['task_id']}")
+        or {
+            "status": "ok",
+            "automated_validation_event_id": "e" * 64,
+            "last_event_id": "e" * 64,
+            "workflow_state": {
+                "task_id": values["task_id"],
+                "human_result": None,
+            },
+        }
     )
     try:
         result = approver.main(
@@ -645,6 +667,229 @@ def test_main_processes_every_current_synthetic_issue_serially() -> None:
     )
 
 
+def test_process_one_returns_exact_implementation_event_identity() -> None:
+    task_id = "NSC-912"
+    event_id = "e" * 64
+    evidence = {"task_id": task_id, "commit": "a" * 40, "kind": "unity"}
+    calls: list[str] = []
+    snapshot = SimpleNamespace(
+        valid=True,
+        issue_number=92,
+        state=SimpleNamespace(
+            state=approver.WorkflowState.HUMAN_ACTION_REQUIRED,
+            phase=approver.WorkflowPhase.UNITY_RUNTIME_VALIDATION,
+            head_commit="a" * 40,
+        ),
+    )
+
+    class Service:
+        def __init__(self, **_kwargs):
+            calls.append("service-created")
+
+        def find(self, selected_task_id):
+            calls.append(f"find:{selected_task_id}")
+            return snapshot
+
+    originals = (
+        approver.repo_root,
+        approver._require_private_rehearsal,
+        approver.GhIssueBackend,
+        approver.IssueWorkflowService,
+        approver._require_gauntlet_task,
+        approver._run_unity_validation,
+        approver._apply_automated_validation,
+    )
+    approver.repo_root = lambda source: source
+    approver._require_private_rehearsal = lambda *_args: (
+        calls.append("repository-verified") or approver.AUTOMATED_VALIDATION_REPOSITORY
+    )
+    approver.GhIssueBackend = lambda **_kwargs: object()
+    approver.IssueWorkflowService = Service
+    approver._require_gauntlet_task = lambda _source, selected_task_id: {
+        "id": selected_task_id
+    }
+    approver._run_unity_validation = lambda **values: (
+        calls.append(f"validate:{values['task']['id']}")
+        or {"evidence": evidence, "status": "passed"}
+    )
+    approver._apply_automated_validation = lambda **values: (
+        calls.append(f"apply:{values['task_id']}")
+        or {
+            "automated_validation_event_id": event_id,
+            "last_event_id": event_id,
+            "workflow_state": {"task_id": task_id, "human_result": None},
+        }
+    )
+    try:
+        result = approver.process_one_synthetic_handoff(
+            task_id,
+            source=ROOT,
+            checkout_root=ROOT.parent,
+            confirm_repository=approver.AUTOMATED_VALIDATION_REPOSITORY,
+        )
+    finally:
+        (
+            approver.repo_root,
+            approver._require_private_rehearsal,
+            approver.GhIssueBackend,
+            approver.IssueWorkflowService,
+            approver._require_gauntlet_task,
+            approver._run_unity_validation,
+            approver._apply_automated_validation,
+        ) = originals
+    require(type(result) is SyntheticEvidencePumpResult, repr(result))
+    require(result.task_id == task_id, repr(result))
+    require(result.event_id == event_id, repr(result))
+    require(result.evidence_sha256 == semantic_sha256(evidence), repr(result))
+    require(
+        calls
+        == [
+            "repository-verified",
+            "service-created",
+            f"find:{task_id}",
+            f"validate:{task_id}",
+            f"apply:{task_id}",
+        ],
+        str(calls),
+    )
+
+
+def test_process_one_returns_exact_decomposition_event_identity() -> None:
+    task_id = "NSC-911"
+    event_id = "d" * 64
+    evidence = {"task_id": task_id, "source_commit": "a" * 40, "kind": "split"}
+    snapshot = SimpleNamespace(
+        valid=True,
+        issue_number=91,
+        state=SimpleNamespace(
+            state=approver.WorkflowState.HUMAN_ACTION_REQUIRED,
+            phase=approver.WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION,
+        ),
+    )
+
+    class Service:
+        def __init__(self, **_kwargs):
+            pass
+
+        def find(self, selected_task_id):
+            require(selected_task_id == task_id, selected_task_id)
+            return snapshot
+
+    originals = (
+        approver.repo_root,
+        approver._require_private_rehearsal,
+        approver.GhIssueBackend,
+        approver.IssueWorkflowService,
+        approver._require_gauntlet_task,
+        approver.review_decomposition_plan,
+        approver._apply_automated_decomposition,
+    )
+    approver.repo_root = lambda source: source
+    approver._require_private_rehearsal = (
+        lambda *_args: approver.AUTOMATED_VALIDATION_REPOSITORY
+    )
+    approver.GhIssueBackend = lambda **_kwargs: object()
+    approver.IssueWorkflowService = Service
+    approver._require_gauntlet_task = lambda _source, selected_task_id: {
+        "id": selected_task_id
+    }
+    approver.review_decomposition_plan = lambda _source, _snapshot, _task: {
+        "evidence": evidence,
+        "status": "passed",
+    }
+    approver._apply_automated_decomposition = lambda **_values: {
+        "automated_decomposition_event_id": event_id,
+        "last_event_id": event_id,
+        "workflow_state": {"task_id": task_id, "human_result": None},
+    }
+    try:
+        result = approver.process_one_synthetic_handoff(
+            task_id,
+            source=ROOT,
+            checkout_root=ROOT.parent,
+            confirm_repository=approver.AUTOMATED_VALIDATION_REPOSITORY,
+        )
+    finally:
+        (
+            approver.repo_root,
+            approver._require_private_rehearsal,
+            approver.GhIssueBackend,
+            approver.IssueWorkflowService,
+            approver._require_gauntlet_task,
+            approver.review_decomposition_plan,
+            approver._apply_automated_decomposition,
+        ) = originals
+    require(type(result) is SyntheticEvidencePumpResult, repr(result))
+    require(result.task_id == task_id, repr(result))
+    require(result.event_id == event_id, repr(result))
+    require(result.evidence_sha256 == semantic_sha256(evidence), repr(result))
+
+
+def test_process_one_repository_refusal_precedes_issue_access() -> None:
+    touched: list[str] = []
+    original_root = approver.repo_root
+    original_preflight = approver._require_private_rehearsal
+    original_backend = approver.GhIssueBackend
+    approver.repo_root = lambda source: source
+    approver._require_private_rehearsal = lambda *_args: (_ for _ in ()).throw(
+        approver.SyntheticApprovalError("synthetic approval requires the exact private rehearsal")
+    )
+    approver.GhIssueBackend = lambda **_kwargs: touched.append("backend")
+    try:
+        try:
+            approver.process_one_synthetic_handoff(
+                "NSC-912",
+                source=ROOT,
+                checkout_root=ROOT.parent,
+                confirm_repository="cathode26/lookalike",
+            )
+        except approver.SyntheticApprovalError as exc:
+            require("exact private rehearsal" in str(exc), str(exc))
+        else:
+            raise AssertionError("lookalike repository reached Issue access")
+    finally:
+        approver.repo_root = original_root
+        approver._require_private_rehearsal = original_preflight
+        approver.GhIssueBackend = original_backend
+    require(touched == [], str(touched))
+
+
+def test_process_one_refuses_nsc_042_before_repository_or_issue_access() -> None:
+    touched: list[str] = []
+    original_root = approver.repo_root
+    original_preflight = approver._require_private_rehearsal
+    original_backend = approver.GhIssueBackend
+    approver.repo_root = lambda source: touched.append("repo-root") or source
+    approver._require_private_rehearsal = lambda *_args: (
+        touched.append("repository-preflight") or approver.AUTOMATED_VALIDATION_REPOSITORY
+    )
+    approver.GhIssueBackend = lambda **_kwargs: touched.append("backend")
+    try:
+        try:
+            approver.process_one_synthetic_handoff(
+                "NSC-042",
+                source=ROOT,
+                checkout_root=ROOT.parent,
+                confirm_repository=approver.AUTOMATED_VALIDATION_REPOSITORY,
+            )
+        except approver.SyntheticApprovalError as exc:
+            require("requires Vincent's real validation" in str(exc), str(exc))
+        else:
+            raise AssertionError("NSC-042 reached synthetic evidence processing")
+    finally:
+        approver.repo_root = original_root
+        approver._require_private_rehearsal = original_preflight
+        approver.GhIssueBackend = original_backend
+    require(touched == [], str(touched))
+
+
+def test_cli_process_all_delegates_transitions_to_one_item_api() -> None:
+    source = inspect.getsource(approver.main)
+    require("process_one_synthetic_handoff(" in source, source)
+    require("_apply_automated_validation(" not in source, source)
+    require("_apply_automated_decomposition(" not in source, source)
+
+
 def main() -> int:
     tests = (
         test_only_exact_direct_gauntlet_provenance_is_accepted,
@@ -654,6 +899,11 @@ def main() -> int:
         test_decomposition_uses_agent_evidence_and_pokes_the_architect,
         test_implementation_uses_agent_evidence_and_pokes_the_architect,
         test_main_processes_every_current_synthetic_issue_serially,
+        test_process_one_returns_exact_implementation_event_identity,
+        test_process_one_returns_exact_decomposition_event_identity,
+        test_process_one_repository_refusal_precedes_issue_access,
+        test_process_one_refuses_nsc_042_before_repository_or_issue_access,
+        test_cli_process_all_delegates_transitions_to_one_item_api,
     )
     for test in tests:
         test()

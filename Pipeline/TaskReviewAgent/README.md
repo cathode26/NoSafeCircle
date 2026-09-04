@@ -193,12 +193,15 @@ the exact private `cathode26/NoSafeCircle-Homework-Rehearsal` repository; a
 private lookalike is not eligible. Successful checks append agent-owned,
 hash-bound automated-validation or automated-decomposition evidence through the
 ordinary Issue workflow service. They never create a human PASS, human approval,
-or `human_result`. One invocation serially processes every currently eligible
-synthetic Issue, re-reading each Issue immediately before validation. After a
-verified transition it removes only that task's exact Vincent routing comment
-and publishes an advisory local wake hint. The launcher immediately re-reads
-the authoritative GitHub state; a missing or malformed hint merely falls back
-to its normal wait.
+or `human_result`. The structured `process_one_synthetic_handoff()` API advances
+at most one exact task and returns the appended event ID plus the semantic hash
+of its evidence as the autonomous controller's `SyntheticEvidencePumpResult`;
+the controller never parses CLI output to infer progress. The CLI preserves its
+process-all behavior by looping that one-task API, re-reading each Issue
+immediately before validation. After a verified transition it removes only that
+task's exact Vincent routing comment and publishes an advisory local wake hint.
+The launcher immediately re-reads the authoritative GitHub state; a missing or
+malformed hint merely falls back to its normal wait.
 
 A `review_ready` plan is published as an exact `plan_id` handoff in
 `human_action_required / decomposition_apply_authorization`. It is still

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate and advance one waiting private synthetic-gauntlet Issue.
+"""Validate and advance exact waiting private synthetic-gauntlet Issues.
 
 This is deliberately not a general human-approval bot. It recognizes only the
 committed private rehearsal gauntlet provenance, excludes NSC-042, runs the
@@ -11,13 +11,14 @@ agent-owned evidence events; they never fabricate a human PASS or approval.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +29,10 @@ for module_root in (ROOT, PIPELINE_ROOT, TASK_GRAPH_ROOT):
         sys.path.insert(0, str(module_root))
 
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
+from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
+    semantic_sha256,
+    validate_task_id,
+)
 from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
     decomposition_validation_policy_for,
     validation_plan_for,
@@ -64,6 +69,11 @@ from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
 from graph_apply_plan import plan_graph_apply  # noqa: E402
 from graph_delta import GraphDeltaPlan, semantic_json_sha256  # noqa: E402
 from persistent_work_graph import load_persistent_work_graph  # noqa: E402
+
+if TYPE_CHECKING:
+    from Pipeline.TaskReviewAgent.autonomous_graph_run import (  # noqa: E402
+        SyntheticEvidencePumpResult,
+    )
 
 
 class SyntheticApprovalError(RuntimeError):
@@ -103,6 +113,60 @@ _ARTIFACTS_KEYS = frozenset({"xml", "log"})
 _ARTIFACT_KEYS = frozenset({"relative_path", "sha256", "size_bytes"})
 _RUNNER_KEYS = frozenset({"path"})
 _AUTOMATED_WORKER_ID = "synthetic-gauntlet-approver"
+_SESSION_PROOF = object()
+
+
+@dataclass(frozen=True)
+class _SyntheticApproverSession:
+    """One repository-verified service binding reused by the process-all CLI."""
+
+    source: Path
+    checkout_root: Path
+    repository: str
+    service: IssueWorkflowService
+    proof: object
+
+
+def _open_synthetic_approver_session(
+    *,
+    source: Path,
+    checkout_root: Path,
+    confirm_repository: str,
+) -> _SyntheticApproverSession:
+    exact_source = repo_root(source.resolve())
+    repository = _require_private_rehearsal(exact_source, confirm_repository)
+    service = IssueWorkflowService(
+        backend=GhIssueBackend(source_root=exact_source),
+        task_loader=lambda task_id: load_committed_task(exact_source, task_id),
+        worker_id=_AUTOMATED_WORKER_ID,
+        vincent_inbox_title=VINCENT_INBOX_TITLE,
+    )
+    return _SyntheticApproverSession(
+        source=exact_source,
+        checkout_root=checkout_root.resolve(),
+        repository=repository,
+        service=service,
+        proof=_SESSION_PROOF,
+    )
+
+
+def _require_matching_session(
+    session: _SyntheticApproverSession,
+    *,
+    source: Path,
+    checkout_root: Path,
+    confirm_repository: str,
+) -> None:
+    if type(session) is not _SyntheticApproverSession or session.proof is not _SESSION_PROOF:
+        raise SyntheticApprovalError("synthetic approver session is not authentic")
+    if (
+        source.resolve() != session.source
+        or checkout_root.resolve() != session.checkout_root
+        or confirm_repository.casefold() != session.repository.casefold()
+    ):
+        raise SyntheticApprovalError(
+            "synthetic approver session does not match this exact repository request"
+        )
 
 
 def _exact_object(
@@ -956,6 +1020,179 @@ def _apply_automated_validation(
     }
 
 
+def _pump_result(
+    *,
+    task_id: str,
+    evidence: Mapping[str, Any],
+    transitioned: Mapping[str, Any],
+    event_field: str,
+) -> "SyntheticEvidencePumpResult":
+    """Bind one verified workflow transition to the controller's pump contract."""
+
+    exact_task_id = validate_task_id(task_id)
+    event_id = _exact_sha(
+        transitioned.get(event_field), field=event_field, sha256=True
+    )
+    if transitioned.get("last_event_id") != event_id:
+        raise SyntheticApprovalError(
+            "automated transition event differs from its verified final Issue event"
+        )
+    workflow_state = transitioned.get("workflow_state")
+    if not isinstance(workflow_state, Mapping):
+        raise SyntheticApprovalError(
+            "automated transition omitted its verified workflow state"
+        )
+    if (
+        workflow_state.get("task_id") != exact_task_id
+        or workflow_state.get("human_result") is not None
+    ):
+        raise SyntheticApprovalError(
+            "automated transition post-state changed task identity or human_result"
+        )
+
+    # Import lazily so the autonomous controller may import this adapter without
+    # creating a module-load cycle. The returned object is the controller's
+    # exact class, not a lookalike dataclass or stdout-derived approximation.
+    from Pipeline.TaskReviewAgent.autonomous_graph_run import (
+        SyntheticEvidencePumpResult,
+    )
+
+    return SyntheticEvidencePumpResult(
+        task_id=exact_task_id,
+        event_id=event_id,
+        evidence_sha256=semantic_sha256(evidence),
+    )
+
+
+def process_one_synthetic_handoff(
+    task_id: str,
+    *,
+    source: Path,
+    checkout_root: Path,
+    confirm_repository: str,
+    apply: bool = True,
+    report: Callable[[Mapping[str, Any]], None] | None = None,
+    _session: _SyntheticApproverSession | None = None,
+) -> "SyntheticEvidencePumpResult | None":
+    """Validate and optionally advance one exact synthetic human handoff.
+
+    Normal callers receive a fresh repository/private/default-branch/main
+    preflight before any Issue access. The CLI supplies only a module-created,
+    proof-bearing session so that its process-all loop can reuse that same
+    preflight and GitHub service without weakening the public boundary.
+
+    ``None`` is returned for a dry run because no durable workflow event exists.
+    An applied call returns the controller's exact structured pump result. One
+    invocation resolves and transitions only ``task_id``; it never enumerates or
+    advances another synthetic task.
+    """
+
+    exact_task_id = validate_task_id(task_id)
+    if exact_task_id == PRESERVED_TASK_ID:
+        raise SyntheticApprovalError("NSC-042 always requires Vincent's real validation")
+    if type(apply) is not bool:
+        raise SyntheticApprovalError("apply must be an exact boolean")
+    if report is not None and not callable(report):
+        raise SyntheticApprovalError("report must be callable when provided")
+    exact_checkout_root = checkout_root.resolve()
+    if _session is None:
+        session = _open_synthetic_approver_session(
+            source=source,
+            checkout_root=exact_checkout_root,
+            confirm_repository=confirm_repository,
+        )
+    else:
+        _require_matching_session(
+            _session,
+            source=source,
+            checkout_root=exact_checkout_root,
+            confirm_repository=confirm_repository,
+        )
+        session = _session
+
+    # This check categorically excludes NSC-042 and any task outside the exact
+    # committed gauntlet lineage before its Issue can be mutated.
+    task = _require_gauntlet_task(session.source, exact_task_id)
+    snapshot = session.service.find(exact_task_id)
+    if (
+        snapshot is None
+        or not snapshot.valid
+        or snapshot.state is None
+        or getattr(snapshot, "pending_transition", None) is not None
+        or snapshot.state.state is not WorkflowState.HUMAN_ACTION_REQUIRED
+    ):
+        raise SyntheticApprovalError(
+            f"selected managed Issue changed before validation: {exact_task_id}"
+        )
+
+    phase = snapshot.state.phase
+    if phase is WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION:
+        reviewed = review_decomposition_plan(session.source, snapshot, task)
+        if report is not None:
+            report(reviewed)
+        if not apply:
+            return None
+        evidence = reviewed["evidence"]
+        transitioned = _apply_automated_decomposition(
+            source=session.source,
+            service=session.service,
+            task_id=exact_task_id,
+            evidence=evidence,
+        )
+        if report is not None:
+            report(transitioned)
+        return _pump_result(
+            task_id=exact_task_id,
+            evidence=evidence,
+            transitioned=transitioned,
+            event_field="automated_decomposition_event_id",
+        )
+
+    if phase is WorkflowPhase.UNITY_RUNTIME_VALIDATION:
+        plan = {
+            "task_id": exact_task_id,
+            "issue_number": snapshot.issue_number,
+            "commit": snapshot.state.head_commit,
+            "status": "exact_synthetic_unity_validation_ready",
+        }
+        if report is not None:
+            report(plan)
+        if not apply:
+            return None
+        validated = _run_unity_validation(
+            source=session.source,
+            checkout_root=session.checkout_root,
+            repository=session.repository,
+            snapshot=snapshot,
+            task=task,
+        )
+        if report is not None:
+            report(validated)
+        evidence = validated["evidence"]
+        transitioned = _apply_automated_validation(
+            source=session.source,
+            service=session.service,
+            task_id=exact_task_id,
+            evidence=evidence,
+        )
+        if report is not None:
+            report(transitioned)
+        return _pump_result(
+            task_id=exact_task_id,
+            evidence=evidence,
+            transitioned=transitioned,
+            event_field="automated_validation_event_id",
+        )
+
+    raise SyntheticApprovalError(
+        f"unsupported human-owned phase for synthetic task: {phase.value}"
+    )
+
+
+def _print_json(value: Mapping[str, Any]) -> None:
+    print(json.dumps(value, indent=2, sort_keys=True))
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=ROOT)
@@ -964,14 +1201,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args(argv)
     try:
-        source = repo_root(args.source.resolve())
-        repository = _require_private_rehearsal(source, args.confirm_repository)
-        service = IssueWorkflowService(
-            backend=GhIssueBackend(source_root=source),
-            task_loader=lambda task_id: load_committed_task(source, task_id),
-            worker_id=_AUTOMATED_WORKER_ID,
-            vincent_inbox_title=VINCENT_INBOX_TITLE,
+        session = _open_synthetic_approver_session(
+            source=args.source,
+            checkout_root=args.checkout_root,
+            confirm_repository=args.confirm_repository,
         )
+        source = session.source
+        repository = session.repository
+        service = session.service
         waiting = service.list_human_action_required()
         selected_task_ids: list[str] = []
         for entry in waiting:
@@ -997,59 +1234,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         processed: list[str] = []
         for task_id in selected_task_ids:
-            # Re-read immediately before each serial validation. A prior Unity
-            # run may be long enough for another actor to change a later Issue.
-            snapshot = service.find(task_id)
-            if (
-                snapshot is None
-                or not snapshot.valid
-                or snapshot.state is None
-                or snapshot.state.state is not WorkflowState.HUMAN_ACTION_REQUIRED
-            ):
-                raise SyntheticApprovalError(
-                    f"selected managed Issue changed before validation: {task_id}"
-                )
-            task = _require_gauntlet_task(source, task_id)
-            phase = snapshot.state.phase
-            if phase is WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION:
-                result = review_decomposition_plan(source, snapshot, task)
-                print(json.dumps(result, indent=2, sort_keys=True))
-                if args.apply:
-                    applied = _apply_automated_decomposition(
-                        source=source,
-                        service=service,
-                        task_id=task["id"],
-                        evidence=result["evidence"],
-                    )
-                    print(json.dumps(applied, indent=2, sort_keys=True))
-            elif phase is WorkflowPhase.UNITY_RUNTIME_VALIDATION:
-                plan = {
-                    "task_id": task["id"],
-                    "issue_number": snapshot.issue_number,
-                    "commit": snapshot.state.head_commit,
-                    "status": "exact_synthetic_unity_validation_ready",
-                }
-                print(json.dumps(plan, indent=2, sort_keys=True))
-                if args.apply:
-                    validated = _run_unity_validation(
-                        source=source,
-                        checkout_root=args.checkout_root,
-                        repository=repository,
-                        snapshot=snapshot,
-                        task=task,
-                    )
-                    print(json.dumps(validated, indent=2, sort_keys=True))
-                    applied = _apply_automated_validation(
-                        source=source,
-                        service=service,
-                        task_id=task["id"],
-                        evidence=validated["evidence"],
-                    )
-                    print(json.dumps(applied, indent=2, sort_keys=True))
-            else:
-                raise SyntheticApprovalError(
-                    f"unsupported human-owned phase for synthetic task: {phase.value}"
-                )
+            # Re-read immediately inside the one-item API. A prior Unity run
+            # may be long enough for another actor to change a later Issue.
+            process_one_synthetic_handoff(
+                task_id,
+                source=source,
+                checkout_root=args.checkout_root,
+                confirm_repository=args.confirm_repository,
+                apply=args.apply,
+                report=_print_json,
+                _session=session,
+            )
             processed.append(task_id)
         print(
             json.dumps(
