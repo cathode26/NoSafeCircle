@@ -89,9 +89,10 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
     IssueBackend,
+    IssueConsistencyRetryBudget,
     IssueWorkflowService,
     IssueWorkflowStoreError,
-    _snapshot,
+    _consistent_snapshots,
     issue_author_authorized,
 )
 from Pipeline.TaskReviewAgent.real_checkout import default_checkout_root  # noqa: E402
@@ -610,13 +611,15 @@ def observe_durable_integration_reservations(
     worker_id: str,
     backend: IssueBackend | None = None,
     task_loader: Callable[[str], Mapping[str, Any]] | None = None,
+    consistency_retry_budget: IssueConsistencyRetryBudget | None = None,
 ) -> tuple[IntegrationReservation, ...]:
     """Enumerate incomplete valid managed workflows through existing parsing.
 
     ``IssueWorkflowService`` currently exposes no public all-incomplete
-    enumeration. V1 therefore uses its backend's smallest read-only snapshot
-    helper, ``issue_workflow_store._snapshot``, rather than reimplementing the
-    Issue body/event parser. No backend mutation method is called.
+    enumeration. The observer therefore reuses the store's bounded consistency
+    scan rather than reimplementing the Issue body/event parser. When supplied,
+    one retry budget is shared with Stage 2 for the whole admission attempt.
+    No backend mutation method is called.
     """
 
     source_root = Path(source).resolve()
@@ -626,6 +629,7 @@ def observe_durable_integration_reservations(
         lambda task_id: load_committed_task(source_root, task_id)
     )
     reservations: list[IntegrationReservation] = []
+    candidates: list[Mapping[str, Any]] = []
     for issue in selected_backend.list_issues():
         if str(issue.get("state") or "").upper() == "CLOSED":
             continue
@@ -634,7 +638,25 @@ def observe_durable_integration_reservations(
             continue
         if not issue_author_authorized(issue):
             continue
-        snapshot = _snapshot(selected_backend, issue)
+        candidates.append(issue)
+    scanned = _consistent_snapshots(
+        selected_backend,
+        candidates,
+        deadline=(
+            consistency_retry_budget.deadline()
+            if consistency_retry_budget is not None
+            else None
+        ),
+    )
+    for entry in scanned:
+        if entry.error is not None:
+            raise IntegrationObservationError(
+                f"managed Issue #{entry.issue_number} could not be inspected: "
+                f"{entry.error}"
+            )
+        snapshot = entry.snapshot
+        if snapshot is None:
+            continue
         if not snapshot.valid or not snapshot.managed or snapshot.state is None:
             raise IntegrationObservationError(
                 f"managed Issue #{snapshot.issue_number} is invalid: "
@@ -758,6 +780,8 @@ def build_poll_dispatch_plan(
     worker_id: str,
     remote: str = "origin",
     excluded_task_ids: Iterable[str] | None = None,
+    backend: IssueBackend | None = None,
+    consistency_retry_budget: IssueConsistencyRetryBudget | None = None,
 ) -> DispatchPlan:
     """Build resume-first and ranked-fresh Stage 2 authority once per poll.
 
@@ -771,19 +795,29 @@ def build_poll_dispatch_plan(
     """
 
     try:
+        requested_exclusions = tuple(excluded_task_ids or ())
+        excluded_resume_task_ids = frozenset(
+            task_id for task_id in requested_exclusions if type(task_id) is str
+        )
         policy = dispatch_plan_module.load_dispatch_policy()
         root = repo_root(Path(source).resolve())
         source_commit = dispatch_plan_module._git_head(root)
         task_ids = dispatch_plan_module.list_committed_task_ids(root)
-        cached_backend = dispatch_plan_module._PlanScopedIssueBackend(
+        cached_backend = backend or dispatch_plan_module._PlanScopedIssueBackend(
             GhIssueBackend(source_root=root)
         )
         issue_workflow = IssueWorkflowService(
             backend=cached_backend,
             task_loader=lambda task_id: load_committed_task(root, task_id),
             worker_id=worker_id,
+            consistency_retry_budget=consistency_retry_budget,
         )
-        agent_ready = issue_workflow.list_agent_ready()
+        agent_ready = [
+            snapshot
+            for snapshot in issue_workflow.list_agent_ready()
+            if (snapshot.get("workflow_state") or {}).get("task_id")
+            not in excluded_resume_task_ids
+        ]
         (
             claimed_refs,
             claim_namespace,
@@ -812,7 +846,7 @@ def build_poll_dispatch_plan(
                 claim_observation=claim_observation,
                 provisional_reasons=provisional_reasons,
                 policy=policy,
-                excluded_task_ids=excluded_task_ids,
+                excluded_task_ids=requested_exclusions,
             )
             if task_ids:
                 state_provider.ensure_snapshot()
@@ -879,6 +913,15 @@ def build_poll_dispatch_plan(
         return fresh_plan
     selected = agent_ready[0]
     state = selected.get("workflow_state") or {}
+    selected_task_id = state.get("task_id")
+    if selected_task_id in excluded_resume_task_ids:
+        return dispatch_plan_module._blocked_plan(
+            source_commit=source_commit,
+            reasons=(
+                f"operator-excluded resume task {selected_task_id!r} reached the "
+                "final Stage-2 admission boundary",
+            ),
+        )
     return DispatchPlan(
         schema_version=fresh_plan.schema_version,
         source_commit=source_commit,
@@ -886,7 +929,7 @@ def build_poll_dispatch_plan(
         autonomous_dispatch=False,
         decision="resume_existing",
         resume={
-            "task_id": state.get("task_id"),
+            "task_id": selected_task_id,
             "issue_number": selected.get("issue_number"),
             "issue_url": selected.get("issue_url"),
             "phase": state.get("phase"),
@@ -1290,9 +1333,11 @@ class PollingOrchestrator:
         self.consecutive_observation_failures = 0
         self.consecutive_source_refresh_failures = 0
         self.plan_builder = plan_builder
+        self._uses_default_plan_builder = plan_builder is build_poll_dispatch_plan
         self.task_loader = task_loader or (
             lambda task_id: load_committed_task(self.source, task_id)
         )
+        self._uses_default_reservation_observer = reservation_observer is None
         self.reservation_observer = reservation_observer or (
             lambda: observe_durable_integration_reservations(
                 source=self.source,
@@ -1511,9 +1556,24 @@ class PollingOrchestrator:
             reservations.append(assignment.to_reservation())
         return tuple(sorted(reservations, key=lambda item: item.task_id))
 
-    def _integration_reservations(self) -> tuple[IntegrationReservation, ...]:
+    def _integration_reservations(
+        self,
+        *,
+        backend: IssueBackend | None = None,
+        consistency_retry_budget: IssueConsistencyRetryBudget | None = None,
+    ) -> tuple[IntegrationReservation, ...]:
         active = self._refresh_active_reservations()
-        durable = tuple(self.reservation_observer())
+        durable = (
+            observe_durable_integration_reservations(
+                source=self.source,
+                checkout_root=self.checkout_root,
+                worker_id=self.scheduler_id,
+                backend=backend,
+                consistency_retry_budget=consistency_retry_budget,
+            )
+            if backend is not None
+            else tuple(self.reservation_observer())
+        )
         reservations = tuple(
             sorted((*active, *durable), key=lambda item: (item.task_id, item.evidence_type))
         )
@@ -1707,8 +1767,9 @@ class PollingOrchestrator:
             reason=conflict.reason,
         )
 
-    def poll_once(self) -> PollCycleResult:
-        self.architect_invocations_this_poll = 0
+    def poll_once(self, *, reset_architect_budget: bool = True) -> PollCycleResult:
+        if reset_architect_budget:
+            self.architect_invocations_this_poll = 0
         if self._reap_workers():
             self.events.emit(
                 "scheduler_blocked",
@@ -1765,8 +1826,25 @@ class PollingOrchestrator:
                 active_worker_count=len(self.active_assignments),
             )
             return PollCycleResult("capacity_full")
+        shared_issue_backend: IssueBackend | None = None
+        consistency_retry_budget: IssueConsistencyRetryBudget | None = None
+        if (
+            self._uses_default_plan_builder
+            and self._uses_default_reservation_observer
+        ):
+            # Reservation and Stage-2 planning must observe one coherent GitHub
+            # snapshot. The plan-scoped wrapper performs one paginated Issue read
+            # and caches comments per Issue; a new wrapper is created after every
+            # worker launch/capacity pass, so no mutation is hidden by stale data.
+            shared_issue_backend = dispatch_plan_module._PlanScopedIssueBackend(
+                GhIssueBackend(source_root=self.source)
+            )
+            consistency_retry_budget = IssueConsistencyRetryBudget()
         try:
-            reservations = self._integration_reservations()
+            reservations = self._integration_reservations(
+                backend=shared_issue_backend,
+                consistency_retry_budget=consistency_retry_budget,
+            )
         except (IntegrationObservationError, IssueWorkflowStoreError, OSError) as exc:
             self.consecutive_observation_failures += 1
             if (
@@ -1818,11 +1896,20 @@ class PollingOrchestrator:
         temporary_exclusions = set(self.active_assignments).union(
             self.excluded_task_ids
         )
-        plan = self.plan_builder(
-            source=self.source,
-            worker_id=self.scheduler_id,
-            excluded_task_ids=temporary_exclusions,
-        )
+        if shared_issue_backend is not None:
+            plan = build_poll_dispatch_plan(
+                source=self.source,
+                worker_id=self.scheduler_id,
+                excluded_task_ids=temporary_exclusions,
+                backend=shared_issue_backend,
+                consistency_retry_budget=consistency_retry_budget,
+            )
+        else:
+            plan = self.plan_builder(
+                source=self.source,
+                worker_id=self.scheduler_id,
+                excluded_task_ids=temporary_exclusions,
+            )
         degraded_fresh_reasons = tuple(
             reason
             for reason in plan.reasons
@@ -1961,6 +2048,21 @@ class PollingOrchestrator:
                 decision="all_mixed_portfolio_candidates_deterministically_waited",
             )
             return PollCycleResult("idle")
+        resume_portfolio = tuple(
+            entry for entry in mixed_portfolio if entry[1] is not None
+        )
+        if resume_portfolio:
+            # A durable resume already passed through human or prior agent work. Give
+            # it a dedicated architect decision before offering fresh work. If the
+            # architect returns WAIT/HUMAN_REVIEW, the decision cache removes the
+            # resume on the next capacity pass and fresh work can still proceed.
+            mixed_portfolio = resume_portfolio[:1]
+            self.events.emit(
+                "resume_priority_applied",
+                task_id=mixed_portfolio[0][2]["task"]["id"],
+                resume_phase=mixed_portfolio[0][1],
+                deferred_fresh_candidate_count=len(prefiltered_portfolio) - 1,
+            )
         if self.dry_run:
             selected_id = mixed_portfolio[0][2]["task"]["id"]
             self.events.emit(
@@ -2326,6 +2428,61 @@ class PollingOrchestrator:
         )
         return PollCycleResult("idle")
 
+    def poll_capacity_batch(self) -> PollCycleResult:
+        """Fill available local capacity within one bounded scheduling poll.
+
+        Each launch is followed by a complete source refresh, Stage-2 plan, and
+        reservation re-observation through ``poll_once``. This preserves the
+        integration safety boundary while making the per-poll architect budget and
+        ``max_workers`` settings operational rather than merely descriptive.
+        """
+
+        self.architect_invocations_this_poll = 0
+        launched_task_ids: list[str] = []
+        last_launch: PollCycleResult | None = None
+        while True:
+            invocations_before = self.architect_invocations_this_poll
+            cycle = self.poll_once(reset_architect_budget=False)
+            architect_invoked = (
+                self.architect_invocations_this_poll > invocations_before
+            )
+            if cycle.status == "worker_launched" and cycle.task_id is not None:
+                launched_task_ids.append(cycle.task_id)
+                last_launch = cycle
+            if cycle.fatal:
+                break
+            if len(self.active_assignments) >= self.max_workers:
+                break
+            if (
+                self.architect_invocations_this_poll
+                >= self.max_architect_invocations_per_poll
+            ):
+                break
+            if cycle.status == "worker_launched":
+                continue
+            # One paid WAIT/HUMAN_REVIEW decision may have removed a candidate
+            # from the next pass through the decision cache. Continue within the
+            # same bounded poll so an unrelated candidate is not starved.
+            if cycle.status == "idle" and architect_invoked:
+                continue
+            break
+        reported_cycle = (
+            last_launch
+            if last_launch is not None and not cycle.fatal
+            else cycle
+        )
+        self.events.emit(
+            "poll_capacity_batch_completed",
+            launched_task_ids=launched_task_ids,
+            launched_count=len(launched_task_ids),
+            active_worker_count=len(self.active_assignments),
+            architect_invocations=self.architect_invocations_this_poll,
+            result_status=reported_cycle.status,
+            terminal_pass_status=cycle.status,
+            fatal=reported_cycle.fatal,
+        )
+        return reported_cycle
+
     def active_child_summary(self) -> list[dict[str, Any]]:
         return [
             {
@@ -2390,7 +2547,7 @@ class PollingOrchestrator:
         stop_reason = "once_complete" if once else "stopped"
         try:
             while True:
-                cycle = self.poll_once()
+                cycle = self.poll_capacity_batch()
                 if cycle.fatal:
                     exit_code = 2
                     stop_reason = cycle.status

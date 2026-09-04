@@ -99,6 +99,14 @@ implementation and decomposition provider runs from its own canonical
 standalone task checkout, so this refresh cannot move the repository beneath an
 active worker.
 
+One scheduler poll may admit multiple workers, bounded by both `--max-workers`
+and `--architect-max-invocations-per-poll`. After every launch it repeats the
+source refresh, Stage-2 plan, and reservation observation before paying for the
+next architect decision. A validated durable resume receives a dedicated
+architect decision before fresh candidates. If that resume must wait, the
+cached non-start decision permits disjoint fresh work later in the same bounded
+capacity pass.
+
 Each scheduler session also appends its exact JSON event stream to
 `Pipeline/ArchitectureReview/outputs/orchestrator/events/<scheduler-id>.jsonl`.
 Use that journal to diagnose admission delays, worker parentage, drain behavior,
@@ -110,12 +118,22 @@ through exact single-Issue reads under one bounded scan deadline. A missing
 exact read is not treated as closure: only a positive `CLOSED` Issue releases
 the reservation, while persistent incoherence remains fail-closed.
 
+Within one scheduler capacity pass, durable reservation discovery and Stage-2
+planning share one read-only Issue/comment snapshot. A fresh snapshot is built
+after every worker launch, avoiding both duplicate full-repository pagination
+and contradictory GitHub views within one admission decision.
+
 If one scheduler-owned worker fails, new admissions stop and the scheduler
 supervises already-running workers for the configured bounded fatal-drain
 interval (30 minutes by default). It does not terminate those workers or
 release their leases. Ctrl+C during a fatal drain preserves the failure exit
 code, and the final event reports any worker whose operating-system survival
 cannot be guaranteed.
+
+The worker process exits zero only for a known successful handoff or closeout
+state (`human_action_required`, `human_delivery_review`, `checks_pending`, or
+`complete`). A durable `blocked` or `needs_human` outcome exits nonzero so the
+parent scheduler stops admitting new work and performs its bounded drain.
 
 For a bounded rehearsal that must leave a legitimate task untouched, pass a
 repeatable session exclusion such as `--exclude-task-id NSC-042` to

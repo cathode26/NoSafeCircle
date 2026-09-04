@@ -976,6 +976,67 @@ def test_excluded_skipped_decomposition_never_enters_architect_portfolio() -> No
         require(f'"task_id": "{TASK_B}"' not in stream.getvalue(), stream.getvalue())
 
 
+def test_safe_resume_is_selected_before_fresh_start() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner([resume_plan(head, TASK_B, TASK_A)])
+        architect = FakeArchitect(
+            {
+                TASK_A: advisory(TASK_A, head),
+                TASK_B: advisory(TASK_B, head),
+            }
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
+        )
+        result = orchestrator.poll_once()
+        require(result.status == "worker_launched" and result.task_id == TASK_B, str(result))
+        require(architect.calls == [TASK_B], str(architect.calls))
+        require('"event": "resume_priority_applied"' in stream.getvalue(), stream.getvalue())
+
+
+def test_capacity_batch_uses_per_poll_budget_to_fill_slots() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner(
+            [
+                candidate_plan(head, TASK_A, TASK_B, TASK_C),
+                candidate_plan(head, TASK_B, TASK_C),
+                candidate_plan(head, TASK_C),
+            ]
+        )
+        architect = FakeArchitect(
+            {
+                TASK_A: advisory(TASK_A, head, exact_paths=(f"Assets/{TASK_A}.cs",)),
+                TASK_B: advisory(TASK_B, head, exact_paths=(f"Assets/{TASK_B}.cs",)),
+                TASK_C: advisory(TASK_C, head, exact_paths=(f"Assets/{TASK_C}.cs",)),
+            }
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B), TASK_C: task(TASK_C)},
+            max_workers=3,
+            max_architect_invocations_per_poll=3,
+        )
+        result = orchestrator.poll_capacity_batch()
+        require(result.status == "worker_launched" and result.task_id == TASK_C, str(result))
+        require(architect.calls == [TASK_A, TASK_B, TASK_C], str(architect.calls))
+        require(len(processes.calls) == 3 and len(orchestrator.active_assignments) == 3, str(processes.calls))
+        events = [json.loads(line) for line in stream.getvalue().splitlines()]
+        completed = [item for item in events if item["event"] == "poll_capacity_batch_completed"][-1]
+        require(completed["launched_task_ids"] == [TASK_A, TASK_B, TASK_C], str(completed))
+        require(completed["architect_invocations"] == 3, str(completed))
+
+
 def test_decomposition_worker_command_binds_exact_task_and_output_policy() -> None:
     command = build_decomposition_worker_command(
         task_id=TASK_B,
@@ -1055,13 +1116,80 @@ def test_resume_wait_does_not_starve_stage2_ranked_fresh_work() -> None:
             processes=processes,
             tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
         )
-        result = orchestrator.poll_once()
+        result = orchestrator.poll_capacity_batch()
         require(
             result.status == "worker_launched" and result.task_id == TASK_B,
             str(result),
         )
-        require(planner.calls == [set()], f"Stage 2 ran more than once: {planner.calls}")
-        require(architect.calls == [TASK_B], str(architect.calls))
+        require(
+            planner.calls == [set(), set(), {TASK_B}],
+            f"unexpected Stage-2 passes: {planner.calls}",
+        )
+        require(architect.calls == [TASK_A, TASK_B], str(architect.calls))
+
+
+def test_excluded_task_id_is_not_admitted_via_resume_slot() -> None:
+    """The operator exclusion boundary must cover approved resume work too."""
+
+    class NoopStateProvider:
+        def ensure_snapshot(self) -> None:
+            return None
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        workflow = Stage2WorkflowFixture(head=head, resume_task_id=TASK_A)
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch.object(scheduler_module, "IssueWorkflowService", return_value=workflow)
+            )
+            stack.enter_context(
+                patch.object(
+                    scheduler_module,
+                    "repo_root",
+                    side_effect=lambda value: Path(value).resolve(),
+                )
+            )
+            stack.enter_context(
+                patch.object(scheduler_module, "GhIssueBackend", return_value=object())
+            )
+            stack.enter_context(
+                patch.object(
+                    scheduler_module.dispatch_plan_module,
+                    "list_committed_task_ids",
+                    return_value=[TASK_A],
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    scheduler_module.dispatch_plan_module,
+                    "_read_only_claim_observation",
+                    return_value=({}, None, {"status": "fixture"}, ()),
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    scheduler_module.dispatch_plan_module,
+                    "_LazyTaskcontrolStateProvider",
+                    return_value=NoopStateProvider(),
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    scheduler_module,
+                    "plan_dispatch",
+                    return_value=terminal_plan(head, "no_safe_work"),
+                )
+            )
+            plan = scheduler_module.build_poll_dispatch_plan(
+                source=source,
+                worker_id="polling-test-worker",
+                excluded_task_ids=(TASK_A,),
+            )
+
+        require(plan.decision == "no_safe_work", str(plan))
+        require(plan.resume is None, str(plan.resume))
+        require(plan.agent_ready_count == 0, str(plan.agent_ready_count))
+        require(workflow.list_agent_ready_calls == 1, str(workflow.list_agent_ready_calls))
 
 
 def test_resume_survives_typed_taskgraph_observation_failure() -> None:
@@ -1623,7 +1751,7 @@ def test_mixed_portfolio_uses_one_paid_call_per_poll() -> None:
             },
             max_architect_invocations_per_poll=1,
         )
-        result = orchestrator.poll_once()
+        result = orchestrator.poll_capacity_batch()
         require(result.status == "idle", str(result))
         require(not result.fatal, "a portfolio WAIT was treated as fatal")
         require(architect.calls == [TASK_A], str(architect.calls))
@@ -2004,6 +2132,44 @@ def test_durable_human_action_branch_becomes_reservation() -> None:
         require(reservation.workflow_state == "human_action_required", str(reservation))
         require("Assets/Scenes/Game.unity" in reservation.actual_paths, str(reservation))
         require(not reservation.surface_unknown, str(reservation))
+
+
+def test_reservations_and_stage2_can_share_one_issue_listing() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, backend, fixture_task = create_durable_human_fixture(Path(text))
+        list_calls = 0
+        original_list_issues = backend.list_issues
+
+        def counted_list_issues() -> list[dict[str, Any]]:
+            nonlocal list_calls
+            list_calls += 1
+            return original_list_issues()
+
+        backend.list_issues = counted_list_issues  # type: ignore[method-assign]
+        cached_backend = scheduler_module.dispatch_plan_module._PlanScopedIssueBackend(
+            backend
+        )
+        consistency_retry_budget = scheduler_module.IssueConsistencyRetryBudget()
+        reservations = observe_durable_integration_reservations(
+            source=source,
+            checkout_root=source.parent,
+            worker_id="shared-snapshot-reservation-observer",
+            backend=cached_backend,
+            task_loader=lambda _task_id: fixture_task,
+            consistency_retry_budget=consistency_retry_budget,
+        )
+        service = IssueWorkflowService(
+            backend=cached_backend,
+            task_loader=lambda _task_id: fixture_task,
+            worker_id="shared-snapshot-stage2-observer",
+            consistency_retry_budget=consistency_retry_budget,
+        )
+        service.list_agent_ready()
+        require(len(reservations) == 1, str(reservations))
+        require(
+            list_calls == 1,
+            f"reservation and Stage 2 performed {list_calls} Issue listings",
+        )
 
 
 def test_actual_branch_path_overlap_prevents_launch() -> None:
@@ -2606,6 +2772,8 @@ def main() -> int:
         test_no_safe_work_launches_nothing,
         test_blocked_invalid_state_fails_closed,
         test_resume_existing_remains_stage2_priority,
+        test_safe_resume_is_selected_before_fresh_start,
+        test_capacity_batch_uses_per_poll_budget_to_fill_slots,
         test_every_worker_command_has_exact_task_and_unique_worker_id,
         test_scheduler_has_no_generic_contention_retry_or_taskless_launch,
         test_max_workers_blocks_launch,
@@ -2620,6 +2788,7 @@ def main() -> int:
         test_decomposition_worker_command_binds_exact_task_and_output_policy,
         test_approved_decomposition_resume_cannot_route_to_implementation,
         test_resume_wait_does_not_starve_stage2_ranked_fresh_work,
+        test_excluded_task_id_is_not_admitted_via_resume_slot,
         test_resume_survives_typed_taskgraph_observation_failure,
         test_fresh_only_typed_taskgraph_observation_failure_remains_blocked,
         test_resume_waits_safely_when_fresh_pool_observation_is_unavailable,
@@ -2643,6 +2812,7 @@ def main() -> int:
         test_new_worker_checkout_is_explicitly_pending_with_prediction_preserved,
         test_previously_observed_checkout_disappearing_becomes_unknown,
         test_durable_human_action_branch_becomes_reservation,
+        test_reservations_and_stage2_can_share_one_issue_listing,
         test_actual_branch_path_overlap_prevents_launch,
         test_successful_child_exit_frees_local_capacity,
         test_nonzero_child_exit_stops_new_admissions,

@@ -154,6 +154,14 @@ the repository beneath an active decomposition provider. A wrong, dirty,
 stale, or differently bound `C:\NSC\NSC\<TASK-ID>` checkout stops visibly and
 is never reset or replaced.
 
+Validated resumable work, including an approved decomposition apply, receives
+its own architect decision before fresh implementation work. A safe resume is
+therefore not starved behind newly eligible tasks. A resume that the architect
+must defer is cached as a non-start, allowing the same bounded capacity batch
+to consider unrelated fresh work. The batch can launch multiple workers up to
+the configured per-poll architect budget and local worker capacity, but it
+re-runs source, Stage-2, and reservation checks after every launch.
+
 When a committed validation policy contains a decomposition-child template,
 only a D1C-generated child whose provenance names that exact parent and exact
 pre-decomposition parent contract hash may inherit its platform/filter pair.
@@ -228,6 +236,16 @@ fast-forwards attached clean `main` when possible. Dirt or divergence stops new
 admissions; the scheduler never rebases or resets the controller. This keeps
 later task admissions and both task-branch synchronization boundaries based on
 the exact mainline produced by earlier completed workers.
+
+Durable reservation discovery and Stage-2 planning share one plan-scoped
+read-only Issue/comment cache. Each worker launch begins a fresh capacity pass
+and therefore a fresh GitHub snapshot, while one admission decision avoids a
+second full Issue listing and contradictory within-pass observations.
+
+Scheduler-launched worker processes exit zero only for known successful
+handoff/closeout outcomes. A `blocked`, `needs_human`, malformed, or unknown
+terminal outcome exits nonzero, causing the scheduler to stop admissions and
+supervise its already-running children through the bounded fatal drain.
 
 ## Human handoff
 
