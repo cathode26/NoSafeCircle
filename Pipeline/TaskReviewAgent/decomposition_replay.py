@@ -23,6 +23,10 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     WorkflowPhase,
 )
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
+from Pipeline.TaskReviewAgent.decomposition_policy_audit import (  # noqa: E402
+    ValidationPolicyAuditError,
+    audit_decomposition_policy,
+)
 from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
     decomposition_validation_policy_for,
 )
@@ -293,6 +297,18 @@ def _validate_automated_authority(
         raise DecompositionReplayError(
             "working decomposition policy differs from the authorized source commit"
         )
+    # The whole committed template map is audited against the graph and the
+    # policy as they were at the authorized source commit -- never against
+    # current main, which may have moved since the decomposition was approved.
+    # The blob-identity check above already proved the working-tree copy equals
+    # those exact bytes, so the reader below resolves the same document.
+    try:
+        audit_decomposition_policy(source, commit=authorized_head)
+    except ValidationPolicyAuditError as exc:
+        raise DecompositionReplayError(
+            "could not prove the decomposition policy at the authorized source "
+            f"commit: {exc}"
+        ) from exc
     try:
         policy = decomposition_validation_policy_for(
             source,

@@ -61,8 +61,8 @@ from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
     initialize_worker_run,
     write_worker_result,
 )
-from Pipeline.TaskDecomposition.context_builder import (  # noqa: E402
-    validate_task_selection as validate_decomposition_selection,
+from Pipeline.TaskReviewAgent.decomposition_policy_audit import (  # noqa: E402
+    decomposition_preflight as validate_decomposition_selection,
 )
 from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
 from graph_delta import GraphDeltaPlan  # noqa: E402
@@ -917,7 +917,13 @@ def main(argv: list[str] | None = None) -> int:
                 prelease.state.task_contract_sha256
             )
         else:
-            validate_decomposition_selection(task_id, task)
+            # The complete deterministic decomposition preflight: committed
+            # selection rules plus the repository-level child-template audit.
+            # It runs before the workflow lease, before the durable checkout,
+            # and before any provider invocation, so an absent, orphaned, stale,
+            # or malformed template stops the run while nothing has been
+            # claimed, created, or mutated.
+            validate_decomposition_selection(source, task_id, task)
         checkout_manager = DurableTaskCheckoutManager(
             source_root=source,
             task_id=task_id,

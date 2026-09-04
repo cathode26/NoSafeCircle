@@ -140,7 +140,15 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
 )
 from Pipeline.TaskDecomposition.context_builder import (  # noqa: E402
     DecompositionPreflightError,
-    validate_task_selection as validate_decomposition_selection,
+)
+from Pipeline.TaskReviewAgent.decomposition_policy_audit import (  # noqa: E402
+    ValidationPolicyAuditError,
+    audit_decomposition_policy,
+    decomposition_preflight as validate_decomposition_selection,
+    read_committed_tasks,
+)
+from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
+    read_decomposition_policy_document,
 )
 from Pipeline.AgentRuntime.contracts import (  # noqa: E402
     ContractValidationError,
@@ -2321,6 +2329,28 @@ class PollingOrchestrator:
         """
 
         by_id: dict[str, tuple[dict[str, Any], str | None, dict[str, Any]]] = {}
+        # The child-template policy is a property of the repository, not of any
+        # one candidate, so it is proven once and its result is reused. Proving
+        # it per candidate would both repeat the work and let a repository-wide
+        # failure disappear into a per-candidate "not decomposition-relevant"
+        # skip, which is a different fact and must not look like one.
+        policy_document: Mapping[str, Any] | None = None
+        policy_tasks: Mapping[str, Mapping[str, Any]] | None = None
+        try:
+            audit_decomposition_policy(self.source)
+        except ValidationPolicyAuditError as exc:
+            self.events.emit(
+                "decomposition_policy_unprovable",
+                reason=str(exc),
+                policy_path=(
+                    "Pipeline/TaskReviewAgent/authoritative_validation_policy.json"
+                ),
+            )
+            decomposition_offerable = False
+        else:
+            decomposition_offerable = True
+            policy_document = read_decomposition_policy_document(self.source)
+            policy_tasks = read_committed_tasks(self.source)
         for candidate, resume_phase in ordered:
             task_id = validate_task_id(candidate.get("task_id"))
             task = self._load_candidate(plan, candidate, task_id)
@@ -2331,10 +2361,19 @@ class PollingOrchestrator:
                 work_types = ["decomposition"]
             else:
                 work_types = ["implementation"]
-            if resume_phase is None:
+            if resume_phase is None and decomposition_offerable:
                 try:
-                    validate_decomposition_selection(task_id, task)
+                    validate_decomposition_selection(
+                        self.source,
+                        task_id,
+                        task,
+                        document=policy_document,
+                        tasks=policy_tasks,
+                    )
                 except DecompositionPreflightError:
+                    # This contract is not decomposition-relevant. The
+                    # repository-wide policy was already proven above, so this
+                    # skip means only what it has always meant.
                     pass
                 else:
                     work_types.append("decomposition")
@@ -2366,10 +2405,18 @@ class PollingOrchestrator:
                 for reason in reasons
             ):
                 continue
+            if not decomposition_offerable:
+                continue
             task_id = validate_task_id(task_id_raw)
             task = self._load_candidate(plan, candidate, task_id)
             try:
-                validate_decomposition_selection(task_id, task)
+                validate_decomposition_selection(
+                    self.source,
+                    task_id,
+                    task,
+                    document=policy_document,
+                    tasks=policy_tasks,
+                )
             except DecompositionPreflightError:
                 continue
             by_id[task_id] = (

@@ -311,22 +311,15 @@ def validation_plan_for(
     return {**payload, "policy_sha256": semantic_sha256(payload)}
 
 
-def decomposition_validation_policy_for(
-    root: Path | str,
-    task: Mapping[str, Any],
-    *,
-    parent_semantic_hash: str,
-) -> dict[str, Any]:
-    """Resolve the exact committed validation template for a decomposition parent."""
+def require_decomposition_policy_document(document: Any) -> Mapping[str, Any]:
+    """Fail closed unless the document is the exact decomposition policy schema.
 
-    repository = Path(root).resolve()
-    policy_path = repository / _VALIDATION_POLICY_RELATIVE
-    try:
-        document = json.loads(policy_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise DownstreamPipelineError(
-            "authoritative decomposition validation policy is unreadable"
-        ) from exc
+    The decomposition reader has always demanded the exact three-key document
+    shape. It is named here so a repository-level auditor and the reader agree
+    on one definition of "this file is the decomposition policy" instead of two
+    that can drift apart.
+    """
+
     if (
         not isinstance(document, Mapping)
         or document.get("schema_version") != VALIDATION_POLICY_SCHEMA_VERSION
@@ -337,7 +330,37 @@ def decomposition_validation_policy_for(
         raise DownstreamPipelineError(
             "authoritative decomposition validation policy schema is unsupported"
         )
-    task_id = task.get("task_id") or task.get("id")
+    return document
+
+
+def read_decomposition_policy_document(root: Path | str) -> Mapping[str, Any]:
+    """Read and shape-check the working-tree decomposition policy document."""
+
+    repository = Path(root).resolve()
+    policy_path = repository / _VALIDATION_POLICY_RELATIVE
+    try:
+        document = json.loads(policy_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise DownstreamPipelineError(
+            "authoritative decomposition validation policy is unreadable"
+        ) from exc
+    return require_decomposition_policy_document(document)
+
+
+def resolve_decomposition_template(
+    document: Mapping[str, Any],
+    task_id: Any,
+    *,
+    parent_semantic_hash: str,
+) -> dict[str, Any]:
+    """Resolve one exact committed child template out of an already-shaped document.
+
+    This holds the complete template and variant rule set. It is deliberately
+    pure -- no filesystem, no Git, no repository root -- so the same rules can be
+    applied to the working tree, to a document read at a bound source commit, or
+    to a generated bundle, without any caller restating them.
+    """
+
     if not isinstance(task_id, str) or not task_id.strip():
         raise DownstreamPipelineError("decomposition parent task identity is missing")
     if re.fullmatch(r"[0-9a-f]{64}", parent_semantic_hash) is None:
@@ -438,6 +461,22 @@ def decomposition_validation_policy_for(
         "policy_path": _VALIDATION_POLICY_RELATIVE.as_posix(),
     }
     return {**payload, "policy_sha256": semantic_sha256(payload)}
+
+
+def decomposition_validation_policy_for(
+    root: Path | str,
+    task: Mapping[str, Any],
+    *,
+    parent_semantic_hash: str,
+) -> dict[str, Any]:
+    """Resolve the exact committed validation template for a decomposition parent."""
+
+    document = read_decomposition_policy_document(root)
+    return resolve_decomposition_template(
+        document,
+        task.get("task_id") or task.get("id"),
+        parent_semantic_hash=parent_semantic_hash,
+    )
 
 
 def _migration_ledger_entry(
@@ -1440,5 +1479,8 @@ def install_downstream_resilience() -> None:
 __all__ = [
     "decomposition_validation_policy_for",
     "install_downstream_resilience",
+    "read_decomposition_policy_document",
+    "require_decomposition_policy_document",
+    "resolve_decomposition_template",
     "validation_plan_for",
 ]

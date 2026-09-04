@@ -27,6 +27,9 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
 
 TASK_ID = "NSC-777"
 SOURCE_HEAD = "1" * 40
+VALIDATION_POLICY_RELATIVE = (
+    "Pipeline/TaskReviewAgent/authoritative_validation_policy.json"
+)
 PLAN_ID = "GDP-" + "a" * 64
 
 
@@ -794,6 +797,185 @@ def test_scheduler_decomposition_run_writes_identity_bound_terminal_result() -> 
             setattr(launcher, name, value)
 
 
+def test_unprovable_child_template_blocks_before_any_durable_mutation() -> None:
+    """A missing child template stops a fresh decomposition before anything happens.
+
+    The preflight runs before the workflow lease, before the durable checkout,
+    and before the provider, so an unprovable template map costs one deterministic
+    read and leaves no claim, no Issue transition, no checkout, and no graph
+    mutation behind. This is the ordering the audit exists to guarantee; the
+    remaining decomposition tests only prove the audit's verdicts.
+    """
+
+    originals = {
+        name: getattr(launcher, name)
+        for name in (
+            "repo_root",
+            "_git",
+            "load_committed_task",
+            "GhIssueBackend",
+            "IssueWorkflowService",
+            "DurableTaskCheckoutManager",
+            "RealTaskObserver",
+            "_acquire_workflow_lease",
+            "_checkout_observation",
+            "_run_proposal",
+        )
+    }
+    parent = {
+        "schema_version": "2.0",
+        "id": TASK_ID,
+        "contract_revision": 1,
+        "contract_disposition": "active",
+        "title": "Fixture decomposition parent",
+        "reconciliation_key": "fixture-decomposition-parent",
+        "kind": "implementation",
+        "execution_scope": "needs_execution_decomposition",
+        "decomposition_state": "concrete",
+        "parent": "NSC-001",
+        "depends_on": [],
+        "exclusive_resources": ["repo-file:Assets/Fixture/Alpha.cs"],
+        "acceptance_criteria": [],
+        "completion_gates": [],
+        "downstream_integration_obligations": [],
+        "provenance": {"origin": "fixture", "gauntlet_id": "fixture-gauntlet-v1"},
+        "task_contract_sha256": "a" * 64,
+    }
+
+    def fake_git(_source, *args):
+        if args[:3] == ("symbolic-ref", "--short", "HEAD"):
+            return "main"
+        if args[:2] == ("status", "--porcelain=v1"):
+            return ""
+        if args[:2] == ("rev-parse", "HEAD"):
+            return SOURCE_HEAD
+        raise AssertionError(f"unexpected git fixture command: {args}")
+
+    mutations: list[str] = []
+
+    class Service:
+        @staticmethod
+        def find(_task_id):
+            return None
+
+        @staticmethod
+        def release_decomposition_lease(**_values):
+            mutations.append("release_decomposition_lease")
+            return {"status": "agent_ready"}
+
+        @staticmethod
+        def publish_decomposition_handoff(**_values):
+            mutations.append("publish_decomposition_handoff")
+
+        @staticmethod
+        def complete_decomposition(**_values):
+            mutations.append("complete_decomposition")
+
+    class CheckoutManager:
+        def __init__(self, **values):
+            self.checkout_path = Path(values["checkout_root"]) / values["task_id"]
+
+        @staticmethod
+        def expected_branch(_observation):
+            return "nsc-777-decomposition-fixture"
+
+        @staticmethod
+        def prepare(_observation):
+            mutations.append("checkout_prepare")
+            return {"status": "created", "reasons": []}
+
+    class Observer:
+        def __init__(self, *_args):
+            pass
+
+        @staticmethod
+        def observe_goal_state():
+            return {}
+
+    def acquire(**_values):
+        mutations.append("acquire_workflow_lease")
+        return object(), {"status": "acquired", "issue_number": 777}
+
+    def run_proposal(**_values):
+        mutations.append("run_proposal")
+        return 0
+
+    try:
+        launcher.repo_root = lambda value: value
+        launcher._git = fake_git
+        launcher.load_committed_task = lambda *_args, **_kwargs: dict(parent)
+        launcher.GhIssueBackend = lambda **_values: object()
+        launcher.IssueWorkflowService = lambda **_values: Service()
+        launcher.DurableTaskCheckoutManager = CheckoutManager
+        launcher.RealTaskObserver = Observer
+        launcher._acquire_workflow_lease = acquire
+        launcher._checkout_observation = lambda **_values: {}
+        launcher._run_proposal = run_proposal
+
+        with tempfile.TemporaryDirectory() as text:
+            root = Path(text)
+            source = root / "source"
+            (source / "Tasks").mkdir(parents=True)
+            (source / "Tasks" / f"{TASK_ID}.yaml").write_text(
+                json.dumps(parent, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            policy = source / VALIDATION_POLICY_RELATIVE
+            policy.parent.mkdir(parents=True, exist_ok=True)
+            # The parent is machine-approved and selectable, and the committed
+            # template map does not carry it. That is the exact G12 shape.
+            policy.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "tasks": {},
+                        "decomposition_child_templates": {},
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            run_id = "scheduler-nsc-777-decomposition-policy"
+            result = launcher.main(
+                [
+                    "--task-id",
+                    TASK_ID,
+                    "--source",
+                    str(source),
+                    "--checkout-root",
+                    str(root / "checkouts"),
+                    "--output-root",
+                    str(root / "provider-output"),
+                    "--worker-id",
+                    "decomposition-scheduler-worker",
+                    "--scheduler-output-root",
+                    str(root / "scheduler-output"),
+                    "--run-id",
+                    run_id,
+                    "--admission-source-head",
+                    SOURCE_HEAD,
+                    "--task-contract-sha256",
+                    "a" * 64,
+                ]
+            )
+            require(result == 2, str(result))
+            require(mutations == [], f"a durable mutation happened first: {mutations}")
+            require(
+                not (root / "checkouts").exists(),
+                "a task checkout was created before the policy was proven",
+            )
+            payload = json.loads(
+                (root / "scheduler-output" / TASK_ID / run_id / "run_result.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            require(payload["terminal_status"] == "error", str(payload))
+            require(payload["issue_number"] is None, str(payload))
+    finally:
+        for name, value in originals.items():
+            setattr(launcher, name, value)
+
+
 def test_apply_resume_uses_historical_contract_and_skips_fresh_validation() -> None:
     current_head = "2" * 40
     old_hash = "a" * 64
@@ -1010,6 +1192,7 @@ def main() -> int:
         test_compose_command_is_exact_review_only_service,
         test_scheduler_decomposition_run_writes_identity_bound_terminal_result,
         test_apply_resume_uses_historical_contract_and_skips_fresh_validation,
+        test_unprovable_child_template_blocks_before_any_durable_mutation,
     )
     for test in tests:
         test()

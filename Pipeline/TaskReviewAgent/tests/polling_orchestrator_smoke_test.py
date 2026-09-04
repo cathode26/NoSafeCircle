@@ -140,7 +140,21 @@ def create_source(root: Path) -> tuple[Path, str]:
     git(source, "config", "user.name", "Polling Fixture")
     git(source, "config", "user.email", "polling-fixture@nosafecircle.invalid")
     (source / "compose.yaml").write_text("services: {}\n", encoding="utf-8")
-    git(source, "add", "compose.yaml")
+    # A real source checkout always carries the committed authoritative
+    # validation policy. The decomposition preflight now proves that document
+    # before a task is offered for decomposition, so the fixture models the
+    # repository it stands in for rather than a checkout with no policy at all.
+    policy = source / "Pipeline" / "TaskReviewAgent" / "authoritative_validation_policy.json"
+    policy.parent.mkdir(parents=True, exist_ok=True)
+    policy.write_text(
+        json.dumps(
+            {"schema_version": "1.0", "tasks": {}, "decomposition_child_templates": {}},
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    git(source, "add", "compose.yaml", policy.relative_to(source).as_posix())
     git(source, "commit", "-m", "fixture base")
     return source, git(source, "rev-parse", "HEAD")
 
@@ -796,6 +810,85 @@ def test_shared_checkout_root_lock_collides_across_source_clones() -> None:
                 raise AssertionError("different source clones both acquired one root")
         finally:
             first.release()
+
+
+def test_unprovable_decomposition_policy_is_surfaced_and_offers_no_decomposition() -> None:
+    """A repository-wide policy failure is a different fact from "not decomposable".
+
+    The committed child-template policy is a property of the repository, so it is
+    proven once per portfolio rather than per candidate. When it cannot be
+    proven, decomposition is offered for nothing -- and the reason is emitted,
+    instead of disappearing into the same silent skip that means "this contract
+    is not decomposition-relevant".
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        # A committed template naming a task that is not in the graph at all.
+        policy = source / "Pipeline" / "TaskReviewAgent" / "authoritative_validation_policy.json"
+        policy.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "tasks": {},
+                    "decomposition_child_templates": {
+                        "NSC-909": {
+                            "parent_task_contract_sha256": "a" * 64,
+                            "validation_variants": [
+                                {
+                                    "required_exclusive_resources": ["repo-file:A.cs"],
+                                    "required_test_platforms": ["EditMode"],
+                                    "test_filters": {"EditMode": "Fixture.A"},
+                                }
+                            ],
+                            "authority": (
+                                "committed_private_synthetic_gauntlet_"
+                                "decomposition_child_policy"
+                            ),
+                        }
+                    },
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        planner = SequencePlanner([mixed_work_plan(head, TASK_B, TASK_A)])
+        architect = FakeArchitect({TASK_B: advisory(TASK_B, head)})
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: decomposition_task(TASK_A), TASK_B: task(TASK_B)},
+        )
+        orchestrator.poll_once()
+        journal = stream.getvalue()
+        require("decomposition_policy_unprovable" in journal, journal)
+        require("not in the committed graph" in journal, journal)
+        started = [
+            json.loads(line)
+            for line in journal.splitlines()
+            if line.strip() and json.loads(line).get("event") == "architect_started"
+        ]
+        require(bool(started), journal)
+        require(
+            all(
+                "decomposition" not in pair["work_types"]
+                for event in started
+                for pair in event["eligible_pairs"]
+            ),
+            str(started),
+        )
+        require(
+            any(
+                pair["task_id"] == TASK_B and pair["work_types"] == ["implementation"]
+                for event in started
+                for pair in event["eligible_pairs"]
+            ),
+            "an unprovable decomposition policy also suppressed implementation work",
+        )
 
 
 def test_no_safe_work_launches_nothing() -> None:
@@ -5362,6 +5455,7 @@ def main() -> int:
         test_event_emitter_persists_exact_stdout_journal,
         test_shared_checkout_root_lock_collides_across_source_clones,
         test_no_safe_work_launches_nothing,
+        test_unprovable_decomposition_policy_is_surfaced_and_offers_no_decomposition,
         test_scheduler_idle_without_candidate_never_budgets_an_architect_session,
         test_blocked_invalid_state_fails_closed,
         test_resume_existing_remains_stage2_priority,

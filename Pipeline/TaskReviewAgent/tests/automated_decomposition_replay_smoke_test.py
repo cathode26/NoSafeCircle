@@ -10,6 +10,7 @@ import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -19,6 +20,7 @@ for module_root in (ROOT, PIPELINE_ROOT):
         sys.path.insert(0, str(module_root))
 
 from Pipeline.TaskReviewAgent import decomposition_replay as replay  # noqa: E402
+import Pipeline.TaskReviewAgent.decomposition_policy_audit as audit  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     AUTOMATED_DECOMPOSITION_POLICY_AUTHORITY,
     WorkflowEventType,
@@ -182,11 +184,12 @@ def fixture(root: Path):
     )
 
 
-def run_with_patches(data):
+def run_with_patches(data, *, audit_error=None):
     originals = (
         replay._git_text,
         replay.load_committed_task,
         replay.DecompositionResult,
+        replay.audit_decomposition_policy,
         replay.decomposition_validation_policy_for,
         replay.inspect_graph_delta_replay,
     )
@@ -224,6 +227,18 @@ def run_with_patches(data):
             )
         )
     )
+    audits: list[Any] = []
+
+    def audit(_source, *, commit):
+        # The audit must be bound to the authorized commit, never to current main.
+        require(commit == SOURCE_HEAD, str(commit))
+        audits.append(commit)
+        if audit_error is not None:
+            raise audit_error
+        return {"templates_audited": []}
+
+    replay.audit_decomposition_policy = audit
+    data.audited = audits
     replay.decomposition_validation_policy_for = lambda *_args, **_kwargs: {
         "policy_sha256": data.policy_hash
     }
@@ -239,6 +254,7 @@ def run_with_patches(data):
             replay._git_text,
             replay.load_committed_task,
             replay.DecompositionResult,
+            replay.audit_decomposition_policy,
             replay.decomposition_validation_policy_for,
             replay.inspect_graph_delta_replay,
         ) = originals
@@ -248,6 +264,9 @@ def test_machine_approval_replays_only_after_exact_revalidation() -> None:
     with tempfile.TemporaryDirectory() as text:
         data = fixture(Path(text))
         result = run_with_patches(data)
+        # The child-template audit runs, and it runs bound to the authorized
+        # source commit rather than to whatever HEAD happens to be now.
+        require(data.audited == [SOURCE_HEAD], str(data.audited))
         require(result.plan_id == PLAN_ID, str(result))
         require(result.authorized_source_head == SOURCE_HEAD, str(result))
         require(result.inspection is data.inspection, str(result))
@@ -286,6 +305,166 @@ def test_human_approval_remains_compatible() -> None:
         data.snapshot.events = (data.handoff, human)
         result = run_with_patches(data)
         require(result.plan_id == PLAN_ID, str(result))
+        # The whole automated-authority proof, audit included, is machine-only.
+        require(data.audited == [], str(data.audited))
+
+
+def test_policy_proof_is_bound_to_the_authorized_commit_not_current_main() -> None:
+    """An authorized replay proves the policy that existed when it was authorized.
+
+    The replay recomputes the decomposition policy while current main may have
+    moved on. If the child-template audit read the working tree, a later,
+    perfectly legitimate policy edit would retroactively invalidate an already
+    authorized decomposition. The audit therefore receives the authorized source
+    commit, and this test drives the real audit -- not the harness stub -- against
+    a real repository whose main has moved.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        source = Path(text)
+        relative = "Pipeline/TaskReviewAgent/authoritative_validation_policy.json"
+        parent_id = "NSC-911"
+        alpha = "repo-file:Assets/Fixture/Alpha.cs"
+        beta = "repo-file:Assets/Fixture/Beta.cs"
+        parent = {
+            "schema_version": "2.0",
+            "id": parent_id,
+            "contract_revision": 1,
+            "contract_disposition": "active",
+            "title": "Fixture decomposition parent",
+            "reconciliation_key": "fixture-replay-parent",
+            "kind": "implementation",
+            "execution_scope": "needs_execution_decomposition",
+            "decomposition_state": "concrete",
+            "parent": "NSC-001",
+            "depends_on": [],
+            "exclusive_resources": [alpha, beta],
+            "acceptance_criteria": [],
+            "completion_gates": [],
+            "downstream_integration_obligations": [],
+            "provenance": {"origin": "fixture", "gauntlet_id": "fixture-gauntlet-v1"},
+        }
+
+        def write(relative_path: str, payload: str) -> None:
+            target = source / Path(relative_path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(payload, encoding="utf-8", newline="\n")
+
+        def run(*command: str) -> None:
+            completed = subprocess.run(
+                command,
+                cwd=source,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+            require(completed.returncode == 0, completed.stderr)
+
+        def policy(templates: dict) -> str:
+            return (
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "tasks": {},
+                        "decomposition_child_templates": templates,
+                    },
+                    indent=2,
+                )
+                + "\n"
+            )
+
+        def variant(resources: list, name: str) -> dict:
+            return {
+                "required_exclusive_resources": resources,
+                "required_test_platforms": ["EditMode"],
+                "test_filters": {"EditMode": f"NoSafeCircle.Fixture.Tests.{name}"},
+            }
+
+        write(f"Tasks/{parent_id}.yaml", json.dumps(parent, indent=2, sort_keys=True) + "\n")
+        write(
+            relative,
+            policy(
+                {
+                    parent_id: {
+                        "parent_task_contract_sha256": audit.parent_semantic_hash(parent),
+                        "validation_variants": [
+                            variant([alpha], "AlphaTests"),
+                            variant([beta], "BetaTests"),
+                        ],
+                        "authority": audit.DECOMPOSITION_TEMPLATE_AUTHORITY,
+                    }
+                }
+            ),
+        )
+        run("git", "init", "-b", "main")
+        run("git", "config", "user.name", "No Safe Circle TaskReviewAgent")
+        run("git", "config", "user.email", "task-review-agent@nosafecircle.invalid")
+        run("git", "add", ".")
+        run("git", "commit", "-m", "authorized decomposition state")
+        authorized_head = replay._git_text(source, "rev-parse", "HEAD")
+
+        # Main moves on: the template is retired and the contract is revised.
+        write(relative, policy({}))
+        revised = dict(parent, contract_revision=2)
+        write(f"Tasks/{parent_id}.yaml", json.dumps(revised, indent=2, sort_keys=True) + "\n")
+        run("git", "add", ".")
+        run("git", "commit", "-m", "moved main")
+        require(
+            replay._git_text(source, "rev-parse", "HEAD") != authorized_head,
+            "fixture did not move main",
+        )
+
+        # Bound to the authorized commit: still provable.
+        receipt = audit.audit_decomposition_policy(source, commit=authorized_head)
+        require(
+            [item["parent_task_id"] for item in receipt["templates_audited"]] == [parent_id],
+            str(receipt),
+        )
+        # Bound to current main: genuinely different, which is why the commit
+        # must be stated rather than assumed.
+        try:
+            audit.audit_decomposition_policy(source)
+        except audit.ValidationPolicyAuditError as exc:
+            require("no child template" in str(exc), str(exc))
+        else:
+            raise AssertionError("current main accepted a retired template")
+
+        # The audit the replay imports is the one exercised above, so the
+        # commit-bound proof and the replay's proof cannot diverge.
+        require(
+            replay.audit_decomposition_policy is audit.audit_decomposition_policy,
+            "the replay does not use the committed policy audit",
+        )
+
+
+def test_an_unprovable_policy_at_the_authorized_commit_stops_the_replay() -> None:
+    """The audit's verdict is load-bearing, not advisory.
+
+    The replay converts a ValidationPolicyAuditError into a typed replay failure.
+    Without a test the conversion could be deleted and every other replay test
+    would still pass, because the harness stub never fails.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        data = fixture(Path(text))
+        try:
+            run_with_patches(
+                data,
+                audit_error=audit.ValidationPolicyAuditError(
+                    "decomposition template for NSC-777 is stale"
+                ),
+            )
+        except replay.DecompositionReplayError as exc:
+            require(
+                "could not prove the decomposition policy at the authorized source "
+                "commit" in str(exc),
+                str(exc),
+            )
+            require("is stale" in str(exc), str(exc))
+        else:
+            raise AssertionError("an unprovable policy did not stop the replay")
+        require(data.audited == [SOURCE_HEAD], str(data.audited))
 
 
 def test_clean_filtered_policy_identity_accepts_crlf_worktree() -> None:
@@ -362,6 +541,8 @@ def main() -> int:
         test_machine_approval_must_immediately_follow_handoff,
         test_human_approval_remains_compatible,
         test_clean_filtered_policy_identity_accepts_crlf_worktree,
+        test_policy_proof_is_bound_to_the_authorized_commit_not_current_main,
+        test_an_unprovable_policy_at_the_authorized_commit_stops_the_replay,
     )
     for test in tests:
         test()
