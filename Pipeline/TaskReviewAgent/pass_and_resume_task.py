@@ -33,6 +33,7 @@ from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     IssueWorkflowSnapshot,
     IssueWorkflowStoreError,
 )
+from Pipeline.TaskReviewAgent.human_action_wait import publish_resume_hint  # noqa: E402
 from Pipeline.TaskReviewAgent.safe_unity_churn import (  # noqa: E402
     classify_safe_post_unity_churn,
 )
@@ -392,6 +393,35 @@ def _wait_for_decomposition_ready(
     )
 
 
+def _poke_waiting_game_task_launcher(
+    root: Path,
+    *,
+    task_id: str,
+    snapshot: IssueWorkflowSnapshot,
+) -> Path | None:
+    """Best-effort wake-up after GitHub is already authoritative and consistent."""
+
+    state = snapshot.state
+    if state is None:
+        return None
+    try:
+        return publish_resume_hint(
+            root,
+            task_id=task_id,
+            human_handoff_commit=str(state.human_handoff_commit),
+            state_version=state.state_version,
+            event_id=str(state.last_event_id),
+        )
+    except (OSError, TaskReviewContractError, ValueError) as exc:
+        print(
+            "PASS AND RESUME: WARNING\n"
+            f"GitHub is agent_ready, but the local launcher poke failed: {exc}\n"
+            "The launcher's one-minute GitHub poll remains active.",
+            file=sys.stderr,
+        )
+        return None
+
+
 def _launch(
     root: Path,
     *,
@@ -463,8 +493,8 @@ def main() -> int:
         "--defer-launch",
         action="store_true",
         help=(
-            "After --apply posts and verifies the exact result, leave the task "
-            "agent_ready for the supervised scheduler instead of launching directly."
+            "After --apply posts and verifies the exact result, poke an active "
+            "direct launcher and leave the task agent_ready for scheduler fallback."
         ),
     )
     args = parser.parse_args()
@@ -577,6 +607,11 @@ def main() -> int:
             f"at {tested_commit}"
         )
         if args.defer_launch:
+            hint_path = _poke_waiting_game_task_launcher(
+                root, task_id=task_id, snapshot=snapshot
+            )
+            if hint_path is not None:
+                print(f"Poked the waiting Game Task Agent via {hint_path}.")
             print("Launch deferred to the supervised software architect.")
             return 0
         return _launch(

@@ -190,7 +190,11 @@ ignores NSC-042, recognizes only the exact gauntlet lineage, runs the committed
 Edit Mode filter before an implementation PASS, and verifies the exact
 two-child resource partition before a decomposition APPROVE. It delegates the
 actual Issue mutation to `pass_and_resume_task.py --defer-launch`, leaving the
-software architect in control of the next admission.
+software architect in control of the next admission. For implementation PASS,
+that deferred path also sends an advisory local wake hint to an already-waiting
+direct Game Task Agent. The launcher immediately re-reads the authoritative
+GitHub state; a missing or malformed hint merely falls back to the normal
+one-minute poll.
 
 A `review_ready` plan is published as an exact `plan_id` handoff in
 `human_action_required / decomposition_apply_authorization`. It is still

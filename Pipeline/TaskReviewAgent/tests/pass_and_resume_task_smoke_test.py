@@ -29,6 +29,7 @@ from Pipeline.TaskReviewAgent.pass_and_resume_task import (  # noqa: E402
     _decomposition_plan_id,
     _launch_decomposition,
     _pass_comment,
+    _poke_waiting_game_task_launcher,
     _recover_safe_unity_churn,
     _ready_for_delivery,
     _ready_for_decomposition_apply,
@@ -52,6 +53,7 @@ def snapshot(*, version: int = 3, commit: str = COMMIT):
         human_handoff_commit=commit,
         human_result="pass",
         state_version=version,
+        last_event_id="c" * 64,
     )
     return SimpleNamespace(
         managed=True,
@@ -237,6 +239,28 @@ def test_helper_uses_canonical_human_transition_service() -> None:
     require(service.calls[-1][0] == "decomposition", str(service.calls))
 
 
+def test_deferred_resume_pokes_exact_verified_github_state() -> None:
+    root = Path("C:/fixture/repo")
+    expected = Path("C:/fixture/.task-review-agent/resume-hints/NSC-901.json")
+    with patch(
+        "Pipeline.TaskReviewAgent.pass_and_resume_task.publish_resume_hint",
+        return_value=expected,
+    ) as publish:
+        path = _poke_waiting_game_task_launcher(
+            root,
+            task_id="NSC-901",
+            snapshot=snapshot(),
+        )
+    require(path == expected, f"poke was not published: {path}")
+    publish.assert_called_once_with(
+        root,
+        task_id="NSC-901",
+        human_handoff_commit=COMMIT,
+        state_version=3,
+        event_id="c" * 64,
+    )
+
+
 def main() -> int:
     tests = (
         test_comment_has_canonical_exact_commit_result,
@@ -245,6 +269,7 @@ def main() -> int:
         test_safe_unity_churn_is_restored_but_other_edits_are_refused,
         test_decomposition_resume_carries_canonical_checkout_root,
         test_helper_uses_canonical_human_transition_service,
+        test_deferred_resume_pokes_exact_verified_github_state,
     )
     for test in tests:
         test()

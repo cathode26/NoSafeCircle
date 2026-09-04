@@ -6,6 +6,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -14,7 +15,9 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.human_action_wait import (  # noqa: E402
     HumanActionWaitError,
+    LocalResumeHintWaiter,
     _snapshot_observation,
+    publish_resume_hint,
     wait_for_human_result,
 )
 from Pipeline.TaskReviewAgent.run_pipeline_agent import (  # noqa: E402
@@ -45,6 +48,8 @@ def state(**changes: object) -> dict[str, object]:
         "head_commit": HEAD,
         "human_handoff_commit": HEAD,
         "human_result": None,
+        "state_version": 4,
+        "last_event_id": "2" * 64,
     }
     value.update(changes)
     return value
@@ -151,6 +156,8 @@ def test_real_snapshot_shape_keeps_string_human_result() -> None:
         head_commit=HEAD,
         human_handoff_commit=HEAD,
         human_result="pass",
+        state_version=5,
+        last_event_id="3" * 64,
     )
     snapshot = SimpleNamespace(
         valid=True,
@@ -168,6 +175,101 @@ def test_timeout_is_bounded() -> None:
     result = run_sequence([state()], timeout=12.0)
     require(result["status"] == "timeout", str(result))
     require(result["poll_count"] == 3, str(result))
+
+
+def test_exact_local_poke_interrupts_the_minute_poll() -> None:
+    hint = {
+        "schema": "nsc-human-resume-hint/v1",
+        "hint_id": "4" * 32,
+        "task_id": TASK_ID,
+        "human_handoff_commit": HEAD,
+        "state_version": 5,
+        "event_id": "3" * 64,
+    }
+    with patch(
+        "Pipeline.TaskReviewAgent.human_action_wait._validated_resume_hint",
+        side_effect=(None, hint),
+    ):
+        clock = Clock()
+        reads = 0
+
+        def observe() -> dict[str, object]:
+            nonlocal reads
+            reads += 1
+            if reads == 1:
+                return state()
+            return state(
+                state="agent_ready",
+                phase="delivery_evidence",
+                current_actor="agent",
+                human_result="pass",
+                state_version=5,
+                last_event_id="3" * 64,
+            )
+
+        waiter = LocalResumeHintWaiter(
+            Path("C:/fixture/repo"),
+            TASK_ID,
+            monotonic=clock.monotonic,
+            sleep=clock.sleep,
+        )
+        result = wait_for_human_result(
+            observe,
+            timeout_seconds=3600.0,
+            poll_seconds=60.0,
+            monotonic=clock.monotonic,
+            sleep=clock.sleep,
+            local_waiter=waiter,
+        )
+        require(result["status"] == "agent_ready", str(result))
+        require(clock.now == 1.0, f"poke did not interrupt promptly: {clock.now}")
+
+
+def test_wrong_commit_local_poke_is_only_advisory() -> None:
+    wrong = {
+        "schema": "nsc-human-resume-hint/v1",
+        "hint_id": "5" * 32,
+        "task_id": TASK_ID,
+        "human_handoff_commit": "9" * 40,
+        "state_version": 5,
+        "event_id": "3" * 64,
+    }
+    with patch(
+        "Pipeline.TaskReviewAgent.human_action_wait._validated_resume_hint",
+        side_effect=(None, wrong, wrong),
+    ):
+        clock = Clock()
+        waiter = LocalResumeHintWaiter(
+            Path("C:/fixture/repo"),
+            TASK_ID,
+            monotonic=clock.monotonic,
+            sleep=clock.sleep,
+        )
+        result = wait_for_human_result(
+            lambda: state(),
+            timeout_seconds=2.0,
+            poll_seconds=2.0,
+            monotonic=clock.monotonic,
+            sleep=clock.sleep,
+            local_waiter=waiter,
+        )
+        require(result["status"] == "timeout", str(result))
+        require(clock.now == 2.0, f"wrong-commit hint woke the waiter: {clock.now}")
+
+
+def test_publisher_rejects_unbound_hint_before_writing() -> None:
+    try:
+        publish_resume_hint(
+            Path("C:/fixture/repo"),
+            task_id=TASK_ID,
+            human_handoff_commit="not-a-commit",
+            state_version=5,
+            event_id="3" * 64,
+        )
+    except HumanActionWaitError as exc:
+        require("exact lowercase commit" in str(exc), str(exc))
+    else:
+        raise AssertionError("publisher accepted an unbound local poke")
 
 
 def test_changed_handoff_identity_fails_closed() -> None:
@@ -216,6 +318,9 @@ def main() -> int:
         test_pending_transition_may_be_the_first_read,
         test_real_snapshot_shape_keeps_string_human_result,
         test_timeout_is_bounded,
+        test_exact_local_poke_interrupts_the_minute_poll,
+        test_wrong_commit_local_poke_is_only_advisory,
+        test_publisher_rejects_unbound_hint_before_writing,
         test_changed_handoff_identity_fails_closed,
         test_unrelated_state_does_not_wait_or_resume,
         test_scheduler_terminal_contract_accepts_revalidation_handoff,

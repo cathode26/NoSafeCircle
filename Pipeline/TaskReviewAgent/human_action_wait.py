@@ -5,9 +5,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import sys
 import time
+import uuid
 from collections.abc import Callable, Mapping
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +37,130 @@ class HumanActionWaitError(TaskReviewContractError):
     """Raised when the exact human handoff cannot be followed safely."""
 
 
+_SHA40 = re.compile(r"^[0-9a-f]{40}$")
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_HINT_SCHEMA = "nsc-human-resume-hint/v1"
+
+
+def resume_hint_path(source: Path, task_id: str) -> Path:
+    """Return the task-scoped advisory wake path outside the Git checkout."""
+
+    selected = validate_task_id(task_id)
+    return (
+        source.resolve().parent
+        / ".task-review-agent"
+        / "resume-hints"
+        / f"{selected}.json"
+    )
+
+
+def _validated_resume_hint(path: Path) -> dict[str, Any] | None:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw, dict) or raw.get("schema") != _HINT_SCHEMA:
+        return None
+    task_id = raw.get("task_id")
+    handoff_commit = raw.get("human_handoff_commit")
+    state_version = raw.get("state_version")
+    event_id = raw.get("event_id")
+    hint_id = raw.get("hint_id")
+    if not isinstance(task_id, str):
+        return None
+    try:
+        validate_task_id(task_id)
+    except TaskReviewContractError:
+        return None
+    if not isinstance(handoff_commit, str) or _SHA40.fullmatch(handoff_commit) is None:
+        return None
+    if type(state_version) is not int or state_version <= 0:
+        return None
+    if not isinstance(event_id, str) or _SHA256.fullmatch(event_id) is None:
+        return None
+    if not isinstance(hint_id, str) or re.fullmatch(r"[0-9a-f]{32}", hint_id) is None:
+        return None
+    return raw
+
+
+def publish_resume_hint(
+    source: Path,
+    *,
+    task_id: str,
+    human_handoff_commit: str,
+    state_version: int,
+    event_id: str,
+) -> Path:
+    """Atomically publish a non-authoritative hint for a waiting local launcher."""
+
+    if _SHA40.fullmatch(human_handoff_commit) is None:
+        raise HumanActionWaitError("resume hint requires an exact lowercase commit SHA")
+    if type(state_version) is not int or state_version <= 0:
+        raise HumanActionWaitError("resume hint requires a positive state version")
+    if _SHA256.fullmatch(event_id) is None:
+        raise HumanActionWaitError("resume hint requires an exact lowercase event ID")
+    path = resume_hint_path(source, task_id)
+    payload = {
+        "schema": _HINT_SCHEMA,
+        "hint_id": uuid.uuid4().hex,
+        "task_id": validate_task_id(task_id),
+        "human_handoff_commit": human_handoff_commit,
+        "state_version": state_version,
+        "event_id": event_id,
+        "published_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    temporary = path.with_name(f".{path.name}.{payload['hint_id']}.tmp")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
+    return path
+
+
+class LocalResumeHintWaiter:
+    """Interrupt one GitHub polling delay for a new exact-handoff local hint."""
+
+    def __init__(
+        self,
+        source: Path,
+        task_id: str,
+        *,
+        monotonic: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
+        check_seconds: float = 1.0,
+    ) -> None:
+        if not check_seconds > 0:
+            raise HumanActionWaitError("local resume-hint interval must be positive")
+        self.path = resume_hint_path(source, task_id)
+        self.task_id = validate_task_id(task_id)
+        self.monotonic = monotonic
+        self.sleep = sleep
+        self.check_seconds = check_seconds
+        self.seen_hint_id = (_validated_resume_hint(self.path) or {}).get("hint_id")
+
+    def wait(self, observation: Mapping[str, Any], timeout_seconds: float) -> bool:
+        deadline = self.monotonic() + timeout_seconds
+        while True:
+            remaining = deadline - self.monotonic()
+            if remaining <= 0:
+                return False
+            self.sleep(min(self.check_seconds, remaining))
+            hint = _validated_resume_hint(self.path)
+            if hint is None or hint.get("hint_id") == self.seen_hint_id:
+                continue
+            self.seen_hint_id = hint["hint_id"]
+            if (
+                hint["task_id"] == self.task_id
+                and hint["human_handoff_commit"]
+                == observation.get("human_handoff_commit")
+                and hint["state_version"] > observation.get("state_version", -1)
+                and hint["event_id"] != observation.get("last_event_id")
+            ):
+                return True
+
+
 def _snapshot_observation(snapshot: Any, task_id: str) -> dict[str, Any]:
     if snapshot is None:
         raise HumanActionWaitError("managed Issue disappeared during the human wait")
@@ -55,6 +183,8 @@ def _snapshot_observation(snapshot: Any, task_id: str) -> dict[str, Any]:
         "head_commit": state.head_commit,
         "human_handoff_commit": state.human_handoff_commit,
         "human_result": state.human_result,
+        "state_version": state.state_version,
+        "last_event_id": state.last_event_id,
     }
 
 
@@ -109,6 +239,7 @@ def wait_for_human_result(
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
     report: Callable[[str], None] | None = None,
+    local_waiter: LocalResumeHintWaiter | None = None,
 ) -> dict[str, Any]:
     """Poll one immutable handoff until its validated PASS/FAIL is agent-ready.
 
@@ -150,7 +281,11 @@ def wait_for_human_result(
                 "observation": initial,
                 "poll_count": polls,
             }
-        sleep(min(poll_seconds, remaining))
+        delay = min(poll_seconds, remaining)
+        if local_waiter is None:
+            sleep(delay)
+        else:
+            local_waiter.wait(initial, delay)
         current = dict(observe())
         polls += 1
 
@@ -200,6 +335,7 @@ def main(argv: list[str] | None = None) -> int:
             task_loader=lambda selected: load_committed_task(root, selected),
             worker_id=args.worker_id,
         )
+        local_waiter = LocalResumeHintWaiter(root, task_id)
         result = wait_for_human_result(
             lambda: _snapshot_observation(service.find(task_id), task_id),
             timeout_seconds=args.timeout_seconds,
@@ -207,6 +343,7 @@ def main(argv: list[str] | None = None) -> int:
             report=lambda message: print(
                 f"[task-agent] {message}", file=sys.stderr, flush=True
             ),
+            local_waiter=local_waiter,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         if result["status"] == "agent_ready":

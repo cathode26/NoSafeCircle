@@ -210,9 +210,13 @@ For a direct launcher invocation with an explicit task ID, the agent releases
 its lease and waits on the validated GitHub Issue for up to 60 minutes by
 default, polling once per minute. If Vincent records PASS or FAIL and the Issue
 becomes internally consistent `agent_ready` during that window, the same
-launcher session resumes automatically. The wait makes no provider calls and
-performs no Issue mutation. It exits cleanly when the timeout expires or the
-Issue enters another state.
+launcher session resumes automatically. `pass_and_resume_task.py --defer-launch`
+also publishes a task- and commit-bound local wake hint after it verifies that
+exact GitHub transition, so the launcher normally re-reads GitHub immediately
+instead of waiting for its next minute poll. The hint is advisory only: it never
+authorizes work, and the launcher still requires the validated GitHub Issue.
+The wait makes no provider calls and performs no Issue mutation. It exits
+cleanly when the timeout expires or the Issue enters another state.
 
 Scheduler-launched workers still stop at this boundary so human-owned tasks do
 not occupy scheduler capacity. Direct operators may disable or tune the bounded
