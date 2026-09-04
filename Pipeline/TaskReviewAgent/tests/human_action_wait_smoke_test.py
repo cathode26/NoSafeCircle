@@ -4,6 +4,10 @@
 from __future__ import annotations
 
 import sys
+import json
+import socket
+import tempfile
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -15,8 +19,11 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.human_action_wait import (  # noqa: E402
     HumanActionWaitError,
+    LocalArchitectWakeListener,
     LocalResumeHintWaiter,
     _snapshot_observation,
+    architect_wake_endpoint_path,
+    notify_local_architect,
     publish_resume_hint,
     wait_for_human_result,
 )
@@ -272,6 +279,50 @@ def test_publisher_rejects_unbound_hint_before_writing() -> None:
         raise AssertionError("publisher accepted an unbound local poke")
 
 
+def test_local_architect_wake_requires_exact_token_and_cleans_its_endpoint() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source = Path(text) / "source"
+        source.mkdir()
+        event = threading.Event()
+        listener = LocalArchitectWakeListener(
+            source,
+            scheduler_id="fixture-scheduler",
+            wake_event=event,
+        )
+        listener.start()
+        endpoint_path = architect_wake_endpoint_path(source)
+        endpoint = json.loads(endpoint_path.read_text(encoding="utf-8"))
+        forged = {
+            "schema": "nsc-architect-wake/v1",
+            "scheduler_id": "fixture-scheduler",
+            "token": "0" * 64,
+            "task_id": TASK_ID,
+        }
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender:
+            sender.sendto(
+                json.dumps(forged).encode("utf-8"),
+                (endpoint["host"], endpoint["port"]),
+            )
+        require(not event.wait(0.1), "forged architect wake was accepted")
+        require(
+            notify_local_architect(
+                source,
+                task_id=TASK_ID,
+                human_handoff_commit=HEAD,
+                state_version=5,
+                event_id="3" * 64,
+            ),
+            "valid architect wake was not sent",
+        )
+        require(event.wait(1.0), "valid architect wake was not observed")
+        revision, notification = listener.notification_snapshot()
+        require(revision == 1, f"unexpected notification revision: {revision}")
+        require(notification is not None, "accepted notification was not retained")
+        require(notification["task_id"] == TASK_ID, str(notification))
+        listener.close()
+        require(not endpoint_path.exists(), "owned architect endpoint was not removed")
+
+
 def test_changed_handoff_identity_fails_closed() -> None:
     try:
         run_sequence([state(), state(head_commit="2" * 40, human_handoff_commit="2" * 40)])
@@ -321,6 +372,7 @@ def main() -> int:
         test_exact_local_poke_interrupts_the_minute_poll,
         test_wrong_commit_local_poke_is_only_advisory,
         test_publisher_rejects_unbound_hint_before_writing,
+        test_local_architect_wake_requires_exact_token_and_cleans_its_endpoint,
         test_changed_handoff_identity_fails_closed,
         test_unrelated_state_does_not_wait_or_resume,
         test_scheduler_terminal_contract_accepts_revalidation_handoff,

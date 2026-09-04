@@ -31,6 +31,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -89,6 +90,9 @@ from Pipeline.TaskReviewAgent.dispatch_plan import (  # noqa: E402
 )
 import Pipeline.TaskReviewAgent.dispatch_plan as dispatch_plan_module  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_queue import repo_root  # noqa: E402
+from Pipeline.TaskReviewAgent.human_action_wait import (  # noqa: E402
+    LocalArchitectWakeListener,
+)
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     STATE_RE,
     WorkflowPhase,
@@ -114,6 +118,7 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     ResolvedExecutionRoute,
     load_execution_routing_policy,
     resolve_execution_route,
+    resolve_task_rigor,
 )
 from Pipeline.TaskDecomposition.context_builder import (  # noqa: E402
     DecompositionPreflightError,
@@ -126,7 +131,7 @@ from Pipeline.AgentRuntime.contracts import (  # noqa: E402
 
 
 SCHEDULER_SCHEMA_VERSION = "1.0"
-DEFAULT_POLL_SECONDS = 60.0
+DEFAULT_POLL_SECONDS = 300.0
 DEFAULT_MAX_WORKERS = 1
 DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL = 3
 DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_SESSION = 12
@@ -1630,6 +1635,13 @@ class PollingOrchestrator:
         self.dry_run = bool(dry_run)
         self.compose_project = str(compose_project).strip()
         self.monotonic_clock = monotonic_clock
+        self.worker_completion_event = threading.Event()
+        self.architect_wake_listener: LocalArchitectWakeListener | None = None
+        self.architect_notification_revision = 0
+        self.worker_slots = tuple(
+            f"{self.scheduler_id}-slot-{index:02d}"
+            for index in range(1, max_workers + 1)
+        )
         self.active_assignments: dict[str, ActiveAssignment] = {}
         self.failed_child: tuple[str, int | None, int] | None = None
         if not self.scheduler_id:
@@ -1700,9 +1712,110 @@ class PollingOrchestrator:
                 "architect_min_confidence must be in [0, 1]"
             )
 
-    def _reap_workers(self) -> tuple[bool, frozenset[str]]:
+    def _watch_worker_return(self, assignment: ActiveAssignment) -> None:
+        """Wake the architect when a real child returns its terminal status.
+
+        The watcher owns no mutation and never terminates a worker. Test doubles
+        that expose only ``poll`` deliberately keep the legacy timer seam.
+        """
+
+        wait = getattr(assignment.process, "wait", None)
+        if not callable(wait):
+            return
+
+        def observe_return() -> None:
+            try:
+                wait()
+            finally:
+                self.worker_completion_event.set()
+
+        threading.Thread(
+            target=observe_return,
+            name=f"architect-worker-return-{assignment.task_id.casefold()}",
+            daemon=True,
+        ).start()
+
+    def _wait_for_architect_activity(self, poll_seconds: float) -> str:
+        """Wait for a worker return, using the poll interval only as fallback."""
+
+        if any(
+            assignment.process.poll() is not None
+            for assignment in self.active_assignments.values()
+        ):
+            return "worker_returned"
+        self.worker_completion_event.clear()
+        # Close the clear/check race: a worker may return immediately before its
+        # watcher publishes the event.
+        if any(
+            assignment.process.poll() is not None
+            for assignment in self.active_assignments.values()
+        ):
+            return "worker_returned"
+        notification: dict[str, Any] | None = None
+        if self.architect_wake_listener is not None:
+            revision, notification = (
+                self.architect_wake_listener.notification_snapshot()
+            )
+            if revision > self.architect_notification_revision:
+                self.architect_notification_revision = revision
+                self.events.emit(
+                    "issue_state_change_notified_to_architect",
+                    notification=notification,
+                )
+                return "issue_state_changed"
+        watchable = bool(self.active_assignments) and all(
+            callable(getattr(assignment.process, "wait", None))
+            for assignment in self.active_assignments.values()
+        )
+        event_waitable = watchable or self.architect_wake_listener is not None
+        self.events.emit(
+            "architect_wait_started",
+            wait_mode=("event_or_fallback" if event_waitable else "fallback_timer"),
+            fallback_seconds=poll_seconds,
+            active_worker_count=len(self.active_assignments),
+        )
+        if event_waitable:
+            if self.worker_completion_event.wait(timeout=poll_seconds):
+                if any(
+                    assignment.process.poll() is not None
+                    for assignment in self.active_assignments.values()
+                ):
+                    self.events.emit(
+                        "worker_returned_to_architect",
+                        active_worker_count=len(self.active_assignments),
+                    )
+                    return "worker_returned"
+                if self.architect_wake_listener is not None:
+                    revision, notification = (
+                        self.architect_wake_listener.notification_snapshot()
+                    )
+                    self.architect_notification_revision = max(
+                        self.architect_notification_revision,
+                        revision,
+                    )
+                self.events.emit(
+                    "issue_state_change_notified_to_architect",
+                    notification=notification,
+                )
+                return "issue_state_changed"
+        else:
+            time.sleep(poll_seconds)
+        return "fallback_elapsed"
+
+    def _checkout_worker_slot(self) -> str:
+        active_worker_ids = {
+            assignment.worker_id for assignment in self.active_assignments.values()
+        }
+        for worker_id in self.worker_slots:
+            if worker_id not in active_worker_ids:
+                return worker_id
+        raise PollingOrchestratorError(
+            "worker pool has no idle slot despite available scheduler capacity"
+        )
+
+    def _collect_returned_workers(self) -> tuple[bool, frozenset[str]]:
         failed = False
-        reaped_task_ids: set[str] = set()
+        returned_task_ids: set[str] = set()
         for task_id, assignment in list(self.active_assignments.items()):
             try:
                 returncode = assignment.process.poll()
@@ -1725,7 +1838,7 @@ class PollingOrchestrator:
             if returncode is None:
                 continue
             del self.active_assignments[task_id]
-            reaped_task_ids.add(task_id)
+            returned_task_ids.add(task_id)
             try:
                 if assignment.pid is None:
                     raise WorkerResultError(
@@ -1761,6 +1874,18 @@ class PollingOrchestrator:
                 )
                 continue
             terminal_status = worker_result["terminal_status"]
+            if terminal_status in {
+                "human_action_required",
+                "completed",
+                "blocked",
+                "no_safe_work",
+            }:
+                self.events.emit(
+                    "worker_returned_to_pool",
+                    task_id=task_id,
+                    worker_id=assignment.worker_id,
+                    terminal_status=terminal_status,
+                )
             if returncode == 0:
                 self.events.emit(
                     "worker_finished",
@@ -1805,7 +1930,7 @@ class PollingOrchestrator:
                 checkout_path=str(assignment.checkout_path),
                 returncode=returncode,
             )
-        return failed, frozenset(reaped_task_ids)
+        return failed, frozenset(returned_task_ids)
 
     def _drain_active_workers(self, *, poll_seconds: float) -> bool:
         """Supervise existing children for a bounded interval after fatal stop."""
@@ -1821,7 +1946,7 @@ class PollingOrchestrator:
             active_children=self.active_child_summary(),
         )
         while self.active_assignments:
-            self._reap_workers()
+            self._collect_returned_workers()
             if not self.active_assignments:
                 return True
             remaining = deadline - self.monotonic_clock()
@@ -2113,7 +2238,7 @@ class PollingOrchestrator:
     def poll_once(self, *, reset_architect_budget: bool = True) -> PollCycleResult:
         if reset_architect_budget:
             self.architect_invocations_this_poll = 0
-        worker_failed, just_reaped_task_ids = self._reap_workers()
+        worker_failed, just_returned_task_ids = self._collect_returned_workers()
         if worker_failed:
             self.events.emit(
                 "scheduler_blocked",
@@ -2277,7 +2402,7 @@ class PollingOrchestrator:
         integration_fingerprint = active_surface_fingerprint(reservations)
         temporary_exclusions = set(self.active_assignments).union(
             self.excluded_task_ids,
-            just_reaped_task_ids,
+            just_returned_task_ids,
             (item["task_id"] for item in pending_transitions),
         )
         if local_ahead_recovery_task_id is not None:
@@ -2924,7 +3049,7 @@ class PollingOrchestrator:
                 execution_recommendation=advisory.execution_recommendation.to_dict(),
                 design_advice=advisory.design_advice.to_dict(),
             )
-            worker_id = f"polling-worker-{task_id.casefold()}-{uuid.uuid4().hex[:12]}"
+            worker_id = self._checkout_worker_slot()
             worker_run_id = f"scheduler-{task_id.casefold()}-{uuid.uuid4().hex[:16]}"
             worker_output_root = (
                 self.checkout_root / ".task-review-agent" / "outputs"
@@ -2986,9 +3111,15 @@ class PollingOrchestrator:
                         raise ExecutionRoutingError(
                             "routing policy loader returned an invalid policy"
                         )
+                    rigor = resolve_task_rigor(
+                        advisory.execution_recommendation,
+                        task=task,
+                        predicted_change_surface=advisory.predicted_change_surface,
+                    )
                     route = resolve_execution_route(
                         advisory.execution_recommendation,
                         policy,
+                        rigor=rigor,
                     )
                 except (ExecutionRoutingError, TypeError, ValueError) as exc:
                     self.events.emit(
@@ -3066,6 +3197,7 @@ class PollingOrchestrator:
                 issue_number=expected_issue_number,
             )
             self.active_assignments[task_id] = assignment
+            self._watch_worker_return(assignment)
             self.events.emit(
                 "worker_launched",
                 task_id=task_id,
@@ -3152,6 +3284,23 @@ class PollingOrchestrator:
                 lock_path=str(lock.path),
             )
             return 2
+        try:
+            self.architect_wake_listener = LocalArchitectWakeListener(
+                self.source,
+                scheduler_id=self.scheduler_id,
+                wake_event=self.worker_completion_event,
+            )
+            self.architect_wake_listener.start()
+        except OSError as exc:
+            self.architect_wake_listener = None
+            self.events.emit(
+                "architect_wake_listener_unavailable",
+                reason=(
+                    "local Issue-state notifications are unavailable; the bounded "
+                    "fallback refresh remains active"
+                ),
+                error=_bounded_error(exc),
+            )
         self.events.emit(
             "scheduler_started",
             scheduler_id=self.scheduler_id,
@@ -3198,7 +3347,7 @@ class PollingOrchestrator:
                 if once:
                     stop_reason = cycle.status
                     break
-                time.sleep(poll_seconds)
+                self._wait_for_architect_activity(poll_seconds)
         except KeyboardInterrupt:
             if exit_code:
                 stop_reason = f"{stop_reason}_drain_interrupted"
@@ -3206,6 +3355,8 @@ class PollingOrchestrator:
                 stop_reason = "keyboard_interrupt"
                 exit_code = 0
         finally:
+            if self.architect_wake_listener is not None:
+                self.architect_wake_listener.close()
             children = self.active_child_summary()
             self.events.emit(
                 "scheduler_stopped",

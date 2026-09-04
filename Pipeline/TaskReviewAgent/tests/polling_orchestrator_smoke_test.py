@@ -17,6 +17,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 from contextlib import ExitStack, redirect_stdout
 from dataclasses import replace
 from pathlib import Path
@@ -472,6 +473,19 @@ class ProcessFactory:
         process = FakeProcess()
         self.processes.append(process)
         return process
+
+
+class WaitableFakeProcess(FakeProcess):
+    def __init__(self) -> None:
+        super().__init__()
+        self.wait_calls = 0
+        self.return_observed = threading.Event()
+
+    def wait(self) -> int:
+        self.wait_calls += 1
+        self.returncode = 0
+        self.return_observed.set()
+        return 0
 
 
 class MutableClock:
@@ -2909,6 +2923,100 @@ def test_successful_child_exit_frees_local_capacity() -> None:
         require('"event": "worker_finished"' in stream.getvalue(), stream.getvalue())
 
 
+def test_returned_worker_slot_is_reused_without_terminating_the_worker() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A), TASK_B: task(TASK_B)},
+            max_workers=2,
+        )
+        first_slot = orchestrator._checkout_worker_slot()
+        process = FakeProcess()
+        add_active(orchestrator, task_id=TASK_A, process=process)
+        orchestrator.active_assignments[TASK_A] = replace(
+            orchestrator.active_assignments[TASK_A],
+            worker_id=first_slot,
+        )
+        require(
+            orchestrator._checkout_worker_slot() == orchestrator.worker_slots[1],
+            "active worker slot was checked out twice",
+        )
+        del orchestrator.active_assignments[TASK_A]
+        require(
+            orchestrator._checkout_worker_slot() == first_slot,
+            "returned worker slot was not reusable",
+        )
+        require(
+            process.kill_calls == 0 and process.terminate_calls == 0,
+            "returning a worker slot terminated its process",
+        )
+
+
+def test_worker_return_wakes_architect_without_waiting_for_fallback() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        orchestrator, _stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A)},
+        )
+        process = WaitableFakeProcess()
+        add_active(orchestrator, task_id=TASK_A, process=process)
+        orchestrator._watch_worker_return(orchestrator.active_assignments[TASK_A])
+        require(process.return_observed.wait(1.0), "worker return was not observed")
+        with patch.object(
+            scheduler_module.time,
+            "sleep",
+            side_effect=AssertionError("fallback timer was used"),
+        ):
+            result = orchestrator._wait_for_architect_activity(300.0)
+        require(result == "worker_returned", result)
+        require(process.wait_calls == 1, f"worker wait calls: {process.wait_calls}")
+        require(
+            process.kill_calls == 0 and process.terminate_calls == 0,
+            "architect wake terminated the worker",
+        )
+
+
+def test_issue_notification_before_event_clear_is_not_lost() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=FakeArchitect({}),
+            processes=ProcessFactory(),
+            tasks={TASK_A: task(TASK_A)},
+        )
+        notification = {
+            "task_id": TASK_A,
+            "human_handoff_commit": head,
+            "state_version": 5,
+        }
+        orchestrator.architect_wake_listener = SimpleNamespace(
+            notification_snapshot=lambda: (1, notification)
+        )
+        orchestrator.worker_completion_event.set()
+        with patch.object(
+            scheduler_module.time,
+            "sleep",
+            side_effect=AssertionError("fallback timer was used"),
+        ):
+            result = orchestrator._wait_for_architect_activity(300.0)
+        require(result == "issue_state_changed", result)
+        require(orchestrator.architect_notification_revision == 1, "wake was not consumed")
+        require(
+            '"event": "issue_state_change_notified_to_architect"' in stream.getvalue(),
+            stream.getvalue(),
+        )
+
+
 def make_result_orchestrator(
     root: Path,
 ) -> tuple[PollingOrchestrator, io.StringIO]:
@@ -3721,20 +3829,16 @@ def test_ctrl_c_does_not_kill_children_or_release_leases() -> None:
         )
         child = FakeProcess()
         add_active(orchestrator, task_id=TASK_A, process=child)
-        original_sleep = scheduler_module.time.sleep
-
-        def interrupt(_seconds: float) -> None:
-            raise KeyboardInterrupt()
-
-        scheduler_module.time.sleep = interrupt
-        try:
+        with patch.object(
+            orchestrator.worker_completion_event,
+            "wait",
+            side_effect=KeyboardInterrupt(),
+        ):
             exit_code = orchestrator.run(
                 lock=SchedulerLock(root / "ctrl-c.lock"),
                 poll_seconds=0.01,
                 once=False,
             )
-        finally:
-            scheduler_module.time.sleep = original_sleep
         require(exit_code == 0, f"Ctrl+C returned {exit_code}")
         require(child.kill_calls == 0 and child.terminate_calls == 0, "child was killed")
         require(TASK_A in orchestrator.active_assignments, "local child record was mutated")
@@ -3789,7 +3893,7 @@ def test_private_snapshot_coupling_signature_and_fields_are_pinned() -> None:
 
 def test_default_max_workers_is_one_until_live_acceptance() -> None:
     require(DEFAULT_MAX_WORKERS == 1, f"default max workers is {DEFAULT_MAX_WORKERS}")
-    require(DEFAULT_POLL_SECONDS == 60.0, f"default poll is {DEFAULT_POLL_SECONDS}")
+    require(DEFAULT_POLL_SECONDS == 300.0, f"default poll is {DEFAULT_POLL_SECONDS}")
 
 
 def test_source_refresh_fast_forwards_exact_remote_main_without_rewrite() -> None:
@@ -4516,6 +4620,9 @@ def main() -> int:
         test_decomposition_apply_hash_change_requires_exact_replay,
         test_actual_branch_path_overlap_prevents_launch,
         test_successful_child_exit_frees_local_capacity,
+        test_returned_worker_slot_is_reused_without_terminating_the_worker,
+        test_worker_return_wakes_architect_without_waiting_for_fallback,
+        test_issue_notification_before_event_clear_is_not_lost,
         test_blocked_run_exits_nonzero_and_is_not_worker_finished,
         test_exit_zero_without_result_artifact_is_failure,
         test_stale_artifact_from_prior_run_is_rejected,

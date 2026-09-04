@@ -7,7 +7,10 @@ import argparse
 import json
 import os
 import re
+import secrets
+import socket
 import sys
+import threading
 import time
 import uuid
 from collections.abc import Callable, Mapping
@@ -40,6 +43,7 @@ class HumanActionWaitError(TaskReviewContractError):
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _HINT_SCHEMA = "nsc-human-resume-hint/v1"
+_ARCHITECT_WAKE_SCHEMA = "nsc-architect-wake/v1"
 
 
 def resume_hint_path(source: Path, task_id: str) -> Path:
@@ -52,6 +56,164 @@ def resume_hint_path(source: Path, task_id: str) -> Path:
         / "resume-hints"
         / f"{selected}.json"
     )
+
+
+def architect_wake_endpoint_path(source: Path) -> Path:
+    return (
+        source.resolve().parent
+        / ".task-review-agent"
+        / "architect-wake.json"
+    )
+
+
+class LocalArchitectWakeListener:
+    """Best-effort localhost signal; GitHub remains the only state authority."""
+
+    def __init__(
+        self,
+        source: Path,
+        *,
+        scheduler_id: str,
+        wake_event: threading.Event,
+    ) -> None:
+        self.source = source.resolve()
+        self.scheduler_id = str(scheduler_id)
+        self.wake_event = wake_event
+        self.token = secrets.token_hex(32)
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind(("127.0.0.1", 0))
+        self.socket.settimeout(0.1)
+        self.path = architect_wake_endpoint_path(self.source)
+        self.stop_event = threading.Event()
+        self.thread: threading.Thread | None = None
+        self.notification_lock = threading.Lock()
+        self.notification_revision = 0
+        self.last_notification: dict[str, Any] | None = None
+
+    def start(self) -> None:
+        if self.thread is not None:
+            raise HumanActionWaitError("architect wake listener already started")
+        payload = {
+            "schema": _ARCHITECT_WAKE_SCHEMA,
+            "scheduler_id": self.scheduler_id,
+            "host": "127.0.0.1",
+            "port": self.socket.getsockname()[1],
+            "token": self.token,
+            "pid": os.getpid(),
+        }
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_name(
+            f".{self.path.name}.{secrets.token_hex(8)}.tmp"
+        )
+        temporary.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.replace(temporary, self.path)
+        self.thread = threading.Thread(
+            target=self._listen,
+            name="nsc-architect-wake-listener",
+            daemon=True,
+        )
+        self.thread.start()
+
+    def _listen(self) -> None:
+        while not self.stop_event.is_set():
+            try:
+                data, _address = self.socket.recvfrom(4096)
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            try:
+                value = json.loads(data.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError):
+                continue
+            if not isinstance(value, dict):
+                continue
+            if (
+                value.get("schema") != _ARCHITECT_WAKE_SCHEMA
+                or value.get("scheduler_id") != self.scheduler_id
+                or not secrets.compare_digest(str(value.get("token") or ""), self.token)
+            ):
+                continue
+            with self.notification_lock:
+                self.notification_revision += 1
+                self.last_notification = value
+            self.wake_event.set()
+
+    def notification_snapshot(self) -> tuple[int, dict[str, Any] | None]:
+        """Return one internally consistent view of accepted local notifications."""
+
+        with self.notification_lock:
+            notification = (
+                None
+                if self.last_notification is None
+                else dict(self.last_notification)
+            )
+            return self.notification_revision, notification
+
+    def close(self) -> None:
+        self.stop_event.set()
+        self.socket.close()
+        if self.thread is not None:
+            self.thread.join(timeout=2.0)
+        try:
+            current = json.loads(self.path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, OSError, UnicodeError, json.JSONDecodeError):
+            return
+        if (
+            isinstance(current, dict)
+            and current.get("scheduler_id") == self.scheduler_id
+            and secrets.compare_digest(str(current.get("token") or ""), self.token)
+        ):
+            self.path.unlink(missing_ok=True)
+
+
+def notify_local_architect(
+    source: Path,
+    *,
+    task_id: str,
+    human_handoff_commit: str,
+    state_version: int,
+    event_id: str,
+) -> bool:
+    """Notify the current local architect after GitHub state is authoritative."""
+
+    path = architect_wake_endpoint_path(source)
+    try:
+        endpoint = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(endpoint, dict) or endpoint.get("schema") != _ARCHITECT_WAKE_SCHEMA:
+            return False
+        host = endpoint.get("host")
+        port = endpoint.get("port")
+        token = endpoint.get("token")
+        scheduler_id = endpoint.get("scheduler_id")
+        if (
+            host != "127.0.0.1"
+            or type(port) is not int
+            or not 1 <= port <= 65535
+            or type(token) is not str
+            or type(scheduler_id) is not str
+        ):
+            return False
+        payload = {
+            "schema": _ARCHITECT_WAKE_SCHEMA,
+            "scheduler_id": scheduler_id,
+            "token": token,
+            "task_id": validate_task_id(task_id),
+            "human_handoff_commit": human_handoff_commit,
+            "state_version": state_version,
+            "event_id": event_id,
+        }
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender:
+            sender.sendto(
+                json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+                (host, port),
+            )
+        return True
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        return False
 
 
 def _validated_resume_hint(path: Path) -> dict[str, Any] | None:
@@ -116,6 +278,13 @@ def publish_resume_hint(
         encoding="utf-8",
     )
     os.replace(temporary, path)
+    notify_local_architect(
+        source,
+        task_id=task_id,
+        human_handoff_commit=human_handoff_commit,
+        state_version=state_version,
+        event_id=event_id,
+    )
     return path
 
 
