@@ -344,7 +344,35 @@ class ClaudeCodeProvider:
                 raw_log=raw_log,
             ) from exc
         if self.session_ledger is not None:
-            self.session_ledger.record(confirmation)
+            self.session_ledger.record_confirmed(confirmation)
+
+    def _capture_session(self, raw_log: str) -> None:
+        """Record the conversation the transcript proves, whatever the outcome.
+
+        Identity and outcome are different facts. The terminal ``result`` event
+        names the conversation the CLI actually used, and it names it whether the
+        turn ended successfully, ran out of turns, emitted a malformed structured
+        output, or exited non-zero. Confirming identity only on the success path
+        discarded a conversation the provider had already proved, so a role that
+        failed for an output-format reason lost the very context that made it
+        cheap to repair.
+
+        This is deliberately best effort and never widens what counts as proof.
+        It records exactly what :meth:`_confirm_session` would accept and
+        nothing else: an unparseable transcript, an absent ``session_id``, and
+        an identity that contradicts the binding all leave the ledger untouched,
+        so an unconfirmed conversation stays unconfirmed and fails closed
+        upstream. It also never masks the real failure -- capturing raises
+        nothing of its own.
+        """
+
+        if self.session is None or self.session_ledger is None:
+            return
+        try:
+            envelope = _parse_stream(raw_log)
+            self._confirm_session(envelope, raw_log)
+        except (ProviderOutputInvalid, ProviderSessionError):
+            return
 
     @staticmethod
     def _validate_model(model: str) -> None:
@@ -551,6 +579,10 @@ class ClaudeCodeProvider:
                     "Claude Code timeout transport returned invalid local metadata"
                 ) from exc
             raw_log = _decode_stdout(exc.result.stdout)
+            # A timed-out invocation that still emitted its terminal event
+            # proved which conversation it used; the conversation outlives the
+            # turn that ran out of time.
+            self._capture_session(raw_log)
             detail = _safe_stderr(exc.result.stderr)
             message = "Claude Code invocation exceeded its external timeout"
             if detail:
@@ -571,6 +603,10 @@ class ClaudeCodeProvider:
     def _response_from_result(self, result: ProcessResult) -> ProviderInvocationResponse:
         raw_log = _decode_stdout(result.stdout)
         stderr = _safe_stderr(result.stderr)
+        # Prove the conversation before judging the assignment. Every rejection
+        # below describes work, not identity, and none of them is a reason to
+        # forget which conversation the provider already named.
+        self._capture_session(raw_log)
         if result.returncode != 0:
             detail = stderr or _nonzero_envelope_detail(raw_log)
             message = f"Claude Code exited with status {result.returncode}"

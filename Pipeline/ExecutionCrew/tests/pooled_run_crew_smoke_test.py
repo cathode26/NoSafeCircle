@@ -48,9 +48,13 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.AgentRuntime.config import RuntimeConfiguration  # noqa: E402
 from Pipeline.AgentRuntime.contracts import Usage  # noqa: E402
-from Pipeline.AgentRuntime.providers.base import ProviderInvocationResponse  # noqa: E402
+from Pipeline.AgentRuntime.providers.base import (  # noqa: E402
+    ProviderFailure,
+    ProviderInvocationResponse,
+)
 from Pipeline.ExecutionCrew.run_crew import (  # noqa: E402
     CrewBlocked,
+    CrewSessionIdentityUnproven,
     checkout_manifest_identity,
     crew_repository_identity,
     run_crew,
@@ -257,14 +261,52 @@ class PooledFakeProvider:
             "mode": None if self.session is None else self.session.mode,
             "session_id": None if self.session is None else self.session.session_id,
         })
-        if self.session is not None:
+        if self.session is not None and not self.withholds_identity(attempt):
             observed = self.session.session_id or (
                 f"beef0000-1111-4111-8111-{next(state.assigned):012x}"
             )
             self.session_ledger.record(self.session.confirm(observed))
+        self.maybe_terminal_provider_error(attempt)
         output = self.role_output(attempt)
         return ProviderInvocationResponse(output, "fake log\n", ("runtime-claim.cs",),
                                           Usage(attempt, attempt + 1, attempt + 10), True, ())
+
+    def withholds_identity(self, attempt: int) -> bool:
+        """Model a turn that ends before the transcript ever names its conversation.
+
+        The fixed Claude adapter records an identity only when the terminal event
+        proves it, so a scenario that proves nothing must leave the ledger empty
+        rather than fabricate a plausible UUID.
+        """
+
+        scenario = self.state.scenario
+        if scenario == "test_author_identity_unproven":
+            return self.role == "test_author" and attempt == 1
+        if scenario == "test_author_success_without_identity":
+            return self.role == "test_author"
+        return False
+
+    def maybe_terminal_provider_error(self, attempt: int) -> None:
+        """Reproduce the live NSC-914 terminal failure for one role, once.
+
+        The Test Author emitted several StructuredOutput tool calls and the CLI
+        then closed the turn with an error. The conversation is unaffected by
+        that; only the turn's output is. `ProviderFailure` is exactly what the
+        real adapter raises for it, and AgentRuntime classifies it
+        `provider_error`.
+        """
+
+        if self.role != "test_author" or attempt != 1:
+            return
+        if self.state.scenario in (
+            "test_author_format_failure", "test_author_identity_unproven"
+        ):
+            raise ProviderFailure(
+                "Claude Code reported an unsuccessful result "
+                "(is_error=True, subtype='error_during_execution', "
+                "terminal_reason='error')",
+                raw_log="fake log\n",
+            )
 
     def role_output(self, attempt: int) -> dict:
         scenario = self.state.scenario
@@ -1053,6 +1095,144 @@ def test_full_run_uses_external_manifest_bytes_as_cross_os_checkout_identity() -
         require((run_dir / "crew_result.json").is_file(), "full run result missing")
 
 
+
+
+# ------------------- 5: a role-level provider-format failure stays role-level
+#
+# NSC-914's first pooled run: the Test Author's turn ended with a provider
+# format error. The crew had no way to say so -- it raised a generic block, left
+# no authoritative result, and its owner quarantined all four reservations, so
+# the entire crew was re-run from scratch and every earlier role re-read its
+# context. These tests pin the bounded behavior that replaces it.
+
+
+def progress_events(run_dir: Path) -> list[dict]:
+    lines = (run_dir / "progress.jsonl").read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in lines if line.strip()]
+
+
+def test_a_test_author_format_failure_repairs_only_that_role() -> None:
+    with tempfile.TemporaryDirectory(prefix="pooled-crew-") as text:
+        parent = Path(text)
+        source = fixture(parent)
+        outputs = parent / "outputs"
+        head, checkout = source_identity(source)
+        pool = new_pool()
+        run_id = "nsc-005-format"
+        leases = all_leases(pool, head=head, checkout=checkout, run_id=run_id)
+        state = State("test_author_format_failure")
+        result, run_dir = pooled_run(source, outputs, run_id=run_id, leases=leases, state=state)
+
+        require(result["crew_status"] == "review_ready", str(result["crew_status"]))
+        require(result["attempts_used"] == 1, str(result["attempts_used"]))
+        # The roles that already succeeded are not recomputed.
+        for role in ("contract_locality_auditor", "implementer", "validator"):
+            require(len(state.for_role(role)) == 1,
+                    f"{role} was re-run for another role's format failure")
+        # Only the failing role is retried, exactly once, in its own conversation.
+        calls = state.for_role("test_author")
+        require(len(calls) == 2, f"test_author: {len(calls)} invocations")
+        require(calls[0]["session_id"] == calls[1]["session_id"] == leases["test_author"].session_id,
+                f"the repair opened a second conversation: {calls}")
+        require(calls[1]["mode"] == "resume", f"the repair restarted the conversation: {calls}")
+
+        events = progress_events(run_dir)
+        repairs = [item for item in events if item["event"] == "role_session_repair_started"]
+        require(len(repairs) == 1, f"{len(repairs)} repair receipts")
+        require(repairs[0]["role"] == "test_author"
+                and repairs[0]["failure_classification"] == "provider_error"
+                and repairs[0]["session_id"] == leases["test_author"].session_id,
+                str(repairs[0]))
+        confirmations = [item for item in events if item["event"] == "provider_session_confirmed"]
+        require(len(confirmations) == 5, f"{len(confirmations)} confirmation receipts")
+        checkouts = [item for item in events if item["event"] == "pooled_role_checked_out"]
+        require({item["role"] for item in checkouts} == set(ROLE_CLASSES), str(checkouts))
+        published = [item for item in events if item["event"] == "pooled_role_evidence_published"]
+        require({item["role"] for item in published} == set(ROLE_CLASSES), str(published))
+        require(all(item["reusable"] for item in published), str(published))
+
+        # Every role, including the repaired one, still checks back in reusable.
+        for role, lease in leases.items():
+            returned = pool.check_in(
+                lease=lease,
+                result=DurableAssignmentResult.from_dict(result["durable_assignment_results"][role]),
+                evidence_root=run_dir,
+            )
+            require(returned.state == "idle", f"{role}: {returned.state}")
+        warm = all_leases(pool, head=head, checkout=checkout, run_id="nsc-005-format-2",
+                          now=BASE + dt.timedelta(seconds=60))
+        require(all(lease.mode == "resume" for lease in warm.values()), str(warm))
+        require(warm["test_author"].session_id == leases["test_author"].session_id,
+                "the repaired conversation was not the one offered back")
+
+
+def test_an_unproven_identity_fails_precisely_without_restarting_earlier_roles() -> None:
+    with tempfile.TemporaryDirectory(prefix="pooled-crew-") as text:
+        parent = Path(text)
+        source = fixture(parent)
+        outputs = parent / "outputs"
+        head, checkout = source_identity(source)
+        pool = new_pool()
+        run_id = "nsc-005-unproven"
+        leases = all_leases(pool, head=head, checkout=checkout, run_id=run_id)
+        state = State("test_author_identity_unproven")
+        blocked = rejects(
+            lambda: pooled_run(source, outputs, run_id=run_id, leases=leases, state=state),
+            CrewSessionIdentityUnproven,
+        )
+        message = str(blocked)
+        require("test_author" in message, message)
+        require(leases["test_author"].session_id in message, message)
+        require("never confirmed" in message and "quarantined" in message, message)
+        require("'provider_error'" in message, message)
+        require("requested a provider session" not in message,
+                f"the misleading generic message survived: {message}")
+        # An unproven identity is never repaired in place: a fresh conversation
+        # would lose the context and this run cannot prove which one the CLI made.
+        require(len(state.for_role("test_author")) == 1, str(state.for_role("test_author")))
+        for role in ("contract_locality_auditor", "implementer"):
+            require(len(state.for_role(role)) == 1,
+                    f"{role} was re-run for another role's unproven identity")
+        require(not state.for_role("validator"), "the validator ran after a fail-closed stop")
+
+        events = progress_events(outputs / run_id)
+        unproven = [item for item in events
+                    if item["event"] == "provider_session_identity_unproven"]
+        require(len(unproven) == 1, f"{len(unproven)} quarantine receipts")
+        require(unproven[0]["role"] == "test_author"
+                and unproven[0]["status"] == "quarantined"
+                and unproven[0]["session_mode"] == "start"
+                and unproven[0]["requested_session_id"] == leases["test_author"].session_id
+                and unproven[0]["lease_id"] == leases["test_author"].lease_id,
+                str(unproven[0]))
+
+
+def test_a_succeeding_role_without_a_confirmed_identity_still_fails_closed() -> None:
+    """A clean exit is not identity. Exit code 0 proves nothing about the session."""
+
+    with tempfile.TemporaryDirectory(prefix="pooled-crew-") as text:
+        parent = Path(text)
+        source = fixture(parent)
+        outputs = parent / "outputs"
+        head, checkout = source_identity(source)
+        pool = new_pool()
+        run_id = "nsc-005-silent"
+        leases = all_leases(pool, head=head, checkout=checkout, run_id=run_id)
+        state = State("test_author_success_without_identity")
+        blocked = rejects(
+            lambda: pooled_run(source, outputs, run_id=run_id, leases=leases, state=state),
+            CrewSessionIdentityUnproven,
+        )
+        message = str(blocked)
+        require("'succeeded'" in message, message)
+        require(leases["test_author"].session_id in message, message)
+        # No durable evidence exists for an unproven role, so nothing it produced
+        # can ever recycle its conversation.
+        require(not (outputs / run_id / "role_results/test_author_1.json").exists(), message)
+        require(len(state.for_role("test_author")) == 1, str(state.for_role("test_author")))
+        require(len(state.for_role("implementer")) == 1, str(state.for_role("implementer")))
+
+
 TESTS = (
     test_full_run_refuses_a_lease_from_another_execution,
     test_a_lease_from_another_crew_protocol_is_refused,
@@ -1067,6 +1247,9 @@ TESTS = (
     test_a_pooled_role_is_never_invoked_through_another_provider_or_model,
     test_a_nested_protocol_mismatch_is_refused_by_the_full_run,
     test_full_run_uses_external_manifest_bytes_as_cross_os_checkout_identity,
+    test_a_test_author_format_failure_repairs_only_that_role,
+    test_an_unproven_identity_fails_precisely_without_restarting_earlier_roles,
+    test_a_succeeding_role_without_a_confirmed_identity_still_fails_closed,
 )
 
 

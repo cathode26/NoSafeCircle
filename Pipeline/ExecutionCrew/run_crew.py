@@ -72,6 +72,17 @@ LEASE_BUNDLE_SCHEMA_VERSION = "1.0"
 
 class CrewBlocked(RuntimeError): pass
 
+
+class CrewSessionIdentityUnproven(CrewBlocked):
+    """Raised when a persistent role ran but no conversation identity was proven.
+
+    Distinct from the generic block so the operator, the receipts, and any later
+    caller can tell "the provider never named the conversation" apart from every
+    other reason a crew stops. It stays a ``CrewBlocked`` so existing fail-closed
+    handling is unchanged: the run still ends without an authoritative result and
+    the reserved conversations are still quarantined by their owner.
+    """
+
 def validate_host_output_root(value: str) -> PureWindowsPath:
     """Lexically validate a HOST-facing Windows path; never resolved against this (Linux) filesystem."""
     if not isinstance(value, str) or not value.strip():
@@ -1172,6 +1183,12 @@ FAILURE_ASSIGNMENT_OUTCOMES = {
     "invalid_request": "other_failure",
     "internal_error": "other_failure",
 }
+# The failures that say something about the shape of one turn's output rather
+# than about the conversation, the repository, or the crew's authority. These
+# are the only failures a bounded in-session role repair is offered for; a
+# timeout, a permission denial, a rejected request, or an exhausted budget are
+# facts about the assignment itself and are never retried here.
+PROVIDER_FORMAT_FAILURE_CLASSIFICATIONS = frozenset({"provider_error", "schema_error"})
 
 
 def crew_repository_identity(root: Path) -> str:
@@ -1786,6 +1803,21 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     capsule_owed: set[str] = {
         role for role, lease in pooled_leases.items() if lease.mode == "resume"
     }
+    # At most one in-session repair per role per crew run. The bound lives here,
+    # not in the retry itself, so a role cannot spend a second repair on its
+    # second attempt.
+    session_repair_used: set[str] = set()
+    for pooled_role in sorted(pooled_leases):
+        pooled_lease = pooled_leases[pooled_role]
+        progress.emit(
+            "pooled_role_checked_out",
+            f"{pooled_role.replace('_',' ').title()} checked out pooled session "
+            f"{pooled_lease.session_id or '(cold)'} to {pooled_lease.mode}",
+            role=pooled_role, status="checked_out", lease_id=pooled_lease.lease_id,
+            record_id=pooled_lease.record_id, worker_slot_id=pooled_lease.worker_slot_id,
+            session_mode=pooled_lease.mode, session_id=pooled_lease.session_id,
+            capability_class=pooled_lease.capability_class,
+        )
     latest_impl={}; latest_test={}; candidate_path=None; diagnostic_path=None; accepted_candidate=None
     contract_locality_status=None; contract_locality_audit_path=None; contract_locality_audit_host_path=None
     crew_status=None; final_paths: list[str]=[]
@@ -1851,10 +1883,22 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 f"{role} durable evidence disagrees with the assignment binding it persisted"
             )
         role_durable_results[role] = result_value
+        progress.emit(
+            "pooled_role_evidence_published",
+            f"{role.replace('_',' ').title()} {attempt} published durable evidence: "
+            f"{result_value.status}/{result_value.assignment_outcome} "
+            f"({'reusable' if result_value.is_reusable else 'not reusable'})",
+            role=role, attempt=attempt, status=result_value.status,
+            assignment_outcome=result_value.assignment_outcome,
+            reusable=result_value.is_reusable, lease_id=lease.lease_id,
+            worker_slot_id=lease.worker_slot_id,
+            session_id=result_value.confirmed_session.session_id,
+            role_result_artifact=artifact, role_result_sha256=artifact_sha256,
+        )
         return artifact, artifact_sha256
 
-    def invoke(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries):
-        invocation_id=f"{task_id.lower()}-{role.replace('_','-')}-{attempt}-{hashlib.sha256(run_id.encode()).hexdigest()[:12]}"
+    def invoke_once(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries, *, invocation_suffix:str=""):
+        invocation_id=f"{task_id.lower()}-{role.replace('_','-')}-{attempt}-{hashlib.sha256(run_id.encode()).hexdigest()[:12]}{invocation_suffix}"
         caps=("repository_read","repository_search","repository_write") if writable else ("repository_read","repository_search")
         session_binding=None; session_ledger=None
         if provider_factory and role_session_bindings:
@@ -1971,9 +2015,39 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             # confirmation is a contradiction rather than a silent ephemeral run.
             confirmed = session_ledger.confirmed
             if confirmed is None:
-                raise CrewBlocked(
-                    f"{role} requested a provider session but no confirmed session identity was proven"
+                # The provider never named the conversation, so nothing here can
+                # supply one. The precise cause is stated instead of the old
+                # generic sentence, which read as "the crew asked for a session"
+                # and hid both the AgentRuntime failure that actually happened
+                # and which conversation is now unusable.
+                requested = session_binding.session_id or "(provider-assigned)"
+                detail = (
+                    f"{role} attempt {attempt} asked to {session_binding.mode} provider session "
+                    f"{requested} but the provider transcript never confirmed it "
+                    f"(AgentRuntime status {result.status!r}, failure "
+                    f"{result.failure_classification!r}); the conversation is unproven, "
+                    "quarantined, and never reused"
                 )
+                progress.emit(
+                    "provider_session_identity_unproven", detail, role=role, attempt=attempt,
+                    status="quarantined", session_mode=session_binding.mode,
+                    requested_session_id=session_binding.session_id,
+                    lease_id=None if lease is None else lease.lease_id,
+                    worker_slot_id=None if lease is None else lease.worker_slot_id,
+                    agent_status=result.status,
+                    failure_classification=result.failure_classification,
+                )
+                raise CrewSessionIdentityUnproven(detail)
+            progress.emit(
+                "provider_session_confirmed",
+                f"{display} {attempt} confirmed provider session {confirmed.session_id}",
+                role=role, attempt=attempt, status="confirmed", session_mode=confirmed.mode,
+                session_id=confirmed.session_id,
+                lease_id=None if lease is None else lease.lease_id,
+                worker_slot_id=None if lease is None else lease.worker_slot_id,
+                agent_status=result.status,
+                failure_classification=result.failure_classification,
+            )
             provider_session_records.append(
                 {
                     "role": role, "attempt": attempt, "run_id": result.run_id,
@@ -1993,6 +2067,49 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             role_sessions[role] = repair_attempt_session(confirmed)
         progress.emit("role_completed",f"{display} {attempt} completed: {result.status} ({duration:.1f}s)",role=role,attempt=attempt,status=result.status,duration_seconds=duration)
         return inv,result
+
+    def invoke(role:str, attempt:int, repo:Path, writable:bool, prompt:str, schema:Mapping[str,Any], capability_class:str, boundaries:WriteBoundaries):
+        """Invoke one role, with at most one in-session repair of a format failure.
+
+        A provider-format failure -- the provider ended its own turn unhappily,
+        or its structured output could not be parsed -- says nothing about the
+        conversation, the earlier roles, or the work already on disk. The
+        bounded recovery is therefore the narrowest one that can exist: retry
+        this one role, exactly once per crew run, inside the exact conversation
+        the transcript already confirmed, so nothing that already succeeded is
+        recomputed and no second conversation is opened for the same role.
+
+        The retry is offered only when the identity was confirmed. An unproven
+        identity has already failed closed above; a fresh session would discard
+        the context that makes the repair cheap and would need an identity this
+        run cannot prove, so it is never substituted. If the repair also fails,
+        the role's real failure is returned and the crew stops on it -- earlier
+        roles keep their durable evidence and check in normally.
+        """
+
+        inv, result = invoke_once(role, attempt, repo, writable, prompt, schema,
+                                  capability_class, boundaries)
+        if (
+            role in session_repair_used
+            or role not in role_confirmations
+            or result.status == "succeeded"
+            or result.failure_classification not in PROVIDER_FORMAT_FAILURE_CLASSIFICATIONS
+        ):
+            return inv, result
+        session_repair_used.add(role)
+        confirmed = role_confirmations[role]
+        progress.emit(
+            "role_session_repair_started",
+            f"{role.replace('_',' ').title()} {attempt} failed "
+            f"{result.failure_classification}; retrying only this role in confirmed session "
+            f"{confirmed.session_id}",
+            role=role, attempt=attempt, status="retrying",
+            failure_classification=result.failure_classification,
+            session_id=confirmed.session_id, session_mode="resume",
+        )
+        return invoke_once(role, attempt, repo, writable, prompt, schema,
+                           capability_class, boundaries, invocation_suffix="-r2")
+
     locality_prompt=contract_locality_auditor_prompt(
         task_id=task_id,title=task["title"],task_contract=task_text,gdd=gdd,
         execution_scope=str(task.get("execution_scope") or ""),execution_reason=str(task.get("execution_reason") or ""),

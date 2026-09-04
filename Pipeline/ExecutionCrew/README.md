@@ -132,6 +132,34 @@ transcript confirmed only when the confirmation matches the lease exactly and th
 role artifact proves the assignment. Otherwise the quarantined record and its
 lifecycle state retain no adopted identity at all.
 
+A role-level provider-format failure stays role-level. When a role's turn ends
+with `provider_error` or `schema_error` -- the provider closed its own turn
+unhappily, or its structured output could not be parsed -- that says nothing
+about the conversation, about the roles that already succeeded, or about the work
+already on disk. `run_crew` therefore retries that one role, at most once per
+crew run, inside the exact conversation its transcript already confirmed. No
+earlier role is re-invoked, no second conversation is opened for the same role,
+and the repair carries no assignment capsule because it is the same assignment
+continuing. If the repair fails too, the role's real failure is returned and the
+crew stops on it with every earlier role's durable evidence intact, so those
+conversations still check in and are still offered back.
+
+The repair is offered only when the identity was confirmed. A role that ran but
+whose transcript never named its conversation raises
+`CrewSessionIdentityUnproven`, which states the role, the attempt, the mode, the
+session it asked for, and the AgentRuntime status and failure classification that
+actually occurred. That conversation is never repaired in place and never
+replaced by a fresh one: substituting a new session would discard the context and
+would need an identity this run cannot prove. The run ends without an
+authoritative result and its owner quarantines the reservations.
+
+`progress.jsonl` carries the receipts for all of this: `pooled_role_checked_out`
+per lease, `provider_session_confirmed` per proven identity,
+`role_session_repair_started` per role-only retry,
+`provider_session_identity_unproven` per quarantined conversation, and
+`pooled_role_evidence_published` per durable result, each naming the lease,
+worker slot, session, and decision involved.
+
 Session lifetime is the committed policy in
 `Pipeline/AgentRuntime/session_lifecycle.py`; the pool applies it and owns no
 second copy of those numbers. A worker session spends 48 weighted units

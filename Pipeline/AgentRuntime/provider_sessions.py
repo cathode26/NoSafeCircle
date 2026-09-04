@@ -281,6 +281,31 @@ class ProviderSessionLedger:
             )
         self._confirmation = confirmation
 
+    def record_confirmed(self, confirmation: ProviderSessionConfirmation) -> None:
+        """Record one identity idempotently; a contradicting one still fails closed.
+
+        An adapter may prove the same conversation more than once in a single
+        invocation -- the transcript is examined once when the terminal event is
+        first available and again when the assignment is accepted -- and the
+        second proof of the *same* identity is agreement, not contradiction. It
+        must therefore neither raise nor overwrite. Anything that disagrees with
+        the identity already recorded is a real contradiction and fails closed,
+        so no later event can replace or erase a confirmed identity.
+        """
+
+        if type(confirmation) is not ProviderSessionConfirmation:
+            raise ProviderSessionError(
+                "ledger accepts only an exact ProviderSessionConfirmation"
+            )
+        existing = self._confirmation
+        if existing is None:
+            self._confirmation = confirmation
+            return
+        if existing != confirmation:
+            raise ProviderSessionError(
+                "provider session ledger already recorded a different confirmed identity"
+            )
+
     def to_dict(self) -> dict[str, Any] | None:
         return None if self._confirmation is None else self._confirmation.to_dict()
 

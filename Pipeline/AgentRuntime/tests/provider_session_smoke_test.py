@@ -31,7 +31,10 @@ from Pipeline.AgentRuntime.contracts import (  # noqa: E402
     Budgets,
     WriteBoundaries,
 )
-from Pipeline.AgentRuntime.process_runner import ProcessResult  # noqa: E402
+from Pipeline.AgentRuntime.process_runner import (  # noqa: E402
+    ProcessResult,
+    ProcessTimeoutError,
+)
 from Pipeline.AgentRuntime.provider_sessions import (  # noqa: E402
     PROVIDER_SESSION_SCHEMA_VERSION,
     RESUMED_AUTHORITY_NOTICE,
@@ -44,8 +47,11 @@ from Pipeline.AgentRuntime.provider_sessions import (  # noqa: E402
     validate_session_id,
 )
 from Pipeline.AgentRuntime.providers.base import (  # noqa: E402
+    ProviderFailure,
     ProviderOutputInvalid,
     ProviderRequestRejected,
+    ProviderTimeout,
+    ProviderTransportError,
 )
 from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider  # noqa: E402
 from Pipeline.AgentRuntime.providers.openai_codex import (  # noqa: E402
@@ -705,6 +711,236 @@ def test_ledger_requires_its_session_and_exact_types() -> None:
         )
 
 
+
+
+# ------------------------------- identity survives an unsuccessful turn (NSC-914)
+#
+# Live evidence from the first pooled Claude ExecutionCrew run: the Test Author
+# emitted several StructuredOutput tool calls and the CLI then closed the turn
+# with `is_error: true`. The terminal event still named the conversation, but the
+# adapter only confirmed identity after deciding the turn had succeeded, so a
+# genuinely proved session was discarded and the crew failed closed on "no
+# confirmed session identity was proven". Identity is a fact about which
+# conversation ran; success is a fact about what it produced. These two facts are
+# decided independently now, and nothing below relaxes what counts as proof.
+
+
+def structured_output_events(count: int, *, name: str = "StructuredOutput") -> list[str]:
+    """Return the ordinary assistant/tool traffic a real turn emits before its result."""
+
+    lines: list[str] = []
+    for index in range(count):
+        lines.append(json.dumps({
+            "type": "stream_event",
+            "event": {"type": "content_block_start",
+                      "content_block": {"type": "tool_use", "name": name}},
+        }, separators=(",", ":")))
+        lines.append(json.dumps({
+            "type": "assistant",
+            "message": {"content": [{"type": "tool_use", "name": name,
+                                     "input": {"message": "draft %d" % index}}]},
+        }, separators=(",", ":")))
+    return lines
+
+
+def claude_stream(*, events: list[str] | None = None, **changes: Any) -> bytes:
+    """Return one complete NDJSON transcript: ordinary events, then the result."""
+
+    body = list(events or [])
+    body.append(claude_transcript(**changes).decode("utf-8").strip())
+    return ("\n".join(body) + "\n").encode("utf-8")
+
+
+class ClaudeExitRunner(ClaudeRunner):
+    """A runner whose process ends non-zero after emitting a full transcript."""
+
+    def __init__(self, stdout: bytes, *, returncode: int = 1) -> None:
+        super().__init__(stdout)
+        self.returncode = returncode
+
+    def run(self, argv: Any, *, stdin: bytes, cwd: Path, timeout_seconds: float,
+            **_extra: Any) -> ProcessResult:
+        args = tuple(argv)
+        self.calls.append(
+            {"argv": args, "stdin": stdin, "cwd": Path(cwd), "timeout": timeout_seconds}
+        )
+        return ProcessResult(args, self.returncode, self.stdout, b"", 0.25)
+
+
+class ClaudeTimeoutRunner(ClaudeRunner):
+    """A runner that times out after the transcript already named its session."""
+
+    def run(self, argv: Any, *, stdin: bytes, cwd: Path, timeout_seconds: float,
+            **_extra: Any) -> ProcessResult:
+        args = tuple(argv)
+        self.calls.append(
+            {"argv": args, "stdin": stdin, "cwd": Path(cwd), "timeout": timeout_seconds}
+        )
+        raise ProcessTimeoutError(
+            ProcessResult(args, -1, self.stdout, b"", timeout_seconds)
+        )
+
+
+class ClaudeStderrRunner(ClaudeRunner):
+    """A runner that exits zero but writes to stderr, which the adapter refuses."""
+
+    def run(self, argv: Any, *, stdin: bytes, cwd: Path, timeout_seconds: float,
+            **_extra: Any) -> ProcessResult:
+        args = tuple(argv)
+        self.calls.append(
+            {"argv": args, "stdin": stdin, "cwd": Path(cwd), "timeout": timeout_seconds}
+        )
+        return ProcessResult(args, 0, self.stdout, b"warning\n", 0.1)
+
+
+def test_confirmed_identity_survives_ordinary_structured_output() -> None:
+    """Guard: passes before and after. Ordinary tool traffic never moved identity."""
+
+    with workspace() as text:
+        temp = Path(text)
+        runner = ClaudeRunner(
+            claude_stream(events=structured_output_events(4), session_id=SESSION_A)
+        )
+        ledger = ProviderSessionLedger()
+        provider = claude_provider(temp, runner, session=binding(), session_ledger=ledger)
+        response = provider.invoke(request(), CLAUDE_MODEL)
+        require(response.structured_output == {"message": "ok"}, str(response.structured_output))
+        confirmed = ledger.confirmed
+        require(confirmed is not None and confirmed.session_id == SESSION_A, str(confirmed))
+        require(confirmed.mode == "start" and confirmed.role == "implementer", str(confirmed))
+
+
+def test_confirmed_identity_survives_a_terminal_provider_error() -> None:
+    """The exact NSC-914 shape: several StructuredOutput calls, then is_error."""
+
+    with workspace() as text:
+        temp = Path(text)
+        cases = (
+            {"is_error": True, "subtype": "error_during_execution",
+             "terminal_reason": "error", "result": "structured output rejected"},
+            {"subtype": "error_max_turns", "terminal_reason": "max_turns"},
+            {"permission_denials": [{"tool_name": "Edit"}]},
+        )
+        for index, changes in enumerate(cases):
+            runner = ClaudeRunner(
+                claude_stream(events=structured_output_events(3),
+                              session_id=SESSION_A, **changes)
+            )
+            ledger = ProviderSessionLedger()
+            provider = claude_provider(
+                temp, runner, session=binding(), session_ledger=ledger
+            )
+            rejects(lambda: provider.invoke(request(), CLAUDE_MODEL), ProviderFailure)
+            confirmed = ledger.confirmed
+            require(
+                confirmed is not None and confirmed.session_id == SESSION_A,
+                "case %d discarded a session the transcript proved: %s" % (index, confirmed),
+            )
+            require(confirmed.mode == "start", "case %d: %s" % (index, confirmed))
+
+
+def test_confirmed_identity_survives_a_nonzero_exit_a_timeout_and_stray_stderr() -> None:
+    with workspace() as text:
+        temp = Path(text)
+        stream = claude_stream(events=structured_output_events(2), session_id=SESSION_A,
+                               is_error=True, subtype="error_during_execution",
+                               terminal_reason="error")
+
+        exited = ClaudeExitRunner(stream, returncode=1)
+        exit_ledger = ProviderSessionLedger()
+        provider = claude_provider(
+            temp, exited, session=binding(mode="resume"), session_ledger=exit_ledger
+        )
+        rejects(lambda: provider.invoke(request(), CLAUDE_MODEL), ProviderFailure)
+        require(
+            exit_ledger.confirmed is not None
+            and exit_ledger.confirmed.session_id == SESSION_A,
+            "a non-zero exit discarded a proved session: %s" % (exit_ledger.confirmed,),
+        )
+        require(exit_ledger.confirmed.mode == "resume", str(exit_ledger.confirmed))
+
+        timed_out = ClaudeTimeoutRunner(claude_stream(session_id=SESSION_A))
+        timeout_ledger = ProviderSessionLedger()
+        provider = claude_provider(
+            temp, timed_out, session=binding(), session_ledger=timeout_ledger
+        )
+        rejects(lambda: provider.invoke(request(), CLAUDE_MODEL), ProviderTimeout)
+        require(
+            timeout_ledger.confirmed is not None
+            and timeout_ledger.confirmed.session_id == SESSION_A,
+            "a timeout discarded a proved session: %s" % (timeout_ledger.confirmed,),
+        )
+
+        noisy = ClaudeStderrRunner(claude_stream(session_id=SESSION_A))
+        noisy_ledger = ProviderSessionLedger()
+        provider = claude_provider(
+            temp, noisy, session=binding(), session_ledger=noisy_ledger
+        )
+        rejects(lambda: provider.invoke(request(), CLAUDE_MODEL), ProviderTransportError)
+        require(
+            noisy_ledger.confirmed is not None
+            and noisy_ledger.confirmed.session_id == SESSION_A,
+            "unexpected stderr discarded a proved session: %s" % (noisy_ledger.confirmed,),
+        )
+
+
+def test_repeated_events_cannot_overwrite_or_erase_a_confirmed_identity() -> None:
+    ledger = ProviderSessionLedger()
+    first = ProviderSessionConfirmation("claude-code", "test_author", "start", SESSION_A)
+    ledger.record_confirmed(first)
+    # The same identity proved again is agreement, not contradiction.
+    ledger.record_confirmed(
+        ProviderSessionConfirmation("claude-code", "test_author", "start", SESSION_A)
+    )
+    require(ledger.confirmed == first, str(ledger.confirmed))
+    for contradiction in (
+        ProviderSessionConfirmation("claude-code", "test_author", "start", SESSION_B),
+        ProviderSessionConfirmation("claude-code", "test_author", "resume", SESSION_A),
+        ProviderSessionConfirmation("claude-code", "implementer", "start", SESSION_A),
+    ):
+        rejects(
+            lambda contradiction=contradiction: ledger.record_confirmed(contradiction),
+            ProviderSessionError,
+        )
+        require(
+            ledger.confirmed == first,
+            "a contradiction erased the identity: %s" % (ledger.confirmed,),
+        )
+    rejects(lambda: ledger.record_confirmed("3f2504e0"), ProviderSessionError)
+    require(ledger.confirmed == first, "a malformed record erased the identity")
+
+
+def test_a_terminal_error_without_a_proved_identity_confirms_nothing() -> None:
+    """Fail closed: a failing turn is never a licence to invent or adopt an identity."""
+
+    with workspace() as text:
+        temp = Path(text)
+        failure = {"is_error": True, "subtype": "error_during_execution",
+                   "terminal_reason": "error"}
+        cases = (
+            claude_stream(**failure),                                # no session_id at all
+            claude_stream(session_id=SESSION_B, **failure),          # a different conversation
+            claude_stream(session_id="last", **failure),             # ambiguous selector
+            claude_stream(session_id=SESSION_A.upper(), **failure),  # non-canonical
+            claude_stream(session_id=None, **failure),               # null identity
+            b"not json at all\n",                                    # unparseable transcript
+        )
+        for index, stdout in enumerate(cases):
+            runner = ClaudeRunner(stdout)
+            ledger = ProviderSessionLedger()
+            provider = claude_provider(
+                temp, runner, session=binding(), session_ledger=ledger
+            )
+            rejects(
+                lambda: provider.invoke(request(), CLAUDE_MODEL),
+                (ProviderFailure, ProviderOutputInvalid),
+            )
+            require(
+                ledger.confirmed is None,
+                "case %d adopted an identity the transcript never proved" % index,
+            )
+
+
 TESTS = (
     test_guard_claude_default_call_is_unchanged_and_ephemeral,
     test_guard_codex_default_call_is_unchanged_and_ephemeral,
@@ -723,6 +959,11 @@ TESTS = (
     test_resumed_prompt_revokes_all_previous_task_and_write_authority,
     test_binding_and_ledger_contract,
     test_ledger_requires_its_session_and_exact_types,
+    test_confirmed_identity_survives_ordinary_structured_output,
+    test_confirmed_identity_survives_a_terminal_provider_error,
+    test_confirmed_identity_survives_a_nonzero_exit_a_timeout_and_stray_stderr,
+    test_repeated_events_cannot_overwrite_or_erase_a_confirmed_identity,
+    test_a_terminal_error_without_a_proved_identity_confirms_nothing,
 )
 
 
