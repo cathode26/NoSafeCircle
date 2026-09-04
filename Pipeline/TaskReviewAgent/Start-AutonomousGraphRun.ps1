@@ -155,22 +155,23 @@ if ($ComposeVersion.ExitCode -ne 0) {
     throw 'Docker Desktop and Docker Compose must be available.'
 }
 
-$Providers = if ($PSBoundParameters.ContainsKey('ArchitectProvider')) {
-    @($ArchitectProvider)
+$RequiredProviderNames = @()
+if ($PSBoundParameters.ContainsKey('ArchitectProvider')) {
+    $RequiredProviderNames += $ArchitectProvider
 }
 else {
     # A resume may load either provider from its immutable run manifest.
-    @('claude', 'codex')
+    $RequiredProviderNames += @('claude', 'codex')
 }
 if (-not [string]::IsNullOrWhiteSpace($ExecutionProvider)) {
-    $Providers += $ExecutionProvider
+    $RequiredProviderNames += $ExecutionProvider
 }
 else {
     # Architect routing is allowed to choose either provider.
-    $Providers += @('claude', 'codex')
+    $RequiredProviderNames += @('claude', 'codex')
 }
-foreach ($Provider in @($Providers | Select-Object -Unique)) {
-    $Volume = "nosafecircle_$Provider-config"
+foreach ($ProviderName in @($RequiredProviderNames | Select-Object -Unique)) {
+    $Volume = "nosafecircle_${ProviderName}-config"
     $VolumeCheck = Invoke-NscNativeCommand `
         -FilePath 'docker' `
         -ArgumentList @('volume', 'inspect', $Volume)

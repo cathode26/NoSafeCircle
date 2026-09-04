@@ -31,9 +31,10 @@ def main() -> int:
         fixture = Path(text)
         argument_log = fixture / "python-arguments.txt"
         probe_log = fixture / "python-probe-arguments.txt"
+        docker_log = fixture / "docker-arguments.txt"
         _stub(fixture / "git.cmd", "exit /b 0")
         _stub(fixture / "gh.cmd", "exit /b 0")
-        _stub(fixture / "docker.cmd", "exit /b 0")
+        _stub(fixture / "docker.cmd", f">>\"{docker_log}\" echo %*\r\nexit /b 0")
         _stub(
             fixture / "python.cmd",
             (
@@ -124,6 +125,21 @@ def main() -> int:
             )
         require("--completion-probe" in probe_arguments, probe_arguments)
         require("--completion-probe" not in arguments, arguments)
+        require(docker_log.is_file(), f"docker stub was not called: {completed}")
+        docker_arguments = docker_log.read_text(encoding="utf-8")
+        require(
+            "volume inspect nosafecircle_claude-config" in docker_arguments,
+            f"Claude provider volume name was corrupted: {docker_arguments}",
+        )
+        require(
+            "volume inspect nosafecircle_codex-config" in docker_arguments,
+            f"Codex provider volume name was corrupted: {docker_arguments}",
+        )
+        require(
+            "claudeclaude" not in docker_arguments
+            and "codexcodex" not in docker_arguments,
+            f"provider name was duplicated: {docker_arguments}",
+        )
         require(
             arguments.count("--target-task-id") == 1,
             f"target forwarding was not repeatable: {arguments}",
@@ -144,6 +160,39 @@ def main() -> int:
         require(
             launcher_probe < github_preflight and launcher_probe < docker_preflight,
             "completed receipt probe no longer precedes GitHub/Docker calls",
+        )
+        docker_log.unlink()
+        same_provider = subprocess.run(
+            (
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(LAUNCHER),
+                "-RunId",
+                "same-provider-volume-test",
+                "-ConfirmRepository",
+                "cathode26/NoSafeCircle-Homework-Rehearsal",
+                "-ExecutionProvider",
+                "claude",
+                "-ArchitectProvider",
+                "claude",
+            ),
+            cwd=ROOT,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+            timeout=60.0,
+        )
+        require(same_provider.returncode == 7, same_provider)
+        same_provider_docker = docker_log.read_text(encoding="utf-8")
+        require(
+            same_provider_docker.count("volume inspect") == 1
+            and "volume inspect nosafecircle_claude-config" in same_provider_docker,
+            f"same provider was not de-duplicated exactly: {same_provider_docker}",
         )
     print("autonomous graph launcher smoke test: PASS")
     return 0
