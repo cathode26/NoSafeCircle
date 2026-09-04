@@ -80,6 +80,8 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
         str(args.execution_provider),
         "-MaxTurns",
         str(args.max_turns),
+        "-HumanActionWaitMinutes",
+        "0",
         "-OutputRoot",
         str(output_root),
     ]

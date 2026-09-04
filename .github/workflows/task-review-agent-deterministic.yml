@@ -292,6 +292,7 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: |
           python Pipeline/TaskReviewAgent/tests/launcher_preflight_smoke_test.py
+          python Pipeline/TaskReviewAgent/tests/human_action_wait_smoke_test.py
           python Pipeline/TaskReviewAgent/tests/reset_task_smoke_test.py
 
       - name: Run decomposition authorization binder tests

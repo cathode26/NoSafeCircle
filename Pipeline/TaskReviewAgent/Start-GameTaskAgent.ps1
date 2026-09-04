@@ -38,7 +38,13 @@ param(
     [string]$Source,
 
     [ValidateRange(4, 160)]
-    [int]$MaxTurns = 120
+    [int]$MaxTurns = 120,
+
+    [ValidateRange(0, 1440)]
+    [int]$HumanActionWaitMinutes = 30,
+
+    [ValidateRange(1, 300)]
+    [int]$HumanActionPollSeconds = 60
 )
 
 $ErrorActionPreference = 'Stop'
@@ -331,8 +337,40 @@ try {
     # text=True GitHub/Git subprocess decode deterministic on Windows instead
     # of using the machine's legacy ANSI code page.
     $env:PYTHONUTF8 = '1'
-    & python @Arguments
-    $AgentExitCode = $LASTEXITCODE
+    while ($true) {
+        & python @Arguments
+        $AgentExitCode = $LASTEXITCODE
+        if (
+            $AgentExitCode -ne 0 -or
+            $Mode -ne 'openai' -or
+            [string]::IsNullOrWhiteSpace($TaskId) -or
+            -not [string]::IsNullOrWhiteSpace($RunId) -or
+            $HumanActionWaitMinutes -eq 0
+        ) {
+            break
+        }
+
+        $WaitArguments = @(
+            'Pipeline/TaskReviewAgent/human_action_wait.py',
+            '--task-id', $TaskId,
+            '--source', $Source,
+            '--worker-id', $WorkerId,
+            '--timeout-seconds', ($HumanActionWaitMinutes * 60).ToString(),
+            '--poll-seconds', $HumanActionPollSeconds.ToString()
+        )
+        & python @WaitArguments
+        $WaitExitCode = $LASTEXITCODE
+        if ($WaitExitCode -eq 0) {
+            Write-Host "Validated human result observed for $TaskId; resuming in this launcher session."
+            continue
+        }
+        if ($WaitExitCode -in @(3, 4)) {
+            Write-Host "No automatic resume was performed for $TaskId."
+            break
+        }
+        $AgentExitCode = 2
+        break
+    }
 }
 finally {
     if ($null -eq $PreviousPythonUtf8) {

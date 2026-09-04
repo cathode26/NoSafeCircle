@@ -254,7 +254,11 @@ def _outcome_status(result: dict[str, Any]) -> str:
 
 
 def _worker_terminal_contract(status: str) -> tuple[str, int]:
-    if status in {"human_action_required", "human_delivery_review"}:
+    if status in {
+        "human_action_required",
+        "human_revalidation_required",
+        "human_delivery_review",
+    }:
         return "human_action_required", 0
     if status == "complete":
         return "completed", 0
