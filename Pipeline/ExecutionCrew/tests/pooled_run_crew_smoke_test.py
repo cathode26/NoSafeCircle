@@ -454,7 +454,9 @@ def all_leases(pool: SessionPool, *, head: str, checkout: str, run_id: str,
 
 def pooled_run(source: Path, outputs: Path, *, run_id: str, leases, state: State,
                repository: str = REPOSITORY, factory_kind=factory,
-               checkout_identity_manifest: Path | None = None):
+               checkout_identity_manifest: Path | None = None,
+               crew_profile: str | None = None,
+               validation_profile: str | None = None):
     return run_crew(
         source=source, output_root=outputs, task_id=TASK, provider_name="claude",
         implementation_paths=(IMPL,), test_paths=(TEST,), run_id=run_id,
@@ -462,6 +464,8 @@ def pooled_run(source: Path, outputs: Path, *, run_id: str, leases, state: State
         _require_physical_read_only_source=False, role_session_leases=leases,
         scheduler_repository_identity=repository,
         checkout_identity_manifest=checkout_identity_manifest,
+        crew_profile=crew_profile,
+        validation_profile=validation_profile,
     ), outputs / run_id
 
 
@@ -1233,6 +1237,42 @@ def test_a_succeeding_role_without_a_confirmed_identity_still_fails_closed() -> 
         require(len(state.for_role("implementer")) == 1, str(state.for_role("implementer")))
 
 
+def test_lean_profile_invokes_only_required_pooled_roles() -> None:
+    with tempfile.TemporaryDirectory(prefix="pooled-crew-") as text:
+        parent = Path(text)
+        source = fixture(parent)
+        outputs = parent / "outputs"
+        head, checkout = source_identity(source)
+        pool = new_pool()
+        run_id = "nsc-005-lean-profile"
+        leases = all_leases(pool, head=head, checkout=checkout, run_id=run_id)
+        state = State("pass")
+        result, _run_dir = pooled_run(
+            source,
+            outputs,
+            run_id=run_id,
+            leases=leases,
+            state=state,
+            crew_profile="lean",
+            validation_profile="targeted",
+        )
+        require(result["crew_status"] == "review_ready", str(result))
+        require(
+            [item["role"] for item in state.invocations]
+            == ["implementer", "validator"],
+            str(state.invocations),
+        )
+        require(
+            set(result["durable_assignment_results"])
+            == {"implementer", "validator"},
+            str(result["durable_assignment_results"]),
+        )
+        for role in ("contract_locality_auditor", "test_author"):
+            record = result["pooled_role_leases"][role]
+            require(record["invoked"] is False, str(record))
+            require(record["durable_assignment_result"] is None, str(record))
+
+
 TESTS = (
     test_full_run_refuses_a_lease_from_another_execution,
     test_a_lease_from_another_crew_protocol_is_refused,
@@ -1250,6 +1290,7 @@ TESTS = (
     test_a_test_author_format_failure_repairs_only_that_role,
     test_an_unproven_identity_fails_precisely_without_restarting_earlier_roles,
     test_a_succeeding_role_without_a_confirmed_identity_still_fails_closed,
+    test_lean_profile_invokes_only_required_pooled_roles,
 )
 
 

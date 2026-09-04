@@ -178,6 +178,8 @@ def test_controller_reaches_human_issue_handoff() -> None:
                 "source_tree": git(checkout, "rev-parse", "HEAD^{tree}"),
                 "source_branch": git(checkout, "branch", "--show-current"),
                 "provider": "claude",
+                "crew_profile": "full",
+                "validation_profile": "full_relevant",
                 "crew_status": "review_ready",
                 "requested_implementation_paths": [IMPLEMENTATION],
                 "requested_test_paths": [NEW_TEST],

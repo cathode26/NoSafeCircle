@@ -195,6 +195,8 @@ def crew_result(
         "provider": "claude",
         "execution_model": MODEL,
         "execution_reasoning_effort": None,
+        "crew_profile": "full",
+        "validation_profile": "full_relevant",
         "task_contract_identity": {
             "path": f"Tasks/{TASK_ID}.yaml",
             "revision": 1,

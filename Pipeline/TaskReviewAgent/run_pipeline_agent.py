@@ -131,6 +131,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=OPENAI_REASONING_EFFORTS,
         help="Explicit OpenAI/Codex ExecutionCrew reasoning effort.",
     )
+    parser.add_argument("--crew-profile", choices=("lean", "standard", "full"))
+    parser.add_argument(
+        "--validation-profile",
+        choices=("targeted", "task_specific", "full_relevant"),
+    )
     parser.add_argument(
         "--enable-execution-session-pool",
         action="store_true",
@@ -532,6 +537,10 @@ def main(argv: list[str] | None = None) -> int:
                 controller_options["execution_reasoning_effort"] = (
                     args.execution_reasoning_effort
                 )
+            if args.crew_profile is not None:
+                controller_options["crew_profile"] = args.crew_profile
+            if args.validation_profile is not None:
+                controller_options["validation_profile"] = args.validation_profile
             controller = ProductionTaskController(**controller_options)
             authority = "read_only_production_pipeline_observation"
 

@@ -1558,12 +1558,18 @@ def build_worker_command(
     if type(worker_id) is not str or not worker_id.strip():
         raise PollingOrchestratorError("worker_id must be a non-empty string")
     if route is not None:
+        if route.rigor is None:
+            raise PollingOrchestratorError(
+                "scheduler execution route omitted deterministic rigor authority"
+            )
         provider = route.execution_provider
         supervisor_model = route.supervisor_model
         supervisor_reasoning_effort = route.supervisor_reasoning_effort
         execution_model = route.execution_model
         execution_reasoning_effort = route.execution_reasoning_effort
         supervisor_turns = route.max_supervisor_turns
+        crew_profile = route.rigor.crew_profile
+        validation_profile = route.rigor.validation_profile
     else:
         provider = str(execution_provider).strip().casefold()
         supervisor_model = str(model).strip() if model else None
@@ -1571,6 +1577,8 @@ def build_worker_command(
         execution_model = None
         execution_reasoning_effort = None
         supervisor_turns = max_turns
+        crew_profile = None
+        validation_profile = None
     if provider not in {"claude", "codex"}:
         raise PollingOrchestratorError("execution provider must be claude or codex")
     if (
@@ -1618,6 +1626,9 @@ def build_worker_command(
         command.extend(
             ("--execution-reasoning-effort", execution_reasoning_effort)
         )
+    if crew_profile is not None and validation_profile is not None:
+        command.extend(("--crew-profile", crew_profile))
+        command.extend(("--validation-profile", validation_profile))
     if route is not None and provider == "claude" and execution_model:
         command.append("--enable-execution-session-pool")
     result_identity = (run_id, admission_source_head, task_contract_sha256)
@@ -3400,7 +3411,7 @@ class PollingOrchestrator:
                     rigor = resolve_task_rigor(
                         advisory.execution_recommendation,
                         task=task,
-                        predicted_change_surface=advisory.predicted_change_surface,
+                        predicted_change_surface=effective_surface,
                         committed_path_probe=admission_path_probe,
                     )
                     route = resolve_execution_route(

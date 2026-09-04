@@ -3,8 +3,9 @@
 The Software Architect recommends how much implementation and verification rigor a task
 needs. The recommendation is useful judgment, not permission to bypass repository safety.
 Deterministic host policy resolves the recommendation against the committed task contract,
-predicted change surface, and repository-owned minimums. The effective rigor may be raised,
-but never lowered below those minimums.
+the effective predicted-plus-observed change surface, and repository-owned minimums. Actual
+paths recovered from a resumable checkout may add obligations; they never remove predicted
+ones. The effective rigor may be raised, but never lowered below those minimums.
 
 These rules answer three separate questions:
 
@@ -41,6 +42,9 @@ Use the full profile when any of these apply:
 - The task is not concrete single-agent implementation work, including work still needing
   decomposition.
 - The predicted surface includes a shared system.
+- The task reserves a logical resource, or a `unity-scene:` resource resolves to serialized
+  scene content. Non-file resource kinds are never discarded merely because they are not
+  spelled `repo-file:`.
 - The work changes orchestration, TaskGraph, CI, repository policy, build/deployment,
   packages, project settings, Docker configuration, or agent instructions.
 - The work changes Unity serialized or project-wide assets such as `.unity`, `.prefab`,
@@ -72,6 +76,10 @@ Use at least the standard profile when any of these apply:
 
 The standard profile keeps independent semantic review and runs every explicit task gate.
 Human verification is required unless a narrower committed machine-evidence rule applies.
+Its executable crew is Implementer, Test Author, and Validator. The deterministic
+minimum rules out decomposition, shared-system, infrastructure, and Unity serialized-asset
+work before the Contract Locality Auditor may be omitted. A Validator locality/design
+finding still fails closed as `contract_review_required`.
 
 ### Fast is permitted
 
@@ -81,6 +89,8 @@ The fast profile is available only when all of these are true:
 - The task is concrete and `single_agent`.
 - The complete expected surface is exact, isolated, no more than four paths, and limited to
   lean file types (`.cs`, `.md`, and deterministic `.meta` companions).
+- Path aliases are compared case-insensitively before the width bound is applied. A casing
+  variant cannot inflate or disguise the exact surface.
 - Every `.meta` in the surface is a deterministic C# script import companion: the path is
   exactly `<script>.cs.meta`, it lives under `Assets/`, its exact `<script>.cs` is part of
   the same change, and it does not already exist in the committed source. This is the
@@ -95,6 +105,12 @@ The lean crew may omit redundant model reviews only after the executable crew pa
 the effective profile. Deterministic source identity, write boundaries, clean-tree checks,
 patch identity, merge-main-before-test behavior, exact-commit validation, and post-merge
 verification are never optional.
+
+The executable lean crew is Implementer plus an independent Validator. It omits the
+Contract Locality Auditor and Test Author only because fast eligibility requires an exact,
+isolated task surface and an existing committed test path; declaring a new test path raises
+the required rigor to standard before any provider runs. `targeted` still runs every exact
+completion gate bound by committed task policy. It does not mean “no Unity tests.”
 
 ## Human verification policy
 

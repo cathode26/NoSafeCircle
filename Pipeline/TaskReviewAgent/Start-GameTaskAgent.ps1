@@ -35,6 +35,12 @@ param(
     [ValidateSet('none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max')]
     [string]$ExecutionReasoningEffort,
 
+    [ValidateSet('lean', 'standard', 'full')]
+    [string]$CrewProfile,
+
+    [ValidateSet('targeted', 'task_specific', 'full_relevant')]
+    [string]$ValidationProfile,
+
     [switch]$EnableExecutionSessionPool,
 
     [string]$Source,
@@ -50,6 +56,12 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (
+    [string]::IsNullOrWhiteSpace($CrewProfile) -ne
+    [string]::IsNullOrWhiteSpace($ValidationProfile)
+) {
+    throw 'CrewProfile and ValidationProfile must be supplied together.'
+}
 $NativeCommandPath = Join-Path $PSScriptRoot 'NativeCommand.ps1'
 if (-not (Test-Path -LiteralPath $NativeCommandPath -PathType Leaf)) {
     throw "Native command helper is missing: $NativeCommandPath"
@@ -295,6 +307,12 @@ if (-not [string]::IsNullOrWhiteSpace($ExecutionModel)) {
 }
 if (-not [string]::IsNullOrWhiteSpace($ExecutionReasoningEffort)) {
     $Arguments += @('--execution-reasoning-effort', $ExecutionReasoningEffort)
+}
+if (-not [string]::IsNullOrWhiteSpace($CrewProfile)) {
+    $Arguments += @('--crew-profile', $CrewProfile)
+}
+if (-not [string]::IsNullOrWhiteSpace($ValidationProfile)) {
+    $Arguments += @('--validation-profile', $ValidationProfile)
 }
 if ($EnableExecutionSessionPool) {
     $Arguments += '--enable-execution-session-pool'

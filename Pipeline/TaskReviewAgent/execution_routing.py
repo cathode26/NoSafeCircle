@@ -34,6 +34,11 @@ MAX_SUPERVISOR_TURNS = 160
 CREW_PROFILES = ("lean", "standard", "full")
 VALIDATION_PROFILES = ("targeted", "task_specific", "full_relevant")
 HUMAN_VERIFICATION_POLICIES = ("required", "machine_evidence_permitted")
+RIGOR_PROFILE_BY_TIER = {
+    "fast": ("lean", "targeted"),
+    "standard": ("standard", "task_specific"),
+    "deep": ("full", "full_relevant"),
+}
 
 _TIER_RANK = {"fast": 0, "standard": 1, "deep": 2}
 _FULL_RIGOR_ROOTS = (
@@ -171,7 +176,24 @@ def _surface_values(surface: object, field: str) -> tuple[str, ...]:
 def _normalized_surface_path(value: str) -> str:
     """Return the comparison form used by every path rule in this policy."""
 
-    return str(value).replace("\\", "/").lstrip("./").casefold()
+    path = str(value).replace("\\", "/")
+    while path.startswith("./"):
+        path = path[2:]
+    return path.casefold()
+
+
+def _casefold_unique_paths(values: tuple[str, ...]) -> tuple[str, ...]:
+    """Deduplicate path spellings under the policy's case-insensitive rules."""
+
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        normalized = _normalized_surface_path(value)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(value)
+    return tuple(result)
 
 
 def _already_committed(
@@ -242,10 +264,25 @@ def _resource_paths(task: Mapping[str, Any]) -> tuple[str, ...]:
     resources = task.get("exclusive_resources") or ()
     if not isinstance(resources, (list, tuple)):
         raise ExecutionRoutingError("task exclusive_resources must be an array")
-    return tuple(
-        item[len("repo-file:") :]
+    paths: list[str] = []
+    for item in resources:
+        if type(item) is not str:
+            continue
+        folded = item.casefold()
+        for prefix in ("repo-file:", "unity-scene:"):
+            if folded.startswith(prefix):
+                paths.append(item[len(prefix) :])
+                break
+    return tuple(paths)
+
+
+def _has_logical_resource(task: Mapping[str, Any]) -> bool:
+    resources = task.get("exclusive_resources") or ()
+    if not isinstance(resources, (list, tuple)):
+        raise ExecutionRoutingError("task exclusive_resources must be an array")
+    return any(
+        type(item) is str and item.casefold().startswith("logical:")
         for item in resources
-        if type(item) is str and item.startswith("repo-file:")
     )
 
 
@@ -271,21 +308,31 @@ def resolve_task_rigor(
     if not isinstance(task, Mapping):
         raise ExecutionRoutingError("task must be an object")
 
-    exact_paths = tuple(
-        dict.fromkeys(
-            (
-                *_surface_values(predicted_change_surface, "exact_paths"),
-                *_surface_values(predicted_change_surface, "unity_serialized_assets"),
-                *_resource_paths(task),
-            )
+    exact_paths = _casefold_unique_paths(
+        (
+            *_surface_values(predicted_change_surface, "exact_paths"),
+            *_surface_values(predicted_change_surface, "unity_serialized_assets"),
+            *_resource_paths(task),
         )
     )
     patterns = _surface_values(predicted_change_surface, "path_patterns")
-    serialized = _surface_values(
+    declared_serialized = _surface_values(
         predicted_change_surface, "unity_serialized_assets"
     )
     shared_systems = _surface_values(predicted_change_surface, "shared_systems")
-    _surface_values(predicted_change_surface, "symbols_or_components")
+    symbols_or_components = _surface_values(
+        predicted_change_surface, "symbols_or_components"
+    )
+    serialized = _casefold_unique_paths(
+        (
+            *declared_serialized,
+            *(
+                path
+                for path in exact_paths
+                if _normalized_surface_path(path).endswith(_META_SUFFIX)
+            ),
+        )
+    )
 
     minimum = "fast"
     reasons: list[str] = []
@@ -310,6 +357,19 @@ def resolve_task_rigor(
         raise_floor("standard", "path patterns require broader-than-exact review")
     if shared_systems:
         raise_floor("deep", "shared-system changes require the full profile")
+    if _has_logical_resource(task):
+        raise_floor("deep", "logical exclusive resources require the full profile")
+    if symbols_or_components and (
+        patterns or not exact_paths or len(symbols_or_components) > 4
+    ):
+        raise_floor(
+            "standard",
+            "named symbols or components are not confined to the small exact surface",
+        )
+    elif symbols_or_components:
+        reasons.append(
+            "named symbols or components are confined to the small exact path surface"
+        )
     import_companions, substantive_serialized = _classify_serialized_surface(
         serialized, exact_paths, committed_path_probe
     )
@@ -327,8 +387,10 @@ def resolve_task_rigor(
         )
 
     for raw_path in exact_paths:
-        path = raw_path.replace("\\", "/").lstrip("./")
-        folded = path.casefold()
+        path = raw_path.replace("\\", "/")
+        while path.startswith("./"):
+            path = path[2:]
+        folded = _normalized_surface_path(path)
         name = PurePosixPath(path).name.casefold()
         suffix = PurePosixPath(path).suffix.casefold()
         if folded.startswith(_FULL_RIGOR_ROOTS) or name in _FULL_RIGOR_NAMES:
@@ -336,19 +398,18 @@ def resolve_task_rigor(
         if suffix in _FULL_RIGOR_SUFFIXES:
             raise_floor("deep", f"serialized or project-wide asset surface: {path}")
 
-    if minimum == "fast":
-        if len(exact_paths) > 4:
-            raise_floor(
-                "standard", "more than four exact paths exceed the lean-change bound"
-            )
-        elif any(
-            PurePosixPath(path.replace("\\", "/")).suffix.casefold()
-            not in _FAST_SURFACE_SUFFIXES
-            for path in exact_paths
-        ):
-            raise_floor(
-                "standard", "the exact surface contains a non-lean file type"
-            )
+    if len(exact_paths) > 4:
+        raise_floor(
+            "standard", "more than four exact paths exceed the lean-change bound"
+        )
+    if any(
+        PurePosixPath(path.replace("\\", "/")).suffix.casefold()
+        not in _FAST_SURFACE_SUFFIXES
+        for path in exact_paths
+    ):
+        raise_floor(
+            "standard", "the exact surface contains a non-lean file type"
+        )
 
     if not reasons:
         reasons.append("exact isolated surface satisfies the lean-profile policy")
@@ -370,11 +431,7 @@ def resolve_task_rigor(
             f"architect selected {requested}, stronger than the {minimum} minimum"
         )
 
-    crew_profile, validation_profile = {
-        "fast": ("lean", "targeted"),
-        "standard": ("standard", "task_specific"),
-        "deep": ("full", "full_relevant"),
-    }[effective]
+    crew_profile, validation_profile = RIGOR_PROFILE_BY_TIER[effective]
     # Human verification stays REQUIRED for every task, including the lean
     # C#-plus-new-sidecar class recognized above. The separate automated-evidence
     # workflow is not yet authoritative, so routing must never turn synthetic

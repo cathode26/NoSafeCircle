@@ -224,9 +224,15 @@ def test_host_launcher_turn_range_matches_routing_contract() -> None:
     require(observed == expected, f"host MaxTurns range {observed} != routing contract {expected}")
 
 def test_worker_argv_contains_exact_resolved_route() -> None:
+    deep_rigor = resolve_task_rigor(
+        recommendation("deep", "openai"),
+        task={**rigor_task(), "exclusive_resources": []},
+        predicted_change_surface=surface("Assets/NoSafeCircle/Feature/FastValue.cs"),
+    )
     route = resolve_execution_route(
         recommendation("deep", "openai"),
         load_execution_routing_policy(policy_environment()),
+        rigor=deep_rigor,
     )
     command = build_worker_command(
         task_id="NSC-101",
@@ -247,6 +253,8 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
         "--execution-provider": "codex",
         "--execution-model": "openai-deep-policy",
         "--execution-reasoning-effort": "xhigh",
+        "--crew-profile": "full",
+        "--validation-profile": "full_relevant",
         "--model": "supervisor-deep-policy",
         "--supervisor-reasoning-effort": "xhigh",
         "--max-turns": "120",
@@ -272,6 +280,8 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
         "-ExecutionProvider": "codex",
         "-ExecutionModel": "openai-deep-policy",
         "-ExecutionReasoningEffort": "xhigh",
+        "-CrewProfile": "full",
+        "-ValidationProfile": "full_relevant",
         "-Model": "supervisor-deep-policy",
         "-SupervisorReasoningEffort": "xhigh",
         "-MaxTurns": "120",
@@ -283,9 +293,17 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
     for option, value in powershell_expected.items():
         require(powershell[powershell.index(option) + 1] == value, str(powershell))
 
+    claude_recommendation = recommendation("deep", "claude")
     claude_route = resolve_execution_route(
-        recommendation("deep", "claude"),
+        claude_recommendation,
         load_execution_routing_policy(policy_environment()),
+        rigor=resolve_task_rigor(
+            claude_recommendation,
+            task={**rigor_task(), "exclusive_resources": []},
+            predicted_change_surface=surface(
+                "Assets/NoSafeCircle/Feature/FastValue.cs"
+            ),
+        ),
     )
     claude_command = build_worker_command(
         task_id="NSC-101",
@@ -310,10 +328,14 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
         "$SupervisorReasoningEffort",
         "$ExecutionModel",
         "$ExecutionReasoningEffort",
+        "$CrewProfile",
+        "$ValidationProfile",
         "$EnableExecutionSessionPool",
         "'--supervisor-reasoning-effort'",
         "'--execution-model'",
         "'--execution-reasoning-effort'",
+        "'--crew-profile'",
+        "'--validation-profile'",
         "'--enable-execution-session-pool'",
         "'--run-id'",
         "'--admission-source-head'",
@@ -328,6 +350,7 @@ def test_worker_parser_preserves_manual_defaults_and_accepts_route() -> None:
     defaults = build_parser().parse_args(["--task-id", "NSC-101"])
     require(defaults.execution_provider == "claude", str(defaults))
     require(defaults.model is None and defaults.execution_model is None, str(defaults))
+    require(defaults.crew_profile is None and defaults.validation_profile is None, str(defaults))
     require(defaults.enable_execution_session_pool is False, str(defaults))
     require(defaults.max_turns == 120, str(defaults))
     routed = build_parser().parse_args(
@@ -336,6 +359,8 @@ def test_worker_parser_preserves_manual_defaults_and_accepts_route() -> None:
             "--execution-provider", "codex",
             "--execution-model", "openai-deep-policy",
             "--execution-reasoning-effort", "xhigh",
+            "--crew-profile", "full",
+            "--validation-profile", "full_relevant",
             "--model", "supervisor-deep-policy",
             "--supervisor-reasoning-effort", "xhigh",
             "--max-turns", "120",
@@ -343,6 +368,8 @@ def test_worker_parser_preserves_manual_defaults_and_accepts_route() -> None:
     )
     require(routed.execution_model == "openai-deep-policy", str(routed))
     require(routed.supervisor_reasoning_effort == "xhigh", str(routed))
+    require(routed.crew_profile == "full", str(routed))
+    require(routed.validation_profile == "full_relevant", str(routed))
     pooled = build_parser().parse_args(
         [
             "--task-id", "NSC-101",
@@ -552,6 +579,9 @@ def test_fast_synthetic_task_resolves_lean_but_keeps_human_verification() -> Non
             "Assets/NoSafeCircle/Feature/FastValue.cs",
             "Assets/NoSafeCircle/Feature/FastValue.cs.meta",
         ),
+        # Prove that this exact C# sidecar is new; an unproven or existing
+        # .meta file must retain full rigor.
+        committed_path_probe=committed(),
     )
     require(decision.minimum_capability_tier == "fast", str(decision))
     require(decision.effective_capability_tier == "fast", str(decision))
@@ -764,6 +794,99 @@ def test_broad_or_shared_script_and_meta_work_still_escalates() -> None:
         )
 
 
+def test_every_meta_spelling_is_classified_even_when_architect_omits_serialized_list() -> None:
+    decision = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(), "exclusive_resources": []},
+        predicted_change_surface=surface(NSC914_SCRIPT, NSC914_META),
+        # Existing sidecar identity is substantive even when the architect did
+        # not repeat it in unity_serialized_assets.
+        committed_path_probe=committed(NSC914_SCRIPT, NSC914_META),
+    )
+    require(decision.effective_capability_tier == "deep", str(decision))
+
+
+def test_unity_scene_logical_and_dot_github_surfaces_force_full_rigor() -> None:
+    cases = (
+        (
+            {
+                **rigor_task(),
+                "exclusive_resources": [
+                    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+                ],
+            },
+            surface("Assets/NoSafeCircle/Feature/FastValue.cs"),
+        ),
+        (
+            {
+                **rigor_task(),
+                "exclusive_resources": ["logical:door-runtime-contract"],
+            },
+            surface("Assets/NoSafeCircle/Feature/FastValue.cs"),
+        ),
+        (
+            {**rigor_task(), "exclusive_resources": []},
+            surface(".github/workflows/task-review-agent-deterministic.yml"),
+        ),
+    )
+    for task_value, predicted in cases:
+        decision = resolve_task_rigor(
+            recommendation("fast"),
+            task=task_value,
+            predicted_change_surface=predicted,
+        )
+        require(decision.effective_capability_tier == "deep", str(decision))
+
+
+def test_case_aliases_do_not_inflate_surface_and_broad_symbols_do() -> None:
+    aliases = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(), "exclusive_resources": []},
+        predicted_change_surface=surface(
+            "Assets/NoSafeCircle/Feature/FastValue.cs",
+            "assets/nosafecircle/feature/fastvalue.cs",
+            "ASSETS/NOSAFECIRCLE/FEATURE/FASTVALUE.CS",
+            symbols=("FastValue",),
+        ),
+    )
+    require(aliases.effective_capability_tier == "fast", str(aliases))
+    broad_symbols = resolve_task_rigor(
+        recommendation("fast"),
+        task={**rigor_task(), "exclusive_resources": []},
+        predicted_change_surface=surface(
+            "Assets/NoSafeCircle/Feature/FastValue.cs",
+            symbols=("A", "B", "C", "D", "E"),
+        ),
+    )
+    require(broad_symbols.effective_capability_tier == "standard", str(broad_symbols))
+
+
+def test_scheduler_worker_builder_refuses_route_without_rigor_authority() -> None:
+    route = resolve_execution_route(
+        recommendation("fast"), load_execution_routing_policy(policy_environment())
+    )
+    try:
+        build_worker_command(
+            task_id="NSC-101",
+            worker_id="missing-rigor-worker",
+            source=Path("/tmp/routing-smoke-source"),
+            checkout_root=Path("/tmp/routing-smoke-checkouts"),
+            route=route,
+        )
+    except Exception as exc:
+        require("omitted deterministic rigor authority" in str(exc), str(exc))
+    else:
+        raise AssertionError("scheduler worker builder accepted an unfloored route")
+
+    scheduler_source = (
+        ROOT / "Pipeline" / "TaskReviewAgent" / "polling_orchestrator.py"
+    ).read_text(encoding="utf-8")
+    require(
+        "predicted_change_surface=effective_surface" in scheduler_source,
+        "scheduler rigor decision ignored the effective predicted-plus-actual surface",
+    )
+
+
 def test_rigor_event_reports_requested_effective_and_override_policy() -> None:
     policy = load_execution_routing_policy(policy_environment())
     honored = resolve_task_rigor(
@@ -881,7 +1004,7 @@ def test_policy_raises_unknown_or_broad_surface_and_never_lowers_architect() -> 
 
     conservative = resolve_task_rigor(
         recommendation("deep"),
-        task=rigor_task(),
+        task={**rigor_task(), "exclusive_resources": []},
         predicted_change_surface=surface(
             "Assets/NoSafeCircle/Feature/FastValue.cs"
         ),
@@ -954,6 +1077,8 @@ def test_worker_entrypoint_propagates_routed_values_without_changing_defaults() 
                         "--execution-provider", "codex",
                         "--execution-model", "openai-deep-policy",
                         "--execution-reasoning-effort", "xhigh",
+                        "--crew-profile", "full",
+                        "--validation-profile", "full_relevant",
                         "--model", "supervisor-deep-policy",
                         "--supervisor-reasoning-effort", "xhigh",
                         "--max-turns", "120",
@@ -963,6 +1088,8 @@ def test_worker_entrypoint_propagates_routed_values_without_changing_defaults() 
         require(captured_controller["execution_provider"] == "codex", str(captured_controller))
         require(captured_controller["execution_model"] == "openai-deep-policy", str(captured_controller))
         require(captured_controller["execution_reasoning_effort"] == "xhigh", str(captured_controller))
+        require(captured_controller["crew_profile"] == "full", str(captured_controller))
+        require(captured_controller["validation_profile"] == "full_relevant", str(captured_controller))
         require(captured_controller["enable_execution_session_pool"] is False, str(captured_controller))
         require(captured_supervisor["model"] == "supervisor-deep-policy", str(captured_supervisor))
         require(captured_supervisor["reasoning_effort"] == "xhigh", str(captured_supervisor))
@@ -990,6 +1117,8 @@ def test_execution_bridge_builds_exact_normal_and_retry_route_commands() -> None
             scope=scope,
             execution_model="openai-deep-policy",
             execution_reasoning_effort="xhigh",
+            crew_profile="full",
+            validation_profile="full_relevant",
             command_runner=lambda *_args: None,
         )
         normal = bridge._command(
@@ -1001,6 +1130,11 @@ def test_execution_bridge_builds_exact_normal_and_retry_route_commands() -> None
         require(normal[normal.index("--model") + 1] == "openai-deep-policy", str(normal))
         require(normal[normal.index("--openai-reasoning-effort") + 1] == "xhigh", str(normal))
         require(normal[normal.index("--provider") + 1] == "codex", str(normal))
+        require(normal[normal.index("--crew-profile") + 1] == "full", str(normal))
+        require(
+            normal[normal.index("--validation-profile") + 1] == "full_relevant",
+            str(normal),
+        )
 
         feedback = checkout / "review.txt"
         feedback.write_text("Fix the reviewed behavior.\n", encoding="utf-8")
@@ -1013,6 +1147,8 @@ def test_execution_bridge_builds_exact_normal_and_retry_route_commands() -> None
         require(retry[retry.index("--expected-provider") + 1] == "codex", str(retry))
         require(retry[retry.index("--model") + 1] == "openai-deep-policy", str(retry))
         require(retry[retry.index("--openai-reasoning-effort") + 1] == "xhigh", str(retry))
+        require("--crew-profile" not in retry, str(retry))
+        require("--validation-profile" not in retry, str(retry))
 
 
 def test_supervisor_reasoning_reaches_existing_provider_constructor() -> None:
@@ -1086,6 +1222,10 @@ def main() -> int:
         test_substantive_unity_serialized_assets_still_force_the_full_profile,
         test_orphaned_or_existing_meta_never_receives_the_companion_exemption,
         test_broad_or_shared_script_and_meta_work_still_escalates,
+        test_every_meta_spelling_is_classified_even_when_architect_omits_serialized_list,
+        test_unity_scene_logical_and_dot_github_surfaces_force_full_rigor,
+        test_case_aliases_do_not_inflate_surface_and_broad_symbols_do,
+        test_scheduler_worker_builder_refuses_route_without_rigor_authority,
         test_rigor_event_reports_requested_effective_and_override_policy,
         test_human_verification_is_never_reduced_by_the_companion_exemption,
         test_policy_raises_fast_serialized_and_infrastructure_work_to_deep,

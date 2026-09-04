@@ -17,7 +17,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from .contracts import TaskReviewContractError, semantic_sha256, validate_task_id
 from .pipeline_scope import AcceptedExecutionScope, RepositoryScopeAuthority
-from .execution_routing import OPENAI_REASONING_EFFORTS
+from .execution_routing import OPENAI_REASONING_EFFORTS, RIGOR_PROFILE_BY_TIER
 from .execution_session_pool import (
     ExecutionCrewSessionPoolError,
     ExecutionCrewSessionPoolOwner,
@@ -159,6 +159,8 @@ class ExecutionCrewReceipt:
     provider: str
     execution_model: str | None
     execution_reasoning_effort: str | None
+    crew_profile: str
+    validation_profile: str
     source_head: str
     task_contract_sha256: str
     crew_status: str
@@ -180,6 +182,8 @@ class ExecutionCrewReceipt:
             "provider": self.provider,
             "execution_model": self.execution_model,
             "execution_reasoning_effort": self.execution_reasoning_effort,
+            "crew_profile": self.crew_profile,
+            "validation_profile": self.validation_profile,
             "source_head": self.source_head,
             "task_contract_sha256": self.task_contract_sha256,
             "crew_status": self.crew_status,
@@ -203,6 +207,8 @@ class ExecutionCrewBridge:
         scope: RepositoryScopeAuthority,
         execution_model: str | None = None,
         execution_reasoning_effort: str | None = None,
+        crew_profile: str | None = None,
+        validation_profile: str | None = None,
         command_runner: CommandRunner | None = None,
         timeout_seconds: float | None = None,
         compose_project: str = "nosafecircle",
@@ -226,6 +232,20 @@ class ExecutionCrewBridge:
             raise ExecutionBridgeError(
                 "ExecutionCrew reasoning effort is unsupported"
             )
+        if crew_profile is None and validation_profile is None:
+            crew_profile, validation_profile = RIGOR_PROFILE_BY_TIER["deep"]
+        elif crew_profile is None or validation_profile is None:
+            raise ExecutionBridgeError(
+                "crew_profile and validation_profile must be supplied together"
+            )
+        if (crew_profile, validation_profile) not in set(
+            RIGOR_PROFILE_BY_TIER.values()
+        ):
+            raise ExecutionBridgeError(
+                "crew_profile and validation_profile are not a supported rigor pair"
+            )
+        self.crew_profile = crew_profile
+        self.validation_profile = validation_profile
         self.command_runner = command_runner or _default_runner
         self.timeout_seconds = float(
             timeout_seconds
@@ -337,7 +357,18 @@ class ExecutionCrewBridge:
             command.extend(("--review-feedback-file", "/workspace/" + relative.as_posix()))
             return command
 
-        command.extend(("--task-id", accepted.task_id, "--provider", provider))
+        command.extend(
+            (
+                "--task-id",
+                accepted.task_id,
+                "--provider",
+                provider,
+                "--crew-profile",
+                self.crew_profile,
+                "--validation-profile",
+                self.validation_profile,
+            )
+        )
         for path in accepted.plan.existing_implementation_paths:
             command.extend(("--implementation-path", path))
         for path in accepted.plan.new_implementation_paths:
@@ -523,6 +554,8 @@ class ExecutionCrewBridge:
                 if persisted.get("execution_reasoning_effort") is not None
                 else None
             ),
+            crew_profile=str(persisted.get("crew_profile") or ""),
+            validation_profile=str(persisted.get("validation_profile") or ""),
             source_head=accepted.source_head,
             task_contract_sha256=accepted.task_contract_sha256,
             crew_status=str(persisted.get("crew_status") or ""),
@@ -659,6 +692,12 @@ class ExecutionCrewBridge:
             raise ExecutionBridgeError(
                 "ExecutionCrew used a different execution reasoning effort"
             )
+        if result.get("crew_profile") != self.crew_profile:
+            raise ExecutionBridgeError("ExecutionCrew used a different crew profile")
+        if result.get("validation_profile") != self.validation_profile:
+            raise ExecutionBridgeError(
+                "ExecutionCrew used a different validation profile"
+            )
         identity = result.get("task_contract_identity")
         if not isinstance(identity, Mapping):
             raise ExecutionBridgeError("ExecutionCrew omitted task_contract_identity")
@@ -724,6 +763,18 @@ class ExecutionCrewBridge:
             raw = json.loads(self.state_path.read_text(encoding="utf-8"))
             identity = dict(raw)
             receipt_hash = identity.pop("receipt_sha256")
+            has_crew_profile = "crew_profile" in identity
+            has_validation_profile = "validation_profile" in identity
+            if has_crew_profile != has_validation_profile:
+                raise ValueError("incomplete rigor profile metadata")
+            receipt_crew_profile = identity.get("crew_profile", "full")
+            receipt_validation_profile = identity.get(
+                "validation_profile", "full_relevant"
+            )
+            if (receipt_crew_profile, receipt_validation_profile) not in set(
+                RIGOR_PROFILE_BY_TIER.values()
+            ):
+                raise ValueError("unsupported rigor profile pair")
             receipt = ExecutionCrewReceipt(
                 run_id=identity["run_id"],
                 task_id=validate_task_id(identity["task_id"]),
@@ -734,6 +785,8 @@ class ExecutionCrewBridge:
                 execution_reasoning_effort=identity.get(
                     "execution_reasoning_effort"
                 ),
+                crew_profile=receipt_crew_profile,
+                validation_profile=receipt_validation_profile,
                 source_head=identity["source_head"],
                 task_contract_sha256=identity["task_contract_sha256"],
                 crew_status=identity["crew_status"],
@@ -758,6 +811,8 @@ class ExecutionCrewBridge:
             or receipt.plan_id != accepted.plan_id
             or receipt.source_head != accepted.source_head
             or receipt.task_contract_sha256 != accepted.task_contract_sha256
+            or receipt.crew_profile != self.crew_profile
+            or receipt.validation_profile != self.validation_profile
             or (
                 self.execution_model is not None
                 and receipt.execution_model != self.execution_model

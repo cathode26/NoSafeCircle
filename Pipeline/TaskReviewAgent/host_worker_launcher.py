@@ -50,6 +50,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--supervisor-reasoning-effort")
     parser.add_argument("--execution-model")
     parser.add_argument("--execution-reasoning-effort")
+    parser.add_argument("--crew-profile", choices=("lean", "standard", "full"))
+    parser.add_argument(
+        "--validation-profile",
+        choices=("targeted", "task_specific", "full_relevant"),
+    )
     parser.add_argument("--enable-execution-session-pool", action="store_true")
     return parser
 
@@ -59,6 +64,10 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
     checkout_root = args.checkout_root.resolve()
     output_root = args.output_root.resolve()
     starter = source / "Pipeline" / "TaskReviewAgent" / "Start-GameTaskAgent.ps1"
+    if (args.crew_profile is None) != (args.validation_profile is None):
+        raise ValueError(
+            "crew profile and validation profile must be supplied together"
+        )
 
     command: list[str] = [
         "powershell.exe",
@@ -122,6 +131,10 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
         command.extend(
             ("-ExecutionReasoningEffort", str(args.execution_reasoning_effort))
         )
+    if args.crew_profile:
+        command.extend(("-CrewProfile", str(args.crew_profile)))
+    if args.validation_profile:
+        command.extend(("-ValidationProfile", str(args.validation_profile)))
     if args.enable_execution_session_pool:
         command.append("-EnableExecutionSessionPool")
     return tuple(command)
