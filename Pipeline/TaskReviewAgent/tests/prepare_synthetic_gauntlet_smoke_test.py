@@ -193,6 +193,16 @@ def _build_bundle_fixture():
         policy_target = source / POLICY_RELATIVE
         policy_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / POLICY_RELATIVE, policy_target)
+        policy = json.loads(policy_target.read_text(encoding="utf-8"))
+        preserved_policy = policy["tasks"][PRESERVED_TASK_ID]
+        preserved_policy["test_filters"] = {
+            "EditMode": f"{TEST_FILTER}.PreservedNSC042"
+        }
+        policy_target.write_text(
+            json.dumps(policy, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
 
         for number in range(
             GAUNTLET_FIRST_ID,
