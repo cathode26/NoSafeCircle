@@ -2701,6 +2701,7 @@ def test_decomposition_apply_hash_change_requires_exact_replay() -> None:
             reasons=(),
             state=state,
             events=(),
+            pending_transition=None,
         )
         scanned = (SimpleNamespace(error=None, snapshot=snapshot),)
         replay = SimpleNamespace(
