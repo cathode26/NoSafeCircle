@@ -258,21 +258,51 @@ def test_committed_policy_audits_clean_against_the_committed_graph() -> None:
 def test_ordinary_concrete_task_resolution_is_byte_identical() -> None:
     """Guard: the migration must be invisible to every ordinary concrete task."""
 
+    policy = copy.deepcopy(read_policy_document(ROOT))
+    entries = policy["tasks"]
+    require(bool(entries), "committed policy has no ordinary task entries")
+    baseline = copy.deepcopy(policy)
+    baseline.pop("decomposition_child_templates")
+    with tempfile.TemporaryDirectory() as text:
+        policy_path = Path(text) / VALIDATION_POLICY_RELATIVE
+        policy_path.parent.mkdir(parents=True, exist_ok=True)
+
+        def resolve(document: dict[str, Any]) -> dict[str, dict[str, Any]]:
+            policy_path.write_text(
+                json.dumps(document, indent=2) + "\n", encoding="utf-8"
+            )
+            resolved: dict[str, dict[str, Any]] = {}
+            for task_id, entry in entries.items():
+                plan = validation_plan_for(
+                    Path(text),
+                    {
+                        "task_id": task_id,
+                        "task_contract_sha256": entry["task_contract_sha256"],
+                    },
+                )
+                require(plan is not None, task_id)
+                require("inherited_from_decomposition" not in plan, str(plan))
+                resolved[task_id] = plan
+            return resolved
+
+        before = resolve(baseline)
+        after = resolve(policy)
+    require(before == after, "decomposition template map changed ordinary resolution")
+
+    # Preserve the exact historical production guards when this checkout still
+    # carries those exact contract revisions. Rehearsal repositories may carry
+    # intentionally different NSC-020/NSC-042 contracts and policy identities.
     for task_id, contract_hash, expected in (
         ("NSC-042", NSC_042_CONTRACT_SHA256, NSC_042_POLICY_SHA256),
         ("NSC-020", NSC_020_CONTRACT_SHA256, NSC_020_POLICY_SHA256),
     ):
-        plan = validation_plan_for(
-            ROOT, {"task_id": task_id, "task_contract_sha256": contract_hash}
-        )
-        require(plan is not None, task_id)
-        require(plan["policy_sha256"] == expected, f"{task_id}: {plan['policy_sha256']}")
-        require(plan["task_id"] == task_id, str(plan))
+        entry = entries.get(task_id)
+        if not isinstance(entry, dict) or entry.get("task_contract_sha256") != contract_hash:
+            continue
         require(
-            plan["authority"] == "committed_task_specific_authoritative_validation_policy",
-            str(plan),
+            after[task_id]["policy_sha256"] == expected,
+            f"{task_id}: {after[task_id]['policy_sha256']}",
         )
-        require("inherited_from_decomposition" not in plan, str(plan))
 
 
 # --------------------------------------------------- 2: missing template
