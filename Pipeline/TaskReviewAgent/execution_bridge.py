@@ -197,6 +197,28 @@ class ExecutionCrewReceipt:
         }
 
 
+def _release_pool_liveness(
+    owner: "ExecutionCrewSessionPoolOwner | None",
+    assignment: Mapping[str, Any] | None,
+) -> None:
+    """Stop asserting that this process owns one prepared run.
+
+    Tolerates an owner that predates liveness evidence, including the narrow
+    test doubles that implement only ``prepare`` and ``settle``.
+    """
+
+    if owner is None or assignment is None:
+        return
+    release = getattr(owner, "release_liveness", None)
+    if release is None:
+        return
+    try:
+        release(run_id=str(assignment["run_id"]))
+    except Exception as exc:  # pragma: no cover - releasing must never fail a run
+        sys.stderr.write(f"ExecutionCrew pool liveness release failed: {exc}\n")
+        sys.stderr.flush()
+
+
 class ExecutionCrewBridge:
     """Translate an accepted scope into the existing Docker ExecutionCrew CLI."""
 
@@ -442,6 +464,46 @@ class ExecutionCrewBridge:
                 raise ExecutionBridgeError(
                     f"ExecutionCrew session pool could not reserve roles: {exc}"
                 ) from exc
+        try:
+            return self._run_prepared(
+                accepted=accepted,
+                provider=provider,
+                retry_run_id=retry_run_id,
+                feedback=feedback,
+                pool_owner=pool_owner,
+                pool_assignment=pool_assignment,
+            )
+        except BaseException as exc:
+            # Fail closed. Any exit from the launch boundary that no narrower
+            # handler already settled leaves this exact run's leases active,
+            # so quarantine them here. The call is idempotent: an assignment
+            # that already reached a terminal status is skipped, and only this
+            # run identity is ever named.
+            self._quarantine_terminal_pool(
+                pool_owner,
+                pool_assignment,
+                f"ExecutionCrew launch boundary raised {type(exc).__name__}: {exc}",
+                original=exc,
+            )
+            raise
+        finally:
+            # Stop asserting liveness for this run regardless of outcome. A run
+            # that never reached a terminal transition stays active and becomes
+            # reclaimable by a later owner instead of stranding its leases.
+            _release_pool_liveness(pool_owner, pool_assignment)
+
+    def _run_prepared(
+        self,
+        *,
+        accepted: AcceptedExecutionScope,
+        provider: str,
+        retry_run_id: str | None,
+        feedback: Path | None,
+        pool_owner: "ExecutionCrewSessionPoolOwner | None",
+        pool_assignment: Mapping[str, Any] | None,
+    ) -> ExecutionCrewReceipt:
+        """Run one prepared ExecutionCrew invocation and settle its pooled leases."""
+
         command = self._command(
             accepted,
             provider=provider,
@@ -457,11 +519,6 @@ class ExecutionCrewBridge:
             raise
         except ExecutionBridgeTimeoutError as exc:
             self._quarantine_terminal_pool(pool_owner, pool_assignment, str(exc))
-            raise
-        except Exception:
-            # Process survival is not provable at this boundary. The durable
-            # leases stay active and unavailable; a later owner may settle an
-            # exact terminal artifact, but must never steal them.
             raise
         try:
             stdout = _decode(completed.stdout or b"", label="ExecutionCrew stdout")
@@ -611,18 +668,39 @@ class ExecutionCrewBridge:
         owner: ExecutionCrewSessionPoolOwner | None,
         assignment: Mapping[str, Any] | None,
         reason: str,
+        *,
+        original: BaseException | None = None,
     ) -> None:
+        """Withdraw one exact run's leases from reuse. Idempotent and run-scoped.
+
+        ``terminal_without_result`` names exactly one ``run_id`` and returns
+        early unless that assignment is still active, so replaying this call is
+        a no-op and no other run is ever touched.
+        """
+
         if owner is None or assignment is None:
             return
         try:
             owner.terminal_without_result(
                 run_id=str(assignment["run_id"]), reason=reason
             )
-        except ExecutionCrewSessionPoolError as exc:
-            # The primary bridge error still describes why the candidate is not
-            # authoritative. The active durable leases remain unavailable when
-            # even the quarantine transition cannot be persisted.
-            sys.stderr.write(f"ExecutionCrew pool quarantine failed: {exc}\n")
+        except Exception as exc:
+            # Deliberately broad. Cleanup runs while a real failure is already
+            # in flight, and `terminal_without_result` can raise well outside
+            # the owner's own error family: `SessionPool.quarantine` raises
+            # `SessionPoolError`, which is a sibling of
+            # `ExecutionCrewSessionPoolError` rather than a subclass, and the
+            # durable lock can raise a bare `OSError`. Letting any of those
+            # escape would replace the triggering failure and would also leave
+            # the `TaskReviewContractError` family that upstream turn handling
+            # keys on. The primary bridge error still describes why the
+            # candidate is not authoritative; the active durable leases remain
+            # unavailable when even the quarantine transition cannot be
+            # persisted, and a later owner reclaims them once this process ends.
+            detail = f"ExecutionCrew pool quarantine failed: {type(exc).__name__}: {exc}"
+            if original is not None and hasattr(original, "add_note"):
+                original.add_note(detail)
+            sys.stderr.write(detail + "\n")
             sys.stderr.flush()
 
     def _write_pool_degraded_evidence(

@@ -3,8 +3,18 @@
 The owner is deliberately narrower than the task scheduler.  It reserves four
 role-scoped Claude conversations immediately before one Docker ExecutionCrew
 run, persists the exact leases under an operating-system lock, and settles them
-from the hash-exact ``crew_result.json`` after Docker returns.  The lock is
-never held while Docker or a provider is running.
+from the hash-exact ``crew_result.json`` after Docker returns.  The pool-state
+lock is never held while Docker or a provider is running.
+
+One separate per-run lock is deliberately held for exactly that long.  It is
+the durable evidence that a run still has an owning controller: the operating
+system releases it when that process exits, however it exits, so a run stranded
+by a crash becomes provably reclaimable while an owned one never does.  Age is
+never used for that decision, because a legitimate assignment may run for hours.
+The lock proves the controller is gone, not that the crew container stopped; it
+is the right evidence because only a host controller can settle an assignment,
+so an unowned run can never be settled at all.  Reclaiming only quarantines: it
+signals no process, touches no container, and deletes no provider history.
 """
 
 from __future__ import annotations
@@ -15,9 +25,10 @@ import json
 import os
 from pathlib import Path
 import re
+import socket
 import subprocess
 import tempfile
-from typing import Any, Iterator, Mapping
+from typing import Any, BinaryIO, Iterable, Iterator, Mapping
 
 from Pipeline.AgentRuntime.session_lifecycle import SessionLifecycleTelemetry
 from Pipeline.ExecutionCrew.run_crew import ROLE_CAPABILITY_CLASSES
@@ -34,8 +45,14 @@ from .contracts import semantic_sha256, validate_task_id
 from .real_checkout import _normalized_remote
 
 
-OWNER_SCHEMA_VERSION = "1.0"
+OWNER_SCHEMA_VERSION = "1.1"
+# 1.0 assignments predate durable liveness evidence and load unchanged.
+# The version is bumped so an older build rejects a newer state file with
+# "unsupported schema" rather than a misleading field-set mismatch.
+_SUPPORTED_OWNER_SCHEMA_VERSIONS = frozenset({"1.0", "1.1"})
 LEASE_BUNDLE_SCHEMA_VERSION = "1.0"
+LIVENESS_SCHEMA_VERSION = "1.0"
+LIVENESS_KIND = "exclusive-file-lock"
 POOL_CAPACITY = 40
 CHECKOUT_IDENTITY_PREFIX = "manifest-sha256:"
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
@@ -57,7 +74,13 @@ _ASSIGNMENT_FIELDS = {
     "status",
     "result_sha256",
     "settled_generation",
+    "liveness",
 }
+# Assignments written before durable liveness evidence existed. They load
+# unchanged and are normalized to "no evidence", which keeps them active and
+# never reclaimable: absence of evidence is not evidence that a run is unowned.
+_LEGACY_ASSIGNMENT_FIELDS = _ASSIGNMENT_FIELDS - {"liveness"}
+_ASSIGNMENT_STATUSES = {"active", "settled", "failed", "cancelled", "stranded"}
 
 
 class ExecutionCrewSessionPoolError(RuntimeError):
@@ -162,6 +185,194 @@ def _exclusive_file_lock(path: Path) -> Iterator[None]:
         stream.close()
 
 
+def _open_lock_region(path: Path) -> BinaryIO:
+    """Open one single-byte lock region without truncating an existing file."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    stream = path.open("a+b")
+    try:
+        if stream.seek(0, os.SEEK_END) == 0:
+            stream.write(b"\0")
+            stream.flush()
+        stream.seek(0)
+    except OSError:
+        stream.close()
+        raise
+    return stream
+
+
+def _acquire_liveness_lock(path: Path) -> BinaryIO:
+    """Take the exclusive liveness lock for one run, or raise.
+
+    This lock is deliberately *held for the whole worker invocation*, unlike
+    ``_exclusive_file_lock``, which guards only a short pool transaction and is
+    never held while Docker or a provider runs. Holding it is what makes owner
+    death observable: the operating system releases the lock when the owning
+    process exits, however it exits.
+    """
+
+    stream = _open_lock_region(path)
+    try:
+        _lock_region_exclusive_nonblocking(stream)
+    except BaseException:
+        stream.close()
+        raise
+    return stream
+
+
+def _file_identity(stream: BinaryIO) -> tuple[int, int] | None:
+    """Return the open file's (device, inode) identity, or None if unavailable."""
+
+    try:
+        status = os.fstat(stream.fileno())
+    except OSError:
+        return None
+    if not status.st_ino:
+        return None
+    return (int(status.st_dev), int(status.st_ino))
+
+
+def _lock_region_exclusive_nonblocking(stream: BinaryIO) -> None:
+    """Take the region exclusively without waiting, or raise.
+
+    A refusal is reported as ``PermissionError`` by ``msvcrt`` and as
+    ``BlockingIOError`` by ``fcntl``; both mean another open handle -- in this
+    process or any other -- already holds the region.
+    """
+
+    stream.seek(0)
+    if os.name == "nt":
+        import msvcrt
+
+        msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+    else:
+        import fcntl
+
+        fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _release_liveness_lock(stream: BinaryIO) -> None:
+    """Release one held liveness lock, tolerating an already-closed stream."""
+
+    try:
+        if not stream.closed:
+            stream.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+    except OSError:
+        # Process exit releases the region regardless; a failed explicit
+        # unlock must never mask the transition that requested it.
+        pass
+    finally:
+        try:
+            stream.close()
+        except OSError:
+            pass
+
+
+def _probe_liveness(descriptor: Any, *, host: str) -> tuple[str, str]:
+    """Decide whether the process that owns one run is provably gone.
+
+    Returns ``(verdict, detail)`` where ``verdict`` is exactly one of:
+
+    ``"unowned"``
+        The exclusive lock was acquired, so the operating system released it,
+        so no process on this host owns this run.
+    ``"live"``
+        The lock is held. A controller owns this run and must not be disturbed.
+    ``"unknown"``
+        Ownership is not decidable from durable evidence here. The caller must
+        keep the lease active and report ``detail`` as the precise blocker.
+
+    Elapsed time is deliberately not an input: a legitimate assignment may run
+    for hours, and age is not evidence of anything.
+
+    What the lock proves, precisely: the *controller* that reserved the leases
+    is gone. It does not prove that the Docker crew container is gone, because
+    the container is not a descendant of the controller and never holds this
+    lock. That distinction is deliberate and sufficient here, because settling
+    an assignment is something only a host controller can do: once no process
+    owns the run, nothing will ever settle it, so its leases can never be
+    released by the normal path. Reclaiming is therefore about a run that
+    *cannot resume*, not about a process proven to have stopped computing.
+
+    Reclaiming stays conservative in every direction: it quarantines, which
+    only withdraws conversations from reuse. No process is signalled, no
+    container is touched, no provider history is deleted, and the run's
+    artifacts stay on disk. A container that outlives its controller and later
+    writes ``crew_result.json`` is not lost -- it is simply no longer settled
+    automatically, and the operator can inspect it. Ordering protects the
+    common case: ``_recover_persisted_results`` settles any run whose exact
+    result already exists before reclamation is considered at all.
+    """
+
+    if not isinstance(descriptor, Mapping):
+        return "unknown", "assignment predates durable liveness evidence"
+    if descriptor.get("schema_version") != LIVENESS_SCHEMA_VERSION:
+        return "unknown", "liveness evidence uses an unsupported schema"
+    if descriptor.get("kind") != LIVENESS_KIND:
+        return "unknown", f"unsupported liveness evidence kind: {descriptor.get('kind')!r}"
+    recorded_platform = descriptor.get("platform")
+    if recorded_platform != os.name:
+        # Windows byte-range locks and POSIX flock locks do not interoperate,
+        # so a foreign-platform record can never be evaluated here.
+        return (
+            "unknown",
+            f"run was recorded on platform {recorded_platform!r}, not {os.name!r}",
+        )
+    recorded_host = descriptor.get("host")
+    if recorded_host != host:
+        # A lock observed across a shared filesystem from another machine is
+        # not proof of anything about the owning host's processes.
+        return (
+            "unknown",
+            f"run is owned by host {recorded_host!r} and cannot be proven dead from {host!r}",
+        )
+    raw_path = descriptor.get("path")
+    if type(raw_path) is not str or not raw_path:
+        return "unknown", "liveness evidence records no lock path"
+    path = Path(raw_path)
+    if not path.is_file():
+        return "unknown", f"liveness lock file is missing: {path}"
+    try:
+        stream = _open_lock_region(path)
+    except OSError as exc:
+        # Not being able to open the file says nothing about the worker.
+        return "unknown", f"liveness lock file could not be opened: {exc}"
+    identity = _file_identity(stream)
+    recorded_identity = descriptor.get("file_identity")
+    if identity is None or recorded_identity != list(identity):
+        # The path was replaced, so an owner may still hold the original file
+        # while this name resolves to a different one. Locking this file would
+        # succeed and would say nothing about that owner.
+        stream.close()
+        return (
+            "unknown",
+            f"liveness lock file identity at {path} differs from the recorded run",
+        )
+    try:
+        _lock_region_exclusive_nonblocking(stream)
+    except (BlockingIOError, PermissionError):
+        # The ordinary "a worker holds this" answer on both platforms:
+        # PermissionError from msvcrt, BlockingIOError from flock.
+        stream.close()
+        return "live", f"the owning process still holds {path}"
+    except OSError as exc:
+        stream.close()
+        return "unknown", f"liveness lock could not be evaluated: {exc}"
+    except Exception as exc:  # pragma: no cover - platform lock API absent
+        stream.close()
+        return "unknown", f"liveness lock API is unavailable: {exc}"
+    _release_liveness_lock(stream)
+    return "unowned", f"no process holds {path}; the run has no owner and cannot resume"
+
+
 class ExecutionCrewSessionPoolOwner:
     """Own one repository-scoped, process-safe pool of ExecutionCrew sessions."""
 
@@ -194,6 +405,14 @@ class ExecutionCrewSessionPoolOwner:
         self.state_path = self.root / "execution-crew.json"
         self.lock_path = self.root / "execution-crew.lock"
         self.assignment_root = self.root / "assignments"
+        self.host_identity = socket.gethostname()
+        # Liveness locks this process currently holds, keyed by run identity.
+        # A held entry proves this owner is alive for that run without asking
+        # the operating system, so a run is never mistaken for dead in-process.
+        self._liveness_holds: dict[str, BinaryIO] = {}
+
+    def liveness_path(self, run_id: str) -> Path:
+        return self.assignment_root / f"{run_id}.alive"
 
     def _repository_identity(self) -> str:
         try:
@@ -359,10 +578,20 @@ class ExecutionCrewSessionPoolOwner:
         with _exclusive_file_lock(self.lock_path):
             state, pool, telemetry = self._load()
             self._recover_persisted_results(state, pool)
+            self._reclaim_stranded(state, pool)
             if run_id in state["assignments"]:
                 raise ExecutionCrewSessionPoolError(
                     f"pooled run identity already exists: {run_id}"
                 )
+            # One instant decides both eligibility and admission for every role,
+            # so a record can never be judged offerable against one clock and
+            # then refused against another inside the same reservation.
+            moment = pool.clock()
+            # Retire records that left the idle window before any candidate is
+            # inspected. Expiry happens inside this saved transaction, so a
+            # stale record is durably retired instead of being re-discovered by
+            # the next reservation.
+            pool.expire_idle(now=moment)
             leases: dict[str, AssignmentLease] = {}
             for role in CREW_SESSION_ROLES:
                 compatibility = SessionCompatibility(
@@ -373,24 +602,37 @@ class ExecutionCrewSessionPoolOwner:
                     ROLE_CAPABILITY_CLASSES[role],
                     self.repository_identity,
                 )
-                probation = [
-                    item
-                    for item in pool.sessions_for("probation")
-                    if item.compatibility == compatibility
-                ]
-                try:
-                    if probation:
-                        probation.sort(key=lambda item: item.record_id)
+                offerable = sorted(
+                    (
+                        item
+                        for item in pool.sessions_for("probation")
+                        if item.compatibility == compatibility
+                        and item.is_retry_offerable_at(moment)
+                    ),
+                    key=lambda item: item.record_id,
+                )
+                lease: AssignmentLease | None = None
+                refusals: list[str] = []
+                for candidate in offerable:
+                    try:
                         lease = pool.offer_probation_retry(
                             compatibility=compatibility,
-                            record_id=probation[0].record_id,
+                            record_id=candidate.record_id,
                             worker_slot_id=worker_slot_id,
                             task_id=task_id,
                             worker_run_id=run_id,
                             source_commit=source_commit,
                             checkout_identity=checkout_identity,
+                            now=moment,
                         )
-                    else:
+                    except SessionPoolError as exc:
+                        # One refused probation record must never deny the role.
+                        # Try the next offerable record, then a fresh session.
+                        refusals.append(f"{candidate.record_id}: {exc}")
+                        continue
+                    break
+                if lease is None:
+                    try:
                         lease = pool.checkout(
                             compatibility=compatibility,
                             worker_slot_id=worker_slot_id,
@@ -398,11 +640,13 @@ class ExecutionCrewSessionPoolOwner:
                             worker_run_id=run_id,
                             source_commit=source_commit,
                             checkout_identity=checkout_identity,
+                            now=moment,
                         )
-                except SessionPoolError as exc:
-                    raise ExecutionCrewSessionPoolError(
-                        f"ExecutionCrew role sessions could not be reserved: {exc}"
-                    ) from exc
+                    except SessionPoolError as exc:
+                        detail = f"ExecutionCrew role sessions could not be reserved: {exc}"
+                        if refusals:
+                            detail += f" (refused probation retries: {'; '.join(refusals)})"
+                        raise ExecutionCrewSessionPoolError(detail) from exc
                 leases[role] = lease
             bundle_path = self.assignment_root / f"{run_id}.leases.json"
             bundle = {
@@ -411,6 +655,24 @@ class ExecutionCrewSessionPoolOwner:
                 "leases": {role: leases[role].to_dict() for role in CREW_SESSION_ROLES},
             }
             _write_verified(bundle_path, _json_bytes(bundle))
+            # Take the liveness lock before the assignment becomes durable, so
+            # no window exists in which an active run is recorded with an
+            # unheld lock and another host could read it as dead.
+            liveness_path = self.liveness_path(run_id)
+            try:
+                held = _acquire_liveness_lock(liveness_path)
+            except OSError as exc:
+                raise ExecutionCrewSessionPoolError(
+                    f"pooled run liveness could not be established: {exc}"
+                ) from exc
+            liveness_identity = _file_identity(held)
+            if liveness_identity is None:
+                _release_liveness_lock(held)
+                raise ExecutionCrewSessionPoolError(
+                    "pooled run liveness file identity is unavailable, so a later "
+                    f"owner could never prove ownership of {liveness_path}"
+                )
+            self._liveness_holds[run_id] = held
             state["assignments"][run_id] = {
                 "run_id": run_id,
                 "task_id": task_id,
@@ -428,8 +690,23 @@ class ExecutionCrewSessionPoolOwner:
                 "status": "active",
                 "result_sha256": None,
                 "settled_generation": None,
+                "liveness": {
+                    "schema_version": LIVENESS_SCHEMA_VERSION,
+                    "kind": LIVENESS_KIND,
+                    "path": str(liveness_path),
+                    "file_identity": [liveness_identity[0], liveness_identity[1]],
+                    "platform": os.name,
+                    "host": self.host_identity,
+                    "pid": os.getpid(),
+                },
             }
-            self._save(state, pool, telemetry)
+            try:
+                self._save(state, pool, telemetry)
+            except BaseException:
+                # The reservation never became durable, so this process must not
+                # keep claiming to own it.
+                self.release_liveness(run_id=run_id)
+                raise
         return {
             "run_id": run_id,
             "repository_identity": self.repository_identity,
@@ -506,15 +783,27 @@ class ExecutionCrewSessionPoolOwner:
             assignment = state["assignments"].get(run_id)
             if assignment is None or assignment["status"] != "active":
                 return
+            refused: list[str] = []
             for role in CREW_SESSION_ROLES:
-                pool.quarantine(
-                    AssignmentLease.from_dict(assignment["leases"][role]),
-                    f"terminal crew run produced no authoritative result: {reason}",
-                    outcome="output_failure",
-                )
+                try:
+                    pool.quarantine(
+                        AssignmentLease.from_dict(assignment["leases"][role]),
+                        f"terminal crew run produced no authoritative result: {reason}",
+                        outcome="output_failure",
+                    )
+                except SessionPoolError as exc:
+                    # One role the pool can no longer transition must not keep
+                    # the other three active. Every role that can leave active
+                    # state does so and is committed below; the rest are named.
+                    refused.append(f"{role}: {exc}")
             assignment["status"] = "failed"
             assignment["settled_generation"] = state["generation"] + 1
             self._save(state, pool, telemetry)
+        self.release_liveness(run_id=run_id)
+        if refused:
+            raise ExecutionCrewSessionPoolError(
+                "pooled roles could not be withdrawn from reuse: " + "; ".join(refused)
+            )
 
     def cancel_unstarted(self, *, run_id: str) -> None:
         """Return every lease after a proven process-start failure."""
@@ -529,6 +818,128 @@ class ExecutionCrewSessionPoolOwner:
             assignment["status"] = "cancelled"
             assignment["settled_generation"] = state["generation"] + 1
             self._save(state, pool, telemetry)
+        self.release_liveness(run_id=run_id)
+
+    def release_liveness(self, *, run_id: str) -> None:
+        """Stop asserting that this process owns one run. Idempotent.
+
+        Releasing is not a pool transition: it changes no lease and no
+        assignment status. It only stops this process from proving liveness, so
+        a run that never reached a terminal transition becomes reclaimable by a
+        later owner instead of being stranded forever.
+        """
+
+        stream = self._liveness_holds.pop(run_id, None)
+        if stream is not None:
+            _release_liveness_lock(stream)
+
+    def release_all_liveness(self) -> None:
+        """Release every liveness lock this owner holds. Idempotent.
+
+        Equivalent to the process exiting: the assignments keep whatever status
+        they already have, and any that are still active become reclaimable by
+        a later owner.
+        """
+
+        for run_id in tuple(self._liveness_holds):
+            self.release_liveness(run_id=run_id)
+
+    def __enter__(self) -> "ExecutionCrewSessionPoolOwner":
+        return self
+
+    def __exit__(self, *_exception: object) -> None:
+        self.release_all_liveness()
+
+    def __del__(self) -> None:  # pragma: no cover - finalizer backstop
+        try:
+            self.release_all_liveness()
+        except Exception:
+            pass
+
+    def recover_stranded(self, *, run_ids: Iterable[str] | None = None) -> dict[str, Any]:
+        """Reclaim leases whose owning worker run is provably gone.
+
+        Fail-closed by construction: a lease is quarantined only when durable
+        evidence proves that no process owns its exact run, which is exactly
+        when nothing can ever settle it. A live run is left untouched, and an
+        undecidable one is left active with its precise blocker reported
+        rather than guessed at. Reclaiming quarantines and nothing more: no
+        worker is signalled, no container is touched, and no provider
+        conversation history is deleted.
+        """
+
+        with _exclusive_file_lock(self.lock_path):
+            state, pool, telemetry = self._load()
+            self._recover_persisted_results(state, pool)
+            report = self._reclaim_stranded(state, pool, run_ids=run_ids)
+            self._save(state, pool, telemetry)
+        return report
+
+    def _reclaim_stranded(
+        self,
+        state: dict[str, Any],
+        pool: SessionPool,
+        *,
+        run_ids: Iterable[str] | None = None,
+    ) -> dict[str, Any]:
+        """Quarantine every lease of every provably unowned run.
+
+        The caller already holds the pool-state lock and is responsible for
+        saving. ``_recover_persisted_results`` must run first, so a run whose
+        exact result already exists settles normally and is never reclaimed.
+        """
+
+        selected = None if run_ids is None else {str(item) for item in run_ids}
+        reclaimed: list[dict[str, Any]] = []
+        live: list[str] = []
+        uncertain: list[dict[str, str]] = []
+        for run_id, assignment in sorted(state["assignments"].items()):
+            if assignment["status"] != "active":
+                continue
+            if selected is not None and run_id not in selected:
+                continue
+            if run_id in self._liveness_holds:
+                # This process owns the run right now. No probe can be more
+                # authoritative than that, and none is performed.
+                live.append(run_id)
+                continue
+            verdict, detail = _probe_liveness(
+                assignment.get("liveness"), host=self.host_identity
+            )
+            if verdict == "live":
+                live.append(run_id)
+                continue
+            if verdict != "unowned":
+                uncertain.append({"run_id": run_id, "blocker": detail})
+                continue
+            quarantined: list[str] = []
+            for role in CREW_SESSION_ROLES:
+                lease = AssignmentLease.from_dict(assignment["leases"][role])
+                try:
+                    pool.quarantine(
+                        lease,
+                        "stranded run reclaimed because it has no owning "
+                        f"controller and can never be settled: {detail}",
+                        outcome="other_failure",
+                    )
+                except SessionPoolError as exc:
+                    # A lease the pool no longer holds cannot be reclaimed
+                    # twice; the run is still recorded as stranded below.
+                    uncertain.append(
+                        {"run_id": run_id, "blocker": f"{role} lease was not reclaimable: {exc}"}
+                    )
+                else:
+                    quarantined.append(role)
+            assignment["status"] = "stranded"
+            assignment["settled_generation"] = state["generation"] + 1
+            reclaimed.append(
+                {"run_id": run_id, "reason": detail, "quarantined_roles": tuple(quarantined)}
+            )
+        return {
+            "reclaimed": tuple(reclaimed),
+            "live": tuple(live),
+            "uncertain": tuple(uncertain),
+        }
 
     def _recover_persisted_results(
         self, state: dict[str, Any], pool: SessionPool
@@ -678,7 +1089,7 @@ class ExecutionCrewSessionPoolOwner:
             raise ExecutionCrewSessionPoolError(
                 "ExecutionCrew session pool state fields differ from schema"
             )
-        if state["schema_version"] != OWNER_SCHEMA_VERSION:
+        if state["schema_version"] not in _SUPPORTED_OWNER_SCHEMA_VERSIONS:
             raise ExecutionCrewSessionPoolError(
                 "ExecutionCrew session pool state has an unsupported schema"
             )
@@ -694,11 +1105,16 @@ class ExecutionCrewSessionPoolOwner:
         for run_id, assignment in state["assignments"].items():
             if _RUN_ID.fullmatch(run_id) is None or type(assignment) is not dict:
                 raise ExecutionCrewSessionPoolError("pool assignment identity is invalid")
-            if set(assignment) != _ASSIGNMENT_FIELDS or assignment["run_id"] != run_id:
+            fields = set(assignment)
+            if fields == _LEGACY_ASSIGNMENT_FIELDS:
+                # Pre-liveness assignment: no evidence, never reclaimable.
+                assignment["liveness"] = None
+                fields = set(assignment)
+            if fields != _ASSIGNMENT_FIELDS or assignment["run_id"] != run_id:
                 raise ExecutionCrewSessionPoolError(
                     "pool assignment fields differ from schema"
                 )
-            if assignment["status"] not in {"active", "settled", "failed", "cancelled"}:
+            if assignment["status"] not in _ASSIGNMENT_STATUSES:
                 raise ExecutionCrewSessionPoolError("pool assignment status is invalid")
             if type(assignment["leases"]) is not dict or set(
                 assignment["leases"]
@@ -806,6 +1222,7 @@ class ExecutionCrewSessionPoolOwner:
         telemetry: list[dict[str, Any]],
     ) -> None:
         state["generation"] += 1
+        state["schema_version"] = OWNER_SCHEMA_VERSION
         state["pool"] = pool.to_dict()
         state["lifecycle_telemetry"].extend(telemetry)
         state_body = {key: value for key, value in state.items() if key != "state_sha256"}
@@ -819,6 +1236,8 @@ __all__ = [
     "ExecutionCrewSessionPoolOwner",
     "ExecutionCrewSessionPoolPersistenceError",
     "LEASE_BUNDLE_SCHEMA_VERSION",
+    "LIVENESS_KIND",
+    "LIVENESS_SCHEMA_VERSION",
     "OWNER_SCHEMA_VERSION",
     "POOL_CAPACITY",
 ]
