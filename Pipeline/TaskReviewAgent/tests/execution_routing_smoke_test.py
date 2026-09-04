@@ -939,6 +939,62 @@ def test_rigor_event_reports_requested_effective_and_override_policy() -> None:
     require(overruled_event["execution_model"] == "claude-deep-policy", str(overruled_event))
 
 
+def test_override_reasons_name_only_policy_that_actually_overruled_the_architect() -> None:
+    deep_honored = resolve_task_rigor(
+        recommendation("deep"),
+        task={**rigor_task(synthetic=True), "exclusive_resources": []},
+        predicted_change_surface=surface(
+            "Assets/NoSafeCircle/Feature/A.cs",
+            "Assets/NoSafeCircle/Feature/B.cs",
+            "Assets/NoSafeCircle/Feature/C.cs",
+            "Assets/NoSafeCircle/Feature/D.cs",
+            "Assets/NoSafeCircle/Feature/E.cs",
+        ),
+        committed_path_probe=committed(),
+    )
+    require(deep_honored.minimum_capability_tier == "standard", str(deep_honored))
+    require(deep_honored.architect_recommendation_honored, str(deep_honored))
+    require(deep_honored.override_reasons == (), str(deep_honored))
+    require(
+        any("more than four exact paths" in reason for reason in deep_honored.reasons),
+        str(deep_honored.reasons),
+    )
+
+    standard_overruled = resolve_task_rigor(
+        recommendation("standard"),
+        task={**rigor_task(synthetic=True), "exclusive_resources": []},
+        predicted_change_surface=surface(
+            "Assets/NoSafeCircle/Feature/A.cs",
+            "Assets/NoSafeCircle/Feature/B.cs",
+            "Assets/NoSafeCircle/Feature/C.cs",
+            "Assets/NoSafeCircle/Feature/D.cs",
+            "Assets/Scenes/Arena.unity",
+            serialized=("Assets/Scenes/Arena.unity",),
+        ),
+        committed_path_probe=committed(),
+    )
+    require(standard_overruled.minimum_capability_tier == "deep", str(standard_overruled))
+    require(not standard_overruled.architect_recommendation_honored, str(standard_overruled))
+    require(
+        not any(
+            "more than four exact paths" in reason
+            for reason in standard_overruled.override_reasons
+        ),
+        str(standard_overruled.override_reasons),
+    )
+    require(
+        any("Arena.unity" in reason for reason in standard_overruled.override_reasons),
+        str(standard_overruled.override_reasons),
+    )
+    require(
+        any(
+            "raised architect tier standard to deep" in reason
+            for reason in standard_overruled.override_reasons
+        ),
+        str(standard_overruled.override_reasons),
+    )
+
+
 def test_human_verification_is_never_reduced_by_the_companion_exemption() -> None:
     """The exemption changes how much machine work runs, never who signs off."""
 
@@ -1227,6 +1283,7 @@ def main() -> int:
         test_case_aliases_do_not_inflate_surface_and_broad_symbols_do,
         test_scheduler_worker_builder_refuses_route_without_rigor_authority,
         test_rigor_event_reports_requested_effective_and_override_policy,
+        test_override_reasons_name_only_policy_that_actually_overruled_the_architect,
         test_human_verification_is_never_reduced_by_the_companion_exemption,
         test_policy_raises_fast_serialized_and_infrastructure_work_to_deep,
         test_policy_raises_unknown_or_broad_surface_and_never_lowers_architect,

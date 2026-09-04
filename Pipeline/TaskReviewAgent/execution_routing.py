@@ -97,8 +97,10 @@ class TaskRigorDecision:
     never name or waive one of these controls.
 
     ``reasons`` is the complete narrative. ``override_reasons`` is the subset
-    that actually escalated beyond the lean default, so an operator can see at a
-    glance whether the architect was overruled and exactly why.
+    whose policy floors actually exceed the architect's requested tier, plus
+    the resulting escalation summary.  It is empty whenever the architect's
+    recommendation is honored, even when repository facts establish a lower
+    minimum tier.
     """
 
     architect_capability_tier: str
@@ -142,12 +144,13 @@ class TaskRigorDecision:
             raise ExecutionRoutingError(
                 "every override reason must also appear in the full reason list"
             )
-        if bool(self.override_reasons) and self.architect_recommendation_honored and (
-            self.minimum_capability_tier == self.effective_capability_tier
-            and self.minimum_capability_tier == "fast"
-        ):
+        if bool(self.override_reasons) and self.architect_recommendation_honored:
             raise ExecutionRoutingError(
-                "a fast-floor decision cannot report deterministic overrides"
+                "an honored architect recommendation cannot report deterministic overrides"
+            )
+        if not self.architect_recommendation_honored and not self.override_reasons:
+            raise ExecutionRoutingError(
+                "an overruled architect recommendation requires deterministic override reasons"
             )
 
     def to_event_dict(self) -> dict[str, object]:
@@ -336,14 +339,14 @@ def resolve_task_rigor(
 
     minimum = "fast"
     reasons: list[str] = []
-    overrides: list[str] = []
+    floor_reasons: list[tuple[str, str]] = []
 
     def raise_floor(tier: str, reason: str) -> None:
         nonlocal minimum
         if _TIER_RANK[tier] > _TIER_RANK[minimum]:
             minimum = tier
         reasons.append(reason)
-        overrides.append(reason)
+        floor_reasons.append((tier, reason))
 
     if task.get("execution_scope") != "single_agent" or task.get(
         "decomposition_state"
@@ -420,6 +423,11 @@ def resolve_task_rigor(
         if _TIER_RANK[requested] >= _TIER_RANK[minimum]
         else minimum
     )
+    overrides = [
+        reason
+        for tier, reason in floor_reasons
+        if _TIER_RANK[tier] > _TIER_RANK[requested]
+    ]
     if _TIER_RANK[effective] > _TIER_RANK[requested]:
         raised = (
             f"deterministic policy raised architect tier {requested} to {effective}"
