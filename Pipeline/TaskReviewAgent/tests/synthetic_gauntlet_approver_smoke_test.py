@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import inspect
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -98,24 +99,58 @@ def test_private_rehearsal_preflight_refuses_public_and_production() -> None:
             require("refuses production" in str(exc), str(exc))
         else:
             raise AssertionError("production repository was accepted")
+
+        def private_lookalike(command, **_values):
+            if command[0] == "git":
+                if "get-url" in command:
+                    return "https://github.com/cathode26/My-Rehearsal.git"
+                raise AssertionError(command)
+            return json.dumps(
+                {
+                    "nameWithOwner": "cathode26/My-Rehearsal",
+                    "isPrivate": True,
+                    "defaultBranchRef": {"name": "main"},
+                }
+            )
+
+        approver._run_text = private_lookalike
+        try:
+            approver._require_private_rehearsal(ROOT, "cathode26/My-Rehearsal")
+        except approver.SyntheticApprovalError as exc:
+            require("exact canonical rehearsal" in str(exc), str(exc))
+        else:
+            raise AssertionError("private rehearsal lookalike was accepted")
     finally:
         approver._run_text = original
 
 
 def test_exact_editmode_filter_is_used_before_approval() -> None:
     with tempfile.TemporaryDirectory(prefix="synthetic-approver-") as temporary:
-        checkout_root = Path(temporary)
+        root = Path(temporary)
+        source = root / "source"
+        checkout_root = root / "checkouts"
+        runner_relative = Path("Pipeline/Testing/run_unity_tests_clean.ps1")
+        (source / runner_relative).parent.mkdir(parents=True)
+        (source / runner_relative).write_text("runner\n", encoding="utf-8")
         checkout = checkout_root / "NSC-912"
-        checkout.mkdir()
+        (checkout / runner_relative).parent.mkdir(parents=True)
+        (checkout / runner_relative).write_text("runner\n", encoding="utf-8")
+        commit = "a" * 40
+        tree = "c" * 40
+        contract_hash = "b" * 64
         state = SimpleNamespace(
             checkout_path=str(checkout),
-            head_commit="a" * 40,
+            head_commit=commit,
+            human_handoff_commit=commit,
+            task_contract_sha256=contract_hash,
+            last_event_id="d" * 64,
+            branch="nsc-912-fast-task",
         )
         snapshot = SimpleNamespace(state=state)
         expected_filter = approver._test_filter(912)
         task = {
             "id": "NSC-912",
-            "task_contract_sha256": "b" * 64,
+            "task_contract_sha256": contract_hash,
             "execution_scope": "single_agent",
             "provenance": {
                 "origin": "human_approved_synthetic_gauntlet",
@@ -126,27 +161,128 @@ def test_exact_editmode_filter_is_used_before_approval() -> None:
         calls: list[tuple[str, ...]] = []
         original_plan = approver.validation_plan_for
         original_run = approver.subprocess.run
+        original_run_text = approver._run_text
         approver.validation_plan_for = lambda *_args: {
             "required_test_platforms": ["EditMode"],
             "test_filters": {"EditMode": expected_filter},
+            "authority": "committed_private_synthetic_gauntlet_validation_policy",
+            "policy_sha256": "e" * 64,
         }
+
+        artifact_root = root / "artifacts"
+        artifact_root.mkdir()
+        xml = b'<test-run result="Passed" total="1" passed="1" failed="0" skipped="0" />\n'
+        log = b"Unity test log\n"
+        (artifact_root / "test-results.xml").write_bytes(xml)
+        (artifact_root / "unity.log").write_bytes(log)
+        manifest = {
+            "schema_version": "1.0",
+            "manifest_type": "unity_test_validation",
+            "status": "passed",
+            "validated_state": {
+                "commit": commit,
+                "tree": tree,
+                "post_commit": commit,
+                "post_tree": tree,
+                "repository_clean_before": True,
+                "repository_clean_after": True,
+            },
+            "unity": {
+                "version": "6000.0.test",
+                "executable": "C:/Unity/Unity.exe",
+                "exit_code": 0,
+                "test_platform": "EditMode",
+                "test_filter": expected_filter,
+            },
+            "test_run": {
+                "result": "Passed",
+                "total": 1,
+                "passed": 1,
+                "failed": 0,
+                "skipped": 0,
+            },
+            "artifacts": {
+                "xml": {
+                    "relative_path": "test-results.xml",
+                    "sha256": hashlib.sha256(xml).hexdigest(),
+                    "size_bytes": len(xml),
+                },
+                "log": {
+                    "relative_path": "unity.log",
+                    "sha256": hashlib.sha256(log).hexdigest(),
+                    "size_bytes": len(log),
+                },
+            },
+            "runner": {"path": runner_relative.as_posix()},
+        }
+        manifest_path = artifact_root / "validation-manifest.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        def fake_git(command, **_values):
+            if "status" in command:
+                return ""
+            if "HEAD^{tree}" in command:
+                return tree
+            if "HEAD" in command:
+                return commit
+            raise AssertionError(command)
 
         def record(command, **_values):
             calls.append(tuple(command))
-            return SimpleNamespace(returncode=0)
+            return SimpleNamespace(
+                returncode=0,
+                stdout=f"Validation manifest: {manifest_path}\n",
+            )
 
         approver.subprocess.run = record
+        approver._run_text = fake_git
         try:
             result = approver._run_unity_validation(
-                source=ROOT,
+                source=source,
                 checkout_root=checkout_root,
+                repository="cathode26/NoSafeCircle-Homework-Rehearsal",
                 snapshot=snapshot,
                 task=task,
             )
+            (artifact_root / "test-results.xml").write_bytes(xml + b"tampered")
+            try:
+                approver._run_unity_validation(
+                    source=source,
+                    checkout_root=checkout_root,
+                    repository="cathode26/NoSafeCircle-Homework-Rehearsal",
+                    snapshot=snapshot,
+                    task=task,
+                )
+            except approver.SyntheticApprovalError as exc:
+                require("size_bytes" in str(exc) or "sha256" in str(exc), str(exc))
+            else:
+                raise AssertionError("tampered Unity XML artifact was accepted")
+            (artifact_root / "test-results.xml").write_bytes(xml)
+            empty_manifest = json.loads(json.dumps(manifest))
+            empty_manifest["test_run"].update({"total": 0, "passed": 0})
+            manifest_path.write_text(json.dumps(empty_manifest), encoding="utf-8")
+            try:
+                approver._run_unity_validation(
+                    source=source,
+                    checkout_root=checkout_root,
+                    repository="cathode26/NoSafeCircle-Homework-Rehearsal",
+                    snapshot=snapshot,
+                    task=task,
+                )
+            except approver.SyntheticApprovalError as exc:
+                require("non-empty passing run" in str(exc), str(exc))
+            else:
+                raise AssertionError("zero-test Unity manifest was accepted")
         finally:
             approver.validation_plan_for = original_plan
             approver.subprocess.run = original_run
+            approver._run_text = original_run_text
         require(result["status"].endswith("passed"), str(result))
+        evidence = result["evidence"]
+        require(evidence["commit"] == commit and evidence["tree"] == tree, str(evidence))
+        require(evidence["handoff_event_id"] == "d" * 64, str(evidence))
+        require(evidence["unity_validations"][0]["passed"] == 1, str(evidence))
+        require(evidence["unity_validations"][0]["xml_sha256"] == hashlib.sha256(xml).hexdigest(), str(evidence))
         command = calls[0]
         require(command[command.index("-TestPlatform") + 1] == "EditMode", str(command))
         require(command[command.index("-TestFilter") + 1] == expected_filter, str(command))
@@ -170,6 +306,7 @@ def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
             "schema_version": "2.0",
             "id": "NSC-911",
             "contract_revision": 1,
+            "task_contract_sha256": "f" * 64,
             "exclusive_resources": [f"repo-file:{path}" for path in paths],
             "provenance": {
                 "origin": "human_approved_synthetic_gauntlet",
@@ -178,7 +315,9 @@ def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
                 "expected_paths": paths,
             },
         }
-        parent_hash = approver.semantic_json_sha256(task)
+        parent_hash = approver.semantic_json_sha256(
+            {key: value for key, value in task.items() if key != "task_contract_sha256"}
+        )
 
         def child(task_id: str, resources: list[str], suffix: str) -> dict:
             return {
@@ -209,6 +348,7 @@ def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
             plan_id=plan_id,
             proposed_child_contracts=contracts,
             to_dict=lambda: {"parent_before_hash": parent_hash},
+            canonical_json=lambda: "{}",
         )
         decomposition = SimpleNamespace(
             decision="decomposed",
@@ -221,15 +361,34 @@ def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
         )
         event = SimpleNamespace(
             event_type=approver.WorkflowEventType.DECOMPOSITION_HANDOFF_CREATED,
-            details={"artifact_root": str(artifact_root), "graph_delta_plan_id": plan_id},
+            event_id="d" * 64,
+            details={
+                "artifact_root": str(artifact_root),
+                "graph_delta_plan_id": plan_id,
+                "graph_delta_sha256": hashlib.sha256(b"{}").hexdigest(),
+                "head_commit": "a" * 40,
+                "branch": "main",
+            },
         )
-        snapshot = SimpleNamespace(issue_number=91, events=(event,))
+        snapshot = SimpleNamespace(
+            issue_number=91,
+            events=(event,),
+            state=SimpleNamespace(
+                head_commit="a" * 40,
+                human_handoff_commit="a" * 40,
+                branch="main",
+                last_event_id="d" * 64,
+                task_contract_sha256="f" * 64,
+            ),
+        )
 
         originals = (
             approver.GraphDeltaPlan,
             approver.DecompositionResult,
             approver.load_persistent_work_graph,
             approver.plan_graph_apply,
+            approver.decomposition_validation_policy_for,
+            approver._run_text,
         )
         approver.GraphDeltaPlan = SimpleNamespace(from_payload=lambda _payload: graph)
         approver.DecompositionResult = SimpleNamespace(
@@ -241,9 +400,23 @@ def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
             recomputed_plan_id=plan_id,
             reason="exact deterministic match",
         )
+        approver.decomposition_validation_policy_for = lambda *_args, **_values: {
+            "policy_sha256": "e" * 64
+        }
+        approver._run_text = lambda *_args, **_values: "b" * 40
         try:
             result = approver.review_decomposition_plan(ROOT, snapshot, task)
             require(result["child_ids"] == ["NSC-991", "NSC-992"], str(result))
+            evidence = result["evidence"]
+            require(evidence["graph_delta_plan_id"] == plan_id, str(evidence))
+            require(
+                evidence["decomposition_result_sha256"]
+                == hashlib.sha256(
+                    (artifact_root / "decomposition_result.json").read_bytes()
+                ).hexdigest(),
+                str(evidence),
+            )
+            require([item["task_id"] for item in evidence["children"]] == ["NSC-991", "NSC-992"], str(evidence))
             contracts[1]["exclusive_resources"] = contracts[0][
                 "exclusive_resources"
             ]
@@ -259,14 +432,217 @@ def test_decomposition_requires_fresh_exact_disjoint_partition() -> None:
                 approver.DecompositionResult,
                 approver.load_persistent_work_graph,
                 approver.plan_graph_apply,
+                approver.decomposition_validation_policy_for,
+                approver._run_text,
             ) = originals
 
 
-def test_mutation_is_delegated_to_existing_exact_approval_helper() -> None:
-    source = inspect.getsource(approver._approve)
-    require("pass_and_resume_task.py" in source, source)
-    require('"--defer-launch"' in source, source)
-    require("add_comment" not in source and "update_issue" not in source, source)
+def test_decomposition_uses_agent_evidence_and_pokes_the_architect() -> None:
+    commit = "a" * 40
+    calls: list[dict] = []
+    state = SimpleNamespace(
+        phase=approver.WorkflowPhase.DECOMPOSITION_APPLY,
+        human_result=None,
+        human_handoff_commit=commit,
+        state_version=9,
+        last_event_id="c" * 64,
+    )
+
+    class Service:
+        def apply_automated_decomposition_result(self, **values):
+            calls.append(values)
+            return {"status": "agent_ready", "issue_number": 91}
+
+        def find(self, task_id):
+            require(task_id == "NSC-911", task_id)
+            return SimpleNamespace(valid=True, state=state)
+
+        def clear_vincent_notification(self, task_id):
+            require(task_id == "NSC-911", task_id)
+            return "deleted"
+
+    original_hint = approver.publish_resume_hint
+    hints: list[dict] = []
+    approver.publish_resume_hint = lambda source, **values: (
+        hints.append({"source": source, **values}) or source / "resume.json"
+    )
+    evidence = {"source_commit": commit}
+    try:
+        result = approver._apply_automated_decomposition(
+            source=ROOT,
+            service=Service(),
+            task_id="NSC-911",
+            evidence=evidence,
+        )
+    finally:
+        approver.publish_resume_hint = original_hint
+    require(calls == [{
+        "task_id": "NSC-911",
+        "evidence": evidence,
+        "actor_id": "synthetic-gauntlet-approver",
+    }], str(calls))
+    require(result["vincent_notification"] == "deleted", str(result))
+    require(hints[0]["event_id"] == "c" * 64, str(hints))
+    source = inspect.getsource(approver)
+    require("pass_and_resume_task.py" not in source, source)
+    require("apply_human_result" not in source, source)
+
+
+def test_implementation_uses_agent_evidence_and_pokes_the_architect() -> None:
+    commit = "a" * 40
+    calls: list[dict] = []
+    state = SimpleNamespace(
+        phase=approver.WorkflowPhase.DELIVERY_EVIDENCE,
+        human_result=None,
+        human_handoff_commit=commit,
+        state_version=7,
+        last_event_id="b" * 64,
+    )
+
+    class Service:
+        def apply_automated_validation(self, **values):
+            calls.append(values)
+            return {"status": "agent_ready", "issue_number": 91}
+
+        def find(self, task_id):
+            require(task_id == "NSC-912", task_id)
+            return SimpleNamespace(valid=True, state=state)
+
+        def clear_vincent_notification(self, task_id):
+            require(task_id == "NSC-912", task_id)
+            return "deleted"
+
+    original_hint = approver.publish_resume_hint
+    hints: list[dict] = []
+    approver.publish_resume_hint = lambda source, **values: (
+        hints.append({"source": source, **values}) or source / "resume.json"
+    )
+    evidence = {"commit": commit}
+    try:
+        result = approver._apply_automated_validation(
+            source=ROOT,
+            service=Service(),
+            task_id="NSC-912",
+            evidence=evidence,
+        )
+    finally:
+        approver.publish_resume_hint = original_hint
+    require(calls == [{
+        "task_id": "NSC-912",
+        "evidence": evidence,
+        "actor_id": "synthetic-gauntlet-approver",
+    }], str(calls))
+    require(result["vincent_notification"] == "deleted", str(result))
+    require(hints[0]["event_id"] == "b" * 64, str(hints))
+    source = inspect.getsource(approver._apply_automated_validation)
+    require("apply_human_result" not in source and "human_result=pass" not in source, source)
+
+
+def test_main_processes_every_current_synthetic_issue_serially() -> None:
+    task_ids = ("NSC-911", "NSC-912")
+    snapshots = {
+        "NSC-911": SimpleNamespace(
+            valid=True,
+            issue_number=91,
+            state=SimpleNamespace(
+                state=approver.WorkflowState.HUMAN_ACTION_REQUIRED,
+                phase=approver.WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION,
+                head_commit="a" * 40,
+            ),
+        ),
+        "NSC-912": SimpleNamespace(
+            valid=True,
+            issue_number=92,
+            state=SimpleNamespace(
+                state=approver.WorkflowState.HUMAN_ACTION_REQUIRED,
+                phase=approver.WorkflowPhase.UNITY_RUNTIME_VALIDATION,
+                head_commit="b" * 40,
+            ),
+        ),
+    }
+    order: list[str] = []
+
+    class Service:
+        def __init__(self, **_kwargs):
+            pass
+
+        def list_human_action_required(self):
+            return [
+                {"workflow_state": {"task_id": task_id}}
+                for task_id in task_ids
+            ]
+
+        def find(self, task_id):
+            order.append(f"find:{task_id}")
+            return snapshots[task_id]
+
+    originals = (
+        approver.repo_root,
+        approver._require_private_rehearsal,
+        approver.GhIssueBackend,
+        approver.IssueWorkflowService,
+        approver._require_gauntlet_task,
+        approver.review_decomposition_plan,
+        approver._apply_automated_decomposition,
+        approver._run_unity_validation,
+        approver._apply_automated_validation,
+    )
+    approver.repo_root = lambda source: source
+    approver._require_private_rehearsal = lambda *_args: "fixture/rehearsal"
+    approver.GhIssueBackend = lambda **_kwargs: object()
+    approver.IssueWorkflowService = Service
+    approver._require_gauntlet_task = lambda _source, task_id: {"id": task_id}
+    approver.review_decomposition_plan = lambda _source, _snapshot, task: (
+        order.append(f"review:{task['id']}")
+        or {"evidence": {"task_id": task["id"]}}
+    )
+    approver._apply_automated_decomposition = lambda **values: (
+        order.append(f"apply-decomposition:{values['task_id']}") or {"status": "ok"}
+    )
+    approver._run_unity_validation = lambda **values: (
+        order.append(f"validate:{values['task']['id']}")
+        or {"evidence": {"task_id": values["task"]["id"]}}
+    )
+    approver._apply_automated_validation = lambda **values: (
+        order.append(f"apply-validation:{values['task_id']}") or {"status": "ok"}
+    )
+    try:
+        result = approver.main(
+            (
+                "--source",
+                str(ROOT),
+                "--checkout-root",
+                str(ROOT.parent),
+                "--confirm-repository",
+                "fixture/rehearsal",
+                "--apply",
+            )
+        )
+    finally:
+        (
+            approver.repo_root,
+            approver._require_private_rehearsal,
+            approver.GhIssueBackend,
+            approver.IssueWorkflowService,
+            approver._require_gauntlet_task,
+            approver.review_decomposition_plan,
+            approver._apply_automated_decomposition,
+            approver._run_unity_validation,
+            approver._apply_automated_validation,
+        ) = originals
+    require(result == 0, str(result))
+    require(
+        order
+        == [
+            "find:NSC-911",
+            "review:NSC-911",
+            "apply-decomposition:NSC-911",
+            "find:NSC-912",
+            "validate:NSC-912",
+            "apply-validation:NSC-912",
+        ],
+        str(order),
+    )
 
 
 def main() -> int:
@@ -275,7 +651,9 @@ def main() -> int:
         test_private_rehearsal_preflight_refuses_public_and_production,
         test_exact_editmode_filter_is_used_before_approval,
         test_decomposition_requires_fresh_exact_disjoint_partition,
-        test_mutation_is_delegated_to_existing_exact_approval_helper,
+        test_decomposition_uses_agent_evidence_and_pokes_the_architect,
+        test_implementation_uses_agent_evidence_and_pokes_the_architect,
+        test_main_processes_every_current_synthetic_issue_serially,
     )
     for test in tests:
         test()
