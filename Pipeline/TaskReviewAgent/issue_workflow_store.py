@@ -40,6 +40,7 @@ from .issue_workflow import (
     transition,
     update_issue_body,
     utc_now,
+    validate_automated_decomposition_handoff_binding,
     validate_event_chain,
 )
 
@@ -2178,6 +2179,112 @@ class IssueWorkflowService:
             "status": "agent_ready",
             "decision": result.result,
             "reviewed_plan_id": result.reviewed_plan_id,
+            **verified.to_dict(),
+        }
+
+    def apply_automated_decomposition_result(
+        self,
+        *,
+        task_id: str,
+        evidence: Mapping[str, Any],
+        actor_id: str,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        """Authorize one exact, fresh private-gauntlet decomposition plan."""
+
+        snapshot = self.find(task_id)
+        if snapshot is None or not snapshot.valid or snapshot.state is None:
+            raise IssueWorkflowStoreError(
+                "automated decomposition result requires a valid managed Issue"
+            )
+        state = snapshot.state
+        if (
+            state.state is not WorkflowState.HUMAN_ACTION_REQUIRED
+            or state.phase is not WorkflowPhase.DECOMPOSITION_APPLY_AUTHORIZATION
+        ):
+            raise IssueWorkflowStoreError(
+                "automated decomposition result requires "
+                "human_action_required/decomposition_apply_authorization"
+            )
+        if type(actor_id) is not str:
+            raise IssueWorkflowStoreError(
+                "automated decomposition actor_id must be an exact non-empty identity"
+            )
+        normalized_actor = actor_id.strip()
+        if not normalized_actor or normalized_actor != actor_id:
+            raise IssueWorkflowStoreError(
+                "automated decomposition actor_id must be an exact non-empty identity"
+            )
+        if normalized_actor != self.worker_id:
+            raise IssueWorkflowStoreError(
+                "automated decomposition actor_id must match the authenticated service worker"
+            )
+        handoff = snapshot.events[-1] if snapshot.events else None
+        if handoff is None:
+            raise IssueWorkflowStoreError(
+                "automated decomposition result has no durable decomposition handoff"
+            )
+        try:
+            validate_automated_decomposition_handoff_binding(evidence, handoff)
+            next_state, event = transition(
+                state,
+                event_type=(
+                    WorkflowEventType.AUTOMATED_DECOMPOSITION_APPLICATION_APPROVED
+                ),
+                actor_type=WorkflowActor.AGENT,
+                actor_id=normalized_actor,
+                to_state=WorkflowState.AGENT_READY,
+                to_phase=WorkflowPhase.DECOMPOSITION_APPLY,
+                details=evidence,
+                now=now or utc_now(),
+            )
+        except WorkflowContractError as exc:
+            raise IssueWorkflowStoreError(
+                f"automated decomposition evidence is invalid: {exc}"
+            ) from exc
+        if next_state.human_result is not None:
+            raise IssueWorkflowStoreError(
+                "automated decomposition approval must not synthesize a human result"
+            )
+        self.backend.add_comment(
+            snapshot.issue_number,
+            render_event_comment(
+                event,
+                (
+                    "Authoritative automated review approved the exact fresh, disjoint "
+                    "two-child synthetic decomposition plan "
+                    f"`{evidence.get('graph_delta_plan_id')}`. No human decision was "
+                    "recorded. The next agent phase is `decomposition_apply`."
+                ),
+            ),
+        )
+        self.backend.update_issue(
+            snapshot.issue_number,
+            body=update_issue_body(
+                snapshot.body,
+                next_state,
+                next_action=(
+                    "A generic agent should apply the exact automatically reviewed "
+                    "synthetic decomposition plan."
+                ),
+            ),
+            labels=labels_for_state(next_state.state, snapshot.labels),
+            assignees=[self.assignee],
+        )
+        verified = self.verify_post_mutation_state(
+            task_id,
+            next_state,
+            transition_name="automated decomposition application result",
+        )
+        if verified.state is None or verified.state.human_result is not None:
+            raise IssueWorkflowStoreError(
+                "automated decomposition post-verification found a human result"
+            )
+        return {
+            "status": "agent_ready",
+            "decision": "approve",
+            "reviewed_plan_id": evidence.get("graph_delta_plan_id"),
+            "automated_decomposition_event_id": event.event_id,
             **verified.to_dict(),
         }
 
