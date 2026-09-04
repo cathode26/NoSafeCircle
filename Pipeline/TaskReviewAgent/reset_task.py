@@ -957,16 +957,47 @@ def _require_task_paths_unchanged_since_merge(
     current_main: str,
     paths: Sequence[str],
 ) -> None:
-    changed = [
-        path
-        for path in paths
-        if _tree_entry(runner, source, merge_commit, path)
-        != _tree_entry(runner, source, current_main, path)
-    ]
-    if changed:
+    protected = {str(path).casefold(): str(path) for path in paths}
+    later_commits = tuple(
+        line
+        for line in _git_text(
+            runner,
+            source,
+            "rev-list",
+            "--ancestry-path",
+            current_main,
+            f"^{merge_commit}",
+        ).splitlines()
+        if line
+    )
+    touched: dict[str, list[str]] = {}
+    for commit in later_commits:
+        parents = _commit_parents(runner, source, commit)
+        if not parents:
+            raise TaskResetError("later production history contains a parentless commit")
+        changed = {
+            line.casefold()
+            for line in _git_text(
+                runner,
+                source,
+                "diff",
+                "--name-only",
+                "--no-renames",
+                parents[0],
+                commit,
+            ).splitlines()
+            if line
+        }
+        protected_hits = sorted(
+            (original for folded, original in protected.items() if folded in changed),
+            key=str.casefold,
+        )
+        if protected_hits:
+            touched[commit] = protected_hits
+    if touched:
         raise TaskResetError(
-            "later production commits changed task-owned paths; automatic revert is refused: "
-            + ", ".join(changed)
+            "later production commits changed task-owned paths; automatic revert is refused:\n"
+            + json.dumps(touched, indent=2, sort_keys=True)
         )
 
 
@@ -2265,8 +2296,12 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
     def _repo_paths_for_child(child: dict[str, Any]) -> tuple[str, ...]:
         values: set[str] = set()
         for resource in child.get("exclusive_resources") or []:
-            if isinstance(resource, str) and resource.startswith("repo-file:"):
-                values.add(resource.removeprefix("repo-file:"))
+            if not isinstance(resource, str):
+                continue
+            for prefix in ("repo-file:", "unity-scene:", "unity-prefab:"):
+                if resource.startswith(prefix):
+                    values.add(resource.removeprefix(prefix))
+                    break
         provenance = child.get("provenance")
         for path in (
             provenance.get("expected_paths", [])
@@ -2490,7 +2525,12 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
             ),
         }
 
-    def _child_consumption_from_stored(self, child: dict[str, Any]) -> list[str]:
+    def _child_consumption_from_stored(
+        self,
+        child: dict[str, Any],
+        *,
+        source_commit: str,
+    ) -> list[str]:
         child_id = validate_task_id(str(child.get("id") or ""))
         reasons: list[str] = []
         issues = _managed_task_issues(
@@ -2547,8 +2587,10 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
         if (self.source / "Tasks" / f"{child_id}.yaml").exists():
             reasons.append("current TaskGraph child contract")
         for path in self._repo_paths_for_child(child):
-            if (self.source / Path(path)).exists():
-                reasons.append(f"current child-owned path {path}")
+            if _tree_entry(self.runner, self.source, "HEAD", path) != _tree_entry(
+                self.runner, self.source, source_commit, path
+            ):
+                reasons.append(f"current child-owned path changed from baseline: {path}")
         evidence = self.source / "Pipeline" / "TaskGraph" / "evidence" / child_id
         if evidence.exists():
             reasons.append(f"current child evidence {evidence}")
@@ -2620,7 +2662,10 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
             )
         blocked: dict[str, list[str]] = {}
         for child in children:
-            reasons = self._child_consumption_from_stored(child)
+            reasons = self._child_consumption_from_stored(
+                child,
+                source_commit=str(history["source_commit"]),
+            )
             if reasons:
                 blocked[str(child["id"])] = reasons
         if blocked:
@@ -2638,6 +2683,14 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
             self.runner, self.source, self.repository, self.branch, "open"
         ):
             raise TaskResetError("parent decomposition branch has an open pull request")
+        parent_worktrees = _controller_task_worktrees(
+            self.runner, self.source, self.task_id, self.branch
+        )
+        if parent_worktrees:
+            raise TaskResetError(
+                "parent task-specific linked worktree exists; recovery refuses:\n"
+                + json.dumps(parent_worktrees, indent=2, sort_keys=True)
+            )
 
         checkout_facts = None
         manifest = None
@@ -2863,8 +2916,199 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
         if head != report.get("main_head") or remote != head:
             raise TaskResetError("current main moved after the recovery preflight")
 
-    def _finish_recovery(self, report: dict[str, Any], path: Path) -> dict[str, Any]:
+    def _revalidate_recovery_authority(self, report: dict[str, Any]) -> None:
+        """Re-prove immutable authority and non-consumption before each cleanup step."""
+
         self._verify_recovery_main(report)
+        if self._stored_parent_task_id() != self.task_id:
+            raise TaskResetError("stored graph delta belongs to a different parent")
+
+        issue_record = report.get("issue")
+        if not isinstance(issue_record, dict):
+            raise TaskResetError("recovery receipt has an invalid Issue record")
+        number = issue_record.get("number")
+        if type(number) is not int or number < 1:
+            raise TaskResetError("recovery receipt has an invalid Issue identity")
+        exact_issue = self._issue_view(number)
+        github_state = str(exact_issue.get("state") or "").upper()
+        if github_state not in {"OPEN", "CLOSED"}:
+            raise TaskResetError("recovery Issue state was not observable")
+        state, _, completed_details = self._validated_completed_issue(
+            exact_issue,
+            expected_github_state=github_state,
+        )
+        open_issues = _managed_task_issues(
+            self.runner, self.source, self.repository, self.task_id, "open"
+        )
+        open_numbers = {
+            item.get("number") for item in open_issues if isinstance(item, dict)
+        }
+        expected_open_numbers = {number} if github_state == "OPEN" else set()
+        if open_numbers != expected_open_numbers:
+            raise TaskResetError(
+                "parent managed Issue set changed after the recovery preflight"
+            )
+
+        children = self._proposed_children()
+        history = self._historical_plan(
+            str(report["main_head"]), completed_details, children
+        )
+        for field in (
+            "plan_id",
+            "apply_commit",
+            "source_commit",
+            "source_tree",
+            "apply_tree",
+            "undo_commit",
+            "undo_tree",
+            "changed_paths",
+            "source_graph_semantic_hash",
+            "proposed_graph_semantic_hash",
+            "later_commits",
+            "protected_child_paths",
+            "protected_evidence_prefixes",
+        ):
+            if report.get(field) != history.get(field):
+                raise TaskResetError(
+                    f"recovery receipt {field} differs from current graph/history authority"
+                )
+        expected_children = [str(item["id"]) for item in children]
+        if report.get("decomposition_children") != expected_children:
+            raise TaskResetError(
+                "recovery receipt child set differs from graph-delta authority"
+            )
+        if state.head_commit != history["source_commit"]:
+            raise TaskResetError(
+                "completed decomposition Issue baseline differs from the D1C source commit"
+            )
+        if state.human_handoff_commit != history["source_commit"]:
+            raise TaskResetError(
+                "completed decomposition Issue handoff differs from the D1C source commit"
+            )
+
+        _validate_taskgraph(self.runner, self.source)
+        parent = load_committed_task(self.source, self.task_id)
+        if (
+            parent.get("decomposition_state") == "decomposed"
+            or parent.get("decomposition_children")
+            or parent.get("execution_scope") != "needs_execution_decomposition"
+        ):
+            raise TaskResetError(
+                "current parent contract is not restored for fresh decomposition"
+            )
+        blocked: dict[str, list[str]] = {}
+        for child in children:
+            reasons = self._child_consumption_from_stored(
+                child,
+                source_commit=str(history["source_commit"]),
+            )
+            if reasons:
+                blocked[str(child["id"])] = reasons
+        if blocked:
+            raise TaskResetError(
+                "decomposition children were consumed or remain reserved; recovery refuses:\n"
+                + json.dumps(blocked, indent=2, sort_keys=True)
+            )
+        if _relevant_claims(self.source, parent):
+            raise TaskResetError("parent task/resource claim refs still exist")
+        if _remote_ref_oid(
+            self.runner, self.source, "origin", f"refs/heads/{self.branch}"
+        ) is not None:
+            raise TaskResetError("parent decomposition branch appeared remotely")
+        if _task_pull_requests(
+            self.runner, self.source, self.repository, self.branch, "open"
+        ):
+            raise TaskResetError("parent decomposition branch has an open pull request")
+        parent_worktrees = _controller_task_worktrees(
+            self.runner, self.source, self.task_id, self.branch
+        )
+        if parent_worktrees:
+            raise TaskResetError(
+                "parent task-specific linked worktree exists; recovery refuses:\n"
+                + json.dumps(parent_worktrees, indent=2, sort_keys=True)
+            )
+
+        if self.checkout.exists():
+            if not isinstance(report.get("checkout"), dict):
+                raise TaskResetError(
+                    "a parent checkout appeared after the recovery preflight"
+                )
+            manifest = _validate_branchless_checkout_manifest(
+                self.state_root / f"{self.task_id}.json",
+                task=parent,
+                checkout=self.checkout,
+                branch=self.branch,
+                source_head=str(history["source_commit"]),
+                source_tree=str(history["source_tree"]),
+                origin=self.origin,
+            )
+            if manifest.get("manifest_sha256") != report.get(
+                "checkout_manifest_sha256"
+            ):
+                raise TaskResetError("parent checkout manifest changed after preflight")
+            _inspect_checkout(
+                self.runner,
+                self.checkout,
+                expected_root=self.checkout_root,
+                expected_origin=self.origin,
+                expected_branch=self.branch,
+                expected_head=str(history["source_commit"]),
+                remote_branch_oid=None,
+            )
+            processes = _processes_using_checkout(
+                self.runner, self.source, self.checkout
+            )
+            containers = _containers_using_checkout(
+                self.runner, self.source, self.checkout
+            )
+            if processes or containers:
+                raise TaskResetError(
+                    "parent decomposition checkout became active during recovery"
+                )
+
+        local_branch = _git_text(
+            self.runner,
+            self.source,
+            "rev-parse",
+            "--verify",
+            f"refs/heads/{self.branch}",
+            check=False,
+        ) or None
+        recorded_branch = report.get("local_branch_oid")
+        if local_branch is not None and local_branch != recorded_branch:
+            raise TaskResetError("parent local branch changed after preflight")
+
+        expected_state_names = {
+            Path(value).name for value in report.get("active_state_files") or []
+        }
+        active_names = {
+            path.name
+            for path in _state_paths(self.state_root, self.task_id)
+            if path.is_file()
+        }
+        archive = Path(str(report.get("planned_state_archive") or "")).resolve()
+        expected_archive_parent = (
+            self.state_root / "archive" / self.task_id
+        ).resolve()
+        if archive.parent != expected_archive_parent:
+            raise TaskResetError("recovery receipt state archive path escaped its task")
+        archived_names = (
+            {path.name for path in archive.iterdir() if path.is_file()}
+            if archive.is_dir()
+            else set()
+        )
+        if active_names & archived_names or active_names | archived_names != expected_state_names:
+            raise TaskResetError(
+                "active/archived parent state differs from the recovery receipt"
+            )
+        task_state = _task_state(self.runner, self.source, self.task_id).get("state")
+        if not _abandoned_rehearsal_state_is_undelivered(parent, task_state):
+            raise TaskResetError(
+                "restored parent is not eligible for fresh decomposition"
+            )
+
+    def _finish_recovery(self, report: dict[str, Any], path: Path) -> dict[str, Any]:
+        self._revalidate_recovery_authority(report)
         number = int(report["issue"]["number"])
         self._validated_completed_issue(
             self._issue_view(number), expected_github_state="CLOSED"
@@ -2885,7 +3129,10 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
         if _relevant_claims(self.source, parent):
             raise TaskResetError("parent claim appeared during recovery")
         for child in self._proposed_children():
-            reasons = self._child_consumption_from_stored(child)
+            reasons = self._child_consumption_from_stored(
+                child,
+                source_commit=str(report["source_commit"]),
+            )
             if reasons:
                 raise TaskResetError(
                     f"child {child['id']} changed during recovery: " + "; ".join(reasons)
@@ -2906,13 +3153,15 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
         return report
 
     def _continue_recovery(self, report: dict[str, Any], path: Path) -> dict[str, Any]:
-        self._verify_recovery_main(report)
+        self._revalidate_recovery_authority(report)
         self._close_exact_issue(report)
         report["status"] = "issue_closed"
         _write_report(path, report)
+        self._revalidate_recovery_authority(report)
         self._remove_exact_checkout(report)
         report["status"] = "checkout_removed"
         _write_report(path, report)
+        self._revalidate_recovery_authority(report)
         archive, names = self._archive_recovery_state(report)
         report.update(
             {
@@ -2952,11 +3201,20 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
                 "undo_commit",
                 "source_commit",
                 "source_tree",
+                "apply_tree",
+                "undo_tree",
                 "main_head",
                 "changed_paths",
+                "source_graph_semantic_hash",
+                "proposed_graph_semantic_hash",
+                "later_commits",
+                "protected_child_paths",
+                "protected_evidence_prefixes",
                 "decomposition_children",
                 "issue",
                 "checkout",
+                "checkout_manifest_sha256",
+                "local_branch_oid",
                 "active_state_files",
             ):
                 if verification.get(field) != plan.get(field):
@@ -2995,7 +3253,7 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
                 r"[0-9a-f]{40}", str(report.get(field))
             ) is None:
                 raise TaskResetError(f"recovery receipt has an invalid {field}")
-        self._verify_recovery_main(report)
+        self._revalidate_recovery_authority(report)
         return self._continue_recovery(report, path)
 
 

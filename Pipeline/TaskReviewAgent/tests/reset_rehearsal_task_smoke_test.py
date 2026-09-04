@@ -246,6 +246,27 @@ def test_additive_revert_preserves_later_unrelated_history(root: Path) -> None:
         "reset atop unrelated later main was not recognized for idempotent resume",
     )
 
+    transient, transient_merge = _merged_reset_fixture(
+        root, "repo-transient-task-touch", "NSC-906"
+    )
+    (transient / "task.txt").write_text(
+        "temporary dependent edit\n", encoding="utf-8"
+    )
+    run("git", "commit", "-am", "temporarily edit task path", cwd=transient)
+    (transient / "task.txt").write_text("delivered\n", encoding="utf-8")
+    run("git", "commit", "-am", "restore task path bytes", cwd=transient)
+    transient_head = run("git", "rev-parse", "HEAD", cwd=transient)
+    expect_error(
+        lambda: _require_task_paths_unchanged_since_merge(
+            runner,
+            transient,
+            merge_commit=transient_merge,
+            current_main=transient_head,
+            paths=("task.txt",),
+        ),
+        "task.txt",
+    )
+
 
 def _merged_reset_fixture(root: Path, name: str, task_id: str) -> tuple[Path, str]:
     repository = root / name

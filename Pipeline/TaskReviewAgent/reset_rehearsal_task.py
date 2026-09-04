@@ -368,16 +368,49 @@ def _require_task_paths_unchanged_since_merge(
     current_main: str,
     paths: Sequence[str],
 ) -> None:
-    changed = [
-        path
-        for path in paths
-        if _tree_entry(runner, root, merge_commit, path)
-        != _tree_entry(runner, root, current_main, path)
-    ]
-    if changed:
+    protected = {str(path).casefold(): str(path) for path in paths}
+    later_commits = tuple(
+        line
+        for line in _git_text(
+            runner,
+            root,
+            "rev-list",
+            "--ancestry-path",
+            current_main,
+            f"^{merge_commit}",
+        ).splitlines()
+        if line
+    )
+    touched: dict[str, list[str]] = {}
+    for commit in later_commits:
+        parents = _commit_parents(runner, root, commit)
+        if not parents:
+            raise RehearsalResetError(
+                "later main history contains a parentless commit"
+            )
+        changed = {
+            line.casefold()
+            for line in _git_text(
+                runner,
+                root,
+                "diff",
+                "--name-only",
+                "--no-renames",
+                parents[0],
+                commit,
+            ).splitlines()
+            if line
+        }
+        protected_hits = sorted(
+            (original for folded, original in protected.items() if folded in changed),
+            key=str.casefold,
+        )
+        if protected_hits:
+            touched[commit] = protected_hits
+    if touched:
         raise RehearsalResetError(
-            "later commits changed task-owned paths; rehearsal reset is refused: "
-            + ", ".join(changed)
+            "later commits changed task-owned paths; rehearsal reset is refused:\n"
+            + json.dumps(touched, indent=2, sort_keys=True)
         )
 
 

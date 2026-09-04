@@ -162,6 +162,23 @@ def test_path_guard(repository: Path) -> None:
         != _tree_entry(runner, repository, head, "later.txt"),
         "fixture did not create unrelated later production work",
     )
+    (repository / "task.txt").write_text("temporary task edit\n", encoding="utf-8")
+    run("git", "commit", "-am", "temporary task edit", cwd=repository)
+    (repository / "task.txt").write_text("delivered\n", encoding="utf-8")
+    run("git", "commit", "-am", "restore task bytes", cwd=repository)
+    restored_head = run("git", "rev-parse", "HEAD", cwd=repository)
+    try:
+        _require_task_paths_unchanged_since_merge(
+            runner,
+            repository,
+            merge_commit=merge,
+            current_main=restored_head,
+            paths=("task.txt",),
+        )
+    except TaskResetError as exc:
+        expect("task.txt" in str(exc), "transient-touch refusal omitted the path")
+    else:
+        raise AssertionError("a transient task-path edit was hidden by restored bytes")
     (repository / "task.txt").write_text("later task edit\n", encoding="utf-8")
     run("git", "commit", "-am", "later task edit", cwd=repository)
     changed_head = run("git", "rev-parse", "HEAD", cwd=repository)
@@ -1215,6 +1232,185 @@ def test_published_decomposition_undo_recovery_refuses_any_child_issue(
     )
 
 
+def test_published_recovery_protects_unity_resources_without_false_existing_path(
+    root: Path,
+) -> None:
+    environment = PublishedUndoEnvironment(root)
+    operation = environment.recovery()
+    paths = operation._repo_paths_for_child(
+        {
+            "exclusive_resources": [
+                "repo-file:Assets/Fixture/Code.cs",
+                "unity-scene:Assets/Scenes/Fixture.unity",
+                "unity-prefab:Assets/Prefabs/Fixture.prefab",
+                "logical:fixture",
+            ],
+            "provenance": {"expected_paths": ["Assets/Fixture/Expected.txt"]},
+        }
+    )
+    expect(
+        paths
+        == (
+            "Assets/Fixture/Code.cs",
+            "Assets/Fixture/Expected.txt",
+            "Assets/Prefabs/Fixture.prefab",
+            "Assets/Scenes/Fixture.unity",
+        ),
+        "Unity scene/prefab resources were not converted to protected paths",
+    )
+
+    unchanged_existing = {
+        "id": "NSC-043",
+        "title": "Existing path fixture",
+        "exclusive_resources": ["repo-file:FixtureUnrelated.txt"],
+    }
+    reasons = operation._child_consumption_from_stored(
+        unchanged_existing,
+        source_commit=environment.fixture.initial_head,
+    )
+    expect(
+        not any("child-owned path" in reason for reason in reasons),
+        "an unchanged pre-decomposition file was treated as child consumption",
+    )
+
+    scene = environment.work / "Assets" / "Scenes" / "Consumed.unity"
+    scene.parent.mkdir(parents=True)
+    scene.write_text("consumed scene\n", encoding="utf-8", newline="\n")
+    run("git", "add", "--", "Assets/Scenes/Consumed.unity", cwd=environment.work)
+    run(
+        "git",
+        "commit",
+        "-q",
+        "--no-gpg-sign",
+        "-m",
+        "fixture: consume child scene",
+        cwd=environment.work,
+    )
+    consumed_scene = {
+        "id": "NSC-043",
+        "title": "Consumed scene fixture",
+        "exclusive_resources": ["unity-scene:Assets/Scenes/Consumed.unity"],
+    }
+    reasons = operation._child_consumption_from_stored(
+        consumed_scene,
+        source_commit=environment.fixture.initial_head,
+    )
+    expect(
+        any("Assets/Scenes/Consumed.unity" in reason for reason in reasons),
+        "a newly committed child-owned Unity scene was not treated as consumption",
+    )
+
+
+def test_published_recovery_refuses_parent_linked_worktree(root: Path) -> None:
+    environment = PublishedUndoEnvironment(root)
+    linked = root / "linked-parent"
+    run(
+        "git",
+        "branch",
+        environment.branch,
+        environment.fixture.initial_head,
+        cwd=environment.work,
+    )
+    run(
+        "git",
+        "worktree",
+        "add",
+        "-q",
+        str(linked),
+        environment.branch,
+        cwd=environment.work,
+    )
+    _expect_refusal(
+        environment.recovery().preflight,
+        "linked worktree",
+        "a parent linked worktree was not inventoried before cleanup",
+    )
+    expect(linked.is_dir(), "refused recovery removed the linked worktree")
+
+
+def _stopped_recovery_before_cleanup(
+    environment: PublishedUndoEnvironment,
+) -> Path:
+    operation = environment.recovery(RecoveryGitHubRunner(environment.backend))
+    plan = operation.preflight()
+
+    def interrupt_before_close(_report):
+        raise TaskResetError("fixture interruption before Issue close")
+
+    operation._close_exact_issue = interrupt_before_close
+    try:
+        operation.apply(plan)
+    except TaskResetError as exc:
+        expect("fixture interruption" in str(exc), "unexpected recovery stop")
+    else:
+        raise AssertionError("fixture recovery did not stop before cleanup")
+    receipts = sorted(
+        (
+            environment.checkout_root
+            / ".task-review-agent"
+            / "reset-runs"
+            / environment.parent_id
+        ).glob("*-recover-published-decomposition-undo.json")
+    )
+    expect(len(receipts) == 1, "stopped recovery receipt was not preserved")
+    return receipts[0]
+
+
+def test_published_recovery_resume_revalidates_before_mutation(root: Path) -> None:
+    environment = PublishedUndoEnvironment(root)
+    receipt = _stopped_recovery_before_cleanup(environment)
+    environment.backend.create_issue(
+        title="NSC-043 — consumed after preflight",
+        body="<!-- no-safe-circle-task: NSC-043 -->\n",
+        labels=[],
+        assignees=[],
+    )
+    _expect_refusal(
+        lambda: environment.recovery(
+            RecoveryGitHubRunner(environment.backend)
+        ).resume(receipt),
+        "children were consumed or remain reserved",
+        "resume did not revalidate child consumption before cleanup",
+    )
+    expect(
+        environment.backend.get_issue(1)["state"] == "OPEN",
+        "resume closed the parent Issue before detecting new child work",
+    )
+    expect(environment.checkout.is_dir(), "resume removed the parent checkout")
+    expect(
+        (
+            environment.checkout_root
+            / ".task-review-agent"
+            / f"{environment.parent_id}.json"
+        ).is_file(),
+        "resume archived parent state before detecting new child work",
+    )
+
+
+def test_published_recovery_resume_rebinds_receipt_authority(root: Path) -> None:
+    environment = PublishedUndoEnvironment(root)
+    receipt = _stopped_recovery_before_cleanup(environment)
+    payload = json.loads(receipt.read_text(encoding="utf-8"))
+    payload["plan_id"] = "GDP-" + "0" * 64
+    receipt.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    _expect_refusal(
+        lambda: environment.recovery(
+            RecoveryGitHubRunner(environment.backend)
+        ).resume(receipt),
+        "plan_id differs",
+        "resume did not rebind the receipt to graph/history authority",
+    )
+    expect(
+        environment.backend.get_issue(1)["state"] == "OPEN",
+        "authority mismatch closed the parent Issue",
+    )
+    expect(environment.checkout.is_dir(), "authority mismatch removed the checkout")
+
+
 def test_published_decomposition_undo_recovery_resumes_partial_cleanup(
     root: Path,
 ) -> None:
@@ -1349,6 +1545,10 @@ def main() -> int:
             test_published_decomposition_undo_recovery_cleans_only_stale_coordination,
             test_published_decomposition_undo_recovery_refuses_later_protected_path,
             test_published_decomposition_undo_recovery_refuses_any_child_issue,
+            test_published_recovery_protects_unity_resources_without_false_existing_path,
+            test_published_recovery_refuses_parent_linked_worktree,
+            test_published_recovery_resume_revalidates_before_mutation,
+            test_published_recovery_resume_rebinds_receipt_authority,
             test_published_decomposition_undo_recovery_resumes_partial_cleanup,
             test_undo_decomposition_rejects_invalid_graph_delta_cleanly,
             test_ordinary_reset_modes_are_unchanged,
