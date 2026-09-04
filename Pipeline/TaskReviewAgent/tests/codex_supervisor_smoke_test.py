@@ -36,6 +36,8 @@ from Pipeline.TaskReviewAgent.openai_downstream import (  # noqa: E402
     run_openai_downstream_pipeline,
 )
 from Pipeline.TaskReviewAgent.openai_pipeline import (  # noqa: E402
+    _MAX_TURNS_WITHOUT_DURABLE_PROGRESS,
+    OpenAIProductionPipelineError,
     run_openai_production_pipeline,
 )
 
@@ -171,6 +173,15 @@ class FakeProductionController:
                 "reasons": [],
             },
             "checkout": {"status": checkout_status},
+            # Mirror ProductionTaskController.observe(): the real observation always
+            # carries the accepted scope plan id and the ExecutionCrew receipt once
+            # they exist. Omitting them here hid the host-forced action path.
+            "accepted_plan_id": "plan-777" if self.stage >= 3 else None,
+            "execution_run": (
+                {"run_id": "run-777", "crew_status": "review_ready"}
+                if self.stage >= 4
+                else None
+            ),
             "production_pipeline": {
                 "status": pipeline_status,
                 "next_action": next_action,
@@ -435,7 +446,9 @@ def test_production_goal_loop() -> None:
                     "new_test_paths": [],
                 },
             ),
-            decision("run_execution_crew", {"plan_id": "plan-777"}),
+            # run_execution_crew is no longer a provider decision: production_pipeline
+            # forces it exactly when the accepted plan id exists and no receipt does,
+            # so the host owns both the action and its only required argument.
             decision(
                 "integrate_commit_push_and_handoff",
                 {
@@ -458,8 +471,8 @@ def test_production_goal_loop() -> None:
     )
     require(outcome["status"] == "human_action_required", "goal loop did not reach human handoff")
     require(outcome["commit"] == HEAD, "goal loop changed commit identity")
-    require(provider.calls == 4, "mechanical checkout preparation called the provider")
-    require(provider.turns == [1, 3, 4, 5], f"wrong semantic decision turns: {provider.turns}")
+    require(provider.calls == 3, "a host-forced action still called the provider")
+    require(provider.turns == [1, 3, 5], f"wrong semantic decision turns: {provider.turns}")
     require(controller.prepare_calls == 1, "checkout preparation did not run exactly once")
     require(
         controller.observed_stages == [0, 1, 2, 3, 4, 5],
@@ -485,7 +498,9 @@ def test_conflicted_checkout_preparation_bypasses_supervisor() -> None:
                     "new_test_paths": [],
                 },
             ),
-            decision("run_execution_crew", {"plan_id": "plan-777"}),
+            # run_execution_crew is no longer a provider decision: production_pipeline
+            # forces it exactly when the accepted plan id exists and no receipt does,
+            # so the host owns both the action and its only required argument.
             decision(
                 "integrate_commit_push_and_handoff",
                 {
@@ -506,8 +521,8 @@ def test_conflicted_checkout_preparation_bypasses_supervisor() -> None:
         progress=progress,
     )
     require(outcome["status"] == "human_action_required", "conflict recovery did not finish")
-    require(provider.calls == 3, "conflicted checkout preparation called the provider")
-    require(provider.turns == [2, 3, 4], f"wrong post-recovery turns: {provider.turns}")
+    require(provider.calls == 2, "conflicted checkout preparation called the provider")
+    require(provider.turns == [2, 4], f"wrong post-recovery turns: {provider.turns}")
     require(controller.prepare_calls == 1, "conflicted checkout was not prepared once")
     require(
         controller.observed_stages == [1, 2, 3, 4, 5],
@@ -554,12 +569,242 @@ def test_legacy_delivery_review_is_not_terminal_when_pass_can_carry_forward() ->
     )
 
 
+class StallingController:
+    """Answer every turn with the same durable state.
+
+    ``advance_after`` durable steps are published before the state freezes, so
+    one controller can prove both that real progress resets the counter and that
+    a frozen state eventually trips the bound.
+    """
+
+    def __init__(self, *, advance_after: int = 0) -> None:
+        self.advance_after = advance_after
+        self.observe_calls = 0
+        self.durable_steps = 0
+        self.blockers: list[dict] = []
+        self.workflow = SimpleNamespace(
+            worker_id="worker-one",
+            base_observer=SimpleNamespace(root=ROOT),
+        )
+
+    def observe(self):
+        self.observe_calls += 1
+        return {
+            "environment": {"ready": True, "errors": []},
+            "task": {
+                "task_id": TASK_ID,
+                "contract_disposition": "active",
+                "kind": "implementation",
+                "execution_scope": "single_agent",
+                "decomposition_state": "concrete",
+                "derived_state": "not_delivered",
+                "dependencies_conformant": True,
+            },
+            "coordination": {
+                "status": "claimed_by_worker",
+                "issue_url": "https://example.invalid/issues/777",
+                "workflow_state": {
+                    "state": "agent_working",
+                    "phase": "implementation",
+                    "current_actor": "agent",
+                    "worker_id": "worker-one",
+                    "lease_id": LEASE_ID,
+                    "branch": "nsc-777-synthetic",
+                    # The only durable field that ever moves.
+                    "head_commit": str(self.durable_steps) + "0" * 39,
+                },
+                "reasons": [],
+            },
+            "checkout": {"status": "ready"},
+            "accepted_plan_id": None,
+            "execution_run": None,
+            "production_pipeline": {
+                "status": "agent_working",
+                # Not a host-forced action, so the provider is always consulted.
+                "next_action": "validate_execution_scope",
+            },
+        }
+
+    def repository_facts(self):
+        # A read that deliberately changes no durable workflow state, except for
+        # the first `advance_after` calls which publish a real head commit move.
+        if self.durable_steps < self.advance_after:
+            self.durable_steps += 1
+        return {"status": "ready"}
+
+    def record_pipeline_blocker(self, *, summary, details):
+        self.blockers.append({"summary": summary, "details": list(details)})
+        return {"status": "blocked"}
+
+
+class RepeatingDecisionProvider:
+    def __init__(self, action: str, arguments: dict) -> None:
+        self.action = action
+        self.arguments = dict(arguments)
+        self.calls = 0
+        self.turns: list[int] = []
+
+    def decide(self, *, task_id, turn, prompt, allowed_actions):
+        require(self.action in allowed_actions, "repeating action was not allowed")
+        self.calls += 1
+        self.turns.append(turn)
+        return decision(self.action, self.arguments)
+
+
+def test_host_forced_execution_crew_makes_zero_provider_calls() -> None:
+    """A8.5: a forced action whose only argument is host-owned must not consult
+    the supervisor. Pre-fix this cost one full provider call per run."""
+
+    controller = FakeProductionController(stage=3)
+    provider = FakeDecisionProvider(
+        [
+            decision(
+                "integrate_commit_push_and_handoff",
+                {
+                    "run_id": "run-777",
+                    "implementation_summary": "Recorded the crossing owner.",
+                    "human_steps": ["Open the canonical checkout."],
+                    "expected_result": "Crossing publishes once.",
+                },
+            )
+        ]
+    )
+    outcome = run_openai_production_pipeline(
+        TaskReviewRequest(TASK_ID),
+        controller,
+        max_turns=4,
+        decision_provider=provider,
+    )
+    require(outcome["status"] == "human_action_required", "loop did not reach handoff")
+    require(controller.stage == 5, "ExecutionCrew did not actually run")
+    require(provider.calls == 1, f"forced action consulted the provider: {provider.calls}")
+    require(
+        provider.turns == [2],
+        f"turn 1 (forced run_execution_crew) called the provider: {provider.turns}",
+    )
+
+
+def test_multiple_safe_actions_still_consult_the_provider() -> None:
+    """Requirement 4: only a fully host-argued single action may bypass."""
+
+    controller = FakeProductionController(stage=2)
+    provider = FakeDecisionProvider(
+        [
+            decision(
+                "validate_execution_scope",
+                {
+                    "existing_implementation_paths": ["Assets/Feature.cs"],
+                    "new_implementation_paths": [],
+                    "existing_test_paths": ["Assets/Tests/FeatureTests.cs"],
+                    "new_test_paths": [],
+                },
+            ),
+            decision(
+                "integrate_commit_push_and_handoff",
+                {
+                    "run_id": "run-777",
+                    "implementation_summary": "Recorded the crossing owner.",
+                    "human_steps": ["Open the canonical checkout."],
+                    "expected_result": "Crossing publishes once.",
+                },
+            ),
+        ]
+    )
+    outcome = run_openai_production_pipeline(
+        TaskReviewRequest(TASK_ID),
+        controller,
+        max_turns=5,
+        decision_provider=provider,
+    )
+    require(outcome["status"] == "human_action_required", "loop did not reach handoff")
+    require(
+        provider.calls == 2,
+        f"validate_execution_scope must remain a provider decision: {provider.calls}",
+    )
+    require(provider.turns == [1, 3], f"unexpected provider turns: {provider.turns}")
+
+
+def test_repeated_turns_without_durable_progress_fail_closed() -> None:
+    """Requirement 5: a bounded no-progress breaker that never synthesizes success."""
+
+    controller = StallingController()
+    provider = RepeatingDecisionProvider("repository_facts", {})
+    progress = RecordingProgress()
+    try:
+        run_openai_production_pipeline(
+            TaskReviewRequest(TASK_ID),
+            controller,
+            max_turns=160,
+            decision_provider=provider,
+            progress=progress,
+        )
+    except OpenAIProductionPipelineError as exc:
+        require("no durable workflow progress" in str(exc), f"wrong diagnostic: {exc}")
+    else:
+        raise AssertionError("stalled loop did not fail closed")
+
+    require(
+        provider.calls == _MAX_TURNS_WITHOUT_DURABLE_PROGRESS,
+        f"bound did not stop the loop at the configured limit: {provider.calls}",
+    )
+    require(
+        provider.calls < 160,
+        "the no-progress bound never fired before the turn budget",
+    )
+    events = [name for name, _fields in progress.events]
+    require(
+        "no_durable_progress_bound_reached" in events,
+        f"explicit diagnostic event was not emitted: {sorted(set(events))}",
+    )
+    require(len(controller.blockers) == 1, "no durable blocker was recorded")
+    require(
+        "no durable workflow progress" in controller.blockers[0]["summary"],
+        "blocker summary did not name the cause",
+    )
+
+
+def test_durable_progress_resets_the_no_progress_counter() -> None:
+    """Requirement 5/6: real state change must reset the count, so ordinary
+    retryable work keeps its bounded retry opportunity."""
+
+    advance = _MAX_TURNS_WITHOUT_DURABLE_PROGRESS + 3
+    controller = StallingController(advance_after=advance)
+    provider = RepeatingDecisionProvider("repository_facts", {})
+    try:
+        run_openai_production_pipeline(
+            TaskReviewRequest(TASK_ID),
+            controller,
+            max_turns=160,
+            decision_provider=provider,
+        )
+    except OpenAIProductionPipelineError:
+        pass
+    else:
+        raise AssertionError("stalled loop did not eventually fail closed")
+
+    require(
+        controller.durable_steps == advance,
+        f"durable progress did not actually occur: {controller.durable_steps}",
+    )
+    require(
+        provider.calls == advance + _MAX_TURNS_WITHOUT_DURABLE_PROGRESS,
+        (
+            "counter did not reset on durable progress; expected "
+            f"{advance + _MAX_TURNS_WITHOUT_DURABLE_PROGRESS}, got {provider.calls}"
+        ),
+    )
+
+
 def main() -> int:
     tests = (
         test_decision_contract,
         test_docker_provider_envelope,
         test_supervisor_timeout_configuration_is_lower_only_and_fail_closed,
         test_production_goal_loop,
+        test_host_forced_execution_crew_makes_zero_provider_calls,
+        test_multiple_safe_actions_still_consult_the_provider,
+        test_repeated_turns_without_durable_progress_fail_closed,
+        test_durable_progress_resets_the_no_progress_counter,
         test_conflicted_checkout_preparation_bypasses_supervisor,
         test_downstream_terminal_without_model,
         test_legacy_delivery_review_is_not_terminal_when_pass_can_carry_forward,

@@ -23,12 +23,18 @@ from Pipeline.TaskReviewAgent.codex_supervisor import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_determinism import (  # noqa: E402
+    _ALLOWED_ACTION_CONTEXT,
+    _ORIGINALS,
     _assert_current_main_integrated,
     _authoritative_human_validation,
     _patched_provider_decide,
+    _patched_render_supervisor_prompt,
     _record_same_state_rejection,
     allowed_actions_for,
     bounded_history,
+)
+from Pipeline.TaskReviewAgent.openai_downstream import (  # noqa: E402
+    _ACTIONS as _DOWNSTREAM_ACTIONS,
 )
 from Pipeline.TaskReviewAgent.downstream_pipeline import (  # noqa: E402
     DownstreamPipelineError,
@@ -64,6 +70,40 @@ def require(value: bool, message: str) -> None:
 
 
 def test_zero_argument_single_action_bypasses_provider() -> None:
+    """Drive the PRODUCTION-facing shape, not a pre-narrowed action menu.
+
+    The previous version of this test called _patched_provider_decide directly
+    with allowed_actions=("publish_delivery_review",). No production caller ever
+    supplies a one-element menu: openai_downstream passes the FULL _ACTIONS
+    menu and relies on _patched_render_supervisor_prompt to publish the narrowed
+    selection through _ALLOWED_ACTION_CONTEXT. Passing the narrowed menu by hand
+    made the test pass without exercising that wiring at all.
+    """
+
+    observation = {
+        "downstream": {"next_action": "create_delivery_review_proposal"},
+        "checkout": {},
+    }
+    selected = allowed_actions_for(observation, (), _DOWNSTREAM_ACTIONS)
+    require(
+        selected == ("delivery_review_facts",),
+        f"deterministic state did not force one zero-argument action: {selected}",
+    )
+    require(
+        len(_DOWNSTREAM_ACTIONS) > 1,
+        "the production menu must have more than one action for this to prove anything",
+    )
+
+    # Exactly what openai_downstream does: render through the patched prompt
+    # builder, then decide with the FULL menu.
+    _patched_render_supervisor_prompt(
+        task_id="NSC-020",
+        goal_and_rules="rules",
+        observation=observation,
+        history=(),
+        actions=_DOWNSTREAM_ACTIONS,
+    )
+
     provider = object.__new__(CodexDockerDecisionProvider)
     provider.last_usage = None
     decision = _patched_provider_decide(
@@ -71,13 +111,51 @@ def test_zero_argument_single_action_bypasses_provider() -> None:
         task_id="NSC-020",
         turn=1,
         prompt="provider must not be called",
-        allowed_actions=("publish_delivery_review",),
+        allowed_actions=tuple(_DOWNSTREAM_ACTIONS),
     )
-    require(decision.action == "publish_delivery_review", "wrong host action")
+    require(decision.action == "delivery_review_facts", "wrong host action")
     require(decision.arguments == {}, "host action invented arguments")
     require(
         provider.last_usage.get("authority") == "deterministic_host_single_action",
         "host bypass authority was not reported",
+    )
+
+
+def test_full_menu_without_narrowing_context_still_consults_the_provider() -> None:
+    """A8.5: the short-circuit depends entirely on _ALLOWED_ACTION_CONTEXT.
+
+    The implementation supervisor loop (openai_pipeline) binds the UNPATCHED
+    render_supervisor_prompt, so this context is never set there and the
+    downstream short-circuit cannot fire. This pins that dependency explicitly
+    so the wiring cannot regress silently.
+    """
+
+    _ALLOWED_ACTION_CONTEXT.set(None)
+    provider = object.__new__(CodexDockerDecisionProvider)
+    provider.last_usage = None
+    calls: list[tuple[str, ...]] = []
+
+    def fake_original(_self, *, task_id, turn, prompt, allowed_actions):
+        calls.append(tuple(allowed_actions))
+        return SupervisorDecision(task_id, "delivery_review_facts", {}, "provider chose")
+
+    original = _ORIGINALS["provider_decide"]
+    _ORIGINALS["provider_decide"] = fake_original
+    try:
+        _patched_provider_decide(
+            provider,
+            task_id="NSC-020",
+            turn=1,
+            prompt="provider is required here",
+            allowed_actions=tuple(_DOWNSTREAM_ACTIONS),
+        )
+    finally:
+        _ORIGINALS["provider_decide"] = original
+
+    require(len(calls) == 1, "full unnarrowed menu did not reach the provider")
+    require(
+        calls[0] == tuple(_DOWNSTREAM_ACTIONS),
+        "provider did not receive the full menu when no narrowing context existed",
     )
 
 
@@ -564,6 +642,7 @@ def test_nsc042_policy_is_exact_editmode_filter() -> None:
 def main() -> int:
     tests = (
         test_zero_argument_single_action_bypasses_provider,
+        test_full_menu_without_narrowing_context_still_consults_the_provider,
         test_human_authority_ignores_agent_template,
         test_automation_receipt_rebuilds_from_issue_and_git,
         test_automation_receipt_rejects_task_blob_change,

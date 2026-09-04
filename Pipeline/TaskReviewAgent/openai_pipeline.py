@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+import hashlib
+import json
+from typing import Any, Callable, Mapping
 
 from .codex_supervisor import (
     CodexDockerDecisionProvider,
@@ -279,6 +281,94 @@ def _observation_fields(observation: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+# A deterministically forced action may bypass the supervisor provider ONLY when
+# the host already owns every required argument. The provider still decides
+# whenever any argument needs judgment, so this never removes a real decision.
+#
+# prepare_task_checkout: no arguments at all.
+# run_execution_crew:    plan_id is the accepted scope plan the host validated;
+#                        production_pipeline emits this next_action exactly when
+#                        `scope.accepted is not None` and no execution receipt
+#                        exists, so the first run is fully determined. A retry
+#                        needs retry_run_id/feedback_file judgment and is
+#                        therefore deliberately excluded below.
+_HOST_FORCED_INVOKERS: dict[str, Callable[[Any, Mapping[str, Any]], Any]] = {
+    "prepare_task_checkout": lambda controller, _arguments: (
+        controller.prepare_task_checkout()
+    ),
+    "run_execution_crew": lambda controller, arguments: (
+        controller.run_execution_crew(**dict(arguments))
+    ),
+}
+
+# Consecutive supervisor turns that may pass without any durable workflow change
+# before the loop fails closed. Ordinary exploration (repository_facts, searches,
+# file reads) legitimately makes no durable change, so this bound is deliberately
+# generous; it exists to stop unbounded churn, not to second-guess a few reads.
+_MAX_TURNS_WITHOUT_DURABLE_PROGRESS = 12
+
+
+def _host_forced_action(
+    observation: Mapping[str, Any],
+    observed: Mapping[str, Any],
+) -> tuple[str, dict[str, Any]] | None:
+    """Return the exact (action, arguments) deterministic host state forces.
+
+    Returns ``None`` whenever more than one safe action remains, or whenever any
+    required argument would need supervisor judgment. Callers must consult the
+    provider in that case.
+    """
+
+    next_action = observed.get("next_action")
+    if next_action == "prepare_task_checkout":
+        return ("prepare_task_checkout", {})
+    if next_action == "run_execution_crew":
+        plan_id = observation.get("accepted_plan_id")
+        if not isinstance(plan_id, str) or not plan_id.strip():
+            return None
+        if observation.get("execution_run") is not None:
+            # A prior receipt exists, so this is a repair/retry whose
+            # retry_run_id and feedback_file require supervisor judgment.
+            return None
+        return ("run_execution_crew", {"plan_id": plan_id})
+    return None
+
+
+def _progress_fingerprint(observation: Mapping[str, Any]) -> str:
+    """Hash the durable workflow state that proves real progress.
+
+    Deliberately excludes provider responses, history, prompts, and turn counters:
+    another provider answer is not progress. Only committed/durable workflow,
+    checkout, scope, execution and integration identity count.
+    """
+
+    state = _workflow_state(observation)
+    pipeline = observation.get("production_pipeline") or {}
+    checkout = observation.get("checkout") or {}
+    coordination = observation.get("coordination") or {}
+    execution = observation.get("execution_run")
+    execution = execution if isinstance(execution, Mapping) else {}
+    integration = observation.get("candidate_integration")
+    integration = integration if isinstance(integration, Mapping) else {}
+    material = {
+        "issue_state": state.get("state"),
+        "phase": state.get("phase"),
+        "lease_id": state.get("lease_id"),
+        "head_commit": state.get("head_commit"),
+        "pipeline_status": pipeline.get("status"),
+        "next_action": pipeline.get("next_action"),
+        "checkout_status": checkout.get("status"),
+        "coordination_status": coordination.get("status"),
+        "accepted_plan_id": observation.get("accepted_plan_id"),
+        "execution_run_id": execution.get("run_id"),
+        "execution_crew_status": execution.get("crew_status"),
+        "integration_commit": integration.get("commit"),
+        "integration_status": integration.get("status"),
+    }
+    payload = json.dumps(material, sort_keys=True, default=str, ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _progress_for(
     request: TaskReviewRequest,
     controller: ProductionTaskController,
@@ -328,6 +418,8 @@ def run_openai_production_pipeline(
         reasoning_effort=reasoning_effort,
     )
     history: list[dict[str, Any]] = []
+    last_progress_fingerprint: str | None = None
+    turns_without_durable_progress = 0
 
     try:
         for turn in range(1, max_turns + 1):
@@ -344,6 +436,12 @@ def run_openai_production_pipeline(
                 turn=turn,
                 **observed,
             )
+            fingerprint = _progress_fingerprint(observation)
+            if last_progress_fingerprint is None or fingerprint != last_progress_fingerprint:
+                turns_without_durable_progress = 0
+            else:
+                turns_without_durable_progress += 1
+            last_progress_fingerprint = fingerprint
             terminal = _terminal_outcome(request, observation)
             if terminal is not None:
                 active_progress.emit(
@@ -355,11 +453,53 @@ def run_openai_production_pipeline(
                 if owns_progress:
                     active_progress.finish(str(terminal.get("status") or "complete"))
                 return terminal
-            if observed.get("next_action") == "prepare_task_checkout":
-                action = "prepare_task_checkout"
+            if turns_without_durable_progress >= _MAX_TURNS_WITHOUT_DURABLE_PROGRESS:
+                active_progress.emit(
+                    "no_durable_progress_bound_reached",
+                    (
+                        f"{turns_without_durable_progress} consecutive turns changed no "
+                        "durable workflow state; stopping without choosing an action"
+                    ),
+                    turn=turn,
+                    turns_without_durable_progress=turns_without_durable_progress,
+                    max_turns_without_durable_progress=(
+                        _MAX_TURNS_WITHOUT_DURABLE_PROGRESS
+                    ),
+                    progress_fingerprint=fingerprint,
+                    next_action=observed.get("next_action"),
+                )
+                try:
+                    controller.record_pipeline_blocker(
+                        summary="Goal supervisor made no durable workflow progress",
+                        details=[
+                            f"{turns_without_durable_progress} consecutive supervisor turns "
+                            "left every durable workflow, checkout, scope, execution and "
+                            "integration field unchanged.",
+                            "The bounded limit is "
+                            f"{_MAX_TURNS_WITHOUT_DURABLE_PROGRESS} consecutive turns.",
+                            "No terminal state was proven and no action was synthesized.",
+                        ],
+                    )
+                    observation = controller.observe()
+                    terminal = _terminal_outcome(request, observation)
+                    if terminal is not None:
+                        if owns_progress:
+                            active_progress.finish(
+                                str(terminal.get("status") or "blocked")
+                            )
+                        return terminal
+                except TaskReviewContractError:
+                    pass
+                raise OpenAIProductionPipelineError(
+                    "Goal supervisor made no durable workflow progress for "
+                    f"{turns_without_durable_progress} consecutive turns"
+                )
+            forced = _host_forced_action(observation, observed)
+            if forced is not None:
+                action, forced_arguments = forced
                 rationale = (
                     "Deterministic host selection followed production_pipeline.next_action "
-                    "for the exact no-argument checkout preparation."
+                    f"for the exact host-argued action {action}."
                 )
                 try:
                     with active_progress.heartbeat(
@@ -369,7 +509,9 @@ def run_openai_production_pipeline(
                         action=action,
                         selection="deterministic_host",
                     ):
-                        result = controller.prepare_task_checkout()
+                        result = _HOST_FORCED_INVOKERS[action](
+                            controller, forced_arguments
+                        )
                     active_progress.emit(
                         "action_completed",
                         f"Turn {turn}: {action} completed",
