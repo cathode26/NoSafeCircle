@@ -516,15 +516,18 @@ def test_stale_or_mismatched_check_in_fails_closed() -> None:
         session = session_pool.check_in(
             lease=lease, result=result, evidence_root=run_dir, now=at(30)
         )
-        require(session.state == "quarantined", f"{field} mismatch was accepted")
-        require(
-            "did not match its lease" in (session.quarantine_reason or "")
-            or "compatibility differs" in (session.quarantine_reason or ""),
-            f"{field}: {session.quarantine_reason}",
-        )
+        # The committed policy retires an identity failure and an incompatible
+        # session immediately, so the pool records what the policy decided
+        # rather than a private withdrawal state.
+        require(session.state == "retired", f"{field} mismatch was accepted: {session.state}")
+        require(session.quarantine_reason is None,
+                f"{field}: a retired record kept a withdrawal reason")
         require(session.retirement_reason in {"identity_failure", "session_incompatibility"},
                 f"{field}: {session.retirement_reason}")
-        require(not session.is_reusable_at(at(31)), "a quarantined session stayed reusable")
+        require(session in session_pool.sessions_for("retired"),
+                f"{field}: the retired conversation was not reported as retired")
+        require(not session.is_reusable_at(at(31)), "a retired session stayed reusable")
+        require(not session.is_retry_offerable_at(at(31)), "a retired session was offerable")
     # A confirmation naming a different conversation is equally fatal.
     session_pool = pool()
     lease = checkout(session_pool)
@@ -532,7 +535,7 @@ def test_stale_or_mismatched_check_in_fails_closed() -> None:
     warm = checkout(session_pool, run_id="nsc-050-run-2", now=at(60))
     result, run_dir = durable(warm, session_id="dead0000-1111-4111-8111-000000000002")
     session = session_pool.check_in(lease=warm, result=result, evidence_root=run_dir, now=at(90))
-    require(session.state == "quarantined", "a different confirmed session was accepted")
+    require(session.state == "retired", "a different confirmed session was accepted")
     # A lease that is no longer the session's active lease is stale.
     session_pool = pool()
     lease = checkout(session_pool)
@@ -777,13 +780,16 @@ def test_an_unproven_confirmation_never_replaces_a_trusted_identity() -> None:
     require(lease.session_id is not None and lease.mode == "start", str(lease))
     result, run_dir = durable(lease, session_id=forged_id)
     session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(30))
-    require(session.state == "quarantined", str(session.state))
+    # The committed policy retires an identity failure, and it does so under the
+    # trusted identity rather than the one the confirmation asserted.
+    require(session.state == "retired", str(session.state))
+    require(session.retirement_reason == "identity_failure", str(session.retirement_reason))
     require(session.session_id == lease.session_id,
             f"an unproven confirmation replaced the trusted identity: {session.session_id}")
     require(session.lifecycle is not None and session.lifecycle.session_id == lease.session_id,
             str(None if session.lifecycle is None else session.lifecycle.session_id))
     require(forged_id not in json.dumps(session.to_dict()),
-            "the forged identity survived somewhere in the quarantined record")
+            "the forged identity survived somewhere in the settled record")
 
     # A provider-named cold conversation has no trusted identity yet, so an
     # unproven confirmation gives it none.
@@ -1226,12 +1232,15 @@ def test_every_early_retirement_condition_is_enforced() -> None:
     result, run_dir = durable(lease, task_id="NSC-999")
     session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir)
     require(session.retirement_reason == "identity_failure", str(session.retirement_reason))
+    require(session.state == "retired", str(session.state))
 
     session_pool = pool()
     lease = checkout(session_pool)
     result, run_dir = durable(lease, model="claude-other-1", capability_class="high_reasoning")
     session = session_pool.check_in(lease=lease, result=result, evidence_root=run_dir)
-    require(session.state == "quarantined", str(session.state))
+    require(session.state == "retired", str(session.state))
+    require(session.retirement_reason in {"identity_failure", "session_incompatibility"},
+            str(session.retirement_reason))
 
     idle_session = pool(sessions=[seeded(lifecycle_state(), compat=compatibility(),
                                          record_id="aaaa0000-1111-4111-8111-000000000002")])
@@ -1366,7 +1375,16 @@ def test_two_counted_failures_retire_a_conversation_through_the_real_pool() -> N
 
     # Second consecutive counted failure: the committed policy retires it.
     retired = failed(session_pool, retry, outcome="output_failure", now=at(40))
-    require(retired.state == "quarantined", str(retired.state))
+    # The committed policy retired this conversation, so the pool reports it as
+    # retired -- not as a private withdrawal that `sessions_for("retired")` would
+    # silently omit.
+    require(retired.state == "retired", str(retired.state))
+    require(retired.quarantine_reason is None and retired.probation_reason is None,
+            "a retired conversation kept a withdrawal reason")
+    require(retired in session_pool.sessions_for("retired"),
+            "the retired conversation was not reported as retired")
+    require(retired not in session_pool.sessions_for("quarantined"),
+            "the retired conversation was also reported as quarantined")
     require(retired.retirement_reason == "consecutive_provider_output_failures",
             str(retired.retirement_reason))
     require(retired.lifecycle.consecutive_provider_output_failures == 2,
@@ -1401,6 +1419,90 @@ def test_two_counted_failures_retire_a_conversation_through_the_real_pool() -> N
         SessionPoolError,
     )
     require(stale.sessions[0].state == "expired", str(stale.sessions[0].state))
+
+
+def test_a_lifecycle_retirement_is_recorded_as_retired_not_quarantined() -> None:
+    """Every committed retirement cause must surface through `sessions_for`."""
+
+    # 1. The second consecutive counted failure, reached through a real
+    #    probation retry rather than a hand-seeded streak.
+    session_pool = pool()
+    lease = checkout(session_pool)
+    probation = failed(session_pool, lease, outcome="provider_failure", now=at(10))
+    require(probation.state == "probation", str(probation.state))
+    retry = session_pool.offer_probation_retry(
+        compatibility=compatibility(), record_id=probation.record_id,
+        worker_slot_id="worker-slot-1", task_id="NSC-050", worker_run_id="nsc-050-run-2",
+        source_commit=COMMIT, checkout_identity=CHECKOUT, now=at(11),
+    )
+    retired = failed(session_pool, retry, outcome="provider_failure", now=at(12))
+    require(retired.state == "retired", str(retired.state))
+    require(retired.retirement_reason == "consecutive_provider_output_failures",
+            str(retired.retirement_reason))
+    require([item.record_id for item in session_pool.sessions_for("retired")]
+            == [probation.record_id], str(session_pool.sessions_for("retired")))
+    require(session_pool.sessions_for("quarantined") == (),
+            str(session_pool.sessions_for("quarantined")))
+
+    # 2. An immediate retirement cause decided on the very first failed
+    #    check-in, and a sustained-latency retirement decided on a later one.
+    slow = LatencySample("crew_role_turnaround", 4000, 2000)
+    for label, values, expected in (
+        ("identity", {"task_id": "NSC-999"}, "identity_failure"),
+        ("context",
+         {"status": "failed", "outcome": "provider_failure",
+          "context_percent": CONTEXT_WINDOW_RETIRE_PERCENT},
+         "known_context_window_threshold"),
+    ):
+        session_pool = pool()
+        lease = checkout(session_pool)
+        result, run_dir = durable(lease, **values)
+        session = session_pool.check_in(
+            lease=lease, result=result, evidence_root=run_dir, now=at(30)
+        )
+        require(session.state == "retired", f"{label}: {session.state}")
+        require(session.retirement_reason == expected, f"{label}: {session.retirement_reason}")
+        require(session.quarantine_reason is None and session.probation_reason is None,
+                f"{label}: a retired record kept a withdrawal reason")
+        require(len(session_pool.sessions_for("retired")) == 1, f"{label}: not reported retired")
+        require(not session.is_reusable_at(at(31)) and not session.is_retry_offerable_at(at(31)),
+                f"{label}: a retired conversation stayed selectable")
+
+    latency_pool = pool()
+    lease = checkout(latency_pool)
+    for index in range(LATENCY_RETIRE_SAMPLE_COUNT - 1):
+        returned = complete(latency_pool, lease, now=at(index), latency=slow)
+        require(returned.state == "idle", f"retired at latency sample {index + 1}")
+        lease = checkout(latency_pool, run_id=f"nsc-050-run-{index + 2}", now=at(index))
+    result, run_dir = durable(lease, status="failed", outcome="provider_failure", latency=slow)
+    session = latency_pool.check_in(lease=lease, result=result, evidence_root=run_dir, now=at(9))
+    require(session.state == "retired", str(session.state))
+    require(session.retirement_reason == "sustained_comparable_latency",
+            str(session.retirement_reason))
+
+    # 3. Evidence the committed policy never authoritatively retired is still a
+    #    withdrawal, with its reason, and is still never selectable.
+    for label, kwargs in (
+        ("no durable result", {"result": None, "evidence_root": None}),
+        ("unprovable evidence", {}),
+    ):
+        session_pool = pool()
+        lease = checkout(session_pool)
+        if kwargs:
+            session = session_pool.check_in(lease=lease, now=at(30), **kwargs)
+        else:
+            result, run_dir = durable(lease)
+            (run_dir / result.role_result_artifact).unlink()
+            session = session_pool.check_in(
+                lease=lease, result=result, evidence_root=run_dir, now=at(30)
+            )
+        require(session.state == "quarantined", f"{label}: {session.state}")
+        require(session.quarantine_reason, f"{label}: a withdrawal kept no reason")
+        require(session.retirement_reason is None, f"{label}: {session.retirement_reason}")
+        require(session_pool.sessions_for("retired") == (),
+                f"{label}: an unproven withdrawal was reported as retired")
+        require(not session.is_reusable_at(at(31)) and not session.is_retry_offerable_at(at(31)),
+                f"{label}: a quarantined conversation stayed selectable")
 
 
 def test_an_evidenced_success_between_failures_resets_the_streak() -> None:
@@ -1718,6 +1820,7 @@ TESTS = (
     test_idle_and_waiting_cost_nothing,
     test_every_early_retirement_condition_is_enforced,
     test_two_counted_failures_retire_a_conversation_through_the_real_pool,
+    test_a_lifecycle_retirement_is_recorded_as_retired_not_quarantined,
     test_an_evidenced_success_between_failures_resets_the_streak,
     test_pool_state_and_lifecycle_state_cannot_disagree,
     test_an_active_assignment_cannot_contradict_its_own_history,

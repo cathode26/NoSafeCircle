@@ -1350,7 +1350,7 @@ class SessionPool:
                 # never reusable; it waits on probation for at most one
                 # deliberate, exactly compatible retry.
                 return self._probation(session, reason, lifecycle=lifecycle, now=moment)
-            return self._settle_quarantined(
+            return self._settle_failed(
                 session, reason, lifecycle=lifecycle, session_id=proven_id
             )
         lifecycle = self._finish(
@@ -1473,11 +1473,11 @@ class SessionPool:
         lifecycle = self._finish(
             session, outcome=outcome, result=result, session_id=session_id
         )
-        return self._settle_quarantined(
+        return self._settle_failed(
             session, reason, lifecycle=lifecycle, session_id=session_id
         )
 
-    def _settle_quarantined(
+    def _settle_failed(
         self,
         session: PooledSession,
         reason: str,
@@ -1485,25 +1485,50 @@ class SessionPool:
         lifecycle: SessionLifecycleState | None,
         session_id: str | None,
     ) -> PooledSession:
-        quarantined = PooledSession(
-            record_id=session.record_id,
-            compatibility=session.compatibility,
-            state="quarantined",
-            # Only a proven identity is recorded: a provider-named conversation
-            # whose confirmation was never proven stays unidentified rather than
-            # adopting whatever the transcript asserted.
-            session_id=session_id if lifecycle is None else lifecycle.session_id,
-            completed_assignment_count=(
-                session.completed_assignment_count
-                if lifecycle is None
-                else lifecycle.completed_assignments
-            ),
-            quarantine_reason=reason,
-            lifecycle=lifecycle,
-        )
-        self._sessions[session.record_id] = quarantined
+        """Record the public outcome the committed lifecycle actually decided.
+
+        A conversation the committed policy retired is `retired`, whatever ended
+        it -- a second consecutive provider/output failure, identity failure,
+        session incompatibility, the context-window threshold, sustained
+        comparable latency, or an exhausted budget. Its retirement decision is
+        already on the lifecycle, so the record carries no separate withdrawal
+        reason and `sessions_for("retired")` reports it. Anything the policy did
+        not authoritatively retire -- unproven evidence, a missing durable
+        result, a cold conversation with no lifecycle at all -- is withdrawn as
+        `quarantined` with the reason it was withdrawn for. Neither state is ever
+        selectable, and this decides only how the pool records what happened.
+        """
+
+        if lifecycle is not None and lifecycle.phase == "retired":
+            settled = PooledSession(
+                record_id=session.record_id,
+                compatibility=session.compatibility,
+                state="retired",
+                session_id=lifecycle.session_id,
+                completed_assignment_count=lifecycle.completed_assignments,
+                lifecycle=lifecycle,
+            )
+        else:
+            settled = PooledSession(
+                record_id=session.record_id,
+                compatibility=session.compatibility,
+                state="quarantined",
+                # Only a proven identity is recorded: a provider-named
+                # conversation whose confirmation was never proven stays
+                # unidentified rather than adopting whatever the transcript
+                # asserted.
+                session_id=session_id if lifecycle is None else lifecycle.session_id,
+                completed_assignment_count=(
+                    session.completed_assignment_count
+                    if lifecycle is None
+                    else lifecycle.completed_assignments
+                ),
+                quarantine_reason=reason,
+                lifecycle=lifecycle,
+            )
+        self._sessions[session.record_id] = settled
         self._validate_pool_state()
-        return quarantined
+        return settled
 
     def _probation(
         self,

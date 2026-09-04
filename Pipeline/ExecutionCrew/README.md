@@ -160,6 +160,17 @@ never returned as a successful reusable result, and an active retry is never
 interrupted. Anything unproven -- a missing durable result, a mismatched lease, a
 missing or borrowed artifact -- still quarantines rather than earning probation.
 
+The pool records the outcome the committed policy actually decided. When a
+check-in ends with `phase="retired"` -- a second consecutive counted failure, an
+identity failure, a session incompatibility, the context-window threshold,
+sustained comparable latency, or an exhausted budget -- the record is `retired`,
+carrying that retirement decision and no separate withdrawal reason, so
+`sessions_for("retired")` reports every conversation the lifecycle ended.
+`quarantined` is reserved for what the policy did not authoritatively retire:
+unproven evidence, a missing durable result, or a cold conversation with no
+lifecycle at all. The distinction is bookkeeping, not authority -- neither state
+is ever selectable.
+
 An idle session stays reusable for one hour after a successful check-in, a
 half-open window: reusable below 3600 seconds, expired at exactly 3600. Only
 conversations on that clock -- `idle` and `probation` -- expire, so a stale
