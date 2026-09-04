@@ -19,7 +19,13 @@ from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider, Clau
 from Pipeline.AgentRuntime.providers.openai_codex import OpenAICodexProvider
 from Pipeline.AgentRuntime.provider_sessions import (
     ProviderSessionBinding,
+    ProviderSessionConfirmation,
     ProviderSessionLedger,
+)
+from Pipeline.ExecutionCrew.session_pool import (
+    AssignmentLease,
+    SessionPoolError,
+    assignment_capsule,
 )
 from Pipeline.AgentRuntime.json_values import thaw_json
 from Pipeline.TaskExecution.contracts import TASK_EXECUTION_REQUEST_SCHEMA_VERSION, TaskContractIdentity, TaskExecutionRequest
@@ -1119,6 +1125,79 @@ def resolve_role_session(role_session_bindings: Mapping[str, Any]|None, role: st
     return binding
 
 
+ROLE_EVIDENCE_OBLIGATIONS = {
+    "contract_locality_auditor": (
+        "Classify every current AC-### and VAL-### exactly once; write nothing.",
+    ),
+    "implementer": (
+        "Edit only the exact approved implementation paths for this assignment.",
+        "ExecutionCrew validates this attempt's actual changed paths deterministically.",
+    ),
+    "test_author": (
+        "Author Unity tests only within the exact approved test paths for this assignment.",
+        "Follow the committed Unity testing policy; tests must not mutate tracked files.",
+    ),
+    "validator": (
+        "Semantically review the supplied candidate only; write nothing.",
+    ),
+}
+
+
+def validate_role_session_leases(role_session_leases: Mapping[str, Any]|None, *, task_id: str,
+                                 run_id: str, provider_identifier: str, model: str|None,
+                                 reasoning_effort: str|None) -> dict[str, AssignmentLease]:
+    """Bind every supplied lease to this exact run before any provider work.
+
+    A lease is authority for one assignment only. Requiring the exact task, the
+    exact worker run, the exact role, and the exact stable provider/model/
+    reasoning identity means a human-review retry, another task, or a differently
+    configured run can never silently inherit somebody else's warm conversation.
+    """
+
+    if not role_session_leases:
+        return {}
+    leases: dict[str, AssignmentLease] = {}
+    for role, lease in role_session_leases.items():
+        if type(lease) is not AssignmentLease:
+            raise CrewBlocked("role session lease must be an exact AssignmentLease")
+        if lease.role != role:
+            raise CrewBlocked(
+                f"session lease is bound to role {lease.role!r} and cannot be used for role {role!r}"
+            )
+        if lease.task_id != task_id:
+            raise CrewBlocked(
+                f"session lease is bound to task {lease.task_id!r} and cannot be used for {task_id!r}"
+            )
+        if lease.worker_run_id != run_id:
+            raise CrewBlocked(
+                f"session lease is bound to worker run {lease.worker_run_id!r} and cannot be used for {run_id!r}"
+            )
+        if lease.provider_identifier != provider_identifier:
+            raise CrewBlocked(
+                f"session lease is bound to provider {lease.provider_identifier!r} "
+                f"and cannot be used through {provider_identifier!r}"
+            )
+        if model is not None and lease.model != model:
+            raise CrewBlocked("session lease model differs from this run's routed model")
+        if lease.reasoning_effort != reasoning_effort:
+            raise CrewBlocked("session lease reasoning effort differs from this run")
+        leases[role] = lease
+    return leases
+
+
+def repair_attempt_session(confirmed: Any) -> ProviderSessionBinding:
+    """Return the binding this role's next attempt must invoke with.
+
+    A repair attempt is the same assignment continuing, not a new one, so it
+    resumes the exact conversation the previous attempt confirmed instead of
+    opening a second provider session for the same role.
+    """
+
+    if type(confirmed) is not ProviderSessionConfirmation:
+        raise CrewBlocked("repair continuity requires an exact ProviderSessionConfirmation")
+    return confirmed.resume_binding()
+
+
 def crew_provider_identifier(provider_name: str) -> str:
     if provider_name == "claude":
         return "claude-code"
@@ -1163,6 +1242,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
              retry_expected_provider: str|None=None,
              provider_factory: ProviderFactory|None=None, _require_physical_read_only_source: bool=True,
              role_session_bindings: Mapping[str, ProviderSessionBinding]|None=None,
+             role_session_leases: Mapping[str, AssignmentLease]|None=None,
              codex_resume_sandbox_argument: tuple[str,...]|None=None,
              _persistent_work_graph_loader: Callable[[Path], PersistentWorkGraph]|None=None):
     started=time.monotonic()
@@ -1237,6 +1317,10 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         execution_reasoning_effort = openai_reasoning_effort
     else:
         raise CrewBlocked("provider must be claude or codex")
+    if role_session_bindings and role_session_leases:
+        raise CrewBlocked("supply role session bindings or pooled leases, not both")
+    if role_session_leases and run_id is None:
+        raise CrewBlocked("pooled role session leases require the exact worker run ID")
     if not implementation_paths and not new_implementation_paths: raise CrewBlocked("at least one implementation path is required")
     if not test_paths and not new_test_paths: raise CrewBlocked("at least one test path is required for Stage 5B")
     interval=heartbeat_interval()
@@ -1295,6 +1379,24 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     role_records=[]; reasons=[]; impl_actual=set(); test_actual=set(); pipeline_generated=set(); validator_status=None; attempts=0
     usage_invocations: list[dict[str, Any]] = []
     provider_session_records: list[dict[str, Any]] = []
+    pooled_leases = validate_role_session_leases(
+        role_session_leases, task_id=task_id, run_id=run_id,
+        provider_identifier=crew_provider_identifier(provider_name) if provider_name in ("claude","codex") else "",
+        model=execution_model, reasoning_effort=execution_reasoning_effort,
+    ) if role_session_leases else {}
+    # One live binding per role. A pooled lease seeds it; every confirmed
+    # invocation replaces it with a resume binding so the SAME role keeps the
+    # SAME conversation across its repair attempt. No role is ever skipped
+    # because its session happens to be warm.
+    role_sessions: dict[str, ProviderSessionBinding] = {
+        role: lease.session_binding() for role, lease in pooled_leases.items()
+    }
+    # A capsule is owed once per pooled assignment, on the first invocation that
+    # actually reuses a warm conversation -- not on an intra-run repair attempt,
+    # which is the same assignment continuing.
+    capsule_owed: set[str] = {
+        role for role, lease in pooled_leases.items() if lease.mode == "resume"
+    }
     latest_impl={}; latest_test={}; candidate_path=None; diagnostic_path=None; accepted_candidate=None
     contract_locality_status=None; contract_locality_audit_path=None; contract_locality_audit_host_path=None
     crew_status=None; final_paths: list[str]=[]
@@ -1306,15 +1408,30 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         caps=("repository_read","repository_search","repository_write") if writable else ("repository_read","repository_search")
         session_binding=None; session_ledger=None
         if provider_factory:
-            if role_session_bindings:
+            if role_session_bindings or pooled_leases:
                 raise CrewBlocked("provider session bindings require the real provider path")
             key,config,registry=provider_factory(provider_name,repo,writable,role)
         else:
             key,config=runtime_configuration(provider_name,execution_model)
-            session_binding=resolve_role_session(
+            session_binding=role_sessions.get(role) or resolve_role_session(
                 role_session_bindings,role,crew_provider_identifier(provider_name)
             )
-            if session_binding is not None: session_ledger=ProviderSessionLedger()
+            if session_binding is not None:
+                session_ledger=ProviderSessionLedger()
+                if role in capsule_owed:
+                    # Remembered context must never widen current authority: the
+                    # capsule closes the previous assignment and restates the
+                    # complete authority this one actually has.
+                    capsule_owed.discard(role)
+                    try:
+                        prompt = assignment_capsule(
+                            pooled_leases[role], checkout_root=str(repo), capabilities=caps,
+                            allowed_paths=boundaries.allowed_paths,
+                            denied_paths=boundaries.denied_paths,
+                            evidence_obligations=ROLE_EVIDENCE_OBLIGATIONS.get(role, ()),
+                        ) + "\n\n" + prompt
+                    except SessionPoolError as exc:
+                        raise CrewBlocked(f"assignment capsule could not be built: {exc}") from exc
             provider=construct_real_provider(
                 provider_name,repo,writable,
                 openai_reasoning_effort=execution_reasoning_effort,
@@ -1368,9 +1485,18 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 raise CrewBlocked(
                     f"{role} requested a provider session but no confirmed session identity was proven"
                 )
+            lease = pooled_leases.get(role)
             provider_session_records.append(
-                {"role": role, "attempt": attempt, "run_id": result.run_id, **confirmed.to_dict()}
+                {
+                    "role": role, "attempt": attempt, "run_id": result.run_id,
+                    "lease_id": None if lease is None else lease.lease_id,
+                    "worker_slot_id": None if lease is None else lease.worker_slot_id,
+                    **confirmed.to_dict(),
+                }
             )
+            # The same role's repair attempt must continue this exact
+            # conversation rather than opening a second one.
+            role_sessions[role] = repair_attempt_session(confirmed)
         progress.emit("role_completed",f"{display} {attempt} completed: {result.status} ({duration:.1f}s)",role=role,attempt=attempt,status=result.status,duration_seconds=duration)
         return inv,result
     locality_prompt=contract_locality_auditor_prompt(
@@ -1576,7 +1702,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             human_next_action = "Inspect the blocking reason; no diagnostic patch was produced."
         human_commands = patch_commands(human_artifact, applyable=False)
     human_result = {"status":human_status,"reason":human_reason,"artifact_path":human_artifact,"next_action":human_next_action,"commands":human_commands}
-    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"token_usage":aggregate_token_usage(usage_invocations),"provider_sessions":provider_session_records,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
+    result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"token_usage":aggregate_token_usage(usage_invocations),"provider_sessions":provider_session_records,"reusable_role_sessions":{record["role"]:record["session_id"] for record in provider_session_records},"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
     (run_dir/"crew_result.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
     progress.emit("run_completed",f"ExecutionCrew completed: {crew_status}",status=crew_status,duration_seconds=round(result["duration_seconds"],3))
     return result

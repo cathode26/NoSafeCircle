@@ -62,6 +62,69 @@ operator-verified fragment reproducing the start-time sandbox policy, because
 `codex exec resume` does not accept `--sandbox`. Without it the resume is
 refused rather than run under a different permission policy.
 
+## Role-scoped session pool
+
+`session_pool.py` is the ExecutionCrew side of a reusable work-crew pool. It
+records which provider conversations exist, which assignment currently owns one,
+and which are no longer safe to reuse. It starts nothing, waits on nothing, and
+terminates nothing: worker process lifetime stays with whoever launched it, and
+pooling means a resumable conversation, not a live process or container.
+
+`contract_locality_auditor`, `implementer`, `test_author`, and `validator` keep
+separate pools. A conversation is offered back only for the exact stable
+identity that created it: provider, exact model, reasoning effort, role,
+capability class, repository identity, and crew/session protocol version. Task
+ID, source commit, checkout, allowed paths, and the assignment itself are
+deliberately excluded from that key because they are refreshed every assignment
+and are never continuing authority. Anything uncertain starts a fresh session.
+
+`SessionPool.checkout` reserves one conversation for one assignment and returns
+an `AssignmentLease` carrying the pool schema version, lease ID, session
+identity and mode, provider, model, reasoning effort, role, capability class,
+repository identity, protocol version, worker-slot ID, task ID, worker run ID,
+source commit, checkout identity, checkout timestamp, and prior completed
+assignment count. A checked-out session is invisible to every other assignment,
+sessions are created lazily, and the pool supports at least ten concurrent
+assignments. Claude accepts a pool-chosen `--session-id`, so the identity is
+known at checkout; Codex names its own thread, so a cold Codex lease carries no
+identity and adopts the one its transcript confirms.
+
+`check_in` requires a `DurableAssignmentResult` whose lease, task, worker run,
+role, provider, model, and provider-confirmed session identity all match the
+lease exactly, and whose deterministic changed-path validation accepted the
+work. A process exit code proves nothing. Anything else quarantines: missing or
+malformed session identity, transport failure, uncertain timeout, mismatched
+fields, a missing durable result, rejected changed paths, corrupt state, or an
+unknown protocol version. Quarantine and expiry only stop the pool selecting a
+session; they never delete provider history or credentials and never touch a
+running worker.
+
+An idle session stays reusable for one hour after a successful check-in, a
+half-open window: reusable below 3600 seconds, expired at exactly 3600. Only
+`idle` sessions expire. An active lease is never expired or stolen however long
+its worker runs, because a slow worker may still own it.
+
+`SessionPoolStore` persists pool state at a caller-supplied path outside the
+repository; mutable scheduler state is not repository content. Writes are
+atomic, and loading rejects duplicate JSON keys, unknown schema or protocol
+versions, malformed UUIDs, duplicate session identities, duplicate active
+leases, and impossible state combinations. The future architect scheduler is the
+authoritative writer; nothing here mutates an Issue or makes a scheduling
+decision.
+
+`run_crew(..., role_session_leases=...)` gives each role's lease to that role's
+provider invocation. Every lease must name this exact task, worker run, role,
+provider, model, and reasoning effort, so a human-review retry or another task
+can never inherit a warm conversation. A reused session's first invocation is
+prefixed with `assignment_capsule`, which closes the previous assignment,
+revokes every authorization it carried, and restates the current role, task,
+source commit, checkout root, capabilities, allowed and denied write paths, and
+evidence obligations. A role's repair attempt continues that same conversation
+rather than opening a second one. No role is skipped because its session is
+warm, and `crew_result.json` gains `provider_sessions` receipts plus
+`reusable_role_sessions`. Supplying no pool arguments leaves every run exactly
+as it was.
+
 ## Exact approved new files
 
 **Migration/operator note: Do not scaffold absent files just to make them tracked.** Select the flag from the path state:
