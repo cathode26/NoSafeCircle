@@ -181,6 +181,13 @@ the parent's active controller state. If an external interruption occurs,
 resume the exact receipt with the same repository, plan, and undo confirmations;
 already completed cleanup steps are verified and not repeated.
 
+The completed-Issue guard recognizes that exact authorized recovery marker only
+on a valid closed `complete/decomposition_apply` workflow. It then retains the
+Issue as immutable audit history while excluding it from current workflow
+authority, so a later fresh decomposition creates a new managed Issue. A normal
+completed implementation, an unauthorized marker, or malformed/duplicate
+recovery evidence remains terminal or fails closed.
+
 ### 1. Close the abandoned pull request
 
 Close the open PR with a comment that identifies:

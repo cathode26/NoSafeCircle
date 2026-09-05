@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -18,12 +19,15 @@ from Pipeline.TaskReviewAgent.completed_issue_guard import (  # noqa: E402
     _completed_aware_candidates,
 )
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    IssueWorkflowEvent,
     WorkflowActor,
     WorkflowEventType,
     WorkflowPhase,
     WorkflowState,
     initial_state,
     labels_for_state,
+    parse_events,
+    parse_state,
     render_event_comment,
     transition,
     update_issue_body,
@@ -31,6 +35,7 @@ from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
     GhIssueBackend,
     IssueWorkflowService,
+    IssueWorkflowStoreError,
     MemoryIssueBackend,
     render_contract_body,
 )
@@ -136,6 +141,99 @@ def create_closed_incomplete_duplicate(backend: MemoryIssueBackend) -> int:
     return issue["number"]
 
 
+def create_closed_complete_decomposition(
+    service: IssueWorkflowService,
+    backend: MemoryIssueBackend,
+) -> int:
+    state = initial_state(
+        task_id=TASK_ID,
+        task_contract_sha256=CONTRACT_HASH,
+        phase=WorkflowPhase.DECOMPOSITION_APPLY,
+        now="2026-08-29T06:10:00Z",
+    )
+    issue = backend.create_issue(
+        title=f"{TASK_ID} — Completed decomposition",
+        body=update_issue_body(
+            render_contract_body(task()),
+            state,
+            next_action="Apply the reviewed decomposition.",
+        ),
+        labels=labels_for_state(state.state),
+        assignees=[service.assignee],
+    )
+    claimed = service.acquire_agent_lease(
+        task=task(),
+        source_head=SOURCE_HEAD,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Apply the reviewed decomposition.",
+        expected_validation="The decomposition commit validates.",
+        now="2026-08-29T06:11:00Z",
+    )
+    require(claimed["issue_number"] == issue["number"], "wrong decomposition Issue leased")
+    completed = service.complete_decomposition(
+        task_id=TASK_ID,
+        graph_delta_plan_id="GDP-" + "d" * 64,
+        applied_commit="a" * 40,
+        now="2026-08-29T06:12:00Z",
+    )
+    require(completed["status"] == "complete", "decomposition did not complete")
+    backend.issues[issue["number"]]["state"] = "CLOSED"
+    return issue["number"]
+
+
+def published_undo_recovery_comment(
+    undo_commit: str,
+    *,
+    task_id: str = TASK_ID,
+    plan_id: str = "GDP-" + "d" * 64,
+    apply_commit: str = "a" * 40,
+) -> str:
+    return (
+        "## Published decomposition undo recovered\n\n"
+        f"The exact `{task_id}` D1C application `{apply_commit}` for `{plan_id}` "
+        f"was already additively undone by `{undo_commit}`. The undo is in current "
+        "`main` history and no later commit touched the decomposition or child-owned "
+        "paths.\n\n"
+        "This Issue is being closed to retire stale coordination only. Its hashed "
+        "workflow state and audit comments are retained unchanged; no task delivery "
+        "or child work is being erased.\n\n"
+        "<!-- nsc-published-decomposition-undo-recovery: "
+        f"{undo_commit} -->"
+    )
+
+
+def replace_terminal_actor(
+    backend: MemoryIssueBackend,
+    issue_number: int,
+    actor_type: WorkflowActor,
+) -> None:
+    """Keep hashes coherent while modelling a semantically invalid terminal actor."""
+
+    events = parse_events(backend.comments[issue_number])
+    require(bool(events), "fixture has no terminal event")
+    original = events[-1]
+    replacement = IssueWorkflowEvent.create(
+        **{
+            **original.identity_payload(),
+            "actor_type": actor_type,
+            "actor_id": "forged-human-reviewer",
+        }
+    )
+    backend.comments[issue_number][-1]["body"] = render_event_comment(
+        replacement,
+        "Synthetic task closeout completed.",
+    )
+    body = backend.issues[issue_number]["body"]
+    state = parse_state(body)
+    require(state is not None, "fixture has no workflow state")
+    backend.issues[issue_number]["body"] = update_issue_body(
+        body,
+        replace(state, last_event_id=replacement.event_id),
+        next_action="No further workflow action is required.",
+    )
+
+
 def test_guard_is_installed_on_live_issue_store() -> None:
     require(
         store._find_candidates.__module__.endswith("completed_issue_guard"),
@@ -148,6 +246,10 @@ def test_guard_is_installed_on_live_issue_store() -> None:
     require(
         IssueWorkflowService.list_agent_ready.__module__.endswith("completed_issue_guard"),
         "agent-ready queue is not filtering closed Issues",
+    )
+    require(
+        IssueWorkflowService.find.__module__.endswith("completed_issue_guard"),
+        "completed workflow discovery does not honor decomposition retirement",
     )
 
 
@@ -211,6 +313,232 @@ def test_closed_incomplete_duplicate_is_ignored_by_find_and_queue() -> None:
     snapshot = service.find(TASK_ID)
     require(snapshot is not None and snapshot.issue_number == canonical_number, "duplicate displaced canonical completion")
     require(service.list_agent_ready() == [], "closed duplicate leaked into generic agent queue")
+
+
+def test_authorized_published_decomposition_undo_retires_only_that_completion() -> None:
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    retired_number = create_closed_complete_decomposition(service, backend)
+    backend.add_comment(
+        retired_number,
+        published_undo_recovery_comment("f" * 40),
+    )
+    issue_count = len(backend.issues)
+
+    require(
+        service.find(TASK_ID) is None,
+        "published decomposition-undo recovery remained terminal authority",
+    )
+    require(
+        service.observe(TASK_ID)["status"] == "agent_ready_uninitialized",
+        "recovered decomposition did not become fresh workflow state",
+    )
+    acquired = service.acquire_agent_lease(
+        task=task(),
+        source_head="3" * 40,
+        branch=BRANCH,
+        checkout_path=CHECKOUT,
+        planned_approach="Start the replacement decomposition.",
+        expected_validation="A new managed Issue owns the replacement run.",
+        now="2026-08-29T06:13:00Z",
+    )
+    require(acquired["status"] == "acquired", "replacement decomposition was not leased")
+    require(acquired["issue_number"] != retired_number, "retired Issue was reused")
+    require(len(backend.issues) == issue_count + 1, "replacement Issue was not created exactly once")
+    require(
+        backend.issues[retired_number]["state"] == "CLOSED",
+        "retired audit Issue was mutated or reopened",
+    )
+
+
+def test_unauthorized_recovery_marker_cannot_retire_terminal_authority() -> None:
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    issue_number = create_closed_complete_decomposition(service, backend)
+    backend.author_login = "unauthorized-reviewer"
+    backend.add_comment(issue_number, published_undo_recovery_comment("e" * 40))
+    backend.author_login = "cathode26"
+
+    snapshot = service.find(TASK_ID)
+    require(snapshot is not None, "unauthorized marker retired a completed workflow")
+    require(snapshot.issue_number == issue_number, "unauthorized marker displaced authority")
+    require(
+        snapshot.state is not None and snapshot.state.state is WorkflowState.COMPLETE,
+        "unauthorized marker changed terminal state",
+    )
+
+
+def test_recovery_marker_never_retires_an_implementation_completion() -> None:
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    issue_number = create_closed_complete(service, backend)
+    backend.add_comment(issue_number, published_undo_recovery_comment("c" * 40))
+
+    snapshot = service.find(TASK_ID)
+    require(snapshot is not None, "recovery marker retired delivered implementation history")
+    require(snapshot.issue_number == issue_number, "implementation authority was displaced")
+    require(
+        snapshot.state is not None
+        and snapshot.state.state is WorkflowState.COMPLETE
+        and snapshot.state.phase is WorkflowPhase.MERGE_CLOSEOUT,
+        "implementation completion stopped being terminal",
+    )
+
+
+def test_malformed_authorized_recovery_marker_fails_closed() -> None:
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    issue_number = create_closed_complete_decomposition(service, backend)
+    backend.add_comment(
+        issue_number,
+        "<!-- nsc-published-decomposition-undo-recovery: not-a-commit -->",
+    )
+    try:
+        service.find(TASK_ID)
+    except IssueWorkflowStoreError as exc:
+        require(
+            "authorized" in str(exc) and "malformed" in str(exc),
+            f"unexpected refusal: {exc}",
+        )
+    else:
+        raise AssertionError("malformed trusted recovery marker was silently ignored")
+
+
+def test_wrong_plan_recovery_binding_fails_closed() -> None:
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    issue_number = create_closed_complete_decomposition(service, backend)
+    backend.add_comment(
+        issue_number,
+        published_undo_recovery_comment("b" * 40, plan_id="GDP-" + "e" * 64),
+    )
+    try:
+        service.find(TASK_ID)
+    except IssueWorkflowStoreError as exc:
+        require("different decomposition plan" in str(exc), f"unexpected refusal: {exc}")
+    else:
+        raise AssertionError("wrong-plan recovery marker retired terminal authority")
+
+
+def test_wrong_apply_commit_recovery_binding_fails_closed() -> None:
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    issue_number = create_closed_complete_decomposition(service, backend)
+    backend.add_comment(
+        issue_number,
+        published_undo_recovery_comment("8" * 40, apply_commit="7" * 40),
+    )
+    try:
+        service.find(TASK_ID)
+    except IssueWorkflowStoreError as exc:
+        require("different apply commit" in str(exc), f"unexpected refusal: {exc}")
+    else:
+        raise AssertionError("wrong-apply recovery marker retired terminal authority")
+
+
+def test_human_terminal_event_cannot_retire_decomposition_completion() -> None:
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    issue_number = create_closed_complete_decomposition(service, backend)
+    replace_terminal_actor(backend, issue_number, WorkflowActor.HUMAN)
+    backend.add_comment(
+        issue_number,
+        published_undo_recovery_comment("6" * 40),
+    )
+    try:
+        service.find(TASK_ID)
+    except IssueWorkflowStoreError as exc:
+        require("decomposition completion" in str(exc), f"unexpected refusal: {exc}")
+    else:
+        raise AssertionError("human-authored terminal event retired decomposition history")
+
+
+def test_fenced_recovery_text_cannot_retire_decomposition_completion() -> None:
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    issue_number = create_closed_complete_decomposition(service, backend)
+    backend.add_comment(
+        issue_number,
+        "```markdown\n" + published_undo_recovery_comment("5" * 40) + "\n```",
+    )
+    try:
+        service.find(TASK_ID)
+    except IssueWorkflowStoreError as exc:
+        require("writer grammar" in str(exc), f"unexpected refusal: {exc}")
+    else:
+        raise AssertionError("quoted recovery text retired decomposition history")
+
+
+def test_second_malformed_reserved_marker_fails_closed() -> None:
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    issue_number = create_closed_complete_decomposition(service, backend)
+    backend.add_comment(
+        issue_number,
+        published_undo_recovery_comment("4" * 40)
+        + "\n<!-- nsc-published-decomposition-undo-recovery: malformed -->",
+    )
+    try:
+        service.find(TASK_ID)
+    except IssueWorkflowStoreError as exc:
+        require("ambiguous reserved markers" in str(exc), f"unexpected refusal: {exc}")
+    else:
+        raise AssertionError("ambiguous reserved recovery markers were accepted")
+
+
+def test_duplicate_authorized_recovery_markers_fail_closed() -> None:
+    backend = MemoryIssueBackend()
+    service = IssueWorkflowService(
+        backend=backend,
+        task_loader=lambda task_id: task(),
+        worker_id="completed-issue-guard-worker",
+    )
+    issue_number = create_closed_complete_decomposition(service, backend)
+    comment = published_undo_recovery_comment("9" * 40)
+    backend.add_comment(issue_number, comment)
+    backend.add_comment(issue_number, comment)
+    try:
+        service.find(TASK_ID)
+    except IssueWorkflowStoreError as exc:
+        require("multiple authorized" in str(exc), f"unexpected refusal: {exc}")
+    else:
+        raise AssertionError("duplicate recovery markers were accepted")
 
 
 def test_github_backend_decodes_utf8_issue_json_without_windows_locale_loss() -> None:
@@ -378,6 +706,16 @@ def main() -> int:
         test_guard_is_installed_on_live_issue_store,
         test_closed_complete_issue_remains_terminal_and_cannot_duplicate,
         test_closed_incomplete_duplicate_is_ignored_by_find_and_queue,
+        test_authorized_published_decomposition_undo_retires_only_that_completion,
+        test_unauthorized_recovery_marker_cannot_retire_terminal_authority,
+        test_recovery_marker_never_retires_an_implementation_completion,
+        test_malformed_authorized_recovery_marker_fails_closed,
+        test_wrong_plan_recovery_binding_fails_closed,
+        test_wrong_apply_commit_recovery_binding_fails_closed,
+        test_human_terminal_event_cannot_retire_decomposition_completion,
+        test_fenced_recovery_text_cannot_retire_decomposition_completion,
+        test_second_malformed_reserved_marker_fails_closed,
+        test_duplicate_authorized_recovery_markers_fail_closed,
         test_github_backend_decodes_utf8_issue_json_without_windows_locale_loss,
         test_github_backend_paginates_all_issues_completely,
         test_completed_issue_beyond_first_page_prevents_redispatch,

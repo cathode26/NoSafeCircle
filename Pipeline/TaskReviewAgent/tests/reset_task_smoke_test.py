@@ -37,6 +37,9 @@ from Pipeline.TaskReviewAgent.contracts import semantic_sha256  # noqa: E402
 from Pipeline.TaskReviewAgent.claim_policy import activated_claim_namespace  # noqa: E402
 from Pipeline.TaskReviewAgent.claim_refs import task_claim_ref  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import WorkflowPhase  # noqa: E402
+from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
+    IssueWorkflowService,
+)
 
 
 def run(*args: str, cwd: Path) -> str:
@@ -1191,6 +1194,16 @@ def test_published_decomposition_undo_recovery_cleans_only_stale_coordination(
         == "preserved later work\n",
         "later unrelated work was not preserved",
     )
+    service = IssueWorkflowService(
+        backend=environment.backend,
+        task_loader=lambda task_id: {},
+        worker_id="published-undo-read-side-proof",
+    )
+    observed = service.observe(environment.parent_id)
+    expect(
+        observed["status"] == "agent_ready_uninitialized",
+        "completed-Issue discovery did not honor the published-undo retirement",
+    )
 
 
 def test_published_decomposition_undo_recovery_refuses_later_protected_path(
@@ -1555,6 +1568,28 @@ def test_published_recovery_resume_refuses_closed_issue_without_marker(
     )
 
 
+def test_published_recovery_revalidates_issue_author_before_mutation(
+    root: Path,
+) -> None:
+    environment = PublishedUndoEnvironment(root)
+    runner = RecoveryGitHubRunner(environment.backend)
+    operation = environment.recovery(runner)
+    plan = operation.preflight()
+    before_comments = environment.backend.get_comments(1)
+    environment.backend.issues[1]["author"] = {"login": "unauthorized-reviewer"}
+    _expect_refusal(
+        lambda: operation.apply(plan),
+        "author is not an authorized workflow actor",
+        "recovery mutated an Issue after its author became unauthorized",
+    )
+    expect(environment.backend.get_issue(1)["state"] == "OPEN", "Issue was closed")
+    expect(
+        environment.backend.get_comments(1) == before_comments,
+        "recovery posted an audit marker before author validation",
+    )
+    expect(environment.checkout.is_dir(), "recovery removed the checkout")
+
+
 def test_published_decomposition_undo_recovery_resumes_partial_cleanup(
     root: Path,
 ) -> None:
@@ -1697,6 +1732,7 @@ def main() -> int:
             test_published_recovery_resume_rechecks_private_repository,
             test_published_recovery_resume_rechecks_state_file_bytes,
             test_published_recovery_resume_refuses_closed_issue_without_marker,
+            test_published_recovery_revalidates_issue_author_before_mutation,
             test_published_decomposition_undo_recovery_resumes_partial_cleanup,
             test_undo_decomposition_rejects_invalid_graph_delta_cleanly,
             test_ordinary_reset_modes_are_unchanged,

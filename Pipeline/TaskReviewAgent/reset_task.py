@@ -20,6 +20,17 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.contracts import semantic_sha256, validate_task_id  # noqa: E402
+from Pipeline.TaskReviewAgent.actor_policy import (  # noqa: E402
+    actor_login,
+    default_actor_policy,
+)
+from Pipeline.TaskReviewAgent.decomposition_undo_retirement import (  # noqa: E402
+    PublishedUndoRetirement,
+    PublishedUndoRetirementError,
+    classify_retired_decomposition_completion,
+    parse_authorized_recovery_comment,
+    render_published_undo_recovery_comment,
+)
 from Pipeline.TaskReviewAgent.git_identity_guard import (  # noqa: E402
     validated_agent_git_identity,
 )
@@ -2183,7 +2194,7 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
                 "--repo",
                 self.repository,
                 "--json",
-                "number,state,url,body,labels,comments",
+                "number,state,url,body,author,labels,comments",
             ),
             cwd=self.source,
         )
@@ -2204,6 +2215,11 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
         if exact.get("state") != expected_github_state:
             raise TaskResetError(
                 "completed decomposition Issue GitHub state changed"
+            )
+        login = actor_login(exact)
+        if login is None or not default_actor_policy().is_authorized_actor(login):
+            raise TaskResetError(
+                "completed decomposition Issue author is not an authorized workflow actor"
             )
         body = exact.get("body")
         comments = exact.get("comments")
@@ -2793,50 +2809,80 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
             "audit_history_rewritten": False,
         }
 
-    def _recovery_marker(self, plan: dict[str, Any]) -> str:
-        return (
-            "<!-- nsc-published-decomposition-undo-recovery: "
-            f"{plan['undo_commit']} -->"
+    def _recovery_comment(self, plan: dict[str, Any]) -> str:
+        return render_published_undo_recovery_comment(
+            PublishedUndoRetirement(
+                task_id=self.task_id,
+                plan_id=str(plan["plan_id"]),
+                apply_commit=str(plan["apply_commit"]),
+                undo_commit=str(plan["undo_commit"]),
+            )
         )
 
-    def _recovery_comment(self, plan: dict[str, Any]) -> str:
-        marker = self._recovery_marker(plan)
-        return (
-            "## Published decomposition undo recovered\n\n"
-            f"The exact `{self.task_id}` D1C application `{plan['apply_commit']}` "
-            f"for `{plan['plan_id']}` was already additively undone by "
-            f"`{plan['undo_commit']}`. The undo is in current `main` history and "
-            "no later commit touched the decomposition or child-owned paths.\n\n"
-            "This Issue is being closed to retire stale coordination only. Its "
-            "hashed workflow state and audit comments are retained unchanged; no "
-            "task delivery or child work is being erased.\n\n"
-            + marker
+    def _require_recovery_comment_binding(
+        self,
+        issue: dict[str, Any],
+        report: dict[str, Any],
+        *,
+        require_closed_workflow: bool,
+    ) -> PublishedUndoRetirement:
+        comments = issue.get("comments")
+        if not isinstance(comments, list):
+            raise TaskResetError("recovery Issue comments are unavailable")
+        try:
+            evidence = (
+                classify_retired_decomposition_completion(issue, comments)
+                if require_closed_workflow
+                else parse_authorized_recovery_comment(comments)
+            )
+        except PublishedUndoRetirementError as exc:
+            raise TaskResetError(f"recovery audit comment is invalid: {exc}") from exc
+        if evidence is None:
+            raise TaskResetError(
+                "closed parent Issue lacks exact authorized recovery audit marker evidence"
+                if require_closed_workflow
+                else "parent Issue lacks exact authorized recovery audit marker evidence"
+            )
+        expected = PublishedUndoRetirement(
+            task_id=self.task_id,
+            plan_id=str(report["plan_id"]),
+            apply_commit=str(report["apply_commit"]),
+            undo_commit=str(report["undo_commit"]),
         )
+        if evidence != expected:
+            raise TaskResetError(
+                "recovery audit comment does not bind the receipt's task, plan, "
+                "apply commit, and undo commit"
+            )
+        return evidence
 
     def _close_exact_issue(self, report: dict[str, Any]) -> None:
         number = int(report["issue"]["number"])
         exact = self._issue_view(number)
-        marker = self._recovery_marker(report)
         if exact.get("state") == "CLOSED":
             self._validated_completed_issue(
                 exact, expected_github_state="CLOSED"
             )
-            comments = exact.get("comments") or []
-            if not any(
-                isinstance(item, dict) and marker in str(item.get("body") or "")
-                for item in comments
-            ):
-                raise TaskResetError(
-                    "closed parent Issue lacks the exact recovery audit marker"
-                )
+            self._require_recovery_comment_binding(
+                exact,
+                report,
+                require_closed_workflow=True,
+            )
             return
         self._validated_completed_issue(exact, expected_github_state="OPEN")
         body = self._recovery_comment(report)
         comments = exact.get("comments") or []
-        if not any(
-            isinstance(item, dict) and marker in str(item.get("body") or "")
-            for item in comments
-        ):
+        try:
+            existing = parse_authorized_recovery_comment(comments)
+        except PublishedUndoRetirementError as exc:
+            raise TaskResetError(f"recovery audit comment is invalid: {exc}") from exc
+        if existing is not None:
+            self._require_recovery_comment_binding(
+                exact,
+                report,
+                require_closed_workflow=False,
+            )
+        else:
             self.runner.run(
                 (
                     "gh",
@@ -2863,6 +2909,13 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
         )
         _wait_for_managed_issue_close(
             self.runner, self.source, self.repository, self.task_id, number
+        )
+        closed = self._issue_view(number)
+        self._validated_completed_issue(closed, expected_github_state="CLOSED")
+        self._require_recovery_comment_binding(
+            closed,
+            report,
+            require_closed_workflow=True,
         )
 
     def _remove_exact_checkout(self, report: dict[str, Any]) -> None:
@@ -2981,15 +3034,11 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
                 "parent managed Issue set changed after the recovery preflight"
             )
         if github_state == "CLOSED":
-            marker = self._recovery_marker(report)
-            comments = exact_issue.get("comments") or []
-            if not any(
-                isinstance(item, dict) and marker in str(item.get("body") or "")
-                for item in comments
-            ):
-                raise TaskResetError(
-                    "closed parent Issue lacks the exact recovery audit marker"
-                )
+            self._require_recovery_comment_binding(
+                exact_issue,
+                report,
+                require_closed_workflow=True,
+            )
 
         children = self._proposed_children()
         history = self._historical_plan(
