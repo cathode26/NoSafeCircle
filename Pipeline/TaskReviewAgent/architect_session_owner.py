@@ -30,6 +30,7 @@ from Pipeline.AgentRuntime.session_lifecycle import (
     SessionLifecycleTransition,
     finish_assignment,
     observe_between_assignments,
+    retire_interrupted_assignment,
     start_assignment,
 )
 
@@ -394,15 +395,14 @@ class ArchitectSessionOwner:
                 raise ArchitectSessionOwnerError(
                     "persisted architect lifecycle identity differs from this owner"
                 )
-            if self.state.phase == "assigned":
-                raise ArchitectSessionOwnerError(
-                    "persisted architect session is assigned; explicit reconciliation is required"
-                )
             if stored_compatibility is None:
                 raise ArchitectSessionOwnerError(
                     "persisted architect lifecycle state has no compatibility identity"
                 )
-            if stored_compatibility != self.compatibility and self.state.phase != "retired":
+            if (
+                stored_compatibility != self.compatibility
+                and self.state.phase not in {"assigned", "retired"}
+            ):
                 try:
                     retired = observe_between_assignments(
                         self.state,
@@ -419,6 +419,40 @@ class ArchitectSessionOwner:
             raise ArchitectSessionOwnerError(
                 "architect compatibility exists without lifecycle state"
             )
+
+    def reconcile_interrupted_assignment(self) -> SessionLifecycleTransition | None:
+        """Retire an exact persisted assignment after exclusive scheduler takeover.
+
+        The owner cannot prove process exclusivity itself.  Its caller must hold
+        the repository scheduler lock before invoking this recovery boundary.
+        The uncertain provider conversation is never resumed or contacted.
+        """
+
+        if self.poisoned:
+            raise ArchitectSessionOwnerError(
+                "architect session owner is poisoned after a persistence failure"
+            )
+        state = self.state
+        if state is None or state.phase in {"between_assignments", "retired"}:
+            return None
+        if state.phase != "assigned" or state.active_assignment_id is None:
+            raise ArchitectSessionOwnerError(
+                "architect lifecycle phase cannot be reconciled"
+            )
+        try:
+            transition = retire_interrupted_assignment(
+                state,
+                assignment_id=state.active_assignment_id,
+            )
+            self.store.record(transition)
+            self.state = transition.state
+            return transition
+        except ArchitectSessionOwnerError:
+            self.poisoned = True
+            raise
+        except (SessionLifecycleError, OSError) as exc:
+            self.poisoned = True
+            raise ArchitectSessionOwnerError(str(exc)) from exc
 
     def _create_state(self) -> SessionLifecycleState:
         if self.provider_identifier == "openai-codex":

@@ -32,6 +32,7 @@ from Pipeline.AgentRuntime.session_lifecycle import (  # noqa: E402
     cancel_assignment,
     finish_assignment,
     observe_between_assignments,
+    retire_interrupted_assignment,
     start_assignment,
 )
 
@@ -428,6 +429,48 @@ def test_uninvoked_assignment_cancel_preserves_every_budget_counter() -> None:
     rejects(lambda: cancel_assignment(active, assignment_id="different"))
 
 
+def test_interrupted_assignment_retires_without_reuse_or_budget_charge() -> None:
+    prior = complete(
+        session("architect", role="portfolio_architect"),
+        1,
+        workload="admission_cycle",
+    ).state
+    active = start_assignment(
+        prior,
+        assignment_id="architect-cycle-3",
+        workload_class="admission_cycle",
+    ).state
+    retired = retire_interrupted_assignment(
+        active,
+        assignment_id="architect-cycle-3",
+    )
+    require(retired.state.phase == "retired", "interrupted session remained reusable")
+    require(
+        retired.state.retirement_reason == "interrupted_assignment",
+        "interruption used the wrong retirement reason",
+    )
+    require(
+        retired.state.architect_completed_admission_cycles
+        == prior.architect_completed_admission_cycles,
+        "interrupted assignment was counted as completed",
+    )
+    require(
+        retired.telemetry.event == "assignment_interrupted",
+        "interruption telemetry is ambiguous",
+    )
+    require(retired.telemetry.budget_delta == 0, "interruption consumed budget")
+    require(
+        SessionLifecycleTransition.from_dict(retired.to_dict()) == retired,
+        "interruption transition did not round-trip",
+    )
+    rejects(
+        lambda: retire_interrupted_assignment(
+            active,
+            assignment_id="different-cycle",
+        )
+    )
+
+
 TESTS = (
     test_worker_weighted_limits_are_exact,
     test_mixed_worker_assignment_that_would_exceed_limit_is_never_started,
@@ -442,6 +485,7 @@ TESTS = (
     test_role_and_provider_names_are_data_not_policy,
     test_invalid_or_contradictory_state_fails_closed,
     test_uninvoked_assignment_cancel_preserves_every_budget_counter,
+    test_interrupted_assignment_retires_without_reuse_or_budget_charge,
 )
 
 

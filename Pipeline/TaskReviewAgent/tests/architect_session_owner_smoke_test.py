@@ -226,7 +226,7 @@ def test_latency_metadata_is_ignored_without_exact_comparable_sample_provider() 
         require(managed.state.latency_degraded_sample_count == 0, "untrusted latency formed a streak")
 
 
-def test_persisted_assigned_or_corrupt_state_blocks_before_provider_call() -> None:
+def test_persisted_assigned_state_requires_explicit_reconciliation_before_replacement() -> None:
     with tempfile.TemporaryDirectory() as text:
         root = Path(text)
         store = JsonArchitectSessionStore(root)
@@ -244,8 +244,34 @@ def test_persisted_assigned_or_corrupt_state_blocks_before_provider_call() -> No
         )
         store.save_initial(assigned, COMPATIBILITY)
         runner = FakeArchitectRunner()
-        rejects(lambda: owner(root, runner))
-        require(not runner.bindings, "assigned recovery invoked a provider")
+        managed = owner(root, runner, ids=[SESSION_B])
+        rejects(lambda: managed(candidates=()))
+        require(not runner.bindings, "unreconciled assignment invoked a provider")
+        transition = managed.reconcile_interrupted_assignment()
+        require(transition is not None, "assigned state was not reconciled")
+        require(transition.state.phase == "retired", "uncertain session remained reusable")
+        require(
+            transition.state.retirement_reason == "interrupted_assignment",
+            "uncertain session used the wrong retirement reason",
+        )
+        require(
+            transition.telemetry.assignment_id == "architect-cycle-1",
+            "reconciliation changed assignment identity",
+        )
+        require(not runner.bindings, "reconciliation contacted the uncertain provider")
+        managed(candidates=())
+        require(runner.bindings[0].mode == "start", "replacement did not start fresh")
+        require(
+            runner.bindings[0].session_id == SESSION_B,
+            "replacement reused the interrupted provider identity",
+        )
+        require(
+            managed.reconcile_interrupted_assignment() is None,
+            "clean between-assignment state was reconciled again",
+        )
+
+
+def test_corrupt_or_orphaned_state_blocks_before_provider_call() -> None:
 
     with tempfile.TemporaryDirectory() as text:
         root = Path(text)
@@ -307,6 +333,42 @@ def test_finish_record_failure_poisons_owner_before_any_retry_call() -> None:
         require(len(runner.bindings) == 1, "fixture did not reach exactly one paid call")
         rejects(lambda: managed(candidates=()))
         require(len(runner.bindings) == 1, "poisoned owner made a second paid call")
+
+
+def test_reconciliation_persistence_failure_poisons_before_replacement_call() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        store = JsonArchitectSessionStore(root)
+        assigned = replace(
+            SessionLifecycleState.create(
+                provider_identifier=PROVIDER,
+                role=ROLE,
+                session_id=SESSION_A,
+                session_class="architect",
+            ),
+            phase="assigned",
+            sequence=1,
+            active_assignment_id="architect-cycle-1",
+            active_workload_class="admission_cycle",
+        )
+        store.save_initial(assigned, COMPATIBILITY)
+
+        def fail_reconciliation_record(transition: Any) -> None:
+            raise ArchitectSessionOwnerError("injected reconciliation persistence failure")
+
+        store.record = fail_reconciliation_record  # type: ignore[method-assign]
+        runner = FakeArchitectRunner()
+        managed = ArchitectSessionOwner(
+            architect_runner=runner,
+            provider_identifier=PROVIDER,
+            role=ROLE,
+            store=store,
+            compatibility=COMPATIBILITY,
+            session_id_factory=lambda: SESSION_B,
+        )
+        rejects(managed.reconcile_interrupted_assignment)
+        rejects(lambda: managed(candidates=()))
+        require(not runner.bindings, "poisoned reconciliation invoked a provider")
 
 
 def test_journal_interior_deletion_or_reordering_fails_closed() -> None:
@@ -483,9 +545,11 @@ TESTS = (
     test_identity_and_incompatibility_retire_immediately,
     test_context_is_unknown_unless_explicit_and_exact_threshold_retires,
     test_latency_metadata_is_ignored_without_exact_comparable_sample_provider,
-    test_persisted_assigned_or_corrupt_state_blocks_before_provider_call,
+    test_persisted_assigned_state_requires_explicit_reconciliation_before_replacement,
+    test_corrupt_or_orphaned_state_blocks_before_provider_call,
     test_durable_state_and_append_only_transition_journal_are_exact,
     test_finish_record_failure_poisons_owner_before_any_retry_call,
+    test_reconciliation_persistence_failure_poisons_before_replacement_call,
     test_journal_interior_deletion_or_reordering_fails_closed,
     test_assigned_state_is_durable_before_the_paid_callable_starts,
     test_clean_process_restart_resumes_the_exact_durable_session,

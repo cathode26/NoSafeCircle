@@ -177,6 +177,14 @@ Each scheduler session also appends its exact JSON event stream to
 Use that journal to diagnose admission delays, worker parentage, drain behavior,
 and process failures; console output alone is not durable evidence.
 
+If a previous controller was interrupted during a paid architect call, its
+durable session remains `assigned` because the provider outcome is unknowable.
+The next controller does not resume that conversation. After it exclusively
+acquires the repository scheduler lock, it records an
+`assignment_interrupted` retirement for the exact old assignment and starts a
+fresh architect session. Corrupt state and reconciliation persistence failures
+remain hard stops.
+
 GitHub can briefly expose an updated managed-Issue body before its matching
 event comment. Queue and reservation reads retry that narrowly recognized skew
 through exact single-Issue reads under one bounded scan deadline. A missing

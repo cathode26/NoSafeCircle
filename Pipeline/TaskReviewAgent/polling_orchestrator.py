@@ -509,6 +509,10 @@ class SchedulerLock:
             handle.close()
             self._handle = None
 
+    @property
+    def is_held(self) -> bool:
+        return self._handle is not None
+
     def __enter__(self) -> "SchedulerLock":
         self.acquire()
         return self
@@ -3658,6 +3662,43 @@ class PollingOrchestrator:
         if listener is not None:
             listener.close()
 
+    def reconcile_interrupted_architect_session(self, *, lock: SchedulerLock) -> bool:
+        """Retire a prior process's uncertain architect call under scheduler lock.
+
+        Production uses ``ArchitectSessionOwner``.  Tests and bounded adapters
+        may inject a plain callable with no persistent lifecycle, in which case
+        there is nothing to reconcile.
+        """
+
+        if type(lock) is not SchedulerLock or not lock.is_held:
+            raise PollingOrchestratorError(
+                "architect reconciliation requires the exact acquired scheduler lock"
+            )
+        reconcile = getattr(
+            self.architect_runner,
+            "reconcile_interrupted_assignment",
+            None,
+        )
+        if reconcile is None:
+            return False
+        if not callable(reconcile):
+            raise PollingOrchestratorError(
+                "architect reconciliation boundary must be callable"
+            )
+        transition = reconcile()
+        if transition is None:
+            return False
+        self.events.emit(
+            "architect_session_reconciled",
+            scheduler_id=self.scheduler_id,
+            provider_identifier=transition.state.provider_identifier,
+            role=transition.state.role,
+            session_id=transition.state.session_id,
+            assignment_id=transition.telemetry.assignment_id,
+            retirement_reason=transition.state.retirement_reason,
+        )
+        return True
+
     def run(
         self,
         *,
@@ -3675,6 +3716,11 @@ class PollingOrchestrator:
                 lock_path=str(lock.path),
             )
             return 2
+        try:
+            self.reconcile_interrupted_architect_session(lock=lock)
+        except BaseException:
+            lock.release()
+            raise
         self.start_activity_listener()
         self.events.emit(
             "scheduler_started",

@@ -34,6 +34,7 @@ if str(ROOT) not in sys.path:
 import Pipeline.TaskReviewAgent.polling_orchestrator as scheduler_module  # noqa: E402
 import Pipeline.TaskReviewAgent.decomposition_policy_audit as decomposition_policy_module  # noqa: E402
 from Pipeline.AgentRuntime.provider_sessions import ProviderSessionBinding  # noqa: E402
+from Pipeline.AgentRuntime.session_lifecycle import SessionLifecycleState  # noqa: E402
 from Pipeline.TaskReviewAgent.architect_session_owner import (  # noqa: E402
     ArchitectSessionCompatibility,
     ArchitectSessionInvocationError,
@@ -1655,6 +1656,91 @@ def test_scheduler_run_preserves_extracted_activity_listener_lifecycle() -> None
         require(listener_events == ["start", "close"], str(listener_events))
         events = [json.loads(line)["event"] for line in stream.getvalue().splitlines()]
         require(events.index("scheduler_started") < events.index("scheduler_stopped"), str(events))
+
+
+def test_scheduler_run_retires_stranded_architect_only_after_lock_acquisition() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        source, head = create_source(root)
+        lifecycle_root = root / "architect-lifecycle"
+        compatibility = ArchitectSessionCompatibility(
+            "claude-code",
+            "polling_architect",
+            "claude-fixture",
+            None,
+            "architect-protocol-fixture-v1",
+            ("repository_read", "repository_search"),
+        )
+        store = JsonArchitectSessionStore(lifecycle_root)
+        store.save_initial(
+            replace(
+                SessionLifecycleState.create(
+                    provider_identifier="claude-code",
+                    role="polling_architect",
+                    session_id="3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+                    session_class="architect",
+                ),
+                phase="assigned",
+                sequence=1,
+                active_assignment_id="architect-cycle-1",
+                active_workload_class="admission_cycle",
+            ),
+            compatibility,
+        )
+        paid_calls: list[dict[str, Any]] = []
+
+        def forbidden_architect(**values: Any) -> Any:
+            paid_calls.append(values)
+            raise AssertionError("recovery contacted the interrupted provider")
+
+        managed = ArchitectSessionOwner(
+            architect_runner=forbidden_architect,
+            provider_identifier="claude-code",
+            role="polling_architect",
+            store=store,
+            compatibility=compatibility,
+            session_id_factory=lambda: "9c858901-8a57-4791-81fe-4c455b099bc9",
+        )
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=SequencePlanner([terminal_plan(head, "no_safe_work")]),
+            architect=managed,
+            processes=ProcessFactory(),
+            tasks={},
+        )
+        lock = SchedulerLock(root / "architect-recovery.lock")
+        try:
+            orchestrator.reconcile_interrupted_architect_session(lock=lock)
+        except Exception as exc:
+            require(
+                "exact acquired scheduler lock" in str(exc),
+                f"unlocked recovery failed for the wrong reason: {exc}",
+            )
+        else:
+            raise AssertionError("unlocked recovery was accepted")
+        original_reconcile = managed.reconcile_interrupted_assignment
+
+        def lock_bound_reconcile() -> Any:
+            require(lock._handle is not None, "reconciliation ran before lock acquisition")
+            return original_reconcile()
+
+        managed.reconcile_interrupted_assignment = lock_bound_reconcile  # type: ignore[method-assign]
+        exit_code = orchestrator.run(lock=lock, poll_seconds=0.01, once=True)
+        require(exit_code == 0, f"recovery run failed: {exit_code}")
+        require(not paid_calls, "recovery invoked the interrupted provider")
+        require(managed.state is not None and managed.state.phase == "retired", "session was not retired")
+        require(
+            managed.state.retirement_reason == "interrupted_assignment",
+            "recovery used the wrong retirement reason",
+        )
+        events = [json.loads(line) for line in stream.getvalue().splitlines()]
+        reconciled = [item for item in events if item["event"] == "architect_session_reconciled"]
+        require(len(reconciled) == 1, f"missing exact recovery event: {events}")
+        require(
+            reconciled[0]["assignment_id"] == "architect-cycle-1",
+            "recovery event changed assignment identity",
+        )
+        require(lock._handle is None, "recovery run leaked scheduler lock")
 
 
 def add_result_active(
@@ -5578,6 +5664,7 @@ def main() -> int:
         test_dynamic_admission_allowlist_filters_before_architect_and_launch,
         test_capacity_batch_counts_same_task_relaunch_without_key_diff,
         test_scheduler_run_preserves_extracted_activity_listener_lifecycle,
+        test_scheduler_run_retires_stranded_architect_only_after_lock_acquisition,
         test_architect_portfolio_selects_disjoint_candidate_in_one_call,
         test_ineligible_decomposition_pair_is_not_selected_or_launched,
         test_architect_can_choose_decomposition_while_implementation_exists,

@@ -211,9 +211,15 @@ class FakeScheduler:
         self.require_listener_for_wait = False
         self.allowlists: list[tuple[str, ...]] = []
         self.drain_calls: list[float] = []
+        self.reconcile_calls = 0
 
     def set_admission_allowlist(self, task_ids: Any) -> None:
         self.allowlists.append(tuple(sorted(task_ids)))
+
+    def reconcile_interrupted_architect_session(self, *, lock: Any) -> bool:
+        require(lock.held, "architect recovery ran without scheduler ownership")
+        self.reconcile_calls += 1
+        return False
 
     def drain_active_workers(self, *, poll_seconds: float) -> bool:
         self.lifecycle_events.append("drain")
@@ -786,6 +792,27 @@ def test_run_owns_listener_before_issue_wait_and_closes_after_completion() -> No
     )
     require(fake.wait_calls == [DEFAULT_FALLBACK_SECONDS], "Issue wake missed bounded fallback seam")
     require(result.progress.wakeups_total == 1, "Issue wake was not counted")
+
+
+def test_interrupted_architect_reconciliation_runs_once_under_scheduler_lock() -> None:
+    lock = FakeLock()
+
+    class LockBoundScheduler(FakeScheduler):
+        def reconcile_interrupted_architect_session(self, *, lock: Any) -> bool:
+            require(lock.held, "architect recovery ran without scheduler ownership")
+            self.reconcile_calls += 1
+            self.lifecycle_events.append("reconcile")
+            return True
+
+    fake = LockBoundScheduler()
+    result = controller(state=snapshot(), scheduler=fake, lock=lock).run()
+    require(result.receipt is not None, "recovery fixture did not complete")
+    require(fake.reconcile_calls == 1, "architect recovery did not run exactly once")
+    require(
+        fake.lifecycle_events == ["reconcile", "start", "close"],
+        f"architect recovery used the wrong lifecycle order: {fake.lifecycle_events}",
+    )
+    require(lock.events == ["acquire", "release"], "architect recovery leaked the lock")
 
 
 def test_run_closes_listener_when_observation_raises_and_step_owns_no_lifecycle() -> None:
@@ -1407,6 +1434,7 @@ def main() -> int:
         test_dynamic_scope_contains_only_roots_and_authorized_descendants,
         test_worker_and_issue_wakes_reloop_immediately_with_bounded_fallback,
         test_run_owns_listener_before_issue_wait_and_closes_after_completion,
+        test_interrupted_architect_reconciliation_runs_once_under_scheduler_lock,
         test_run_closes_listener_when_observation_raises_and_step_owns_no_lifecycle,
         test_fatal_cycle_drains_children_before_listener_and_lock_release,
         test_receipt_is_persisted_atomically_while_run_lock_is_held,

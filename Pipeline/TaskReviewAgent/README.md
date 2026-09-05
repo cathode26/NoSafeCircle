@@ -521,13 +521,20 @@ Current state and append-only transition telemetry live below
 The durable binding also records the exact provider, model, reasoning effort,
 protocol, and capability set; a restart with any different value retires the old
 session before the next paid call instead of silently resuming it.
-An interrupted persisted `assigned` state blocks reuse pending explicit
-reconciliation. Claude supports caller-bound fresh and resumed UUIDs. A fresh
-Codex pooled session deliberately fails before a paid call because Codex assigns
-its UUID only after launch; an already-known Codex resume still passes through
-the adapter's verified sandbox-policy guard and fails closed if that guard is not
-available. The previous 12-attempt scheduler-fatal cap has been removed; the
-independent per-poll admission-call cap remains an operator safety bound.
+An interrupted persisted `assigned` state is never reused. A replacement
+controller first acquires the repository scheduler lock, appends an exact
+`assignment_interrupted` retirement event for the stranded assignment, and then
+starts a fresh provider conversation. Loading the state does not authorize a
+provider call: normal architect invocation remains blocked, and the production
+reconciliation entry point rejects unless its exact scheduler lock is acquired.
+A second scheduler therefore cannot reconcile another live controller's
+assignment. Claude supports caller-bound fresh and resumed UUIDs.
+A fresh Codex pooled session deliberately fails before a paid call because Codex
+assigns its UUID only after launch; an already-known Codex resume still passes
+through the adapter's verified sandbox-policy guard and fails closed if that
+guard is not available. The previous 12-attempt scheduler-fatal cap has been
+removed; the independent per-poll admission-call cap remains an operator safety
+bound.
 <!-- autonomous-graph-controller:end -->
 
 ## Validation

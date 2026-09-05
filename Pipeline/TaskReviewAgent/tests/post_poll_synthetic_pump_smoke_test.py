@@ -269,6 +269,10 @@ class ReapingScheduler:
     def set_admission_allowlist(self, task_ids: Any) -> None:
         self.allowlists.append(tuple(sorted(task_ids)))
 
+    def reconcile_interrupted_architect_session(self, *, lock: Any) -> bool:
+        require(lock.held, "architect recovery ran without scheduler ownership")
+        return False
+
     def drain_active_workers(self, *, poll_seconds: float) -> bool:
         self.lifecycle_events.append("drain")
         self.active_assignments.clear()

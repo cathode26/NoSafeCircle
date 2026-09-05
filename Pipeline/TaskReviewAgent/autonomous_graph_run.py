@@ -1104,6 +1104,11 @@ class SchedulerPort(Protocol):
     worker_launches_this_poll: int
 
     def set_admission_allowlist(self, task_ids: Sequence[str] | None) -> None: ...
+    def reconcile_interrupted_architect_session(
+        self,
+        *,
+        lock: "SchedulerLockPort",
+    ) -> bool: ...
     def start_activity_listener(self) -> bool: ...
     def close_activity_listener(self) -> None: ...
     def drain_active_workers(self, *, poll_seconds: float) -> bool: ...
@@ -1854,6 +1859,9 @@ class AutonomousGraphController:
         try:
             self.scheduler_lock.acquire()
             lock_acquired = True
+            self.scheduler.reconcile_interrupted_architect_session(
+                lock=self.scheduler_lock
+            )
             self.scheduler.start_activity_listener()
             self._run_owned = True
             while True:

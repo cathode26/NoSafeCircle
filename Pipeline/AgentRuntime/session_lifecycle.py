@@ -56,6 +56,7 @@ RETIREMENT_REASONS = frozenset(
         "consecutive_provider_output_failures",
         "known_context_window_threshold",
         "sustained_comparable_latency",
+        "interrupted_assignment",
     }
 )
 
@@ -497,6 +498,7 @@ class SessionLifecycleTelemetry:
             "waiting_observed",
             "session_incompatibility_observed",
             "identity_failure_observed",
+            "assignment_interrupted",
         }:
             raise SessionLifecycleError("telemetry event is unsupported")
         _identifier(self.provider_identifier, field="provider_identifier")
@@ -580,6 +582,17 @@ class SessionLifecycleTelemetry:
                 or self.budget_delta != 0
             ):
                 raise SessionLifecycleError("assignment-cancellation telemetry is inconsistent")
+        elif self.event == "assignment_interrupted":
+            if (
+                self.phase_before != "assigned"
+                or self.phase_after != "retired"
+                or self.assignment_id is None
+                or self.workload_class is None
+                or self.outcome is not None
+                or self.budget_delta != 0
+                or self.retirement_reason != "interrupted_assignment"
+            ):
+                raise SessionLifecycleError("assignment-interruption telemetry is inconsistent")
         elif self.event == "assignment_refused":
             if (
                 self.phase_before != "between_assignments"
@@ -943,6 +956,52 @@ def cancel_assignment(
     )
 
 
+def retire_interrupted_assignment(
+    state: SessionLifecycleState,
+    *,
+    assignment_id: str,
+) -> SessionLifecycleTransition:
+    """Retire an assignment whose provider outcome is unknowable after restart.
+
+    This transition is intentionally different from ``cancel_assignment``.  A
+    cancelled assignment is proven uninvoked and may be reused.  An interrupted
+    assignment may already have reached its provider, so its conversation is
+    permanently retired without charging a completed-work budget.
+    """
+
+    state = _require_state(state)
+    assignment_id = _assignment_id(assignment_id)
+    if state.phase != "assigned" or state.active_assignment_id != assignment_id:
+        raise SessionLifecycleError(
+            "only the exact interrupted active assignment may be retired"
+        )
+    workload_class = state.active_workload_class
+    assert workload_class is not None
+    after = replace(
+        state,
+        phase="retired",
+        sequence=state.sequence + 1,
+        active_assignment_id=None,
+        active_workload_class=None,
+        active_weighted_units=0,
+        retirement_reason="interrupted_assignment",
+    )
+    return SessionLifecycleTransition(
+        after,
+        _telemetry(
+            state,
+            after,
+            event="assignment_interrupted",
+            assignment_id=assignment_id,
+            workload_class=workload_class,
+            outcome=None,
+            budget_delta=0,
+            context_percent=after.known_context_window_percent,
+            latency_sample=None,
+        ),
+    )
+
+
 def _latency_state(
     state: SessionLifecycleState,
     sample: LatencySample | None,
@@ -1149,5 +1208,6 @@ __all__ = [
     "SessionLifecycleTransition",
     "finish_assignment",
     "observe_between_assignments",
+    "retire_interrupted_assignment",
     "start_assignment",
 ]
