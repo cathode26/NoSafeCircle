@@ -134,6 +134,27 @@ The OpenAI supervisor model belongs to the direct worker, so selecting it explic
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude -DirectManual -Model gpt-5.6
 ```
 
+## Supervisor session pooling (off by default)
+
+Each judgment turn of the Codex goal supervisor is an ephemeral Codex CLI
+process unless the durable supervisor session pool is activated. Activation is
+an explicit operator decision because `codex exec resume` does not accept
+`--sandbox`, so the pinned `--sandbox danger-full-access` policy must be
+reproduced through an option resume does accept, and that reproduction has not
+been proven live by this repository. See "Durable supervisor session pool" in
+`Pipeline/TaskReviewAgent/README.md` for the verification an operator must
+run first. Once verified, supply the exact fragment at the top of the launch:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude -CodexResumeSandboxArgument '-c','sandbox_mode="danger-full-access"'
+```
+
+The launcher prints `Supervisor session pool: warm Codex resume ACTIVE` or
+`OFF` so the state is never implicit, exports the decision as
+`NSC_CODEX_RESUME_SANDBOX_ARGUMENT` for the architect controller and its
+workers, and forwards it to the direct worker. With the gate off nothing is
+pooled and every progress event says so.
+
 ## Resume durable agent-ready work
 
 Run the same launcher without a task ID:

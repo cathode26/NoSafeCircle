@@ -12,10 +12,23 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
 from .contracts import TaskReviewContractError, validate_task_id
+from .supervisor_session_pool import (
+    SupervisorSessionOwner,
+    SupervisorSessionPoolError,
+    SupervisorTurn,
+    classify_turn_failure,
+)
 
 
 SUPERVISOR_DECISION_SCHEMA_VERSION = "1.0"
 SUPERVISOR_TURN_SCHEMA_VERSION = "1.0"
+# A pooled turn sends the 1.1 request (adds ``provider_session``) and requires
+# the 1.1 response (adds ``provider_session_confirmation``). An ephemeral turn
+# keeps the 1.0 request and accepts either response version.
+POOLED_SUPERVISOR_TURN_SCHEMA_VERSION = "1.1"
+_RESPONSE_FIELDS = {"schema_version", "structured_output", "usage"}
+_POOLED_RESPONSE_FIELDS = _RESPONSE_FIELDS | {"provider_session_confirmation"}
+_FAILURE_RESPONSE_FIELDS = {"schema_version", "failure", "provider_session_confirmation"}
 DEFAULT_SUPERVISOR_MODEL = "gpt-5.6-sol"
 DEFAULT_SUPERVISOR_TIMEOUT_SECONDS = 240.0
 MAX_SUPERVISOR_TIMEOUT_SECONDS = 240.0
@@ -199,6 +212,26 @@ class SupervisorDecision:
         return {key: self.arguments.get(key) for key in allowed if self.arguments.get(key) is not None}
 
 
+def resolve_supervisor_model(model: Any = None) -> str:
+    """Return the exact supervisor model the provider will use."""
+
+    if model:
+        return str(model).strip()
+    return (
+        os.getenv("NSC_TASK_SUPERVISOR_MODEL")
+        or os.getenv("NSC_OPENAI_CODEX_MODEL")
+        or DEFAULT_SUPERVISOR_MODEL
+    )
+
+
+def resolve_supervisor_reasoning_effort(reasoning_effort: Any = None) -> str:
+    """Return the exact supervisor reasoning effort the provider will use."""
+
+    if reasoning_effort:
+        return str(reasoning_effort).strip()
+    return os.getenv("NSC_TASK_SUPERVISOR_REASONING_EFFORT", "high")
+
+
 class CodexDockerDecisionProvider:
     """Invoke one read-only Codex CLI decision through Docker Compose."""
 
@@ -212,26 +245,17 @@ class CodexDockerDecisionProvider:
         reasoning_effort: str | None = None,
         timeout_seconds: float | None = None,
         command_runner=None,
+        session_owner: SupervisorSessionOwner | None = None,
     ) -> None:
         self.source = Path(source).resolve()
-        self.model = (
-            str(model).strip()
-            if model
-            else os.getenv("NSC_TASK_SUPERVISOR_MODEL")
-            or os.getenv("NSC_OPENAI_CODEX_MODEL")
-            or DEFAULT_SUPERVISOR_MODEL
-        )
+        self.model = resolve_supervisor_model(model)
         self.compose_project = (
             str(compose_project).strip()
             if compose_project
             else os.getenv("NSC_TASK_AGENT_COMPOSE_PROJECT", "nosafecircle")
         )
         self.service = str(service).strip()
-        self.reasoning_effort = (
-            str(reasoning_effort).strip()
-            if reasoning_effort
-            else os.getenv("NSC_TASK_SUPERVISOR_REASONING_EFFORT", "high")
-        )
+        self.reasoning_effort = resolve_supervisor_reasoning_effort(reasoning_effort)
         raw_timeout = (
             timeout_seconds
             if timeout_seconds is not None
@@ -263,6 +287,53 @@ class CodexDockerDecisionProvider:
                 f"{MAX_SUPERVISOR_TIMEOUT_SECONDS:g} seconds"
             )
         self.last_usage: dict[str, Any] | None = None
+        # Session pooling is opt-in. ``None`` keeps every turn exactly as it
+        # was: one ephemeral Codex process per judgment turn.
+        if session_owner is not None and type(session_owner) is not SupervisorSessionOwner:
+            raise CodexSupervisorError("session_owner must be an exact SupervisorSessionOwner")
+        self.session_owner = session_owner
+        if session_owner is not None and (
+            session_owner.model != self.model
+            or session_owner.reasoning_effort != self.reasoning_effort
+        ):
+            raise CodexSupervisorError(
+                "supervisor session owner model/reasoning effort differ from this provider"
+            )
+        self.last_session: dict[str, Any] | None = None
+        self._turn_observation: dict[str, Any] = {}
+
+    @property
+    def warm_pooling_active(self) -> bool:
+        return self.session_owner is not None and self.session_owner.warm_pooling_active
+
+    def bind_turn_observation(self, observation: Mapping[str, Any] | None) -> None:
+        """Record the deterministic facts the next turn's authority capsule names.
+
+        The pipelines call this immediately before ``decide`` with the exact
+        observation the prompt was rendered from, so the capsule states the same
+        phase, Issue state, and source identity the provider is about to see.
+        A fake provider without this method is simply not pooled.
+        """
+
+        facts: dict[str, Any] = {}
+        if isinstance(observation, Mapping):
+            coordination = observation.get("coordination")
+            state = coordination.get("workflow_state") if isinstance(coordination, Mapping) else None
+            environment = observation.get("environment")
+            checkout = observation.get("checkout")
+            if isinstance(state, Mapping):
+                facts["phase"] = _optional_text(state.get("phase"))
+                facts["issue_state"] = _optional_text(state.get("state"))
+                version = state.get("state_version")
+                facts["issue_state_version"] = (
+                    version if type(version) is int and not isinstance(version, bool) else None
+                )
+            if isinstance(environment, Mapping):
+                facts["source_head"] = _optional_text(environment.get("source_head"))
+                facts["source_tree"] = _optional_text(environment.get("source_tree"))
+            if isinstance(checkout, Mapping):
+                facts["checkout_status"] = _optional_text(checkout.get("status"))
+        self._turn_observation = facts
 
     @staticmethod
     def _default_runner(
@@ -302,16 +373,44 @@ class CodexDockerDecisionProvider:
         run_id = f"{task_id.casefold()}-supervisor-{turn:03d}"
         if not _RUN_ID.fullmatch(run_id):
             raise CodexSupervisorError("generated supervisor run_id is invalid")
+        pooled: SupervisorTurn | None = None
+        facts = self._turn_observation
+        self._turn_observation = {}
+        self.last_session = None
+        if self.session_owner is not None:
+            if self.session_owner.task_id != task_id:
+                raise CodexSupervisorError(
+                    "supervisor session owner is bound to a different task than this decision"
+                )
+            if self.session_owner.warm_pooling_active:
+                try:
+                    pooled = self.session_owner.begin_turn(
+                        turn=turn, allowed_actions=allowed_actions, **facts
+                    )
+                except SupervisorSessionPoolError as exc:
+                    raise CodexSupervisorError(
+                        f"supervisor session could not be checked out: {exc}"
+                    ) from exc
+            else:
+                # The gate is off: say so on every turn instead of silently
+                # running ephemeral turns under a pooled-looking configuration.
+                self.last_session = self.session_owner.activation_state()
         request = {
-            "schema_version": SUPERVISOR_TURN_SCHEMA_VERSION,
+            "schema_version": (
+                POOLED_SUPERVISOR_TURN_SCHEMA_VERSION
+                if pooled is not None
+                else SUPERVISOR_TURN_SCHEMA_VERSION
+            ),
             "run_id": run_id,
-            "prompt": prompt,
+            "prompt": prompt if pooled is None else pooled.capsule + "\n\n" + prompt,
             "output_schema": decision_schema(allowed_actions),
             "model": self.model,
             "reasoning_effort": self.reasoning_effort,
             "provider_turn_limit": SUPERVISOR_PROVIDER_TURN_LIMIT,
             "timeout_seconds": self.timeout_seconds,
         }
+        if pooled is not None:
+            request["provider_session"] = pooled.provider_session
         command = (
             "docker",
             "compose",
@@ -324,26 +423,49 @@ class CodexDockerDecisionProvider:
             "python3",
             "Pipeline/TaskReviewAgent/codex_supervisor_turn.py",
         )
-        completed = self.command_runner(
-            command,
-            cwd=self.source,
-            input_bytes=(
-                json.dumps(
-                    request,
-                    ensure_ascii=False,
-                    allow_nan=False,
-                    separators=(",", ":"),
-                    sort_keys=True,
-                )
-                + "\n"
-            ).encode("utf-8"),
-            timeout_seconds=(
-                self.timeout_seconds + SUPERVISOR_DOCKER_TIMEOUT_ALLOWANCE_SECONDS
-            ),
-        )
+        input_bytes = (
+            json.dumps(
+                request,
+                ensure_ascii=False,
+                allow_nan=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("utf-8")
+        try:
+            completed = self.command_runner(
+                command,
+                cwd=self.source,
+                input_bytes=input_bytes,
+                timeout_seconds=(
+                    self.timeout_seconds + SUPERVISOR_DOCKER_TIMEOUT_ALLOWANCE_SECONDS
+                ),
+            )
+        except BaseException as exc:
+            # The Docker turn did not return a result: the provider may or may
+            # not have received the turn, so the conversation is uncertain.
+            self._settle(pooled, outcome="uncertain", confirmation=None, usage=None,
+                         detail=f"Docker turn did not complete: {type(exc).__name__}")
+            raise
         if completed.returncode != 0:
             stderr = completed.stderr.decode("utf-8", errors="replace").strip()
             stdout = completed.stdout.decode("utf-8", errors="replace").strip()
+            failure = _failure_envelope(completed.stdout)
+            self._settle(
+                pooled,
+                outcome=(
+                    "uncertain" if failure is None
+                    else classify_turn_failure(failure["failure"].get("classification"))
+                ),
+                confirmation=None if failure is None else failure["provider_session_confirmation"],
+                usage=None,
+                detail=(
+                    f"turn exited {completed.returncode} without a failure envelope"
+                    if failure is None
+                    else str(failure["failure"].get("classification"))
+                ),
+            )
             detail = "\n".join(item for item in (stderr, stdout) if item)
             raise CodexSupervisorError(
                 f"Codex supervisor turn failed ({completed.returncode})"
@@ -352,22 +474,117 @@ class CodexDockerDecisionProvider:
         try:
             response = json.loads(completed.stdout.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            self._settle(pooled, outcome="uncertain", confirmation=None, usage=None,
+                         detail="response was not valid JSON")
             raise CodexSupervisorError("Codex supervisor response was not valid JSON") from exc
-        if not isinstance(response, Mapping) or set(response) != {
-            "schema_version",
-            "structured_output",
-            "usage",
-        }:
+        accepted_fields = (
+            (_POOLED_RESPONSE_FIELDS,)
+            if pooled is not None
+            else (_RESPONSE_FIELDS, _POOLED_RESPONSE_FIELDS)
+        )
+        if not isinstance(response, Mapping) or set(response) not in accepted_fields:
+            self._settle(pooled, outcome="output_failure", confirmation=None, usage=None,
+                         detail="response envelope fields are invalid")
             raise CodexSupervisorError("Codex supervisor response envelope is invalid")
-        if response.get("schema_version") != SUPERVISOR_TURN_SCHEMA_VERSION:
+        version = response.get("schema_version")
+        if version not in {SUPERVISOR_TURN_SCHEMA_VERSION, POOLED_SUPERVISOR_TURN_SCHEMA_VERSION} or (
+            pooled is not None and version != POOLED_SUPERVISOR_TURN_SCHEMA_VERSION
+        ):
+            self._settle(pooled, outcome="output_failure", confirmation=None, usage=None,
+                         detail="response envelope version is invalid")
             raise CodexSupervisorError("Codex supervisor response version is invalid")
         usage = response.get("usage")
-        self.last_usage = dict(usage) if isinstance(usage, Mapping) else None
-        return SupervisorDecision.from_dict(
-            response.get("structured_output"),
-            expected_task_id=task_id,
-            allowed_actions=allowed_actions,
-        )
+        usage_value = dict(usage) if isinstance(usage, Mapping) else None
+        try:
+            decision = SupervisorDecision.from_dict(
+                response.get("structured_output"),
+                expected_task_id=task_id,
+                allowed_actions=allowed_actions,
+            )
+        except CodexSupervisorError:
+            # The provider answered, but not with a usable decision. The
+            # conversation itself is proven by its confirmation and counts one
+            # output failure; it is never resumed on an unproven identity.
+            self._settle(pooled, outcome="output_failure",
+                         confirmation=response.get("provider_session_confirmation"),
+                         usage=usage_value, detail="structured decision was rejected")
+            raise
+        if pooled is not None:
+            record = self._settle(
+                pooled, outcome="completed",
+                confirmation=response.get("provider_session_confirmation"),
+                usage=usage_value, detail="decision accepted",
+            )
+            if record is None or record.state not in {"idle", "retired"}:
+                # The identity this turn ran under was not proven, so the
+                # decision cannot be attributed to the conversation it was
+                # supposed to come from. Fail closed rather than act on it.
+                raise CodexSupervisorError(
+                    "Codex supervisor turn did not prove its pooled session identity: "
+                    + (record.quarantine_reason if record is not None and record.quarantine_reason else "unknown")
+                )
+        self.last_usage = usage_value
+        return decision
+
+    def _settle(
+        self,
+        pooled: SupervisorTurn | None,
+        *,
+        outcome: str,
+        confirmation: Any,
+        usage: Any,
+        detail: str,
+    ) -> Any:
+        """Settle a pooled turn exactly once; an unpooled turn settles nothing."""
+
+        if pooled is None or self.session_owner is None:
+            return None
+        try:
+            record = self.session_owner.finish_turn(
+                pooled, outcome=outcome, confirmation=confirmation, usage=usage, detail=detail,
+            )
+        except SupervisorSessionPoolError as exc:
+            raise CodexSupervisorError(
+                f"supervisor session could not be settled: {exc}"
+            ) from exc
+        self.last_session = {
+            "warm_pooling_active": True,
+            "mode": pooled.mode,
+            "requested_session_id": pooled.session_id,
+            "lease_id": pooled.lease.lease_id,
+            "record_id": record.record_id,
+            "confirmed_session_id": record.session_id,
+            "outcome": outcome,
+            "state": record.state,
+            "completed_assignment_count": record.completed_assignment_count,
+            "retirement_reason": record.retirement_reason,
+            "quarantine_reason": record.quarantine_reason,
+        }
+        return record
+
+
+def _optional_text(value: Any) -> str | None:
+    return value if type(value) is str and value.strip() else None
+
+
+def _failure_envelope(stdout: bytes) -> dict[str, Any] | None:
+    """Parse the container's machine-readable failure envelope, if it sent one."""
+
+    try:
+        value = json.loads(stdout.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(value, Mapping) or set(value) != _FAILURE_RESPONSE_FIELDS:
+        return None
+    if value.get("schema_version") != POOLED_SUPERVISOR_TURN_SCHEMA_VERSION:
+        return None
+    failure = value.get("failure")
+    if not isinstance(failure, Mapping):
+        return None
+    return {
+        "failure": dict(failure),
+        "provider_session_confirmation": value.get("provider_session_confirmation"),
+    }
 
 
 def compact_history(history: Sequence[Mapping[str, Any]], *, limit: int = 12) -> list[dict[str, Any]]:

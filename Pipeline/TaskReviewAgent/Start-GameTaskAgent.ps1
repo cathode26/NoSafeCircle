@@ -69,10 +69,51 @@ param(
     [int]$HumanActionWaitMinutes = 60,
 
     [ValidateRange(1, 300)]
-    [int]$HumanActionPollSeconds = 60
+    [int]$HumanActionPollSeconds = 60,
+
+    # Exact operator-verified argv fragment that reproduces the supervisor's
+    # pinned `--sandbox danger-full-access` policy on `codex exec resume`,
+    # for example: -CodexResumeSandboxArgument '-c','sandbox_mode="danger-full-access"'
+    # Supplying it activates durable supervisor session pooling; omitting it
+    # leaves the Codex resume gate off and every supervisor turn ephemeral.
+    # It is exported as NSC_CODEX_RESUME_SANDBOX_ARGUMENT so the architect
+    # controller and its scheduler-spawned workers inherit the same decision.
+    [string[]]$CodexResumeSandboxArgument,
+
+    # Explicit context window of the supervisor model. Only used to derive
+    # known context utilization from the exact input token count Codex
+    # reports; omitted means unknown and never retires a conversation.
+    [ValidateRange(1000, 100000000)]
+    [int]$SupervisorContextWindowTokens
 )
 
 $ErrorActionPreference = 'Stop'
+if ($PSBoundParameters.ContainsKey('CodexResumeSandboxArgument')) {
+    if ($null -eq $CodexResumeSandboxArgument -or $CodexResumeSandboxArgument.Count -eq 0) {
+        throw 'CodexResumeSandboxArgument must name at least one exact argv fragment.'
+    }
+    foreach ($Fragment in $CodexResumeSandboxArgument) {
+        if ([string]::IsNullOrWhiteSpace($Fragment) -or $Fragment -ne $Fragment.Trim()) {
+            throw 'CodexResumeSandboxArgument fragments must be non-empty and unpadded.'
+        }
+        $Token = $Fragment.Split('=', 2)[0]
+        if (@('--sandbox', '-s', '--last', '--all', '--ephemeral', '--dangerously-bypass-approvals-and-sandbox') -contains $Token) {
+            throw "CodexResumeSandboxArgument may not contain $Token; codex exec resume does not accept --sandbox and recency selectors are never exact."
+        }
+    }
+    # -InputObject keeps a single fragment as a JSON array; piping would
+    # collapse it to a bare string the worker must refuse.
+    $env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT = ConvertTo-Json -InputObject @($CodexResumeSandboxArgument) -Compress
+}
+if ($PSBoundParameters.ContainsKey('SupervisorContextWindowTokens')) {
+    $env:NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS = $SupervisorContextWindowTokens.ToString()
+}
+$SupervisorPoolActivation = if ([string]::IsNullOrWhiteSpace($env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)) {
+    'OFF (ephemeral supervisor turns; supply -CodexResumeSandboxArgument or NSC_CODEX_RESUME_SANDBOX_ARGUMENT only after live verification of codex exec resume)'
+}
+else {
+    'ACTIVE (operator-verified Codex resume control: ' + $env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT + ')'
+}
 if (
     [string]::IsNullOrWhiteSpace($CrewProfile) -ne
     [string]::IsNullOrWhiteSpace($ValidationProfile)
@@ -297,6 +338,7 @@ if ($UseArchitectManaged) {
     Write-Host "Repository: $ResolvedRepository"
     Write-Host "Maximum worker capacity: $MaxWorkers"
     Write-Host 'Rigor, validation, crew sizing, provider and model: resolved per task by the Software Architect'
+    Write-Host "Supervisor session pool: warm Codex resume $SupervisorPoolActivation"
     Write-Host "Resume this exact run with: -TaskId $TaskId -AutonomousRunId $ControllerRunId"
 
     $PreviousPythonUtf8 = [Environment]::GetEnvironmentVariable('PYTHONUTF8', 'Process')
@@ -539,6 +581,12 @@ if (-not [string]::IsNullOrWhiteSpace($ValidationProfile)) {
 if ($EnableExecutionSessionPool) {
     $Arguments += '--enable-execution-session-pool'
 }
+if (-not [string]::IsNullOrWhiteSpace($env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)) {
+    $Arguments += @('--supervisor-codex-resume-sandbox-argument', $env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)
+}
+if (-not [string]::IsNullOrWhiteSpace($env:NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS)) {
+    $Arguments += @('--supervisor-context-window-tokens', $env:NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS)
+}
 if (-not [string]::IsNullOrWhiteSpace($RunId)) {
     if (
         [string]::IsNullOrWhiteSpace($AdmissionSourceHead) -or
@@ -567,6 +615,7 @@ else {
     Write-Host "Task: $TaskId"
 }
 Write-Host 'Goal supervisor: OpenAI Codex CLI in Docker (no API key)'
+Write-Host "Supervisor session pool: warm Codex resume $SupervisorPoolActivation"
 if ($SupervisorVolume) {
     Write-Host "Codex credential volume: $SupervisorVolume"
 }

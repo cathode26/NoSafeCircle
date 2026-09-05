@@ -401,6 +401,7 @@ def run_openai_production_pipeline(
     max_turns: int = 80,
     decision_provider: DecisionProvider | None = None,
     progress: ProgressSink | None = None,
+    session_owner: Any = None,
 ) -> dict[str, Any]:
     """Drive a task with Codex CLI while host tools retain all authority."""
 
@@ -412,10 +413,15 @@ def run_openai_production_pipeline(
         decision_provider=decision_provider,
         progress=progress,
     )
+    if decision_provider is not None and session_owner is not None:
+        raise OpenAIProductionPipelineError(
+            "an injected decision provider cannot also receive a supervisor session owner"
+        )
     provider = decision_provider or CodexDockerDecisionProvider(
         source=controller.workflow.base_observer.root,
         model=model,
         reasoning_effort=reasoning_effort,
+        session_owner=session_owner,
     )
     history: list[dict[str, Any]] = []
     last_progress_fingerprint: str | None = None
@@ -556,6 +562,11 @@ def run_openai_production_pipeline(
                 history=history,
                 actions=_ACTIONS,
             )
+            bind_observation = getattr(provider, "bind_turn_observation", None)
+            if callable(bind_observation):
+                # The authority capsule of a pooled turn names the same phase,
+                # Issue state, and source identity the prompt was rendered from.
+                bind_observation(observation)
             with active_progress.heartbeat(
                 "codex_supervisor",
                 f"Turn {turn}: Codex is choosing the next bounded action",

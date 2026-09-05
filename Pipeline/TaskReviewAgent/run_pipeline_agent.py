@@ -20,6 +20,8 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.codex_supervisor import (  # noqa: E402
     describe_codex_runtime,
+    resolve_supervisor_model,
+    resolve_supervisor_reasoning_effort,
 )
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
@@ -67,7 +69,19 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     OPENAI_REASONING_EFFORTS,
 )
 from Pipeline.TaskReviewAgent.progress import ProgressLog  # noqa: E402
+from Pipeline.TaskReviewAgent.real_checkout import default_checkout_root  # noqa: E402
 from Pipeline.TaskReviewAgent.real_workflow import RealTaskReviewWorkflow  # noqa: E402
+from Pipeline.TaskReviewAgent.supervisor_session_pool import (  # noqa: E402
+    CODEX_RESUME_SANDBOX_ARGUMENT_ENVIRONMENT,
+    SUPERVISOR_CONTEXT_WINDOW_ENVIRONMENT,
+    CodexResumeActivation,
+    SupervisorSessionOwner,
+    SupervisorSessionPoolError,
+    codex_resume_activation_from_environment,
+    context_window_tokens_from_environment,
+    gate_off_activation_state,
+    validate_context_window_tokens,
+)
 from Pipeline.TaskReviewAgent.taskgraph_review_issues import (  # noqa: E402
     ReviewIssueMaterializationResult,
     materialize_taskgraph_review_issues,
@@ -143,6 +157,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-turns", type=int, default=120)
     parser.add_argument(
+        "--supervisor-codex-resume-sandbox-argument",
+        help=(
+            "JSON array of the exact operator-verified argv fragment that "
+            "reproduces the supervisor's pinned Codex sandbox policy on "
+            "`codex exec resume`. Supplying it activates durable supervisor "
+            "session pooling. Defaults to "
+            f"{CODEX_RESUME_SANDBOX_ARGUMENT_ENVIRONMENT}; absent means the "
+            "resume gate is off and every supervisor turn stays ephemeral."
+        ),
+    )
+    parser.add_argument(
+        "--supervisor-context-window-tokens",
+        type=int,
+        help=(
+            "Explicit context window of the supervisor model, used only to "
+            "derive known context utilization from the exact input token count "
+            "Codex reports. Defaults to "
+            f"{SUPERVISOR_CONTEXT_WINDOW_ENVIRONMENT}; absent means unknown."
+        ),
+    )
+    parser.add_argument(
         "--mode",
         choices=("openai", "observe"),
         default="openai",
@@ -152,6 +187,22 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     return parser
+
+
+def _supervisor_resume_activation(
+    args: argparse.Namespace,
+) -> CodexResumeActivation | None:
+    """Return the operator's exact Codex resume control, or None (gate off)."""
+
+    if args.supervisor_codex_resume_sandbox_argument is not None:
+        return CodexResumeActivation.parse(args.supervisor_codex_resume_sandbox_argument)
+    return codex_resume_activation_from_environment()
+
+
+def _supervisor_context_window(args: argparse.Namespace) -> int | None:
+    if args.supervisor_context_window_tokens is not None:
+        return validate_context_window_tokens(args.supervisor_context_window_tokens)
+    return context_window_tokens_from_environment()
 
 
 def _workflow_state(observation: dict) -> dict:
@@ -338,6 +389,7 @@ def _result_issue_number(result: dict[str, Any]) -> int | None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     progress: ProgressLog | None = None
+    supervisor_owner: SupervisorSessionOwner | None = None
     scheduler_result = False
     try:
         scheduler_result = _scheduler_result_enabled(args)
@@ -546,6 +598,42 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.mode == "openai":
             controller = GuardedTaskController(controller, progress=progress)
+            assert progress is not None
+            resume_activation = _supervisor_resume_activation(args)
+            if resume_activation is not None:
+                # The durable supervisor conversation is task-scoped and owned
+                # by this worker for its lifetime. It exists only when the
+                # operator activated the Codex resume gate; with the gate off
+                # every turn stays exactly the historical ephemeral turn and
+                # the worker says so instead of implying warm pooling.
+                supervisor_owner = SupervisorSessionOwner(
+                    source=workflow.base_observer.root,
+                    checkout_root=args.checkout_root or default_checkout_root(),
+                    task_id=request.task_id,
+                    worker_id=args.worker_id,
+                    run_id=progress.run_id,
+                    model=resolve_supervisor_model(args.model),
+                    reasoning_effort=resolve_supervisor_reasoning_effort(
+                        None if downstream else args.supervisor_reasoning_effort
+                    ),
+                    resume_activation=resume_activation,
+                    context_window_tokens=_supervisor_context_window(args),
+                )
+                activation = supervisor_owner.activation_state()
+            else:
+                activation = gate_off_activation_state(request.task_id)
+            progress.emit(
+                "supervisor_session_pool",
+                (
+                    "Supervisor session pooling: warm resume ACTIVE"
+                    if activation["warm_pooling_active"]
+                    else "Supervisor session pooling: warm resume OFF (ephemeral turns)"
+                ),
+                warm_pooling_active=activation["warm_pooling_active"],
+                reason=activation["reason"],
+                resume_contract=activation["resume_contract"],
+                reconciliation=activation["reconciliation"],
+            )
 
         if args.mode == "observe":
             result = {
@@ -566,6 +654,7 @@ def main(argv: list[str] | None = None) -> int:
                 model=args.model,
                 max_turns=args.max_turns,
                 progress=progress,
+                session_owner=supervisor_owner,
             )
             result = {
                 "schema_version": "1.0",
@@ -574,6 +663,11 @@ def main(argv: list[str] | None = None) -> int:
                 "selection": selection,
                 "worker_id": args.worker_id,
                 "runtime": describe_codex_runtime(),
+                "supervisor_session_pool": (
+                    gate_off_activation_state(request.task_id)
+                    if supervisor_owner is None
+                    else supervisor_owner.activation_state()
+                ),
                 "outcome": outcome,
             }
         else:
@@ -581,6 +675,7 @@ def main(argv: list[str] | None = None) -> int:
                 "model": args.model,
                 "max_turns": args.max_turns,
                 "progress": progress,
+                "session_owner": supervisor_owner,
             }
             if args.supervisor_reasoning_effort is not None:
                 supervisor_options["reasoning_effort"] = (
@@ -603,6 +698,11 @@ def main(argv: list[str] | None = None) -> int:
                 "supervisor_model": args.model,
                 "supervisor_reasoning_effort": args.supervisor_reasoning_effort,
                 "runtime": describe_codex_runtime(),
+                "supervisor_session_pool": (
+                    gate_off_activation_state(request.task_id)
+                    if supervisor_owner is None
+                    else supervisor_owner.activation_state()
+                ),
                 "outcome": outcome,
             }
         status = _outcome_status(result)
@@ -665,6 +765,7 @@ def main(argv: list[str] | None = None) -> int:
         GenericSelectionError,
         IssueWorkflowStoreError,
         OpenAIDownstreamPipelineError,
+        SupervisorSessionPoolError,
         WorkerResultError,
         OSError,
         ValueError,
@@ -691,6 +792,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
         print(f"GAME TASK AGENT: STOP\n{exc}", file=sys.stderr, flush=True)
         return 2
+    finally:
+        if supervisor_owner is not None:
+            supervisor_owner.close()
 
 
 if __name__ == "__main__":

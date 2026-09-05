@@ -593,6 +593,149 @@ applied to a different one.
 
 Regressions: `Pipeline/TaskReviewAgent/tests/forced_action_arguments_smoke_test.py`.
 
+## Durable supervisor session pool
+
+`supervisor_session_pool.py` keeps one task-scoped Codex supervisor
+conversation resumable across separate `codex_supervisor_turn.py` subprocesses:
+every judgment turn of one worker, the worker returning at
+`human_action_required`, and the later delivery-evidence or merge-closeout
+worker for the same task. Pooling means persisting and safely resuming the
+provider conversation identity; no Docker, Python, or CLI process stays alive.
+Deterministic host-forced actions still never reach the provider and never
+check a session out.
+
+The owner is built on the shared AgentRuntime contracts rather than a second
+protocol: `provider_sessions.py` names and proves the conversation,
+`session_lifecycle.py` decides every budget and retirement, and the new
+provider-neutral `Pipeline/AgentRuntime/durable_session_pool.py` records the
+same idle/active/probation/quarantined/expired/retired state machine the
+ExecutionCrew pool applies to crew roles.
+
+### Compatibility and identity
+
+A conversation is offered back only to a turn whose scope is exactly equal:
+
+| Bound fact | Value |
+| --- | --- |
+| protocol version | `SUPERVISOR_SESSION_PROTOCOL_VERSION` (`1.0`) |
+| role | `task_supervisor` |
+| provider | `openai-codex` |
+| model | the exact resolved supervisor model |
+| reasoning effort | the exact resolved effort |
+| repository identity | the source checkout's `origin` URL |
+| resume control | SHA-256 of the exact operator-verified `codex exec resume` argv fragment |
+| task | the exact `NSC-###` |
+
+A different value for any of them cold-starts and retires the old record
+explicitly (`session_incompatibility`); another task can never inherit the
+conversation because the task ID is part of the key. A different repository is
+a different pool file altogether.
+
+Codex assigns its thread UUID only after the first call, so a cold lease
+carries no identity. The container reports the exact `thread.started`
+identity the AgentRuntime adapter proved from the transcript as
+`provider_session_confirmation`, and only that proof makes the conversation
+poolable. A missing or malformed confirmation quarantines; a confirmation that
+names a different thread than a resume asked for retires the conversation for
+`identity_failure` and the decision from that turn is rejected. Exit code 0
+proves nothing.
+
+### Codex resume gate (explicit activation)
+
+`codex exec resume` does not accept `--sandbox` (verified against Codex CLI
+0.151.0 on the host and 0.149.0 in the `nosafecircle-codex-supervisor` image),
+so the adapter refuses to resume unless an operator-verified argument that
+reproduces the pinned `--sandbox danger-full-access` policy through an option
+resume does accept is supplied. Warm pooling is therefore **off by default**.
+With the gate off the worker constructs no owner at all: every turn is the
+historical ephemeral turn with `--ephemeral`, no pool state is written, and
+the worker records `warm_pooling_active: false` with the reason in its
+`supervisor_session_pool` progress event, on every `supervisor_decision`
+event, and in the worker result. A conversation an earlier activation left
+behind is never resumed while the gate is off; it expires on its own, and an
+owner constructed after re-activation retires it explicitly if it no longer
+matches.
+
+To activate it, supply the exact fragment once, at the top of the process tree:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -CodexResumeSandboxArgument '-c','sandbox_mode="danger-full-access"'
+```
+
+The launcher exports it as `NSC_CODEX_RESUME_SANDBOX_ARGUMENT` (a JSON array)
+so the architect controller and every scheduler-spawned worker inherit the
+same decision, and forwards `--supervisor-codex-resume-sandbox-argument` to the
+direct worker. Fragments resume cannot honour (`--sandbox`, `-s`, `--last`,
+`--all`, `--ephemeral`, `--dangerously-bypass-approvals-and-sandbox`) and bare
+session IDs are refused before any pipeline starts.
+
+The fragment above is the *candidate* the adapter's own tests use; it has not
+been proven live by this repository. Before activating it, an operator must
+run one verification in the supervisor container with the real credential
+volume and confirm all three facts:
+
+1. `codex exec resume <uuid> -c sandbox_mode="danger-full-access" ...` is
+   accepted under `--strict-config --ignore-user-config` from a *different*
+   working directory than the one that started the thread;
+2. the resumed turn reports the same sandbox policy as the start (the
+   non-JSON `codex exec` banner prints `sandbox: danger-full-access`);
+3. the resumed `--json` transcript contains exactly one `thread.started`
+   event whose `thread_id` equals the resumed UUID.
+
+Until then, leave the gate off. Nothing in this repository claims warm
+pooling while it is off.
+
+### Authority capsule
+
+Every pooled turn's prompt is led by a fresh capsule that closes and revokes
+the previous assignment in the conversation, names the current task, run,
+worker, turn, phase, Issue state and state version, source HEAD and tree, and
+checkout status, lists the current allowed actions and zero capabilities, and
+states that earlier prompts, observations, paths, plans, and conclusions are
+context only. A cold start states that the conversation holds no prior
+authority. The deterministic observation the prompt was rendered from is the
+one the capsule names, because the pipelines bind it immediately before the
+turn.
+
+### Lifetime and retirement
+
+One paid judgment turn is one completed cycle of the committed lifecycle
+policy's decision-call class. The conversation retires after 100 completed
+turns, after two consecutive provider/output failures (a first counted failure
+parks it on probation and the next turn is its one deliberate retry), after an
+identity failure or incompatibility, or when a known context-window
+utilization reaches 70%. Utilization is known only when the operator states
+the model's context window explicitly (`-SupervisorContextWindowTokens` or
+`NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS`); it is derived from the exact
+input token count Codex reported for the turn and is otherwise unknown. A
+returned conversation expires after 7 idle days and nothing survives 14 days
+from creation. No bound ever touches an active assignment.
+
+### Crash and concurrency behavior
+
+Pool state lives outside the repository at
+`<checkout-root>/.task-review-agent/session-pools/<repository-sha256>/task-supervisor/`
+(`state.json`, an append-only `events.jsonl` that never carries prompt text,
+and one `liveness/<TASK-ID>.alive` lock per task). Transitions are atomic,
+verified writes under a short cross-process lock that is never held while
+Docker runs. The active lease is persisted before the provider is called and
+settled from the container's proof afterwards. An identical terminal
+settlement replay is a no-op; a different one fails closed.
+
+Exactly one active lease exists per task. The owner holds the task's liveness
+lock for the whole worker process; a second live owner for the same task fails
+closed at construction. A stranded lease -- an owner that died mid-turn -- is
+reconciled only by the owner that now holds that exact lock on the same host
+and platform, and only by retiring the conversation as
+`interrupted_assignment`; a lease recorded on another host cannot be proven
+stranded and fails closed. Timeouts, transport failures, and unparseable
+responses retire the conversation as uncertain. Nothing uncertain is ever
+resumed.
+
+Regressions: `Pipeline/AgentRuntime/tests/durable_session_pool_smoke_test.py`,
+`Pipeline/TaskReviewAgent/tests/supervisor_session_pool_smoke_test.py`, and
+`Pipeline/TaskReviewAgent/tests/supervisor_pool_launcher_smoke_test.py`.
+
 ## Validation
 
 ```powershell

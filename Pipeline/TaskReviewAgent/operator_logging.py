@@ -207,11 +207,44 @@ def error_hint(error: Any) -> str | None:
     return None
 
 
-def _remember(decision: SupervisorDecision, usage: Any = None) -> None:
+def session_fields(value: Any) -> dict[str, Any]:
+    """Return the bounded, prompt-free pooled-session facts worth journaling."""
+
+    if not isinstance(value, Mapping):
+        return {}
+    result: dict[str, Any] = {}
+    for key in (
+        "warm_pooling_active",
+        "mode",
+        "requested_session_id",
+        "confirmed_session_id",
+        "lease_id",
+        "record_id",
+        "outcome",
+        "state",
+        "completed_assignment_count",
+        "retirement_reason",
+        "quarantine_reason",
+        "reason",
+        "resume_contract",
+    ):
+        item = value.get(key)
+        if item is None or isinstance(item, (bool, int, float)):
+            if item is not None:
+                result[key] = item
+        elif isinstance(item, str):
+            result[key] = " ".join(item.split())[:300]
+    return result
+
+
+def _remember(
+    decision: SupervisorDecision, usage: Any = None, session: Any = None
+) -> None:
     _DECISION_CONTEXT.set(
         {
             "decision": decision,
             "usage": usage_fields(usage),
+            "session": session_fields(session),
         }
     )
 
@@ -238,7 +271,11 @@ def _context_for_action(action: Any) -> dict[str, Any] | None:
 
 def _patched_decide(self: Any, *args: Any, **kwargs: Any) -> SupervisorDecision:
     decision = _ORIGINALS["decide"](self, *args, **kwargs)
-    _remember(decision, getattr(self, "last_usage", None))
+    _remember(
+        decision,
+        getattr(self, "last_usage", None),
+        getattr(self, "last_session", None),
+    )
     return decision
 
 
@@ -296,6 +333,9 @@ def _patched_emit(self: ProgressLog, event: str, message: str, **fields: Any) ->
         usage = context.get("usage")
         if usage:
             fields.setdefault("provider_usage", usage)
+        session = context.get("session")
+        if session and event_name == "supervisor_decision":
+            fields.setdefault("provider_session", session)
     if event_name == "action_rejected":
         hint = error_hint(fields.get("error"))
         if hint:
@@ -361,5 +401,6 @@ __all__ = [
     "error_hint",
     "install_operator_logging",
     "remember_supervisor_decision_for_logging",
+    "session_fields",
     "usage_fields",
 ]
