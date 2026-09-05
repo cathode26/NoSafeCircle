@@ -610,27 +610,65 @@ def test_mainline_drift_is_reported_before_pass_receipt_work() -> None:
             raise AssertionError("advanced main was treated as integrated")
 
 
+def _validation_plan_fixture(
+    task_id: str,
+    *,
+    required_test_platforms: list[str],
+    test_filters: dict[str, str],
+) -> dict[str, Any]:
+    contract_hash = hashlib.sha256(task_id.encode("utf-8")).hexdigest()
+    with tempfile.TemporaryDirectory(prefix="nsc-deterministic-validation-policy-") as temporary:
+        root = Path(temporary)
+        policy_path = (
+            root
+            / "Pipeline"
+            / "TaskReviewAgent"
+            / "authoritative_validation_policy.json"
+        )
+        policy_path.parent.mkdir(parents=True)
+        policy_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "tasks": {
+                        task_id: {
+                            "task_contract_sha256": contract_hash,
+                            "required_test_platforms": required_test_platforms,
+                            "test_filters": test_filters,
+                            "authority": "fixture_deterministic_validation_policy",
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        plan = validation_plan_for(
+            root,
+            {"task_id": task_id, "task_contract_sha256": contract_hash},
+        )
+        require(plan is not None, f"{task_id} fixture policy is missing")
+        return plan
+
+
 def test_nsc020_policy_remains_playmode_only() -> None:
-    task_bytes = subprocess.check_output(
-        ["git", "-C", str(ROOT), "show", "HEAD:Tasks/NSC-020.yaml"]
+    plan = _validation_plan_fixture(
+        "NSC-020",
+        required_test_platforms=["PlayMode"],
+        test_filters={
+            "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests"
+        },
     )
-    task = json.loads(task_bytes.decode("utf-8"))
-    task["task_id"] = task["id"]
-    task["task_contract_sha256"] = hashlib.sha256(task_bytes).hexdigest()
-    plan = validation_plan_for(ROOT, task)
-    require(plan is not None, "NSC-020 policy is missing")
     require(plan["required_test_platforms"] == ["PlayMode"], "NSC-020 policy broadened")
 
 
 def test_nsc042_policy_is_exact_editmode_filter() -> None:
-    task_bytes = subprocess.check_output(
-        ["git", "-C", str(ROOT), "show", "HEAD:Tasks/NSC-042.yaml"]
+    plan = _validation_plan_fixture(
+        "NSC-042",
+        required_test_platforms=["EditMode"],
+        test_filters={
+            "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests"
+        },
     )
-    task = json.loads(task_bytes.decode("utf-8"))
-    task["task_id"] = task["id"]
-    task["task_contract_sha256"] = hashlib.sha256(task_bytes).hexdigest()
-    plan = validation_plan_for(ROOT, task)
-    require(plan is not None, "NSC-042 policy is missing")
     require(plan["required_test_platforms"] == ["EditMode"], "NSC-042 platform broadened")
     require(
         plan["test_filters"]["EditMode"]
