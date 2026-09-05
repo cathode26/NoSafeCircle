@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -32,6 +34,16 @@ from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
     _validate_additive_revert_commit,
 )
 from Pipeline.TaskReviewAgent import reset_rehearsal_task as reset_module  # noqa: E402
+from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
+    WorkflowActor,
+    WorkflowEventType,
+    WorkflowPhase,
+    WorkflowState,
+    initial_state,
+    render_dashboard,
+    render_event_comment,
+    transition,
+)
 
 
 def expect(condition: bool, message: str) -> None:
@@ -496,9 +508,209 @@ def test_issue_transfer_retries_transient_archive_validation() -> None:
         reset_module._find_complete_issue = original_find
         reset_module.time.sleep = original_sleep
 
+
+def test_issue_transfer_validates_one_coherent_archived_snapshot_and_resumes() -> None:
+    task_id = "NSC-915"
+    branch = "nsc-915-transfer-snapshot"
+    head = "a" * 40
+    contract_hash = "b" * 64
+    initial = replace(
+        initial_state(
+            task_id=task_id,
+            task_contract_sha256=contract_hash,
+            phase=WorkflowPhase.MERGE_CLOSEOUT,
+            now="2026-09-05T08:00:00Z",
+        ),
+        branch=branch,
+        head_commit=head,
+        checkout_path=r"C:\NSC\Rehearsal\NSC-915",
+        human_handoff_commit=head,
+        human_result="pass",
+    )
+    working, lease_event = transition(
+        initial,
+        event_type=WorkflowEventType.AGENT_LEASE_ACQUIRED,
+        actor_type=WorkflowActor.AGENT,
+        actor_id="fixture-worker",
+        to_state=WorkflowState.AGENT_WORKING,
+        details={"worker_id": "fixture-worker", "lease_id": "c" * 64},
+        now="2026-09-05T08:01:00Z",
+    )
+    complete, completed_event = transition(
+        working,
+        event_type=WorkflowEventType.COMPLETED,
+        actor_type=WorkflowActor.AGENT,
+        actor_id="fixture-worker",
+        to_state=WorkflowState.COMPLETE,
+        details={"work_type": "implementation"},
+        now="2026-09-05T08:02:00Z",
+    )
+    comments = [
+        {
+            "author": {"login": "github-actions"},
+            "body": render_event_comment(lease_event, "Lease acquired."),
+        },
+        {
+            "author": {"login": "github-actions"},
+            "body": render_event_comment(completed_event, "Task completed."),
+        },
+    ]
+    archive_url = "https://example.invalid/archive/issues/5"
+    coherent_issue = {
+        "number": 5,
+        "title": task_id + " — transferred",
+        "state": "CLOSED",
+        "url": archive_url,
+        "body": render_dashboard(complete),
+        "labels": [],
+        "comments": comments,
+    }
+    # GitHub's list/dashboard cache can expose a different state version than
+    # the exact Issue view. It is discovery data, not an atomic event snapshot.
+    newer_dashboard = replace(
+        complete,
+        state_version=complete.state_version + 1,
+        last_event_id="d" * 64,
+        updated_at_utc="2026-09-05T08:03:00Z",
+    )
+    listed_issue = {
+        **coherent_issue,
+        "body": render_dashboard(newer_dashboard),
+    }
+
+    class SplitSnapshotTransferRunner:
+        def __init__(self) -> None:
+            self.comment_calls = 0
+            self.transfer_calls = 0
+            self.archive_list_calls = 0
+            self.archive_view_calls = 0
+            self.exact_issue = coherent_issue
+
+        def run(self, args, **_kwargs):
+            argv = tuple(args)
+            if argv[:3] == ("gh", "issue", "comment"):
+                self.comment_calls += 1
+                return SimpleNamespace(args=argv, returncode=0, stdout="", stderr="")
+            if argv[:3] == ("gh", "issue", "transfer"):
+                self.transfer_calls += 1
+                return SimpleNamespace(
+                    args=argv, returncode=0, stdout=archive_url + "\n", stderr=""
+                )
+            if argv[:3] == ("gh", "issue", "list"):
+                self.archive_list_calls += 1
+                return SimpleNamespace(
+                    args=argv,
+                    returncode=0,
+                    stdout=json.dumps([listed_issue]),
+                    stderr="",
+                )
+            if argv[:3] == ("gh", "issue", "view"):
+                self.archive_view_calls += 1
+                return SimpleNamespace(
+                    args=argv,
+                    returncode=0,
+                    stdout=json.dumps(self.exact_issue),
+                    stderr="",
+                )
+            raise AssertionError("unexpected command: " + " ".join(argv))
+
+    operation = object.__new__(reset_module.RehearsalTaskReset)
+    runner = SplitSnapshotTransferRunner()
+    operation.runner = runner
+    operation.source = Path(".").resolve()
+    operation.repository = "owner/private-rehearsal"
+    operation.archive_repository = "owner/private-rehearsal-archive"
+    operation.task_id = task_id
+    operation.branch = branch
+    plan = {
+        "source_issue": {"number": 61},
+        "archived_issue": None,
+        "task_branch": branch,
+        "task_head": head,
+        "pull_request": {"url": "https://example.invalid/pull/62"},
+        "merge_commit": "e" * 40,
+    }
+    transferred = operation._transfer_issue(plan, "f" * 40)
+    expect(transferred == archive_url, "one-pass transfer did not return the archive URL")
+    expect(runner.archive_list_calls == 1, "archive discovery unexpectedly retried")
+    expect(runner.archive_view_calls == 1, "exact archive snapshot unexpectedly retried")
+    expect(runner.transfer_calls == 1, "Issue transfer did not run exactly once")
+
+    resumed = operation._transfer_issue(
+        {**plan, "source_issue": None, "archived_issue": coherent_issue},
+        "f" * 40,
+    )
+    expect(resumed == archive_url, "idempotent transfer resume lost the archive URL")
+    expect(runner.transfer_calls == 1, "idempotent resume repeated Issue transfer")
+    expect(runner.comment_calls == 1, "idempotent resume repeated the reset comment")
+
+    runner.exact_issue = {**coherent_issue, "url": archive_url + "-wrong"}
+    expect_error(
+        lambda: reset_module._find_complete_issue(
+            runner,
+            operation.source,
+            operation.archive_repository,
+            task_id,
+            branch,
+            head,
+            require_state_label=False,
+        ),
+        "URL differs",
+    )
+    wrong_identity = replace(complete, branch=branch + "-wrong")
+    runner.exact_issue = {
+        **coherent_issue,
+        "body": render_dashboard(wrong_identity),
+    }
+    expect_error(
+        lambda: reset_module._find_complete_issue(
+            runner,
+            operation.source,
+            operation.archive_repository,
+            task_id,
+            branch,
+            head,
+            require_state_label=False,
+        ),
+        "workflow identity differs",
+    )
+    runner.exact_issue = {
+        **coherent_issue,
+        "comments": [
+            {**comment, "author": {"login": "untrusted-user"}}
+            for comment in comments
+        ],
+    }
+    expect_error(
+        lambda: reset_module._find_complete_issue(
+            runner,
+            operation.source,
+            operation.archive_repository,
+            task_id,
+            branch,
+            head,
+            require_state_label=False,
+        ),
+        "event chain is invalid",
+    )
+    runner.exact_issue = coherent_issue
+    expect_error(
+        lambda: reset_module._find_complete_issue(
+            runner,
+            operation.source,
+            operation.repository,
+            task_id,
+            branch,
+            head,
+            require_state_label=True,
+        ),
+        "complete workflow label",
+    )
+
 def main() -> int:
     test_repository_guard()
     test_issue_transfer_retries_transient_archive_validation()
+    test_issue_transfer_validates_one_coherent_archived_snapshot_and_resumes()
     preferred = Path(os.environ.get("NSC_TEST_TEMP_ROOT", ""))
     temporary_parent = preferred if str(preferred) else None
     if temporary_parent is not None:

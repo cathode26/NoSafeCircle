@@ -42,6 +42,7 @@ from Pipeline.TaskReviewAgent.git_identity_guard import (  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     ALL_STATE_LABELS,
     STATE_LABELS,
+    WorkflowContractError,
     WorkflowState,
     parse_events,
     parse_state,
@@ -640,16 +641,16 @@ def _validate_complete_issue(
     issue: dict[str, Any],
     *,
     require_state_label: bool,
-) -> None:
+) -> dict[str, Any]:
     number = issue.get("number")
-    state = issue.get("workflow_state")
-    if type(number) is not int or state is None:
+    listed_state = issue.get("workflow_state")
+    if type(number) is not int or listed_state is None:
         raise RehearsalResetError("completed Issue identity is invalid")
-    if issue.get("state") != "CLOSED":
-        raise RehearsalResetError("completed task Issue must be closed")
-    state_labels = _issue_labels(issue) & ALL_STATE_LABELS
-    if require_state_label and state_labels != {STATE_LABELS[WorkflowState.COMPLETE.value]}:
-        raise RehearsalResetError("source Issue must have exactly the complete workflow label")
+    # `gh issue list` and `gh issue view` are separately cached GitHub queries.
+    # The list result is discovery only: after a transfer it can expose a newer
+    # dashboard body while the separately fetched comments are still one event
+    # behind. Re-read body, labels, metadata, and comments together so the
+    # hashed state is compared only with the event chain from one exact view.
     value = _json_command(
         runner,
         (
@@ -660,15 +661,64 @@ def _validate_complete_issue(
             "--repo",
             repository,
             "--json",
-            "comments",
+            "number,title,state,url,body,labels,comments",
         ),
         cwd=root,
     )
-    comments = value.get("comments") if isinstance(value, dict) else None
-    if not isinstance(comments, list):
-        raise RehearsalResetError("completed Issue comments were not readable")
-    events = parse_events(comments)
-    validate_event_chain(state, events)
+    if not isinstance(value, dict) or value.get("number") != number:
+        raise RehearsalResetError("exact completed Issue view has the wrong identity")
+    if issue.get("url") != value.get("url"):
+        raise RehearsalResetError("exact completed Issue URL differs from discovery")
+    if value.get("state") != "CLOSED":
+        raise RehearsalResetError("completed task Issue must be closed")
+    body = value.get("body")
+    comments = value.get("comments")
+    if not isinstance(body, str) or not isinstance(comments, list):
+        raise RehearsalResetError("completed Issue body or comments were not readable")
+    try:
+        state = parse_state(body)
+    except WorkflowContractError as exc:
+        raise RehearsalResetError(
+            f"exact completed Issue state is invalid: {exc}"
+        ) from exc
+    if state is None:
+        raise RehearsalResetError("exact completed Issue has no workflow state")
+    stable_fields = (
+        "task_id",
+        "state",
+        "phase",
+        "current_actor",
+        "task_contract_sha256",
+        "worker_id",
+        "lease_id",
+        "branch",
+        "head_commit",
+        "checkout_path",
+        "human_handoff_commit",
+        "human_result",
+    )
+    if any(
+        getattr(state, field) != getattr(listed_state, field)
+        for field in stable_fields
+    ):
+        raise RehearsalResetError(
+            "exact completed Issue workflow identity differs from discovery"
+        )
+    state_labels = _issue_labels(value) & ALL_STATE_LABELS
+    if require_state_label and state_labels != {
+        STATE_LABELS[WorkflowState.COMPLETE.value]
+    }:
+        raise RehearsalResetError(
+            "source Issue must have exactly the complete workflow label"
+        )
+    try:
+        events = parse_events(comments)
+        validate_event_chain(state, events)
+    except WorkflowContractError as exc:
+        raise RehearsalResetError(
+            f"exact completed Issue event chain is invalid: {exc}"
+        ) from exc
+    return {**value, "workflow_state": state}
 
 
 def _find_complete_issue(
@@ -690,14 +740,13 @@ def _find_complete_issue(
         )
     if not matches:
         return None
-    _validate_complete_issue(
+    return _validate_complete_issue(
         runner,
         root,
         repository,
         matches[0],
         require_state_label=require_state_label,
     )
-    return matches[0]
 
 
 def _find_unique_source_complete_issue(
@@ -748,14 +797,13 @@ def _find_unique_source_complete_issue(
         raise RehearsalResetError(
             "exactly one closed completed source Issue must identify the delivered run"
         )
-    _validate_complete_issue(
+    return _validate_complete_issue(
         runner,
         root,
         repository,
         matches[0],
         require_state_label=True,
     )
-    return matches[0]
 
 
 def _find_pull_request_for_task_head(
