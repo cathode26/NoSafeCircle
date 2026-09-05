@@ -446,3 +446,15 @@ The Game Task Agent cannot:
 - merge the task.
 
 A wrong branch, unexpected remote movement, dirty checkout, changed task contract, candidate hash mismatch, path mismatch, TaskGraph failure, Issue event-chain problem, or resource conflict stops for reconciliation and remains visible in the durable Issue log.
+
+## Deterministic end-to-end acceptance
+
+`Pipeline/TaskReviewAgent/tests/muffcabbage_end_to_end_smoke_test.py` drives one synthetic muffcabbage task through the complete autonomous lifecycle inside a disposable temporary repository and is registered in the Core deterministic workflow:
+
+```powershell
+python Pipeline/TaskReviewAgent/tests/muffcabbage_end_to_end_smoke_test.py
+```
+
+It runs the real `AutonomousGraphController`, `PollingOrchestrator`, Stage 2 planner, Issue workflow state machine, private synthetic-evidence adapter, durable checkout, and downstream delivery controller, and proves: explicit target admission; a fast/lean/targeted architect classification honored by deterministic routing; exactly one implementation worker; an identity-bound worker result; the committed and pushed handoff; automated evidence that reuses the exact pre-handoff Unity manifest and never records a human result; delivery evidence, pull request, merge, and Issue completion in the same run; a valid `graph-complete.json`; and no residual lease, assignment, reservation, or dirty checkout. Negative cases prove a forged worker identity stops admission, tampered or hash-mismatched pre-handoff evidence is refused rather than re-run, synthetic evidence cannot create a human result, and a hidden second Unity execution is observable.
+
+The architect model, the worker process, the ExecutionCrew code change, the Unity runner, the TaskGraph/TaskDelivery command-line tools, GitHub transport, the `gh` PR/Issue CLI, and the Codex decision provider are deterministic fixture stand-ins; nothing reaches GitHub, Docker, a paid provider, Unity, or any real checkout, Issue, claim, or rehearsal repository.
