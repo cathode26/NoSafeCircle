@@ -283,13 +283,18 @@ def _trailer(runner: CommandRunner, root: Path, commit: str, name: str) -> str |
 
 
 def _resolve_main_state(
-    runner: CommandRunner, root: Path, task_id: str, head: str
+    runner: CommandRunner,
+    root: Path,
+    task_id: str,
+    head: str,
+    *,
+    require_reset_marker: bool = False,
 ) -> tuple[str, bool]:
     parents = _commit_parents(runner, root, head)
     task_trailer = _trailer(runner, root, head, RESET_TASK_TRAILER)
     merge_trailer = _trailer(runner, root, head, RESET_MERGE_TRAILER)
     if task_trailer is None and merge_trailer is None:
-        if len(parents) == 2:
+        if len(parents) == 2 and not require_reset_marker:
             return head, False
 
         # A completed reset remains the recovery authority when later,
@@ -1063,7 +1068,11 @@ class RehearsalTaskReset:
         source_issue = None
         try:
             merge_commit, already_reverted = _resolve_main_state(
-                self.runner, self.source, self.task_id, head
+                self.runner,
+                self.source,
+                self.task_id,
+                head,
+                require_reset_marker=task_state.get("state") == "not_delivered",
             )
             pull_request = _find_pull_request(
                 self.runner,

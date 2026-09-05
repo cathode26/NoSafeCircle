@@ -380,6 +380,67 @@ def test_later_main_reset_resume_refusals(root: Path) -> None:
     )
 
 
+def test_not_delivered_resume_ignores_an_unrelated_later_merge(root: Path) -> None:
+    repository, task_merge = _merged_reset_fixture(
+        root, "repo-unrelated-later-merge", "NSC-905"
+    )
+    run("git", "revert", "-m", "1", "--no-commit", task_merge, cwd=repository)
+    run(
+        "git",
+        "commit",
+        "-m",
+        "reset task before unrelated merge",
+        "-m",
+        f"{RESET_TASK_TRAILER}: NSC-905\n{RESET_MERGE_TRAILER}: {task_merge}",
+        cwd=repository,
+    )
+    reset_commit = run("git", "rev-parse", "HEAD", cwd=repository)
+
+    run("git", "switch", "-c", "unrelated-infrastructure", cwd=repository)
+    (repository / "infrastructure.txt").write_text("fix\n", encoding="utf-8")
+    run("git", "add", "infrastructure.txt", cwd=repository)
+    run("git", "commit", "-m", "unrelated infrastructure", cwd=repository)
+    run("git", "switch", "main", cwd=repository)
+    run(
+        "git",
+        "merge",
+        "--no-ff",
+        "unrelated-infrastructure",
+        "-m",
+        "merge unrelated infrastructure",
+        cwd=repository,
+    )
+    unrelated_merge = run("git", "rev-parse", "HEAD", cwd=repository)
+    run(
+        "git",
+        "merge-base",
+        "--is-ancestor",
+        reset_commit,
+        unrelated_merge,
+        cwd=repository,
+    )
+
+    runner = CommandRunner()
+    default_merge, default_reverted = _resolve_main_state(
+        runner, repository, "NSC-905", unrelated_merge
+    )
+    expect(
+        default_merge == unrelated_merge and not default_reverted,
+        "ordinary conformant resolution no longer accepts a current merge candidate",
+    )
+    resolved, already_reverted = _resolve_main_state(
+        runner,
+        repository,
+        "NSC-905",
+        unrelated_merge,
+        require_reset_marker=True,
+    )
+    expect(
+        resolved == task_merge and already_reverted,
+        "not-delivered recovery mistook a later unrelated merge for the task merge",
+    )
+
+
 def test_issue_transfer_retries_transient_archive_validation() -> None:
     class TransferRunner:
         def run(self, args, **_kwargs):
@@ -450,6 +511,7 @@ def main() -> int:
         test_additive_revert_identity(root)
         test_additive_revert_preserves_later_unrelated_history(root)
         test_later_main_reset_resume_refusals(root)
+        test_not_delivered_resume_ignores_an_unrelated_later_merge(root)
     print("reset_rehearsal_task_smoke_test: PASS")
     return 0
 
