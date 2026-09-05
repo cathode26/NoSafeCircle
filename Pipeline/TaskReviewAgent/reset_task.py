@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import re
 import sys
@@ -69,6 +70,14 @@ from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
 
 class TaskResetError(RehearsalResetError):
     """Raised when production abandoned-state cleanup cannot be proven safe."""
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 PRODUCTION_RESET_TASK_TRAILER = "NSC-Production-Reset-Task"
@@ -2747,6 +2756,9 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
             for path in _state_paths(self.state_root, self.task_id)
             if path.is_file()
         ]
+        active_state_sha256 = {
+            Path(value).name: _file_sha256(Path(value)) for value in active_state
+        }
         task_state = _task_state(self.runner, self.source, self.task_id)
         if not _abandoned_rehearsal_state_is_undelivered(
             current_parent, task_state.get("state")
@@ -2773,6 +2785,7 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
             ),
             "local_branch_oid": local_branch,
             "active_state_files": active_state,
+            "active_state_file_sha256": active_state_sha256,
             "retained_outputs": str(self.state_root / "outputs" / self.task_id),
             "taskgraph_state": task_state.get("state"),
             "git_commit_created": False,
@@ -2780,11 +2793,14 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
             "audit_history_rewritten": False,
         }
 
-    def _recovery_comment(self, plan: dict[str, Any]) -> str:
-        marker = (
+    def _recovery_marker(self, plan: dict[str, Any]) -> str:
+        return (
             "<!-- nsc-published-decomposition-undo-recovery: "
             f"{plan['undo_commit']} -->"
         )
+
+    def _recovery_comment(self, plan: dict[str, Any]) -> str:
+        marker = self._recovery_marker(plan)
         return (
             "## Published decomposition undo recovered\n\n"
             f"The exact `{self.task_id}` D1C application `{plan['apply_commit']}` "
@@ -2800,14 +2816,22 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
     def _close_exact_issue(self, report: dict[str, Any]) -> None:
         number = int(report["issue"]["number"])
         exact = self._issue_view(number)
+        marker = self._recovery_marker(report)
         if exact.get("state") == "CLOSED":
             self._validated_completed_issue(
                 exact, expected_github_state="CLOSED"
             )
+            comments = exact.get("comments") or []
+            if not any(
+                isinstance(item, dict) and marker in str(item.get("body") or "")
+                for item in comments
+            ):
+                raise TaskResetError(
+                    "closed parent Issue lacks the exact recovery audit marker"
+                )
             return
         self._validated_completed_issue(exact, expected_github_state="OPEN")
         body = self._recovery_comment(report)
-        marker = body.rsplit("\n\n", 1)[-1]
         comments = exact.get("comments") or []
         if not any(
             isinstance(item, dict) and marker in str(item.get("body") or "")
@@ -2889,6 +2913,12 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
             )
         if set(active_by_name) & set(archived_by_name):
             raise TaskResetError("parent state exists in both active and archive locations")
+        expected_hashes = report.get("active_state_file_sha256")
+        if not isinstance(expected_hashes, dict) or {
+            **{name: _file_sha256(path) for name, path in active_by_name.items()},
+            **{name: _file_sha256(path) for name, path in archived_by_name.items()},
+        } != expected_hashes:
+            raise TaskResetError("parent state file content changed after recovery preflight")
         for name, source in active_by_name.items():
             destination = archive / name
             if destination.exists():
@@ -2920,6 +2950,8 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
         """Re-prove immutable authority and non-consumption before each cleanup step."""
 
         self._verify_recovery_main(report)
+        metadata = _repo_metadata(self.runner, self.source, self.repository)
+        _require_private_rehearsal_repository(metadata, self.repository)
         if self._stored_parent_task_id() != self.task_id:
             raise TaskResetError("stored graph delta belongs to a different parent")
 
@@ -2948,6 +2980,16 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
             raise TaskResetError(
                 "parent managed Issue set changed after the recovery preflight"
             )
+        if github_state == "CLOSED":
+            marker = self._recovery_marker(report)
+            comments = exact_issue.get("comments") or []
+            if not any(
+                isinstance(item, dict) and marker in str(item.get("body") or "")
+                for item in comments
+            ):
+                raise TaskResetError(
+                    "closed parent Issue lacks the exact recovery audit marker"
+                )
 
         children = self._proposed_children()
         history = self._historical_plan(
@@ -3101,6 +3143,24 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
             raise TaskResetError(
                 "active/archived parent state differs from the recovery receipt"
             )
+        expected_state_hashes = report.get("active_state_file_sha256")
+        archived_state_paths = tuple(archive.iterdir()) if archive.is_dir() else ()
+        current_state_hashes = {
+            **{
+                path.name: _file_sha256(path)
+                for path in _state_paths(self.state_root, self.task_id)
+                if path.is_file()
+            },
+            **{
+                path.name: _file_sha256(path)
+                for path in archived_state_paths
+                if path.is_file()
+            },
+        }
+        if not isinstance(expected_state_hashes, dict) or (
+            current_state_hashes != expected_state_hashes
+        ):
+            raise TaskResetError("parent state file content changed after recovery preflight")
         task_state = _task_state(self.runner, self.source, self.task_id).get("state")
         if not _abandoned_rehearsal_state_is_undelivered(parent, task_state):
             raise TaskResetError(
@@ -3216,6 +3276,7 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
                 "checkout_manifest_sha256",
                 "local_branch_oid",
                 "active_state_files",
+                "active_state_file_sha256",
             ):
                 if verification.get(field) != plan.get(field):
                     raise TaskResetError(f"{field} changed between preflight and apply")

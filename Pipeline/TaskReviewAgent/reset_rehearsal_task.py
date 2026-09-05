@@ -910,6 +910,11 @@ def _inspect_checkout(
         raise RehearsalResetError("checkout path escaped the exact configured checkout root")
     if _path_is_reparse_point(checkout):
         raise RehearsalResetError("checkout path is a symbolic link or reparse point")
+    git_admin = checkout / ".git"
+    if not git_admin.is_dir() or _path_is_reparse_point(git_admin):
+        raise RehearsalResetError(
+            "task checkout must be one standalone Git clone, not a linked worktree"
+        )
     facts = {
         "path": str(checkout),
         "root": _git_text(runner, checkout, "rev-parse", "--show-toplevel"),

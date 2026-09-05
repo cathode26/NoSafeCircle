@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.reset_rehearsal_task import (  # noqa: E402
     CommandRunner,
+    RehearsalResetError,
     _remove_tree_exact,
 )
 from Pipeline.TaskReviewAgent.reset_task import (  # noqa: E402
@@ -481,9 +482,16 @@ class FakeGitHubRunner(CommandRunner):
 
 
 class RecoveryGitHubRunner(FakeGitHubRunner):
-    def __init__(self, backend: MemoryIssueBackend, **kwargs) -> None:
+    def __init__(
+        self,
+        backend: MemoryIssueBackend,
+        *,
+        visibility: str = "PRIVATE",
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self.backend = backend
+        self.visibility = visibility
 
     def run(self, args, *, cwd, check: bool = True, timeout: float = 600.0):
         argv = tuple(args)
@@ -494,7 +502,7 @@ class RecoveryGitHubRunner(FakeGitHubRunner):
                 json.dumps(
                     {
                         "nameWithOwner": FIXTURE_REPOSITORY,
-                        "visibility": "PRIVATE",
+                        "visibility": self.visibility,
                         "isArchived": False,
                         "url": "https://example.invalid/rehearsal",
                     }
@@ -1328,6 +1336,50 @@ def test_published_recovery_refuses_parent_linked_worktree(root: Path) -> None:
     expect(linked.is_dir(), "refused recovery removed the linked worktree")
 
 
+def test_published_recovery_refuses_canonical_checkout_linked_elsewhere(
+    root: Path,
+) -> None:
+    environment = PublishedUndoEnvironment(root)
+    _remove_tree_exact(environment.checkout)
+    donor = root / "donor"
+    run(
+        "git",
+        "clone",
+        "-q",
+        "--no-checkout",
+        str(environment.bare),
+        str(donor),
+        cwd=root,
+    )
+    run(
+        "git",
+        "worktree",
+        "add",
+        "-q",
+        "-b",
+        environment.branch,
+        str(environment.checkout),
+        environment.fixture.initial_head,
+        cwd=donor,
+    )
+    try:
+        environment.recovery().preflight()
+    except RehearsalResetError as exc:
+        expect(
+            "standalone Git clone" in str(exc),
+            "linked-checkout refusal reported an unexpected reason",
+        )
+    else:
+        raise AssertionError(
+            "a canonical linked worktree from another clone was accepted for raw removal"
+        )
+    expect(environment.checkout.is_dir(), "refused recovery removed the linked checkout")
+    expect(
+        (environment.checkout / ".git").is_file(),
+        "fixture canonical checkout was not a linked worktree",
+    )
+
+
 def _stopped_recovery_before_cleanup(
     environment: PublishedUndoEnvironment,
 ) -> Path:
@@ -1409,6 +1461,98 @@ def test_published_recovery_resume_rebinds_receipt_authority(root: Path) -> None
         "authority mismatch closed the parent Issue",
     )
     expect(environment.checkout.is_dir(), "authority mismatch removed the checkout")
+
+
+def test_published_recovery_resume_rechecks_private_repository(root: Path) -> None:
+    environment = PublishedUndoEnvironment(root)
+    runner = RecoveryGitHubRunner(environment.backend)
+    operation = environment.recovery(runner)
+    plan = operation.preflight()
+
+    def interrupt_before_close(_report):
+        raise TaskResetError("fixture interruption before Issue close")
+
+    operation._close_exact_issue = interrupt_before_close
+    try:
+        operation.apply(plan)
+    except TaskResetError as exc:
+        expect("fixture interruption" in str(exc), "unexpected recovery stop")
+    else:
+        raise AssertionError("fixture recovery did not stop before cleanup")
+    receipt = next(
+        (
+            environment.checkout_root
+            / ".task-review-agent"
+            / "reset-runs"
+            / environment.parent_id
+        ).glob("*-recover-published-decomposition-undo.json")
+    )
+    runner.visibility = "PUBLIC"
+    try:
+        environment.recovery(runner).resume(receipt)
+    except RehearsalResetError as exc:
+        expect(
+            "PRIVATE GitHub repository" in str(exc),
+            "repository-privacy refusal reported an unexpected reason",
+        )
+    else:
+        raise AssertionError(
+            "resume did not re-check repository privacy before cleanup"
+        )
+    expect(
+        environment.backend.get_issue(1)["state"] == "OPEN",
+        "resume closed the Issue",
+    )
+    expect(environment.checkout.is_dir(), "resume removed the checkout")
+
+
+def test_published_recovery_resume_rechecks_state_file_bytes(root: Path) -> None:
+    environment = PublishedUndoEnvironment(root)
+    scope = (
+        environment.checkout_root
+        / ".task-review-agent"
+        / f"{environment.parent_id}.scope.json"
+    )
+    scope.write_text('{"scope":"before"}\n', encoding="utf-8", newline="\n")
+    receipt = _stopped_recovery_before_cleanup(environment)
+    scope.write_text('{"scope":"after"}\n', encoding="utf-8", newline="\n")
+    _expect_refusal(
+        lambda: environment.recovery(
+            RecoveryGitHubRunner(environment.backend)
+        ).resume(receipt),
+        "state file content changed",
+        "resume rebound state authority by filename without checking bytes",
+    )
+    expect(
+        environment.backend.get_issue(1)["state"] == "OPEN",
+        "resume closed the Issue",
+    )
+    expect(environment.checkout.is_dir(), "resume removed the checkout")
+    expect(scope.is_file(), "resume archived the changed state file")
+
+
+def test_published_recovery_resume_refuses_closed_issue_without_marker(
+    root: Path,
+) -> None:
+    environment = PublishedUndoEnvironment(root)
+    receipt = _stopped_recovery_before_cleanup(environment)
+    environment.backend.issues[1]["state"] = "CLOSED"
+    _expect_refusal(
+        lambda: environment.recovery(
+            RecoveryGitHubRunner(environment.backend)
+        ).resume(receipt),
+        "recovery audit marker",
+        "an externally closed Issue bypassed the recovery audit marker",
+    )
+    expect(environment.checkout.is_dir(), "resume removed the checkout")
+    expect(
+        (
+            environment.checkout_root
+            / ".task-review-agent"
+            / f"{environment.parent_id}.json"
+        ).is_file(),
+        "resume archived parent state",
+    )
 
 
 def test_published_decomposition_undo_recovery_resumes_partial_cleanup(
@@ -1547,8 +1691,12 @@ def main() -> int:
             test_published_decomposition_undo_recovery_refuses_any_child_issue,
             test_published_recovery_protects_unity_resources_without_false_existing_path,
             test_published_recovery_refuses_parent_linked_worktree,
+            test_published_recovery_refuses_canonical_checkout_linked_elsewhere,
             test_published_recovery_resume_revalidates_before_mutation,
             test_published_recovery_resume_rebinds_receipt_authority,
+            test_published_recovery_resume_rechecks_private_repository,
+            test_published_recovery_resume_rechecks_state_file_bytes,
+            test_published_recovery_resume_refuses_closed_issue_without_marker,
             test_published_decomposition_undo_recovery_resumes_partial_cleanup,
             test_undo_decomposition_rejects_invalid_graph_delta_cleanly,
             test_ordinary_reset_modes_are_unchanged,
