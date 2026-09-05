@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -265,6 +266,78 @@ def test_real_checkout_requires_github_claim() -> None:
         result = subject.prepare_task_checkout()
         require(result["status"] == "blocked", "checkout manager ignored missing claim")
         require(not (checkout_root / TASK_ID).exists(), "unclaimed task checkout was created")
+
+
+def test_clean_committed_observation_is_cached_and_invalidated_by_head_change() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-task-review-observation-cache-") as temporary:
+        root = Path(temporary)
+        controller, _, first_head = create_fixture(root)
+        subject = workflow(
+            controller=controller,
+            checkout_root=root / "operator",
+            coordination_status="available_unassigned",
+        )
+        observer = subject.base_observer
+        taskcontrol_calls: list[tuple[str, ...]] = []
+        original_taskcontrol = observer._taskcontrol
+
+        def counting_taskcontrol(*args: str, check: bool = True):
+            taskcontrol_calls.append(args)
+            return original_taskcontrol(*args, check=check)
+
+        with mock.patch.object(observer, "_taskcontrol", side_effect=counting_taskcontrol):
+            first = subject.observe_goal_state()
+            second = subject.observe_goal_state()
+            require(first["task"] == second["task"], "cached task observation changed")
+            require(
+                taskcontrol_calls == [("validate",), ("state", TASK_ID, "--json")],
+                f"identical clean observation repeated taskcontrol: {taskcontrol_calls}",
+            )
+
+            (controller / "README.md").write_text("new committed input\n", encoding="utf-8")
+            dirty = subject.observe_goal_state()
+            require(
+                dirty["environment"]["controller_clean"] is False,
+                "cache hid a dirty controller",
+            )
+            subject.observe_goal_state()
+            require(
+                taskcontrol_calls
+                == [
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                ],
+                f"dirty controller observation was cached: {taskcontrol_calls}",
+            )
+
+            git(controller, "add", "README.md")
+            git(controller, "commit", "-m", "Advance controller HEAD")
+            second_head = git(controller, "rev-parse", "HEAD")
+            require(second_head != first_head, "fixture HEAD did not advance")
+
+            changed = subject.observe_goal_state()
+            require(
+                changed["environment"]["source_head"] == second_head,
+                "cache hid the new controller HEAD",
+            )
+            require(
+                taskcontrol_calls
+                == [
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                    ("validate",),
+                    ("state", TASK_ID, "--json"),
+                ],
+                f"HEAD change did not invalidate taskcontrol cache: {taskcontrol_calls}",
+            )
 
 
 _REPO_BINDING_TASK_ID = "NSC-778"
@@ -564,6 +637,7 @@ def main() -> int:
     tests = (
         test_real_checkout_create_resume_and_conflict,
         test_real_checkout_requires_github_claim,
+        test_clean_committed_observation_is_cached_and_invalidated_by_head_change,
         test_repo_binding_production_controller_allows_production_checkout,
         test_repo_binding_disposable_controller_allows_matching_disposable_checkout,
         test_repo_binding_disposable_controller_rejects_production_checkout,

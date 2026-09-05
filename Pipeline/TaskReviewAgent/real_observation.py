@@ -124,6 +124,8 @@ class RealTaskObserver:
             )
         self.action_log: list[str] = []
         self.last_observation: dict[str, Any] | None = None
+        self._clean_observation_cache_key: tuple[str, str, str, str | None] | None = None
+        self._clean_observation_cache: dict[str, Any] | None = None
 
     def _taskcontrol(
         self,
@@ -210,6 +212,26 @@ class RealTaskObserver:
         )
         status_lines = _stable_lines(status_text)
         controller_clean = not status_lines
+
+        cache_key = (head, tree, branch, origin_main)
+        if (
+            controller_clean
+            and self._clean_observation_cache_key == cache_key
+            and self._clean_observation_cache is not None
+        ):
+            self.last_observation = json.loads(
+                json.dumps(
+                    self._clean_observation_cache,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                )
+            )
+            return json.loads(
+                json.dumps(self.last_observation, ensure_ascii=False, allow_nan=False)
+            )
+        if not controller_clean:
+            self._clean_observation_cache_key = None
+            self._clean_observation_cache = None
 
         validation_result = self._taskcontrol("validate", check=False)
         validation_stdout = _decode(
@@ -387,6 +409,16 @@ class RealTaskObserver:
         self.last_observation = json.loads(
             json.dumps(observation, ensure_ascii=False, allow_nan=False)
         )
+        if (
+            controller_clean
+            and taskgraph_valid
+            and task_state is not None
+            and not errors
+        ):
+            self._clean_observation_cache_key = cache_key
+            self._clean_observation_cache = json.loads(
+                json.dumps(self.last_observation, ensure_ascii=False, allow_nan=False)
+            )
         return json.loads(
             json.dumps(self.last_observation, ensure_ascii=False, allow_nan=False)
         )
