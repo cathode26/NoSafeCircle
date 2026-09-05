@@ -53,12 +53,38 @@ _ALLOWED_ACTION_CONTEXT: ContextVar[tuple[str, ...] | None] = ContextVar(
     "nsc_downstream_allowed_actions",
     default=None,
 )
+# The exact (action, arguments) pair the host derived for a sole forced action.
+# Carried separately from the narrowed action menu so the existing zero-argument
+# short-circuit keeps its own independent contract, and keyed by action name so
+# a derivation can never be applied to a different action.
+_FORCED_ARGUMENTS_CONTEXT: ContextVar[tuple[str, Mapping[str, Any]] | None] = (
+    ContextVar(
+        "nsc_downstream_forced_arguments",
+        default=None,
+    )
+)
 
 _NEXT_ACTION_ALIASES = {
     "run_authoritative_unity_tests": "run_authoritative_unity_test",
     "finalize_delivery_evidence": "finalize_delivery_evidence_and_open_pr",
     "open_pull_request": "finalize_delivery_evidence_and_open_pr",
 }
+
+# Actions whose complete arguments the host can derive and validate from durable
+# state. A provider adds nothing here: it would only echo values the host already
+# owns, which a measured NSC-914 delivery run showed costing 17,808 input tokens
+# for acquire_agent_lease and 18,746 for run_authoritative_unity_test.
+#
+# Derivation is all-or-nothing. A derivation that cannot produce every required
+# argument from durable state raises rather than returning None, because falling
+# through to the provider is exactly how an inferred Unity filter or an invented
+# lease rationale would re-enter the pipeline.
+_HOST_DETERMINISTIC_ARGUMENT_ACTIONS = frozenset(
+    {
+        "acquire_agent_lease",
+        "run_authoritative_unity_test",
+    }
+)
 
 _HOST_DETERMINISTIC_ZERO_ARGUMENT_ACTIONS = frozenset(
     {
@@ -518,6 +544,161 @@ def allowed_actions_for(
     return tuple(actions)
 
 
+def _validated_platforms(downstream: Mapping[str, Any]) -> frozenset[str]:
+    """Return the platforms whose authoritative manifests are already durable."""
+
+    receipt = downstream.get("receipt")
+    receipt = receipt if isinstance(receipt, Mapping) else {}
+    manifests = receipt.get("validation_manifests")
+    if not isinstance(manifests, list):
+        return frozenset()
+    return frozenset(
+        item.get("test_platform")
+        for item in manifests
+        if isinstance(item, Mapping) and isinstance(item.get("test_platform"), str)
+    )
+
+
+def _forced_unity_test_arguments(
+    observation: Mapping[str, Any],
+    downstream: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Derive the exact platform/filter pair from the committed validation plan.
+
+    `_patched_observe` already publishes `authoritative_test_plan` from
+    `validation_plan_for`, and `_patched_render_supervisor_prompt` already pasted
+    the same pair into the prompt as a host-authorized plan. The values are
+    therefore durable, not judgmental, and are taken straight from that plan.
+
+    The plan's platform order is committed, so when several platforms remain the
+    first outstanding one is a deterministic choice and the loop covers the rest
+    on later turns. Only a missing plan, no outstanding platform, or a
+    missing/blank filter is genuinely underdetermined, and each of those raises.
+    """
+
+    plan = downstream.get("authoritative_test_plan")
+    task = observation.get("task")
+    task_id = task.get("task_id") if isinstance(task, Mapping) else None
+    label = task_id if isinstance(task_id, str) and task_id else "this task"
+    if not isinstance(plan, Mapping):
+        raise DownstreamPipelineError(
+            "authoritative validation policy omitted an exact test plan for "
+            f"{label}; refusing repository discovery or an inferred Unity filter"
+        )
+    platforms = plan.get("required_test_platforms")
+    filters = plan.get("test_filters")
+    if (
+        not isinstance(platforms, list)
+        or not platforms
+        or any(not isinstance(item, str) or not item for item in platforms)
+        or not isinstance(filters, Mapping)
+    ):
+        raise DownstreamPipelineError(
+            "authoritative test plan for "
+            f"{label} is malformed; refusing an inferred Unity platform or filter"
+        )
+    validated = _validated_platforms(downstream)
+    outstanding = [item for item in platforms if item not in validated]
+    if not outstanding:
+        raise DownstreamPipelineError(
+            "every required authoritative platform for "
+            f"{label} already has durable evidence; refusing a redundant Unity run"
+        )
+    platform = outstanding[0]
+    test_filter = filters.get(platform)
+    if not isinstance(test_filter, str) or not test_filter.strip():
+        raise DownstreamPipelineError(
+            "authoritative test plan for "
+            f"{label} has no exact filter for {platform}; refusing an inferred filter"
+        )
+    return {"test_platform": platform, "test_filter": test_filter}
+
+
+def _forced_lease_arguments(
+    observation: Mapping[str, Any],
+    downstream: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Derive fixed, auditable lease prose from durable state.
+
+    `planned_approach` and `expected_validation` are recorded rationale, not
+    decisions: the host has already established that the managed Issue is
+    agent_ready and that this lease is the only available action. Paying a
+    provider to phrase that is cost without authority, so the text is generated
+    deterministically and names exactly the durable facts it was derived from.
+    """
+
+    state = _workflow_state(observation)
+    task = observation.get("task")
+    task_id = task.get("task_id") if isinstance(task, Mapping) else None
+    label = task_id if isinstance(task_id, str) and task_id else "the managed task"
+    phase = state.get("phase")
+    phase_label = phase if isinstance(phase, str) and phase else "the recorded phase"
+    planned_approach = (
+        f"Deterministic downstream continuation for {label} in phase "
+        f"{phase_label}. The managed Issue is agent_ready and the downstream "
+        "pipeline names acquire_agent_lease as the only available action, so the "
+        "host acquired the lease without provider judgment."
+    )
+    if phase == WorkflowPhase.DELIVERY_EVIDENCE.value:
+        plan = downstream.get("authoritative_test_plan")
+        pairs: list[str] = []
+        if isinstance(plan, Mapping):
+            platforms = plan.get("required_test_platforms")
+            filters = plan.get("test_filters")
+            if isinstance(platforms, list) and isinstance(filters, Mapping):
+                pairs = [
+                    f"{item} filter {filters.get(item)}"
+                    for item in platforms
+                    if isinstance(item, str)
+                    and isinstance(filters.get(item), str)
+                    and filters.get(item)
+                ]
+        expected_validation = (
+            "Authoritative Unity validation against the committed validation "
+            "policy (" + "; ".join(pairs) + "), then a delivery review proposal "
+            "for Vincent."
+            if pairs
+            else (
+                "Authoritative Unity validation against the committed validation "
+                "policy, then a delivery review proposal for Vincent."
+            )
+        )
+    else:
+        expected_validation = (
+            "Merge closeout verification of the already-approved delivery "
+            "evidence: approval, evidence commit, pull request, merge, and "
+            "post-merge conformance."
+        )
+    return {
+        "planned_approach": planned_approach,
+        "expected_validation": expected_validation,
+    }
+
+
+def forced_action_arguments(
+    action: str,
+    observation: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    """Return the complete host-derived arguments for one sole forced action.
+
+    Returns ``None`` only when the action is not host-derivable at all. An action
+    that should be derivable but whose durable state is missing, ambiguous, or
+    invalid raises instead, so no such state can quietly fall back to the
+    provider and receive invented values.
+    """
+
+    if action in _HOST_DETERMINISTIC_ZERO_ARGUMENT_ACTIONS:
+        return {}
+    if action not in _HOST_DETERMINISTIC_ARGUMENT_ACTIONS:
+        return None
+    downstream = _downstream_state(observation)
+    if action == "run_authoritative_unity_test":
+        return _forced_unity_test_arguments(observation, downstream)
+    if action == "acquire_agent_lease":
+        return _forced_lease_arguments(observation, downstream)
+    return None
+
+
 def _patched_render_supervisor_prompt(
     *,
     task_id: str,
@@ -547,6 +728,16 @@ def _patched_render_supervisor_prompt(
                     " Host-authorized exact plan: " + "; ".join(pairs) + "."
                 )
     _ALLOWED_ACTION_CONTEXT.set(selected)
+    # Derive the sole forced action's arguments from the same observation the
+    # prompt was built from, so the decision cannot use a later, different one.
+    forced = (
+        forced_action_arguments(selected[0], observation)
+        if len(selected) == 1
+        else None
+    )
+    _FORCED_ARGUMENTS_CONTEXT.set(
+        None if forced is None else (selected[0], forced)
+    )
     return _ORIGINALS["render_supervisor_prompt"](
         task_id=task_id,
         goal_and_rules=goal_and_rules,
@@ -572,11 +763,15 @@ def _patched_provider_decide(
     )
     if not actual:
         actual = tuple(allowed_actions)
+    forced = _FORCED_ARGUMENTS_CONTEXT.get()
     try:
-        if (
-            len(actual) == 1
-            and actual[0] in _HOST_DETERMINISTIC_ZERO_ARGUMENT_ACTIONS
-        ):
+        arguments: dict[str, Any] | None = None
+        if len(actual) == 1:
+            if forced is not None and forced[0] == actual[0]:
+                arguments = dict(forced[1])
+            elif actual[0] in _HOST_DETERMINISTIC_ZERO_ARGUMENT_ACTIONS:
+                arguments = {}
+        if arguments is not None:
             self.last_usage = {
                 "input_tokens": 0,
                 "output_tokens": 0,
@@ -586,10 +781,11 @@ def _patched_provider_decide(
             return SupervisorDecision(
                 task_id=task_id,
                 action=actual[0],
-                arguments={},
+                arguments=arguments,
                 rationale=(
-                    "Deterministic host state permits exactly this zero-argument "
-                    "action; no provider judgment is required."
+                    "Deterministic host state permits exactly this action and "
+                    "the host derived every required argument from durable "
+                    "state; no provider judgment is required."
                 ),
             )
         return _ORIGINALS["provider_decide"](
@@ -601,6 +797,7 @@ def _patched_provider_decide(
         )
     finally:
         _ALLOWED_ACTION_CONTEXT.set(None)
+        _FORCED_ARGUMENTS_CONTEXT.set(None)
 
 
 def _patched_next_action(

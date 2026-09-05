@@ -537,6 +537,62 @@ removed; the independent per-poll admission-call cap remains an operator safety
 bound.
 <!-- autonomous-graph-controller:end -->
 
+## Deterministic host-forced actions
+
+When the durable downstream state permits exactly one action, the host executes
+that action itself and the supervisor provider is never invoked. `last_usage` for
+such a turn records zero input, output, and total tokens under the authority
+`deterministic_host_single_action`, so an operator can tell a host action from a
+paid one in the usage log.
+
+Two conditions must both hold:
+
+- `allowed_actions_for` narrowed the menu to exactly one action for the observed
+  durable state, and
+- the host can derive and validate every required argument for that action from
+  durable state alone.
+
+Actions with no arguments have always qualified. Two parameterized actions now
+qualify as well, because their arguments were already durable:
+
+| Action | Arguments | Durable source |
+| --- | --- | --- |
+| `run_authoritative_unity_test` | `test_platform`, `test_filter` | `downstream.authoritative_test_plan` (from `validation_plan_for`), minus platforms whose manifests are already in `downstream.receipt.validation_manifests` |
+| `acquire_agent_lease` | `planned_approach`, `expected_validation` | Generated as fixed auditable text naming the task, phase, and committed validation plan |
+
+The measured NSC-914 delivery run `scheduler-nsc-914-adac4ceeac204e5f` paid
+17,808 input tokens for `acquire_agent_lease` and 18,746 for
+`run_authoritative_unity_test`. In the second case the host had already computed
+the exact platform and filter and pasted them into the prompt as a
+"Host-authorized exact plan" before paying the provider to echo them back.
+
+`planned_approach` and `expected_validation` are recorded rationale, not
+decisions. The host has already established that the Issue is agent_ready and
+that the lease is the only available action, so the text is generated
+deterministically rather than bought. It is auditable: it names the task, the
+phase, and the committed platform/filter pairs it was derived from.
+
+### Fail closed, never fall back
+
+Argument derivation is all-or-nothing. A derivable action whose durable state is
+missing, malformed, or already satisfied raises `DownstreamPipelineError` rather
+than returning to the provider, because falling through is exactly how an
+inferred Unity filter or an invented lease rationale would re-enter the pipeline.
+Refusals cover a missing or malformed `authoritative_test_plan`, a missing or
+blank filter for the chosen platform, and a state where every required platform
+already has durable evidence.
+
+### What still costs a provider turn
+
+Genuinely judgmental states are untouched. `create_delivery_review_proposal`
+needs the reviewer's own summary, so the host does not manufacture it and that
+turn still consults the pooled supervisor. The short-circuit also still depends
+entirely on host narrowing: an unnarrowed menu always reaches the provider, and a
+derivation is keyed to the exact action it was computed for so it can never be
+applied to a different one.
+
+Regressions: `Pipeline/TaskReviewAgent/tests/forced_action_arguments_smoke_test.py`.
+
 ## Validation
 
 ```powershell
