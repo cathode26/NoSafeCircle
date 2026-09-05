@@ -246,6 +246,35 @@ def test_additive_revert_preserves_later_unrelated_history(root: Path) -> None:
         "reset atop unrelated later main was not recognized for idempotent resume",
     )
 
+    # Infrastructure commits may legitimately land after the additive reset.
+    # Recovery must still find the newest matching reset on first-parent main
+    # history, while proving those later commits left every task-owned path
+    # unchanged.
+    (repository / "after-reset.txt").write_text(
+        "later launcher fix\n", encoding="utf-8"
+    )
+    run("git", "add", "after-reset.txt", cwd=repository)
+    run("git", "commit", "-m", "later infrastructure fix", cwd=repository)
+    after_reset = run("git", "rev-parse", "HEAD", cwd=repository)
+    resolved, already = _resolve_main_state(
+        runner, repository, "NSC-907", after_reset
+    )
+    expect(
+        resolved == merge and already,
+        "a later unrelated commit hid the additive reset recovery point",
+    )
+    (repository / "task.txt").write_text(
+        "changed after reset\n", encoding="utf-8"
+    )
+    run("git", "commit", "-am", "later task-owned edit after reset", cwd=repository)
+    protected_after_reset = run("git", "rev-parse", "HEAD", cwd=repository)
+    expect_error(
+        lambda: _resolve_main_state(
+            runner, repository, "NSC-907", protected_after_reset
+        ),
+        "later commits changed task-owned paths",
+    )
+
     transient, transient_merge = _merged_reset_fixture(
         root, "repo-transient-task-touch", "NSC-906"
     )

@@ -150,9 +150,12 @@ def main() -> int:
         )
         launcher_source = LAUNCHER.read_text(encoding="utf-8-sig")
         require(
-            "foreach ($TaskId in @($TargetTaskId))" in launcher_source
-            and "$Arguments += @('--target-task-id', $TaskId)" in launcher_source,
-            "launcher no longer repeats every target task argument",
+            "foreach ($TaskId in $TargetTaskIds)" in launcher_source
+            and "$Arguments += @('--target-task-id', $TaskId)" in launcher_source
+            and "foreach ($TaskId in $ExcludeTaskIds)" in launcher_source
+            and "$Arguments += @('--exclude-task-id', $TaskId)" in launcher_source
+            and "IsNullOrWhiteSpace" in launcher_source,
+            "launcher no longer filters and repeats task selector arguments",
         )
         launcher_probe = launcher_source.index("--completion-probe")
         github_preflight = launcher_source.index("gh' `")

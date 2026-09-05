@@ -289,11 +289,47 @@ def _resolve_main_state(
     task_trailer = _trailer(runner, root, head, RESET_TASK_TRAILER)
     merge_trailer = _trailer(runner, root, head, RESET_MERGE_TRAILER)
     if task_trailer is None and merge_trailer is None:
-        if len(parents) != 2:
-            raise RehearsalResetError(
-                "current main is not the task merge commit and is not a resumable reset commit"
+        if len(parents) == 2:
+            return head, False
+
+        # A completed reset remains the recovery authority when later,
+        # unrelated infrastructure commits have advanced main. Locate only the
+        # newest matching marker on first-parent history, validate that marker
+        # through this same exact-reset path, and then prove every later commit
+        # left the reverted task surface untouched.
+        first_parent_history = tuple(
+            line
+            for line in _git_text(
+                runner, root, "rev-list", "--first-parent", head
+            ).splitlines()
+            if line
+        )
+        for candidate in first_parent_history[1:]:
+            if _trailer(runner, root, candidate, RESET_TASK_TRAILER) != task_id:
+                continue
+            resolved_merge, already_reverted = _resolve_main_state(
+                runner, root, task_id, candidate
             )
-        return head, False
+            merge_parents = _commit_parents(runner, root, resolved_merge)
+            if len(merge_parents) != 2:
+                raise RehearsalResetError(
+                    "recorded task merge is not a two-parent merge commit"
+                )
+            changed_paths = _changed_paths(
+                runner, root, merge_parents[0], resolved_merge
+            )
+            _require_task_paths_unchanged_since_merge(
+                runner,
+                root,
+                merge_commit=candidate,
+                current_main=head,
+                paths=changed_paths,
+            )
+            return resolved_merge, already_reverted
+
+        raise RehearsalResetError(
+            "current main is not the task merge commit and is not a resumable reset commit"
+        )
     if task_trailer != task_id or merge_trailer is None or GIT_SHA_RE.fullmatch(merge_trailer) is None:
         raise RehearsalResetError("current reset-commit trailers do not match this task")
     if len(parents) != 1:

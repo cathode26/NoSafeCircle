@@ -74,16 +74,16 @@ $Arguments = @(
     '--run-id', $RunId,
     '--confirm-repository', $ConfirmRepository
 )
-foreach ($TaskId in @($TargetTaskId)) {
-    if ([string]::IsNullOrWhiteSpace($TaskId)) {
-        continue
-    }
+$TargetTaskIds = @(
+    $TargetTaskId | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+)
+$ExcludeTaskIds = @(
+    $ExcludeTaskId | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+)
+foreach ($TaskId in $TargetTaskIds) {
     $Arguments += @('--target-task-id', $TaskId)
 }
-foreach ($TaskId in @($ExcludeTaskId)) {
-    if ([string]::IsNullOrWhiteSpace($TaskId)) {
-        continue
-    }
+foreach ($TaskId in $ExcludeTaskIds) {
     $Arguments += @('--exclude-task-id', $TaskId)
 }
 if ($PSBoundParameters.ContainsKey('MaxWorkers') -and $MaxWorkers -gt 0) {
