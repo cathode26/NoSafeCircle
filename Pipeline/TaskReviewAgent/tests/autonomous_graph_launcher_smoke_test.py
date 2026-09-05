@@ -188,6 +188,19 @@ def main() -> int:
             timeout=60.0,
         )
         require(same_provider.returncode == 7, same_provider)
+        omitted_optional_arguments = argument_log.read_text(encoding="utf-8")
+        omitted_probe_arguments = probe_log.read_text(encoding="utf-8")
+        for unexpected in ("--target-task-id", "--exclude-task-id"):
+            require(
+                unexpected not in omitted_optional_arguments,
+                f"omitted optional task selector emitted {unexpected}: "
+                f"{omitted_optional_arguments}",
+            )
+            require(
+                unexpected not in omitted_probe_arguments,
+                f"omitted optional task selector polluted the completion probe: "
+                f"{omitted_probe_arguments}",
+            )
         same_provider_docker = docker_log.read_text(encoding="utf-8")
         require(
             same_provider_docker.count("volume inspect") == 1

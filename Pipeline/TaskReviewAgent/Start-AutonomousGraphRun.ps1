@@ -75,9 +75,15 @@ $Arguments = @(
     '--confirm-repository', $ConfirmRepository
 )
 foreach ($TaskId in @($TargetTaskId)) {
+    if ([string]::IsNullOrWhiteSpace($TaskId)) {
+        continue
+    }
     $Arguments += @('--target-task-id', $TaskId)
 }
 foreach ($TaskId in @($ExcludeTaskId)) {
+    if ([string]::IsNullOrWhiteSpace($TaskId)) {
+        continue
+    }
     $Arguments += @('--exclude-task-id', $TaskId)
 }
 if ($PSBoundParameters.ContainsKey('MaxWorkers') -and $MaxWorkers -gt 0) {
