@@ -10,6 +10,7 @@ canonical checkout, or repository state is mutated.
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
 import sys
 from types import SimpleNamespace
 from typing import Any
@@ -107,6 +108,43 @@ def identity(
         head=head,
         tree=tree,
         origin_main_head=origin,
+    )
+
+
+def test_source_identity_is_captured_with_two_coherent_git_processes() -> None:
+    calls: list[tuple[str, ...]] = []
+    results = iter(
+        (
+            subprocess.CompletedProcess(
+                args=(),
+                returncode=0,
+                stdout=f"{HEAD}\n{TREE}\n{HEAD}\n".encode("utf-8"),
+                stderr=b"",
+            ),
+            subprocess.CompletedProcess(
+                args=(),
+                returncode=0,
+                stdout=b"## main...origin/main\n",
+                stderr=b"",
+            ),
+        )
+    )
+
+    def run_git(_root: Path, *args: str):
+        calls.append(args)
+        return next(results)
+
+    with patch.object(snapshot_module, "_run_git", side_effect=run_git):
+        observed = snapshot_module._capture_source_identity(ROOT)
+
+    require(observed == identity(), f"coherent source identity changed: {observed}")
+    require(
+        calls
+        == [
+            ("rev-parse", "HEAD^{commit}", "HEAD^{tree}", "origin/main^{commit}"),
+            ("status", "--porcelain=v1", "--branch", "--untracked-files=all"),
+        ],
+        f"source identity was not captured in two Git calls: {calls}",
     )
 
 

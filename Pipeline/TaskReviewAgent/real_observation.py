@@ -100,6 +100,74 @@ def _stable_lines(text: str) -> list[str]:
     return [line for line in text.splitlines() if line.strip()]
 
 
+def _source_git_identity(root: Path) -> tuple[str, str, str, str | None, list[str]]:
+    """Read one coherent controller identity with two Git processes normally.
+
+    The three revisions are resolved by one Git invocation so HEAD, its tree,
+    and the scheduler's cached origin/main cannot come from three different
+    moments.  Repositories without origin/main retain the historical optional
+    remote-ref behavior through a fail-closed fallback.  ``status --branch``
+    supplies the attached branch while its body remains porcelain-v1, keeping
+    the public dirty-path payload unchanged.
+    """
+
+    revisions = _git(
+        root,
+        "rev-parse",
+        "HEAD",
+        "HEAD^{tree}",
+        "refs/remotes/origin/main",
+        check=False,
+    )
+    if revisions.returncode == 0:
+        values = _stable_lines(_decode(revisions.stdout, label="git revisions"))
+        if len(values) != 3:
+            raise RealObservationError(
+                "git rev-parse returned an incomplete controller identity"
+            )
+        head, tree, origin_main = values
+    else:
+        # origin/main is intentionally optional, but HEAD and its tree are not.
+        head = _git_text(root, "rev-parse", "--verify", "HEAD")
+        tree = _git_text(root, "rev-parse", "HEAD^{tree}")
+        origin_main_result = _git(
+            root,
+            "rev-parse",
+            "--verify",
+            "refs/remotes/origin/main",
+            check=False,
+        )
+        origin_main = (
+            _decode(origin_main_result.stdout, label="origin/main").strip()
+            if origin_main_result.returncode == 0
+            else None
+        )
+
+    status_text = _git_text(
+        root,
+        "status",
+        "--porcelain=v1",
+        "--branch",
+        "--untracked-files=all",
+    )
+    status_output = status_text.splitlines()
+    if not status_output or not status_output[0].startswith("## "):
+        raise RealObservationError("git status omitted the controller branch header")
+    branch_header = status_output[0][3:]
+    if branch_header.startswith("HEAD ("):
+        branch = "(detached)"
+    elif branch_header.startswith("No commits yet on "):
+        branch = branch_header.removeprefix("No commits yet on ")
+    elif branch_header.startswith("Initial commit on "):
+        branch = branch_header.removeprefix("Initial commit on ")
+    else:
+        branch = branch_header.split("...", 1)[0]
+    if not branch:
+        raise RealObservationError("git status returned an empty controller branch")
+    status_lines = _stable_lines("\n".join(status_output[1:]).strip())
+    return head, tree, branch, origin_main, status_lines
+
+
 class RealTaskObserver:
     """Read committed facts without changing Git, TaskGraph, task, or checkout state."""
 
@@ -177,40 +245,7 @@ class RealTaskObserver:
     def observe_goal_state(self) -> dict[str, Any]:
         self.action_log.append("observe_goal_state")
 
-        head = _git_text(self.root, "rev-parse", "--verify", "HEAD")
-        tree = _git_text(self.root, "rev-parse", "HEAD^{tree}")
-        branch_result = _git(
-            self.root,
-            "symbolic-ref",
-            "--quiet",
-            "--short",
-            "HEAD",
-            check=False,
-        )
-        branch = (
-            _decode(branch_result.stdout, label="git branch").strip()
-            if branch_result.returncode == 0
-            else "(detached)"
-        )
-        origin_main_result = _git(
-            self.root,
-            "rev-parse",
-            "--verify",
-            "refs/remotes/origin/main",
-            check=False,
-        )
-        origin_main = (
-            _decode(origin_main_result.stdout, label="origin/main").strip()
-            if origin_main_result.returncode == 0
-            else None
-        )
-        status_text = _git_text(
-            self.root,
-            "status",
-            "--porcelain=v1",
-            "--untracked-files=all",
-        )
-        status_lines = _stable_lines(status_text)
+        head, tree, branch, origin_main, status_lines = _source_git_identity(self.root)
         controller_clean = not status_lines
 
         cache_key = (head, tree, branch, origin_main)

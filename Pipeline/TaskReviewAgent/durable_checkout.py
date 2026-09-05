@@ -59,6 +59,76 @@ def _require_observation(observation: dict[str, Any], task_id: str) -> None:
         raise DurableCheckoutError("checkout observation is missing Issue workflow facts")
 
 
+def _checkout_git_identity(root: Path) -> tuple[str, str, str, str, str]:
+    """Read HEAD/tree/origin-main and branch/status with two normal Git calls."""
+
+    revisions = _git(
+        root,
+        "rev-parse",
+        "HEAD",
+        "HEAD^{tree}",
+        "refs/remotes/origin/main",
+        check=False,
+    )
+    if revisions.returncode == 0:
+        try:
+            values = [
+                line
+                for line in revisions.stdout.decode("utf-8").splitlines()
+                if line.strip()
+            ]
+        except UnicodeDecodeError as exc:
+            raise DurableCheckoutError(
+                "durable checkout Git revisions were not valid UTF-8"
+            ) from exc
+        if len(values) != 3:
+            raise DurableCheckoutError(
+                "git rev-parse returned an incomplete durable checkout identity"
+            )
+        head, tree, origin_main = values
+    else:
+        # Preserve the historical conflict-reporting behavior when origin/main
+        # or another revision is unavailable instead of turning inspect into a
+        # mutating repair attempt or silently accepting partial stdout.
+        head = _git_text(root, "rev-parse", "--verify", "HEAD", check=False)
+        tree = _git_text(root, "rev-parse", "HEAD^{tree}", check=False)
+        origin_main = _git_text(
+            root,
+            "rev-parse",
+            "--verify",
+            "refs/remotes/origin/main",
+            check=False,
+        )
+
+    status_result = _git(
+        root,
+        "status",
+        "--porcelain=v1",
+        "--branch",
+        "--untracked-files=all",
+        check=False,
+    )
+    if status_result.returncode != 0:
+        return head, tree, "", "<git-status-unavailable>", origin_main
+    try:
+        status_output = status_result.stdout.decode("utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise DurableCheckoutError("checkout Git status was not valid UTF-8") from exc
+    if not status_output or not status_output[0].startswith("## "):
+        return head, tree, "", "<git-status-missing-branch>", origin_main
+    branch_header = status_output[0][3:]
+    if branch_header.startswith("HEAD ("):
+        branch = ""
+    elif branch_header.startswith("No commits yet on "):
+        branch = branch_header.removeprefix("No commits yet on ")
+    elif branch_header.startswith("Initial commit on "):
+        branch = branch_header.removeprefix("Initial commit on ")
+    else:
+        branch = branch_header.split("...", 1)[0]
+    status = "\n".join(line for line in status_output[1:] if line.strip())
+    return head, tree, branch, status, origin_main
+
+
 class DurableTaskCheckoutManager:
     """Create fresh task clones and resume pushed handoff branches for later agents."""
 
@@ -246,28 +316,14 @@ class DurableTaskCheckoutManager:
             reasons.append("canonical checkout path is nested inside another Git repository")
             return {"status": "conflict", **base}
 
-        head = _git_text(self.checkout_path, "rev-parse", "--verify", "HEAD", check=False)
-        tree = _git_text(self.checkout_path, "rev-parse", "HEAD^{tree}", check=False)
-        branch = _git_text(self.checkout_path, "branch", "--show-current", check=False)
-        status = _git_text(
-            self.checkout_path,
-            "status",
-            "--porcelain=v1",
-            "--untracked-files=all",
-            check=False,
+        head, tree, branch, status, origin_main = _checkout_git_identity(
+            self.checkout_path
         )
         remote_url = _git_text(
             self.checkout_path,
             "remote",
             "get-url",
             "origin",
-            check=False,
-        )
-        origin_main = _git_text(
-            self.checkout_path,
-            "rev-parse",
-            "--verify",
-            "refs/remotes/origin/main",
             check=False,
         )
         remote_branch = _git_text(

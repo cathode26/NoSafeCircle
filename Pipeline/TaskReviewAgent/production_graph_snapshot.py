@@ -61,35 +61,66 @@ class _SourceIdentity:
     origin_main_head: str
 
 
-def _git_output(root: Path, *args: str) -> tuple[int, str]:
+def _required_git_output(root: Path, *args: str) -> str:
     result = _run_git(root, *args)
+    if result.returncode != 0:
+        detail = result.stderr.decode("utf-8", errors="replace").strip()
+        raise ProductionGraphSnapshotError(
+            f"Git observation failed ({result.returncode})"
+            + (f": {detail[:500]}" if detail else "")
+        )
     try:
-        output = result.stdout.decode("utf-8").strip()
+        return result.stdout.decode("utf-8").strip()
     except UnicodeDecodeError as exc:
         raise ProductionGraphSnapshotError("Git text output was not UTF-8") from exc
-    return result.returncode, output
 
 
 def _capture_source_identity(root: Path) -> _SourceIdentity:
-    branch_code, branch = _git_output(
-        root, "symbolic-ref", "--quiet", "--short", "HEAD"
+    revisions = _required_git_output(
+        root,
+        "rev-parse",
+        "HEAD^{commit}",
+        "HEAD^{tree}",
+        "origin/main^{commit}",
     )
-    if branch_code not in {0, 1}:
+    revision_lines = [line for line in revisions.splitlines() if line.strip()]
+    if len(revision_lines) != 3:
         raise ProductionGraphSnapshotError(
-            "could not determine whether the source checkout is attached"
+            "git rev-parse returned an incomplete source identity"
         )
-    attached = branch_code == 0
+    head, tree, origin_main_head = revision_lines
+
+    status = _required_git_output(
+        root,
+        "status",
+        "--porcelain=v1",
+        "--branch",
+        "--untracked-files=all",
+    )
+    status_lines = status.splitlines()
+    if not status_lines or not status_lines[0].startswith("## "):
+        raise ProductionGraphSnapshotError(
+            "git status omitted the source branch header"
+        )
+    branch_header = status_lines[0][3:]
+    attached = not branch_header.startswith("HEAD (")
+    if not attached:
+        branch = "(detached)"
+    elif branch_header.startswith("No commits yet on "):
+        branch = branch_header.removeprefix("No commits yet on ")
+    elif branch_header.startswith("Initial commit on "):
+        branch = branch_header.removeprefix("Initial commit on ")
+    else:
+        branch = branch_header.split("...", 1)[0]
+    if attached and not branch:
+        raise ProductionGraphSnapshotError("git status returned an empty source branch")
     return _SourceIdentity(
-        branch=branch if attached else "(detached)",
+        branch=branch,
         attached=attached,
-        clean=not bool(
-            _git_text(root, "status", "--porcelain=v1", "--untracked-files=all")
-        ),
-        head=_git_text(root, "rev-parse", "--verify", "HEAD^{commit}"),
-        tree=_git_text(root, "rev-parse", "--verify", "HEAD^{tree}"),
-        origin_main_head=_git_text(
-            root, "rev-parse", "--verify", "origin/main^{commit}"
-        ),
+        clean=not any(line.strip() for line in status_lines[1:]),
+        head=head,
+        tree=tree,
+        origin_main_head=origin_main_head,
     )
 
 
