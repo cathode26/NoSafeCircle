@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Deterministic end-to-end acceptance: one muffcabbage task through the whole pipeline.
+"""Deterministic end-to-end acceptance: muffcabbage tasks through the whole pipeline.
+
+Two positive scenarios share one fixture and one lifecycle driver. The *fast*
+scenario is one new script and its ``.meta`` companion: the architect asks for
+``fast`` and deterministic routing keeps it lean/targeted. The *standard* scenario
+is three new isolated scripts with their companions: six exact paths exceed the
+lean bound but touch no scene, prefab, ProjectSettings, package, or pipeline
+surface, so the deterministic minimum is exactly ``standard`` and the architect's
+``standard`` request is honored as standard/task_specific. A focused guard proves
+that a ``fast`` request for that same surface is raised to ``standard``.
 
 Classification: disposable-repository lifecycle test. Everything it touches lives in
 one temporary directory: a bare Git remote, a controller source clone, task
@@ -62,6 +71,7 @@ import sys
 import tempfile
 import time
 from contextlib import ExitStack, contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -112,6 +122,14 @@ from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
     DownstreamTaskReviewWorkflow,
     ResumableDownstreamTaskController,
 )
+from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
+    RIGOR_PROFILE_BY_TIER,
+    resolve_task_rigor,
+)
+from Pipeline.ExecutionCrew.run_crew import (  # noqa: E402
+    CREW_PROFILE_ROLES,
+    CREW_VALIDATION_PROFILE_PAIRS,
+)
 from Pipeline.TaskReviewAgent.goal_loop_guard import GuardedTaskController  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import (  # noqa: E402
     AUTOMATED_VALIDATION_EVIDENCE_AUTHORITY,
@@ -143,7 +161,9 @@ from Pipeline.TaskReviewAgent.polling_orchestrator import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.prepare_synthetic_gauntlet import (  # noqa: E402
     PRESERVED_TASK_ID,
+    _acceptance,
     _concrete_task,
+    _gate,
     _guid,
     _test_filter,
     _value_paths,
@@ -163,15 +183,133 @@ from Pipeline.Testing.validation_manifest import (  # noqa: E402
 )
 
 
-NUMBER = 931
-TASK_ID = f"NSC-{NUMBER}"
 REPOSITORY = AUTOMATED_VALIDATION_REPOSITORY
 ORIGIN_URL = f"git@github.com:{REPOSITORY}.git"
 RUN_ID = "muffcabbage-e2e-acceptance"
 SCHEDULER_ID = "muffcabbage-e2e-scheduler"
 APPROVER_WORKER_ID = approver._AUTOMATED_WORKER_ID
-SOURCE_PATH, META_PATH = _value_paths(NUMBER)
-TEST_FILTER = _test_filter(NUMBER)
+
+
+@dataclass(frozen=True)
+class Scenario:
+    """One synthetic muffcabbage task and the rigor the policy must resolve for it.
+
+    ``suffixes`` names the isolated new scripts (``""`` is the gauntlet's own single
+    value file). Each script brings its deterministic ``.cs.meta`` companion, so the
+    exact change surface is twice the script count; every path stays under
+    ``Assets/`` and no scene, prefab, ProjectSettings, package, or pipeline surface
+    is ever touched.
+    """
+
+    name: str
+    number: int
+    architect_tier: str
+    suffixes: tuple[str, ...]
+    expected_tier: str
+    # Pinned literally, never derived from production's rigor table: the acceptance
+    # test must notice if that table ever maps a tier to a different crew or
+    # validation profile.
+    crew_profile: str
+    validation_profile: str
+
+    @property
+    def task_id(self) -> str:
+        return f"NSC-{self.number}"
+
+    @property
+    def test_filter(self) -> str:
+        return _test_filter(self.number)
+
+    @property
+    def file_pairs(self) -> tuple[tuple[str, str], ...]:
+        return tuple(_value_paths(self.number, suffix) for suffix in self.suffixes)
+
+    @property
+    def exact_paths(self) -> tuple[str, ...]:
+        return tuple(path for pair in self.file_pairs for path in pair)
+
+    @property
+    def class_names(self) -> tuple[str, ...]:
+        return tuple(
+            f"MuffcabbageGauntlet{self.number:03d}{suffix}" for suffix in self.suffixes
+        )
+
+    def contract(self) -> dict[str, Any]:
+        """The committed task contract: the gauntlet's, widened to every script."""
+
+        task = _concrete_task(self.number, 0)
+        if self.suffixes == ("",):
+            return task
+        scripts = [source for source, _ in self.file_pairs]
+        task["title"] = (
+            f"Muffcabbage Gauntlet {self.number}: Publish Its "
+            f"{len(scripts)} Isolated Values"
+        )
+        task["reconciliation_key"] = f"muffcabbage-gauntlet-{self.number}-values"
+        task["execution_reason"] = (
+            f"One agent creates {len(scripts)} uniquely named C# constants and their "
+            "deterministic Unity .meta companions; no shared implementation file or "
+            "design decision is involved."
+        )
+        task["decomposition_reason"] = (
+            "Create " + ", ".join(scripts) + f", each with one public constant Value = "
+            f"{self.number}, and create each specified .meta companion; no earlier "
+            "gauntlet value is required."
+        )
+        task["exclusive_resources"] = [f"repo-file:{path}" for path in self.exact_paths]
+        task["acceptance_criteria"] = [
+            _acceptance(
+                f"AC-{index:03d}",
+                f"Create {source} in namespace NoSafeCircle.DoorPrototype with a public "
+                f"static class {class_name} containing exactly public const int Value = "
+                f"{self.number};, and create {meta} with fileFormatVersion 2 and guid "
+                f"{_guid(source)}.",
+            )
+            for index, ((source, meta), class_name) in enumerate(
+                zip(self.file_pairs, self.class_names), 1
+            )
+        ]
+        task["completion_gates"] = [
+            _gate(
+                "VAL-001",
+                f"Unity EditMode filter {self.test_filter} passes for the exact commit and "
+                f"proves Value == {self.number} for " + ", ".join(self.class_names) + ".",
+            )
+        ]
+        task["notes"] = (
+            "Disposable private-repository gauntlet only. The three value files and their "
+            ".meta companions are intentionally isolated new files: enough exact paths to "
+            "exceed the lean bound, no shared or serialized content."
+        )
+        task["provenance"]["expected_paths"] = list(self.exact_paths)
+        return task
+
+
+FAST = Scenario(
+    name="fast",
+    number=931,
+    architect_tier="fast",
+    suffixes=("",),
+    expected_tier="fast",
+    crew_profile="lean",
+    validation_profile="targeted",
+)
+# Three isolated new scripts plus their import companions: six exact paths exceed
+# the four-path lean bound, and nothing else in the surface raises the floor, so
+# the deterministic minimum is exactly standard (crew standard, validation
+# task_specific) and an honest standard request is honored.
+STANDARD = Scenario(
+    name="standard",
+    number=941,
+    architect_tier="standard",
+    suffixes=("Alpha", "Beta", "Gamma"),
+    expected_tier="standard",
+    crew_profile="standard",
+    validation_profile="task_specific",
+)
+# The negative cases exercise the fast scenario's fixture.
+TASK_ID = FAST.task_id
+TEST_FILTER = FAST.test_filter
 RUNNER_LOG_VARIABLE = "NSC_MUFFCABBAGE_RUNNER_LOG"
 # The production lifecycle shells out roughly a thousand times (Git identity
 # checks, TaskGraph states, fetches, worker tooling); at Windows process-start
@@ -733,8 +871,9 @@ if __name__ == "__main__":
 class Fixture:
     """One disposable bare remote, controller source clone, and checkout root."""
 
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, scenario: Scenario) -> None:
         self.root = root
+        self.scenario = scenario
         self.remote = root / "remote.git"
         self.source = root / "source"
         self.checkout_root = root / "checkouts"
@@ -791,21 +930,21 @@ class Fixture:
         git(self.remote, "symbolic-ref", "HEAD", "refs/heads/main")
         seed = self.root / "seed"
         git(self.root, "init", "-q", "-b", "main", str(seed))
-        task = _concrete_task(NUMBER, 0)
+        task = self.scenario.contract()
         task_text = json.dumps(task, indent=2, sort_keys=True) + "\n"
-        write_text(seed / "Tasks" / f"{TASK_ID}.yaml", task_text)
+        write_text(seed / "Tasks" / f"{self.scenario.task_id}.yaml", task_text)
         write_text(
             seed / "Pipeline" / "TaskReviewAgent" / "authoritative_validation_policy.json",
             json.dumps(
                 {
                     "schema_version": "1.0",
                     "tasks": {
-                        TASK_ID: {
+                        self.scenario.task_id: {
                             "task_contract_sha256": hashlib.sha256(
                                 task_text.encode("utf-8")
                             ).hexdigest(),
                             "required_test_platforms": ["EditMode"],
-                            "test_filters": {"EditMode": TEST_FILTER},
+                            "test_filters": {"EditMode": self.scenario.test_filter},
                             "authority": (
                                 "committed_private_synthetic_gauntlet_validation_policy"
                             ),
@@ -836,7 +975,7 @@ class Fixture:
         self.merge_root.mkdir()
         self.initial_head = git(self.source, "rev-parse", "HEAD")
         self.initial_tree = git(self.source, "rev-parse", "HEAD^{tree}")
-        self.task = load_committed_task(self.source, TASK_ID)
+        self.task = load_committed_task(self.source, self.scenario.task_id)
         # The production handoff notifies Vincent's inbox Issue and the automated
         # evidence path removes that notification again; both run for real here.
         inbox = self.memory.create_issue(
@@ -870,17 +1009,17 @@ class Fixture:
         )
 
     def issue(self):
-        snapshot = self.service("acceptance-observer").find(TASK_ID)
+        snapshot = self.service("acceptance-observer").find(self.scenario.task_id)
         require(snapshot is not None, "the managed muffcabbage Issue is missing")
         return snapshot
 
 
 @contextmanager
-def disposable_fixture():
+def disposable_fixture(scenario: Scenario = FAST):
     with tempfile.TemporaryDirectory(
         prefix="muffcabbage-e2e-", ignore_cleanup_errors=True
     ) as text:
-        fixture = Fixture(Path(text).resolve())
+        fixture = Fixture(Path(text).resolve(), scenario)
         fixture.write_host_files()
         with patch.dict(os.environ, fixture.environment):
             fixture.populate()
@@ -1047,28 +1186,42 @@ class ExecutableAudit:
 # --------------------------------------------------------------------------------
 
 
-def fast_advisory(task: Mapping[str, Any], source_head: str) -> ArchitectAdvisory:
+def scenario_advisory(
+    scenario: Scenario,
+    task: Mapping[str, Any],
+    source_head: str,
+    *,
+    requested_tier: str | None = None,
+) -> ArchitectAdvisory:
+    """The architect's exact prediction for one scenario's isolated file surface.
+
+    ``requested_tier`` overrides the scenario's honest tier so a guard can show what
+    deterministic policy does with an architect that asks for too little.
+    """
+
+    scripts = [source for source, _ in scenario.file_pairs]
     return ArchitectAdvisory.from_dict(
         {
             "task_id": task["id"],
             "source_head": source_head,
             "task_contract_sha256": task["task_contract_sha256"],
             "predicted_change_surface": {
-                "exact_paths": [SOURCE_PATH, META_PATH],
+                "exact_paths": list(scenario.exact_paths),
                 "path_patterns": [],
                 "unity_serialized_assets": [],
-                "symbols_or_components": [f"MuffcabbageGauntlet{NUMBER:03d}"],
+                "symbols_or_components": list(scenario.class_names),
                 "shared_systems": [],
             },
             "integration_risk": "low",
             "parallel_recommendation": "start",
             "work_type_recommendation": "implementation",
             "execution_recommendation": {
-                "capability_tier": "fast",
+                "capability_tier": requested_tier or scenario.architect_tier,
                 "provider_preference": "no_preference",
                 "rationale": (
-                    "One new constant and its deterministic .meta companion in an "
-                    "isolated file pair; no shared system is touched."
+                    f"{len(scripts)} new constant file(s) with deterministic .meta "
+                    "companions in isolated new files; no shared system or serialized "
+                    "content is touched."
                 ),
             },
             "conflicting_task_ids": [],
@@ -1077,7 +1230,8 @@ def fast_advisory(task: Mapping[str, Any], source_head: str) -> ArchitectAdvisor
             "unknown_surface_disjointness": [],
             "design_advice": {
                 "implementation_summary": (
-                    f"Create {SOURCE_PATH} with Value = {NUMBER} and its .meta sidecar."
+                    "Create " + ", ".join(scripts) + f" with Value = {scenario.number} "
+                    "and the deterministic .meta sidecar of each."
                 ),
                 "recommended_interfaces": [],
                 "sequencing_notes": [],
@@ -1093,10 +1247,11 @@ def fast_advisory(task: Mapping[str, Any], source_head: str) -> ArchitectAdvisor
 
 
 class DeterministicArchitect:
-    """Batch-mode architect stand-in: admits exactly the muffcabbage task as fast."""
+    """Batch-mode architect stand-in: admits exactly the scenario task at its tier."""
 
-    def __init__(self, fixture: Fixture) -> None:
+    def __init__(self, fixture: Fixture, *, requested_tier: str | None = None) -> None:
         self.fixture = fixture
+        self.requested_tier = requested_tier
         self.calls: list[dict[str, Any]] = []
 
     def __call__(self, **values: Any) -> ArchitectBatchAnalysis:
@@ -1116,7 +1271,7 @@ class DeterministicArchitect:
             )
             for work_type in item["eligible_work_types"]:
                 admit = (
-                    task["id"] == TASK_ID
+                    task["id"] == self.fixture.scenario.task_id
                     and work_type == "implementation"
                     and len(admissions) < admission_limit
                 )
@@ -1133,7 +1288,14 @@ class DeterministicArchitect:
                     )
                 )
                 if admit:
-                    admissions.append(fast_advisory(task, values["source_head"]))
+                    admissions.append(
+                        scenario_advisory(
+                            self.fixture.scenario,
+                            task,
+                            values["source_head"],
+                            requested_tier=self.requested_tier,
+                        )
+                    )
         index = len(self.calls) + 1
         self.calls.append(
             {
@@ -1533,6 +1695,7 @@ class InProcessWorkers:
         contract = options["--task-contract-sha256"]
         source = Path(options["--source"])
         checkout_root = Path(options["--checkout-root"])
+        scenario = self.fixture.scenario
         service = self.fixture.service(worker_id)
         workflow = RealTaskReviewWorkflow(
             source=source,
@@ -1557,7 +1720,8 @@ class InProcessWorkers:
         )
         lease = workflow.acquire_agent_lease(
             planned_approach=(
-                f"Create {SOURCE_PATH} with Value = {NUMBER} and its .meta companion, then hand off."
+                f"Create {len(scenario.file_pairs)} isolated muffcabbage script(s) with "
+                f"Value = {scenario.number} and their .meta companions, then hand off."
             ),
             expected_validation="The committed EditMode filter passes on the exact handoff commit.",
         )
@@ -1569,22 +1733,26 @@ class InProcessWorkers:
         branch = str(prepared["branch"])
 
         # ExecutionCrew stand-in: the only implementation step this harness simulates.
-        source_file = checkout / SOURCE_PATH
-        write_text(
-            source_file,
-            "namespace NoSafeCircle.DoorPrototype\n{\n"
-            f"    public static class MuffcabbageGauntlet{NUMBER:03d}\n    {{\n"
-            f"        public const int Value = {NUMBER};\n    }}\n}}\n",
-        )
-        write_text(
-            checkout / META_PATH,
-            "fileFormatVersion: 2\n"
-            f"guid: {_guid(SOURCE_PATH)}\n"
-            "MonoImporter:\n  externalObjects: {}\n  serializedVersion: 2\n"
-            "  defaultReferences: []\n  executionOrder: 0\n  icon: {instanceID: 0}\n"
-            "  userData:\n  assetBundleName:\n  assetBundleVariant:\n",
-        )
-        git(checkout, "add", "--", SOURCE_PATH, META_PATH)
+        candidate = hashlib.sha256()
+        for (source_path, meta_path), class_name in zip(
+            scenario.file_pairs, scenario.class_names
+        ):
+            write_text(
+                checkout / source_path,
+                "namespace NoSafeCircle.DoorPrototype\n{\n"
+                f"    public static class {class_name}\n    {{\n"
+                f"        public const int Value = {scenario.number};\n    }}\n}}\n",
+            )
+            write_text(
+                checkout / meta_path,
+                "fileFormatVersion: 2\n"
+                f"guid: {_guid(source_path)}\n"
+                "MonoImporter:\n  externalObjects: {}\n  serializedVersion: 2\n"
+                "  defaultReferences: []\n  executionOrder: 0\n  icon: {instanceID: 0}\n"
+                "  userData:\n  assetBundleName:\n  assetBundleVariant:\n",
+            )
+            candidate.update((checkout / source_path).read_bytes())
+        git(checkout, "add", "--", *scenario.exact_paths)
         git(checkout, "commit", "-q", "-m", f"Implement {task_id}: {self.fixture.task['title']}")
         commit = git(checkout, "rev-parse", "HEAD")
         tree = git(checkout, "rev-parse", "HEAD^{tree}")
@@ -1597,19 +1765,20 @@ class InProcessWorkers:
         require(
             plan is not None
             and plan["required_test_platforms"] == ["EditMode"]
-            and plan["test_filters"]["EditMode"] == TEST_FILTER,
+            and plan["test_filters"]["EditMode"] == scenario.test_filter,
             f"committed validation plan is not the exact muffcabbage filter: {plan}",
         )
         state_root = checkout_root / ".task-review-agent"
         destination = (
             state_root / "outputs" / task_id / run_id / "pre-handoff-validation"
-            / f"EditMode-{hashlib.sha256(TEST_FILTER.encode('utf-8')).hexdigest()[:12]}"
+            / f"EditMode-{hashlib.sha256(scenario.test_filter.encode('utf-8')).hexdigest()[:12]}"
         )
         script = checkout / "Pipeline" / "Testing" / "run_unity_tests_clean.ps1"
         completed = subprocess.run(
             (
                 "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
-                "-TestPlatform", "EditMode", "-TestFilter", TEST_FILTER, "-ProjectPath", str(checkout),
+                "-TestPlatform", "EditMode", "-TestFilter", scenario.test_filter,
+                "-ProjectPath", str(checkout),
             ),
             cwd=str(checkout),
             stdout=subprocess.PIPE,
@@ -1635,11 +1804,11 @@ class InProcessWorkers:
             expected_commit=commit,
             expected_tree=tree,
             expected_test_platform="EditMode",
-            expected_test_filter=TEST_FILTER,
+            expected_test_filter=scenario.test_filter,
         )
         validation_fact = {
             "test_platform": "EditMode",
-            "test_filter": TEST_FILTER,
+            "test_filter": scenario.test_filter,
             "commit": commit,
             "tree": tree,
             "manifest_relative_path": imported.relative_path,
@@ -1662,8 +1831,8 @@ class InProcessWorkers:
             commit=commit,
             commit_tree=tree,
             task_contract_sha256=contract,
-            candidate_sha256=hashlib.sha256(source_file.read_bytes()).hexdigest(),
-            changed_paths=(SOURCE_PATH, META_PATH),
+            candidate_sha256=candidate.hexdigest(),
+            changed_paths=scenario.exact_paths,
             pre_handoff_validations=(validation_fact,),
             completed_checks=(
                 f"Pre-handoff authoritative Unity EditMode validation passed on exact commit {commit}.",
@@ -1681,11 +1850,14 @@ class InProcessWorkers:
             branch=branch,
             head_commit=commit,
             implementation_summary=(
-                f"Created {SOURCE_PATH} with Value = {NUMBER} and its .meta companion."
+                "Created " + ", ".join(source for source, _ in scenario.file_pairs)
+                + f" with Value = {scenario.number} and their .meta companions."
             ),
             completed_checks=list(receipt.completed_checks),
             human_steps=["Run the committed EditMode filter for the exact handoff commit."],
-            expected_result=f"{TEST_FILTER} passes and proves Value == {NUMBER}.",
+            expected_result=(
+                f"{scenario.test_filter} passes and proves Value == {scenario.number}."
+            ),
         )
         handed_off = service.find(task_id)
         assert handed_off is not None
@@ -1773,7 +1945,12 @@ class PumpRecorder:
 # --------------------------------------------------------------------------------
 
 
-def build_run(fixture: Fixture, *, forge_result_source_head: bool = False) -> SimpleNamespace:
+def build_run(
+    fixture: Fixture,
+    *,
+    forge_result_source_head: bool = False,
+    requested_tier: str | None = None,
+) -> SimpleNamespace:
     paths = autonomous_run_paths(
         checkout_root=fixture.checkout_root, github_repository=REPOSITORY, run_id=RUN_ID
     )
@@ -1800,7 +1977,7 @@ def build_run(fixture: Fixture, *, forge_result_source_head: bool = False) -> Si
             ),
             initial_source_commit=fixture.initial_head,
             initial_source_tree=fixture.initial_tree,
-            target_task_ids=(TASK_ID,),
+            target_task_ids=(fixture.scenario.task_id,),
             excluded_task_ids=(),
             max_capacity=1,
         )
@@ -1810,7 +1987,7 @@ def build_run(fixture: Fixture, *, forge_result_source_head: bool = False) -> Si
     workers = InProcessWorkers(
         fixture, command_runner, forge_result_source_head=forge_result_source_head
     )
-    architect = DeterministicArchitect(fixture)
+    architect = DeterministicArchitect(fixture, requested_tier=requested_tier)
     events = io.StringIO()
     orchestrator = PollingOrchestrator(
         source=fixture.source,
@@ -1881,6 +2058,7 @@ def build_run(fixture: Fixture, *, forge_result_source_head: bool = False) -> Si
         fallback_seconds=300.0,
     )
     return SimpleNamespace(
+        fixture=fixture,
         paths=paths,
         manifest=manifest,
         github=github,
@@ -1910,7 +2088,10 @@ def assert_completion_receipt(run: SimpleNamespace, result: Any) -> None:
     require(result.receipt is not None, "the controller reported completion without a receipt")
     require(stored == result.receipt, "graph-complete.json differs from the returned receipt")
     require(stored.manifest_sha256 == run.manifest.sha256, "receipt is bound to another manifest")
-    require(stored.relevant_task_ids == (TASK_ID,), f"receipt scope {stored.relevant_task_ids}")
+    require(
+        stored.relevant_task_ids == (run.fixture.scenario.task_id,),
+        f"receipt scope {stored.relevant_task_ids}",
+    )
     counters = dict(stored.lifetime_counters)
     for field in ("poll_cycles_total", "architect_invocations_total", "worker_launches_total"):
         require(counters[field] == getattr(result.progress, field), f"receipt counter {field}")
@@ -1930,10 +2111,63 @@ def acceptance_environment(fixture: Fixture):
 # --------------------------------------------------------------------------------
 
 
-def test_single_muffcabbage_task_reaches_verified_completion() -> None:
+def assert_rigor_policy(route: Mapping[str, Any], scenario: Scenario) -> None:
+    """The exact policy outcome one scenario requires, as the scheduler recorded it.
+
+    ``route`` is the rigor portion of a ``worker_launched`` event (or of
+    ``TaskRigorDecision.to_event_dict``): the architect's requested tier, the
+    deterministic minimum, the effective tier, and the crew/validation/human
+    policies that tier selects.
+    """
+
+    require(
+        route["architect_capability_tier"] == scenario.architect_tier,
+        f"architect tier {route['architect_capability_tier']!r} != {scenario.architect_tier!r}",
+    )
+    require(
+        route["minimum_capability_tier"] == scenario.expected_tier,
+        f"deterministic minimum tier {route['minimum_capability_tier']!r}",
+    )
+    require(
+        route["capability_tier"] == scenario.expected_tier,
+        f"effective tier {route['capability_tier']!r} != {scenario.expected_tier!r}",
+    )
+    require(route["crew_profile"] == scenario.crew_profile, f"crew profile {route['crew_profile']!r}")
+    require(
+        route["validation_profile"] == scenario.validation_profile,
+        f"validation profile {route['validation_profile']!r}",
+    )
+    require(route["human_verification_policy"] == "required", "human verification policy")
+    require(route["architect_recommendation_honored"] is True, "architect was overruled")
+    require(route["rigor_override_reasons"] == [], f"overrides {route['rigor_override_reasons']}")
+    require(
+        RIGOR_PROFILE_BY_TIER[scenario.expected_tier]
+        == (scenario.crew_profile, scenario.validation_profile),
+        f"production rigor table maps {scenario.expected_tier} to "
+        f"{RIGOR_PROFILE_BY_TIER[scenario.expected_tier]}, not the pinned "
+        f"({scenario.crew_profile}, {scenario.validation_profile})",
+    )
+
+
+def run_positive_scenario(
+    scenario: Scenario, *, requested_tier: str | None = None
+) -> dict[str, Any]:
+    """Drive one scenario through the whole lifecycle and prove every boundary.
+
+    ``requested_tier`` is a deliberate mutation hook for out-of-tree demonstration
+    only: the committed tests always pass ``None`` so the architect asks for the
+    scenario's own tier, and any other value is refused by ``assert_rigor_policy``
+    (the fast/standard mismatch surfaces as "architect tier ... != ..."), which is
+    what proves that assertion is load-bearing.
+    """
+
+    task_id = scenario.task_id
     started = time.perf_counter()
-    with disposable_fixture() as fixture, acceptance_environment(fixture) as (audit, approver_calls):
-        run = build_run(fixture)
+    with disposable_fixture(scenario) as fixture, acceptance_environment(fixture) as (
+        audit,
+        approver_calls,
+    ):
+        run = build_run(fixture, requested_tier=requested_tier)
         result = run.controller.run()
         elapsed = time.perf_counter() - started
         require(
@@ -1951,27 +2185,23 @@ def test_single_muffcabbage_task_reaches_verified_completion() -> None:
         progress = result.progress
 
         # (1) The explicit target entered the controller and nothing else did.
-        require(run.manifest.target_task_ids == (TASK_ID,), "manifest target differs")
-        require(result.evaluation.relevant_task_ids == (TASK_ID,), "run scope differs")
+        require(run.manifest.target_task_ids == (task_id,), "manifest target differs")
+        require(result.evaluation.relevant_task_ids == (task_id,), "run scope differs")
         first_architect = scheduler_events(run, "architect_started")[0]
         require(
             first_architect["eligible_pairs"]
-            == [{"task_id": TASK_ID, "work_types": ["implementation"]}],
+            == [{"task_id": task_id, "work_types": ["implementation"]}],
             f"first architect portfolio was {first_architect['eligible_pairs']}",
         )
 
-        # (2) The architect classified the task fast, and deterministic routing kept it
-        # lean/targeted with human verification still required.
+        # (2) The architect classified the task at the scenario's tier and deterministic
+        # routing resolved exactly the scenario's crew/validation profiles with human
+        # verification still required.
         implementation_launch = launched[0]
-        require(implementation_launch["task_id"] == TASK_ID, "wrong task launched")
+        require(implementation_launch["task_id"] == task_id, "wrong task launched")
         require(implementation_launch["work_type"] == "implementation", "wrong work type")
-        require(implementation_launch["architect_capability_tier"] == "fast", "architect tier")
-        require(implementation_launch["capability_tier"] == "fast", "effective tier was raised")
-        require(implementation_launch["crew_profile"] == "lean", "crew profile")
-        require(implementation_launch["validation_profile"] == "targeted", "validation profile")
-        require(implementation_launch["human_verification_policy"] == "required", "human policy")
-        require(implementation_launch["rigor_override_reasons"] == [], "policy overrode fast")
-        require(run.architect.calls[0]["admitted"] == [TASK_ID], "architect admitted wrongly")
+        assert_rigor_policy(implementation_launch, scenario)
+        require(run.architect.calls[0]["admitted"] == [task_id], "architect admitted wrongly")
         require(
             all(call["admission_limit"] == 1 for call in run.architect.calls),
             "capacity offered to the architect was not exactly one worker",
@@ -1993,12 +2223,13 @@ def test_single_muffcabbage_task_reaches_verified_completion() -> None:
         for launch in run.workers.launches:
             options = launch["options"]
             require(
-                options["--task-id"] == TASK_ID and options["--execution-provider"] == "claude",
+                options["--task-id"] == task_id and options["--execution-provider"] == "claude",
                 "worker argv",
             )
             require(
-                options["--crew-profile"] == "lean" and options["--validation-profile"] == "targeted",
-                "worker argv rigor",
+                options["--crew-profile"] == scenario.crew_profile
+                and options["--validation-profile"] == scenario.validation_profile,
+                f"worker argv rigor {options['--crew-profile']}/{options['--validation-profile']}",
             )
 
         # (4) The worker produced an identity-bound successful result the scheduler
@@ -2032,10 +2263,21 @@ def test_single_muffcabbage_task_reaches_verified_completion() -> None:
             handoff_commit,
             fixture.remote_head("refs/heads/main"),
         )
+        for path in scenario.exact_paths:
+            require(
+                git(fixture.remote, "ls-tree", "--name-only", handoff_commit, "--", path) == path,
+                f"handoff commit does not carry {path}",
+            )
+        handoff_paths = tuple(
+            sorted(
+                git(
+                    fixture.remote, "diff", "--name-only", fixture.initial_head, handoff_commit, "--"
+                ).splitlines()
+            )
+        )
         require(
-            git(fixture.remote, "ls-tree", "--name-only", handoff_commit, "--", SOURCE_PATH)
-            == SOURCE_PATH,
-            "handoff commit does not carry the implementation file",
+            handoff_paths == tuple(sorted(scenario.exact_paths)),
+            f"handoff commit touched {handoff_paths}, not exactly the scenario surface",
         )
         require(
             bool(git(fixture.remote, "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}")),
@@ -2129,7 +2371,7 @@ def test_single_muffcabbage_task_reaches_verified_completion() -> None:
                     "--name-only",
                     main_head,
                     "--",
-                    f"Pipeline/TaskGraph/deliveries/{TASK_ID}.json",
+                    f"Pipeline/TaskGraph/deliveries/{task_id}.json",
                 )
             ),
             "delivery record is not on main",
@@ -2158,7 +2400,7 @@ def test_single_muffcabbage_task_reaches_verified_completion() -> None:
         require(final.pending_transition_task_ids == (), "pending transition observed")
         require(final.reservation_task_ids == (), "reservation observed")
         require(final.source_clean and final.source_head == final.origin_main_head, "source state")
-        checkout = fixture.checkout_root / TASK_ID
+        checkout = fixture.checkout_root / task_id
         require(
             git(checkout, "status", "--porcelain=v1", "--untracked-files=all") == "",
             "checkout dirty",
@@ -2188,7 +2430,9 @@ def test_single_muffcabbage_task_reaches_verified_completion() -> None:
         require(not scheduler_events(run, "architect_wait_started"), "an architect wait started")
         executions = fixture.runner_executions()
         require(len(executions) == 1, f"Unity runner executions: {executions}")
-        require(executions[0] == f"EditMode\t{TEST_FILTER}\t{handoff_commit}", executions[0])
+        require(
+            executions[0] == f"EditMode\t{scenario.test_filter}\t{handoff_commit}", executions[0]
+        )
         require(
             audit.count("powershell.exe") == 1, f"powershell launches {audit.count('powershell.exe')}"
         )
@@ -2201,7 +2445,7 @@ def test_single_muffcabbage_task_reaches_verified_completion() -> None:
             "routed worker argv did not request the Claude session pool",
         )
         receipt_file = load_integration_receipt(
-            fixture.checkout_root / ".task-review-agent" / f"{TASK_ID}.integration.json"
+            fixture.checkout_root / ".task-review-agent" / f"{task_id}.integration.json"
         )
         assert receipt_file is not None
         recorded_validation = receipt_file.pre_handoff_validations[0]
@@ -2209,21 +2453,26 @@ def test_single_muffcabbage_task_reaches_verified_completion() -> None:
         for key in ("manifest_sha256", "xml_sha256", "log_sha256"):
             require(reused[key] == recorded_validation[key], f"automated evidence did not reuse {key}")
         downstream_state = read_json(
-            fixture.checkout_root / ".task-review-agent" / f"{TASK_ID}.downstream.json"
+            fixture.checkout_root / ".task-review-agent" / f"{task_id}.downstream.json"
         )
         require(
             downstream_state["validation_manifests"][0]["sha256"]
             == recorded_validation["manifest_sha256"],
             "downstream authoritative validation did not reuse the exact manifest",
         )
+        processes = {name: audit.count(name) for name in sorted(audit.executables())}
         print(
-            f"muffcabbage acceptance: {elapsed:.1f}s, polls={progress.poll_cycles_total}, "
+            f"muffcabbage acceptance [{scenario.name}]: {elapsed:.1f}s, "
+            f"tier={implementation_launch['capability_tier']}, "
+            f"crew={implementation_launch['crew_profile']}, "
+            f"validation={implementation_launch['validation_profile']}, "
+            f"polls={progress.poll_cycles_total}, "
             f"architect={progress.architect_invocations_total}, "
             f"workers={progress.worker_launches_total}, "
             f"pump_calls={progress.synthetic_pump_calls_total}, "
             f"runner_executions={len(executions)}, "
             f"worker_seconds={[round(item['seconds'], 1) for item in run.workers.launches]}, "
-            f"processes={sorted((name, audit.count(name)) for name in audit.executables())}"
+            f"processes={processes}"
         )
         require(elapsed < RUNTIME_BUDGET_SECONDS, f"run took {elapsed:.1f}s")
 
@@ -2242,6 +2491,130 @@ def test_single_muffcabbage_task_reaches_verified_completion() -> None:
         receipt_path.unlink()
         rejects(lambda: assert_completion_receipt(run, result), AssertionError, containing="not written")
         receipt_path.write_bytes(original)
+        return {
+            "scenario": scenario.name,
+            "elapsed_seconds": elapsed,
+            "capability_tier": implementation_launch["capability_tier"],
+            "crew_profile": implementation_launch["crew_profile"],
+            "validation_profile": implementation_launch["validation_profile"],
+            "worker_argv_crew_profile": run.workers.launches[0]["options"]["--crew-profile"],
+            "worker_argv_validation_profile": (
+                run.workers.launches[0]["options"]["--validation-profile"]
+            ),
+            "processes": processes,
+            "runner_executions": len(executions),
+        }
+
+
+def test_single_muffcabbage_task_reaches_verified_completion() -> None:
+    run_positive_scenario(FAST)
+
+
+def test_standard_rigor_muffcabbage_task_reaches_verified_completion() -> None:
+    report = run_positive_scenario(STANDARD)
+    require(report["capability_tier"] == "standard", report["capability_tier"])
+    require(report["crew_profile"] == "standard", report["crew_profile"])
+    require(report["validation_profile"] == "task_specific", report["validation_profile"])
+    require(
+        report["worker_argv_crew_profile"] == "standard"
+        and report["worker_argv_validation_profile"] == "task_specific",
+        "worker argv did not preserve the standard rigor pair",
+    )
+    # The fixture worker does not run ExecutionCrew, so this pins the committed crew
+    # contract that the worker argv's --crew-profile selects in run_crew.py (and that
+    # ProductionTaskController/ExecutionCrewBridge forward unchanged): the standard
+    # crew is Implementer, Test Author, and Validator, with no Contract Locality
+    # Auditor, and run_crew accepts it only paired with task_specific validation.
+    roles = CREW_PROFILE_ROLES[report["worker_argv_crew_profile"]]
+    require(roles == ("implementer", "test_author", "validator"), f"standard crew roles {roles}")
+    require("contract_locality_auditor" not in roles, "standard crew must not audit locality")
+    require(
+        CREW_VALIDATION_PROFILE_PAIRS[report["worker_argv_crew_profile"]]
+        == report["worker_argv_validation_profile"],
+        "ExecutionCrew would refuse this crew/validation pair",
+    )
+
+
+def test_policy_raises_a_fast_request_for_the_standard_surface_to_standard() -> None:
+    """Guard: the same six-path surface never runs lean because an architect said fast."""
+
+    task = STANDARD.contract()
+    task["task_contract_sha256"] = "0" * 64
+    require(len(STANDARD.exact_paths) == 6, str(STANDARD.exact_paths))
+    require(
+        all(path.startswith("Assets/") and path.endswith((".cs", ".cs.meta")) for path in STANDARD.exact_paths),
+        "the standard surface must stay isolated C# files and companions",
+    )
+
+    def resolve(requested_tier: str):
+        advisory = scenario_advisory(STANDARD, task, "1" * 40, requested_tier=requested_tier)
+        return resolve_task_rigor(
+            advisory.execution_recommendation,
+            task=task,
+            predicted_change_surface=advisory.predicted_change_surface,
+            # Nothing in the surface is committed yet: every companion is new.
+            committed_path_probe=lambda path: False,
+        )
+
+    # The complete deterministic narrative for this surface: the three symbols stay
+    # confined, the three new sidecars are recognized as import companions, and the
+    # lean bound is the one and only floor that fires. No full-profile rule (shared
+    # system, logical resource, serialized asset, protected root) appears, so a scene
+    # rebuild or protected surface is not what makes this task standard.
+    companions = ", ".join(sorted(meta for _, meta in STANDARD.file_pairs))
+    surface_reasons = (
+        "named symbols or components are confined to the small exact path surface",
+        "deterministic new C# script import companions are not substantive serialized "
+        f"content: {companions}",
+        "more than four exact paths exceed the lean-change bound",
+    )
+
+    raised = resolve("fast")
+    require(raised.architect_capability_tier == "fast", str(raised))
+    require(raised.minimum_capability_tier == "standard", str(raised))
+    require(raised.effective_capability_tier == "standard", str(raised))
+    require(raised.crew_profile == "standard", str(raised))
+    require(raised.validation_profile == "task_specific", str(raised))
+    require(raised.human_verification_policy == "required", str(raised))
+    require(not raised.architect_recommendation_honored, "fast was honored for six paths")
+    require(
+        raised.reasons
+        == (*surface_reasons, "deterministic policy raised architect tier fast to standard"),
+        f"reasons {raised.reasons}",
+    )
+    require(
+        raised.override_reasons
+        == (
+            "more than four exact paths exceed the lean-change bound",
+            "deterministic policy raised architect tier fast to standard",
+        ),
+        f"override reasons {raised.override_reasons}",
+    )
+    # The scenario's own policy assertion refuses that mutated outcome exactly where
+    # the honest run would report it.
+    rejects(
+        lambda: assert_rigor_policy(raised.to_event_dict(), STANDARD),
+        AssertionError,
+        containing="architect tier",
+    )
+
+    honest = resolve("standard")
+    require(honest.architect_recommendation_honored, str(honest))
+    require(honest.reasons == surface_reasons, f"reasons {honest.reasons}")
+    require(honest.override_reasons == (), str(honest))
+    assert_rigor_policy(honest.to_event_dict(), STANDARD)
+    # And the fast scenario's two-path surface genuinely resolves to fast, so the two
+    # scenarios sit on opposite sides of the lean bound.
+    fast_task = FAST.contract()
+    fast_task["task_contract_sha256"] = "0" * 64
+    fast_advisory = scenario_advisory(FAST, fast_task, "1" * 40)
+    fast_decision = resolve_task_rigor(
+        fast_advisory.execution_recommendation,
+        task=fast_task,
+        predicted_change_surface=fast_advisory.predicted_change_surface,
+        committed_path_probe=lambda path: False,
+    )
+    assert_rigor_policy(fast_decision.to_event_dict(), FAST)
 
 
 def test_forged_worker_result_identity_stops_admission() -> None:
@@ -2402,6 +2775,8 @@ def test_pre_handoff_boundary_refuses_stale_evidence_human_results_and_hidden_re
 
 TESTS = (
     test_single_muffcabbage_task_reaches_verified_completion,
+    test_standard_rigor_muffcabbage_task_reaches_verified_completion,
+    test_policy_raises_a_fast_request_for_the_standard_surface_to_standard,
     test_forged_worker_result_identity_stops_admission,
     test_pre_handoff_boundary_refuses_stale_evidence_human_results_and_hidden_reexecution,
 )
