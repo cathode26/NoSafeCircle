@@ -60,24 +60,78 @@ Install the isolated Python dependency once:
 python -m pip install -r Pipeline/TaskReviewAgent/requirements.txt
 ```
 
-## Start one explicit task
+## Execution modes
+
+One launcher serves three callers. The mode is chosen structurally, never by heuristic:
+
+| Caller | Selected by | Path |
+| --- | --- | --- |
+| Normal operator, one explicit task | `-TaskId` with no `-RunId` | architect-managed autonomous graph run |
+| Scheduler-spawned internal worker | non-empty `-RunId` | existing direct pipeline worker |
+| Operator recovery/debugging | explicit `-DirectManual` | existing direct pipeline worker |
+
+The autonomous controller starts its own workers through this same script, so the scheduler `-RunId` is what keeps delegation non-recursive: a worker that carries one can never delegate back to the controller that spawned it. Contradictory combinations fail before either pipeline starts.
+
+## Start one explicit task (architect-managed, the normal command)
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude
 ```
 
-The explicit task must pass the real TaskGraph eligibility and dependency checks. The agent does not silently switch to another task when the named task is blocked.
+This delegates exactly once to the existing autonomous graph controller (`Start-AutonomousGraphRun.ps1` -> `run_autonomous_graph.py`) with maximum worker capacity 1. The run therefore receives Software Architect difficulty scoring, architect-selected rigor/validation profiles and crew sizing, the scheduler-owned architect and ExecutionCrew session pools, Issue-state wake-up, continuous worker supervision, and graph-complete receipt semantics. The launcher implements none of that itself.
 
-Use Codex for ExecutionCrew instead:
+Because the architect resolves them per task, these are refused rather than silently dropped in this mode: `-CrewProfile`, `-ValidationProfile`, `-Model`, `-SupervisorReasoningEffort`, `-ExecutionReasoningEffort`, `-EnableExecutionSessionPool`, `-WorkerId`, `-OutputRoot`, `-UnityExecutable`, `-HumanActionWaitMinutes`, `-HumanActionPollSeconds`, and the scheduler admission fields. Use `-DirectManual` to set them yourself. `-ExecutionProvider`, `-ExecutionModel`, `-MaxTurns` and `-CheckoutRoot` are forwarded only when you actually supply them, so an unsupplied provider leaves architect routing free to choose one.
+
+The explicit task must still pass the real TaskGraph eligibility and dependency checks. The run does not silently switch to another task when the named task is blocked.
+
+### What the target task actually covers
+
+The requested task becomes the controller's `--target-task-id`. The controller expands that target transitively through each task's committed `decomposition_children`, subtracts any exclusions, and admits only the resulting set. Concretely:
+
+- a concrete implementation task with no children runs alone;
+- a decomposed parent also covers its children, and their children, to any depth;
+- `depends_on` is **not** expanded. A task reachable only as a dependency never enters run scope. If a target's dependency has not been delivered, the target simply stays undispatchable and the run reports a wait or deadlock rather than quietly starting unrelated work.
+
+The run finishes when every task in that set is conformant, its managed Issue is complete, and no assignment, transition, or reservation remains.
+
+### Run identity and resuming
+
+Each launch mints a durable, operator-visible autonomous run ID in the project's established shape -- lower-case task ID, compact UTC stamp, and a short discriminator so two launches in the same second cannot adopt each other's run, for example `nsc-914-20260904t181500z-3f9ab2`. The launcher prints it and prints the exact resume command. A worker `-RunId` is never reused as the controller run identity.
+
+To resume an interrupted run deliberately, supply the same ID:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -AutonomousRunId nsc-914-20260904t181500z-3f9ab2
+```
+
+A resume must match the persisted manifest. Capacity is part of that manifest, so a run created at a non-default `-MaxWorkers` must be resumed with the same value; a mismatch fails closed instead of silently re-scoping. A run whose `graph-complete.json` receipt already exists returns success from the receipt probe alone, before GitHub, Docker, the architect, or any worker is touched.
+
+### Repository assertion
+
+The controller requires an explicit `--confirm-repository`. When you do not supply `-ConfirmRepository`, the launcher resolves it from the source checkout's Git `origin` using the same committed authority the controller then re-asserts against that origin. Supplying it yourself keeps it a real assertion that fails closed on a mismatch.
+
+### Synthetic evidence is opt-in
+
+`-EnableSyntheticEvidence` is forwarded to the controller only when you explicitly supply it. It is never inferred, and `-EnableSyntheticEvidence:$false` can only ever mean "not requested". Every committed guard still applies unchanged: the adapter accepts only the exact canonical private rehearsal repository, refuses production, refuses a mismatched repository assertion, advances one waiting Issue per controller step with hash-bound automated evidence, never creates a human PASS, and categorically excludes NSC-042.
+
+### Recovery and debugging: direct/manual mode
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude -DirectManual
+```
+
+`-DirectManual` keeps the previous conservative behavior exactly: the direct `run_pipeline_agent.py` worker, ExecutionCrew's `full`/`full_relevant` default when no profile override is given, existing `-CrewProfile`/`-ValidationProfile` override behavior, and the existing explicit-task admission preflight. It stays ephemeral: it never fabricates an autonomous scheduler identity, and `-EnableExecutionSessionPool` is refused because direct/manual holds no scheduler-issued pool authority.
+
+Use Codex for ExecutionCrew instead (still architect-managed):
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider codex
 ```
 
-The OpenAI supervisor model can be selected independently:
+The OpenAI supervisor model belongs to the direct worker, so selecting it explicitly selects direct/manual mode:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude -Model gpt-5.6
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude -DirectManual -Model gpt-5.6
 ```
 
 ## Resume durable agent-ready work

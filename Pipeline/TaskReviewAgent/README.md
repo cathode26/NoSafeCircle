@@ -458,6 +458,20 @@ batch. Only the current scheduler's in-memory children count as active
 assignments; a prior-process lease remains a reservation and is never adopted or
 stolen.
 
+`Start-GameTaskAgent.ps1` is the normal operator entry point into this
+controller. A top-level explicit `-TaskId` with no scheduler `-RunId`
+delegates here exactly once with `--max-workers 1` and a generated durable
+run identity; a scheduler-spawned worker carrying a `-RunId` stays on the
+direct `run_pipeline_agent.py` path and cannot recurse back into the
+controller that started it; `-DirectManual` selects the conservative direct
+worker deliberately. See `Docs/AI-Pipeline/GAME_TASK_AGENT_RUNBOOK.md`.
+
+`--target-task-id` is expanded transitively through each task's committed
+decomposition children, minus `--exclude-task-id`, and that set is the
+scheduler's admission allowlist. `depends_on` is deliberately not expanded:
+an undelivered dependency leaves its dependent undispatchable rather than
+pulling unrelated work into run scope.
+
 Each run creates an immutable repository-bound manifest before scheduler or
 provider work under:
 

@@ -43,6 +43,23 @@ param(
 
     [switch]$EnableExecutionSessionPool,
 
+    # Architect-managed top-level execution. A top-level explicit task runs
+    # through the existing autonomous graph controller unless -DirectManual
+    # selects the conservative direct worker, or the caller is the scheduler
+    # itself, which is proved by a non-empty -RunId.
+    [switch]$DirectManual,
+
+    [ValidatePattern('^[a-z0-9](?:[a-z0-9-]{0,126}[a-z0-9])?$')]
+    [string]$AutonomousRunId,
+
+    [ValidatePattern('^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$')]
+    [string]$ConfirmRepository,
+
+    [ValidateRange(1, 10)]
+    [int]$MaxWorkers = 1,
+
+    [switch]$EnableSyntheticEvidence,
+
     [string]$Source,
 
     [ValidateRange(4, 160)]
@@ -61,6 +78,81 @@ if (
     [string]::IsNullOrWhiteSpace($ValidationProfile)
 ) {
     throw 'CrewProfile and ValidationProfile must be supplied together.'
+}
+
+# ---------------------------------------------------------------------------
+# Top-level routing
+#
+# The autonomous graph controller starts its workers through this same script,
+# so the two callers must be distinguished structurally rather than by
+# heuristic. A scheduler-spawned worker always carries a non-empty -RunId with
+# its admission source HEAD and task-contract hash; an operator launch never
+# does. That single fact is what keeps delegation non-recursive.
+# ---------------------------------------------------------------------------
+$IsSchedulerWorker = -not [string]::IsNullOrWhiteSpace($RunId)
+$ArchitectOptionNames = @(
+    'AutonomousRunId',
+    'ConfirmRepository',
+    'MaxWorkers',
+    'EnableSyntheticEvidence'
+)
+$SuppliedArchitectOptions = @(
+    $ArchitectOptionNames |
+        Where-Object { $PSBoundParameters.ContainsKey($_) }
+)
+
+if ($IsSchedulerWorker -and $DirectManual) {
+    throw 'DirectManual is an operator escape hatch and must not be combined with a scheduler RunId.'
+}
+if ($IsSchedulerWorker -and $SuppliedArchitectOptions.Count -gt 0) {
+    throw "A scheduler worker RunId cannot carry architect-managed options: $($SuppliedArchitectOptions -join ', ')."
+}
+if ($DirectManual -and $SuppliedArchitectOptions.Count -gt 0) {
+    throw "DirectManual cannot carry architect-managed options: $($SuppliedArchitectOptions -join ', ')."
+}
+if ($DirectManual -and $EnableExecutionSessionPool) {
+    throw 'DirectManual is ephemeral and holds no scheduler-issued pool authority; remove EnableExecutionSessionPool.'
+}
+
+$UseArchitectManaged = (
+    -not $IsSchedulerWorker -and
+    -not $DirectManual -and
+    -not [string]::IsNullOrWhiteSpace($TaskId) -and
+    $Mode -eq 'openai'
+)
+if (-not $UseArchitectManaged -and $SuppliedArchitectOptions.Count -gt 0) {
+    throw "Architect-managed options require a top-level explicit -TaskId in openai mode: $($SuppliedArchitectOptions -join ', ')."
+}
+if ($UseArchitectManaged) {
+    # Every one of these is resolved per task by the architect, owned by the
+    # scheduler, or has no architect-managed equivalent. Silently dropping one
+    # would let an operator believe a decision was honoured when it was not, so
+    # the launch fails before either pipeline starts.
+    $DirectOnlyOptionNames = @(
+        'CrewProfile',
+        'ValidationProfile',
+        'Model',
+        'SupervisorReasoningEffort',
+        'ExecutionReasoningEffort',
+        'AdmissionSourceHead',
+        'TaskContractSha256',
+        'AdmissionIssueNumber',
+        'WorkerId',
+        'OutputRoot',
+        'UnityExecutable',
+        'HumanActionWaitMinutes',
+        'HumanActionPollSeconds'
+    )
+    $SuppliedDirectOnly = @(
+        $DirectOnlyOptionNames |
+            Where-Object { $PSBoundParameters.ContainsKey($_) }
+    )
+    if ($SuppliedDirectOnly.Count -gt 0) {
+        throw "Architect-managed execution owns these decisions; rerun with -DirectManual to set them yourself: $($SuppliedDirectOnly -join ', ')."
+    }
+    if ($EnableExecutionSessionPool) {
+        throw 'Architect-managed execution owns the scheduler session pools; remove EnableExecutionSessionPool.'
+    }
 }
 $NativeCommandPath = Join-Path $PSScriptRoot 'NativeCommand.ps1'
 if (-not (Test-Path -LiteralPath $NativeCommandPath -PathType Leaf)) {
@@ -92,13 +184,143 @@ if (-not (Test-Path -LiteralPath $OutputRoot -PathType Container)) {
 }
 $OutputRoot = (Resolve-Path -LiteralPath $OutputRoot).Path
 
-foreach ($CommandName in @('git', 'gh', 'python')) {
+# The autonomous controller runs its own completed-receipt probe before it
+# touches GitHub or Docker, so the delegated path must not force a GitHub or
+# Docker call ahead of that probe.
+$RequiredCommandNames = if ($UseArchitectManaged) {
+    @('git', 'python')
+}
+else {
+    @('git', 'gh', 'python')
+}
+foreach ($CommandName in $RequiredCommandNames) {
     if ($null -eq (Get-Command $CommandName -ErrorAction SilentlyContinue)) {
         if ($CommandName -eq 'gh') {
             throw 'GitHub CLI is required but is not installed. Install it with: winget install --id GitHub.cli'
         }
         throw "Required command is not installed or not on PATH: $CommandName"
     }
+}
+
+if ($UseArchitectManaged) {
+    # Delegate exactly once to the existing autonomous graph controller. This
+    # launcher deliberately implements none of the architect difficulty scoring,
+    # execution-route or rigor resolution, architect/ExecutionCrew session
+    # pooling, Issue-state wake-up, continuous worker supervision, or
+    # graph-complete receipt semantics. Start-AutonomousGraphRun.ps1 and
+    # run_autonomous_graph.py already own all of it.
+    $ControllerLauncher = Join-Path $PSScriptRoot 'Start-AutonomousGraphRun.ps1'
+    if (-not (Test-Path -LiteralPath $ControllerLauncher -PathType Leaf)) {
+        throw "Autonomous graph launcher is missing: $ControllerLauncher"
+    }
+
+    $ResolvedRepository = $ConfirmRepository
+    if ([string]::IsNullOrWhiteSpace($ResolvedRepository)) {
+        # The controller requires an explicit repository assertion. Reuse the one
+        # committed authority rather than parsing a Git remote here, and receive
+        # the answer through a file so a combined stdout/stderr stream is never
+        # treated as machine data.
+        $RepositoryFile = Join-Path `
+            ([System.IO.Path]::GetTempPath()) `
+            ("nsc-issue-repository-" + [Guid]::NewGuid().ToString('N') + ".txt")
+        try {
+            $Resolve = Invoke-NscNativeCommand `
+                -FilePath 'python' `
+                -ArgumentList @(
+                    'Pipeline/TaskReviewAgent/resolve_issue_repository.py',
+                    '--source', $Source,
+                    '--output', $RepositoryFile
+                )
+            if ($Resolve.ExitCode -ne 0) {
+                $Resolve.Output | ForEach-Object { Write-Host $_ }
+                throw 'The source checkout origin could not be resolved to a GitHub repository.'
+            }
+            if (-not (Test-Path -LiteralPath $RepositoryFile -PathType Leaf)) {
+                throw 'The repository resolver reported success but wrote no result.'
+            }
+            $ResolvedRepository = (
+                Get-Content -LiteralPath $RepositoryFile -Raw -Encoding UTF8
+            ).Trim()
+        }
+        finally {
+            Remove-Item -LiteralPath $RepositoryFile -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($ResolvedRepository)) {
+        throw 'A repository assertion is required for architect-managed execution.'
+    }
+
+    $ControllerRunId = $AutonomousRunId
+    if ([string]::IsNullOrWhiteSpace($ControllerRunId)) {
+        # The project's established run-identity shape -- lower-case task ID plus
+        # a compact UTC stamp -- with a short discriminator so two launches in
+        # the same second cannot silently adopt each other's durable run.
+        $Now = [DateTime]::UtcNow
+        $Invariant = [System.Globalization.CultureInfo]::InvariantCulture
+        $ControllerRunId = (
+            $TaskId.ToLowerInvariant() + '-' +
+            $Now.ToString('yyyyMMdd', $Invariant) + 't' +
+            $Now.ToString('HHmmss', $Invariant) + 'z-' +
+            [Guid]::NewGuid().ToString('N').Substring(0, 6)
+        )
+    }
+
+    $ControllerArguments = @(
+        '-RunId', $ControllerRunId,
+        '-ConfirmRepository', $ResolvedRepository,
+        '-TargetTaskId', $TaskId,
+        '-MaxWorkers', $MaxWorkers.ToString(),
+        '-Source', $Source
+    )
+    if ($PSBoundParameters.ContainsKey('ExecutionProvider')) {
+        $ControllerArguments += @('-ExecutionProvider', $ExecutionProvider)
+    }
+    if ($PSBoundParameters.ContainsKey('ExecutionModel')) {
+        $ControllerArguments += @('-Model', $ExecutionModel)
+    }
+    if ($PSBoundParameters.ContainsKey('MaxTurns')) {
+        $ControllerArguments += @('-MaxTurns', $MaxTurns.ToString())
+    }
+    if ($PSBoundParameters.ContainsKey('CheckoutRoot')) {
+        $ControllerArguments += @('-CheckoutRoot', $CheckoutRoot)
+    }
+    if (
+        $PSBoundParameters.ContainsKey('EnableSyntheticEvidence') -and
+        $EnableSyntheticEvidence.IsPresent
+    ) {
+        $ControllerArguments += '-EnableSyntheticEvidence'
+    }
+
+    Write-Host 'Execution mode: architect-managed autonomous graph run'
+    Write-Host "Target task: $TaskId plus its committed decomposition-children closure"
+    Write-Host "Autonomous run ID: $ControllerRunId"
+    Write-Host "Repository: $ResolvedRepository"
+    Write-Host "Maximum worker capacity: $MaxWorkers"
+    Write-Host 'Rigor, validation, crew sizing, provider and model: resolved per task by the Software Architect'
+    Write-Host "Resume this exact run with: -TaskId $TaskId -AutonomousRunId $ControllerRunId"
+
+    $PreviousPythonUtf8 = [Environment]::GetEnvironmentVariable('PYTHONUTF8', 'Process')
+    $ControllerExitCode = 1
+    try {
+        $env:PYTHONUTF8 = '1'
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass `
+            -File $ControllerLauncher @ControllerArguments
+        $ControllerExitCode = $LASTEXITCODE
+    }
+    finally {
+        if ($null -eq $PreviousPythonUtf8) {
+            Remove-Item Env:PYTHONUTF8 -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:PYTHONUTF8 = $PreviousPythonUtf8
+        }
+    }
+    if ($ControllerExitCode -ne 0) {
+        [Console]::Error.WriteLine(
+            "Architect-managed run $($ControllerRunId) stopped with exit code $ControllerExitCode."
+        )
+    }
+    exit $ControllerExitCode
 }
 
 $GitHubAuth = Invoke-NscNativeCommand `
