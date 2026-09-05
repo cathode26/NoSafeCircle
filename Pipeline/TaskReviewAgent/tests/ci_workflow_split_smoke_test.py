@@ -33,6 +33,7 @@ if str(ROOT) not in sys.path:
 CORE_WORKFLOW = ROOT / ".github/workflows/task-review-agent-deterministic.yml"
 SUPERVISOR_WORKFLOW = ROOT / ".github/workflows/task-review-agent-supervisor.yml"
 DELIVERY_WORKFLOW = ROOT / ".github/workflows/task-review-agent-delivery.yml"
+D1B2_WORKFLOW = ROOT / ".github/workflows/d1b2-core-deterministic.yml"
 
 CORE_WORKFLOW_NAME = "TaskReviewAgent Deterministic Validation"
 WINDOWS_SMOKE_JOB = "windows-smoke:"
@@ -102,6 +103,10 @@ CORE_ONLY_STEP_COMMANDS = (
     "Pipeline/TaskReviewAgent/tests/human_action_wait_smoke_test.py",
 )
 CORE_FULL_SUITE_GATE = "if: steps.scope.outputs.run_full_core == 'true'"
+DECOMPOSITION_POOLING_COMMANDS = (
+    "Pipeline/TaskDecomposition/tests/pooled_decomposition_smoke_test.py",
+    "Pipeline/TaskReviewAgent/tests/decomposition_session_pool_smoke_test.py",
+)
 
 REPRESENTATIVE_SUPERVISOR_ONLY_PATHS = (
     "Pipeline/TaskReviewAgent/codex_supervisor_turn.py",
@@ -395,6 +400,31 @@ def test_core_owned_tests_run_in_core_gated_like_other_core_tests() -> None:
             )
 
 
+def test_decomposition_pooling_suites_run_once_in_d1b2_windows_core() -> None:
+    d1b2_text = D1B2_WORKFLOW.read_text(encoding="utf-8")
+    require("windows-core:" in d1b2_text, "D1B.2 workflow must retain its Windows Core job")
+    workflow_texts = {
+        path: path.read_text(encoding="utf-8")
+        for path in (ROOT / ".github" / "workflows").glob("*.yml")
+    }
+    for command in DECOMPOSITION_POOLING_COMMANDS:
+        d1b2_steps = [step for step in _core_steps(d1b2_text) if command in step]
+        require(
+            len(d1b2_steps) == 1,
+            f"D1B.2 Windows Core must run {command} exactly once",
+        )
+        occurrences = sum(
+            1
+            for text in workflow_texts.values()
+            for step in _core_steps(text)
+            if command in step
+        )
+        require(
+            occurrences == 1,
+            f"{command} must be registered exactly once across deterministic workflows; got {occurrences}",
+        )
+
+
 def test_unknown_task_review_agent_file_routes_to_core() -> None:
     core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
     core_paths = _extract_paths_block(core_text)
@@ -429,6 +459,7 @@ def main() -> int:
     test_core_owned_change_selects_full_core()
     test_pool_and_runtime_changes_trigger_full_core()
     test_core_owned_tests_run_in_core_gated_like_other_core_tests()
+    test_decomposition_pooling_suites_run_once_in_d1b2_windows_core()
     test_unknown_task_review_agent_file_routes_to_core()
     print("ci_workflow_split_smoke_test: PASS")
     return 0

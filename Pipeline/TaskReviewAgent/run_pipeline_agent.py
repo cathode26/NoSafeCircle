@@ -632,6 +632,7 @@ def main(argv: list[str] | None = None) -> int:
                 warm_pooling_active=activation["warm_pooling_active"],
                 reason=activation["reason"],
                 resume_contract=activation["resume_contract"],
+                conversation_store=activation["conversation_store"],
                 reconciliation=activation["reconciliation"],
             )
 

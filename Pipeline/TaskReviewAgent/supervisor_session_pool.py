@@ -109,12 +109,14 @@ SUPERVISOR_SESSION_LIFETIME = SessionLifetimePolicy(
 )
 CODEX_RESUME_SANDBOX_ARGUMENT_ENVIRONMENT = "NSC_CODEX_RESUME_SANDBOX_ARGUMENT"
 SUPERVISOR_CONTEXT_WINDOW_ENVIRONMENT = "NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS"
-# A provider conversation lives in the container's configuration volume,
-# which Docker Compose names from the project it runs under. A session
-# started under one project cannot be resumed under another, so the store
-# is part of a pooled conversation's identity, never an ambient default.
+# A provider conversation lives in the container's configuration volume.
+# Compose-managed decomposition volumes are named from the project, while the
+# supervisor service mounts a separately selected external volume. Both kinds
+# of store are explicit scope facts; neither is an ambient default.
 COMPOSE_PROJECT_ENVIRONMENT = "NSC_TASK_AGENT_COMPOSE_PROJECT"
 DEFAULT_COMPOSE_PROJECT = "nosafecircle"
+SUPERVISOR_CODEX_VOLUME_ENVIRONMENT = "NSC_TASK_SUPERVISOR_CODEX_VOLUME"
+DEFAULT_SUPERVISOR_CODEX_VOLUME = "nosafecircle_codex-config"
 CONVERSATION_STORE_BINDING = "conversation_store"
 CONVERSATION_STORE_VOLUMES = {"claude": "claude-config", "codex": "codex-config"}
 CODEX_RESUME_GATE_OFF_REASON = (
@@ -138,6 +140,10 @@ _SLOT = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$")
 # Docker Compose project names: lowercase letters, digits, dashes, and
 # underscores, starting with a letter or digit.
 _COMPOSE_PROJECT = re.compile(r"^[a-z0-9][a-z0-9_-]{0,127}$")
+# Docker volume names use one conservative, platform-neutral subset. Refuse
+# separators, colons, whitespace, and shell metacharacters rather than trying
+# to repair a value that is both a storage identity and a Compose input.
+_DOCKER_VOLUME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _FAILURE_OUTCOMES = {
     "ProviderFailure": "provider_failure",
@@ -300,7 +306,7 @@ def resolve_compose_project(compose_project: Any = None) -> str:
 
 
 def conversation_store_binding(compose_project: str, provider_name: str) -> tuple[str, str]:
-    """The scope binding naming the exact volume a provider's sessions live in."""
+    """Name one Compose-managed provider volume used by decomposition."""
 
     project = resolve_compose_project(compose_project)
     try:
@@ -310,6 +316,58 @@ def conversation_store_binding(compose_project: str, provider_name: str) -> tupl
             f"no conversation store volume is known for provider {provider_name!r}"
         ) from None
     return (CONVERSATION_STORE_BINDING, f"compose:{project}/{volume}")
+
+
+def _validated_docker_volume_name(volume_name: Any, *, field: str) -> str:
+    if type(volume_name) is not str:
+        raise SupervisorSessionPoolError(
+            f"{field} {volume_name!r} is not a valid exact Docker volume name"
+        )
+    if (
+        not volume_name
+        or volume_name != volume_name.strip()
+        or _DOCKER_VOLUME.fullmatch(volume_name) is None
+    ):
+        raise SupervisorSessionPoolError(
+            f"{field} {volume_name!r} is not a valid exact Docker volume name"
+        )
+    return volume_name
+
+
+def resolve_supervisor_codex_volume(volume_name: Any = None) -> str:
+    """Return the exact external volume mounted by ``codex-supervisor``.
+
+    ``compose.override.yaml`` reads ``NSC_TASK_SUPERVISOR_CODEX_VOLUME`` and
+    otherwise mounts ``nosafecircle_codex-config``. This resolver deliberately
+    mirrors that selection instead of inferring a volume from the Compose
+    project: the launcher may select an authenticated volume owned by another
+    project.
+    """
+
+    selected = volume_name
+    if selected is None:
+        selected = os.getenv(SUPERVISOR_CODEX_VOLUME_ENVIRONMENT)
+        if selected in (None, ""):
+            selected = DEFAULT_SUPERVISOR_CODEX_VOLUME
+    return _validated_docker_volume_name(selected, field="supervisor Codex volume")
+
+
+def external_conversation_store_binding(
+    provider_name: str, volume_name: Any
+) -> tuple[str, str]:
+    """Name the exact externally mounted store for one provider.
+
+    The binding stays provider-neutral. Provider compatibility is already a
+    first-class ``SessionScope`` field; this value adds only the exact durable
+    storage identity backing that provider's conversation.
+    """
+
+    if provider_name not in CONVERSATION_STORE_VOLUMES:
+        raise SupervisorSessionPoolError(
+            f"no conversation store is known for provider {provider_name!r}"
+        )
+    volume = _validated_docker_volume_name(volume_name, field="conversation store volume")
+    return (CONVERSATION_STORE_BINDING, f"docker-volume:{volume}")
 
 
 def gate_off_activation_state(task_id: str) -> dict[str, Any]:
@@ -406,7 +464,10 @@ class SupervisorSessionOwner:
         self.model = _exact(model, field="model")
         self.reasoning_effort = _exact(reasoning_effort, field="reasoning_effort")
         self.compose_project = resolve_compose_project(compose_project)
-        self.conversation_store = conversation_store_binding(self.compose_project, "codex")[1]
+        self.conversation_store_volume = resolve_supervisor_codex_volume()
+        self.conversation_store = external_conversation_store_binding(
+            "codex", self.conversation_store_volume
+        )[1]
         if resume_activation is not None and type(resume_activation) is not CodexResumeActivation:
             raise SupervisorSessionPoolError("resume_activation must be an exact CodexResumeActivation")
         self.resume_activation = resume_activation
@@ -439,7 +500,9 @@ class SupervisorSessionOwner:
                 repository_identity=self.repository_identity,
                 resume_contract=resume_activation.fingerprint,
                 bindings=(
-                    conversation_store_binding(self.compose_project, "codex"),
+                    external_conversation_store_binding(
+                        "codex", self.conversation_store_volume
+                    ),
                     ("task_id", self.task_id),
                 ),
             )
@@ -764,6 +827,8 @@ def _exact(value: Any, *, field: str) -> str:
 __all__ = [
     "CODEX_RESUME_GATE_OFF_REASON",
     "CODEX_RESUME_SANDBOX_ARGUMENT_ENVIRONMENT",
+    "DEFAULT_SUPERVISOR_CODEX_VOLUME",
+    "SUPERVISOR_CODEX_VOLUME_ENVIRONMENT",
     "SUPERVISOR_CONTEXT_WINDOW_ENVIRONMENT",
     "SUPERVISOR_SESSION_IDLE_LIFETIME_SECONDS",
     "SUPERVISOR_SESSION_LIFETIME",
@@ -777,9 +842,13 @@ __all__ = [
     "SupervisorTurn",
     "classify_turn_failure",
     "codex_resume_activation_from_environment",
+    "conversation_store_binding",
     "context_window_tokens_from_environment",
+    "external_conversation_store_binding",
     "gate_off_activation_state",
     "known_context_window_percent",
+    "resolve_compose_project",
+    "resolve_supervisor_codex_volume",
     "supervisor_pool_root",
     "validate_context_window_tokens",
 ]

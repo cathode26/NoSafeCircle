@@ -141,6 +141,60 @@ class DecompositionSessionPoolError(TaskReviewContractError):
     """The decomposition pool contract or persisted identity was invalid."""
 
 
+def _canonical_round_artifact_path(
+    *, mode: str, round_number: int, role: str, round_status: Any,
+    runtime_status: Any,
+) -> str | None:
+    """Derive the only artifact path a settled round may bind.
+
+    Paths are host protocol facts, not container-selected input. A failed or
+    rejected round binds no artifact; each successful semantic status binds
+    the one file the corresponding decomposition mode publishes.
+    """
+
+    if runtime_status not in {"succeeded", "failed"}:
+        raise DecompositionSessionPoolError("AgentRuntime result status is invalid")
+    if type(round_status) is not str:
+        raise DecompositionSessionPoolError("round status is invalid")
+    if mode == "d1b1":
+        if round_number != 1 or role != "task_decomposer":
+            raise DecompositionSessionPoolError("D1B.1 artifact identity has an invalid round or role")
+        valid = (
+            {"review_ready": "decomposition_result.json", "rejected": None}
+            if runtime_status == "succeeded"
+            else {"agent_failed": None}
+        )
+    elif mode == "round_robin_d1b2":
+        if round_number == 1 and role == "task_decomposer":
+            valid = (
+                {"candidate_valid": "rounds/01/candidate.json", "rejected": None}
+                if runtime_status == "succeeded"
+                else {"rejected": None}
+            )
+        elif round_number >= 2 and role == "decomposition_reviewer":
+            valid = (
+                {
+                    "revised_candidate_valid": f"rounds/{round_number:02d}/candidate.json",
+                    "independent_pass": f"rounds/{round_number:02d}/review.json",
+                    "needs_human": f"rounds/{round_number:02d}/review.json",
+                    "rejected": None,
+                }
+                if runtime_status == "succeeded"
+                else {"rejected": None}
+            )
+        else:
+            raise DecompositionSessionPoolError(
+                "round-robin artifact identity has an invalid round or role"
+            )
+    else:
+        raise DecompositionSessionPoolError("unsupported decomposition mode")
+    if round_status not in valid:
+        raise DecompositionSessionPoolError(
+            "round status is incompatible with its mode, round, role, and AgentRuntime status"
+        )
+    return valid[round_status]
+
+
 def possible_lease_keys(
     *, decomposition_mode: str, provider_order: tuple[str, ...], max_calls: int
 ) -> tuple[str, ...]:
@@ -581,7 +635,7 @@ class DecompositionSessionPoolOwner:
 
         if type(run_id) is not str or _RUN_ID.fullmatch(run_id) is None:
             raise DecompositionSessionPoolError("pooled run_id has an invalid form")
-        root = Path(run_dir)
+        requested_root = Path(run_dir)
 
         def mutate(pool: DurableSessionPool, assignments: dict[str, Any]) -> dict[str, Any]:
             assignment = assignments["assignments"].get(run_id)
@@ -591,6 +645,14 @@ class DecompositionSessionPoolOwner:
                 return dict(assignment["settlement"])
             if assignment["status"] != "active":
                 raise DecompositionSessionPoolError(f"pooled decomposition run {run_id} is {assignment['status']}")
+            try:
+                root = requested_root.resolve(strict=True)
+            except (OSError, RuntimeError) as exc:
+                raise DecompositionSessionPoolError(
+                    f"decomposition run directory is missing or cannot be resolved: {type(exc).__name__}"
+                ) from exc
+            if not root.is_dir():
+                raise DecompositionSessionPoolError("decomposition run directory is not a directory")
             try:
                 result = strict_json((root / "decomposition_run_result.json").read_text(encoding="utf-8"))
             except (OSError, UnicodeError, ValueError, RecursionError) as exc:
@@ -801,16 +863,46 @@ class DecompositionSessionPoolOwner:
                 )
             artifact_path = round_evidence["artifact_path"]
             artifact_sha256 = round_evidence["artifact_sha256"]
-            if artifact_path is not None:
-                if type(artifact_path) is not str or type(artifact_sha256) is not str or _SHA256.fullmatch(artifact_sha256) is None:
-                    return self._settlement(lease, "identity_failure", None, None, {}, "artifact binding is malformed")
-                candidate = root / artifact_path
+            try:
+                expected_artifact_path = _canonical_round_artifact_path(
+                    mode=mode, round_number=round_number, role=role,
+                    round_status=round_evidence["round_status"],
+                    runtime_status=runtime_status,
+                )
+            except DecompositionSessionPoolError as exc:
+                return self._settlement(lease, "identity_failure", None, None, {}, str(exc))
+            if expected_artifact_path is None:
+                if artifact_path is not None or artifact_sha256 is not None:
+                    return self._settlement(
+                        lease, "identity_failure", None, None, {},
+                        "artifact path and hash must both be null for this round status",
+                    )
+            else:
+                if (
+                    artifact_path != expected_artifact_path
+                    or type(artifact_sha256) is not str
+                    or _SHA256.fullmatch(artifact_sha256) is None
+                ):
+                    return self._settlement(
+                        lease, "identity_failure", None, None, {},
+                        f"artifact binding must name exactly {expected_artifact_path!r} with its hash",
+                    )
+                # The evidence can prove bytes only at the host-derived path.
+                # Resolve symlinks and require containment before reading so an
+                # absolute, traversing, or redirected container path is never
+                # used as host read authority.
                 try:
+                    candidate = (root / Path(*expected_artifact_path.split("/"))).resolve(strict=True)
+                    if not candidate.is_file() or not candidate.is_relative_to(root):
+                        raise OSError("artifact is not a contained regular file")
                     digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
-                except OSError:
-                    return self._settlement(lease, "identity_failure", None, None, {}, f"artifact is missing: {artifact_path}")
+                except (OSError, RuntimeError):
+                    return self._settlement(
+                        lease, "identity_failure", None, None, {},
+                        f"artifact is missing or escapes the run directory: {expected_artifact_path}",
+                    )
                 if digest != artifact_sha256:
-                    return self._settlement(lease, "identity_failure", None, None, {}, f"artifact hash mismatch: {artifact_path}")
+                    return self._settlement(lease, "identity_failure", None, None, {}, f"artifact hash mismatch: {expected_artifact_path}")
                 evidence[f"round_{round_number}_artifact_sha256"] = artifact_sha256
             evidence[f"round_{round_number}_invocation_id"] = str(round_evidence["invocation_id"])
             round_outcome = _ROUND_STATUS_OUTCOMES.get(str(round_evidence["round_status"]), "output_failure")

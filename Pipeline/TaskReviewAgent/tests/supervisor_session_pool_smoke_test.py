@@ -532,13 +532,7 @@ def test_compatibility_mismatch_cold_starts_and_retires_the_old_session() -> Non
 
 
 def test_conversation_store_is_part_of_the_session_identity() -> None:
-    """The compose project names the volume a Codex conversation lives in.
-
-    The owner binds ``compose:<project>/codex-config`` into its scope and
-    reports it; a provider built for another project is refused outright
-    instead of resuming a session whose files it could not see; and the store
-    value itself is validated as an exact Docker Compose project name.
-    """
+    """The exact externally selected supervisor volume is session identity."""
 
     from Pipeline.TaskReviewAgent.supervisor_session_pool import (
         conversation_store_binding, gate_off_activation_state, resolve_compose_project,
@@ -546,18 +540,82 @@ def test_conversation_store_is_part_of_the_session_identity() -> None:
 
     with tempfile.TemporaryDirectory() as raw:
         temp = Path(raw)
-        harness = Harness(temp, compose_project="nosafecircle-m2a")
+        saved_volume = os.environ.pop("NSC_TASK_SUPERVISOR_CODEX_VOLUME", None)
         try:
-            state = harness.owner.activation_state()
-            require(state["conversation_store"] == "compose:nosafecircle-m2a/codex-config", str(state))
-            require(harness.owner.scope.binding("conversation_store") == "compose:nosafecircle-m2a/codex-config", str(harness.owner.scope))
-            require("conversation_store=compose:nosafecircle-m2a/codex-config" in harness.owner.scope.key(), harness.owner.scope.key())
-            harness.decide(1)
-            record = harness.records()[0]
-            require(record.scope.binding("conversation_store") == "compose:nosafecircle-m2a/codex-config", "the durable record carries the store")
+            harness = Harness(temp, compose_project="nosafecircle-m2a")
+            try:
+                state = harness.owner.activation_state()
+                expected = "docker-volume:nosafecircle_codex-config"
+                require(state["conversation_store"] == expected, str(state))
+                require(harness.owner.scope.binding("conversation_store") == expected, str(harness.owner.scope))
+                require(f"conversation_store={expected}" in harness.owner.scope.key(), harness.owner.scope.key())
+                harness.decide(1)
+                record = harness.records()[0]
+                require(record.scope.binding("conversation_store") == expected, "the durable record carries the store")
+            finally:
+                harness.close()
+            require(gate_off_activation_state(TASK)["conversation_store"] is None, "gate off names no store")
+
+            # Changing only the authenticated external volume makes the old
+            # durable thread unreachable. It must be retired and the next
+            # invocation must cold-start instead of issuing a doomed resume.
+            os.environ["NSC_TASK_SUPERVISOR_CODEX_VOLUME"] = "authenticated-store-a"
+            first = Harness(temp, run_id="run-store-a", worker_id="worker-store-a")
+            try:
+                first.decide(1)
+                first_thread = first.fake.thread_ids[0]
+                require(first.owner.conversation_store == "docker-volume:authenticated-store-a", "selected store A")
+            finally:
+                first.close()
+            os.environ["NSC_TASK_SUPERVISOR_CODEX_VOLUME"] = "authenticated-store-b"
+            second = Harness(temp, run_id="run-store-b", worker_id="worker-store-b")
+            try:
+                second.decide(1)
+                require(argv_of(second.fake, 0)[2] != "resume", str(argv_of(second.fake, 0)))
+                require(second.fake.thread_ids[0] != first_thread, "a different volume cold-starts a new thread")
+                old = [r for r in second.records() if r.scope.binding("conversation_store") == "docker-volume:authenticated-store-a"]
+                require(old and old[0].state == "retired" and old[0].retirement_reason == "session_incompatibility", str(old))
+            finally:
+                second.close()
+
+            os.environ["NSC_TASK_SUPERVISOR_CODEX_VOLUME"] = "authenticated-store-a"
+            drift = Harness(temp, task_id=OTHER_TASK, run_id="run-store-drift", worker_id="worker-store-drift")
+            try:
+                os.environ["NSC_TASK_SUPERVISOR_CODEX_VOLUME"] = "authenticated-store-b"
+                expect_error(
+                    lambda: drift.decide(1), CodexSupervisorError,
+                    "conversation store changed",
+                )
+                require(drift.fake.calls == [], "store drift must fail before Docker/provider execution")
+            finally:
+                drift.close()
+
+            # Owner/provider agreement is rechecked at construction time. An
+            # environment change between them fails closed before any turn.
+            os.environ["NSC_TASK_SUPERVISOR_CODEX_VOLUME"] = "authenticated-store-a"
+            owner = SupervisorSessionOwner(
+                source=ROOT, checkout_root=temp / "checkouts", task_id=OTHER_TASK,
+                worker_id="worker-store-owner", run_id="run-store-owner", model=MODEL,
+                reasoning_effort="high", resume_activation=ACTIVATION,
+                repository_identity=REPOSITORY, clock=lambda: T0, host_identity="test-host",
+            )
+            try:
+                os.environ["NSC_TASK_SUPERVISOR_CODEX_VOLUME"] = "authenticated-store-b"
+                expect_error(
+                    lambda: CodexDockerDecisionProvider(
+                        source=ROOT, model=MODEL, reasoning_effort="high",
+                        timeout_seconds=30.0, command_runner=container_runner(FakeCodex()),
+                        session_owner=owner,
+                    ),
+                    CodexSupervisorError, "conversation store",
+                )
+            finally:
+                owner.close()
         finally:
-            harness.close()
-        require(gate_off_activation_state(TASK)["conversation_store"] is None, "gate off names no store")
+            os.environ.pop("NSC_TASK_SUPERVISOR_CODEX_VOLUME", None)
+            if saved_volume is not None:
+                os.environ["NSC_TASK_SUPERVISOR_CODEX_VOLUME"] = saved_volume
+
         try:
             Harness(temp, run_id="run-mismatch", compose_project="nosafecircle-m2a", provider_compose_project="nosafecircle")
         except CodexSupervisorError as exc:
@@ -582,7 +640,8 @@ def test_conversation_store_is_part_of_the_session_identity() -> None:
                 clock=lambda: T0, host_identity="test-host",
             )
             try:
-                require(owner.compose_project == "nosafecircle-env" and owner.conversation_store == "compose:nosafecircle-env/codex-config", "the owner resolves the project exactly as the provider does")
+                selected_volume = os.environ.get("NSC_TASK_SUPERVISOR_CODEX_VOLUME", "nosafecircle_codex-config")
+                require(owner.compose_project == "nosafecircle-env" and owner.conversation_store == f"docker-volume:{selected_volume}", "compose project and external store are separate validated facts")
             finally:
                 owner.close()
         finally:
@@ -590,6 +649,10 @@ def test_conversation_store_is_part_of_the_session_identity() -> None:
             if saved is not None:
                 os.environ["NSC_TASK_AGENT_COMPOSE_PROJECT"] = saved
         require(conversation_store_binding("nosafecircle", "claude") == ("conversation_store", "compose:nosafecircle/claude-config"), "claude store")
+        import Pipeline.TaskReviewAgent.supervisor_session_pool as pool_module
+        require(pool_module.external_conversation_store_binding("codex", "volume-1") == ("conversation_store", "docker-volume:volume-1"), "external Codex store")
+        for bad in ("", " padded ", "../escape", "has/slash", "has:colon", "has space"):
+            expect_error(lambda bad=bad: pool_module.resolve_supervisor_codex_volume(bad), SupervisorSessionPoolError, "Docker volume name")
         try:
             conversation_store_binding("nosafecircle", "gemini")
         except SupervisorSessionPoolError:

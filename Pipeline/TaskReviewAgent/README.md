@@ -464,7 +464,10 @@ delegates here exactly once with `--max-workers 1` and a generated durable
 run identity; a scheduler-spawned worker carrying a `-RunId` stays on the
 direct `run_pipeline_agent.py` path and cannot recurse back into the
 controller that started it; `-DirectManual` selects the conservative direct
-worker deliberately. See `Docs/AI-Pipeline/GAME_TASK_AGENT_RUNBOOK.md`.
+worker deliberately. An explicit `-ArchitectProvider claude|codex` is
+forwarded only on that top-level managed path; omission preserves the
+controller's established default. See
+`Docs/AI-Pipeline/GAME_TASK_AGENT_RUNBOOK.md`.
 
 `--target-task-id` is expanded transitively through each task's committed
 decomposition children, minus `--exclude-task-id`, and that set is the
@@ -624,19 +627,20 @@ A conversation is offered back only to a turn whose scope is exactly equal:
 | reasoning effort | the exact resolved effort |
 | repository identity | the source checkout's `origin` URL |
 | resume control | SHA-256 of the exact operator-verified `codex exec resume` argv fragment |
-| conversation store | `compose:<project>/codex-config`, the Docker Compose volume the session files live in |
+| conversation store | `docker-volume:<volume>`, the exact external Docker volume the supervisor service mounts |
 | task | the exact `NSC-###` |
 
 A different value for any of them cold-starts and retires the old record
 explicitly (`session_incompatibility`); another task can never inherit the
 conversation because the task ID is part of the key. A different repository is
-a different pool file altogether. The conversation store is the compose
-project the supervisor container runs under (`NSC_TASK_AGENT_COMPOSE_PROJECT`,
-default `nosafecircle`): Codex keeps its session files in that project's
-`codex-config` volume, so a launch under another project could never find the
-thread and must start its own. The provider and the owner resolve the project
-the same way, and a provider built for a different project than its owner is
-refused before any turn.
+a different pool file altogether. The supervisor conversation store is the
+exact external volume selected by `NSC_TASK_SUPERVISOR_CODEX_VOLUME` (default
+`nosafecircle_codex-config`), independently of the Compose project name. That
+is the volume `compose.override.yaml` actually mounts at `/root/.codex`; if it
+changes, the old record is retired and the next turn cold-starts. The provider
+and owner each resolve and validate the selected volume, and any disagreement
+is refused before a turn. Compose-managed decomposition provider volumes keep
+their separate `compose:<project>/<provider>-config` identities.
 
 The scheduler routes one supervisor model and effort per task and passes them
 to every worker of that task; the downstream (delivery-evidence and

@@ -17,8 +17,10 @@ from .supervisor_session_pool import (
     SupervisorSessionPoolError,
     SupervisorTurn,
     classify_turn_failure,
+    external_conversation_store_binding,
     gate_off_activation_state,
     resolve_compose_project,
+    resolve_supervisor_codex_volume,
 )
 
 
@@ -253,6 +255,10 @@ class CodexDockerDecisionProvider:
         self.model = resolve_supervisor_model(model)
         try:
             self.compose_project = resolve_compose_project(compose_project)
+            self.conversation_store_volume = resolve_supervisor_codex_volume()
+            self.conversation_store = external_conversation_store_binding(
+                "codex", self.conversation_store_volume
+            )[1]
         except SupervisorSessionPoolError as exc:
             raise CodexSupervisorError(str(exc)) from exc
         self.service = str(service).strip()
@@ -297,10 +303,11 @@ class CodexDockerDecisionProvider:
             session_owner.model != self.model
             or session_owner.reasoning_effort != self.reasoning_effort
             or session_owner.compose_project != self.compose_project
+            or session_owner.conversation_store != self.conversation_store
         ):
             raise CodexSupervisorError(
-                "supervisor session owner model/reasoning effort/compose project "
-                "differ from this provider"
+                "supervisor session owner model/reasoning effort/compose project/"
+                "conversation store differ from this provider"
             )
         self.last_session: dict[str, Any] | None = None
         self._turn_observation: dict[str, Any] = {}
@@ -373,6 +380,16 @@ class CodexDockerDecisionProvider:
         task_id = validate_task_id(task_id)
         if isinstance(turn, bool) or not isinstance(turn, int) or turn < 1:
             raise CodexSupervisorError("supervisor turn must be a positive integer")
+        try:
+            current_store = external_conversation_store_binding(
+                "codex", resolve_supervisor_codex_volume()
+            )[1]
+        except SupervisorSessionPoolError as exc:
+            raise CodexSupervisorError(str(exc)) from exc
+        if current_store != self.conversation_store:
+            raise CodexSupervisorError(
+                "supervisor conversation store changed after provider construction"
+            )
         run_id = f"{task_id.casefold()}-supervisor-{turn:03d}"
         if not _RUN_ID.fullmatch(run_id):
             raise CodexSupervisorError("generated supervisor run_id is invalid")

@@ -6,6 +6,9 @@ param(
     [ValidateSet('claude', 'codex')]
     [string]$ExecutionProvider = 'claude',
 
+    [ValidateSet('claude', 'codex')]
+    [string]$ArchitectProvider,
+
     [ValidateSet('openai', 'observe')]
     [string]$Mode = 'openai',
 
@@ -184,6 +187,7 @@ if (
 # ---------------------------------------------------------------------------
 $IsSchedulerWorker = -not [string]::IsNullOrWhiteSpace($RunId)
 $ArchitectOptionNames = @(
+    'ArchitectProvider',
     'AutonomousRunId',
     'ConfirmRepository',
     'MaxWorkers',
@@ -367,6 +371,9 @@ if ($UseArchitectManaged) {
     )
     if ($PSBoundParameters.ContainsKey('ExecutionProvider')) {
         $ControllerArguments += @('-ExecutionProvider', $ExecutionProvider)
+    }
+    if ($PSBoundParameters.ContainsKey('ArchitectProvider')) {
+        $ControllerArguments += @('-ArchitectProvider', $ArchitectProvider)
     }
     if ($PSBoundParameters.ContainsKey('ExecutionModel')) {
         $ControllerArguments += @('-Model', $ExecutionModel)

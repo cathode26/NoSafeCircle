@@ -80,7 +80,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAge
 
 This delegates exactly once to the existing autonomous graph controller (`Start-AutonomousGraphRun.ps1` -> `run_autonomous_graph.py`) with maximum worker capacity 1. The run therefore receives Software Architect difficulty scoring, architect-selected rigor/validation profiles and crew sizing, the scheduler-owned architect and ExecutionCrew session pools, Issue-state wake-up, continuous worker supervision, and graph-complete receipt semantics. The launcher implements none of that itself.
 
-Because the architect resolves them per task, these are refused rather than silently dropped in this mode: `-CrewProfile`, `-ValidationProfile`, `-Model`, `-SupervisorReasoningEffort`, `-ExecutionReasoningEffort`, `-EnableExecutionSessionPool`, `-WorkerId`, `-OutputRoot`, `-UnityExecutable`, `-HumanActionWaitMinutes`, `-HumanActionPollSeconds`, and the scheduler admission fields. Use `-DirectManual` to set them yourself. `-ExecutionProvider`, `-ExecutionModel`, `-MaxTurns` and `-CheckoutRoot` are forwarded only when you actually supply them, so an unsupplied provider leaves architect routing free to choose one.
+Because the architect resolves them per task, these are refused rather than silently dropped in this mode: `-CrewProfile`, `-ValidationProfile`, `-Model`, `-SupervisorReasoningEffort`, `-ExecutionReasoningEffort`, `-EnableExecutionSessionPool`, `-WorkerId`, `-OutputRoot`, `-UnityExecutable`, `-HumanActionWaitMinutes`, `-HumanActionPollSeconds`, and the scheduler admission fields. Use `-DirectManual` to set them yourself. `-ExecutionProvider`, `-ArchitectProvider`, `-ExecutionModel`, `-MaxTurns` and `-CheckoutRoot` are forwarded only when you actually supply them. Omitting `-ArchitectProvider` preserves the autonomous controller's established architect-provider default. To require an all-OpenAI run explicitly, use both `-ExecutionProvider codex` and `-ArchitectProvider codex`.
 
 The explicit task must still pass the real TaskGraph eligibility and dependency checks. The run does not silently switch to another task when the named task is blocked.
 
@@ -128,6 +128,12 @@ Use Codex for ExecutionCrew instead (still architect-managed):
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider codex
 ```
 
+Use Codex for both the Software Architect and ExecutionCrew:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider codex -ArchitectProvider codex
+```
+
 The OpenAI supervisor model belongs to the direct worker, so selecting it explicitly selects direct/manual mode:
 
 ```powershell
@@ -160,13 +166,15 @@ argument. With the gate off nothing is pooled, and the
 and the worker result say so.
 
 A pooled conversation is task-scoped and bound to the exact supervisor model,
-reasoning effort, repository origin, resume control, and the compose project
-whose `codex-config` volume holds the session files
-(`NSC_TASK_AGENT_COMPOSE_PROJECT`, default `nosafecircle`). Launch the same
-task under the same project so its later delivery/merge-closeout worker
-resumes the conversation the implementation phase proved; a different project
-starts a new one. The scheduler routes one supervisor effort per task and the
-downstream worker honours it for the same reason.
+reasoning effort, repository origin, resume control, and external Docker volume
+that actually holds the supervisor's session files
+(`NSC_TASK_SUPERVISOR_CODEX_VOLUME`, default
+`nosafecircle_codex-config`). Launch the same task with the same selected
+volume so its later delivery/merge-closeout worker resumes the conversation
+the implementation phase proved; selecting a different volume retires the old
+record and cold-starts. The Compose project remains a separate compatibility
+fact. The scheduler routes one supervisor effort per task and the downstream
+worker honours it for the same reason.
 
 ## Resume durable agent-ready work
 

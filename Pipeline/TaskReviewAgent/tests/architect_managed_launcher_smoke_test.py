@@ -276,6 +276,8 @@ def test_top_level_task_delegates_once_to_the_autonomous_controller() -> None:
                 f"default worker capacity is not 1: {argv}")
         require(_value(argv, "--execution-provider") == "claude",
                 f"selected execution provider was not forwarded: {argv}")
+        require("--architect-provider" not in argv,
+                f"an omitted architect provider changed the established default: {argv}")
         require(_value(argv, "--confirm-repository") == REPOSITORY,
                 f"repository assertion was not forwarded: {argv}")
 
@@ -311,6 +313,30 @@ def test_top_level_task_delegates_once_to_the_autonomous_controller() -> None:
         argv = _real_controller_calls(records)[0]
         require(_value(argv, "--run-id") == resume_id,
                 f"an explicit autonomous run identity was not forwarded: {argv}")
+
+
+def test_explicit_openai_execution_and_architect_providers_are_both_forwarded() -> None:
+    with fixture_dir() as text:
+        fixture = Path(text)
+        log = _write_stub_path(fixture)
+        completed, records = _run(
+            fixture, log,
+            ["-TaskId", TASK, "-ExecutionProvider", "codex", "-ArchitectProvider", "codex"],
+        )
+        require(completed.returncode == 0, f"all-OpenAI delegation failed: {completed}")
+        controller = _real_controller_calls(records)
+        require(len(controller) == 1, f"expected one controller invocation: {controller}")
+        argv = controller[0]
+        require(
+            argv.count("--execution-provider") == 1
+            and _value(argv, "--execution-provider") == "codex",
+            f"execution provider was missing, duplicated, empty, or invented: {argv}",
+        )
+        require(
+            argv.count("--architect-provider") == 1
+            and _value(argv, "--architect-provider") == "codex",
+            f"architect provider was missing, duplicated, empty, or invented: {argv}",
+        )
 
 
 def test_the_top_level_path_never_invokes_the_direct_pipeline_agent() -> None:
@@ -659,6 +685,7 @@ def test_contradictory_options_fail_before_either_pipeline_starts() -> None:
         ["-TaskId", TASK, "-DirectManual", "-AutonomousRunId", "resume-me"],
         ["-TaskId", TASK, "-DirectManual", "-EnableSyntheticEvidence"],
         ["-TaskId", TASK, "-DirectManual", "-MaxWorkers", "2"],
+        ["-TaskId", TASK, "-DirectManual", "-ArchitectProvider", "codex"],
         ["-TaskId", TASK, "-DirectManual", "-EnableExecutionSessionPool"],
         ["-AutonomousRunId", "resume-me"],
         ["-TaskId", TASK, "-Mode", "observe", "-EnableSyntheticEvidence"],

@@ -8,6 +8,9 @@ on:
       - "Pipeline/GDDRAG/**"
       - "Docs/GDD/No_Safe_Circle_GDD.md"
       - "Pipeline/TaskDecomposition/**"
+      - "Pipeline/TaskReviewAgent/decomposition_session_pool.py"
+      - "Pipeline/TaskReviewAgent/supervisor_session_pool.py"
+      - "Pipeline/TaskReviewAgent/tests/decomposition_session_pool_smoke_test.py"
       - "Pipeline/TaskExecution/**"
       - "Pipeline/TaskGraph/**"
       - "Pipeline/Testing/**"
@@ -83,6 +86,12 @@ jobs:
 
       - name: D1B.2 round-robin fake-provider suite
         run: python Pipeline/TaskDecomposition/tests/round_robin_decomposition_smoke_test.py
+
+      - name: Pooled decomposition role and artifact-authority suite
+        run: python Pipeline/TaskDecomposition/tests/pooled_decomposition_smoke_test.py
+
+      - name: Host decomposition session-pool lifecycle suite
+        run: python Pipeline/TaskReviewAgent/tests/decomposition_session_pool_smoke_test.py
 
       - name: Current persistent TaskGraph validation
         run: python Pipeline/TaskGraph/taskcontrol.py validate

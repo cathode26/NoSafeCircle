@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import datetime as dt
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -362,6 +363,110 @@ def test_artifact_or_identity_tampering_refuses_check_in() -> None:
             tampered = deepcopy(bundle)
             tampered["leases"]["codex:decomposition_reviewer"]["scope"]["bindings"] = bindings
             expect_error(lambda: lease_bundle_from_dict(tampered, run_id="run-tamper"), DecompositionSessionError, fragment)
+
+
+def test_artifact_authority_is_host_derived_and_canonical() -> None:
+    """Container evidence cannot choose which host file settlement reads."""
+
+    cases = (
+        "missing-required-binding",
+        "hash-without-path",
+        "absolute-path",
+        "traversal-path",
+        "foreign-in-root-path",
+        "status-role-mismatch",
+        "rejected-with-artifact",
+        "path-without-hash",
+    )
+    for label in cases:
+        with fixture() as text:
+            fx = Fixture(Path(text))
+            raw, initial_hash = fx.candidate()
+            fx.outputs["claude"] = [raw]
+            fx.outputs["codex"] = [pass_review(initial_hash)]
+            run_id = f"run-authority-{label}"
+            _, _, _ = fx.run(run_id, settle=False)
+            run_dir = fx.output_root / run_id
+            summary_path = run_dir / "decomposition_run_result.json"
+            round_path = run_dir / "rounds" / "01" / "round_result.json"
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            round_result = json.loads(round_path.read_text(encoding="utf-8"))
+            key = "claude:task_decomposer"
+            evidence = summary["pooled_sessions"][key]["rounds"][0]
+            round_evidence = round_result["pooled_session"]
+
+            if label == "missing-required-binding":
+                artifact_path, artifact_sha256 = None, None
+            elif label == "hash-without-path":
+                artifact_path, artifact_sha256 = None, "0" * 64
+            elif label == "absolute-path":
+                foreign = Path(text) / "foreign-absolute.json"
+                foreign.write_bytes(b"foreign absolute artifact\n")
+                artifact_path = str(foreign.resolve())
+                artifact_sha256 = hashlib.sha256(foreign.read_bytes()).hexdigest()
+            elif label == "traversal-path":
+                foreign = run_dir.parent / "foreign-traversal.json"
+                foreign.write_bytes(b"foreign traversal artifact\n")
+                artifact_path = "../foreign-traversal.json"
+                artifact_sha256 = hashlib.sha256(foreign.read_bytes()).hexdigest()
+            elif label == "foreign-in-root-path":
+                foreign = run_dir / "rounds" / "02" / "review.json"
+                artifact_path = "rounds/02/review.json"
+                artifact_sha256 = hashlib.sha256(foreign.read_bytes()).hexdigest()
+            else:
+                artifact_path = evidence["artifact_path"]
+                artifact_sha256 = evidence["artifact_sha256"]
+                if label == "status-role-mismatch":
+                    evidence["round_status"] = round_evidence["round_status"] = "independent_pass"
+                elif label == "rejected-with-artifact":
+                    evidence["round_status"] = round_evidence["round_status"] = "rejected"
+                elif label == "path-without-hash":
+                    artifact_sha256 = None
+
+            evidence["artifact_path"] = round_evidence["artifact_path"] = artifact_path
+            evidence["artifact_sha256"] = round_evidence["artifact_sha256"] = artifact_sha256
+            summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            round_path.write_text(json.dumps(round_result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+            settlement = fx.owner.settle(run_id=run_id, run_dir=run_dir)
+            author = settlement["leases"][key]
+            require(
+                author["state"] == "retired" and author["retirement_reason"] == "identity_failure",
+                f"{label}: non-canonical artifact evidence must retire the conversation: {author}",
+            )
+            require(
+                settlement["leases"]["codex:decomposition_reviewer"]["state"] == "idle",
+                f"{label}: the untouched reviewer still settles",
+            )
+            fx.owner.close()
+
+    # D1B.1 has its own canonical publication path; a successful author may
+    # not omit that binding either.
+    with fixture() as text:
+        fx = Fixture(Path(text))
+        raw, _ = fx.candidate()
+        fx.outputs["claude"] = [raw]
+        run_id = "run-authority-d1b1"
+        _, _, _ = fx.run(
+            run_id, order=("claude",), max_calls=1, mode="d1b1", settle=False,
+        )
+        result_path = fx.output_root / run_id / "decomposition_run_result.json"
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+        key = "claude:task_decomposer"
+        result["pooled_sessions"][key]["rounds"][0]["artifact_path"] = None
+        result["pooled_sessions"][key]["rounds"][0]["artifact_sha256"] = None
+        result["pooled_session_evidence"]["artifact_path"] = None
+        result["pooled_session_evidence"]["artifact_sha256"] = None
+        result_path.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        settlement = fx.owner.settle(
+            run_id=run_id, run_dir=fx.output_root / run_id,
+        )
+        author = settlement["leases"][key]
+        require(
+            author["state"] == "retired" and author["retirement_reason"] == "identity_failure",
+            f"D1B.1 missing canonical artifact binding must retire: {author}",
+        )
+        fx.owner.close()
 
 
 def test_every_check_in_binding_is_verified_individually() -> None:
