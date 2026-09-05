@@ -2864,7 +2864,7 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
                 exact, expected_github_state="CLOSED"
             )
             self._require_recovery_comment_binding(
-                exact,
+                self._issue_view(number),
                 report,
                 require_closed_workflow=True,
             )
@@ -2913,7 +2913,7 @@ class PublishedDecompositionUndoRecovery(DecompositionUndoReset):
         closed = self._issue_view(number)
         self._validated_completed_issue(closed, expected_github_state="CLOSED")
         self._require_recovery_comment_binding(
-            closed,
+            self._issue_view(number),
             report,
             require_closed_workflow=True,
         )
