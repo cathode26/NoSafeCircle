@@ -6,8 +6,10 @@ so both must survive the split unchanged, and the Core workflow's `paths:`
 trigger must fire for every PR touching Pipeline/TaskReviewAgent/** -- the
 legacy check must never simply fail to appear. Whether Core's *expensive*
 regression steps actually run is a separate, runtime decision made by its
-"Determine Core suite relevance" step, which skips them only when every
-changed file is Supervisor-owned or Delivery-owned.
+"Determine Core suite relevance" step. It skips them only when every changed
+file is Supervisor-owned, Delivery-owned, or a narrow ordinary task-delivery
+surface (Assets/** or immutable TaskGraph evidence). Pipeline code, task
+contracts, workflow changes, and unknown paths continue to select full Core.
 
 Every substantive validation step from the pre-split monolith must still be
 represented in exactly one (or, for genuinely cross-cutting cases, more than
@@ -109,6 +111,12 @@ REPRESENTATIVE_DELIVERY_ONLY_PATHS = (
     "Pipeline/TaskReviewAgent/tests/delivery_review_smoke_test.py",
 )
 UNKNOWN_FUTURE_PATH = "Pipeline/TaskReviewAgent/claim_refs.py"
+REPRESENTATIVE_ORDINARY_DELIVERY_PATHS = (
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/MuffcabbageGauntlet914.cs",
+    "Assets/NoSafeCircle/DoorPrototype/Scripts/MuffcabbageGauntlet914.cs.meta",
+    "Pipeline/TaskGraph/evidence/NSC-914/records/DEL-NSC-914-example.json",
+    "Pipeline/TaskGraph/evidence/NSC-914/artifacts/Unity-EditMode-01-example.xml",
+)
 REPRESENTATIVE_POOL_CORE_PATHS = (
     "Pipeline/ExecutionCrew/session_pool.py",
     "Pipeline/ExecutionCrew/run_crew.py",
@@ -175,10 +183,33 @@ def _extract_core_scope_allowlist(core_workflow_text: str) -> list[str]:
     return entries
 
 
-def _core_selects_full_suite(scope_allowlist: Sequence[str], changed_path: str) -> bool:
-    """Mirrors the Core workflow's runtime rule: any change outside the
-    Supervisor/Delivery allowlist selects the full Core suite."""
-    return changed_path not in scope_allowlist
+def _extract_core_delivery_prefixes(core_workflow_text: str) -> list[str]:
+    """Read Core's narrow ordinary task-delivery prefix list."""
+    match = re.search(
+        r"\$ordinaryDeliveryPrefixes\s*=\s*@\((.*?)\)",
+        core_workflow_text,
+        re.DOTALL,
+    )
+    require(
+        match is not None,
+        "Core workflow must define $ordinaryDeliveryPrefixes",
+    )
+    entries = re.findall(r'"([^"]+)"', match.group(1))
+    require(bool(entries), "$ordinaryDeliveryPrefixes must not be empty")
+    return entries
+
+
+def _core_selects_full_suite(
+    scope_allowlist: Sequence[str],
+    changed_path: str,
+    *,
+    ordinary_delivery_prefixes: Sequence[str] = (),
+) -> bool:
+    """Mirror Core's fail-safe runtime path classification."""
+    return not (
+        changed_path in scope_allowlist
+        or any(changed_path.startswith(prefix) for prefix in ordinary_delivery_prefixes)
+    )
 
 
 def test_core_workflow_identity_is_preserved() -> None:
@@ -262,6 +293,50 @@ def test_delivery_only_change_keeps_legacy_check_but_skips_full_core() -> None:
         require(
             not _core_selects_full_suite(scope_allowlist, changed),
             f"{changed} is Delivery-owned and must not select the full Core regression suite",
+        )
+
+
+def test_ordinary_task_delivery_keeps_required_check_but_skips_full_core() -> None:
+    core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
+    core_paths = _extract_paths_block(core_text)
+    scope_allowlist = _extract_core_scope_allowlist(core_text)
+    delivery_prefixes = _extract_core_delivery_prefixes(core_text)
+    require(
+        _triggers(
+            core_paths,
+            "Pipeline/TaskGraph/evidence/NSC-914/records/DEL-NSC-914-example.json",
+        ),
+        "ordinary delivery evidence must keep the required Core check present",
+    )
+    for changed in REPRESENTATIVE_ORDINARY_DELIVERY_PATHS:
+        require(
+            not _core_selects_full_suite(
+                scope_allowlist,
+                changed,
+                ordinary_delivery_prefixes=delivery_prefixes,
+            ),
+            f"{changed} is an ordinary task-delivery surface and must skip full Core",
+        )
+
+
+def test_task_contract_pipeline_workflow_and_unknown_paths_still_fail_safe() -> None:
+    core_text = CORE_WORKFLOW.read_text(encoding="utf-8")
+    scope_allowlist = _extract_core_scope_allowlist(core_text)
+    delivery_prefixes = _extract_core_delivery_prefixes(core_text)
+    for changed in (
+        "Tasks/NSC-914.yaml",
+        "Pipeline/TaskGraph/task_loader.py",
+        ".github/workflows/task-review-agent-deterministic.yml",
+        UNKNOWN_FUTURE_PATH,
+        "assets/incorrect-case.cs",
+    ):
+        require(
+            _core_selects_full_suite(
+                scope_allowlist,
+                changed,
+                ordinary_delivery_prefixes=delivery_prefixes,
+            ),
+            f"{changed} must continue to select the full Core regression suite",
         )
 
 

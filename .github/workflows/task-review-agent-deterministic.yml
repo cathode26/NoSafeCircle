@@ -101,6 +101,17 @@ jobs:
             "Pipeline/TaskReviewAgent/tests/scene_path_contract_migration_smoke_test.py"
           )
 
+          # Ordinary task delivery changes game/content surfaces plus immutable
+          # TaskGraph evidence, not the TaskReviewAgent implementation. The
+          # always-on split-regression, compile, and whitespace steps below
+          # still run, and D1B.2 independently validates persistent TaskGraph
+          # evidence. Keep this prefix list narrow: Tasks/**, pipeline code,
+          # workflow changes, and every unknown path still select full Core.
+          $ordinaryDeliveryPrefixes = @(
+            "Assets/",
+            "Pipeline/TaskGraph/evidence/"
+          )
+
           $baseSha = "${{ github.event.pull_request.base.sha }}"
           if ([string]::IsNullOrWhiteSpace($baseSha)) {
             Write-Host "No PR base SHA (e.g. workflow_dispatch); running the full Core suite."
@@ -109,7 +120,17 @@ jobs:
             $changed = git diff --name-only "$baseSha...HEAD"
             $runFullCore = $false
             foreach ($path in $changed) {
-              if ($ownedByOtherSuites -notcontains $path) {
+              $ordinaryDelivery = $false
+              foreach ($prefix in $ordinaryDeliveryPrefixes) {
+                if ($path.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
+                  $ordinaryDelivery = $true
+                  break
+                }
+              }
+              if (
+                $ownedByOtherSuites -notcontains $path -and
+                -not $ordinaryDelivery
+              ) {
                 Write-Host "Core-relevant change: $path"
                 $runFullCore = $true
               }
@@ -119,7 +140,7 @@ jobs:
           if ($runFullCore) {
             Write-Host "Running the full Core regression suite."
           } else {
-            Write-Host "Every changed file is Supervisor/Delivery-owned; skipping the expensive Core suite cheaply."
+            Write-Host "Every changed file is suite-owned or ordinary task delivery; skipping the expensive Core suite cheaply."
           }
           "run_full_core=$($runFullCore.ToString().ToLower())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
