@@ -678,13 +678,15 @@ def make_orchestrator(
     excluded_task_ids: tuple[str, ...] = (),
     source_refresher: Any = None,
     reservation_observer: Any = None,
+    provider_allowlist: tuple[str, ...] | None = None,
 ) -> tuple[PollingOrchestrator, io.StringIO]:
     stream = io.StringIO()
     orchestrator = PollingOrchestrator(
         source=source,
         checkout_root=source.parent / "checkouts",
         scheduler_id="polling-smoke-scheduler",
-        execution_provider="claude",
+        execution_provider="codex" if provider_allowlist == ("codex",) else "claude",
+        provider_allowlist=provider_allowlist,
         model=None,
         max_turns=120,
         max_workers=max_workers,
@@ -1292,6 +1294,10 @@ def test_exclude_task_id_cli_is_repeatable_and_validated() -> None:
 def test_production_factory_owns_the_complete_scheduler_composition() -> None:
     """Regression-only: production entry points share one exact binding."""
 
+    from Pipeline.TaskReviewAgent.architect_session_pool import CodexArchitectSessionOwner
+    from Pipeline.TaskReviewAgent.supervisor_session_pool import CodexResumeActivation
+
+    activation = CodexResumeActivation(("-c", 'sandbox_mode="danger-full-access"'))
     with tempfile.TemporaryDirectory() as text:
         source = Path(text) / "source"
         checkout_root = Path(text) / "checkouts"
@@ -1303,6 +1309,7 @@ def test_production_factory_owns_the_complete_scheduler_composition() -> None:
             def __init__(self, **values: Any) -> None:
                 created_transports.append(values)
                 self.provider = str(values["provider"]).casefold()
+                self.compose_project = "nosafecircle"
                 provider_identifier = (
                     "claude-code"
                     if self.provider == "claude"
@@ -1326,6 +1333,8 @@ def test_production_factory_owns_the_complete_scheduler_composition() -> None:
                 self.values = values
 
         with (
+            patch("Pipeline.TaskReviewAgent.supervisor_session_pool._repository_identity", return_value="fixture-origin"),
+            patch("Pipeline.TaskReviewAgent.supervisor_session_pool.codex_resume_activation_from_environment", return_value=activation),
             patch.object(
                 scheduler_module,
                 "repo_root",
@@ -1400,18 +1409,17 @@ def test_production_factory_owns_the_complete_scheduler_composition() -> None:
         require(len(created_orchestrators) == 1, str(created_orchestrators))
         values = created_orchestrators[0]
         owner = values["architect_runner"]
-        require(type(owner) is ArchitectSessionOwner, type(owner).__name__)
+        require(type(owner) is CodexArchitectSessionOwner, type(owner).__name__)
         require(owner.architect_runner.provider == "codex", "wrong transport owner")
-        require(owner.provider_identifier == "openai-codex", owner.provider_identifier)
-        require(owner.role == scheduler_module.ARCHITECT_SESSION_ROLE, owner.role)
+        require(owner.scope.provider_identifier == "openai-codex", owner.scope.provider_identifier)
+        require(owner.scope.role == scheduler_module.ARCHITECT_SESSION_ROLE, owner.scope.role)
         require(
-            owner.store.root
-            == expected_operational_root
-            / "architect-sessions"
-            / "openai-codex"
-            / scheduler_module.ARCHITECT_SESSION_ROLE,
-            str(owner.store.root),
+            owner.store.path.is_relative_to(checkout_root.resolve())
+            and not owner.store.path.is_relative_to(source.resolve()),
+            str(owner.store.path),
         )
+        require(owner.scope.resume_contract == activation.fingerprint, "factory lost verified resume control")
+        require(owner.scope.binding("conversation_store") == "compose:nosafecircle/codex-config", "factory lost actual provider store")
         expected_values = {
             "source": source.resolve(),
             "checkout_root": checkout_root,
@@ -1512,6 +1520,7 @@ def test_polling_main_delegates_to_the_production_factory() -> None:
             "source": ROOT,
             "checkout_root": ROOT.parent / "factory-checkouts",
             "execution_provider": "codex",
+            "provider_allowlist": None,
             "model": "worker-model",
             "max_turns": 13,
             "max_workers": 4,
@@ -1890,6 +1899,53 @@ def test_ineligible_decomposition_pair_is_not_selected_or_launched() -> None:
         require(len(processes.calls) == 1, str(processes.calls))
         require(architect.calls == [TASK_B], str(architect.calls))
         require('"work_types": ["implementation"]' in stream.getvalue(), stream.getvalue())
+
+
+def test_codex_restriction_applies_to_real_scheduler_routes() -> None:
+    for work_type in ("implementation", "decomposition"):
+        with tempfile.TemporaryDirectory() as text:
+            source, head = create_source(Path(text))
+            processes = ProcessFactory()
+            orchestrator, stream = make_orchestrator(
+                source=source,
+                planner=SequencePlanner([
+                    candidate_plan(head, TASK_B) if work_type == "implementation"
+                    else mixed_work_plan(head, TASK_A, TASK_B)
+                ]),
+                architect=FakeArchitect({TASK_A: advisory(TASK_A, head, risk="high"), TASK_B: advisory(
+                    TASK_B, head, work_type=work_type, provider_preference="claude"
+                )}),
+                processes=processes,
+                tasks={TASK_A: task(TASK_A), TASK_B: (
+                    task(TASK_B) if work_type == "implementation" else decomposition_task(TASK_B)
+                )},
+                provider_allowlist=("codex",),
+                routing_policy=load_execution_routing_policy({}),
+            )
+            require(orchestrator.poll_once().status == "worker_launched", stream.getvalue())
+            require(len(processes.calls) == 1, str(processes.calls))
+            argv = processes.calls[0][0]
+            require(argv[argv.index("--provider-allowlist") + 1] == "codex", str(argv))
+            provider_flag = "--execution-provider" if work_type == "implementation" else "--providers"
+            require(argv[argv.index(provider_flag) + 1] == "codex", str(argv))
+            require(not any("claude" in argument for argument in argv), str(argv))
+            launched = next(json.loads(line) for line in stream.getvalue().splitlines()
+                            if json.loads(line)["event"] == "worker_launched")
+            require(launched["execution_provider"] == "codex", str(launched))
+            if work_type == "decomposition":
+                require(launched["decomposition_mode"] == "d1b1", str(launched))
+            else:
+                require(launched["preference_honored"] is False, str(launched))
+
+
+def test_restricted_factory_rejects_claude_architect_before_any_construction() -> None:
+    with patch.object(scheduler_module, "repo_root", side_effect=AssertionError("should fail before observation")):
+        try:
+            scheduler_module.build_production_orchestrator(source=ROOT, provider_allowlist=("codex",))
+        except ValueError as exc:
+            require("architect" in str(exc) and "not in provider_allowlist" in str(exc), str(exc))
+        else:
+            raise AssertionError("Codex-only production factory accepted default Claude architect")
 
 
 def test_architect_can_choose_decomposition_while_implementation_exists() -> None:
@@ -5669,6 +5725,8 @@ def main() -> int:
         test_architect_portfolio_selects_disjoint_candidate_in_one_call,
         test_ineligible_decomposition_pair_is_not_selected_or_launched,
         test_architect_can_choose_decomposition_while_implementation_exists,
+        test_codex_restriction_applies_to_real_scheduler_routes,
+        test_restricted_factory_rejects_claude_architect_before_any_construction,
         test_excluded_skipped_decomposition_never_enters_architect_portfolio,
         test_decomposition_worker_command_binds_exact_task_and_output_policy,
         test_approved_decomposition_resume_cannot_route_to_implementation,

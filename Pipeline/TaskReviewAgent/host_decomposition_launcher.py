@@ -2,7 +2,7 @@
 """Host boundary for the durable proposal and application decomposition phases.
 
 The proposal phase supplies the external Windows output mount and invokes the
-canonical round-robin Compose service with the repository mounted read-only. The
+permitted single-provider or round-robin service with the repository read-only. The
 separate apply phase runs only for an exact-plan human authorization recorded in
 the durable Issue and serializes the network-free D1C commit with a global claim.
 """
@@ -31,6 +31,11 @@ for module_root in (ROOT, PIPELINE_ROOT, TASK_GRAPH_ROOT):
 from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     semantic_sha256,
     validate_task_id,
+)
+from Pipeline.TaskReviewAgent.provider_policy import (  # noqa: E402
+    parse_provider_allowlist,
+    provider_allowlist as validate_provider_allowlist,
+    require_permitted_provider,
 )
 from Pipeline.TaskReviewAgent.decomposition_replay import (  # noqa: E402
     find_exact_d1c_commit,
@@ -98,6 +103,15 @@ def default_host_output_root(task_id: str) -> Path:
 POOL_LEASE_MOUNT = "/nsc-pool/decomposition-leases.json"
 
 
+def decomposition_provider_order(providers: str, permitted: tuple[str, ...] | None = None) -> tuple[str, ...]:
+    values = tuple(providers.split(","))
+    if not values or len(set(values)) != len(values) or any(value not in {"claude", "codex"} for value in values):
+        raise RuntimeError("decomposition providers must be unique claude/codex values")
+    for provider in values:
+        require_permitted_provider(provider, permitted, role="decomposition")
+    return values
+
+
 def build_compose_command(
     *,
     task_id: str,
@@ -106,7 +120,9 @@ def build_compose_command(
     max_calls: int,
     run_id: str | None = None,
     pool_assignment: dict | None = None,
+    provider_allowlist: tuple[str, ...] | None = None,
 ) -> tuple[str, ...]:
+    provider_order = decomposition_provider_order(providers, provider_allowlist)
     command = [
         "docker",
         "compose",
@@ -130,19 +146,26 @@ def build_compose_command(
         for name, value in sorted(pool_assignment.get("provider_environment", {}).items()):
             if value:
                 command.extend(("--env", f"{name}={value}"))
-    command.extend(
-        [
-            "round-robin-decompose",
-            "python3",
-            "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
-            "--task-id",
-            validate_task_id(task_id),
-            "--providers",
-            providers,
-            "--max-calls",
-            str(max_calls),
-        ]
-    )
+    if len(provider_order) == 1:
+        command.extend([
+            f"{provider_order[0]}-decompose", "python3",
+            "Pipeline/TaskDecomposition/run_decomposition.py",
+            "--task-id", validate_task_id(task_id), "--provider", provider_order[0],
+        ])
+    else:
+        command.extend(
+            [
+                "round-robin-decompose",
+                "python3",
+                "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
+                "--task-id",
+                validate_task_id(task_id),
+                "--providers",
+                providers,
+                "--max-calls",
+                str(max_calls),
+            ]
+        )
     if run_id:
         command.extend(("--run-id", run_id))
     if pool_assignment is not None:
@@ -157,14 +180,16 @@ def build_compose_command(
     return tuple(command)
 
 
-def _new_pooled_run_id(task_id: str) -> str:
+def _new_pooled_run_id(task_id: str, *, mode: str = "round_robin_d1b2") -> str:
     """Mint the run id the host must own before it can reserve sessions for it."""
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dt%H%M%Sz")
-    return f"{validate_task_id(task_id).lower()}-d1b2-{stamp}-{uuid.uuid4().hex[:12]}"
+    stage = "d1b1" if mode == "d1b1" else "d1b2"
+    return f"{validate_task_id(task_id).lower()}-{stage}-{stamp}-{uuid.uuid4().hex[:12]}"
 
 
-def _decomposition_pool_owner(*, workspace: Path, compose_project: str) -> DecompositionSessionPoolOwner:
+def _decomposition_pool_owner(*, workspace: Path, compose_project: str,
+                              providers: tuple[str, ...] = ("claude", "codex")) -> DecompositionSessionPoolOwner:
     """Build the host owner from the checkout's own origin and the host-resolved models.
 
     ``compose_project`` is the exact project the round-robin container will run
@@ -173,7 +198,7 @@ def _decomposition_pool_owner(*, workspace: Path, compose_project: str) -> Decom
     """
 
     provider_models: dict[str, tuple[str, str | None]] = {}
-    for provider_name in ("claude", "codex"):
+    for provider_name in providers:
         _key, configuration = provider_configuration(provider_name)
         entry = configuration.to_dict()["provider_configurations"][f"{provider_name}-decomposition"]
         provider_models[provider_name] = (
@@ -356,8 +381,9 @@ def _acquire_workflow_lease(
         branch=branch,
         checkout_path=str(checkout_path),
         planned_approach=(
-            "work_type: decomposition\nRun or resume the independently reviewed "
-            "round-robin decomposition lifecycle for this exact parent contract."
+            "work_type: decomposition\nRun or resume the review-only decomposition "
+            "proposal for this exact parent contract. The recorded provider policy "
+            "selects either independent round-robin review or disclosed single-provider review."
         ),
         expected_validation=(
             "Require an exact plan_id authorization before D1C, validate the committed "
@@ -400,24 +426,27 @@ def _run_proposal(
     source_head: str,
     service: IssueWorkflowService,
 ) -> int:
+    permitted = validate_provider_allowlist(getattr(args, "provider_allowlist", None))
+    provider_order = decomposition_provider_order(args.providers, permitted)
+    single_provider = len(provider_order) == 1
+    mode = "d1b1" if single_provider else "round_robin_d1b2"
     requested_run_id = getattr(args, "run_id", None)
     pool_owner: DecompositionSessionPoolOwner | None = None
     pool_assignment: dict | None = None
     if getattr(args, "enable_decomposition_session_pool", False):
         # Pooling needs a host-owned run identity before any reservation.
         if not requested_run_id:
-            requested_run_id = _new_pooled_run_id(args.task_id)
+            requested_run_id = _new_pooled_run_id(args.task_id, mode=mode)
         try:
             pool_owner = _decomposition_pool_owner(
-                workspace=workspace, compose_project=str(args.compose_project)
+                workspace=workspace, compose_project=str(args.compose_project),
+                **({"providers": provider_order} if single_provider else {}),
             )
             pool_assignment = pool_owner.prepare(
                 run_id=requested_run_id,
                 task_id=args.task_id,
-                decomposition_mode="round_robin_d1b2",
-                provider_order=tuple(
-                    part.strip() for part in str(args.providers).split(",") if part.strip()
-                ),
+                decomposition_mode=mode,
+                provider_order=provider_order,
                 max_calls=int(args.max_calls),
                 source_commit=source_head,
                 worker_id=str(getattr(args, "worker_id", "host-decomposition-launcher")),
@@ -484,6 +513,7 @@ def _run_proposal(
                 max_calls=args.max_calls,
                 run_id=requested_run_id,
                 pool_assignment=pool_assignment,
+                provider_allowlist=permitted,
             ),
             cwd=str(workspace),
             env=environment,
@@ -581,6 +611,15 @@ def _run_proposal(
     contract_identity = result.get("task_execution_contract_identity")
     expected_contract_sha256 = getattr(args, "task_contract_sha256", None)
     identity_reasons = []
+    if single_provider:
+        if result.get("requested_provider") != provider_order[0]:
+            identity_reasons.append("requested_provider")
+        if result.get("actual_provider") != {"codex": "openai-codex", "claude": "claude-code"}[provider_order[0]]:
+            identity_reasons.append("actual_provider")
+        if result.get("authority") != "review_only_not_applied":
+            identity_reasons.append("authority")
+        if result.get("independent_approver_provider") is not None:
+            identity_reasons.append("single_provider_cannot_claim_independent_approval")
     if result.get("task_id") != args.task_id:
         identity_reasons.append("task_id")
     if result.get("run_id") != run_dir.name:
@@ -699,8 +738,14 @@ def _run_proposal(
         "graph_delta_sha256": graph_delta_sha256,
         "summary": (
             f"Proposed {len(decomposition.children)} executable child task(s) for "
-            f"{args.task_id}; independent reviewer: "
-            f"{result.get('independent_approver_provider')}."
+            f"{args.task_id}; "
+            + (
+                f"D1B.1 single-provider proposal by {provider_order[0]}. "
+                "Independent provider review was unavailable under the permitted-provider policy. "
+                "Deterministic structural validation only; review_only_not_applied."
+                if single_provider else
+                f"independent reviewer: {result.get('independent_approver_provider')}."
+            )
         ),
         "branch": _git(workspace, "branch", "--show-current"),
     }
@@ -724,6 +769,10 @@ def _run_proposal(
                 "task_id": args.task_id,
                 "plan_id": plan_id,
                 "run_directory": str(run_dir),
+                "decomposition_mode": mode,
+                "provider_order": list(provider_order),
+                "independent_semantic_review": not single_provider,
+                "authority": "review_only_not_applied",
             },
             sort_keys=True,
         )
@@ -963,6 +1012,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--worker-id", required=True)
     parser.add_argument("--compose-project", default="nosafecircle-m2a")
     parser.add_argument("--providers", default="codex,claude")
+    parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
     parser.add_argument("--max-calls", type=int, default=4)
     parser.add_argument("--scheduler-output-root", type=Path)
     parser.add_argument("--run-id")
@@ -1018,6 +1068,7 @@ def main(argv: list[str] | None = None) -> int:
         return exit_code
 
     try:
+        decomposition_provider_order(args.providers, args.provider_allowlist)
         task_id = validate_task_id(args.task_id)
         if args.admission_issue_number is not None and not any(
             value is not None for value in scheduler_fields

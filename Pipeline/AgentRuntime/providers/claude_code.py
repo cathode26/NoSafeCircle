@@ -11,6 +11,7 @@ from typing import Any, Callable, IO, Mapping
 
 from ..contracts import AgentInvocationRequest, Usage
 from ..json_values import thaw_json
+from ..provider_failover import claude_quota_evidence
 from ..provider_sessions import (
     ProviderSessionBinding,
     ProviderSessionError,
@@ -26,6 +27,7 @@ from ..process_runner import (
 )
 from .base import (
     ProviderFailure,
+    ProviderQuotaExhausted,
     ProviderInvocationResponse,
     ProviderOutputInvalid,
     ProviderRequestRejected,
@@ -607,6 +609,18 @@ class ClaudeCodeProvider:
         # below describes work, not identity, and none of them is a reason to
         # forget which conversation the provider already named.
         self._capture_session(raw_log)
+        try:
+            _parse_stream(raw_log)
+            events = tuple(_strict_json_object(line) for line in raw_log.splitlines() if line.strip())
+            quota = claude_quota_evidence(events)
+        except (ProviderOutputInvalid, ValueError, RecursionError):
+            quota = None
+        if quota is not None:
+            if self.session is not None and "session_id" in events[-1]:
+                self._confirm_session(events[-1], raw_log)
+            raise ProviderQuotaExhausted(
+                f"Claude Code confirmed account quota exhaustion ({quota})", raw_log=raw_log
+            )
         if result.returncode != 0:
             detail = stderr or _nonzero_envelope_detail(raw_log)
             message = f"Claude Code exited with status {result.returncode}"

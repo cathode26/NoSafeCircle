@@ -23,6 +23,9 @@ param(
     [ValidateSet('claude', 'codex')]
     [string]$ArchitectProvider,
 
+    [ValidatePattern('^(claude|codex|claude,codex)$')]
+    [string]$ProviderAllowlist,
+
     [string]$Model,
 
     [string]$ArchitectModel,
@@ -95,6 +98,9 @@ if ($PSBoundParameters.ContainsKey('ExecutionProvider')) {
 if ($PSBoundParameters.ContainsKey('ArchitectProvider')) {
     $Arguments += @('--architect-provider', $ArchitectProvider)
 }
+if ($PSBoundParameters.ContainsKey('ProviderAllowlist')) {
+    $Arguments += @('--provider-allowlist', $ProviderAllowlist)
+}
 if ($PSBoundParameters.ContainsKey('Model')) {
     $Arguments += @('--model', $Model)
 }
@@ -162,6 +168,10 @@ if ($ComposeVersion.ExitCode -ne 0) {
 }
 
 $RequiredProviderNames = @()
+if ($PSBoundParameters.ContainsKey('ProviderAllowlist')) {
+    $RequiredProviderNames = @($ProviderAllowlist -split ',')
+}
+else {
 if ($PSBoundParameters.ContainsKey('ArchitectProvider')) {
     $RequiredProviderNames += $ArchitectProvider
 }
@@ -175,6 +185,7 @@ if (-not [string]::IsNullOrWhiteSpace($ExecutionProvider)) {
 else {
     # Architect routing is allowed to choose either provider.
     $RequiredProviderNames += @('claude', 'codex')
+}
 }
 foreach ($ProviderName in @($RequiredProviderNames | Select-Object -Unique)) {
     $Volume = "nosafecircle_${ProviderName}-config"

@@ -2,6 +2,20 @@
 
 TaskReviewAgent is the goal-oriented OpenAI supervisor around the existing No Safe Circle pipeline.
 
+Autonomous runs can pin `-ProviderAllowlist codex` together with
+`-ExecutionProvider codex -ArchitectProvider codex`. Both canonical PowerShell
+launchers forward the restriction, and the run manifest retains it on resume.
+The Python form is `--provider-allowlist codex`. A multi-provider restriction is
+the sorted, unique comma-list `claude,codex`; omitting the setting preserves
+existing unrestricted runs and their manifest hashes. An existing run cannot
+change its permitted providers. Tier environment settings may further restrict
+execution, but neither an ambient Claude default nor an architect preference
+can escape the run's allowlist. The supervisor always requires Codex.
+
+Codex-only decomposition uses D1B.1 with disclosed structural-only evidence;
+independent D1B.2 approval and human PASS are never invented. Graph application
+still requires the existing exact-plan authorization.
+
 The workflow is designed so a task can survive interruptions, model changes, browser closure, and human delay without requiring a task-specific resume command.
 
 ```text

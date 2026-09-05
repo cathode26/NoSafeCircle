@@ -275,6 +275,20 @@ The prompt requires the model to copy the D1A semantic identity. The exact-byte 
 
 ## Outputs and authority
 
+Scheduler runs may explicitly restrict providers through the immutable autonomous
+run's `provider_allowlist`. With `codex` as the only permitted provider, the host
+uses the existing `codex-decompose` service and D1B.1 command. It records that no
+independent provider review was available and publishes only a
+`review_only_not_applied` handoff. A single-provider result cannot claim an
+independent approver. With both providers permitted, the existing Codex/Claude
+round-robin order remains unchanged.
+
+This restriction does not authorize graph application. D1C still requires the
+exact-plan human authorization or the existing explicitly permitted synthetic
+decomposition evidence, including its exact child/resource and committed-policy
+checks. Structural machine evidence is never presented as cross-provider
+semantic approval or human PASS.
+
 ### D1B.1 output
 
 Each no-overwrite D1B.1 run directory contains:

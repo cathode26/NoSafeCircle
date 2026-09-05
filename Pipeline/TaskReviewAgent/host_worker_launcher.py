@@ -22,6 +22,10 @@ from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
     validate_worker_result,
     write_worker_result,
 )
+from Pipeline.TaskReviewAgent.provider_policy import (  # noqa: E402
+    parse_provider_allowlist,
+    require_permitted_provider,
+)
 
 
 def _utc_now() -> str:
@@ -56,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("targeted", "task_specific", "full_relevant"),
     )
     parser.add_argument("--enable-execution-session-pool", action="store_true")
+    parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
     return parser
 
 
@@ -64,6 +69,9 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
     checkout_root = args.checkout_root.resolve()
     output_root = args.output_root.resolve()
     starter = source / "Pipeline" / "TaskReviewAgent" / "Start-GameTaskAgent.ps1"
+    permitted = getattr(args, "provider_allowlist", None)
+    require_permitted_provider(args.execution_provider, permitted, role="execution")
+    require_permitted_provider("codex", permitted, role="supervisor")
     if (args.crew_profile is None) != (args.validation_profile is None):
         raise ValueError(
             "crew profile and validation profile must be supplied together"
@@ -137,6 +145,8 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
         command.extend(("-ValidationProfile", str(args.validation_profile)))
     if args.enable_execution_session_pool:
         command.append("-EnableExecutionSessionPool")
+    if permitted is not None:
+        command.extend(("-ProviderAllowlist", ",".join(permitted)))
     return tuple(command)
 
 

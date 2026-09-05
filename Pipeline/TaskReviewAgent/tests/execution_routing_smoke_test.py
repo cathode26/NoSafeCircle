@@ -244,6 +244,7 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
         admission_source_head="1" * 40,
         task_contract_sha256="a" * 64,
         admission_issue_number=101,
+        provider_allowlist=("codex",),
     )
     require(command[0] == sys.executable and command[1] == "-u", str(command))
     require(Path(command[2]).name == "host_worker_launcher.py", str(command))
@@ -251,6 +252,7 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
     require("--enable-execution-session-pool" not in command, str(command))
     expected = {
         "--execution-provider": "codex",
+        "--provider-allowlist": "codex",
         "--execution-model": "openai-deep-policy",
         "--execution-reasoning-effort": "xhigh",
         "--crew-profile": "full",
@@ -278,6 +280,7 @@ def test_worker_argv_contains_exact_resolved_route() -> None:
         "-TaskId": "NSC-101",
         "-WorkerId": "routing-smoke-worker",
         "-ExecutionProvider": "codex",
+        "-ProviderAllowlist": "codex",
         "-ExecutionModel": "openai-deep-policy",
         "-ExecutionReasoningEffort": "xhigh",
         "-CrewProfile": "full",
@@ -1130,6 +1133,7 @@ def test_worker_entrypoint_propagates_routed_values_without_changing_defaults() 
                         "--source", text,
                         "--output-root", text,
                         "--worker-id", "routing-entrypoint-worker",
+                        "--provider-allowlist", "codex",
                         "--execution-provider", "codex",
                         "--execution-model", "openai-deep-policy",
                         "--execution-reasoning-effort", "xhigh",
@@ -1142,6 +1146,8 @@ def test_worker_entrypoint_propagates_routed_values_without_changing_defaults() 
                 )
         require(code == 0, stdout.getvalue())
         require(captured_controller["execution_provider"] == "codex", str(captured_controller))
+        require(captured_controller["provider_allowlist"] == ("codex",), str(captured_controller))
+        require("quota_fallback_provider" not in captured_controller, str(captured_controller))
         require(captured_controller["execution_model"] == "openai-deep-policy", str(captured_controller))
         require(captured_controller["execution_reasoning_effort"] == "xhigh", str(captured_controller))
         require(captured_controller["crew_profile"] == "full", str(captured_controller))
@@ -1150,6 +1156,22 @@ def test_worker_entrypoint_propagates_routed_values_without_changing_defaults() 
         require(captured_supervisor["model"] == "supervisor-deep-policy", str(captured_supervisor))
         require(captured_supervisor["reasoning_effort"] == "xhigh", str(captured_supervisor))
         require(captured_supervisor["max_turns"] == 120, str(captured_supervisor))
+        captured_controller.clear()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = run_pipeline_agent.main([
+                "--task-id", "NSC-101", "--mode", "observe",
+                "--execution-provider", "claude", "--provider-allowlist", "claude,codex",
+            ])
+        require(code == 0, "explicitly permitted Claude route was rejected")
+        require(captured_controller["provider_allowlist"] == ("claude", "codex"), str(captured_controller))
+        require(captured_controller["quota_fallback_provider"] == "codex", str(captured_controller))
+        captured_controller.clear()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = run_pipeline_agent.main([
+                "--task-id", "NSC-101", "--mode", "observe",
+                "--execution-provider", "claude", "--provider-allowlist", "codex",
+            ])
+        require(code == 2 and not captured_controller, "forbidden provider reached the worker controller")
     finally:
         for name, value in originals.items():
             setattr(run_pipeline_agent, name, value)
@@ -1266,8 +1288,41 @@ def test_executioncrew_runtime_configuration_uses_selected_models_and_codex_effo
     require(provider.reasoning_effort == "xhigh", str(provider.reasoning_effort))
 
 
+def test_explicit_provider_restriction_overrules_preference_and_ambient_default() -> None:
+    from Pipeline.TaskReviewAgent.provider_policy import parse_provider_allowlist
+    require(parse_provider_allowlist("codex") == ("codex",), "Codex restriction lost")
+    for invalid in ("", "codex,codex", "codex,claude", "openai", " codex"):
+        try:
+            parse_provider_allowlist(invalid)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"malformed restriction accepted: {invalid!r}")
+    environment = {
+        f"NSC_ROUTE_{tier.upper()}_DEFAULT_PROVIDER": "claude"
+        for tier in CAPABILITY_TIERS
+    }
+    unrestricted = load_execution_routing_policy(environment, default_provider_override="codex")
+    restricted = load_execution_routing_policy(environment, provider_allowlist=("codex",))
+    for tier in CAPABILITY_TIERS:
+        recommendation = ExecutionRecommendation(tier, "claude", "Fixture provider preference")
+        require(resolve_execution_route(recommendation, unrestricted).execution_provider == "claude",
+                "legacy default override was silently turned into a restriction")
+        route = resolve_execution_route(recommendation, restricted)
+        require(route.execution_provider == "codex" and not route.preference_honored, str(route))
+        require(restricted.for_tier(tier).allowed_execution_providers == {"codex"}, str(restricted))
+    environment["NSC_ROUTE_FAST_ALLOWED_PROVIDERS"] = "claude"
+    try:
+        load_execution_routing_policy(environment, provider_allowlist=("codex",))
+    except ExecutionRoutingError as exc:
+        require("no provider permitted" in str(exc), str(exc))
+    else:
+        raise AssertionError("contradictory ambient permissions launched a forbidden provider")
+
+
 def main() -> int:
     tests = (
+        test_explicit_provider_restriction_overrules_preference_and_ambient_default,
         test_recommendation_parses_all_tiers_strictly,
         test_recommendation_rejects_unknown_empty_missing_and_extra_values,
         test_provider_preferences_resolve_deterministically,

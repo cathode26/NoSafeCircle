@@ -37,6 +37,7 @@ from Pipeline.TaskReviewAgent.autonomous_graph_run import (  # noqa: E402
     evaluate_graph_state,
 )
 from Pipeline.TaskReviewAgent.contracts import validate_task_id  # noqa: E402
+from Pipeline.TaskReviewAgent.provider_policy import parse_provider_allowlist  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_queue import repo_root  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import WorkflowState  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow_store import (  # noqa: E402
@@ -157,6 +158,7 @@ def _runtime_configuration(
     existing: AutonomousRuntimeConfiguration | None,
 ) -> AutonomousRuntimeConfiguration:
     defaults = {
+        "provider_allowlist": None,
         "execution_provider": None,
         "execution_model": None,
         "execution_max_turns": 120,
@@ -178,6 +180,7 @@ def _runtime_configuration(
         "synthetic_evidence_enabled": False,
     }
     arguments = {
+        "provider_allowlist": args.provider_allowlist,
         "execution_provider": args.execution_provider,
         "execution_model": args.model,
         "execution_max_turns": args.max_turns,
@@ -221,6 +224,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--exclude-task-id", action="append")
     parser.add_argument("--max-workers", type=_capacity)
     parser.add_argument("--execution-provider", choices=("claude", "codex"))
+    parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
     parser.add_argument("--model")
     parser.add_argument("--max-turns", type=_positive_int)
     parser.add_argument("--architect-provider", choices=("claude", "codex"))
@@ -488,6 +492,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             checkout_root=checkout_root,
             scheduler_id=_scheduler_id(repository, args.run_id),
             execution_provider=runtime.execution_provider,
+            provider_allowlist=runtime.provider_allowlist,
             model=runtime.execution_model,
             max_turns=runtime.execution_max_turns,
             max_workers=manifest.max_capacity,
@@ -510,6 +515,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         if (
             production.orchestrator.max_workers != manifest.max_capacity
+            or getattr(production.orchestrator, "provider_allowlist", None) != runtime.provider_allowlist
             or production.orchestrator.excluded_task_ids
             != frozenset(manifest.excluded_task_ids)
         ):

@@ -213,6 +213,7 @@ def test_new_run_persists_manifest_before_shared_factory_and_wires_exact_paths()
             active_assignments={},
             max_workers=2,
             excluded_task_ids=frozenset({"NSC-042"}),
+            provider_allowlist=("codex",),
         )
         lock_events: list[str] = []
 
@@ -304,7 +305,9 @@ def test_new_run_persists_manifest_before_shared_factory_and_wires_exact_paths()
                     "--max-workers",
                     "2",
                     "--execution-provider",
-                    "claude",
+                    "codex",
+                    "--architect-provider", "codex",
+                    "--provider-allowlist", "codex",
                 ]
             )
 
@@ -312,9 +315,11 @@ def test_new_run_persists_manifest_before_shared_factory_and_wires_exact_paths()
         refresh.assert_called_once_with(source.resolve())
         require(len(calls) == 1, str(calls))
         values = calls[0]
+        require(values["provider_allowlist"] == ("codex",), str(values))
         require(values["max_workers"] == 2, str(values))
         require(values["excluded_task_ids"] == ("NSC-042",), str(values))
-        require(values["execution_provider"] == "claude", str(values))
+        require(values["execution_provider"] == "codex", str(values))
+        require(values["architect_provider"] == "codex", str(values))
         require(values["event_journal_path"].name == "events.jsonl", str(values))
         require(len(controller_values) == 1, str(controller_values))
         paths = autonomous_run_paths(
@@ -480,8 +485,43 @@ def test_resume_mismatch_and_terminal_exit_codes_fail_closed() -> None:
         require(invoke("blocked", fatal=True) == cli.EXIT_SCHEDULER_FATAL, "wrong fatal exit")
 
 
+def test_provider_restriction_is_persisted_and_cannot_change_on_resume() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        legacy = manifest(Path(text))
+        original = legacy.to_dict()
+        require("provider_allowlist" not in original["runtime_configuration"], str(original))
+        require(AutonomousRunManifest.from_dict(original).sha256 == legacy.sha256,
+                "legacy manifest identity changed")
+        runtime = replace(legacy.runtime_configuration, execution_provider="codex",
+                          architect_provider="codex", provider_allowlist=("codex",))
+        run = replace(legacy, runtime_configuration=runtime)
+        store = JsonManifestStore(Path(text) / "manifest.json")
+        store.create_or_load(run)
+        restored = store.load()
+        require(restored is not None and restored.runtime_configuration.provider_allowlist == ("codex",),
+                "provider restriction was not durable")
+        args = cli.build_parser().parse_args(common_argv(Path(text), Path(text) / "checkouts"))
+        require(cli._runtime_configuration(args, runtime) == runtime, "omitted resume broadened providers")
+        for requested in (("claude", "codex"), ("claude",)):
+            args.provider_allowlist = requested
+            try:
+                cli._runtime_configuration(args, runtime)
+            except ValueError as exc:
+                require("differs from the persisted run" in str(exc), str(exc))
+            else:
+                raise AssertionError("resume accepted changed provider permission")
+        for field in ("architect_provider", "execution_provider"):
+            try:
+                replace(runtime, **{field: "claude"})
+            except ValueError as exc:
+                require("not in provider_allowlist" in str(exc), str(exc))
+            else:
+                raise AssertionError(f"restricted run accepted Claude {field}")
+
+
 def main() -> int:
     tests = [
+        test_provider_restriction_is_persisted_and_cannot_change_on_resume,
         test_synthetic_pump_waits_for_worker_transition_and_d1c_recovery,
         test_new_run_persists_manifest_before_shared_factory_and_wires_exact_paths,
         test_completed_resume_uses_receipt_without_refresh_factory_or_observation,

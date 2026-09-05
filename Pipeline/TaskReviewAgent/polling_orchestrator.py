@@ -47,6 +47,12 @@ PIPELINE_ROOT = ROOT / "Pipeline"
 if str(PIPELINE_ROOT) not in sys.path:
     sys.path.insert(0, str(PIPELINE_ROOT))
 
+from Pipeline.TaskReviewAgent.provider_policy import (  # noqa: E402
+    provider_allowlist as validate_provider_allowlist,
+    parse_provider_allowlist,
+    require_permitted_provider,
+)
+
 from Pipeline.TaskReviewAgent.architect_preflight import (  # noqa: E402
     ARCHITECT_ADVISORY_SCHEMA_VERSION,
     ARCHITECT_BATCH_SCHEMA_VERSION,
@@ -135,6 +141,7 @@ from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     ExecutionRoutingPolicy,
     ResolvedExecutionRoute,
     load_execution_routing_policy,
+    restrict_execution_routing_policy,
     resolve_execution_route,
     resolve_task_rigor,
 )
@@ -1280,6 +1287,7 @@ class DockerArchitectRunner:
         timeout_seconds: float = DEFAULT_ARCHITECT_TIMEOUT_SECONDS,
         compose_project: str = COMPOSE_PROJECT,
         command_runner: Callable[..., subprocess.CompletedProcess[bytes]] | None = None,
+        resume_activation: Any = None,
     ) -> None:
         self.source = Path(source).resolve()
         self.artifact_root = Path(artifact_root)
@@ -1295,6 +1303,13 @@ class DockerArchitectRunner:
         self.timeout_seconds = timeout_seconds
         self.compose_project = str(compose_project).strip()
         self.command_runner = command_runner or self._run
+        from Pipeline.TaskReviewAgent.supervisor_session_pool import CodexResumeActivation, resolve_compose_project
+        self.compose_project = resolve_compose_project(self.compose_project)
+        if resume_activation is not None and (
+            self.provider != "codex" or type(resume_activation) is not CodexResumeActivation
+        ):
+            raise PollingOrchestratorError("architect resume control requires exact Codex activation")
+        self.resume_activation = resume_activation
         self.session_compatibility = ArchitectSessionCompatibility(
             "claude-code" if self.provider == "claude" else "openai-codex",
             ARCHITECT_SESSION_ROLE,
@@ -1381,6 +1396,10 @@ class DockerArchitectRunner:
                     "architect session binding must be an exact ProviderSessionBinding"
                 )
             request["provider_session"] = session_binding.to_dict()
+            if self.provider == "codex":
+                if self.resume_activation is None:
+                    raise ArchitectPreflightError("pooled Codex architect requires verified resume control")
+                request["codex_resume_sandbox_argument"] = list(self.resume_activation.argument)
         if task is not None:
             request["task"] = dict(task)
         else:
@@ -1472,7 +1491,10 @@ class DockerArchitectRunner:
                 != session_binding.provider_identifier
                 or confirmation.role != session_binding.role
                 or confirmation.mode != session_binding.mode
-                or confirmation.session_id != session_binding.session_id
+                or (
+                    session_binding.session_id is not None
+                    and confirmation.session_id != session_binding.session_id
+                )
             ):
                 raise ArchitectSessionInvocationError(
                     "identity_failure",
@@ -1559,6 +1581,7 @@ def build_worker_command(
     admission_source_head: str | None = None,
     task_contract_sha256: str | None = None,
     admission_issue_number: int | None = None,
+    provider_allowlist: tuple[str, ...] | None = None,
 ) -> tuple[str, ...]:
     # The Game Task Agent controller owns Git/GitHub/claim/Issue/checkout
     # authority and therefore runs on the Windows host. Claude/Codex remain
@@ -1641,6 +1664,11 @@ def build_worker_command(
         command.extend(("--validation-profile", validation_profile))
     if route is not None and provider == "claude" and execution_model:
         command.append("--enable-execution-session-pool")
+    permitted = validate_provider_allowlist(provider_allowlist)
+    require_permitted_provider(provider, permitted, role="execution")
+    require_permitted_provider("codex", permitted, role="supervisor")
+    if permitted is not None:
+        command.extend(("--provider-allowlist", ",".join(permitted)))
     result_identity = (run_id, admission_source_head, task_contract_sha256)
     if any(value is not None for value in result_identity):
         if not all(isinstance(value, str) and value for value in result_identity):
@@ -1685,6 +1713,7 @@ def build_decomposition_worker_command(
     task_contract_sha256: str | None = None,
     admission_issue_number: int | None = None,
     enable_session_pool: bool = False,
+    provider_allowlist: tuple[str, ...] | None = None,
 ) -> tuple[str, ...]:
     """Build the distinct host boundary for review-only decomposition work."""
 
@@ -1716,6 +1745,10 @@ def build_decomposition_worker_command(
         "--output-root",
         str(selected_output),
     ]
+    permitted = validate_provider_allowlist(provider_allowlist)
+    if permitted is not None:
+        command.extend(("--provider-allowlist", ",".join(permitted)))
+        command.extend(("--providers", ",".join(provider for provider in ("codex", "claude") if provider in permitted)))
     result_identity = (
         scheduler_output_root,
         run_id,
@@ -1797,6 +1830,7 @@ class PollingOrchestrator:
         architect_runner: Callable[..., ArchitectAnalysis | ArchitectBatchAnalysis],
         routing_policy: ExecutionRoutingPolicy | None = None,
         routing_policy_loader: Callable[[], ExecutionRoutingPolicy] | None = None,
+        provider_allowlist: tuple[str, ...] | None = None,
         max_architect_invocations_per_poll: int = (
             DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL
         ),
@@ -1833,6 +1867,10 @@ class PollingOrchestrator:
         self.max_workers = max_workers
         self.architect_min_confidence = architect_min_confidence
         self.architect_runner = architect_runner
+        self.provider_allowlist = validate_provider_allowlist(provider_allowlist)
+        require_permitted_provider("codex", self.provider_allowlist, role="supervisor")
+        if self.execution_provider is not None:
+            require_permitted_provider(self.execution_provider, self.provider_allowlist, role="execution")
         if routing_policy is not None and routing_policy_loader is not None:
             raise PollingOrchestratorError(
                 "supply routing_policy or routing_policy_loader, not both"
@@ -3445,10 +3483,19 @@ class PollingOrchestrator:
                     # The polling scheduler alone enables pooling, exactly as it
                     # does for the ExecutionCrew pool; direct launches stay ephemeral.
                     enable_session_pool=True,
+                    provider_allowlist=self.provider_allowlist,
                 )
                 route_event = {
                     "work_type": "decomposition",
-                    "execution_provider": "round_robin_codex_claude",
+                    "execution_provider": (
+                        self.provider_allowlist[0]
+                        if self.provider_allowlist is not None and len(self.provider_allowlist) == 1
+                        else "round_robin_codex_claude"
+                    ),
+                    "decomposition_mode": (
+                        "d1b1" if self.provider_allowlist is not None and len(self.provider_allowlist) == 1
+                        else "round_robin_d1b2"
+                    ),
                     "capability_tier": "deep",
                     "route_reason": "architect_selected_eligible_decomposition",
                 }
@@ -3459,6 +3506,7 @@ class PollingOrchestrator:
                         raise ExecutionRoutingError(
                             "routing policy loader returned an invalid policy"
                         )
+                    policy = restrict_execution_routing_policy(policy, self.provider_allowlist)
                     rigor = resolve_task_rigor(
                         advisory.execution_recommendation,
                         task=task,
@@ -3494,6 +3542,7 @@ class PollingOrchestrator:
                     source=self.source,
                     checkout_root=self.checkout_root,
                     route=route,
+                    provider_allowlist=self.provider_allowlist,
                     run_id=worker_run_id,
                     admission_source_head=plan.source_commit,
                     task_contract_sha256=task_contract_sha256,
@@ -3501,6 +3550,8 @@ class PollingOrchestrator:
                 )
                 route_event = {"work_type": "implementation", **route.to_event_dict()}
             launch_started_utc = utc_now()
+            if self.provider_allowlist is not None:
+                route_event["provider_allowlist"] = list(self.provider_allowlist)
             try:
                 process_kwargs: dict[str, Any] = {
                     "cwd": str(self.source),
@@ -3695,9 +3746,23 @@ class PollingOrchestrator:
             raise PollingOrchestratorError(
                 "architect reconciliation boundary must be callable"
             )
-        transition = reconcile()
+        from Pipeline.TaskReviewAgent.architect_session_pool import CodexArchitectSessionOwner
+        transition = (
+            reconcile(lock=lock)
+            if isinstance(self.architect_runner, CodexArchitectSessionOwner)
+            else reconcile()
+        )
         if transition is None:
             return False
+        if isinstance(self.architect_runner, CodexArchitectSessionOwner):
+            self.events.emit(
+                "architect_session_reconciled", scheduler_id=self.scheduler_id,
+                provider_identifier=transition.provider_identifier,
+                role=transition.role, session_id=transition.session_id,
+                assignment_id=transition.assignment_id,
+                retirement_reason=transition.retirement_reason,
+            )
+            return True
         self.events.emit(
             "architect_session_reconciled",
             scheduler_id=self.scheduler_id,
@@ -3876,6 +3941,7 @@ def build_parser() -> argparse.ArgumentParser:
             "architect preferences are still honored when policy-allowed."
         ),
     )
+    parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
     parser.add_argument("--model")
     parser.add_argument(
         "--max-turns",
@@ -3958,6 +4024,7 @@ def build_production_orchestrator(
     checkout_root: Path | str | None = None,
     scheduler_id: str | None = None,
     execution_provider: str | None = None,
+    provider_allowlist: tuple[str, ...] | None = None,
     model: str | None = None,
     max_turns: int | None = None,
     max_workers: int = DEFAULT_MAX_WORKERS,
@@ -3991,6 +4058,11 @@ def build_production_orchestrator(
     later construction can fail, preserving initialization-failure reporting.
     """
 
+    provider_allowlist = validate_provider_allowlist(provider_allowlist)
+    require_permitted_provider(architect_provider, provider_allowlist, role="architect")
+    require_permitted_provider("codex", provider_allowlist, role="supervisor")
+    if execution_provider is not None:
+        require_permitted_provider(execution_provider, provider_allowlist, role="execution")
     resolved_source = repo_root(Path(source).resolve())
     resolved_checkout_root = Path(checkout_root or default_checkout_root())
     resolved_scheduler_id = (
@@ -4022,35 +4094,56 @@ def build_production_orchestrator(
                 "event_emitter_observer must be callable"
             )
         event_emitter_observer(events)
+    from Pipeline.TaskReviewAgent.supervisor_session_pool import (
+        _repository_identity, codex_resume_activation_from_environment,
+    )
+    architect_resume_activation = (
+        codex_resume_activation_from_environment() if architect_provider == "codex" else None
+    )
     architect_transport = DockerArchitectRunner(
         source=resolved_source,
         artifact_root=artifact_root,
         provider=architect_provider,
         model=architect_model,
         max_turns=architect_max_turns,
+        resume_activation=architect_resume_activation,
     )
     architect_provider_identifier = (
         "claude-code"
         if architect_transport.provider == "claude"
         else "openai-codex"
     )
-    architect_runner = ArchitectSessionOwner(
-        architect_runner=architect_transport,
-        provider_identifier=architect_provider_identifier,
-        role=ARCHITECT_SESSION_ROLE,
-        store=JsonArchitectSessionStore(
-            operational_root
-            / "architect-sessions"
-            / architect_provider_identifier
-            / ARCHITECT_SESSION_ROLE
-        ),
-        compatibility=architect_transport.session_compatibility,
-    )
+    if architect_transport.provider == "codex":
+        from Pipeline.TaskReviewAgent.architect_session_pool import CodexArchitectSessionOwner
+        architect_runner = CodexArchitectSessionOwner(
+            architect_runner=architect_transport,
+            compatibility=architect_transport.session_compatibility,
+            source=resolved_source, checkout_root=resolved_checkout_root,
+            repository_identity=_repository_identity(resolved_source),
+            compose_project=architect_transport.compose_project,
+            resume_activation=architect_resume_activation,
+            scheduler_lock_type=SchedulerLock,
+            scheduler_lock_path=scheduler_lock_path(checkout_root=resolved_checkout_root),
+        )
+    else:
+        architect_runner = ArchitectSessionOwner(
+            architect_runner=architect_transport,
+            provider_identifier=architect_provider_identifier,
+            role=ARCHITECT_SESSION_ROLE,
+            store=JsonArchitectSessionStore(
+                operational_root
+                / "architect-sessions"
+                / architect_provider_identifier
+                / ARCHITECT_SESSION_ROLE
+            ),
+            compatibility=architect_transport.session_compatibility,
+        )
     orchestrator = PollingOrchestrator(
         source=resolved_source,
         checkout_root=resolved_checkout_root,
         scheduler_id=resolved_scheduler_id,
         execution_provider=execution_provider,
+        provider_allowlist=provider_allowlist,
         model=model,
         max_turns=max_turns,
         max_workers=max_workers,
@@ -4096,6 +4189,7 @@ def main(argv: list[str] | None = None) -> int:
             source=args.source,
             checkout_root=args.checkout_root,
             execution_provider=args.execution_provider,
+            provider_allowlist=args.provider_allowlist,
             model=args.model,
             max_turns=args.max_turns,
             max_workers=args.max_workers,

@@ -518,7 +518,29 @@ def test_exact_forwarding_of_every_supplied_option() -> int:
     return 0
 
 
+def test_codex_restriction_is_forwarded_and_requires_no_claude_volume() -> None:
+    with tempfile.TemporaryDirectory() as text:
+        fixture = Path(text)
+        log = fixture / "argv.jsonl"
+        environment = _exact_argv_environment(fixture, log)
+        docker_log = fixture / "docker.txt"
+        _stub(fixture / "docker.cmd", f'echo %* >> "{docker_log}"\r\nexit /b 0')
+        completed = _run_launcher(
+            fixture, environment, "-RunId", "codex-only", "-ConfirmRepository",
+            "cathode26/NoSafeCircle-Homework-Rehearsal", "-ExecutionProvider", "codex",
+            "-ArchitectProvider", "codex", "-ProviderAllowlist", "codex", "-MaxWorkers", "10",
+        )
+        require(completed.returncode == 7, str(completed))
+        for argv in _recorded_argv(log):
+            require(argv[argv.index("--provider-allowlist") + 1] == "codex", str(argv))
+            require(argv[argv.index("--max-workers") + 1] == "10", str(argv))
+        docker_calls = docker_log.read_text(encoding="utf-8")
+        require("claude" not in docker_calls and "nosafecircle_codex-config" in docker_calls,
+                docker_calls)
+
+
 TESTS = (
+    test_codex_restriction_is_forwarded_and_requires_no_claude_volume,
     test_exact_forwarding_of_every_supplied_option,
     test_omitted_task_id_lists_emit_no_option,
     test_canonical_target_only_launch_carries_no_exclusion,

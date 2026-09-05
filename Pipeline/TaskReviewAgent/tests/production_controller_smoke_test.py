@@ -265,6 +265,18 @@ def test_controller_reaches_human_issue_handoff() -> None:
             scheduler.execution.enable_session_pool is True,
             "scheduler opt-in did not reach ExecutionCrew bridge",
         )
+        for provider, permitted, fallback in (
+            ("codex", ("codex",), None),
+            ("claude", ("claude", "codex"), "codex"),
+        ):
+            restricted = ProductionTaskController(
+                workflow=workflow, execution_provider=provider,
+                provider_allowlist=permitted, quota_fallback_provider=fallback,
+            )
+            restricted.observe()
+            require(restricted.execution is not None, "restricted controller omitted its bridge")
+            require(restricted.execution.provider_allowlist == permitted, "controller lost provider restriction")
+            require(restricted.execution.quota_fallback_provider == fallback, "controller lost quota policy")
 
         scope_result = controller.validate_execution_scope(
             existing_implementation_paths=[IMPLEMENTATION],

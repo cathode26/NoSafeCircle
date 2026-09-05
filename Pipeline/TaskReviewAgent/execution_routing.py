@@ -9,9 +9,11 @@ model identifiers, reasoning effort, and supervisor turn budgets.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
 from typing import Any, Callable, Mapping
+
+from Pipeline.TaskReviewAgent.provider_policy import provider_allowlist as validate_provider_allowlist
 
 
 CAPABILITY_TIERS = ("fast", "standard", "deep")
@@ -710,6 +712,31 @@ def resolve_execution_route(
     )
 
 
+def restrict_execution_routing_policy(
+    policy: ExecutionRoutingPolicy,
+    provider_allowlist: tuple[str, ...] | None,
+) -> ExecutionRoutingPolicy:
+    """Intersect ambient tier permissions with the immutable run restriction."""
+    permitted = validate_provider_allowlist(provider_allowlist)
+    if permitted is None:
+        return policy
+    tiers = {}
+    for name in CAPABILITY_TIERS:
+        tier = policy.for_tier(name)
+        allowed = tier.allowed_execution_providers.intersection(permitted)
+        if not allowed:
+            raise ExecutionRoutingError(f"{name} tier has no provider permitted by provider_allowlist")
+        tiers[name] = replace(
+            tier,
+            allowed_execution_providers=allowed,
+            default_execution_provider=(
+                tier.default_execution_provider
+                if tier.default_execution_provider in allowed else sorted(allowed)[0]
+            ),
+        )
+    return ExecutionRoutingPolicy(**tiers)
+
+
 def _environment_text(
     environment: Mapping[str, str],
     name: str,
@@ -756,6 +783,7 @@ def load_execution_routing_policy(
     default_provider_override: str | None = None,
     supervisor_model_override: str | None = None,
     max_turns_override: int | None = None,
+    provider_allowlist: tuple[str, ...] | None = None,
 ) -> ExecutionRoutingPolicy:
     """Load and validate all operational routing inputs as one frozen policy.
 
@@ -830,11 +858,11 @@ def load_execution_routing_policy(
             ),
         )
         tiers[tier_name] = tier_policy
-    return ExecutionRoutingPolicy(
+    return restrict_execution_routing_policy(ExecutionRoutingPolicy(
         fast=tiers["fast"],
         standard=tiers["standard"],
         deep=tiers["deep"],
-    )
+    ), provider_allowlist)
 
 
 __all__ = [

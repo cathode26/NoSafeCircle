@@ -31,6 +31,8 @@ import tempfile
 from typing import Any, BinaryIO, Iterable, Iterator, Mapping
 
 from Pipeline.AgentRuntime.session_lifecycle import SessionLifecycleTelemetry
+from Pipeline.AgentRuntime.contracts import AgentResult
+from Pipeline.TaskExecution.contracts import TaskExecutionRequest
 from Pipeline.ExecutionCrew.run_crew import ROLE_CAPABILITY_CLASSES
 from Pipeline.ExecutionCrew.session_pool import (
     CREW_SESSION_ROLES,
@@ -1016,6 +1018,9 @@ class ExecutionCrewSessionPoolOwner:
                 "pooled crew result omitted durable assignment results"
             )
         decisions: dict[str, tuple[AssignmentLease, DurableAssignmentResult | None]] = {}
+        quota_failures = result.get("provider_quota_failures", {})
+        if type(quota_failures) is not dict or not set(quota_failures).issubset(CREW_SESSION_ROLES):
+            raise ExecutionCrewSessionPoolError("invalid provider quota failure role set")
         for role in CREW_SESSION_ROLES:
             lease = AssignmentLease.from_dict(assignment["leases"][role])
             record = records[role]
@@ -1038,6 +1043,54 @@ class ExecutionCrewSessionPoolOwner:
                 raise ExecutionCrewSessionPoolError(
                     f"pooled crew result has invalid {role} invocation state"
                 )
+            if role in quota_failures:
+                if not invoked or embedded is not None or role in durable_records:
+                    raise ExecutionCrewSessionPoolError("quota-exhausted lease must not expose reusable evidence")
+                failure = quota_failures[role]
+                if (type(failure) is not dict or failure.get("role") != role
+                        or failure.get("lease_id") != lease.lease_id
+                        or failure.get("session_disposition") != "quarantined"):
+                    raise ExecutionCrewSessionPoolError("quota failure differs from its exact lease")
+                invocation_id = failure.get("run_id")
+                if type(invocation_id) is not str or not re.fullmatch(r"[a-z0-9-]{1,64}", invocation_id):
+                    raise ExecutionCrewSessionPoolError("quota failure has invalid invocation identity")
+                evidence = failure.get("evidence")
+                if type(evidence) is not dict or set(evidence) != {"request.json", "result.json", "provider.log", "task_request.json"}:
+                    raise ExecutionCrewSessionPoolError("quota failure omitted exact runtime evidence")
+                payloads = {}
+                for name, metadata in evidence.items():
+                    prefix = "task_execution" if name == "task_request.json" else "agent_runtime"
+                    relative = f"{prefix}/{invocation_id}/{name}"
+                    path = evidence_root / relative
+                    if (type(metadata) is not dict or metadata.get("path") != relative
+                            or not path.resolve().is_relative_to(evidence_root.resolve())):
+                        raise ExecutionCrewSessionPoolError("quota evidence escaped its crew run")
+                    try:
+                        payload = path.read_bytes()
+                    except OSError as exc:
+                        raise ExecutionCrewSessionPoolError("quota evidence is missing or unreadable") from exc
+                    if hashlib.sha256(payload).hexdigest() != metadata.get("sha256"):
+                        raise ExecutionCrewSessionPoolError("quota evidence hash differs from persisted bytes")
+                    payloads[name] = payload
+                try:
+                    agent_result = AgentResult.from_dict(_strict_json(payloads["result.json"], label="quota AgentResult"))
+                    task_request = TaskExecutionRequest.from_dict(_strict_json(payloads["task_request.json"], label="quota task request"))
+                    agent_request = _strict_json(payloads["request.json"], label="quota agent request")
+                except ValueError as exc:
+                    raise ExecutionCrewSessionPoolError("quota evidence has malformed runtime contracts") from exc
+                if (agent_result.run_id != invocation_id or agent_result.role != role
+                        or agent_result.provider != "claude-code" or agent_result.model != lease.model
+                        or agent_result.status != "failed" or agent_result.failure_classification != "quota_exhausted"
+                        or agent_result.raw_log_reference != "provider.log"
+                        or task_request.task_id != lease.task_id
+                        or task_request.task_contract_identity.to_dict() != task_contract
+                        or task_request.invocation.run_id != invocation_id or task_request.invocation.role != role
+                        or task_request.invocation.provider_configuration_key != "claude-crew"
+                        or task_request.invocation.model_capability_class != lease.capability_class
+                        or task_request.invocation.to_dict() != agent_request):
+                    raise ExecutionCrewSessionPoolError("quota failure is not bound to this assignment")
+                decisions[role] = (lease, None)
+                continue
             if not invoked:
                 if embedded is not None or role in durable_records:
                     raise ExecutionCrewSessionPoolError(
@@ -1052,14 +1105,16 @@ class ExecutionCrewSessionPoolOwner:
             durable = DurableAssignmentResult.from_dict(embedded)
             decisions[role] = (lease, durable)
         if set(durable_records) != {
-            role for role in CREW_SESSION_ROLES if records[role]["invoked"]
+            role for role in CREW_SESSION_ROLES if records[role]["invoked"] and role not in quota_failures
         }:
             raise ExecutionCrewSessionPoolError(
                 "pooled crew result durable role set is inconsistent"
             )
         for role in CREW_SESSION_ROLES:
             lease, durable = decisions[role]
-            if durable is None:
+            if role in quota_failures:
+                pool.quarantine(lease, "confirmed Claude account quota exhaustion; provider handoff never reuses this lease")
+            elif durable is None:
                 pool.cancel(lease)
             else:
                 pool.check_in(lease=lease, result=durable, evidence_root=evidence_root)

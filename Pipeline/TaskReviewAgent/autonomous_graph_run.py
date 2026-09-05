@@ -138,8 +138,16 @@ class AutonomousRuntimeConfiguration:
     fatal_drain_seconds: float
     fallback_seconds: float
     synthetic_evidence_enabled: bool
+    provider_allowlist: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
+        from Pipeline.TaskReviewAgent.provider_policy import provider_allowlist, require_permitted_provider
+        permitted = provider_allowlist(self.provider_allowlist)
+        object.__setattr__(self, "provider_allowlist", permitted)
+        require_permitted_provider(self.architect_provider, permitted, role="architect")
+        require_permitted_provider("codex", permitted, role="supervisor")
+        if self.execution_provider is not None:
+            require_permitted_provider(self.execution_provider, permitted, role="execution")
         if self.execution_provider not in {None, "claude", "codex"}:
             raise AutonomousGraphRunError("unsupported execution provider")
         if self.architect_provider not in {"claude", "codex"}:
@@ -180,16 +188,25 @@ class AutonomousRuntimeConfiguration:
             raise AutonomousGraphRunError("synthetic_evidence_enabled must be boolean")
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        value = {
             field: getattr(self, field)
             for field in self.__dataclass_fields__
+            if field != "provider_allowlist"
         }
+        if self.provider_allowlist is not None:
+            value["provider_allowlist"] = list(self.provider_allowlist)
+        return value
 
     @classmethod
     def from_dict(cls, value: Any) -> "AutonomousRuntimeConfiguration":
+        fields = set(cls.__dataclass_fields__) - {"provider_allowlist"}
+        if type(value) is dict and "provider_allowlist" in value:
+            fields.add("provider_allowlist")
+            if type(value["provider_allowlist"]) is not list:
+                raise AutonomousGraphRunError("persisted provider_allowlist must be an array")
         item = _exact_object(
             value,
-            set(cls.__dataclass_fields__),
+            fields,
             label="autonomous runtime configuration",
         )
         return cls(**item)
@@ -1404,6 +1421,8 @@ class AutonomousGraphController:
         self.progress = progress
 
     def _validate_scheduler_binding(self, scheduler: SchedulerPort) -> None:
+        if getattr(scheduler, "provider_allowlist", None) != self.manifest.runtime_configuration.provider_allowlist:
+            raise AutonomousGraphRunError("scheduler provider_allowlist differs from the exact run manifest")
         if getattr(scheduler, "max_workers", None) != self.manifest.max_capacity:
             raise AutonomousGraphRunError(
                 "scheduler max_workers must exactly equal manifest max_capacity"

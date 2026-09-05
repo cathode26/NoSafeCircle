@@ -321,12 +321,14 @@ def test_explicit_openai_execution_and_architect_providers_are_both_forwarded() 
         log = _write_stub_path(fixture)
         completed, records = _run(
             fixture, log,
-            ["-TaskId", TASK, "-ExecutionProvider", "codex", "-ArchitectProvider", "codex"],
+            ["-TaskId", TASK, "-ExecutionProvider", "codex", "-ArchitectProvider", "codex",
+             "-ProviderAllowlist", "codex"],
         )
         require(completed.returncode == 0, f"all-OpenAI delegation failed: {completed}")
         controller = _real_controller_calls(records)
         require(len(controller) == 1, f"expected one controller invocation: {controller}")
         argv = controller[0]
+        require(_value(argv, "--provider-allowlist") == "codex", str(argv))
         require(
             argv.count("--execution-provider") == 1
             and _value(argv, "--execution-provider") == "codex",
@@ -742,6 +744,21 @@ def test_controller_exit_codes_propagate_through_the_launcher() -> None:
         require(completed.returncode == 0, f"an already-complete run failed: {completed}")
         require(not _real_controller_calls(records),
                 "an already-complete run started the scheduler anyway")
+
+
+def test_forbidden_provider_is_rejected_before_any_external_preflight() -> None:
+    for arguments in (
+        ["-TaskId", TASK, "-DirectManual", "-ExecutionProvider", "claude", "-ProviderAllowlist", "codex"],
+        ["-TaskId", TASK, "-ExecutionProvider", "codex", "-ArchitectProvider", "claude", "-ProviderAllowlist", "codex"],
+        ["-TaskId", TASK, "-ProviderAllowlist", "claude"],
+    ):
+        with fixture_dir() as text:
+            fixture = Path(text)
+            log = _write_stub_path(fixture)
+            completed, records = _run(fixture, log, arguments)
+            require(completed.returncode != 0, "forbidden provider was accepted")
+            require("ProviderAllowlist" in completed.stderr, completed.stderr)
+            require(not records, f"forbidden provider reached external preflight: {records}")
 
 
 # --------------------------------------------------------------------- main

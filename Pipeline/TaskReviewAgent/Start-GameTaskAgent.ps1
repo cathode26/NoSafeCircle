@@ -9,6 +9,9 @@ param(
     [ValidateSet('claude', 'codex')]
     [string]$ArchitectProvider,
 
+    [ValidatePattern('^(claude|codex|claude,codex)$')]
+    [string]$ProviderAllowlist,
+
     [ValidateSet('openai', 'observe')]
     [string]$Mode = 'openai',
 
@@ -220,6 +223,20 @@ $UseArchitectManaged = (
 if (-not $UseArchitectManaged -and $SuppliedArchitectOptions.Count -gt 0) {
     throw "Architect-managed options require a top-level explicit -TaskId in openai mode: $($SuppliedArchitectOptions -join ', ')."
 }
+if ($PSBoundParameters.ContainsKey('ProviderAllowlist')) {
+    $AllowedProviders = @($ProviderAllowlist.Split(','))
+    if ($AllowedProviders -notcontains 'codex') {
+        throw 'The supervisor provider codex must be in ProviderAllowlist.'
+    }
+    if ((-not $UseArchitectManaged -or $PSBoundParameters.ContainsKey('ExecutionProvider')) -and
+        $AllowedProviders -notcontains $ExecutionProvider) {
+        throw 'ExecutionProvider must be in ProviderAllowlist before provider preflight.'
+    }
+    if ($PSBoundParameters.ContainsKey('ArchitectProvider') -and
+        $AllowedProviders -notcontains $ArchitectProvider) {
+        throw 'ArchitectProvider must be in ProviderAllowlist before provider preflight.'
+    }
+}
 if ($UseArchitectManaged) {
     # Every one of these is resolved per task by the architect, owned by the
     # scheduler, or has no architect-managed equivalent. Silently dropping one
@@ -374,6 +391,9 @@ if ($UseArchitectManaged) {
     }
     if ($PSBoundParameters.ContainsKey('ArchitectProvider')) {
         $ControllerArguments += @('-ArchitectProvider', $ArchitectProvider)
+    }
+    if ($PSBoundParameters.ContainsKey('ProviderAllowlist')) {
+        $ControllerArguments += @('-ProviderAllowlist', $ProviderAllowlist)
     }
     if ($PSBoundParameters.ContainsKey('ExecutionModel')) {
         $ControllerArguments += @('-Model', $ExecutionModel)
@@ -608,6 +628,9 @@ $Arguments = @(
     '--max-turns', $MaxTurns.ToString(),
     '--output-root', $OutputRoot
 )
+if ($PSBoundParameters.ContainsKey('ProviderAllowlist')) {
+    $Arguments += @('--provider-allowlist', $ProviderAllowlist)
+}
 
 if (-not [string]::IsNullOrWhiteSpace($TaskId)) {
     $Arguments += @('--task-id', $TaskId)

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1177,8 +1178,107 @@ def test_apply_resume_uses_historical_contract_and_skips_fresh_validation() -> N
         require(retry_payload["exit_code"] == 3, str(retry_payload))
 
 
+def test_codex_only_d1b1_proposal_uses_real_validation_and_truthful_handoff() -> None:
+    from Pipeline.AgentRuntime.providers.fake import FakeProvider
+    from TaskDecomposition.live_decomposition import run_live_decomposition
+    from TaskDecomposition.tests.test_support import create_repository, decomposed_result, protected_bytes
+
+    with tempfile.TemporaryDirectory(prefix="codex-only-decomposition-") as text:
+        root = Path(text)
+        source = root / "source"
+        tasks = create_repository(source)
+        before = protected_bytes(source)
+        head = launcher._git(source, "rev-parse", "HEAD")
+        args = arguments()
+        args.task_id = "NSC-010"
+        args.providers = "codex"
+        args.provider_allowlist = ("codex",)
+        args.run_id = "codex-only-proposal"
+        output = root / "output"
+        calls = []
+        handoffs = []
+        service = RecordingService()
+        service.publish_decomposition_handoff = lambda **values: handoffs.append(values)
+
+        class CodexFixture:
+            provider_identifier = "openai-codex"
+
+            def invoke(self, request, model):
+                calls.append(request)
+                return FakeProvider(structured_output=decomposed_result(tasks["NSC-010"])).invoke(request, model)
+
+        def factory(provider, _source, role):
+            require(provider == "codex" and role == "task_decomposer", (provider, role))
+            key, configuration = launcher.provider_configuration(provider)
+            return key, configuration, {"openai-codex": CodexFixture()}
+
+        original_run = subprocess.run
+        compose_calls = []
+
+        def run(command, **kwargs):
+            if command[0] == "git":
+                return original_run(command, **kwargs)
+            require(command[0] == "docker", str(command))
+            require("codex-decompose" in command and "round-robin-decompose" not in command, str(command))
+            require(not any("claude" in item for item in command), str(command))
+            require("--max-calls" not in command and "--provider" in command, str(command))
+            compose_calls.append(command)
+            result = run_live_decomposition(
+                source=source, output_root=output, task_id=args.task_id,
+                provider_name="codex", run_id=args.run_id, provider_factory=factory,
+                _require_physical_read_only_source=False,
+            )
+            require(result["run_status"] == "review_ready", str(result))
+            return subprocess.CompletedProcess(command, 0)
+
+        with patch.object(launcher.subprocess, "run", side_effect=run):
+            result = launcher._run_proposal(args=args, workspace=source, output_root=output,
+                                          source_head=head, service=service)
+        require(result == 0 and len(compose_calls) == len(calls) == len(handoffs) == 1, str(handoffs))
+        require(not service.releases and not service.completions, str(service.__dict__))
+        summary = handoffs[0]["summary"]
+        require("D1B.1" in summary and "Independent provider review was unavailable" in summary
+                and "review_only_not_applied" in summary, summary)
+        result_path = output / args.run_id / "decomposition_run_result.json"
+        evidence = json.loads(result_path.read_text(encoding="utf-8"))
+        require(evidence.get("independent_approver_provider") is None, str(evidence))
+        require(evidence["actual_provider"] == "openai-codex" and evidence["authority"] == "review_only_not_applied", str(evidence))
+        require(launcher._git(source, "rev-parse", "HEAD") == head, "proposal changed source HEAD")
+        require(launcher._git(source, "status", "--porcelain=v1") == "", "proposal dirtied source")
+        require(protected_bytes(source) == before, "proposal changed protected graph/canon")
+        valid_run_id = args.run_id
+        for index, (field, invalid) in enumerate((
+            ("actual_provider", "claude-code"),
+            ("authority", "applied"),
+            ("independent_approver_provider", "codex"),
+        )):
+            args.run_id = f"codex-only-invalid-{index}"
+
+            def forged(command, **_kwargs):
+                invalid_dir = output / args.run_id
+                shutil.copytree(output / valid_run_id, invalid_dir)
+                tampered = {**evidence, "run_id": args.run_id, field: invalid}
+                (invalid_dir / "decomposition_run_result.json").write_text(json.dumps(tampered), encoding="utf-8")
+                return subprocess.CompletedProcess(command, 0)
+
+            with patch.object(launcher.subprocess, "run", side_effect=forged):
+                rejected = launcher._run_proposal(args=args, workspace=source, output_root=output,
+                                                 source_head=head, service=service)
+            require(rejected == 3 and len(handoffs) == 1, f"forged {field} reached handoff")
+        require(len(calls) == 1 and not service.completions, "negative check started another provider or applied graph")
+        for providers in ("claude", "codex,claude"):
+            try:
+                launcher.build_compose_command(task_id=args.task_id, project=args.compose_project,
+                                               providers=providers, max_calls=4, provider_allowlist=("codex",))
+            except ValueError as exc:
+                require("not in provider_allowlist" in str(exc), str(exc))
+            else:
+                raise AssertionError("Codex-only host accepted forbidden decomposition command")
+
+
 def main() -> int:
     tests = (
+        test_codex_only_d1b1_proposal_uses_real_validation_and_truthful_handoff,
         test_git_timeout_is_normalized_for_lease_and_artifact_cleanup,
         test_exact_d1c_commit_uses_subject_and_sole_authorized_parent,
         test_proposal_failure_releases_durable_lease_without_killing_scheduler,

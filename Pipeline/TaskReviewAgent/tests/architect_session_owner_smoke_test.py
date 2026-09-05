@@ -476,7 +476,7 @@ def test_returned_compatibility_mismatch_retires_the_bound_session() -> None:
         )
 
 
-def test_codex_fresh_pooling_fails_before_paid_call() -> None:
+def test_legacy_caller_named_owner_refuses_codex_before_paid_call() -> None:
     with tempfile.TemporaryDirectory() as text:
         runner = FakeArchitectRunner()
         managed = ArchitectSessionOwner(
@@ -538,7 +538,10 @@ def test_session_rotation_keeps_the_same_scheduler_and_live_worker_table() -> No
         )
 
 
-TESTS = (
+from Pipeline.TaskReviewAgent.tests.codex_architect_session_pool_smoke_test import CODEX_TESTS
+
+
+TESTS = (*CODEX_TESTS,
     test_ninety_nine_to_one_hundred_retires_after_returning_result_then_rotates,
     test_completed_wait_batch_counts_as_one_completed_cycle,
     test_failure_streak_resets_and_two_provider_or_output_failures_retire,
@@ -555,7 +558,7 @@ TESTS = (
     test_clean_process_restart_resumes_the_exact_durable_session,
     test_restart_compatibility_changes_retire_before_a_fresh_paid_call,
     test_returned_compatibility_mismatch_retires_the_bound_session,
-    test_codex_fresh_pooling_fails_before_paid_call,
+    test_legacy_caller_named_owner_refuses_codex_before_paid_call,
     test_session_rotation_keeps_the_same_scheduler_and_live_worker_table,
 )
 

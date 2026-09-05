@@ -1286,6 +1286,8 @@ def analyze_candidate(
         if type(compatibility) is not ArchitectSessionCompatibility:
             raise ArchitectPreflightError("architect session compatibility type is invalid")
         invocation_metadata["provider_session_compatibility"] = compatibility.to_dict()
+        if confirmation.provider_identifier == "openai-codex":
+            invocation_metadata["provider_session_resume_contract"] = invoker.resume_contract
     artifact_path = persist_architect_advisory(
         artifact_root=artifact_root,
         analysis_id=analysis_id,
@@ -1413,6 +1415,8 @@ def analyze_portfolio(
         if type(compatibility) is not ArchitectSessionCompatibility:
             raise ArchitectPreflightError("architect session compatibility type is invalid")
         invocation_metadata["provider_session_compatibility"] = compatibility.to_dict()
+        if confirmation.provider_identifier == "openai-codex":
+            invocation_metadata["provider_session_resume_contract"] = invoker.resume_contract
     _safe_write_json(
         artifact_path,
         {
@@ -1876,6 +1880,7 @@ class RuntimeArchitectInvoker:
         provider: str,
         model: str | None = None,
         session_binding: ProviderSessionBinding | None = None,
+        codex_resume_sandbox_argument: tuple[str, ...] | None = None,
     ) -> None:
         self.source = Path(source).resolve()
         self.artifact_root = Path(artifact_root)
@@ -1891,6 +1896,13 @@ class RuntimeArchitectInvoker:
                 "architect session binding must be an exact ProviderSessionBinding"
             )
         self.session_binding = session_binding
+        self.resume_contract = None
+        if codex_resume_sandbox_argument is not None:
+            from Pipeline.TaskReviewAgent.supervisor_session_pool import CodexResumeActivation
+            if self.provider_name != "codex" or session_binding is None:
+                raise ArchitectPreflightError("resume control requires a bound Codex architect session")
+            activation = CodexResumeActivation(codex_resume_sandbox_argument)
+            self.resume_contract = activation.fingerprint
         self.session_ledger = ProviderSessionLedger() if session_binding is not None else None
         if self.provider_name == "claude":
             provider_identifier = "claude-code"
@@ -1909,6 +1921,7 @@ class RuntimeArchitectInvoker:
                 repository_root=self.source,
                 session=session_binding,
                 session_ledger=self.session_ledger,
+                resume_sandbox_argument=codex_resume_sandbox_argument,
             )
         self.session_compatibility = ArchitectSessionCompatibility(
             provider_identifier,
@@ -2048,6 +2061,7 @@ def main(argv: list[str] | None = None) -> int:
             raise ArchitectPreflightError("stdin must contain one JSON object")
         payload_fields = set(payload)
         payload_fields.discard("provider_session")
+        payload_fields.discard("codex_resume_sandbox_argument")
         if payload_fields not in ({
             "source_head",
             "task",
@@ -2070,12 +2084,18 @@ def main(argv: list[str] | None = None) -> int:
             if "provider_session" not in payload
             else ProviderSessionBinding.from_dict(payload["provider_session"])
         )
+        if "codex_resume_sandbox_argument" in payload and type(payload["codex_resume_sandbox_argument"]) is not list:
+            raise ArchitectPreflightError("Codex resume control must be an exact JSON array")
         invoker = RuntimeArchitectInvoker(
             source=args.source,
             artifact_root=args.artifact_root,
             provider=args.provider,
             model=args.model,
             session_binding=session_binding,
+            codex_resume_sandbox_argument=(
+                None if "codex_resume_sandbox_argument" not in payload
+                else tuple(payload["codex_resume_sandbox_argument"])
+            ),
         )
         if "task" in payload:
             task = payload["task"]

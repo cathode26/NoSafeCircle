@@ -65,6 +65,10 @@ from Pipeline.TaskReviewAgent.openai_pipeline import (  # noqa: E402
 from Pipeline.TaskReviewAgent.production_pipeline import (  # noqa: E402
     ProductionTaskController,
 )
+from Pipeline.TaskReviewAgent.provider_policy import (  # noqa: E402
+    parse_provider_allowlist,
+    require_permitted_provider,
+)
 from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     OPENAI_REASONING_EFFORTS,
 )
@@ -126,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.getenv("TASK_REVIEW_EXECUTION_PROVIDER", "claude"),
     )
     parser.add_argument("--unity-executable")
+    parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--run-id")
     parser.add_argument("--admission-source-head")
@@ -392,6 +397,8 @@ def main(argv: list[str] | None = None) -> int:
     supervisor_owner: SupervisorSessionOwner | None = None
     scheduler_result = False
     try:
+        require_permitted_provider(args.execution_provider, args.provider_allowlist, role="execution")
+        require_permitted_provider("codex", args.provider_allowlist, role="supervisor")
         scheduler_result = _scheduler_result_enabled(args)
         if args.enable_execution_session_pool and not scheduler_result:
             raise GenericSelectionError(
@@ -585,6 +592,10 @@ def main(argv: list[str] | None = None) -> int:
             # both values explicitly.
             if args.execution_model is not None:
                 controller_options["execution_model"] = args.execution_model
+            if args.provider_allowlist is not None:
+                controller_options["provider_allowlist"] = args.provider_allowlist
+                if args.execution_provider == "claude" and "codex" in args.provider_allowlist:
+                    controller_options["quota_fallback_provider"] = "codex"
             if args.execution_reasoning_effort is not None:
                 controller_options["execution_reasoning_effort"] = (
                     args.execution_reasoning_effort

@@ -55,12 +55,22 @@ class ProductionTaskController:
         execution_command_runner=None,
         execution_session_pool_owner=None,
         enable_execution_session_pool: bool = False,
+        provider_allowlist: tuple[str, ...] | None = None,
+        quota_fallback_provider: str | None = None,
     ) -> None:
         self.workflow = workflow
         self.task_id = workflow.task_id
         self.execution_provider = str(execution_provider).strip().casefold()
         if self.execution_provider not in ("claude", "codex"):
             raise ProductionPipelineError("execution_provider must be claude or codex")
+        from .provider_policy import provider_allowlist as validate_allowlist, require_permitted_provider
+        self.provider_allowlist = validate_allowlist(provider_allowlist)
+        require_permitted_provider(self.execution_provider, self.provider_allowlist, role="execution")
+        if quota_fallback_provider is not None:
+            if quota_fallback_provider != "codex" or self.provider_allowlist is None:
+                raise ProductionPipelineError("quota fallback requires explicitly permitted Codex")
+            require_permitted_provider("codex", self.provider_allowlist, role="quota fallback")
+        self.quota_fallback_provider = quota_fallback_provider
         self.execution_model = (
             str(execution_model).strip() if execution_model else None
         )
@@ -120,6 +130,11 @@ class ProductionTaskController:
                 lease_id=state["lease_id"],
                 expected_branch=branch,
             )
+            execution_options: dict[str, Any] = {}
+            if self.provider_allowlist is not None:
+                execution_options["provider_allowlist"] = self.provider_allowlist
+            if self.quota_fallback_provider is not None:
+                execution_options["quota_fallback_provider"] = self.quota_fallback_provider
             self.execution = ExecutionCrewBridge(
                 checkout=checkout["path"],
                 scope=self.scope,
@@ -131,6 +146,7 @@ class ProductionTaskController:
                 worker_slot_id=self.workflow.worker_id,
                 session_pool_owner=self.execution_session_pool_owner,
                 enable_session_pool=self.enable_execution_session_pool,
+                **execution_options,
             )
             self.integrator = CandidateIntegrator(
                 checkout=checkout["path"],

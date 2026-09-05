@@ -14,6 +14,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
+from Pipeline.AgentRuntime.provider_failover import validate_quota_route
 
 from .contracts import TaskReviewContractError, semantic_sha256, validate_task_id
 from .pipeline_scope import AcceptedExecutionScope, RepositoryScopeAuthority
@@ -237,8 +238,12 @@ class ExecutionCrewBridge:
         worker_slot_id: str | None = None,
         session_pool_owner: ExecutionCrewSessionPoolOwner | None = None,
         enable_session_pool: bool = False,
+        provider_allowlist: tuple[str, ...] | None = None,
+        quota_fallback_provider: str | None = None,
     ) -> None:
         self.checkout = Path(checkout).resolve()
+        self.provider_allowlist = provider_allowlist
+        self.quota_fallback_provider = quota_fallback_provider
         self.scope = scope
         self.execution_model = (
             str(execution_model).strip() if execution_model else None
@@ -323,6 +328,10 @@ class ExecutionCrewBridge:
         feedback_file: Path | None,
         pool_assignment: Mapping[str, Any] | None = None,
     ) -> list[str]:
+        try:
+            validate_quota_route(provider, self.provider_allowlist, self.quota_fallback_provider)
+        except ValueError as exc:
+            raise ExecutionBridgeError(str(exc)) from exc
         service = f"{provider}-exec"
         command = [
             "docker",
@@ -333,6 +342,12 @@ class ExecutionCrewBridge:
             "--rm",
             "-T",
         ]
+        if provider == "claude" and self.quota_fallback_provider == "codex":
+            # Both CLIs are already installed in the shared image. Mount the same
+            # project-scoped Codex config that codex-exec uses, only for a run
+            # explicitly authorized to hand an exhausted Claude role to Codex.
+            command.extend(("--volume", f"{self.compose_project}_codex-config:/home/agent/.codex",
+                            "--env", "CODEX_HOME=/home/agent/.codex"))
         if pool_assignment is not None:
             command.extend(
                 (
@@ -351,6 +366,10 @@ class ExecutionCrewBridge:
             "--host-output-root",
             str(self.output_root),
         ])
+        if self.provider_allowlist is not None:
+            command.extend(("--provider-allowlist", ",".join(self.provider_allowlist)))
+        if self.quota_fallback_provider is not None:
+            command.extend(("--quota-fallback-provider", self.quota_fallback_provider))
         if pool_assignment is not None:
             command.extend(
                 (
@@ -412,6 +431,10 @@ class ExecutionCrewBridge:
         provider = str(provider).strip().casefold()
         if provider not in _PROVIDER:
             raise ExecutionBridgeError("ExecutionCrew provider must be claude or codex")
+        try:
+            validate_quota_route(provider, self.provider_allowlist, self.quota_fallback_provider)
+        except ValueError as exc:
+            raise ExecutionBridgeError(str(exc)) from exc
         if self.execution_reasoning_effort is not None and provider != "codex":
             raise ExecutionBridgeError(
                 "ExecutionCrew reasoning effort is supported only for codex"
@@ -745,6 +768,23 @@ class ExecutionCrewBridge:
         accepted: AcceptedExecutionScope,
         provider: str,
     ) -> None:
+        if (result.get("provider_allowlist") != (None if self.provider_allowlist is None else list(self.provider_allowlist))
+                or result.get("quota_fallback_provider") != self.quota_fallback_provider):
+            raise ExecutionBridgeError("ExecutionCrew changed its provider permissions or quota handoff policy")
+        handoffs = result.get("provider_handoffs", {})
+        if type(handoffs) is not dict:
+            raise ExecutionBridgeError("ExecutionCrew provider handoffs must be an object")
+        for role, handoff in handoffs.items():
+            if (provider != "claude" or self.quota_fallback_provider != "codex"
+                    or self.provider_allowlist is None or "codex" not in self.provider_allowlist
+                    or type(handoff) is not dict or handoff.get("role") != role
+                    or role not in result.get("required_roles", [])
+                    or handoff.get("from_provider") != "claude-code"
+                    or handoff.get("to_provider") != "openai-codex"
+                    or handoff.get("failure_classification") != "quota_exhausted"
+                    or handoff.get("session_disposition") != "quarantined"
+                    or handoff.get("target_session_mode") != "start"):
+                raise ExecutionBridgeError("ExecutionCrew exposed an unauthorized provider handoff")
         fixed = {
             "task_id": accepted.task_id,
             "provider": provider,
