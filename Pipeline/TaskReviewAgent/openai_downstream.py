@@ -293,8 +293,15 @@ def run_openai_downstream_pipeline(
     decision_provider: DecisionProvider | None = None,
     progress: ProgressSink | None = None,
     session_owner: Any = None,
+    reasoning_effort: str | None = None,
 ) -> dict[str, Any]:
-    """Drive downstream work with Codex CLI while host tools retain authority."""
+    """Drive downstream work with Codex CLI while host tools retain authority.
+
+    ``reasoning_effort`` is the routed supervisor effort. The downstream phase
+    of a task must use the same effort as its implementation phase, because the
+    task-scoped supervisor conversation is compatible only with the exact model
+    and effort it was started under.
+    """
 
     if isinstance(max_turns, bool) or not isinstance(max_turns, int) or not 4 <= max_turns <= 160:
         raise OpenAIDownstreamPipelineError("max_turns must be an integer from 4 through 160")
@@ -311,6 +318,7 @@ def run_openai_downstream_pipeline(
     provider = decision_provider or CodexDockerDecisionProvider(
         source=controller.workflow.base_observer.root,
         model=model,
+        reasoning_effort=reasoning_effort,
         session_owner=session_owner,
     )
     history: list[dict[str, Any]] = []

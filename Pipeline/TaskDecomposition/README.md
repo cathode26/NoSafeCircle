@@ -128,6 +128,95 @@ Every unique provider bundle is validated before the run directory is published.
 
 See `Docs/AI-Pipeline/ADR-035_ROUND_ROBIN_DECOMPOSITION_REVIEW.md`.
 
+## Durable author and reviewer sessions
+
+The scheduler-launched host boundary can keep one resumable provider
+conversation per semantic role and provider across D1B runs: the
+`task_decomposer` (candidate author) and the `decomposition_reviewer`
+(independent reviewer). Pooling means persisting and safely resuming the
+provider conversation identity; no container, Python, or CLI process stays
+alive. Every D1B.1 and D1B.2 authority boundary is unchanged: rounds still
+receive only repository read/search, empty write boundaries, the same output
+schemas, the same deterministic validation after every candidate, and every
+result stays `review_only_not_applied`.
+
+The provider factory seam carries the semantic role explicitly:
+`factory(provider_name, source_root, role)` for an ephemeral round and
+`factory(provider_name, source_root, role, session_binding, session_ledger,
+codex_resume_sandbox_argument)` for a pooled one. The role is never inferred
+from the provider name or the round number; a factory that cannot accept the
+pooled arguments is refused rather than run without its conversation.
+
+### Independence
+
+An author conversation is never used as a reviewer conversation, and the
+reverse is never true either, even when one provider and model serve both
+roles in one run. Each `<provider>:<role>` pair is a distinct lease with a
+distinct scope key and therefore a distinct provider session ID; the
+AgentRuntime adapters independently refuse a binding whose role differs from
+the invocation's role. A reviewer round's prompt is built only from the
+authorized candidate artifacts, review history, and deterministic context, and
+its capsule names the reviewer role only; the author's conversation history
+is not reachable from it. Nothing here is shared with the architect,
+supervisor, or ExecutionCrew pools: the protocol, role vocabulary, and state
+file are all distinct. Round-robin ordering, the "latest author may not
+approve" rule, reviewer replay, and candidate hash binding are untouched.
+
+### Identity, evidence, and check-in
+
+Sessions are repository-wide, so they may resume across revisions, rounds, and
+runs of the same decomposition and, through a fresh assignment capsule that
+revokes the prior task's authority and binds the new task, source, and
+artifact, across later tasks. A lease's scope binds the protocol version,
+role, provider, model, reasoning effort, repository origin, the verified Codex
+resume control for Codex, and exactly one extra fact: the conversation store
+`compose:<project>/<provider>-config`, the Docker Compose volume the
+provider's session files live in under the launcher's `--compose-project`. The
+container cannot observe the project it runs under, so it refuses a bundle
+whose lease binds anything else or a store its provider does not use, carries
+the host's value into every round's evidence, and the host verifies it at
+settlement. Every pooled round's prompt is led by that
+capsule: it names the current task, decomposition run, round, mode, source
+HEAD and tree, and the reviewed candidate hash, lists the round's single
+allowed action and its read-only capabilities, and declares earlier context
+recall only.
+
+A round proves its conversation only through the adapter's transcript-proven
+`ProviderSessionConfirmation`. A pooled round that proves none stops the run
+as `agent_failed` (`provider_session_identity_unproven`), because its output
+cannot be attributed to the conversation it was supposed to come from. Every
+proven round writes an exact evidence block into its `round_result.json`
+(`pooled_session`) and into the run result's `pooled_sessions` summary,
+binding: parent task ID, decomposition run ID, round number and invocation ID,
+semantic role, provider, model, reasoning effort, decomposition mode, source
+HEAD and tree, checkout identity, conversation store, lease and record IDs,
+the requested and confirmed session identity, and the SHA-256 of the exact
+candidate or review artifact the round produced. The host re-reads those artifacts, rehashes them,
+and requires every field to equal the lease and run request; a missing,
+mismatched, or tampered artifact, round, run, task, role, provider, model,
+source, or identity withdraws the conversation instead of returning it.
+
+### Activation and lifetime
+
+`run_round_robin_decomposition.py` and `run_decomposition.py` accept
+`--role-session-leases <bundle>` with `--scheduler-repository-identity` and an
+explicit `--run-id`; omitting them leaves every round exactly ephemeral. The
+bundle is written by the host owner in
+`Pipeline/TaskReviewAgent/decomposition_session_pool.py`, mounted read-only
+at `/nsc-pool/decomposition-leases.json`, and bound to the exact task, source
+commit, mode, provider rotation, and repository origin before any provider
+runs. Claude conversations pool whenever the scheduler enables the pool; Codex
+conversations pool only when the operator has supplied the verified `codex
+exec resume` control (`NSC_CODEX_RESUME_SANDBOX_ARGUMENT`), otherwise Codex
+rounds stay ephemeral. A conversation is a deep worker assignment of the
+committed lifecycle policy: eight completed assignments, two consecutive
+provider/output failures, an identity failure or incompatibility, or a known
+context utilization of 70% (only when `NSC_DECOMPOSITION_CONTEXT_WINDOW_TOKENS`
+states the window explicitly) retire it; seven idle days or fourteen days
+from creation expire it. Regressions:
+`Pipeline/TaskDecomposition/tests/pooled_decomposition_smoke_test.py` and
+`Pipeline/TaskReviewAgent/tests/decomposition_session_pool_smoke_test.py`.
+
 ## Decomposition as an orchestrator work type
 
 Decomposition is a selectable **orchestrator work type** for generic task-picking requests. It is not a new TaskGraph `kind` and does not create a fake `NSC-###` task for the act of decomposition.

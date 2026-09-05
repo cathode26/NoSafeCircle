@@ -33,6 +33,10 @@ from Pipeline.AgentRuntime.contracts import (
     WriteBoundaries,
 )
 from Pipeline.AgentRuntime.json_values import thaw_json
+from Pipeline.AgentRuntime.provider_sessions import (
+    ProviderSessionBinding,
+    ProviderSessionLedger,
+)
 from Pipeline.TaskExecution.contracts import (
     TASK_EXECUTION_REQUEST_SCHEMA_VERSION,
     TaskContractIdentity,
@@ -79,6 +83,16 @@ from TaskDecomposition.review_policy import (
 from TaskDecomposition.review_prompts import build_decomposition_reviewer_prompt
 from TaskDecomposition.review_schemas import DECOMPOSITION_REVIEW_SCHEMA
 from TaskDecomposition.schemas import DECOMPOSITION_RESULT_SCHEMA
+from TaskDecomposition.session_pool_support import (
+    DecompositionLeaseBundle,
+    DecompositionSessionError,
+    PooledRoundSessions,
+    assert_lease_matches_route,
+    bind_lease_bundle_to_run,
+    canonical_artifact_sha256,
+    lease_key,
+    pooled_round_evidence,
+)
 from graph_delta import GraphDeltaPlan, GraphDeltaPlanningError, plan_graph_delta
 
 
@@ -304,6 +318,7 @@ def _invoke_round(
     budgets: Budgets,
     heartbeat_seconds: float,
     reporter: ProgressReporter,
+    session_binding: ProviderSessionBinding | None = None,
 ) -> tuple[AgentResult | None, Exception | None, float, str]:
     invocation_id = _round_invocation_id(
         task_id, run_id, round_number, role
@@ -338,6 +353,7 @@ def _invoke_round(
         round_role=role,
         round_provider=provider,
         invocation_id=invocation_id,
+        session_mode=None if session_binding is None else session_binding.mode,
     )
     stopped = threading.Event()
     invocation_started = time.monotonic()
@@ -429,6 +445,8 @@ def run_round_robin_decomposition(
     run_id: str | None = None,
     provider_factory: ProviderFactory | None = None,
     _require_physical_read_only_source: bool = True,
+    lease_bundle: DecompositionLeaseBundle | None = None,
+    scheduler_repository_identity: str | None = None,
 ) -> dict[str, Any]:
     """Run one bounded alternating-author/reviewer decomposition circuit."""
 
@@ -437,6 +455,13 @@ def run_round_robin_decomposition(
         raise DecompositionPreflightError("task ID must match NSC-###")
     order = validate_provider_order(provider_order)
     call_limit = round_robin_call_limit(max_calls)
+    if (lease_bundle is None) != (scheduler_repository_identity is None):
+        raise DecompositionPreflightError(
+            "pooled decomposition sessions require both the lease bundle and the "
+            "scheduler-proven repository identity"
+        )
+    if lease_bundle is not None and run_id is None:
+        raise DecompositionPreflightError("pooled decomposition sessions require an explicit run id")
     source_identity = capture_clean_source(source)
     safe_output_root = require_output_disjoint(
         source_identity.root, output_root
@@ -457,12 +482,29 @@ def run_round_robin_decomposition(
     reviewer_budget = reviewer_budgets()
     heartbeat_seconds = heartbeat_interval()
     selected_run_id = _validate_run_id(run_id or _new_run_id(task_id))
-    provider_bundles: dict[str, ProviderBundle] = {
-        provider: _validated_provider_bundle(
-            provider, source_identity.root, provider_factory
-        )
-        for provider in dict.fromkeys(order)
-    }
+    # Every provider/role pair the circuit may reach is validated before the
+    # run directory is published, ephemerally; the round itself constructs the
+    # provider again with its exact role and, when pooled, its session.
+    for provider in dict.fromkeys(order):
+        for role_name in ("task_decomposer", "decomposition_reviewer"):
+            _validated_provider_bundle(
+                provider, source_identity.root, provider_factory, role=role_name
+            )
+    pooled_sessions: PooledRoundSessions | None = None
+    codex_resume_sandbox_argument: tuple[str, ...] | None = None
+    if lease_bundle is not None:
+        assert scheduler_repository_identity is not None
+        try:
+            bind_lease_bundle_to_run(
+                lease_bundle, task_id=task_id, source_head=source_identity.head,
+                source_root=source_identity.root, decomposition_mode="round_robin_d1b2",
+                scheduler_repository_identity=scheduler_repository_identity,
+                provider_order=order,
+            )
+        except DecompositionSessionError as exc:
+            raise DecompositionPreflightError(f"lease bundle does not bind to this run: {exc}") from exc
+        pooled_sessions = PooledRoundSessions(lease_bundle)
+        codex_resume_sandbox_argument = lease_bundle.codex_resume_sandbox_argument
     changed_during_provider_setup = source_revalidation_reasons(source_identity)
     if changed_during_provider_setup:
         raise DecompositionPreflightError(
@@ -565,17 +607,75 @@ def run_round_robin_decomposition(
             task_id, selected_run_id, round_number, role
         )
         round_dir = run_dir / "rounds" / f"{round_number:02d}"
+        # The session for this round is the lease for exactly this provider
+        # *and* this semantic role. An author lease is never handed to a
+        # reviewer round, however many rounds the same provider serves.
+        pooled_key: str | None = None
+        session_binding: ProviderSessionBinding | None = None
+        session_ledger: ProviderSessionLedger | None = None
+        if pooled_sessions is not None and lease_bundle is not None:
+            if lease_bundle.lease_for(provider, role) is not None:
+                pooled_key = lease_key(provider, role)
+                session_binding = pooled_sessions.binding_for(pooled_key)
+                session_ledger = ProviderSessionLedger()
+                prompt = pooled_sessions.capsule_for(
+                    pooled_key,
+                    current={
+                        "task": task_id,
+                        "decomposition_run": selected_run_id,
+                        "round": str(round_number),
+                        "decomposition_mode": "round_robin_d1b2",
+                        "source_head": source_identity.head,
+                        "source_tree": source_identity.tree,
+                        "reviewed_candidate_sha256": (
+                            "(none: this round authors the initial candidate)"
+                            if candidate is None else candidate.sha256
+                        ),
+                    },
+                    allowed_actions=(
+                        ("author one structured decomposition result for the selected task",)
+                        if role == "task_decomposer"
+                        else ("return exactly one structured review verdict: pass, revise, or needs_human",)
+                    ),
+                ) + "\n\n" + prompt
         publish_json_no_overwrite(
             run_dir / "rounds" / f"{round_number:02d}-request.json",
-            _round_request(
-                round_number=round_number,
-                role=role,
-                provider=provider,
-                invocation_id=invocation_id,
-                candidate=candidate,
-                unresolved_findings=unresolved_findings,
-            ),
+            {
+                **_round_request(
+                    round_number=round_number,
+                    role=role,
+                    provider=provider,
+                    invocation_id=invocation_id,
+                    candidate=candidate,
+                    unresolved_findings=unresolved_findings,
+                ),
+                "pooled_session_key": pooled_key,
+                "session_mode": None if session_binding is None else session_binding.mode,
+                "requested_session_id": None if session_binding is None else session_binding.session_id,
+            },
         )
+        provider_bundle = _validated_provider_bundle(
+            provider, source_identity.root, provider_factory, role=role,
+            session=session_binding, session_ledger=session_ledger,
+            codex_resume_sandbox_argument=codex_resume_sandbox_argument,
+        )
+        route_model: str | None = None
+        route_effort: str | None = None
+        if pooled_key is not None:
+            assert lease_bundle is not None
+            bundle_key, bundle_configuration, bundle_registry = provider_bundle
+            selection = bundle_configuration.resolve(bundle_key, "high_reasoning", bundle_registry)
+            route_model = selection.model
+            route_effort = getattr(bundle_registry[selection.provider], "reasoning_effort", None)
+            try:
+                assert_lease_matches_route(
+                    lease_bundle.leases[pooled_key],
+                    provider_identifier=selection.provider,
+                    model=route_model,
+                    reasoning_effort=route_effort,
+                )
+            except DecompositionSessionError as exc:
+                raise DecompositionPreflightError(str(exc)) from exc
 
         agent_result, invocation_exception, round_duration, actual_invocation_id = _invoke_round(
             run_dir=run_dir,
@@ -584,7 +684,7 @@ def run_round_robin_decomposition(
             run_id=selected_run_id,
             role=role,
             provider=provider,
-            provider_bundle=provider_bundles[provider],
+            provider_bundle=provider_bundle,
             prompt=prompt,
             output_schema=output_schema,
             context_paths=context_paths,
@@ -592,6 +692,7 @@ def run_round_robin_decomposition(
             budgets=budgets,
             heartbeat_seconds=heartbeat_seconds,
             reporter=reporter,
+            session_binding=session_binding,
         )
         if actual_invocation_id != invocation_id:
             rejection_reasons.append("internal invocation identity mismatch")
@@ -643,11 +744,48 @@ def run_round_robin_decomposition(
             ),
             "status": "rejected",
             "authority": "review_only_not_applied",
+            "pooled_session": None,
         }
 
         round_rejections: list[str] = []
         post_call_source_reasons = source_revalidation_reasons(source_identity)
-        if invocation_exception is not None:
+        session_unproven = False
+        if session_ledger is not None:
+            assert session_binding is not None and pooled_key is not None
+            if session_ledger.confirmed is None:
+                # The provider never named the conversation, so this round's
+                # output cannot be attributed to the conversation it was
+                # supposed to come from. The run stops without an authoritative
+                # result; the host quarantines the reservation.
+                session_unproven = True
+                detail = (
+                    f"round {round_number} {role} asked to {session_binding.mode} provider "
+                    f"session {session_binding.session_id or '(provider-assigned)'} but the "
+                    "transcript never confirmed it; the conversation is unproven, quarantined, "
+                    "and never reused"
+                )
+                reporter.emit(
+                    "provider_session_identity_unproven", detail, round_number=round_number,
+                    round_role=role, round_provider=provider, pooled_session_key=pooled_key,
+                    session_mode=session_binding.mode,
+                    requested_session_id=session_binding.session_id, status="quarantined",
+                )
+                round_rejections.append(f"provider session identity unproven: {detail}")
+                run_status = "agent_failed"
+                assert pooled_sessions is not None
+                pooled_sessions.record_unproven(pooled_key, detail)
+            else:
+                confirmed = session_ledger.confirmed
+                reporter.emit(
+                    "provider_session_confirmed",
+                    f"round {round_number} {role} confirmed provider session {confirmed.session_id}",
+                    round_number=round_number, round_role=role, round_provider=provider,
+                    pooled_session_key=pooled_key, session_mode=confirmed.mode,
+                    session_id=confirmed.session_id, status="confirmed",
+                )
+        if session_unproven:
+            pass
+        elif invocation_exception is not None:
             round_rejections.append(
                 "task-associated invocation failed: "
                 f"{type(invocation_exception).__name__}: {invocation_exception}"
@@ -787,6 +925,34 @@ def run_round_robin_decomposition(
         else:
             round_summary["rejection_reasons"] = []
         round_summary["unresolved_finding_ids"] = sorted(unresolved_findings)
+        if session_ledger is not None and session_ledger.confirmed is not None:
+            assert pooled_sessions is not None and lease_bundle is not None
+            assert pooled_key is not None and session_binding is not None and route_model is not None
+            # The artifact this round produced, hashed exactly as published:
+            # the author's or reviser's candidate, or the reviewer's verdict.
+            artifact_path: str | None = None
+            artifact_sha256: str | None = None
+            if round_summary["candidate_after"] is not None and candidate is not None:
+                artifact_path = f"rounds/{round_number:02d}/candidate.json"
+                artifact_sha256 = canonical_artifact_sha256(candidate.result.to_dict())
+            elif round_summary["verdict"] is not None and (round_dir / "review.json").is_file():
+                artifact_path = f"rounds/{round_number:02d}/review.json"
+                artifact_sha256 = hashlib.sha256((round_dir / "review.json").read_bytes()).hexdigest()
+            evidence = pooled_round_evidence(
+                lease_key_value=pooled_key,
+                lease=lease_bundle.leases[pooled_key],
+                task_id=task_id, run_id=selected_run_id, decomposition_mode="round_robin_d1b2",
+                round_number=round_number, invocation_id=invocation_id, role=role,
+                provider_name=provider, model=route_model, reasoning_effort=route_effort,
+                source_head=source_identity.head, source_tree=source_identity.tree,
+                checkout_identity=lease_bundle.checkout_identity,
+                requested=session_binding, confirmed=session_ledger.confirmed,
+                artifact_path=artifact_path, artifact_sha256=artifact_sha256,
+                agent_status=str(round_summary["agent_status"]),
+                round_status=str(round_summary["status"]),
+            )
+            round_summary["pooled_session"] = evidence
+            pooled_sessions.record(pooled_key, session_ledger.confirmed, evidence)
         publish_json_no_overwrite(
             round_dir / "round_result.json", round_summary
         )
@@ -869,6 +1035,7 @@ def run_round_robin_decomposition(
         "human_next_step": _human_next_step(run_status),
         "duration_seconds": time.monotonic() - started,
         "authority": "review_only_not_applied",
+        "pooled_sessions": None if pooled_sessions is None else pooled_sessions.summary(),
     }
     reporter.emit(
         "run_completed",

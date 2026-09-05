@@ -35,6 +35,7 @@ from Pipeline.TaskReviewAgent.codex_supervisor import (  # noqa: E402
     CodexDockerDecisionProvider,
     CodexSupervisorError,
     SUPERVISOR_TURN_SCHEMA_VERSION,
+    resolve_supervisor_reasoning_effort,
 )
 
 # The pooled-turn contract test below needs only the pre-existing turn
@@ -176,7 +177,8 @@ class Harness:
     def __init__(self, temp: Path, *, activation: Any = ACTIVATION,
                  task_id: str = TASK, run_id: str = "run-1", worker_id: str = "worker-1",
                  model: str = MODEL, effort: str = "high", repository: str = REPOSITORY,
-                 context_window: int | None = None, clock: Callable[[], dt.datetime] | None = None) -> None:
+                 context_window: int | None = None, clock: Callable[[], dt.datetime] | None = None,
+                 compose_project: str = "nosafecircle", provider_compose_project: str | None = None) -> None:
         if POOL_IMPORT_ERROR is not None:
             raise AssertionError(f"pre-fix semantics: supervisor pooling does not exist ({POOL_IMPORT_ERROR})")
         self.temp = temp
@@ -187,10 +189,12 @@ class Harness:
             source=ROOT, checkout_root=temp / "checkouts", task_id=task_id, worker_id=worker_id,
             run_id=run_id, model=model, reasoning_effort=effort, resume_activation=activation,
             context_window_tokens=context_window, repository_identity=repository,
+            compose_project=compose_project,
             clock=clock or (lambda: T0), host_identity="test-host",
         )
         self.provider = CodexDockerDecisionProvider(
             source=ROOT, model=model, reasoning_effort=effort, timeout_seconds=30.0,
+            compose_project=provider_compose_project or compose_project,
             command_runner=container_runner(self.fake, requests=self.requests),
             session_owner=self.owner,
         )
@@ -387,14 +391,20 @@ def test_timeout_and_transport_uncertainty_retire() -> None:
         broken = Harness(temp, run_id="run-2", worker_id="worker-2")
         try:
             broken.decide(1)
+            resumed_record = broken.provider.last_session["record_id"]
+            resumed_thread = broken.provider.last_session["confirmed_session_id"]
 
             def explode(command, *, cwd, input_bytes, timeout_seconds):
                 raise subprocess.TimeoutExpired(command, timeout_seconds)
 
             broken.provider.command_runner = explode
             expect_error(lambda: broken.decide(2), subprocess.TimeoutExpired)
-            record = [r for r in broken.records() if r.state == "retired" and r.retirement_reason == "interrupted_assignment"]
-            require(len(record) >= 1, "docker-level timeout retires as uncertain")
+            require(broken.provider.last_session["outcome"] == "uncertain" and broken.provider.last_session["record_id"] == resumed_record, str(broken.provider.last_session))
+            record = [r for r in broken.records() if r.record_id == resumed_record][0]
+            require(record.state == "retired" and record.retirement_reason == "interrupted_assignment", f"docker-level timeout must retire this exact conversation: {record}")
+            broken.provider.command_runner = container_runner(broken.fake, requests=broken.requests)
+            broken.decide(3)
+            require(argv_of(broken.fake, len(broken.fake.calls) - 1)[2] != "resume" and broken.fake.thread_ids[-1] != resumed_thread, "the uncertain conversation is never resumed")
         finally:
             broken.close()
 
@@ -486,6 +496,9 @@ def test_compatibility_mismatch_cold_starts_and_retires_the_old_session() -> Non
             "effort": dict(effort="low"),
             "repository": dict(repository="https://github.com/cathode26/NoSafeCircle-Homework-Rehearsal.git"),
             "resume control": dict(activation=CodexResumeActivation(("-c", 'sandbox_mode="workspace-write"'))),
+            # Another compose project mounts another codex-config volume, where
+            # the old conversation's session files do not exist.
+            "conversation store": dict(compose_project="nosafecircle-other"),
         }
         for label, overrides in variants.items():
             harness = Harness(temp, run_id=f"run-{label.replace(' ', '-')}", worker_id="worker-x", **overrides)
@@ -518,6 +531,73 @@ def test_compatibility_mismatch_cold_starts_and_retires_the_old_session() -> Non
             module.SUPERVISOR_SESSION_PROTOCOL_VERSION = original
 
 
+def test_conversation_store_is_part_of_the_session_identity() -> None:
+    """The compose project names the volume a Codex conversation lives in.
+
+    The owner binds ``compose:<project>/codex-config`` into its scope and
+    reports it; a provider built for another project is refused outright
+    instead of resuming a session whose files it could not see; and the store
+    value itself is validated as an exact Docker Compose project name.
+    """
+
+    from Pipeline.TaskReviewAgent.supervisor_session_pool import (
+        conversation_store_binding, gate_off_activation_state, resolve_compose_project,
+    )
+
+    with tempfile.TemporaryDirectory() as raw:
+        temp = Path(raw)
+        harness = Harness(temp, compose_project="nosafecircle-m2a")
+        try:
+            state = harness.owner.activation_state()
+            require(state["conversation_store"] == "compose:nosafecircle-m2a/codex-config", str(state))
+            require(harness.owner.scope.binding("conversation_store") == "compose:nosafecircle-m2a/codex-config", str(harness.owner.scope))
+            require("conversation_store=compose:nosafecircle-m2a/codex-config" in harness.owner.scope.key(), harness.owner.scope.key())
+            harness.decide(1)
+            record = harness.records()[0]
+            require(record.scope.binding("conversation_store") == "compose:nosafecircle-m2a/codex-config", "the durable record carries the store")
+        finally:
+            harness.close()
+        require(gate_off_activation_state(TASK)["conversation_store"] is None, "gate off names no store")
+        try:
+            Harness(temp, run_id="run-mismatch", compose_project="nosafecircle-m2a", provider_compose_project="nosafecircle")
+        except CodexSupervisorError as exc:
+            require("compose project" in str(exc), str(exc))
+        else:
+            raise AssertionError("a provider under another compose project accepted the owner")
+        for bad in ("Not A Project", "", "-leading", "has space", "UPPER"):
+            try:
+                resolve_compose_project(bad or None) if bad else None
+                if bad:
+                    raise AssertionError(f"{bad!r} was accepted as a compose project")
+            except SupervisorSessionPoolError as exc:
+                require("Docker Compose project" in str(exc), str(exc))
+        saved = os.environ.pop("NSC_TASK_AGENT_COMPOSE_PROJECT", None)
+        try:
+            require(resolve_compose_project(None) == "nosafecircle", "repository default")
+            os.environ["NSC_TASK_AGENT_COMPOSE_PROJECT"] = "nosafecircle-env"
+            require(resolve_compose_project(None) == "nosafecircle-env" and resolve_compose_project("explicit-1") == "explicit-1", "environment then explicit")
+            owner = SupervisorSessionOwner(
+                source=ROOT, checkout_root=temp / "checkouts", task_id=TASK, worker_id="worker-env", run_id="run-env",
+                model=MODEL, reasoning_effort="high", resume_activation=ACTIVATION, repository_identity=REPOSITORY,
+                clock=lambda: T0, host_identity="test-host",
+            )
+            try:
+                require(owner.compose_project == "nosafecircle-env" and owner.conversation_store == "compose:nosafecircle-env/codex-config", "the owner resolves the project exactly as the provider does")
+            finally:
+                owner.close()
+        finally:
+            os.environ.pop("NSC_TASK_AGENT_COMPOSE_PROJECT", None)
+            if saved is not None:
+                os.environ["NSC_TASK_AGENT_COMPOSE_PROJECT"] = saved
+        require(conversation_store_binding("nosafecircle", "claude") == ("conversation_store", "compose:nosafecircle/claude-config"), "claude store")
+        try:
+            conversation_store_binding("nosafecircle", "gemini")
+        except SupervisorSessionPoolError:
+            pass
+        else:
+            raise AssertionError("an unknown provider has no conversation store")
+
+
 def test_context_and_assignment_caps_rotate() -> None:
     with tempfile.TemporaryDirectory() as raw:
         temp = Path(raw)
@@ -546,7 +626,7 @@ def test_context_and_assignment_caps_rotate() -> None:
             capped.decide(1)
             payload = json.loads(capped.owner.state_path.read_text(encoding="utf-8"))
             for session in payload["sessions"]:
-                if session["scope"]["bindings"] == [["task_id", OTHER_TASK]] and session["state"] == "idle":
+                if ["task_id", OTHER_TASK] in session["scope"]["bindings"] and session["state"] == "idle":
                     session["completed_assignment_count"] = 99
                     session["lifecycle"]["completed_assignments"] = 99
                     session["lifecycle"]["architect_completed_admission_cycles"] = 99
@@ -578,6 +658,14 @@ def test_deterministic_forced_action_invokes_zero_providers() -> None:
             # A genuinely judgmental menu still uses the pooled conversation.
             harness.decide(2)
             require(len(harness.fake.calls) == 1 and harness.requests[0]["schema_version"] == POOLED_SUPERVISOR_TURN_SCHEMA_VERSION, "judgment turn is pooled")
+            require(harness.provider.last_session["mode"] == "start", str(harness.provider.last_session))
+            # A later deterministic turn must not journal the pooled turn's
+            # lease as its own: no session took part in it.
+            harness.observe(head="9" * 40)
+            harness.provider.decide(task_id=TASK, turn=3, prompt="forced", allowed_actions=("prepare_task_checkout",))
+            require(harness.provider.last_session is None, str(harness.provider.last_session))
+            require(harness.provider._turn_observation == {}, "the observation bound for a deterministic turn is spent")
+            require(len(harness.fake.calls) == 1, "still no provider call")
         finally:
             harness.close()
 
@@ -605,14 +693,252 @@ def test_resume_activation_validation_and_environment() -> None:
         raise AssertionError(f"pre-fix semantics: supervisor pooling does not exist ({POOL_IMPORT_ERROR})")
     for bad in (("--sandbox", "danger-full-access"), ("--last",), ("-s", "danger-full-access"),
                 ("--ephemeral",), ("--dangerously-bypass-approvals-and-sandbox",),
-                ("3f2504e0-4f89-41d3-9a0c-0305e82c3301",), ("",), (" -c",)):
+                ("3f2504e0-4f89-41d3-9a0c-0305e82c3301",), ("",), (" -c",),
+                # Only sandbox configuration overrides reproduce the pinned policy;
+                # a working directory, approval policy, profile, or feature flag
+                # would widen what the resumed turn may do beyond the start.
+                ("-C", "/workspace"), ("--add-dir", "/workspace"), ("-c", 'approval_policy="never"'),
+                ("--profile=verified-resume",), ("-c",), ("-c", 'sandbox_mode="danger-full-access"', "-C", "/workspace"),
+                ("-c", "3f2504e0-4f89-41d3-9a0c-0305e82c3301")):
         expect_error(lambda bad=bad: CodexResumeActivation(bad), SupervisorSessionPoolError)
+    require(CodexResumeActivation(("--config", 'sandbox_mode="danger-full-access"')).argument[0] == "--config", "long flag accepted")
     parsed = CodexResumeActivation.parse('["-c", "sandbox_mode=\\"danger-full-access\\""]')
     require(parsed == ACTIVATION and parsed.fingerprint == ACTIVATION.fingerprint, "parse")
     expect_error(lambda: CodexResumeActivation.parse('{"-c": 1}'), SupervisorSessionPoolError, "JSON array")
     require(codex_resume_activation_from_environment({}) is None, "absent means gate off")
     require(codex_resume_activation_from_environment({"NSC_CODEX_RESUME_SANDBOX_ARGUMENT": "  "}) is None, "blank means gate off")
     require(codex_resume_activation_from_environment({"NSC_CODEX_RESUME_SANDBOX_ARGUMENT": '["-c","sandbox_mode=\\"danger-full-access\\""]'}) == ACTIVATION, "environment")
+
+
+def test_host_rejects_a_decision_whose_resumed_identity_is_unproven() -> None:
+    """Exit code 0 and a valid decision prove nothing about the conversation.
+
+    The in-process container refuses a mismatched transcript itself, so this
+    test bypasses it with crafted envelopes to prove the host's own guard.
+    """
+
+    with tempfile.TemporaryDirectory() as raw:
+        temp = Path(raw)
+        harness = Harness(temp)
+        try:
+            harness.decide(1)
+            thread = harness.fake.thread_ids[0]
+            cases = {
+                "null": None,
+                "other_thread": {"schema_version": "1.0", "provider_identifier": "openai-codex", "role": "task_supervisor", "mode": "resume", "session_id": "9c858901-8a57-4791-81fe-4c455b099bc9"},
+                "start_mode": {"schema_version": "1.0", "provider_identifier": "openai-codex", "role": "task_supervisor", "mode": "start", "session_id": thread},
+                "other_role": {"schema_version": "1.0", "provider_identifier": "openai-codex", "role": "implementer", "mode": "resume", "session_id": thread},
+            }
+            for label, confirmation in cases.items():
+                def crafted(command, *, cwd, input_bytes, timeout_seconds, confirmation=confirmation):
+                    envelope = {
+                        "schema_version": POOLED_SUPERVISOR_TURN_SCHEMA_VERSION,
+                        "structured_output": json.loads(decision_json()),
+                        "usage": {"input_tokens": 10, "output_tokens": 1, "total_tokens": 11, "estimated_cost_usd": None},
+                        "provider_session_confirmation": confirmation,
+                    }
+                    return subprocess.CompletedProcess(command, 0, (json.dumps(envelope) + "\n").encode("utf-8"), b"")
+
+                real_runner = harness.provider.command_runner
+                harness.provider.command_runner = crafted
+                try:
+                    exc = expect_error(lambda: harness.decide(2), CodexSupervisorError, "did not prove its pooled session identity")
+                finally:
+                    harness.provider.command_runner = real_runner
+                record = [r for r in harness.records() if r.session_id == thread or r.state == "quarantined"]
+                require(all(r.state in {"retired", "quarantined"} for r in record) and any(
+                    r.retirement_reason == "identity_failure" for r in record
+                ), f"{label}: {record}")
+                harness.decide(3)
+                fresh = harness.fake.thread_ids[-1]
+                require(argv_of(harness.fake, len(harness.fake.calls) - 1)[2] != "resume" and fresh != thread, f"{label}: unproven identity is never resumed")
+                thread = fresh
+        finally:
+            harness.close()
+
+
+def test_request_build_failure_returns_the_lease_uncharged() -> None:
+    with tempfile.TemporaryDirectory() as raw:
+        temp = Path(raw)
+        harness = Harness(temp)
+        try:
+            harness.decide(1)
+            thread = harness.fake.thread_ids[0]
+            harness.observe()
+            expect_error(
+                lambda: harness.provider.decide(task_id=TASK, turn=2, prompt="bad \udcff surrogate", allowed_actions=JUDGMENT_MENU),
+                UnicodeEncodeError,
+            )
+            record = harness.records()[0]
+            require(record.state == "idle" and record.completed_assignment_count == 1, f"lease must be returned uncharged: {record}")
+            require(len(harness.fake.calls) == 1, "no provider call happened for the failed request")
+            harness.decide(3)
+            require(argv_of(harness.fake, 1)[:3] == ("codex", "exec", "resume") and argv_of(harness.fake, 1)[-2] == thread, "the returned conversation resumes normally")
+        finally:
+            harness.close()
+
+
+def test_worker_entry_point_wires_the_owner_and_reports_the_gate() -> None:
+    from Pipeline.TaskReviewAgent import run_pipeline_agent
+    from types import SimpleNamespace
+
+    names = (
+        "_scheduler_result_enabled", "_managed_issue_phase", "_require_explicit_fresh_admission",
+        "RealTaskReviewWorkflow", "ProductionTaskController", "GuardedTaskController",
+        "run_openai_production_pipeline",
+    )
+    originals = {name: getattr(run_pipeline_agent, name) for name in names}
+    with tempfile.TemporaryDirectory() as raw:
+        temp = Path(raw)
+        source = temp / "source"
+        source.mkdir()
+        subprocess.run(("git", "init", "-q", "-b", "main"), cwd=source, check=True)
+        subprocess.run(("git", "remote", "add", "origin", REPOSITORY), cwd=source, check=True)
+        seen: list[dict[str, Any]] = []
+
+        class Workflow:
+            def __init__(self, *, source: Path, **_values: object) -> None:
+                self.base_observer = SimpleNamespace(root=Path(source))
+
+            @staticmethod
+            def observe_goal_state() -> dict[str, object]:
+                return {"coordination": {"workflow_state": {"phase": "implementation"}}}
+
+        def capture_pipeline(request, controller, **options):
+            owner = options.get("session_owner")
+            seen.append({"owner": owner, "task": request.task_id})
+            return {"status": "human_action_required", "authority": "fixture"}
+
+        environment = {key: os.environ.pop(key) for key in ("NSC_CODEX_RESUME_SANDBOX_ARGUMENT", "NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS") if key in os.environ}
+        try:
+            run_pipeline_agent._scheduler_result_enabled = lambda _args: False
+            run_pipeline_agent._managed_issue_phase = lambda **_values: "implementation"
+            run_pipeline_agent._require_explicit_fresh_admission = lambda **_values: None
+            run_pipeline_agent.RealTaskReviewWorkflow = Workflow
+            run_pipeline_agent.ProductionTaskController = lambda **_values: object()
+            run_pipeline_agent.GuardedTaskController = lambda value, progress=None: value
+            run_pipeline_agent.run_openai_production_pipeline = capture_pipeline
+            common = ["--task-id", TASK, "--source", str(source), "--checkout-root", str(temp / "checkouts"),
+                      "--output-root", str(temp / "outputs"), "--worker-id", "wiring-fixture", "--mode", "openai"]
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                code = run_pipeline_agent.main(common)
+            require(code == 0, f"gate-off worker exited {code}")
+            gate_off = json.loads(stdout.getvalue())
+            require(seen[-1]["owner"] is None, "with the gate off the pipeline receives no owner")
+            require(gate_off["supervisor_session_pool"]["warm_pooling_active"] is False and CODEX_RESUME_GATE_OFF_REASON == gate_off["supervisor_session_pool"]["reason"], str(gate_off["supervisor_session_pool"]))
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                code = run_pipeline_agent.main(common + [
+                    "--supervisor-codex-resume-sandbox-argument", json.dumps(list(RESUME_ARGUMENT)),
+                    "--supervisor-context-window-tokens", "400000", "--model", MODEL, "--supervisor-reasoning-effort", "high",
+                ])
+            require(code == 0, f"gate-on worker exited {code}")
+            gate_on = json.loads(stdout.getvalue())
+            owner = seen[-1]["owner"]
+            require(isinstance(owner, SupervisorSessionOwner) and owner.task_id == TASK and owner.model == MODEL, str(owner))
+            require(owner.resume_activation == ACTIVATION and owner.context_window_tokens == 400000, "owner built from the flags")
+            require(owner.repository_identity == REPOSITORY and owner.root.is_relative_to((temp / "checkouts").resolve()), str(owner.root))
+            require(gate_on["supervisor_session_pool"]["warm_pooling_active"] is True and gate_on["supervisor_session_pool"]["resume_contract"] == ACTIVATION.fingerprint, str(gate_on["supervisor_session_pool"]))
+            require(owner._liveness is None, "the worker closes the owner when it finishes")
+            os.environ["NSC_CODEX_RESUME_SANDBOX_ARGUMENT"] = json.dumps(list(RESUME_ARGUMENT))
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                code = run_pipeline_agent.main(common + ["--model", MODEL])
+            require(code == 0 and isinstance(seen[-1]["owner"], SupervisorSessionOwner), "the environment alone activates the gate")
+            progress = list((temp / "outputs" / TASK).glob("*/progress.jsonl"))
+            events = [json.loads(line) for path in progress for line in path.read_text(encoding="utf-8").splitlines()]
+            pool_events = [e for e in events if e.get("event") == "supervisor_session_pool"]
+            require(len(pool_events) == 3 and sorted(e["fields"]["warm_pooling_active"] for e in pool_events) == [False, True, True], str(pool_events))
+        finally:
+            os.environ.pop("NSC_CODEX_RESUME_SANDBOX_ARGUMENT", None)
+            os.environ.update(environment)
+            for name, value in originals.items():
+                setattr(run_pipeline_agent, name, value)
+
+
+def test_downstream_worker_keeps_the_routed_effort_for_the_task_conversation() -> None:
+    """The delivery/merge-closeout worker resumes the same task conversation.
+
+    The pool's compatibility key binds the supervisor model and reasoning
+    effort. The scheduler routes one supervisor effort per task, so the
+    downstream phase must build its provider and its owner from that routed
+    effort; otherwise the closeout worker would cold-start a second
+    conversation instead of resuming the one the implementation phase proved.
+    """
+
+    from Pipeline.TaskReviewAgent import run_pipeline_agent
+    from types import SimpleNamespace
+
+    names = (
+        "_scheduler_result_enabled", "_managed_issue_phase", "_require_explicit_fresh_admission",
+        "DownstreamTaskReviewWorkflow", "ResumableDownstreamTaskController", "GuardedTaskController",
+        "run_openai_downstream_pipeline",
+    )
+    originals = {name: getattr(run_pipeline_agent, name) for name in names}
+    with tempfile.TemporaryDirectory() as raw:
+        temp = Path(raw)
+        source = temp / "source"
+        source.mkdir()
+        subprocess.run(("git", "init", "-q", "-b", "main"), cwd=source, check=True)
+        subprocess.run(("git", "remote", "add", "origin", REPOSITORY), cwd=source, check=True)
+        seen: list[dict[str, Any]] = []
+
+        class Workflow:
+            def __init__(self, *, source: Path, **_values: object) -> None:
+                self.base_observer = SimpleNamespace(root=Path(source))
+
+            @staticmethod
+            def observe_goal_state() -> dict[str, object]:
+                return {"coordination": {"workflow_state": {"phase": "merge_closeout"}}}
+
+        def capture_pipeline(request, controller, **options):
+            seen.append({"options": options, "task": request.task_id})
+            return {"status": "human_action_required", "authority": "fixture"}
+
+        environment = {key: os.environ.pop(key) for key in ("NSC_CODEX_RESUME_SANDBOX_ARGUMENT", "NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS", "NSC_TASK_SUPERVISOR_REASONING_EFFORT") if key in os.environ}
+        try:
+            run_pipeline_agent._scheduler_result_enabled = lambda _args: False
+            run_pipeline_agent._managed_issue_phase = lambda **_values: "merge_closeout"
+            run_pipeline_agent._require_explicit_fresh_admission = lambda **_values: None
+            run_pipeline_agent.DownstreamTaskReviewWorkflow = Workflow
+            run_pipeline_agent.ResumableDownstreamTaskController = lambda **_values: object()
+            run_pipeline_agent.GuardedTaskController = lambda value, progress=None: value
+            run_pipeline_agent.run_openai_downstream_pipeline = capture_pipeline
+            common = ["--task-id", TASK, "--source", str(source), "--checkout-root", str(temp / "checkouts"),
+                      "--output-root", str(temp / "outputs"), "--worker-id", "closeout-fixture", "--mode", "openai",
+                      "--model", MODEL, "--supervisor-reasoning-effort", "medium"]
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                code = run_pipeline_agent.main(common)
+            require(code == 0, f"gate-off downstream worker exited {code}")
+            gate_off = json.loads(stdout.getvalue())
+            require(gate_off["selected_pipeline"] == "downstream", str(gate_off["selected_pipeline"]))
+            require(seen[-1]["options"]["session_owner"] is None and seen[-1]["options"]["reasoning_effort"] == "medium", str(seen[-1]))
+            require(gate_off["supervisor_session_pool"]["warm_pooling_active"] is False, str(gate_off["supervisor_session_pool"]))
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                code = run_pipeline_agent.main(common + ["--supervisor-codex-resume-sandbox-argument", json.dumps(list(RESUME_ARGUMENT))])
+            require(code == 0, f"gate-on downstream worker exited {code}")
+            gate_on = json.loads(stdout.getvalue())
+            options = seen[-1]["options"]
+            owner = options["session_owner"]
+            require(isinstance(owner, SupervisorSessionOwner) and owner.task_id == TASK, str(owner))
+            require(options["reasoning_effort"] == "medium" and owner.reasoning_effort == "medium" and owner.model == MODEL, "the downstream provider and the owner share the routed effort and model")
+            require(gate_on["selected_pipeline"] == "downstream" and gate_on["supervisor_session_pool"]["warm_pooling_active"] is True, str(gate_on))
+            require(owner._liveness is None, "the worker closes the owner when it finishes")
+            # The routed effort is the only thing that changes the key: a worker
+            # launched without one resolves the same default the provider uses.
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                code = run_pipeline_agent.main(common[:-2] + ["--supervisor-codex-resume-sandbox-argument", json.dumps(list(RESUME_ARGUMENT))])
+            require(code == 0, f"unrouted downstream worker exited {code}")
+            options = seen[-1]["options"]
+            require("reasoning_effort" not in options and options["session_owner"].reasoning_effort == resolve_supervisor_reasoning_effort(None), str(options))
+        finally:
+            os.environ.update(environment)
+            for name, value in originals.items():
+                setattr(run_pipeline_agent, name, value)
 
 
 def test_turn_request_contract_and_failure_envelope() -> None:
@@ -661,8 +987,10 @@ def test_turn_request_contract_and_failure_envelope() -> None:
 
 def main() -> int:
     tests = [value for name, value in sorted(globals().items()) if name.startswith("test_") and callable(value)]
-    # The deterministic short-circuit patch is process-global; run it last so
-    # every other test exercises the unpatched provider path first.
+    # Importing Pipeline.TaskReviewAgent installs the production wrappers
+    # (downstream determinism and operator logging) on
+    # CodexDockerDecisionProvider.decide, so every test here runs under exactly
+    # the wrappers production runs under. The order below is only cosmetic.
     tests.sort(key=lambda test: test.__name__ == "test_deterministic_forced_action_invokes_zero_providers")
     for test in tests:
         test()

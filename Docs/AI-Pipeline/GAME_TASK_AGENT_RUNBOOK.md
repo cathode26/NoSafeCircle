@@ -143,17 +143,30 @@ an explicit operator decision because `codex exec resume` does not accept
 reproduced through an option resume does accept, and that reproduction has not
 been proven live by this repository. See "Durable supervisor session pool" in
 `Pipeline/TaskReviewAgent/README.md` for the verification an operator must
-run first. Once verified, supply the exact fragment at the top of the launch:
+run first. Once verified, export the exact control at the top of the launch:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude -CodexResumeSandboxArgument '-c','sandbox_mode="danger-full-access"'
+$env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT = '["-c","sandbox_mode=\"danger-full-access\""]'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -ExecutionProvider claude
 ```
 
-The launcher prints `Supervisor session pool: warm Codex resume ACTIVE` or
-`OFF` so the state is never implicit, exports the decision as
-`NSC_CODEX_RESUME_SANDBOX_ARGUMENT` for the architect controller and its
-workers, and forwards it to the direct worker. With the gate off nothing is
-pooled and every progress event says so.
+The launcher validates the control (only `-c`/`--config` `sandbox...=value`
+pairs are accepted), prints `Supervisor session pool: warm Codex resume
+ACTIVE` or `OFF` so the state is never implicit, and keeps the decision in
+`NSC_CODEX_RESUME_SANDBOX_ARGUMENT` for the architect controller, its
+workers, and the direct worker; it is never passed as a native command-line
+argument. With the gate off nothing is pooled, and the
+`supervisor_session_pool` progress event, every `supervisor_decision` event,
+and the worker result say so.
+
+A pooled conversation is task-scoped and bound to the exact supervisor model,
+reasoning effort, repository origin, resume control, and the compose project
+whose `codex-config` volume holds the session files
+(`NSC_TASK_AGENT_COMPOSE_PROJECT`, default `nosafecircle`). Launch the same
+task under the same project so its later delivery/merge-closeout worker
+resumes the conversation the implementation phase proved; a different project
+starts a new one. The scheduler routes one supervisor effort per task and the
+downstream worker honours it for the same reason.
 
 ## Resume durable agent-ready work
 

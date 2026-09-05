@@ -624,12 +624,25 @@ A conversation is offered back only to a turn whose scope is exactly equal:
 | reasoning effort | the exact resolved effort |
 | repository identity | the source checkout's `origin` URL |
 | resume control | SHA-256 of the exact operator-verified `codex exec resume` argv fragment |
+| conversation store | `compose:<project>/codex-config`, the Docker Compose volume the session files live in |
 | task | the exact `NSC-###` |
 
 A different value for any of them cold-starts and retires the old record
 explicitly (`session_incompatibility`); another task can never inherit the
 conversation because the task ID is part of the key. A different repository is
-a different pool file altogether.
+a different pool file altogether. The conversation store is the compose
+project the supervisor container runs under (`NSC_TASK_AGENT_COMPOSE_PROJECT`,
+default `nosafecircle`): Codex keeps its session files in that project's
+`codex-config` volume, so a launch under another project could never find the
+thread and must start its own. The provider and the owner resolve the project
+the same way, and a provider built for a different project than its owner is
+refused before any turn.
+
+The scheduler routes one supervisor model and effort per task and passes them
+to every worker of that task; the downstream (delivery-evidence and
+merge-closeout) worker now builds its supervisor from the routed effort as
+well, so the task's conversation keeps one key from implementation through
+closeout instead of cold-starting a second one at the phase boundary.
 
 Codex assigns its thread UUID only after the first call, so a cold lease
 carries no identity. The container reports the exact `thread.started`
@@ -656,23 +669,42 @@ behind is never resumed while the gate is off; it expires on its own, and an
 owner constructed after re-activation retires it explicitly if it no longer
 matches.
 
-To activate it, supply the exact fragment once, at the top of the process tree:
+To activate it, export the exact control once, at the top of the process
+tree, as a JSON array of argv strings, then launch as usual:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-### -CodexResumeSandboxArgument '-c','sandbox_mode="danger-full-access"'
+$env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT = '["-c","sandbox_mode=\"danger-full-access\""]'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 -TaskId NSC-###
 ```
 
-The launcher exports it as `NSC_CODEX_RESUME_SANDBOX_ARGUMENT` (a JSON array)
-so the architect controller and every scheduler-spawned worker inherit the
-same decision, and forwards `--supervisor-codex-resume-sandbox-argument` to the
-direct worker. Fragments resume cannot honour (`--sandbox`, `-s`, `--last`,
-`--all`, `--ephemeral`, `--dangerously-bypass-approvals-and-sandbox`) and bare
-session IDs are refused before any pipeline starts.
+`-CodexResumeSandboxArgument '-c','sandbox_mode="danger-full-access"'` is the
+equivalent parameter for an in-process call (`& .\Pipeline\TaskReviewAgent\Start-GameTaskAgent.ps1 ...`
+or `powershell.exe -Command "& ..."`); it cannot be passed through
+`powershell.exe -File`, whose arguments are native tokens rather than
+PowerShell array expressions. Either way the launcher validates the control
+and keeps it in `NSC_CODEX_RESUME_SANDBOX_ARGUMENT`, which the architect
+controller, every scheduler-spawned worker, and the direct worker read. The
+control is deliberately never forwarded as a native command-line argument:
+Windows PowerShell 5.1 does not escape embedded quotes for native executables,
+so the JSON would arrive corrupted. The launcher reports `ACTIVE` only for an
+`openai`-mode launch whose control passed validation.
+
+The control is an allowlist, not a free argv fragment: `-c`/`--config` flag
+and `sandbox...=value` pairs only. `--sandbox` is not accepted by resume,
+`--last` selects a session by recency, `--all` widens session lookup beyond
+the current working directory, `--ephemeral` discards the session files a
+resume needs, the bypass flag is a wider policy, and working-directory,
+approval, profile, model, or feature flags would widen what the resumed turn
+may do beyond what the pinned start had. All of those, and bare session IDs,
+are refused before any pipeline starts, by the launcher and again by the
+worker.
 
 The fragment above is the *candidate* the adapter's own tests use; it has not
 been proven live by this repository. Before activating it, an operator must
-run one verification in the supervisor container with the real credential
-volume and confirm all three facts:
+run one verification in each container image that will resume Codex under it
+-- `nosafecircle-codex-supervisor` for the supervisor, `round-robin-decompose`
+for decomposition -- with that image's real credential volume, and confirm
+all three facts:
 
 1. `codex exec resume <uuid> -c sandbox_mode="danger-full-access" ...` is
    accepted under `--strict-config --ignore-user-config` from a *different*
@@ -682,8 +714,11 @@ volume and confirm all three facts:
 3. the resumed `--json` transcript contains exactly one `thread.started`
    event whose `thread_id` equals the resumed UUID.
 
-Until then, leave the gate off. Nothing in this repository claims warm
-pooling while it is off.
+If step 1 fails only because resume-by-UUID is filtered by working directory,
+that is a finding to report, not a reason to add `--all` to the control: the
+allowlist would have to be widened by a reviewed change. Until the
+verification passes, leave the gate off. Nothing in this repository claims
+warm pooling while it is off.
 
 ### Authority capsule
 
@@ -735,6 +770,38 @@ resumed.
 Regressions: `Pipeline/AgentRuntime/tests/durable_session_pool_smoke_test.py`,
 `Pipeline/TaskReviewAgent/tests/supervisor_session_pool_smoke_test.py`, and
 `Pipeline/TaskReviewAgent/tests/supervisor_pool_launcher_smoke_test.py`.
+
+## Durable decomposition author and reviewer sessions
+
+`decomposition_session_pool.py` is the host owner for role-scoped D1B
+conversations: `task_decomposer` and `decomposition_reviewer`, one lease per
+`<provider>:<role>` pair the circuit can reach. It is built on the same
+provider-neutral primitive as the supervisor pool and shares nothing with the
+architect, supervisor, or ExecutionCrew pools. The scheduler enables it by
+passing `--enable-decomposition-session-pool` to
+`host_decomposition_launcher.py`; a direct launch stays ephemeral. The
+launcher mints a host-owned run ID, reserves the reachable leases, mounts the
+bundle read-only into `round-robin-decompose`, pins the reserved provider
+models into the container environment so the round's route cannot silently
+differ, and settles every lease from the run's artifacts after Docker returns.
+Uninvoked leases are cancelled without charge; a pool failure after a valid
+result writes `pool_degraded.json` beside the run and leaves the review-ready
+handoff untouched, while the still-active leases are reclaimed as stranded by
+the next owner and never reused.
+
+Pool state lives at
+`<checkout-root>/.task-review-agent/session-pools/<repository-sha256>/decomposition/`
+with the same atomic writes, short cross-process lock, append-only prompt-free
+journal, and per-run liveness lock as the supervisor pool. Every lease binds
+its provider's conversation store, `compose:<project>/<provider>-config`,
+from the launcher's exact `--compose-project`, because the round-robin
+container finds a session only in that project's configuration volume; a
+launch under another project reserves other conversations. Codex
+conversations are reserved only under the verified resume control described
+above; Claude conversations always pool when the scheduler enables the pool.
+See
+`Pipeline/TaskDecomposition/README.md` for the container-side contract,
+evidence binding, and lifetime.
 
 ## Validation
 

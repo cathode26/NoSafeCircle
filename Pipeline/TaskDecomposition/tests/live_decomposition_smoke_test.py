@@ -158,8 +158,8 @@ def main() -> int:
             codex_configuration.to_dict()["provider_configurations"][codex_key]["provider"]
             == "openai-codex"
         )
-        _, _, claude_registry = _real_provider_bundle("claude", source)
-        _, _, codex_registry = _real_provider_bundle("codex", source)
+        _, _, claude_registry = _real_provider_bundle("claude", source, "task_decomposer")
+        _, _, codex_registry = _real_provider_bundle("codex", source, "task_decomposer")
         assert claude_registry["claude-code"].repository_root == source
         assert not claude_registry["claude-code"].externally_isolated_writable_repository
         assert codex_registry["openai-codex"].repository_root == source.resolve()
@@ -448,8 +448,8 @@ def main() -> int:
         # 15. Injected factory/configuration mismatches fail closed before invocation.
         mismatch_provider = CountingProvider(already_concrete_result(parent))
 
-        def mismatch_factory(provider_name: str, source_root: Path):
-            key, configuration, registry = fake_factory(mismatch_provider)(provider_name, source_root)
+        def mismatch_factory(provider_name: str, source_root: Path, role: str):
+            key, configuration, registry = fake_factory(mismatch_provider)(provider_name, source_root, role)
             return "wrong-decomposition", configuration, registry
 
         expect_blocked(

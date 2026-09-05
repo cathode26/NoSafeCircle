@@ -64,6 +64,15 @@ from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
 from Pipeline.TaskReviewAgent.decomposition_policy_audit import (  # noqa: E402
     decomposition_preflight as validate_decomposition_selection,
 )
+from Pipeline.TaskReviewAgent.decomposition_session_pool import (  # noqa: E402
+    DECOMPOSITION_CONTEXT_WINDOW_ENVIRONMENT,
+    DecompositionSessionPoolError,
+    DecompositionSessionPoolOwner,
+)
+from Pipeline.TaskReviewAgent.supervisor_session_pool import (  # noqa: E402
+    codex_resume_activation_from_environment,
+)
+from TaskDecomposition.live_decomposition import provider_configuration  # noqa: E402
 from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
 from graph_delta import GraphDeltaPlan  # noqa: E402
 from graph_apply_plan import plan_graph_apply  # noqa: E402
@@ -86,6 +95,9 @@ def default_host_output_root(task_id: str) -> Path:
     return Path(profile) / "Downloads" / "NoSafeCircleOutput" / task_id
 
 
+POOL_LEASE_MOUNT = "/nsc-pool/decomposition-leases.json"
+
+
 def build_compose_command(
     *,
     task_id: str,
@@ -93,6 +105,7 @@ def build_compose_command(
     providers: str,
     max_calls: int,
     run_id: str | None = None,
+    pool_assignment: dict | None = None,
 ) -> tuple[str, ...]:
     command = [
         "docker",
@@ -102,19 +115,80 @@ def build_compose_command(
         "run",
         "--rm",
         "-T",
-        "round-robin-decompose",
-        "python3",
-        "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
-        "--task-id",
-        validate_task_id(task_id),
-        "--providers",
-        providers,
-        "--max-calls",
-        str(max_calls),
     ]
+    if pool_assignment is not None:
+        if not run_id:
+            raise RuntimeError("pooled decomposition sessions require an explicit run id")
+        # The lease bundle is the only new mount, and it is read-only. The
+        # provider models the leases were reserved for are pinned into the
+        # container so the round's resolved route cannot silently differ from
+        # the host's reservation; the container still fails closed on any
+        # mismatch it observes.
+        command.extend(
+            ("--volume", f"{pool_assignment['lease_bundle_path']}:{POOL_LEASE_MOUNT}:ro")
+        )
+        for name, value in sorted(pool_assignment.get("provider_environment", {}).items()):
+            if value:
+                command.extend(("--env", f"{name}={value}"))
+    command.extend(
+        [
+            "round-robin-decompose",
+            "python3",
+            "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
+            "--task-id",
+            validate_task_id(task_id),
+            "--providers",
+            providers,
+            "--max-calls",
+            str(max_calls),
+        ]
+    )
     if run_id:
         command.extend(("--run-id", run_id))
+    if pool_assignment is not None:
+        command.extend(
+            (
+                "--role-session-leases",
+                POOL_LEASE_MOUNT,
+                "--scheduler-repository-identity",
+                str(pool_assignment["repository_identity"]),
+            )
+        )
     return tuple(command)
+
+
+def _new_pooled_run_id(task_id: str) -> str:
+    """Mint the run id the host must own before it can reserve sessions for it."""
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dt%H%M%Sz")
+    return f"{validate_task_id(task_id).lower()}-d1b2-{stamp}-{uuid.uuid4().hex[:12]}"
+
+
+def _decomposition_pool_owner(*, workspace: Path, compose_project: str) -> DecompositionSessionPoolOwner:
+    """Build the host owner from the checkout's own origin and the host-resolved models.
+
+    ``compose_project`` is the exact project the round-robin container will run
+    under: it names the provider configuration volumes the conversations live
+    in, so a launch under another project reserves other conversations.
+    """
+
+    provider_models: dict[str, tuple[str, str | None]] = {}
+    for provider_name in ("claude", "codex"):
+        _key, configuration = provider_configuration(provider_name)
+        entry = configuration.to_dict()["provider_configurations"][f"{provider_name}-decomposition"]
+        provider_models[provider_name] = (
+            str(entry["models"]["high_reasoning"]),
+            "high" if provider_name == "codex" else None,
+        )
+    raw_window = os.environ.get(DECOMPOSITION_CONTEXT_WINDOW_ENVIRONMENT, "").strip()
+    return DecompositionSessionPoolOwner(
+        checkout=workspace,
+        repository_identity=_git(workspace, "remote", "get-url", "origin"),
+        provider_models=provider_models,
+        codex_resume_activation=codex_resume_activation_from_environment(),
+        compose_project=compose_project,
+        context_window_tokens=int(raw_window) if raw_window else None,
+    )
 
 
 def _git(source: Path, *args: str) -> str:
@@ -327,6 +401,51 @@ def _run_proposal(
     service: IssueWorkflowService,
 ) -> int:
     requested_run_id = getattr(args, "run_id", None)
+    pool_owner: DecompositionSessionPoolOwner | None = None
+    pool_assignment: dict | None = None
+    if getattr(args, "enable_decomposition_session_pool", False):
+        # Pooling needs a host-owned run identity before any reservation.
+        if not requested_run_id:
+            requested_run_id = _new_pooled_run_id(args.task_id)
+        try:
+            pool_owner = _decomposition_pool_owner(
+                workspace=workspace, compose_project=str(args.compose_project)
+            )
+            pool_assignment = pool_owner.prepare(
+                run_id=requested_run_id,
+                task_id=args.task_id,
+                decomposition_mode="round_robin_d1b2",
+                provider_order=tuple(
+                    part.strip() for part in str(args.providers).split(",") if part.strip()
+                ),
+                max_calls=int(args.max_calls),
+                source_commit=source_head,
+                worker_id=str(getattr(args, "worker_id", "host-decomposition-launcher")),
+            )
+        except (DecompositionSessionPoolError, OSError, RuntimeError, ValueError) as exc:
+            if pool_owner is not None:
+                pool_owner.close()
+            service.release_decomposition_lease(
+                task_id=args.task_id,
+                reason=(
+                    "decomposition session pool could not reserve role sessions before "
+                    f"provider start: {type(exc).__name__}: {exc}"
+                ),
+            )
+            raise
+        print(
+            json.dumps(
+                {
+                    "status": "decomposition_session_pool_reserved",
+                    "task_id": args.task_id,
+                    "run_id": requested_run_id,
+                    "leases": sorted(pool_assignment["leases"]),
+                    "skipped_keys": pool_assignment["skipped_keys"],
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
     expected_run_dir: Path | None = None
     try:
         output_root.mkdir(parents=True, exist_ok=True)
@@ -341,6 +460,11 @@ def _run_proposal(
         else:
             before = {path.name for path in output_root.iterdir() if path.is_dir()}
     except (OSError, RuntimeError) as exc:
+        if pool_owner is not None:
+            # The provider provably never started, so the reserved
+            # conversations are returned uncharged instead of being reclaimed
+            # later as stranded.
+            _cancel_unstarted_pool(pool_owner, run_id=requested_run_id)
         service.release_decomposition_lease(
             task_id=args.task_id,
             reason=(
@@ -358,13 +482,18 @@ def _run_proposal(
                 project=args.compose_project,
                 providers=args.providers,
                 max_calls=args.max_calls,
-                run_id=getattr(args, "run_id", None),
+                run_id=requested_run_id,
+                pool_assignment=pool_assignment,
             ),
             cwd=str(workspace),
             env=environment,
             check=False,
         )
     except OSError as exc:
+        if pool_owner is not None:
+            # The provider process could not start at all, so the reservations
+            # were never invoked and are returned uncharged.
+            _cancel_unstarted_pool(pool_owner, run_id=requested_run_id)
         service.release_decomposition_lease(
             task_id=args.task_id,
             reason=(
@@ -393,6 +522,8 @@ def _run_proposal(
                 if path.is_dir() and path.name not in (before or set())
             ]
     except OSError as exc:
+        if pool_owner is not None:
+            pool_owner.close()
         service.release_decomposition_lease(
             task_id=args.task_id,
             reason=(
@@ -401,6 +532,12 @@ def _run_proposal(
             ),
         )
         raise
+    if pool_owner is not None and len(after) == 1:
+        # Settle from the run's durable artifacts whatever the exit code says:
+        # the artifacts, not the process, decide what each conversation proved.
+        _settle_decomposition_pool(pool_owner, run_id=requested_run_id, run_dir=after[0])
+    elif pool_owner is not None:
+        pool_owner.close()
     if completed.returncode != 0 or len(after) != 1:
         service.release_decomposition_lease(
             task_id=args.task_id,
@@ -594,6 +731,62 @@ def _run_proposal(
     return 0
 
 
+def _cancel_unstarted_pool(owner: DecompositionSessionPoolOwner, *, run_id: str) -> None:
+    """Return a run's leases after a proven start failure; never mask the failure."""
+
+    try:
+        owner.cancel_unstarted(run_id=run_id)
+    except (DecompositionSessionPoolError, OSError, RuntimeError, ValueError) as exc:
+        print(
+            json.dumps(
+                {"status": "pool_degraded", "run_id": run_id, "error_type": type(exc).__name__,
+                 "error": " ".join(str(exc).split())[:600]},
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+    finally:
+        owner.close()
+
+
+def _settle_decomposition_pool(
+    owner: DecompositionSessionPoolOwner, *, run_id: str, run_dir: Path
+) -> None:
+    """Settle the run's leases; a pool failure degrades pooling, never the run."""
+
+    try:
+        settlement = owner.settle(run_id=run_id, run_dir=run_dir)
+    except (DecompositionSessionPoolError, OSError, RuntimeError, ValueError) as exc:
+        degraded = {
+            "schema_version": "1.0",
+            "run_id": run_id,
+            "status": "pool_degraded",
+            "error_type": type(exc).__name__,
+            "error": " ".join(str(exc).split())[:900],
+            "note": (
+                "The decomposition result stands on its own artifacts. The still-active "
+                "leases are reclaimed as stranded by the next owner and are never reused."
+            ),
+        }
+        try:
+            (run_dir / "pool_degraded.json").write_text(
+                json.dumps(degraded, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+        except OSError:
+            pass
+        print(json.dumps(degraded, sort_keys=True), flush=True)
+    else:
+        print(
+            json.dumps(
+                {"status": "decomposition_session_pool_settled", **settlement},
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+    finally:
+        owner.close()
+
+
 def _apply_approved_plan(
     *,
     args: argparse.Namespace,
@@ -776,6 +969,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--admission-source-head")
     parser.add_argument("--task-contract-sha256")
     parser.add_argument("--admission-issue-number", type=int)
+    parser.add_argument(
+        "--enable-decomposition-session-pool",
+        action="store_true",
+        help=(
+            "Scheduler-owned opt-in for durable role-scoped decomposition sessions. "
+            "Claude author/reviewer conversations pool; Codex ones pool only when "
+            "NSC_CODEX_RESUME_SANDBOX_ARGUMENT supplies the verified resume control."
+        ),
+    )
     args = parser.parse_args(argv)
     scheduler_run_dir: Path | None = None
     known_issue_number: int | None = args.admission_issue_number

@@ -778,6 +778,11 @@ def _patched_provider_decide(
                 "total_tokens": 0,
                 "authority": "deterministic_host_single_action",
             }
+            # No provider and no pooled session took part in this turn, so the
+            # previous pooled turn's session facts must not be journaled as
+            # this turn's, and the observation bound for this turn is spent.
+            self.last_session = None
+            self._turn_observation = {}
             return SupervisorDecision(
                 task_id=task_id,
                 action=actual[0],

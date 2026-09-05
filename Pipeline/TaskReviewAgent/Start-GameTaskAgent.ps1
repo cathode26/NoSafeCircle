@@ -88,27 +88,79 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-if ($PSBoundParameters.ContainsKey('CodexResumeSandboxArgument')) {
-    if ($null -eq $CodexResumeSandboxArgument -or $CodexResumeSandboxArgument.Count -eq 0) {
-        throw 'CodexResumeSandboxArgument must name at least one exact argv fragment.'
+
+function Test-NscCodexResumeControl {
+    # The control is an allowlist: `-c`/`--config` flag and `sandbox...=value`
+    # pairs only. `--sandbox` is not accepted by codex exec resume, recency
+    # selectors are never exact, and any other flag would widen what the
+    # resumed turn may do beyond what the pinned start had. The worker applies
+    # the same rule again before it pools anything. $Source names the exact
+    # channel the caller supplied the control through (the parameter or the
+    # inherited environment variable) so a rejection is actionable.
+    param([string[]]$Fragments, [string]$Source)
+    if ($null -eq $Fragments -or $Fragments.Count -eq 0) {
+        throw "$Source must name at least one exact argv fragment."
     }
-    foreach ($Fragment in $CodexResumeSandboxArgument) {
+    foreach ($Fragment in $Fragments) {
         if ([string]::IsNullOrWhiteSpace($Fragment) -or $Fragment -ne $Fragment.Trim()) {
-            throw 'CodexResumeSandboxArgument fragments must be non-empty and unpadded.'
-        }
-        $Token = $Fragment.Split('=', 2)[0]
-        if (@('--sandbox', '-s', '--last', '--all', '--ephemeral', '--dangerously-bypass-approvals-and-sandbox') -contains $Token) {
-            throw "CodexResumeSandboxArgument may not contain $Token; codex exec resume does not accept --sandbox and recency selectors are never exact."
+            throw "$Source fragments must be non-empty and unpadded."
         }
     }
+    if (($Fragments.Count % 2) -ne 0) {
+        throw "$Source must be -c/--config flag and sandbox...=value pairs, for example: -CodexResumeSandboxArgument '-c','sandbox_mode=""danger-full-access""'."
+    }
+    for ($Index = 0; $Index -lt $Fragments.Count; $Index += 2) {
+        $Flag = $Fragments[$Index]
+        $Value = $Fragments[$Index + 1]
+        if (@('-c', '--config') -notcontains $Flag) {
+            throw "$Source may not contain $Flag; only -c/--config sandbox overrides reproduce the pinned sandbox policy through an option codex exec resume accepts."
+        }
+        if ($Value -notmatch '^sandbox[a-z0-9_.]*=.+$') {
+            throw "$Source value '$Value' must be one sandbox...=value configuration override."
+        }
+    }
+}
+
+if ($PSBoundParameters.ContainsKey('CodexResumeSandboxArgument')) {
+    Test-NscCodexResumeControl -Fragments $CodexResumeSandboxArgument -Source '-CodexResumeSandboxArgument'
     # -InputObject keeps a single fragment as a JSON array; piping would
-    # collapse it to a bare string the worker must refuse.
+    # collapse it to a bare string the worker must refuse. The control travels
+    # to every child only through this environment variable: Windows PowerShell
+    # 5.1 does not escape embedded quotes in native arguments, so a JSON array
+    # passed on python's command line would arrive corrupted.
     $env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT = ConvertTo-Json -InputObject @($CodexResumeSandboxArgument) -Compress
+}
+elseif (-not [string]::IsNullOrWhiteSpace($env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)) {
+    # An inherited control is validated exactly like a supplied one; the
+    # launcher never reports ACTIVE for a value the worker would refuse.
+    $InheritedControl = $null
+    try {
+        # Windows PowerShell 5.1 note: wrapping the ConvertFrom-Json call
+        # itself in @(...) can collapse a multi-element result into one
+        # nested array element. Capture the parsed value to a variable
+        # first, then apply @() to that variable, which reliably yields one
+        # array element per JSON array entry for both one- and many-element
+        # arrays.
+        $ParsedInheritedControl = ConvertFrom-Json -InputObject $env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT
+        $InheritedControl = @($ParsedInheritedControl)
+    }
+    catch {
+        throw "NSC_CODEX_RESUME_SANDBOX_ARGUMENT is not a JSON array of argv strings: $($_.Exception.Message)"
+    }
+    foreach ($Item in $InheritedControl) {
+        if ($Item -isnot [string]) {
+            throw 'NSC_CODEX_RESUME_SANDBOX_ARGUMENT must be a JSON array of strings.'
+        }
+    }
+    Test-NscCodexResumeControl -Fragments ([string[]]$InheritedControl) -Source 'NSC_CODEX_RESUME_SANDBOX_ARGUMENT'
 }
 if ($PSBoundParameters.ContainsKey('SupervisorContextWindowTokens')) {
     $env:NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS = $SupervisorContextWindowTokens.ToString()
 }
-$SupervisorPoolActivation = if ([string]::IsNullOrWhiteSpace($env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)) {
+$SupervisorPoolActivation = if ($Mode -ne 'openai') {
+    'OFF (no supervisor turns run in this mode)'
+}
+elseif ([string]::IsNullOrWhiteSpace($env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)) {
     'OFF (ephemeral supervisor turns; supply -CodexResumeSandboxArgument or NSC_CODEX_RESUME_SANDBOX_ARGUMENT only after live verification of codex exec resume)'
 }
 else {
@@ -581,9 +633,9 @@ if (-not [string]::IsNullOrWhiteSpace($ValidationProfile)) {
 if ($EnableExecutionSessionPool) {
     $Arguments += '--enable-execution-session-pool'
 }
-if (-not [string]::IsNullOrWhiteSpace($env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)) {
-    $Arguments += @('--supervisor-codex-resume-sandbox-argument', $env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)
-}
+# The resume control is deliberately NOT forwarded as a native argument: the
+# worker reads NSC_CODEX_RESUME_SANDBOX_ARGUMENT, which this process exported
+# or inherited and validated above.
 if (-not [string]::IsNullOrWhiteSpace($env:NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS)) {
     $Arguments += @('--supervisor-context-window-tokens', $env:NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS)
 }

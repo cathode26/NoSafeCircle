@@ -8,11 +8,13 @@ provider, Docker daemon, GitHub call, or tracked repository file is involved.
 
 The claims are about real argument construction:
 
-  * the operator's exact Codex resume control reaches the worker as one JSON
-    array on `--supervisor-codex-resume-sandbox-argument`, and a single
-    fragment stays an array rather than collapsing to a bare string;
-  * the same decision is exported as `NSC_CODEX_RESUME_SANDBOX_ARGUMENT` so
-    the architect controller and its scheduler-spawned workers inherit it;
+  * the operator's exact Codex resume control reaches the worker only through
+    the exported `NSC_CODEX_RESUME_SANDBOX_ARGUMENT`, as one JSON array; it is
+    never forwarded as a native argument, because Windows PowerShell 5.1 does
+    not escape embedded quotes for native executables and the JSON would
+    arrive corrupted;
+  * the architect controller and its scheduler-spawned workers inherit it, and
+    an inherited value is validated exactly like a supplied one;
   * with nothing supplied the gate is off: no argument is forwarded and the
     launcher says so instead of implying warm pooling;
   * a fragment `codex exec resume` cannot honour (`--sandbox`, `--last`, ...)
@@ -105,24 +107,48 @@ def test_operator_control_reaches_the_worker_as_one_json_array() -> None:
         direct = _direct_calls(records)
         require(len(direct) == 1, f"expected one worker: {direct}")
         argv = direct[0]
-        require(FLAG in argv, f"resume control was not forwarded: {argv}")
-        require(json.loads(base._value(argv, FLAG)) == CONTROL, f"forwarded control differs: {base._value(argv, FLAG)}")
+        require(FLAG not in argv, f"the control must never travel as a native argument: {argv}")
         require(base._value(argv, "--supervisor-context-window-tokens") == "400000", f"context window was not forwarded: {argv}")
         worker = [record for record in records if record["tool"] == "python" and os.path.basename(record["argv"][0]) == DIRECT_SCRIPT][0]
         require(json.loads(worker["resume"]) == CONTROL, f"worker did not inherit {ENVIRONMENT}: {worker}")
         require("warm Codex resume ACTIVE" in completed.stdout, completed.stdout)
 
 
-def test_a_single_fragment_stays_a_json_array() -> None:
+def test_the_long_config_flag_is_exported_as_one_json_array() -> None:
     with base.fixture_dir() as text:
         fixture = Path(text)
         log = _write_stub_path(fixture)
         completed, records = _run(
-            fixture, log, _scheduler_command("-CodexResumeSandboxArgument '--profile=verified-resume'"),
+            fixture, log, _scheduler_command("-CodexResumeSandboxArgument '--config','sandbox_mode=\"danger-full-access\"'"),
         )
         require(completed.returncode == 0, f"launcher failed: {completed.stdout}\n{completed.stderr}")
-        argv = _direct_calls(records)[0]
-        require(json.loads(base._value(argv, FLAG)) == ["--profile=verified-resume"], base._value(argv, FLAG))
+        worker = [record for record in records if record["tool"] == "python" and os.path.basename(record["argv"][0]) == DIRECT_SCRIPT][0]
+        require(json.loads(worker["resume"]) == ["--config", 'sandbox_mode="danger-full-access"'], str(worker["resume"]))
+        require(FLAG not in _direct_calls(records)[0], "never a native argument")
+
+
+def test_observe_mode_and_invalid_inherited_values_never_report_active() -> None:
+    with base.fixture_dir() as text:
+        fixture = Path(text)
+        log = _write_stub_path(fixture)
+        command = (
+            f"$env:{ENVIRONMENT} = '{json.dumps(CONTROL)}'; & '{base.LAUNCHER}' -TaskId {base.TASK} -Mode observe "
+            f"-RunId {base.SCHEDULER_RUN_ID} -AdmissionSourceHead {base.SCHEDULER_HEAD} "
+            f"-TaskContractSha256 {base.SCHEDULER_CONTRACT_SHA} -WorkerId worker-1 -CheckoutRoot '{ROOT}'; exit $LASTEXITCODE"
+        )
+        completed, records = _run(fixture, log, command)
+        require(completed.returncode == 0, f"observe launch failed: {completed.stdout}\n{completed.stderr}")
+        require("warm Codex resume OFF (no supervisor turns run in this mode)" in completed.stdout, completed.stdout)
+        require("ACTIVE" not in completed.stdout, completed.stdout)
+    for bad in ('["--sandbox","danger-full-access"]', '["-c","approval_policy=\\"never\\""]', '"-c"', 'not json'):
+        with base.fixture_dir() as text:
+            fixture = Path(text)
+            log = _write_stub_path(fixture)
+            command = f"$env:{ENVIRONMENT} = '{bad}'; " + _scheduler_command()
+            completed, records = _run(fixture, log, command)
+            require(completed.returncode != 0, f"inherited {bad!r} was accepted: {completed.stdout}")
+            require(not _direct_calls(records), f"{bad!r}: the worker ran anyway")
+            require("ACTIVE" not in completed.stdout, completed.stdout)
 
 
 def test_nothing_supplied_leaves_the_gate_off_and_says_so() -> None:
@@ -143,8 +169,10 @@ def test_inherited_environment_is_forwarded_to_the_worker() -> None:
         command = f"$env:{ENVIRONMENT} = '{json.dumps(CONTROL)}'; " + _scheduler_command()
         completed, records = _run(fixture, log, command)
         require(completed.returncode == 0, f"launcher failed: {completed.stdout}\n{completed.stderr}")
-        argv = _direct_calls(records)[0]
-        require(json.loads(base._value(argv, FLAG)) == CONTROL, f"inherited control was not forwarded: {argv}")
+        worker = [record for record in records if record["tool"] == "python" and os.path.basename(record["argv"][0]) == DIRECT_SCRIPT][0]
+        require(json.loads(worker["resume"]) == CONTROL, f"inherited control did not reach the worker environment: {worker}")
+        require(FLAG not in _direct_calls(records)[0], "never a native argument")
+        require("warm Codex resume ACTIVE" in completed.stdout, completed.stdout)
 
 
 def test_top_level_architect_path_exports_the_control_to_the_controller() -> None:
@@ -168,7 +196,11 @@ def test_top_level_architect_path_exports_the_control_to_the_controller() -> Non
 
 
 def test_fragments_resume_cannot_honour_fail_before_any_pipeline() -> None:
-    for fragment in ("'--sandbox','danger-full-access'", "'--last'", "'-s','danger-full-access'", "'--ephemeral'", "''"):
+    for fragment in (
+        "'--sandbox','danger-full-access'", "'--last'", "'-s','danger-full-access'", "'--ephemeral'", "''",
+        "'-C','/workspace'", "'--add-dir','/workspace'", "'-c','approval_policy=\"never\"'",
+        "'--profile=verified-resume'", "'-c'",
+    ):
         with base.fixture_dir() as text:
             fixture = Path(text)
             log = _write_stub_path(fixture)

@@ -91,6 +91,7 @@ from .contracts import TaskReviewContractError, validate_task_id
 from .execution_session_pool import (
     _acquire_liveness_lock,
     _exclusive_file_lock,
+    _file_identity,
     _release_liveness_lock,
 )
 
@@ -108,24 +109,35 @@ SUPERVISOR_SESSION_LIFETIME = SessionLifetimePolicy(
 )
 CODEX_RESUME_SANDBOX_ARGUMENT_ENVIRONMENT = "NSC_CODEX_RESUME_SANDBOX_ARGUMENT"
 SUPERVISOR_CONTEXT_WINDOW_ENVIRONMENT = "NSC_TASK_SUPERVISOR_CONTEXT_WINDOW_TOKENS"
+# A provider conversation lives in the container's configuration volume,
+# which Docker Compose names from the project it runs under. A session
+# started under one project cannot be resumed under another, so the store
+# is part of a pooled conversation's identity, never an ambient default.
+COMPOSE_PROJECT_ENVIRONMENT = "NSC_TASK_AGENT_COMPOSE_PROJECT"
+DEFAULT_COMPOSE_PROJECT = "nosafecircle"
+CONVERSATION_STORE_BINDING = "conversation_store"
+CONVERSATION_STORE_VOLUMES = {"claude": "claude-config", "codex": "codex-config"}
 CODEX_RESUME_GATE_OFF_REASON = (
     "codex exec resume cannot reproduce the pinned '--sandbox danger-full-access' "
     "policy without an operator-verified argument; no verified "
     f"{CODEX_RESUME_SANDBOX_ARGUMENT_ENVIRONMENT} was supplied, so supervisor "
     "turns stay ephemeral and no conversation is pooled"
 )
-# Fragments that can never be a verified resume control: `--sandbox` is not
-# accepted by `codex exec resume` at all, `--last`/`--all` select a session by
-# recency instead of exact identity, `--ephemeral` would discard the session
-# files a resume needs, and the bypass flag is a different, wider policy.
-_FORBIDDEN_RESUME_TOKENS = frozenset(
-    {
-        "--sandbox", "-s", "--last", "--all", "--ephemeral",
-        "--dangerously-bypass-approvals-and-sandbox",
-    }
-)
+# The resume control reproduces the pinned sandbox policy through the one
+# channel `codex exec resume` accepts for it: `-c`/`--config` overrides of
+# sandbox configuration keys. Nothing else is a sandbox control: `--sandbox`
+# is not accepted by resume at all, `--last` selects a session by recency,
+# `--all` widens session lookup beyond the current working directory,
+# `--ephemeral` discards the session files a resume needs, the bypass flag is
+# a wider policy, and working-directory, approval, profile, or feature flags
+# would widen what the resumed turn may do beyond what the start had.
+_RESUME_CONFIG_FLAGS = frozenset({"-c", "--config"})
+_RESUME_CONFIG_KEY = re.compile(r"^sandbox[a-z0-9_.]*=.+$")
 _UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 _SLOT = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?$")
+# Docker Compose project names: lowercase letters, digits, dashes, and
+# underscores, starting with a letter or digit.
+_COMPOSE_PROJECT = re.compile(r"^[a-z0-9][a-z0-9_-]{0,127}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _FAILURE_OUTCOMES = {
     "ProviderFailure": "provider_failure",
@@ -163,17 +175,23 @@ class CodexResumeActivation:
             raise SupervisorSessionPoolError(
                 "the Codex resume control must be a non-empty tuple of non-empty unpadded strings"
             )
-        for part in parts:
-            token = part.split("=", 1)[0]
-            if token in _FORBIDDEN_RESUME_TOKENS:
+        if len(parts) % 2 != 0:
+            raise SupervisorSessionPoolError(
+                "the Codex resume control must be `-c`/`--config` flag and "
+                "`sandbox...=value` pairs, for example "
+                '("-c", \'sandbox_mode="danger-full-access"\')'
+            )
+        for flag, value in zip(parts[0::2], parts[1::2]):
+            if flag not in _RESUME_CONFIG_FLAGS:
                 raise SupervisorSessionPoolError(
-                    f"the Codex resume control may not contain {token!r}: it is not an "
-                    "exact, resume-accepted reproduction of the pinned sandbox policy"
+                    f"the Codex resume control may not contain {flag!r}: only `-c`/"
+                    "`--config` sandbox overrides reproduce the pinned sandbox policy "
+                    "through an option `codex exec resume` accepts"
                 )
-            if _UUID.fullmatch(part):
+            if _RESUME_CONFIG_KEY.fullmatch(value) is None or _UUID.fullmatch(value):
                 raise SupervisorSessionPoolError(
-                    "the Codex resume control may not name a session id; the owner "
-                    "supplies the exact identity itself"
+                    f"the Codex resume control value {value!r} must be one "
+                    "`sandbox...=value` configuration override"
                 )
 
     @classmethod
@@ -260,6 +278,40 @@ def classify_turn_failure(classification: Any) -> str:
     return "uncertain"
 
 
+def resolve_compose_project(compose_project: Any = None) -> str:
+    """Return the exact Docker Compose project a provider container runs under.
+
+    The explicit value wins, then ``NSC_TASK_AGENT_COMPOSE_PROJECT``, then the
+    repository default. The same resolution builds the provider and the pool
+    owner, so the two can never disagree silently about where a conversation
+    lives.
+    """
+
+    value = (
+        str(compose_project).strip()
+        if compose_project
+        else os.getenv(COMPOSE_PROJECT_ENVIRONMENT, "").strip() or DEFAULT_COMPOSE_PROJECT
+    )
+    if _COMPOSE_PROJECT.fullmatch(value) is None:
+        raise SupervisorSessionPoolError(
+            f"compose project {value!r} is not a valid Docker Compose project name"
+        )
+    return value
+
+
+def conversation_store_binding(compose_project: str, provider_name: str) -> tuple[str, str]:
+    """The scope binding naming the exact volume a provider's sessions live in."""
+
+    project = resolve_compose_project(compose_project)
+    try:
+        volume = CONVERSATION_STORE_VOLUMES[provider_name]
+    except KeyError:
+        raise SupervisorSessionPoolError(
+            f"no conversation store volume is known for provider {provider_name!r}"
+        ) from None
+    return (CONVERSATION_STORE_BINDING, f"compose:{project}/{volume}")
+
+
 def gate_off_activation_state(task_id: str) -> dict[str, Any]:
     """The truthful pool report for a worker that never activated the gate."""
 
@@ -271,6 +323,7 @@ def gate_off_activation_state(task_id: str) -> dict[str, Any]:
         "warm_pooling_active": False,
         "reason": CODEX_RESUME_GATE_OFF_REASON,
         "resume_contract": None,
+        "conversation_store": None,
         "state_path": None,
         "context_window_tokens": None,
         "reconciliation": [],
@@ -341,6 +394,7 @@ class SupervisorSessionOwner:
         resume_activation: CodexResumeActivation | None,
         context_window_tokens: int | None = None,
         repository_identity: str | None = None,
+        compose_project: str | None = None,
         clock: Callable[[], dt.datetime] = utc_now,
         identity_factory: Callable[[], str] | None = None,
         host_identity: str | None = None,
@@ -351,6 +405,8 @@ class SupervisorSessionOwner:
         self.run_id = _slot(run_id, field="run_id")
         self.model = _exact(model, field="model")
         self.reasoning_effort = _exact(reasoning_effort, field="reasoning_effort")
+        self.compose_project = resolve_compose_project(compose_project)
+        self.conversation_store = conversation_store_binding(self.compose_project, "codex")[1]
         if resume_activation is not None and type(resume_activation) is not CodexResumeActivation:
             raise SupervisorSessionPoolError("resume_activation must be an exact CodexResumeActivation")
         self.resume_activation = resume_activation
@@ -382,9 +438,13 @@ class SupervisorSessionOwner:
                 reasoning_effort=self.reasoning_effort,
                 repository_identity=self.repository_identity,
                 resume_contract=resume_activation.fingerprint,
-                bindings=(("task_id", self.task_id),),
+                bindings=(
+                    conversation_store_binding(self.compose_project, "codex"),
+                    ("task_id", self.task_id),
+                ),
             )
         self._liveness: BinaryIO | None = None
+        self.liveness_identity: str | None = None
         self._closed = False
         self.reconciliation: list[dict[str, Any]] = []
         self._acquire_liveness()
@@ -409,6 +469,7 @@ class SupervisorSessionOwner:
             "provider": SUPERVISOR_SESSION_PROVIDER,
             "task_id": self.task_id,
             "warm_pooling_active": self.warm_pooling_active,
+            "conversation_store": self.conversation_store,
             "state_path": str(self.state_path),
             "context_window_tokens": self.context_window_tokens,
             "reconciliation": list(self.reconciliation),
@@ -425,6 +486,13 @@ class SupervisorSessionOwner:
     def _acquire_liveness(self) -> None:
         try:
             self._liveness = _acquire_liveness_lock(self.liveness_path)
+            identity = _file_identity(self._liveness)
+            if identity is None:
+                raise SupervisorSessionPoolError(
+                    "supervisor liveness file identity is unavailable, so a later owner "
+                    f"could never prove ownership of {self.liveness_path}"
+                )
+            self.liveness_identity = f"{identity[0]}:{identity[1]}"
         except (BlockingIOError, PermissionError) as exc:
             raise SupervisorSessionPoolError(
                 f"another live worker owns the supervisor session for {self.task_id}: "
@@ -511,6 +579,14 @@ class SupervisorSessionOwner:
                             f"host {host!r}/{platform!r}; it cannot be proven stranded from "
                             f"{self.host_identity!r}/{self.platform!r}"
                         )
+                    # The lock this owner holds must be the very file the
+                    # stranded owner held; a replaced lock file proves nothing.
+                    if lease.assignment_value("liveness_identity") != self.liveness_identity:
+                        raise SupervisorSessionPoolError(
+                            f"supervisor session for {self.task_id} holds an active lease whose "
+                            "liveness lock file is not the one this owner holds; it cannot be "
+                            "proven stranded"
+                        )
                     settled = pool.retire_interrupted(
                         lease,
                         detail=(
@@ -564,6 +640,7 @@ class SupervisorSessionOwner:
             "turn": str(turn),
             "host": self.host_identity,
             "platform": self.platform,
+            "liveness_identity": self.liveness_identity or "",
         }
         current = {
             "task": self.task_id,
@@ -642,6 +719,13 @@ class SupervisorSessionOwner:
             detail=reason,
         )
         return self._transaction(lambda pool: pool.check_in(lease=turn.lease, settlement=settlement))
+
+    def cancel_turn(self, turn: SupervisorTurn) -> SessionRecord | None:
+        """Return a checked-out turn that never reached the provider, uncharged."""
+
+        if type(turn) is not SupervisorTurn:
+            raise SupervisorSessionPoolError("cancel_turn requires the exact SupervisorTurn")
+        return self._transaction(lambda pool: pool.cancel(turn.lease))
 
     @staticmethod
     def _usage_evidence(usage: Any) -> dict[str, str]:

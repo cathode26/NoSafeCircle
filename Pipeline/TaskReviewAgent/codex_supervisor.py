@@ -17,6 +17,8 @@ from .supervisor_session_pool import (
     SupervisorSessionPoolError,
     SupervisorTurn,
     classify_turn_failure,
+    gate_off_activation_state,
+    resolve_compose_project,
 )
 
 
@@ -249,11 +251,10 @@ class CodexDockerDecisionProvider:
     ) -> None:
         self.source = Path(source).resolve()
         self.model = resolve_supervisor_model(model)
-        self.compose_project = (
-            str(compose_project).strip()
-            if compose_project
-            else os.getenv("NSC_TASK_AGENT_COMPOSE_PROJECT", "nosafecircle")
-        )
+        try:
+            self.compose_project = resolve_compose_project(compose_project)
+        except SupervisorSessionPoolError as exc:
+            raise CodexSupervisorError(str(exc)) from exc
         self.service = str(service).strip()
         self.reasoning_effort = resolve_supervisor_reasoning_effort(reasoning_effort)
         raw_timeout = (
@@ -295,9 +296,11 @@ class CodexDockerDecisionProvider:
         if session_owner is not None and (
             session_owner.model != self.model
             or session_owner.reasoning_effort != self.reasoning_effort
+            or session_owner.compose_project != self.compose_project
         ):
             raise CodexSupervisorError(
-                "supervisor session owner model/reasoning effort differ from this provider"
+                "supervisor session owner model/reasoning effort/compose project "
+                "differ from this provider"
             )
         self.last_session: dict[str, Any] | None = None
         self._turn_observation: dict[str, Any] = {}
@@ -376,7 +379,9 @@ class CodexDockerDecisionProvider:
         pooled: SupervisorTurn | None = None
         facts = self._turn_observation
         self._turn_observation = {}
-        self.last_session = None
+        # Every decision event says truthfully whether a pooled conversation
+        # took part: an ephemeral provider reports the gate as off.
+        self.last_session = gate_off_activation_state(task_id)
         if self.session_owner is not None:
             if self.session_owner.task_id != task_id:
                 raise CodexSupervisorError(
@@ -395,44 +400,50 @@ class CodexDockerDecisionProvider:
                 # The gate is off: say so on every turn instead of silently
                 # running ephemeral turns under a pooled-looking configuration.
                 self.last_session = self.session_owner.activation_state()
-        request = {
-            "schema_version": (
-                POOLED_SUPERVISOR_TURN_SCHEMA_VERSION
-                if pooled is not None
-                else SUPERVISOR_TURN_SCHEMA_VERSION
-            ),
-            "run_id": run_id,
-            "prompt": prompt if pooled is None else pooled.capsule + "\n\n" + prompt,
-            "output_schema": decision_schema(allowed_actions),
-            "model": self.model,
-            "reasoning_effort": self.reasoning_effort,
-            "provider_turn_limit": SUPERVISOR_PROVIDER_TURN_LIMIT,
-            "timeout_seconds": self.timeout_seconds,
-        }
-        if pooled is not None:
-            request["provider_session"] = pooled.provider_session
-        command = (
-            "docker",
-            "compose",
-            "-p",
-            self.compose_project,
-            "run",
-            "--rm",
-            "-T",
-            self.service,
-            "python3",
-            "Pipeline/TaskReviewAgent/codex_supervisor_turn.py",
-        )
-        input_bytes = (
-            json.dumps(
-                request,
-                ensure_ascii=False,
-                allow_nan=False,
-                separators=(",", ":"),
-                sort_keys=True,
+        try:
+            request = {
+                "schema_version": (
+                    POOLED_SUPERVISOR_TURN_SCHEMA_VERSION
+                    if pooled is not None
+                    else SUPERVISOR_TURN_SCHEMA_VERSION
+                ),
+                "run_id": run_id,
+                "prompt": prompt if pooled is None else pooled.capsule + "\n\n" + prompt,
+                "output_schema": decision_schema(allowed_actions),
+                "model": self.model,
+                "reasoning_effort": self.reasoning_effort,
+                "provider_turn_limit": SUPERVISOR_PROVIDER_TURN_LIMIT,
+                "timeout_seconds": self.timeout_seconds,
+            }
+            if pooled is not None:
+                request["provider_session"] = pooled.provider_session
+            command = (
+                "docker",
+                "compose",
+                "-p",
+                self.compose_project,
+                "run",
+                "--rm",
+                "-T",
+                self.service,
+                "python3",
+                "Pipeline/TaskReviewAgent/codex_supervisor_turn.py",
             )
-            + "\n"
-        ).encode("utf-8")
+            input_bytes = (
+                json.dumps(
+                    request,
+                    ensure_ascii=False,
+                    allow_nan=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                )
+                + "\n"
+            ).encode("utf-8")
+        except BaseException:
+            # Nothing reached the provider, so the checked-out lease is
+            # returned uncharged rather than left active or retired.
+            self._cancel(pooled)
+            raise
         try:
             completed = self.command_runner(
                 command,
@@ -515,16 +526,43 @@ class CodexDockerDecisionProvider:
                 confirmation=response.get("provider_session_confirmation"),
                 usage=usage_value, detail="decision accepted",
             )
-            if record is None or record.state not in {"idle", "retired"}:
-                # The identity this turn ran under was not proven, so the
-                # decision cannot be attributed to the conversation it was
-                # supposed to come from. Fail closed rather than act on it.
+            # The identity this turn ran under must have been proven exactly:
+            # the record must carry a confirmed session and must not have been
+            # withdrawn for an identity failure. A cold start that proved
+            # nothing is quarantined; a resume whose confirmation named another
+            # thread, another mode, or nothing at all is retired for
+            # identity_failure. Neither may act on this decision, however the
+            # container process exited. A budget or context retirement after a
+            # proven turn is not an identity failure and is accepted.
+            if (
+                record is None
+                or record.session_id is None
+                or record.state == "quarantined"
+                or record.retirement_reason == "identity_failure"
+            ):
+                detail = "unknown"
+                if record is not None and record.quarantine_reason:
+                    detail = record.quarantine_reason
+                elif record is not None and record.retirement_reason:
+                    detail = f"retired for {record.retirement_reason}"
                 raise CodexSupervisorError(
-                    "Codex supervisor turn did not prove its pooled session identity: "
-                    + (record.quarantine_reason if record is not None and record.quarantine_reason else "unknown")
+                    "Codex supervisor turn did not prove its pooled session identity: " + detail
                 )
         self.last_usage = usage_value
         return decision
+
+    def _cancel(self, pooled: SupervisorTurn | None) -> None:
+        """Return a checked-out lease that never reached the provider."""
+
+        if pooled is None or self.session_owner is None:
+            return
+        try:
+            self.session_owner.cancel_turn(pooled)
+        except SupervisorSessionPoolError as exc:
+            raise CodexSupervisorError(
+                f"supervisor session could not be returned: {exc}"
+            ) from exc
+        self.last_session = None
 
     def _settle(
         self,

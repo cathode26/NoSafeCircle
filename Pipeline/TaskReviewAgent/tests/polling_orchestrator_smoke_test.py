@@ -1919,6 +1919,7 @@ def test_architect_can_choose_decomposition_while_implementation_exists() -> Non
         command = processes.calls[0][0]
         require("host_decomposition_launcher.py" in " ".join(command), str(command))
         require("host_worker_launcher.py" not in " ".join(command), str(command))
+        require("--enable-decomposition-session-pool" in command, f"scheduler-launched decomposition must opt into session pooling: {command}")
         require('"work_type": "decomposition"' in stream.getvalue(), stream.getvalue())
 
 

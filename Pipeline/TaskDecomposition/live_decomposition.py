@@ -34,6 +34,10 @@ from Pipeline.AgentRuntime.contracts import (
     WriteBoundaries,
 )
 from Pipeline.AgentRuntime.json_values import thaw_json
+from Pipeline.AgentRuntime.provider_sessions import (
+    ProviderSessionBinding,
+    ProviderSessionLedger,
+)
 from Pipeline.AgentRuntime.providers.claude_code import ClaudeCodeProvider
 from Pipeline.AgentRuntime.providers.openai_codex import OpenAICodexProvider
 from TaskDecomposition.context_builder import (
@@ -53,6 +57,16 @@ from TaskDecomposition.policy import (
 )
 from TaskDecomposition.prompts import build_decomposer_prompt
 from TaskDecomposition.schemas import DECOMPOSITION_RESULT_SCHEMA
+from TaskDecomposition.session_pool_support import (
+    DecompositionLeaseBundle,
+    DecompositionSessionError,
+    PooledRoundSessions,
+    assert_lease_matches_route,
+    bind_lease_bundle_to_run,
+    canonical_artifact_sha256,
+    lease_key,
+    pooled_round_evidence,
+)
 from Pipeline.TaskExecution.contracts import (
     TASK_EXECUTION_REQUEST_SCHEMA_VERSION,
     TaskContractIdentity,
@@ -64,9 +78,14 @@ from graph_delta import GraphDeltaPlanningError, plan_graph_delta
 
 RUN_RESULT_SCHEMA_VERSION = "1.0"
 _RUN_ID_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
-ProviderFactory = Callable[
-    [str, Path], tuple[str, RuntimeConfiguration, Mapping[str, Any]]
-]
+# A provider factory receives the provider name, the read-only source root, and
+# the exact semantic role it is building a provider for. A pooled round
+# additionally hands it the exact session binding, the ledger the adapter must
+# confirm the identity into, and the operator-verified Codex resume control.
+# The role is always explicit: it is never derived from the provider name or
+# from the round number.
+ProviderFactory = Callable[..., tuple[str, RuntimeConfiguration, Mapping[str, Any]]]
+DECOMPOSITION_SESSION_ROLES = ("task_decomposer", "decomposition_reviewer")
 
 
 def _json(value: Any) -> str:
@@ -205,15 +224,29 @@ def provider_configuration(provider_name: str) -> tuple[str, RuntimeConfiguratio
 
 
 def _real_provider_bundle(
-    provider_name: str, source_root: Path
+    provider_name: str,
+    source_root: Path,
+    role: str,
+    session: ProviderSessionBinding | None = None,
+    session_ledger: ProviderSessionLedger | None = None,
+    codex_resume_sandbox_argument: tuple[str, ...] | None = None,
 ) -> tuple[str, RuntimeConfiguration, Mapping[str, Any]]:
+    if role not in DECOMPOSITION_SESSION_ROLES:
+        raise DecompositionPreflightError(f"unsupported decomposition role: {role!r}")
     key, configuration = provider_configuration(provider_name)
     if provider_name == "claude":
-        provider = ClaudeCodeProvider(repository_root=source_root)
+        provider = ClaudeCodeProvider(
+            repository_root=source_root,
+            session=session,
+            session_ledger=session_ledger,
+        )
     elif provider_name == "codex":
         provider = OpenAICodexProvider(
             repository_root=source_root,
             externally_enforced_read_only_repository=True,
+            session=session,
+            session_ledger=session_ledger,
+            resume_sandbox_argument=codex_resume_sandbox_argument,
         )
     else:
         raise DecompositionPreflightError("provider must be claude or codex")
@@ -224,14 +257,42 @@ def _validated_provider_bundle(
     provider_name: str,
     source_root: Path,
     factory: ProviderFactory | None,
+    *,
+    role: str,
+    session: ProviderSessionBinding | None = None,
+    session_ledger: ProviderSessionLedger | None = None,
+    codex_resume_sandbox_argument: tuple[str, ...] | None = None,
 ) -> tuple[str, RuntimeConfiguration, Mapping[str, Any]]:
     expected_key = f"{provider_name}-decomposition"
-    try:
-        key, configuration, registry = (
-            _real_provider_bundle(provider_name, source_root)
-            if factory is None
-            else factory(provider_name, source_root)
+    if role not in DECOMPOSITION_SESSION_ROLES:
+        raise DecompositionPreflightError(f"unsupported decomposition role: {role!r}")
+    if (session is None) != (session_ledger is None):
+        raise DecompositionPreflightError(
+            "a pooled provider bundle requires both the session binding and its ledger"
         )
+    if session is not None and session.role != role:
+        raise DecompositionPreflightError(
+            f"session binding role {session.role!r} differs from the round role {role!r}"
+        )
+    try:
+        if factory is None:
+            key, configuration, registry = _real_provider_bundle(
+                provider_name, source_root, role, session, session_ledger,
+                codex_resume_sandbox_argument,
+            )
+        elif session is None:
+            key, configuration, registry = factory(provider_name, source_root, role)
+        else:
+            try:
+                key, configuration, registry = factory(
+                    provider_name, source_root, role, session, session_ledger,
+                    codex_resume_sandbox_argument,
+                )
+            except TypeError as exc:
+                raise DecompositionPreflightError(
+                    "pooled decomposition sessions require a provider factory that "
+                    f"accepts the session binding, ledger, and resume control: {exc}"
+                ) from exc
     except DecompositionPreflightError:
         raise
     except Exception as exc:
@@ -352,6 +413,8 @@ def run_live_decomposition(
     run_id: str | None = None,
     provider_factory: ProviderFactory | None = None,
     _require_physical_read_only_source: bool = True,
+    lease_bundle: DecompositionLeaseBundle | None = None,
+    scheduler_repository_identity: str | None = None,
 ) -> dict[str, Any]:
     """Run exactly one task-associated invocation and publish review-only artifacts."""
 
@@ -360,6 +423,13 @@ def run_live_decomposition(
         raise DecompositionPreflightError("provider must be claude or codex")
     if not re.fullmatch(r"NSC-[0-9]{3}", task_id):
         raise DecompositionPreflightError("task ID must match NSC-###")
+    if (lease_bundle is None) != (scheduler_repository_identity is None):
+        raise DecompositionPreflightError(
+            "pooled decomposition sessions require both the lease bundle and the "
+            "scheduler-proven repository identity"
+        )
+    if lease_bundle is not None and run_id is None:
+        raise DecompositionPreflightError("pooled decomposition sessions require an explicit run id")
     source_identity = capture_clean_source(source)
     safe_output_root = require_output_disjoint(source_identity.root, output_root)
     if not _require_physical_read_only_source and provider_factory is None:
@@ -375,11 +445,60 @@ def run_live_decomposition(
     if changed_during_context:
         raise DecompositionPreflightError("; ".join(changed_during_context))
     prompt = build_decomposer_prompt(context)
-    key, configuration, registry = _validated_provider_bundle(
-        provider_name, source_identity.root, provider_factory
-    )
     selected_run_id = _validate_run_id(run_id or _new_run_id(task_id))
     invocation_id = _invocation_id(task_id, selected_run_id)
+    role = "task_decomposer"
+    pooled_sessions: PooledRoundSessions | None = None
+    pooled_key: str | None = None
+    session_ledger: ProviderSessionLedger | None = None
+    session_binding: ProviderSessionBinding | None = None
+    if lease_bundle is not None:
+        assert scheduler_repository_identity is not None
+        try:
+            bind_lease_bundle_to_run(
+                lease_bundle, task_id=task_id, source_head=source_identity.head,
+                source_root=source_identity.root, decomposition_mode="d1b1",
+                scheduler_repository_identity=scheduler_repository_identity,
+                provider_order=(provider_name,),
+            )
+        except DecompositionSessionError as exc:
+            raise DecompositionPreflightError(f"lease bundle does not bind to this run: {exc}") from exc
+        pooled_sessions = PooledRoundSessions(lease_bundle)
+        if lease_bundle.lease_for(provider_name, role) is not None:
+            pooled_key = lease_key(provider_name, role)
+            session_binding = pooled_sessions.binding_for(pooled_key)
+            session_ledger = ProviderSessionLedger()
+            prompt = pooled_sessions.capsule_for(
+                pooled_key,
+                current={
+                    "task": task_id,
+                    "decomposition_run": selected_run_id,
+                    "round": "1",
+                    "decomposition_mode": "d1b1",
+                    "source_head": source_identity.head,
+                    "source_tree": source_identity.tree,
+                },
+                allowed_actions=("author one structured decomposition result for the selected task",),
+            ) + "\n\n" + prompt
+    key, configuration, registry = _validated_provider_bundle(
+        provider_name, source_identity.root, provider_factory, role=role,
+        session=session_binding, session_ledger=session_ledger,
+        codex_resume_sandbox_argument=(
+            None if lease_bundle is None else lease_bundle.codex_resume_sandbox_argument
+        ),
+    )
+    if pooled_key is not None:
+        assert lease_bundle is not None
+        selection = configuration.resolve(key, "high_reasoning", registry)
+        try:
+            assert_lease_matches_route(
+                lease_bundle.leases[pooled_key],
+                provider_identifier=selection.provider,
+                model=selection.model,
+                reasoning_effort=getattr(registry[selection.provider], "reasoning_effort", None),
+            )
+        except DecompositionSessionError as exc:
+            raise DecompositionPreflightError(str(exc)) from exc
 
     context_payload = context.to_dict()
     task_identity_payload = context_payload["selected_task"]["task_execution_identity"]
@@ -391,7 +510,7 @@ def run_live_decomposition(
     invocation = AgentInvocationRequest(
         AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
         invocation_id,
-        "task_decomposer",
+        role,
         prompt,
         tuple(context_payload["context_paths"]),
         ("repository_read", "repository_search"),
@@ -423,7 +542,11 @@ def run_live_decomposition(
         provider=provider_name,
         started=started,
     )
-    reporter.emit("run_started", f"Decomposition started: {task_id} / {provider_name}")
+    reporter.emit(
+        "run_started", f"Decomposition started: {task_id} / {provider_name}",
+        pooled_session_key=pooled_key,
+        session_mode=None if session_binding is None else session_binding.mode,
+    )
     publish_json_no_overwrite(
         run_dir / "decomposition_request.json",
         _decomposition_request(
@@ -538,6 +661,36 @@ def run_live_decomposition(
         if reason not in rejection_reasons:
             rejection_reasons.append(reason)
 
+    pooled_session_evidence: dict[str, Any] | None = None
+    if session_ledger is not None:
+        assert pooled_sessions is not None and pooled_key is not None and session_binding is not None
+        confirmed = session_ledger.confirmed
+        if confirmed is None:
+            # The provider never named the conversation, so this output cannot
+            # be attributed to the conversation it was supposed to come from.
+            detail = (
+                f"{role} asked to {session_binding.mode} provider session "
+                f"{session_binding.session_id or '(provider-assigned)'} but the transcript "
+                "never confirmed it; the conversation is unproven, quarantined, and never reused"
+            )
+            reporter.emit(
+                "provider_session_identity_unproven", detail, pooled_session_key=pooled_key,
+                session_mode=session_binding.mode, requested_session_id=session_binding.session_id,
+                status="quarantined",
+            )
+            rejection_reasons.append(f"provider session identity unproven: {detail}")
+            run_status = "agent_failed"
+            accepted_result = None
+            graph_delta = None
+            pooled_sessions.record_unproven(pooled_key, detail)
+        else:
+            reporter.emit(
+                "provider_session_confirmed",
+                f"{role} confirmed provider session {confirmed.session_id}",
+                pooled_session_key=pooled_key, session_mode=confirmed.mode,
+                session_id=confirmed.session_id, status="confirmed",
+            )
+
     decomposition_result_path: str | None = None
     graph_delta_path: str | None = None
     if accepted_result is not None and not rejection_reasons:
@@ -553,6 +706,30 @@ def run_live_decomposition(
         run_status = "review_ready"
     elif run_status != "agent_failed":
         run_status = "rejected"
+
+    if session_ledger is not None and session_ledger.confirmed is not None:
+        assert pooled_sessions is not None and pooled_key is not None and session_binding is not None
+        assert lease_bundle is not None
+        selection = configuration.resolve(key, "high_reasoning", registry)
+        pooled_session_evidence = pooled_round_evidence(
+            lease_key_value=pooled_key,
+            lease=lease_bundle.leases[pooled_key],
+            task_id=task_id, run_id=selected_run_id, decomposition_mode="d1b1",
+            round_number=1, invocation_id=invocation_id, role=role,
+            provider_name=provider_name, model=selection.model,
+            reasoning_effort=getattr(registry[selection.provider], "reasoning_effort", None),
+            source_head=source_identity.head, source_tree=source_identity.tree,
+            checkout_identity=lease_bundle.checkout_identity,
+            requested=session_binding, confirmed=session_ledger.confirmed,
+            artifact_path=decomposition_result_path,
+            artifact_sha256=(
+                None if accepted_result is None or decomposition_result_path is None
+                else canonical_artifact_sha256(accepted_result.to_dict())
+            ),
+            agent_status=agent_status or "failed",
+            round_status=run_status,
+        )
+        pooled_sessions.record(pooled_key, session_ledger.confirmed, pooled_session_evidence)
 
     task_request_reference = f"task_execution/{invocation_id}/task_request.json"
     agent_result_reference = f"agent_runtime/{invocation_id}/result.json"
@@ -583,6 +760,8 @@ def run_live_decomposition(
         "human_next_step": _human_next_step(decision, run_status),
         "duration_seconds": time.monotonic() - started,
         "authority": "review_only_not_applied",
+        "pooled_sessions": None if pooled_sessions is None else pooled_sessions.summary(),
+        "pooled_session_evidence": pooled_session_evidence,
     }
     reporter.emit(
         "run_completed",

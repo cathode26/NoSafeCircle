@@ -384,6 +384,7 @@ def run_reviewer_replay_ab(
         reviewer_provider,
         source_identity.root,
         provider_factory,
+        role="decomposition_reviewer",
     )
     changed_during_provider_setup = source_revalidation_reasons(source_identity)
     if changed_during_provider_setup:

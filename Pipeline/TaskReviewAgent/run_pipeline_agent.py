@@ -614,7 +614,7 @@ def main(argv: list[str] | None = None) -> int:
                     run_id=progress.run_id,
                     model=resolve_supervisor_model(args.model),
                     reasoning_effort=resolve_supervisor_reasoning_effort(
-                        None if downstream else args.supervisor_reasoning_effort
+                        args.supervisor_reasoning_effort
                     ),
                     resume_activation=resume_activation,
                     context_window_tokens=_supervisor_context_window(args),
@@ -648,13 +648,23 @@ def main(argv: list[str] | None = None) -> int:
                 "authority": authority,
             }
         elif downstream:
+            downstream_options: dict[str, Any] = {
+                "model": args.model,
+                "max_turns": args.max_turns,
+                "progress": progress,
+                "session_owner": supervisor_owner,
+            }
+            # The routed supervisor effort reaches the downstream phase too,
+            # so the task's pooled supervisor conversation keeps one
+            # compatibility key from implementation through closeout.
+            if args.supervisor_reasoning_effort is not None:
+                downstream_options["reasoning_effort"] = (
+                    args.supervisor_reasoning_effort
+                )
             outcome = run_openai_downstream_pipeline(
                 request,
                 controller,
-                model=args.model,
-                max_turns=args.max_turns,
-                progress=progress,
-                session_owner=supervisor_owner,
+                **downstream_options,
             )
             result = {
                 "schema_version": "1.0",

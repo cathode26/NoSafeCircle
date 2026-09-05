@@ -863,9 +863,16 @@ class DurableSessionPool:
             item for item in self.sessions_in_scope(scope)
             if item.state == "idle" or (allow_probation_retry and item.state == "probation")
         ]
-        # Warmest first, deterministic tie-break so a restored pool always
+        # Most recently returned first (an idle record before any probation
+        # record), with a deterministic tie-break so a restored pool always
         # selects the same conversation.
-        candidates.sort(key=lambda item: (item.state == "probation", item.idle_since_utc or "", item.record_id))
+        candidates.sort(
+            key=lambda item: (
+                item.state == "probation",
+                -parse_utc(item.idle_since_utc, field="idle_since_utc").timestamp(),
+                item.record_id,
+            )
+        )
         selected: SessionRecord | None = None
         lifecycle: SessionLifecycleState | None = None
         for candidate in candidates:
@@ -987,7 +994,9 @@ class DurableSessionPool:
             record = self._retire_uncertain(session, lease, settlement, session_id=trusted_id)
         elif mismatch is not None:
             record = self._withdraw(
-                session, f"provider session identity was not proven: {mismatch}",
+                session,
+                f"provider session identity was not proven: {mismatch}"
+                + (f"; {settlement.detail}" if settlement.detail else ""),
                 outcome="identity_failure", settlement=settlement, session_id=trusted_id,
             )
         else:

@@ -1684,6 +1684,7 @@ def build_decomposition_worker_command(
     admission_source_head: str | None = None,
     task_contract_sha256: str | None = None,
     admission_issue_number: int | None = None,
+    enable_session_pool: bool = False,
 ) -> tuple[str, ...]:
     """Build the distinct host boundary for review-only decomposition work."""
 
@@ -1754,6 +1755,12 @@ def build_decomposition_worker_command(
         raise PollingOrchestratorError(
             "decomposition admission Issue number requires result identity"
         )
+    if enable_session_pool:
+        if run_id is None:
+            raise PollingOrchestratorError(
+                "decomposition session pooling requires scheduler-owned run identity"
+            )
+        command.append("--enable-decomposition-session-pool")
     return tuple(command)
 
 
@@ -3435,6 +3442,9 @@ class PollingOrchestrator:
                     admission_source_head=plan.source_commit,
                     task_contract_sha256=task_contract_sha256,
                     admission_issue_number=expected_issue_number,
+                    # The polling scheduler alone enables pooling, exactly as it
+                    # does for the ExecutionCrew pool; direct launches stay ephemeral.
+                    enable_session_pool=True,
                 )
                 route_event = {
                     "work_type": "decomposition",
