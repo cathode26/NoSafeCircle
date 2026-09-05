@@ -313,8 +313,9 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/TaskReviewAgent/tests/synthetic_gauntlet_approver_smoke_test.py
 
-      - name: Run muffcabbage end-to-end acceptance tests (fast and standard rigor)
+      - name: Run muffcabbage end-to-end acceptance tests (fast, standard, and deep rigor)
         if: steps.scope.outputs.run_full_core == 'true'
+        timeout-minutes: 6
         run: python Pipeline/TaskReviewAgent/tests/muffcabbage_end_to_end_smoke_test.py
 
       - name: Run automated synthetic evidence event smoke tests

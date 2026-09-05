@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic end-to-end acceptance: muffcabbage tasks through the whole pipeline.
 
-Two positive scenarios share one fixture and one lifecycle driver. The *fast*
+Three positive scenarios share one fixture and one lifecycle driver. The *fast*
 scenario is one new script and its ``.meta`` companion: the architect asks for
 ``fast`` and deterministic routing keeps it lean/targeted. The *standard* scenario
 is three new isolated scripts with their companions: six exact paths exceed the
@@ -9,6 +9,9 @@ lean bound but touch no scene, prefab, ProjectSettings, package, or pipeline
 surface, so the deterministic minimum is exactly ``standard`` and the architect's
 ``standard`` request is honored as standard/task_specific. A focused guard proves
 that a ``fast`` request for that same surface is raised to ``standard``.
+The *deep* scenario creates one small Unity scene plus one value script and their
+companions. Its four exact paths require deep/full/full_relevant because the scene
+contains serialized GameObject/Transform data, not because the file count is large.
 
 Classification: disposable-repository lifecycle test. Everything it touches lives in
 one temporary directory: a bare Git remote, a controller source clone, task
@@ -39,10 +42,11 @@ What runs for real (production objects, unmodified):
 
 What is a deterministic fixture stand-in (each named where it is defined):
 
-- The architect model (``DeterministicArchitect``: one fast/lean/targeted advisory).
+- The architect model (``DeterministicArchitect``: the scenario's tier advisory).
 - The worker *process* (``InProcessWorkers``: the exact ``host_worker_launcher``
   argv the scheduler builds is executed in-process instead of spawning Python).
-- The ExecutionCrew's code change (two files written directly) and the
+- The ExecutionCrew's candidate/result (scenario files written directly; the real
+  bridge validates and persists its execution receipt) and the
   ``run_unity_tests_clean.ps1`` runner committed in the fixture repository, which
   publishes a manifest without launching Unity and logs every execution.
 - The TaskGraph/TaskDelivery command-line tools committed in the fixture repository
@@ -71,7 +75,7 @@ import sys
 import tempfile
 import time
 from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -110,6 +114,7 @@ from Pipeline.TaskReviewAgent.autonomous_graph_run import (  # noqa: E402
     autonomous_run_paths,
 )
 from Pipeline.TaskReviewAgent.candidate_integration import (  # noqa: E402
+    CandidateIntegrator,
     CandidateIntegrationReceipt,
     load_integration_receipt,
 )
@@ -124,8 +129,10 @@ from Pipeline.TaskReviewAgent.downstream_runtime import (  # noqa: E402
 )
 from Pipeline.TaskReviewAgent.execution_routing import (  # noqa: E402
     RIGOR_PROFILE_BY_TIER,
+    load_execution_routing_policy,
     resolve_task_rigor,
 )
+from Pipeline.TaskReviewAgent.execution_bridge import ExecutionCrewBridge  # noqa: E402
 from Pipeline.ExecutionCrew.run_crew import (  # noqa: E402
     CREW_PROFILE_ROLES,
     CREW_VALIDATION_PROFILE_PAIRS,
@@ -177,10 +184,6 @@ from Pipeline.TaskReviewAgent.worker_result import (  # noqa: E402
     initialize_worker_run,
     write_worker_result,
 )
-from Pipeline.Testing.validation_manifest import (  # noqa: E402
-    import_validation_manifest,
-    load_validation_manifest,
-)
 
 
 REPOSITORY = AUTOMATED_VALIDATION_REPOSITORY
@@ -195,10 +198,9 @@ class Scenario:
     """One synthetic muffcabbage task and the rigor the policy must resolve for it.
 
     ``suffixes`` names the isolated new scripts (``""`` is the gauntlet's own single
-    value file). Each script brings its deterministic ``.cs.meta`` companion, so the
-    exact change surface is twice the script count; every path stays under
-    ``Assets/`` and no scene, prefab, ProjectSettings, package, or pipeline surface
-    is ever touched.
+    value file). Each script brings its deterministic ``.cs.meta`` companion. An
+    optional ``scene_path`` adds substantive serialized content and its companion.
+    Every changed path stays under ``Assets/`` in the disposable repository.
     """
 
     name: str
@@ -211,6 +213,8 @@ class Scenario:
     # validation profile.
     crew_profile: str
     validation_profile: str
+    required_roles: tuple[str, ...]
+    scene_path: str | None = None
 
     @property
     def task_id(self) -> str:
@@ -226,7 +230,10 @@ class Scenario:
 
     @property
     def exact_paths(self) -> tuple[str, ...]:
-        return tuple(path for pair in self.file_pairs for path in pair)
+        return (
+            *(path for pair in self.file_pairs for path in pair),
+            *((self.scene_path, self.scene_path + ".meta") if self.scene_path else ()),
+        )
 
     @property
     def class_names(self) -> tuple[str, ...]:
@@ -238,7 +245,7 @@ class Scenario:
         """The committed task contract: the gauntlet's, widened to every script."""
 
         task = _concrete_task(self.number, 0)
-        if self.suffixes == ("",):
+        if self.suffixes == ("",) and self.scene_path is None:
             return task
         scripts = [source for source, _ in self.file_pairs]
         task["title"] = (
@@ -282,7 +289,55 @@ class Scenario:
             "exceed the lean bound, no shared or serialized content."
         )
         task["provenance"]["expected_paths"] = list(self.exact_paths)
+        if self.scene_path:
+            task["title"] = f"Muffcabbage Gauntlet {self.number}: Place the Scene Marker"
+            task["execution_reason"] = (
+                "One agent creates one isolated scene marker and its matching value constant; "
+                "the serialized Transform requires review even though the change is small."
+            )
+            task["decomposition_reason"] = (
+                f"Create {self.scene_path} with one root GameObject named MuffcabbageMarker "
+                f"whose Transform local position is ({self.number}, 0, 0), matching "
+                f"{self.class_names[0]}.Value. Create both deterministic import companions."
+            )
+            task["acceptance_criteria"].append(_acceptance(
+                "AC-002", task["decomposition_reason"]
+                + f" The scene companion guid is {_guid(self.scene_path)}.",
+            ))
+            task["completion_gates"] = [_gate(
+                "VAL-001", f"Unity EditMode filter {self.test_filter} checks the exact "
+                f"committed {self.scene_path}, its root marker Transform and matching "
+                f"{self.class_names[0]}.Value == {self.number}, without saving the scene.",
+            )]
+            task["notes"] = (
+                "Disposable regression fixture only. The scene contains real Unity YAML "
+                "GameObject and Transform records. Machine fixture evidence is not a "
+                "Unity Editor run or human visual verification."
+            )
         return task
+
+    def scene_text(self) -> str:
+        return (
+            "%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n"
+            "--- !u!1 &1000\nGameObject:\n"
+            "  m_ObjectHideFlags: 0\n  m_CorrespondingSourceObject: {fileID: 0}\n"
+            "  m_PrefabInstance: {fileID: 0}\n  m_PrefabAsset: {fileID: 0}\n"
+            "  serializedVersion: 6\n  m_Component:\n  - component: {fileID: 1001}\n"
+            "  m_Layer: 0\n  m_Name: MuffcabbageMarker\n  m_TagString: Untagged\n"
+            "  m_Icon: {fileID: 0}\n  m_NavMeshLayer: 0\n"
+            "  m_StaticEditorFlags: 0\n  m_IsActive: 1\n"
+            "--- !u!4 &1001\nTransform:\n"
+            "  m_ObjectHideFlags: 0\n  m_CorrespondingSourceObject: {fileID: 0}\n"
+            "  m_PrefabInstance: {fileID: 0}\n  m_PrefabAsset: {fileID: 0}\n"
+            "  m_GameObject: {fileID: 1000}\n  serializedVersion: 2\n"
+            "  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}\n"
+            f"  m_LocalPosition: {{x: {self.number}, y: 0, z: 0}}\n"
+            "  m_LocalScale: {x: 1, y: 1, z: 1}\n  m_ConstrainProportionsScale: 0\n"
+            "  m_Children: []\n  m_Father: {fileID: 0}\n"
+            "  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}\n"
+            "--- !u!1660057539 &9223372036854775807\nSceneRoots:\n"
+            "  m_ObjectHideFlags: 0\n  m_Roots:\n  - {fileID: 1001}\n"
+        )
 
 
 FAST = Scenario(
@@ -293,6 +348,7 @@ FAST = Scenario(
     expected_tier="fast",
     crew_profile="lean",
     validation_profile="targeted",
+    required_roles=("implementer", "validator"),
 )
 # Three isolated new scripts plus their import companions: six exact paths exceed
 # the four-path lean bound, and nothing else in the surface raises the floor, so
@@ -306,6 +362,18 @@ STANDARD = Scenario(
     expected_tier="standard",
     crew_profile="standard",
     validation_profile="task_specific",
+    required_roles=("implementer", "test_author", "validator"),
+)
+DEEP = Scenario(
+    name="deep",
+    number=951,
+    architect_tier="deep",
+    suffixes=("",),
+    expected_tier="deep",
+    crew_profile="full",
+    validation_profile="full_relevant",
+    required_roles=("contract_locality_auditor", "implementer", "test_author", "validator"),
+    scene_path="Assets/Scenes/MuffcabbageGauntlet951.unity",
 )
 # The negative cases exercise the fast scenario's fixture.
 TASK_ID = FAST.task_id
@@ -1164,6 +1232,10 @@ class ExecutableAudit:
         class AuditedPopen(original):  # type: ignore[misc,valid-type]
             def __init__(self, args: Any, *positional: Any, **values: Any) -> None:
                 first = args[0] if isinstance(args, (list, tuple)) else str(args)
+                require(
+                    Path(first).name.casefold() in ALLOWED_EXECUTABLES,
+                    f"forbidden executable refused before launch: {first}",
+                )
                 audit.launched.append(str(first))
                 super().__init__(args, *positional, **values)
 
@@ -1208,10 +1280,12 @@ def scenario_advisory(
             "predicted_change_surface": {
                 "exact_paths": list(scenario.exact_paths),
                 "path_patterns": [],
-                "unity_serialized_assets": [],
+                "unity_serialized_assets": [scenario.scene_path] if scenario.scene_path else [],
                 "symbols_or_components": list(scenario.class_names),
                 "shared_systems": [],
             },
+            # This is parallel-conflict risk, not task rigor. The scene is isolated;
+            # its serialized contents still force deep under resolve_task_rigor.
             "integration_risk": "low",
             "parallel_recommendation": "start",
             "work_type_recommendation": "implementation",
@@ -1219,6 +1293,8 @@ def scenario_advisory(
                 "capability_tier": requested_tier or scenario.architect_tier,
                 "provider_preference": "no_preference",
                 "rationale": (
+                    f"One serialized scene marker in {scenario.scene_path}, with a matching constant."
+                    if scenario.scene_path else
                     f"{len(scripts)} new constant file(s) with deterministic .meta "
                     "companions in isolated new files; no shared system or serialized "
                     "content is touched."
@@ -1230,6 +1306,7 @@ def scenario_advisory(
             "unknown_surface_disjointness": [],
             "design_advice": {
                 "implementation_summary": (
+                    task["decomposition_reason"] if scenario.scene_path else
                     "Create " + ", ".join(scripts) + f" with Value = {scenario.number} "
                     "and the deterministic .meta sidecar of each."
                 ),
@@ -1617,6 +1694,78 @@ class InProcessWorkers:
         self.outcomes: list[dict[str, Any]] = []
         self.failures: list[str] = []
         self.next_pid = 51000
+        self.execution_bridges: list[ExecutionCrewBridge] = []
+        self.crew_commands: list[tuple[str, ...]] = []
+        self.validation_commands: list[tuple[str, ...]] = []
+
+    def _record_execution(self, checkout: Path, options: Mapping[str, Any], lease_id: str):
+        """Stand in for crew output; exercise real bridge validation and persistence.
+
+        The accepted scope and role result are fixture data, like the code change.
+        No Docker command is executed. The bridge's command builder, result checks,
+        receipt serializer and reload are production code.
+        """
+        scenario = self.fixture.scenario
+        accepted = SimpleNamespace(
+            task_id=scenario.task_id,
+            lease_id=lease_id,
+            plan_id=f"fixture-plan-{options['--run-id']}",
+            source_head=options["--admission-source-head"],
+            task_contract_sha256=options["--task-contract-sha256"],
+            plan=SimpleNamespace(
+                existing_implementation_paths=(),
+                new_implementation_paths=tuple(sorted(scenario.exact_paths, key=str.casefold)),
+                existing_test_paths=("Pipeline/Testing/run_unity_tests_clean.ps1",),
+                new_test_paths=(),
+            ),
+        )
+        scope = SimpleNamespace(task_id=scenario.task_id, task=self.fixture.task, accepted=accepted)
+        candidate = (git(checkout, "diff", "--cached", "--binary") + "\n").encode("utf-8")
+
+        def crew_output(command, cwd, timeout_seconds):
+            self.crew_commands.append(tuple(command))
+            require(cwd == checkout, "crew command escaped its disposable checkout")
+            result_dir = bridge.output_root / options["--run-id"]
+            write_text(result_dir / "candidate.patch", candidate.decode("utf-8"))
+            result = {
+                "run_id": options["--run-id"],
+                "task_id": scenario.task_id,
+                "source_head": accepted.source_head,
+                "provider": command[command.index("--provider") + 1],
+                "crew_profile": command[command.index("--crew-profile") + 1],
+                "validation_profile": command[command.index("--validation-profile") + 1],
+                "required_roles": list(CREW_PROFILE_ROLES[bridge.crew_profile]),
+                "execution_model": bridge.execution_model,
+                "execution_reasoning_effort": bridge.execution_reasoning_effort,
+                "task_contract_identity": {
+                    "sha256": accepted.task_contract_sha256,
+                    "path": f"Tasks/{scenario.task_id}.yaml",
+                },
+                **{f"requested_{key}": list(value) for key, value in vars(accepted.plan).items()},
+                "crew_status": "review_ready",
+                "candidate_patch_sha256": hashlib.sha256(candidate).hexdigest(),
+                "final_actual_changed_paths": list(scenario.exact_paths),
+                "rejection_reasons": [],
+                "evidence_authority": "deterministic_fixture_crew_output",
+            }
+            payload = json.dumps(result, indent=2, sort_keys=True) + "\n"
+            write_text(result_dir / "crew_result.json", payload)
+            return subprocess.CompletedProcess(command, 0, payload.encode("utf-8"), b"")
+
+        bridge = ExecutionCrewBridge(
+            checkout=checkout, scope=scope, command_runner=crew_output,
+            execution_model=options.get("--execution-model"),
+            execution_reasoning_effort=options.get("--execution-reasoning-effort"),
+            crew_profile=options["--crew-profile"],
+            validation_profile=options["--validation-profile"],
+        )
+        bridge.output_root = self.fixture.root / "crew-results"
+        execution = bridge._run_prepared(
+            accepted=accepted, provider=options["--execution-provider"],
+            retry_run_id=None, feedback=None, pool_owner=None, pool_assignment=None,
+        )
+        self.execution_bridges.append(bridge)
+        return bridge, execution
 
     def __call__(self, command: Sequence[str], **values: Any) -> FakeWorkerProcess:
         argv = tuple(str(item) for item in command)
@@ -1733,7 +1882,6 @@ class InProcessWorkers:
         branch = str(prepared["branch"])
 
         # ExecutionCrew stand-in: the only implementation step this harness simulates.
-        candidate = hashlib.sha256()
         for (source_path, meta_path), class_name in zip(
             scenario.file_pairs, scenario.class_names
         ):
@@ -1751,72 +1899,53 @@ class InProcessWorkers:
                 "  defaultReferences: []\n  executionOrder: 0\n  icon: {instanceID: 0}\n"
                 "  userData:\n  assetBundleName:\n  assetBundleVariant:\n",
             )
-            candidate.update((checkout / source_path).read_bytes())
+        if scenario.scene_path:
+            write_text(checkout / scenario.scene_path, scenario.scene_text())
+            write_text(
+                checkout / (scenario.scene_path + ".meta"),
+                f"fileFormatVersion: 2\nguid: {_guid(scenario.scene_path)}\n"
+                "DefaultImporter:\n  externalObjects: {}\n  userData:\n"
+                "  assetBundleName:\n  assetBundleVariant:\n",
+            )
         git(checkout, "add", "--", *scenario.exact_paths)
+        leased = service.find(task_id)
+        assert leased is not None and leased.state is not None
+        bridge, execution = self._record_execution(checkout, options, str(leased.state.lease_id))
         git(checkout, "commit", "-q", "-m", f"Implement {task_id}: {self.fixture.task['title']}")
         commit = git(checkout, "rev-parse", "HEAD")
         tree = git(checkout, "rev-parse", "HEAD^{tree}")
 
-        # Pre-handoff authoritative validation, exactly as CandidateIntegrator
-        # records it: run the committed runner, relocate its manifest set under the
-        # controller-owned state root, re-prove it, and persist the receipt.
-        task = load_committed_task(source, task_id)
-        plan = validation_plan_for(checkout, task)
+        # full_relevant does not select extra commands at this base: production's
+        # planner uses the committed task policy for every crew profile. Exercise
+        # the actual planner/runner and pin its entire command, not a guessed suite.
+        plan = validation_plan_for(checkout, self.fixture.task)
         require(
             plan is not None
             and plan["required_test_platforms"] == ["EditMode"]
-            and plan["test_filters"]["EditMode"] == scenario.test_filter,
+            and plan["test_filters"] == {"EditMode": scenario.test_filter},
             f"committed validation plan is not the exact muffcabbage filter: {plan}",
         )
-        state_root = checkout_root / ".task-review-agent"
-        destination = (
-            state_root / "outputs" / task_id / run_id / "pre-handoff-validation"
-            / f"EditMode-{hashlib.sha256(scenario.test_filter.encode('utf-8')).hexdigest()[:12]}"
-        )
-        script = checkout / "Pipeline" / "Testing" / "run_unity_tests_clean.ps1"
-        completed = subprocess.run(
-            (
-                "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
+
+        def validation_runner(command, cwd, timeout_seconds):
+            self.validation_commands.append(tuple(command))
+            require(cwd == checkout, "validation escaped the disposable checkout")
+            require(tuple(command) == (
+                "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                str(checkout / "Pipeline/Testing/run_unity_tests_clean.ps1"),
                 "-TestPlatform", "EditMode", "-TestFilter", scenario.test_filter,
                 "-ProjectPath", str(checkout),
-            ),
-            cwd=str(checkout),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-            timeout=300.0,
+            ), f"unexpected production validation command: {command}")
+            return subprocess.run(
+                command, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                check=False, timeout=min(timeout_seconds, 300.0),
+            )
+
+        integrator = CandidateIntegrator(
+            checkout=checkout, branch=branch, task_title=self.fixture.task["title"],
+            scope=bridge.scope, execution=bridge, unity_command_runner=validation_runner,
         )
-        stdout = completed.stdout.decode("utf-8", "replace")
-        require(
-            completed.returncode == 0,
-            f"fixture runner failed ({completed.returncode}): {stdout}\n"
-            f"{completed.stderr.decode('utf-8', 'replace')}",
-        )
-        match = re.search(r"(?im)^Validation manifest:\s*(.+?)\s*$", stdout)
-        require(match is not None, f"runner omitted its manifest line: {stdout}")
-        source_manifest = Path(match.group(1)).resolve(strict=True)
-        load_validation_manifest(source_manifest)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(source_manifest.parent, destination)
-        imported = import_validation_manifest(
-            destination / "validation-manifest.json",
-            controller_root=state_root,
-            expected_commit=commit,
-            expected_tree=tree,
-            expected_test_platform="EditMode",
-            expected_test_filter=scenario.test_filter,
-        )
-        validation_fact = {
-            "test_platform": "EditMode",
-            "test_filter": scenario.test_filter,
-            "commit": commit,
-            "tree": tree,
-            "manifest_relative_path": imported.relative_path,
-            "policy_sha256": plan["policy_sha256"],
-            "total": imported.manifest.test_run.total,
-            "passed": imported.manifest.test_run.passed,
-            **imported.identities(),
-        }
+        (validation_fact,) = integrator._run_pre_handoff_validations(commit, execution)
+        state_root = checkout_root / ".task-review-agent"
         git(checkout, "push", "-q", "origin", f"HEAD:refs/heads/{branch}")
         leased = service.find(task_id)
         assert leased is not None and leased.state is not None
@@ -1825,13 +1954,13 @@ class InProcessWorkers:
             lease_id=str(leased.state.lease_id),
             plan_id=f"fixture-plan-{run_id}",
             run_id=run_id,
-            provider="claude",
+            provider="codex",
             branch=branch,
             base_head=source_head,
             commit=commit,
             commit_tree=tree,
             task_contract_sha256=contract,
-            candidate_sha256=candidate.hexdigest(),
+            candidate_sha256=execution.candidate_sha256,
             changed_paths=scenario.exact_paths,
             pre_handoff_validations=(validation_fact,),
             completed_checks=(
@@ -1961,10 +2090,10 @@ def build_run(
             source_repository=str(fixture.source),
             github_repository=REPOSITORY,
             runtime_configuration=AutonomousRuntimeConfiguration(
-                execution_provider="claude",
+                execution_provider="codex",
                 execution_model=None,
                 execution_max_turns=120,
-                architect_provider="claude",
+                architect_provider="codex",
                 architect_model=None,
                 architect_max_turns=24,
                 architect_min_confidence=0.7,
@@ -1993,7 +2122,8 @@ def build_run(
         source=fixture.source,
         checkout_root=fixture.checkout_root,
         scheduler_id=SCHEDULER_ID,
-        execution_provider="claude",
+        execution_provider="codex",
+        routing_policy=load_execution_routing_policy({}, default_provider_override="codex"),
         model=None,
         max_turns=120,
         max_workers=manifest.max_capacity,
@@ -2101,6 +2231,9 @@ def assert_completion_receipt(run: SimpleNamespace, result: Any) -> None:
 def acceptance_environment(fixture: Fixture):
     with ExitStack() as stack:
         audit = stack.enter_context(ExecutableAudit())
+        stack.enter_context(patch.object(
+            time, "sleep", side_effect=AssertionError("acceptance lifecycle must not sleep")
+        ))
         stack.enter_context(forbid_real_github_backends())
         approver_calls = stack.enter_context(deterministic_synthetic_approver(fixture))
         yield audit, approver_calls
@@ -2146,6 +2279,14 @@ def assert_rigor_policy(route: Mapping[str, Any], scenario: Scenario) -> None:
         f"production rigor table maps {scenario.expected_tier} to "
         f"{RIGOR_PROFILE_BY_TIER[scenario.expected_tier]}, not the pinned "
         f"({scenario.crew_profile}, {scenario.validation_profile})",
+    )
+    require(
+        CREW_PROFILE_ROLES[scenario.crew_profile] == scenario.required_roles,
+        f"{scenario.name} crew roles {CREW_PROFILE_ROLES[scenario.crew_profile]}",
+    )
+    require(
+        CREW_VALIDATION_PROFILE_PAIRS[scenario.crew_profile] == scenario.validation_profile,
+        "ExecutionCrew crew/validation pairing changed",
     )
 
 
@@ -2201,6 +2342,16 @@ def run_positive_scenario(
         require(implementation_launch["task_id"] == task_id, "wrong task launched")
         require(implementation_launch["work_type"] == "implementation", "wrong work type")
         assert_rigor_policy(implementation_launch, scenario)
+        durable_launches = [
+            item for item in (
+                json.loads(line) for line in run.paths.events.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+            if item["event"] == "worker_launched"
+        ]
+        require(durable_launches == launched, "durable routing journal differs from emitted routes")
+        for route in durable_launches:
+            assert_rigor_policy(route, scenario)
         require(run.architect.calls[0]["admitted"] == [task_id], "architect admitted wrongly")
         require(
             all(call["admission_limit"] == 1 for call in run.architect.calls),
@@ -2223,7 +2374,7 @@ def run_positive_scenario(
         for launch in run.workers.launches:
             options = launch["options"]
             require(
-                options["--task-id"] == task_id and options["--execution-provider"] == "claude",
+                options["--task-id"] == task_id and options["--execution-provider"] == "codex",
                 "worker argv",
             )
             require(
@@ -2279,6 +2430,21 @@ def run_positive_scenario(
             handoff_paths == tuple(sorted(scenario.exact_paths)),
             f"handoff commit touched {handoff_paths}, not exactly the scenario surface",
         )
+        if scenario.scene_path:
+            scene = git(fixture.remote, "show", f"{handoff_commit}:{scenario.scene_path}")
+            for record in (
+                "--- !u!1 &1000\nGameObject:", "m_Name: MuffcabbageMarker",
+                "component: {fileID: 1001}", "--- !u!4 &1001\nTransform:",
+                "m_GameObject: {fileID: 1000}",
+                f"m_LocalPosition: {{x: {scenario.number}, y: 0, z: 0}}",
+                "m_Roots:\n  - {fileID: 1001}",
+            ):
+                require(record in scene, f"committed scene omitted substantive marker data: {record}")
+            require(
+                f"guid: {_guid(scenario.scene_path)}" in git(
+                    fixture.remote, "show", f"{handoff_commit}:{scenario.scene_path}.meta"
+                ), "scene companion identity changed",
+            )
         require(
             bool(git(fixture.remote, "rev-parse", "--verify", f"refs/heads/{branch}^{{commit}}")),
             "task branch",
@@ -2436,13 +2602,33 @@ def run_positive_scenario(
         require(
             audit.count("powershell.exe") == 1, f"powershell launches {audit.count('powershell.exe')}"
         )
+        require(len(run.workers.validation_commands) == 1, "production validation ran again")
+        require(len(run.workers.crew_commands) == 1, "hidden second crew invocation")
+        (bridge,) = run.workers.execution_bridges
+        execution = bridge.require(implementation_launch["run_id"])
+        reloaded = ExecutionCrewBridge(
+            checkout=bridge.checkout, scope=bridge.scope,
+            crew_profile=scenario.crew_profile, validation_profile=scenario.validation_profile,
+            execution_model=bridge.execution_model,
+            execution_reasoning_effort=bridge.execution_reasoning_effort,
+        )
+        require(reloaded.require(execution.run_id) == execution, "execution receipt did not reload")
+        require(
+            execution.crew_profile == scenario.crew_profile
+            and execution.validation_profile == scenario.validation_profile,
+            "execution receipt lost the routed rigor pair",
+        )
+        require(
+            read_json(Path(execution.result_path))["required_roles"] == list(scenario.required_roles),
+            "persisted fixture crew result lost the selected role contract",
+        )
         unexpected = audit.executables() - ALLOWED_EXECUTABLES
         require(not unexpected, f"forbidden executables were started: {sorted(unexpected)}")
         # Provider sessions: zero started, zero resumed. The routed argv asked for
-        # Claude with pooling, and nothing but Git, Python, and PowerShell ever ran.
+        # Codex, and nothing but Git, Python, and PowerShell ever ran.
         require(
-            all("--enable-execution-session-pool" in item["argv"] for item in run.workers.launches),
-            "routed worker argv did not request the Claude session pool",
+            all("--enable-execution-session-pool" not in item["argv"] for item in run.workers.launches),
+            "Codex route unexpectedly requested a Claude session pool",
         )
         receipt_file = load_integration_receipt(
             fixture.checkout_root / ".task-review-agent" / f"{task_id}.integration.json"
@@ -2466,6 +2652,7 @@ def run_positive_scenario(
             f"tier={implementation_launch['capability_tier']}, "
             f"crew={implementation_launch['crew_profile']}, "
             f"validation={implementation_launch['validation_profile']}, "
+            f"roles={list(scenario.required_roles)}, "
             f"polls={progress.poll_cycles_total}, "
             f"architect={progress.architect_invocations_total}, "
             f"workers={progress.worker_launches_total}, "
@@ -2494,9 +2681,12 @@ def run_positive_scenario(
         return {
             "scenario": scenario.name,
             "elapsed_seconds": elapsed,
+            "architect_capability_tier": implementation_launch["architect_capability_tier"],
+            "minimum_capability_tier": implementation_launch["minimum_capability_tier"],
             "capability_tier": implementation_launch["capability_tier"],
             "crew_profile": implementation_launch["crew_profile"],
             "validation_profile": implementation_launch["validation_profile"],
+            "required_roles": list(scenario.required_roles),
             "worker_argv_crew_profile": run.workers.launches[0]["options"]["--crew-profile"],
             "worker_argv_validation_profile": (
                 run.workers.launches[0]["options"]["--validation-profile"]
@@ -2533,6 +2723,76 @@ def test_standard_rigor_muffcabbage_task_reaches_verified_completion() -> None:
         == report["worker_argv_validation_profile"],
         "ExecutionCrew would refuse this crew/validation pair",
     )
+
+
+def test_deep_rigor_muffcabbage_task_reaches_verified_completion() -> None:
+    run_positive_scenario(DEEP)
+
+
+def test_deep_serialized_surface_floor_and_load_bearing_guards() -> None:
+    """The scene is the only deep trigger; a high architect request cannot hide its loss."""
+    require(len(DEEP.exact_paths) == 4, "deep fixture must stay within the four-path lean bound")
+    require(DEEP.scene_path == "Assets/Scenes/MuffcabbageGauntlet951.unity", "exact scene path")
+    require(DEEP.contract()["execution_scope"] == "single_agent", "fixture must be single-agent")
+    require(DEEP.contract()["decomposition_state"] == "concrete", "fixture must be concrete")
+
+    def resolve(scenario: Scenario, tier: str, *, declare_import_companion: bool = False):
+        task = scenario.contract()
+        task["task_contract_sha256"] = "0" * 64
+        advisory = scenario_advisory(scenario, task, "1" * 40, requested_tier=tier)
+        surface = advisory.predicted_change_surface
+        if declare_import_companion:
+            surface = replace(surface, unity_serialized_assets=(scenario.file_pairs[0][1],))
+        return resolve_task_rigor(
+            advisory.execution_recommendation, task=task, predicted_change_surface=surface,
+            committed_path_probe=lambda path: False,
+        )
+
+    for tier in ("fast", "standard", "deep"):
+        decision = resolve(DEEP, tier)
+        require(decision.architect_capability_tier == tier, str(decision))
+        require(decision.minimum_capability_tier == "deep", str(decision))
+        require(decision.effective_capability_tier == "deep", str(decision))
+        require(decision.crew_profile == "full", str(decision))
+        require(decision.validation_profile == "full_relevant", str(decision))
+        require(decision.human_verification_policy == "required", str(decision))
+        require(
+            f"serialized or project-wide asset surface: {DEEP.scene_path}" in decision.reasons,
+            f"scene path did not drive the floor: {decision.reasons}",
+        )
+        require(decision.architect_recommendation_honored == (tier == "deep"), str(decision))
+        if tier != "deep":
+            require(
+                f"deterministic policy raised architect tier {tier} to deep" in decision.override_reasons,
+                str(decision.override_reasons),
+            )
+        else:
+            assert_rigor_policy(decision.to_event_dict(), DEEP)
+
+    # Remove the scene AND its companion from contract/resources/prediction together.
+    # Keep the deep request: effective deep alone would conceal a missing risk surface.
+    without_scene = replace(DEEP, scene_path=None)
+    removed = resolve(without_scene, "deep")
+    require(removed.minimum_capability_tier == "fast", str(removed))
+    require(removed.effective_capability_tier == "deep", str(removed))
+    rejects(
+        lambda: assert_rigor_policy(removed.to_event_dict(), DEEP), AssertionError,
+        containing="deterministic minimum tier 'fast'",
+    )
+    # A new .cs.meta import companion with its script is not substantive content.
+    # An orphan .meta is deliberately NOT exempt under production policy.
+    companion = resolve(without_scene, "fast", declare_import_companion=True)
+    require(companion.minimum_capability_tier == "fast", str(companion))
+    require(companion.effective_capability_tier == "fast", str(companion))
+    require(companion.crew_profile == "lean" and companion.validation_profile == "targeted", str(companion))
+
+    wrongly_routed = resolve(DEEP, "deep").to_event_dict()
+    wrongly_routed.update(capability_tier="standard", crew_profile="standard", validation_profile="task_specific")
+    rejects(
+        lambda: assert_rigor_policy(wrongly_routed, DEEP), AssertionError,
+        containing="effective tier 'standard' != 'deep'",
+    )
+    print("deep load-bearing guards: removed scene -> minimum fast rejected; standard route rejected")
 
 
 def test_policy_raises_a_fast_request_for_the_standard_surface_to_standard() -> None:
@@ -2776,6 +3036,8 @@ def test_pre_handoff_boundary_refuses_stale_evidence_human_results_and_hidden_re
 TESTS = (
     test_single_muffcabbage_task_reaches_verified_completion,
     test_standard_rigor_muffcabbage_task_reaches_verified_completion,
+    test_deep_rigor_muffcabbage_task_reaches_verified_completion,
+    test_deep_serialized_surface_floor_and_load_bearing_guards,
     test_policy_raises_a_fast_request_for_the_standard_surface_to_standard,
     test_forged_worker_result_identity_stops_admission,
     test_pre_handoff_boundary_refuses_stale_evidence_human_results_and_hidden_reexecution,
