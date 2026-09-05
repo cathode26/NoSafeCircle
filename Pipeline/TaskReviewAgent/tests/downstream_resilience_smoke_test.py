@@ -513,18 +513,51 @@ def test_task_owned_blob_change_is_rejected() -> None:
 
 
 def test_nsc020_validation_policy_is_playmode_only() -> None:
+    contract_hash = (
+        "f8c9e326646e16e2c4bcf5eba4a6505494a5044491bc70127d5b0a1603150a3b"
+    )
     task = {
         "task_id": "NSC-020",
-        "task_contract_sha256": "f8c9e326646e16e2c4bcf5eba4a6505494a5044491bc70127d5b0a1603150a3b",
+        "task_contract_sha256": contract_hash,
     }
-    plan = validation_plan_for(ROOT, task)
-    require(plan is not None, "NSC-020 validation policy is missing")
-    require(plan["required_test_platforms"] == ["PlayMode"], "NSC-020 platform is not explicit")
-    require(
-        plan["test_filters"]["PlayMode"]
-        == "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests",
-        "NSC-020 PlayMode filter is wrong",
-    )
+    with tempfile.TemporaryDirectory(prefix="nsc-playmode-validation-policy-") as temporary:
+        root = Path(temporary)
+        policy_path = (
+            root
+            / "Pipeline"
+            / "TaskReviewAgent"
+            / "authoritative_validation_policy.json"
+        )
+        policy_path.parent.mkdir(parents=True)
+        policy_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "tasks": {
+                        "NSC-020": {
+                            "task_contract_sha256": contract_hash,
+                            "required_test_platforms": ["PlayMode"],
+                            "test_filters": {
+                                "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests"
+                            },
+                            "authority": "fixture_playmode_validation_policy",
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        plan = validation_plan_for(root, task)
+        require(plan is not None, "NSC-020 validation policy is missing")
+        require(
+            plan["required_test_platforms"] == ["PlayMode"],
+            "NSC-020 platform is not explicit",
+        )
+        require(
+            plan["test_filters"]["PlayMode"]
+            == "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests",
+            "NSC-020 PlayMode filter is wrong",
+        )
 
 
 def test_decomposition_child_inherits_only_exact_parent_validation_template() -> None:
