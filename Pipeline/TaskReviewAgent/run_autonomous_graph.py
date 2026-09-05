@@ -541,6 +541,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             progress_store=JsonProgressStore(paths.progress),
             receipt_store=receipts,
             synthetic_evidence_pump=pump,
+            synthetic_excluded_task_ids=(PRESERVED_TASK_ID,),
             fallback_seconds=runtime.fallback_seconds,
         )
         result = controller.run()

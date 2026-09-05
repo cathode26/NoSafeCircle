@@ -763,6 +763,43 @@ def _relevant_task_ids(
     return tuple(sorted(relevant)), tuple(sorted(missing))
 
 
+def eligible_synthetic_handoff_task_ids(
+    snapshot: CoherentGraphSnapshot,
+    *,
+    relevant_task_ids: Sequence[str],
+    excluded_task_ids: Sequence[str] = (),
+) -> tuple[str, ...]:
+    """Return the relevant tasks a synthetic evidence pump could act on now.
+
+    These are the necessary conditions a waiting handoff must satisfy before an
+    attempt is worth making: it is in run scope, it is not preserved for a real
+    human result, nothing else currently owns it, and its managed Issue is
+    actually waiting on a human action. The pump remains the sole authority on
+    what it will finally select and mutate; this only decides whether asking is
+    justified, so a conservative extra call is a no-op rather than a defect.
+
+    A failed-push D1C recovery owns the source-main divergence, so no synthetic
+    handoff is eligible while one is authorized.
+    """
+    if snapshot.authorized_local_ahead_recovery_task_id is not None:
+        return ()
+    relevant = set(relevant_task_ids)
+    excluded = set(excluded_task_ids)
+    unavailable = set(snapshot.active_assignment_task_ids).union(
+        snapshot.pending_transition_task_ids
+    )
+    return tuple(
+        sorted(
+            issue.task_id
+            for issue in snapshot.managed_issues
+            if issue.task_id in relevant
+            and issue.task_id not in excluded
+            and issue.task_id not in unavailable
+            and issue.state is WorkflowState.HUMAN_ACTION_REQUIRED
+        )
+    )
+
+
 def evaluate_graph_state(
     manifest: AutonomousRunManifest,
     snapshot: CoherentGraphSnapshot,
@@ -1329,6 +1366,7 @@ class AutonomousGraphController:
         synthetic_evidence_pump: (
             Callable[[CoherentGraphSnapshot], SyntheticEvidencePumpResult | None] | None
         ) = None,
+        synthetic_excluded_task_ids: Sequence[str] = (),
         fallback_seconds: float = DEFAULT_FALLBACK_SECONDS,
     ) -> None:
         if type(fallback_seconds) not in {int, float} or isinstance(fallback_seconds, bool):
@@ -1345,6 +1383,12 @@ class AutonomousGraphController:
         self.progress_store = progress_store
         self.receipt_store = receipt_store
         self.synthetic_evidence_pump = synthetic_evidence_pump
+        # Owned by the composition root so this deterministic controller never
+        # has to name a gauntlet task ID itself.
+        self.synthetic_excluded_task_ids = tuple(
+            _task_id(value, field="synthetic_excluded_task_ids")
+            for value in synthetic_excluded_task_ids
+        )
         self.fallback_seconds = float(fallback_seconds)
         self._run_owned = False
         progress = progress_store.load() or AutonomousRunProgress.create(manifest)
@@ -1513,6 +1557,77 @@ class AutonomousGraphController:
         )
         return pump_result
 
+    def _eligible_synthetic_handoffs(
+        self,
+        snapshot: CoherentGraphSnapshot,
+        evaluation: GraphStateEvaluation,
+    ) -> tuple[str, ...]:
+        if self.synthetic_evidence_pump is None:
+            return ()
+        return eligible_synthetic_handoff_task_ids(
+            snapshot,
+            relevant_task_ids=evaluation.relevant_task_ids,
+            excluded_task_ids=self.synthetic_excluded_task_ids,
+        )
+
+    def _pump_and_reobserve(
+        self,
+        snapshot: CoherentGraphSnapshot,
+        evaluation: GraphStateEvaluation,
+        *,
+        cycle_status: str,
+    ) -> tuple[
+        SyntheticEvidencePumpResult | None,
+        CoherentGraphSnapshot,
+        GraphStateEvaluation,
+        AutonomousStepResult | None,
+    ]:
+        """Attempt one synthetic mutation and prove it against a fresh observation.
+
+        Returns the pump result, the authoritative snapshot/evaluation to carry
+        forward, and a terminal step result when the mutation could not be proven
+        or left the run blocked. This is the single mutation-and-proof path; both
+        the pre-poll and post-poll attempts go through it so an unproven event,
+        evidence hash, or state version fails closed identically either way.
+        """
+        pump_result = self._pump(snapshot, evaluation.relevant_task_ids)
+        if pump_result is None:
+            return None, snapshot, evaluation, None
+        pump_snapshot = self._snapshot()
+        pump_evaluation = self._evaluate_snapshot(pump_snapshot)
+        if not self._pump_progress_proven(
+            pump_result,
+            pre_snapshot=snapshot,
+            post_snapshot=pump_snapshot,
+            relevant_task_ids=evaluation.relevant_task_ids,
+        ):
+            unproven = GraphStateEvaluation(
+                "blocked",
+                pump_evaluation.fingerprint,
+                pump_evaluation.relevant_task_ids,
+                ("synthetic_evidence_progress_was_not_proven_post_pump",),
+                False,
+            )
+            return (
+                pump_result,
+                pump_snapshot,
+                pump_evaluation,
+                self._terminal_result(
+                    unproven, pump_snapshot, "synthetic_evidence_unproven"
+                ),
+            )
+        if pump_evaluation.classification == "blocked":
+            return (
+                pump_result,
+                pump_snapshot,
+                pump_evaluation,
+                self._terminal_result(
+                    pump_evaluation, pump_snapshot, cycle_status
+                ),
+            )
+        self._set_admission_scope(pump_snapshot, pump_evaluation)
+        return pump_result, pump_snapshot, pump_evaluation, None
+
     def _persist_poll_accounting(self) -> int:
         architect_invocations = getattr(
             self.scheduler, "architect_invocations_this_poll", None
@@ -1621,35 +1736,11 @@ class AutonomousGraphController:
                 "preflight_" + pre_evaluation.classification,
             )
 
-        pump_result = self._pump(
-            pre_snapshot, pre_evaluation.relevant_task_ids
+        pump_result, pre_snapshot, pre_evaluation, terminal = self._pump_and_reobserve(
+            pre_snapshot, pre_evaluation, cycle_status="post_pump_blocked"
         )
-        if pump_result is not None:
-            pump_snapshot = self._snapshot()
-            pump_evaluation = self._evaluate_snapshot(pump_snapshot)
-            if not self._pump_progress_proven(
-                pump_result,
-                pre_snapshot=pre_snapshot,
-                post_snapshot=pump_snapshot,
-                relevant_task_ids=pre_evaluation.relevant_task_ids,
-            ):
-                unproven = GraphStateEvaluation(
-                    "blocked",
-                    pump_evaluation.fingerprint,
-                    pump_evaluation.relevant_task_ids,
-                    ("synthetic_evidence_progress_was_not_proven_post_pump",),
-                    False,
-                )
-                return self._terminal_result(
-                    unproven, pump_snapshot, "synthetic_evidence_unproven"
-                )
-            if pump_evaluation.classification == "blocked":
-                return self._terminal_result(
-                    pump_evaluation, pump_snapshot, "post_pump_blocked"
-                )
-            self._set_admission_scope(pump_snapshot, pump_evaluation)
-            pre_snapshot = pump_snapshot
-            pre_evaluation = pump_evaluation
+        if terminal is not None:
+            return terminal
 
         cycle, launched = self._poll()
         cycle_status = _text(getattr(cycle, "status", None), field="cycle.status")
@@ -1673,6 +1764,23 @@ class AutonomousGraphController:
                 cycle_status,
                 scheduler_fatal=cycle_fatal,
             )
+
+        # The poll itself can expose a newly eligible handoff by reaping the
+        # worker that owned the task, so the pre-poll attempt legitimately saw
+        # nothing. Waiting on that observation would wait for an external event
+        # nobody is going to send, because the next action is this controller's
+        # own synthetic transition. At most one mutation happens per step, so
+        # this runs only when the pre-poll attempt produced none.
+        if pump_result is None and self._eligible_synthetic_handoffs(
+            snapshot, evaluation
+        ):
+            pump_result, snapshot, evaluation, terminal = self._pump_and_reobserve(
+                snapshot, evaluation, cycle_status=cycle_status
+            )
+            if terminal is not None:
+                return terminal
+            if evaluation.classification in {"complete", "blocked"}:
+                return self._terminal_result(evaluation, snapshot, cycle_status)
 
         changed = (
             pre_evaluation.fingerprint != evaluation.fingerprint
@@ -1812,5 +1920,6 @@ __all__ = [
     "SyntheticEvidencePumpResult",
     "TaskObservation",
     "autonomous_run_paths",
+    "eligible_synthetic_handoff_task_ids",
     "evaluate_graph_state",
 ]
