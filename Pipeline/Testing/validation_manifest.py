@@ -65,6 +65,37 @@ class UnityValidationManifest:
     log: ArtifactFact
 
 
+@dataclass(frozen=True)
+class ImportedValidationManifest:
+    """One manifest proven against an exact caller expectation.
+
+    ``relative_path`` is the manifest location expressed beneath the
+    controller-owned root, so a consumer can persist a location that stays
+    meaningful without trusting an absolute path from a previous process.
+    """
+
+    manifest: UnityValidationManifest
+    controller_root: Path
+    relative_path: str
+    sha256: str
+
+    @property
+    def path(self) -> Path:
+        return self.manifest.path
+
+    @property
+    def directory(self) -> Path:
+        return self.manifest.path.parent
+
+    def identities(self) -> dict[str, str]:
+        """The three artifact digests a later consumer must be able to re-prove."""
+        return {
+            "manifest_sha256": self.sha256,
+            "xml_sha256": self.manifest.xml.sha256,
+            "log_sha256": self.manifest.log.sha256,
+        }
+
+
 _SHA40 = re.compile(r"[0-9a-f]{40}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 
@@ -131,7 +162,7 @@ def _artifact(directory: Path, raw: Any, label: str) -> ArtifactFact:
     except OSError as exc:
         raise ValidationManifestError(f"Unable to verify {label}.") from exc
     if actual_size != size:
-        raise ValidationManifestError(f"{label} byte size does not match the manifest.")
+        raise ValidationManifestError(f"{label}.size_bytes does not match the manifest.")
     if hasher.hexdigest() != digest:
         raise ValidationManifestError(f"{label} SHA-256 does not match the manifest.")
     return ArtifactFact(relative, path.resolve(), digest, size)
@@ -142,6 +173,138 @@ def _xml_count(root: ET.Element, name: str) -> int:
     if raw is None or not re.fullmatch(r"[0-9]+", raw):
         raise ValidationManifestError(f"Unity XML test-run {name} is missing or invalid.")
     return int(raw)
+
+
+def _contained(candidate: Path, root: Path, label: str) -> Path:
+    """Resolve ``candidate`` and require it to stay under ``root``.
+
+    ``resolve`` follows symlinks, so a symlink that escapes the controller-owned
+    state root fails here even though its own name looks contained.
+    """
+    try:
+        resolved_root = root.resolve(strict=True)
+        resolved = candidate.resolve(strict=True)
+    except OSError as exc:
+        raise ValidationManifestError(
+            f"{label} could not be resolved beneath the controller-owned root."
+        ) from exc
+    try:
+        resolved.relative_to(resolved_root)
+    except ValueError as exc:
+        raise ValidationManifestError(
+            f"{label} is outside the controller-owned root {resolved_root}."
+        ) from exc
+    return resolved
+
+
+def controller_relative_path(path: Path, controller_root: Path) -> str:
+    """Return the POSIX path of ``path`` beneath ``controller_root``."""
+    resolved = _contained(Path(path), Path(controller_root), "path")
+    relative = resolved.relative_to(Path(controller_root).resolve(strict=True))
+    return PurePosixPath(*relative.parts).as_posix()
+
+
+def resolve_controller_relative_path(relative: Any, controller_root: Path) -> Path:
+    """Recompute an absolute path from a persisted controller-relative one.
+
+    A persisted absolute path is never trusted: the caller stores only this
+    relative form and the location is derived again from the controller root it
+    owns right now.
+    """
+    value = _text(relative, "manifest relative path")
+    if "\\" in value or value.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", value):
+        raise ValidationManifestError(
+            "manifest relative path must be a controller-relative POSIX path."
+        )
+    pure = PurePosixPath(value)
+    if value != pure.as_posix() or any(part in {"", ".", ".."} for part in pure.parts):
+        raise ValidationManifestError(
+            "manifest relative path contains an empty, non-canonical, or traversal component."
+        )
+    return Path(controller_root).joinpath(*pure.parts)
+
+
+def import_validation_manifest(
+    path: Path,
+    *,
+    controller_root: Path,
+    expected_commit: str,
+    expected_tree: str,
+    expected_test_platform: str,
+    expected_test_filter: str,
+    expected_manifest_sha256: str | None = None,
+    expected_xml_sha256: str | None = None,
+    expected_log_sha256: str | None = None,
+) -> ImportedValidationManifest:
+    """Import one manifest for reuse, proving it against exact caller expectations.
+
+    ``load_validation_manifest`` proves the manifest is internally consistent and
+    that its artifacts hash as claimed. This adds the facts only the caller can
+    supply: that the evidence lives under the controller-owned root, that it
+    binds the exact commit and tree being validated now, that the platform and
+    caller-recomputed filter match, and that the manifest, XML, and log are the
+    same bytes an earlier stage recorded. Any mismatch raises rather than
+    silently falling back to a fresh execution, so tampering is never confused
+    with absence.
+    """
+    controller_root = Path(controller_root)
+    manifest_path = Path(path)
+    _regular_file(manifest_path, "Validation manifest")
+    contained = _contained(manifest_path, controller_root, "Validation manifest")
+    manifest = load_validation_manifest(contained)
+    for label, artifact in (("XML artifact", manifest.xml), ("log artifact", manifest.log)):
+        _contained(artifact.path, controller_root, label)
+
+    for label, expected in (
+        ("commit", expected_commit),
+        ("tree", expected_tree),
+    ):
+        value = _text(expected, f"expected {label}")
+        if not _SHA40.fullmatch(value):
+            raise ValidationManifestError(
+                f"expected {label} must be a lowercase 40-character Git SHA."
+            )
+    if manifest.validated_state.commit != expected_commit:
+        raise ValidationManifestError(
+            "validation manifest binds a different commit than the one being validated."
+        )
+    if manifest.validated_state.tree != expected_tree:
+        raise ValidationManifestError(
+            "validation manifest binds a different Git tree than the one being validated."
+        )
+    if manifest.unity.test_platform != _text(expected_test_platform, "expected test platform"):
+        raise ValidationManifestError(
+            "validation manifest binds a different Unity test platform."
+        )
+    if manifest.unity.test_filter != _text(expected_test_filter, "expected test filter"):
+        raise ValidationManifestError(
+            "validation manifest binds a different Unity test filter."
+        )
+
+    try:
+        digest = hashlib.sha256(contained.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise ValidationManifestError("Validation manifest could not be hashed.") from exc
+    for label, actual, expected in (
+        ("manifest", digest, expected_manifest_sha256),
+        ("XML artifact", manifest.xml.sha256, expected_xml_sha256),
+        ("log artifact", manifest.log.sha256, expected_log_sha256),
+    ):
+        if expected is None:
+            continue
+        wanted = _text(expected, f"expected {label} sha256")
+        if not _SHA256.fullmatch(wanted):
+            raise ValidationManifestError(f"expected {label} sha256 must be lowercase SHA-256.")
+        if actual != wanted:
+            raise ValidationManifestError(
+                f"{label} SHA-256 differs from the recorded pre-handoff identity."
+            )
+    return ImportedValidationManifest(
+        manifest=manifest,
+        controller_root=Path(controller_root).resolve(strict=True),
+        relative_path=controller_relative_path(contained, controller_root),
+        sha256=digest,
+    )
 
 
 def load_validation_manifest(path: Path) -> UnityValidationManifest:
@@ -176,9 +339,13 @@ def load_validation_manifest(path: Path) -> UnityValidationManifest:
         raise ValidationManifestError("test_run.result must be exactly Passed.")
     counts = {name: _integer(run[name], f"test_run.{name}") for name in ("total", "passed", "failed", "skipped")}
     if counts["total"] <= 0:
-        raise ValidationManifestError("test_run.total must be greater than zero.")
+        raise ValidationManifestError(
+            "test_run does not prove a non-empty passing run: total must be greater than zero."
+        )
     if counts["failed"] != 0:
-        raise ValidationManifestError("test_run.failed must be zero.")
+        raise ValidationManifestError(
+            "test_run does not prove a non-empty passing run: failed must be zero."
+        )
     if counts["total"] < counts["passed"] + counts["failed"] + counts["skipped"]:
         raise ValidationManifestError("test_run.total is smaller than its component counts.")
 

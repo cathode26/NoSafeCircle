@@ -33,6 +33,15 @@ from Pipeline.TaskReviewAgent.contracts import (  # noqa: E402
     semantic_sha256,
     validate_task_id,
 )
+from Pipeline.TaskReviewAgent.candidate_integration import (  # noqa: E402
+    CandidateIntegrationError,
+    find_pre_handoff_validation,
+)
+from Pipeline.Testing.validation_manifest import (  # noqa: E402
+    ImportedValidationManifest,
+    ValidationManifestError,
+    import_validation_manifest,
+)
 from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
     decomposition_validation_policy_for,
     validation_plan_for,
@@ -79,6 +88,11 @@ if TYPE_CHECKING:
 class SyntheticApprovalError(RuntimeError):
     """The waiting Issue is outside the exact disposable approval policy."""
 
+
+# How the proven Unity evidence for one synthetic validation was obtained. The
+# reused form never claims a fresh execution occurred.
+_REUSED_PRE_HANDOFF_EVIDENCE = "reused_pre_handoff_validation"
+_FRESH_SYNTHETIC_EXECUTION = "fresh_synthetic_unity_execution"
 
 _MANIFEST_LINE = re.compile(r"^Validation manifest: (?P<path>.+)$")
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
@@ -718,6 +732,107 @@ def _run_unity_validation(
         cwd=checkout,
     ):
         raise SyntheticApprovalError("task checkout is dirty before Unity validation")
+
+    # Every gate above has already passed: private rehearsal repository, exact
+    # human_approved_synthetic_gauntlet provenance, exact gauntlet ID, the
+    # NSC-042 exclusion, task/Issue/contract/branch/handoff identity, and a clean
+    # canonical checkout at the exact handoff commit. Only now may evidence that
+    # the integrator already produced for this same commit, tree, platform, and
+    # recomputed filter stand in for a second identical Unity execution.
+    try:
+        reused = find_pre_handoff_validation(
+            checkout=checkout,
+            task_id=task["id"],
+            commit=commit,
+            tree=tree,
+            test_platform="EditMode",
+            test_filter=expected_filter,
+        )
+    except CandidateIntegrationError as exc:
+        # Recorded evidence that no longer verifies is tampering or corruption,
+        # not absence. Running Unity again here would hide it.
+        raise SyntheticApprovalError(
+            f"recorded pre-handoff Unity evidence is unusable: {exc}"
+        ) from exc
+
+    if reused is not None:
+        imported = reused
+        evidence_source = _REUSED_PRE_HANDOFF_EVIDENCE
+    else:
+        imported = _execute_synthetic_unity_validation(
+            checkout=checkout,
+            script=script,
+            expected_filter=expected_filter,
+            commit=commit,
+            tree=tree,
+        )
+        evidence_source = _FRESH_SYNTHETIC_EXECUTION
+
+    manifest_path = imported.path
+    manifest = imported.manifest
+    xml_sha256 = manifest.xml.sha256
+    log_sha256 = manifest.log.sha256
+    counts = {
+        "total": manifest.test_run.total,
+        "passed": manifest.test_run.passed,
+        "failed": manifest.test_run.failed,
+        "skipped": manifest.test_run.skipped,
+    }
+    if counts["passed"] <= 0:
+        raise SyntheticApprovalError(
+            "Unity validation manifest does not prove a non-empty passing run"
+        )
+
+    post_commit = _run_text(
+        ("git", "-C", str(checkout), "rev-parse", "HEAD"), cwd=checkout
+    )
+    post_tree = _run_text(
+        ("git", "-C", str(checkout), "rev-parse", "HEAD^{tree}"), cwd=checkout
+    )
+    post_status = _run_text(
+        (
+            "git",
+            "-C",
+            str(checkout),
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ),
+        cwd=checkout,
+    )
+    if post_commit != commit or post_tree != tree or post_status:
+        raise SyntheticApprovalError(
+            "task checkout changed after the Unity manifest was produced"
+        )
+    return _synthetic_validation_result(
+        task=task,
+        state=state,
+        repository=repository,
+        checkout=checkout,
+        plan=plan,
+        expected_filter=expected_filter,
+        commit=commit,
+        tree=tree,
+        post_commit=post_commit,
+        post_tree=post_tree,
+        manifest_path=manifest_path,
+        manifest_sha256=imported.sha256,
+        xml_sha256=xml_sha256,
+        log_sha256=log_sha256,
+        counts=counts,
+        evidence_source=evidence_source,
+    )
+
+
+def _execute_synthetic_unity_validation(
+    *,
+    checkout: Path,
+    script: Path,
+    expected_filter: str,
+    commit: str,
+    tree: str,
+):
+    """Run the exact committed Unity validation and import its manifest."""
     command = (
         "powershell.exe",
         "-NoProfile",
@@ -751,128 +866,51 @@ def _run_unity_validation(
             + (f": {detail}" if detail else "")
         )
     manifest_path = _manifest_path(output)
-    manifest_bytes = manifest_path.read_bytes()
     try:
-        manifest = json.loads(manifest_bytes.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        # One shared strict importer owns schema, clean-state, exit-code, count,
+        # runner, artifact-containment, and artifact-hash verification for both the
+        # fresh and the reused path, so the two can never drift apart.
+        return import_validation_manifest(
+            manifest_path,
+            controller_root=manifest_path.parent,
+            expected_commit=commit,
+            expected_tree=tree,
+            expected_test_platform="EditMode",
+            expected_test_filter=expected_filter,
+        )
+    except (OSError, ValidationManifestError) as exc:
         raise SyntheticApprovalError(
-            "Unity validation manifest is not valid UTF-8 JSON"
+            f"exact synthetic Unity validation evidence is invalid: {exc}"
         ) from exc
-    document = _exact_object(
-        manifest, field="Unity validation manifest", keys=_MANIFEST_KEYS
-    )
-    if (
-        document.get("schema_version") != "1.0"
-        or document.get("manifest_type") != "unity_test_validation"
-        or document.get("status") != "passed"
-    ):
-        raise SyntheticApprovalError("Unity validation manifest header is invalid")
 
-    validated = _exact_object(
-        document.get("validated_state"),
-        field="Unity validation manifest validated_state",
-        keys=_VALIDATED_STATE_KEYS,
-    )
-    exact_state = {
-        "commit": commit,
-        "tree": tree,
-        "post_commit": commit,
-        "post_tree": tree,
-        "repository_clean_before": True,
-        "repository_clean_after": True,
-    }
-    if dict(validated) != exact_state:
-        raise SyntheticApprovalError(
-            "Unity validation manifest does not bind the exact clean handoff state"
-        )
 
-    unity = _exact_object(
-        document.get("unity"), field="Unity validation manifest unity", keys=_UNITY_KEYS
-    )
-    if (
-        unity.get("exit_code") != 0
-        or unity.get("test_platform") != "EditMode"
-        or unity.get("test_filter") != expected_filter
-    ):
-        raise SyntheticApprovalError(
-            "Unity validation manifest does not bind the required invocation"
-        )
-    _exact_text(unity.get("version"), field="Unity validation manifest unity.version")
-    _exact_text(
-        unity.get("executable"), field="Unity validation manifest unity.executable"
-    )
+def _synthetic_validation_result(
+    *,
+    task: dict,
+    state,
+    repository: str,
+    checkout: Path,
+    plan: Mapping[str, Any],
+    expected_filter: str,
+    commit: str,
+    tree: str,
+    post_commit: str,
+    post_tree: str,
+    manifest_path: Path,
+    manifest_sha256: str,
+    xml_sha256: str,
+    log_sha256: str,
+    counts: Mapping[str, int],
+    evidence_source: str,
+) -> dict[str, Any]:
+    """Build the automated-validation payload for one proven Unity result.
 
-    test_run = _exact_object(
-        document.get("test_run"),
-        field="Unity validation manifest test_run",
-        keys=_TEST_RUN_KEYS,
-    )
-    counts: dict[str, int] = {}
-    for name in ("total", "passed", "failed", "skipped"):
-        value = test_run.get(name)
-        if type(value) is not int or value < 0:
-            raise SyntheticApprovalError(
-                f"Unity validation manifest test_run.{name} is invalid"
-            )
-        counts[name] = value
-    if (
-        test_run.get("result") != "Passed"
-        or counts["passed"] <= 0
-        or counts["failed"] != 0
-        or counts["total"]
-        != counts["passed"] + counts["failed"] + counts["skipped"]
-    ):
-        raise SyntheticApprovalError(
-            "Unity validation manifest does not prove a non-empty passing run"
-        )
+    The payload is identical whether the evidence was executed here or reused
+    from the pre-handoff run; only ``evidence_source`` records which, so the
+    caller never claims a fresh execution it did not perform. This is automated
+    validation authority only -- it never creates a human PASS or human_result.
+    """
 
-    artifacts = _exact_object(
-        document.get("artifacts"),
-        field="Unity validation manifest artifacts",
-        keys=_ARTIFACTS_KEYS,
-    )
-    manifest_root = manifest_path.parent.resolve()
-    xml_sha256 = _artifact_identity(
-        manifest_root,
-        artifacts.get("xml"),
-        field="Unity validation manifest artifacts.xml",
-        expected_relative_path="test-results.xml",
-    )
-    log_sha256 = _artifact_identity(
-        manifest_root,
-        artifacts.get("log"),
-        field="Unity validation manifest artifacts.log",
-        expected_relative_path="unity.log",
-    )
-    runner = _exact_object(
-        document.get("runner"),
-        field="Unity validation manifest runner",
-        keys=_RUNNER_KEYS,
-    )
-    if runner.get("path") != "Pipeline/Testing/run_unity_tests_clean.ps1":
-        raise SyntheticApprovalError("Unity validation manifest names another runner")
-
-    post_commit = _run_text(
-        ("git", "-C", str(checkout), "rev-parse", "HEAD"), cwd=checkout
-    )
-    post_tree = _run_text(
-        ("git", "-C", str(checkout), "rev-parse", "HEAD^{tree}"), cwd=checkout
-    )
-    post_status = _run_text(
-        (
-            "git",
-            "-C",
-            str(checkout),
-            "status",
-            "--porcelain=v1",
-            "--untracked-files=all",
-        ),
-        cwd=checkout,
-    )
-    if post_commit != commit or post_tree != tree or post_status:
-        raise SyntheticApprovalError(
-            "task checkout changed after the Unity manifest was produced"
-        )
     contract_hash = _exact_sha(
         task.get("task_contract_sha256"),
         field="task contract",
@@ -909,7 +947,7 @@ def _run_unity_validation(
         "unity_validations": [
             {
                 **validation,
-                "manifest_sha256": _sha256_bytes(manifest_bytes),
+                "manifest_sha256": manifest_sha256,
                 "xml_sha256": xml_sha256,
                 "log_sha256": log_sha256,
                 "commit": commit,
@@ -918,7 +956,7 @@ def _run_unity_validation(
                 "post_tree": post_tree,
                 "repository_clean_before": True,
                 "repository_clean_after": True,
-                **counts,
+                **dict(counts),
             }
         ],
     }
@@ -929,6 +967,7 @@ def _run_unity_validation(
         "test_platform": "EditMode",
         "test_filter": expected_filter,
         "manifest_path": str(manifest_path),
+        "evidence_source": evidence_source,
         "evidence": evidence,
         "status": "exact_synthetic_unity_validation_passed",
     }

@@ -15,6 +15,10 @@ from typing import Any, Iterable, Mapping
 
 from .delivery_review import file_sha256
 from .downstream_issue import DownstreamIssueCoordinator, DownstreamIssueError, _meaningful
+from .candidate_integration import (
+    CandidateIntegrationError,
+    find_pre_handoff_validation,
+)
 from .downstream_pipeline import (
     _SHA40,
     _VALID_PLATFORMS,
@@ -342,11 +346,50 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
             and item.get("test_platform") == test_platform
             and item.get("test_filter") == test_filter
         ]
+        expected_tree = _git_text(
+            self.command_runner,
+            self.checkout,
+            "rev-parse",
+            "HEAD^{tree}",
+        )
         if existing:
-            manifest = _manifest(Path(existing[0]["path"]))
-            if manifest["commit"] != workflow_state["head_commit"]:
+            recorded = existing[0]
+            manifest = _manifest(Path(recorded["path"]))
+            # Commit alone is not enough: a rebase or a main-into-branch merge can
+            # keep a commit reachable while changing the tree that was actually
+            # tested, and an edited artifact keeps its recorded path. Require the
+            # tree and the recorded digest to agree as well.
+            if (
+                manifest["commit"] != workflow_state["head_commit"]
+                or manifest["tree"] != expected_tree
+            ):
                 raise DownstreamPipelineError("stored validation manifest is stale")
+            recorded_digest = recorded.get("sha256")
+            if (
+                isinstance(recorded_digest, str)
+                and recorded_digest
+                and manifest["sha256"] != recorded_digest
+            ):
+                raise DownstreamPipelineError(
+                    "stored validation manifest no longer matches its recorded digest"
+                )
             return manifest
+
+        imported = self._import_pre_handoff_validation(
+            commit=workflow_state["head_commit"],
+            tree=expected_tree,
+            test_platform=test_platform,
+            test_filter=test_filter,
+        )
+        if imported is not None:
+            return self._publish_validation_evidence(
+                imported.directory,
+                imported.path.name,
+                commit=workflow_state["head_commit"],
+                tree=expected_tree,
+                test_platform=test_platform,
+                test_filter=test_filter,
+            )
 
         script = self.checkout / "Pipeline" / "Testing" / "run_unity_tests_clean.ps1"
         if not script.is_file():
@@ -398,18 +441,65 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
             raise DownstreamPipelineError(
                 "Unity test validated a different commit"
             )
-        expected_tree = _git_text(
-            self.command_runner,
-            self.checkout,
-            "rev-parse",
-            "HEAD^{tree}",
-        )
         if source_fact["tree"] != expected_tree:
             raise DownstreamPipelineError(
                 "Unity test validated a different Git tree"
             )
+        return self._publish_validation_evidence(
+            source_manifest.parent,
+            source_manifest.name,
+            commit=workflow_state["head_commit"],
+            tree=expected_tree,
+            test_platform=test_platform,
+            test_filter=test_filter,
+        )
 
-        output = self._output_root(workflow_state["head_commit"])
+    def _import_pre_handoff_validation(
+        self,
+        *,
+        commit: str,
+        tree: str,
+        test_platform: str,
+        test_filter: str,
+    ):
+        """Return verified pre-handoff evidence for this exact validation, if any.
+
+        Absence means the integrator recorded nothing for this exact commit, tree,
+        platform, and filter -- for example after a legitimate main-into-branch
+        change moved the tree -- and the caller runs Unity normally. Corruption
+        raises instead, so tampered evidence never silently becomes a fresh run.
+        """
+        try:
+            return find_pre_handoff_validation(
+                checkout=self.checkout,
+                task_id=self.task_id,
+                commit=commit,
+                tree=tree,
+                test_platform=test_platform,
+                test_filter=test_filter,
+            )
+        except CandidateIntegrationError as exc:
+            raise DownstreamPipelineError(
+                f"recorded pre-handoff Unity evidence is unusable: {exc}"
+            ) from exc
+
+    def _publish_validation_evidence(
+        self,
+        source_directory: Path,
+        manifest_name: str,
+        *,
+        commit: str,
+        tree: str,
+        test_platform: str,
+        test_filter: str,
+    ) -> dict[str, Any]:
+        """Copy proven evidence into the normal downstream destination and persist.
+
+        Reused and freshly executed evidence land in exactly the same place and
+        produce exactly the same durable state, so nothing downstream has to know
+        which one happened.
+        """
+        output = self._output_root(commit)
         destination = output / "validation" / (
             f"{test_platform}-"
             f"{hashlib.sha256(test_filter.encode('utf-8')).hexdigest()[:12]}"
@@ -420,8 +510,12 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
                 f"{destination}"
             )
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(source_manifest.parent, destination)
-        manifest = _manifest(destination / source_manifest.name)
+        shutil.copytree(source_directory, destination)
+        manifest = _manifest(destination / manifest_name)
+        if manifest["commit"] != commit or manifest["tree"] != tree:
+            raise DownstreamPipelineError(
+                "published validation evidence does not bind the validated state"
+            )
         manifests = [
             item
             for item in self.state.get("validation_manifests") or []
@@ -436,8 +530,8 @@ class ResumableDownstreamTaskController(DownstreamTaskController):
             key=lambda item: (item["test_platform"], item["test_filter"])
         )
         self.state["validation_manifests"] = manifests
-        self.state["implementation_commit"] = workflow_state["head_commit"]
-        self.state["implementation_tree"] = expected_tree
+        self.state["implementation_commit"] = commit
+        self.state["implementation_tree"] = tree
         self._persist()
         return _copy(manifest)
 
