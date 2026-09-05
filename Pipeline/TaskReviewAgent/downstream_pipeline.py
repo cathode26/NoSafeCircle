@@ -13,6 +13,11 @@ import tempfile
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+from Pipeline.Testing.validation_manifest import (
+    ValidationManifestError,
+    load_validation_manifest,
+)
+
 from .contracts import TaskReviewContractError, semantic_sha256
 from .delivery_review import (
     DeliveryReviewError,
@@ -203,70 +208,17 @@ def _required_platforms(task: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 def _manifest(path: Path) -> dict[str, Any]:
-    raw = _json_object(path.read_bytes(), "validation manifest")
-    if (
-        raw.get("schema_version") != "1.0"
-        or raw.get("manifest_type") != "unity_test_validation"
-        or raw.get("status") != "passed"
-    ):
-        raise DownstreamPipelineError("validation manifest is not a passed v1 Unity manifest")
-    state = raw.get("validated_state")
-    unity = raw.get("unity")
-    test_run = raw.get("test_run")
-    artifacts = raw.get("artifacts")
-    if (
-        not isinstance(state, Mapping)
-        or not isinstance(unity, Mapping)
-        or not isinstance(test_run, Mapping)
-        or not isinstance(artifacts, Mapping)
-    ):
-        raise DownstreamPipelineError("validation manifest omitted required sections")
-    commit = state.get("commit")
-    tree = state.get("tree")
-    platform = unity.get("test_platform")
-    test_filter = unity.get("test_filter")
-    if not isinstance(commit, str) or not _SHA40.fullmatch(commit):
-        raise DownstreamPipelineError("validation manifest commit is invalid")
-    if not isinstance(tree, str) or not _SHA40.fullmatch(tree):
-        raise DownstreamPipelineError("validation manifest tree is invalid")
-    if platform not in _VALID_PLATFORMS:
-        raise DownstreamPipelineError("validation manifest platform is invalid")
-    if not isinstance(test_filter, str) or not test_filter.strip():
-        raise DownstreamPipelineError("validation manifest filter is invalid")
-    if test_run.get("result") != "Passed":
-        raise DownstreamPipelineError("validation manifest test result is not Passed")
-    counts: dict[str, int] = {}
-    for key in ("total", "passed", "failed", "skipped"):
-        value = test_run.get(key)
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise DownstreamPipelineError(
-                f"validation manifest test_run.{key} is invalid"
-            )
-        counts[key] = value
-    if counts["total"] <= 0:
-        raise DownstreamPipelineError("validation manifest discovered zero tests")
-    if counts["failed"] != 0:
-        raise DownstreamPipelineError("validation manifest reports failed tests")
-    if counts["total"] < counts["passed"] + counts["failed"] + counts["skipped"]:
-        raise DownstreamPipelineError("validation manifest test counts are inconsistent")
-    for key in ("xml", "log"):
-        fact = artifacts.get(key)
-        if not isinstance(fact, Mapping):
-            raise DownstreamPipelineError(f"validation manifest omitted {key} artifact")
-        relative = fact.get("relative_path")
-        if not isinstance(relative, str) or not relative:
-            raise DownstreamPipelineError(f"validation manifest {key} path is invalid")
-        artifact_path = path.parent / relative
-        actual = _file_fact(artifact_path)
-        if actual["sha256"] != fact.get("sha256") or actual["size_bytes"] != fact.get("size_bytes"):
-            raise DownstreamPipelineError(f"validation manifest {key} artifact changed")
+    try:
+        manifest = load_validation_manifest(path)
+    except (OSError, ValidationManifestError) as exc:
+        raise DownstreamPipelineError(f"validation manifest is invalid: {exc}") from exc
     return {
-        "path": str(path.resolve()),
-        "sha256": file_sha256(path),
-        "commit": commit,
-        "tree": tree,
-        "test_platform": platform,
-        "test_filter": test_filter,
+        "path": str(manifest.path),
+        "sha256": file_sha256(manifest.path),
+        "commit": manifest.validated_state.commit,
+        "tree": manifest.validated_state.tree,
+        "test_platform": manifest.unity.test_platform,
+        "test_filter": manifest.unity.test_filter,
     }
 
 

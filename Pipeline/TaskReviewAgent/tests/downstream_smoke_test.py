@@ -250,8 +250,21 @@ def make_manifest(directory: Path, *, commit: str, tree: str) -> Path:
         "schema_version": "1.0",
         "manifest_type": "unity_test_validation",
         "status": "passed",
-        "validated_state": {"commit": commit, "tree": tree},
-        "unity": {"test_platform": "PlayMode", "test_filter": "Synthetic.Tests"},
+        "validated_state": {
+            "commit": commit,
+            "tree": tree,
+            "post_commit": commit,
+            "post_tree": tree,
+            "repository_clean_before": True,
+            "repository_clean_after": True,
+        },
+        "unity": {
+            "version": "6000.0.0f1",
+            "executable": "C:/Unity/Unity.exe",
+            "exit_code": 0,
+            "test_platform": "PlayMode",
+            "test_filter": "Synthetic.Tests",
+        },
         "test_run": {
             "result": "Passed",
             "total": 1,
@@ -271,6 +284,7 @@ def make_manifest(directory: Path, *, commit: str, tree: str) -> Path:
                 "size_bytes": log.stat().st_size,
             },
         },
+        "runner": {"path": "Pipeline/Testing/run_unity_tests_clean.ps1"},
     }
     manifest.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return manifest
@@ -286,9 +300,42 @@ def test_manifest_rejects_zero_discovered_tests() -> None:
         try:
             _manifest(manifest)
         except DownstreamPipelineError as exc:
-            require("zero tests" in str(exc), "wrong zero-test manifest error")
+            require("greater than zero" in str(exc), "wrong zero-test manifest error")
         else:
             raise AssertionError("zero-test validation manifest was accepted")
+
+
+def test_manifest_rejects_artifact_path_traversal() -> None:
+    """A manifest may not select an artifact outside its own directory."""
+
+    with tempfile.TemporaryDirectory(prefix="nsc-manifest-traversal-") as temporary:
+        root = Path(temporary)
+        manifest_root = root / "manifest"
+        outside = root / "outside"
+        outside.mkdir(parents=True)
+        escaped_xml = outside / "test-results.xml"
+        escaped_xml.write_text(
+            '<test-run result="Passed" total="1" passed="1" failed="0" skipped="0" />\n',
+            encoding="utf-8",
+        )
+        manifest = make_manifest(
+            manifest_root,
+            commit="1" * 40,
+            tree="2" * 40,
+        )
+        raw = json.loads(manifest.read_text(encoding="utf-8"))
+        raw["artifacts"]["xml"].update(
+            relative_path="../outside/test-results.xml",
+            sha256=hashlib.sha256(escaped_xml.read_bytes()).hexdigest(),
+            size_bytes=escaped_xml.stat().st_size,
+        )
+        manifest.write_text(json.dumps(raw), encoding="utf-8")
+        try:
+            _manifest(manifest)
+        except DownstreamPipelineError as exc:
+            require("traversal" in str(exc), "wrong traversal manifest error")
+        else:
+            raise AssertionError("artifact traversal escaped the manifest directory")
 
 
 def test_delivery_draft_uses_stable_main_base() -> None:
@@ -972,6 +1019,7 @@ def main() -> int:
         test_post_merge_accepts_newer_main,
         test_delivery_review_materializes_exact_proposal,
         test_manifest_rejects_zero_discovered_tests,
+        test_manifest_rejects_artifact_path_traversal,
     )
     for test in tests:
         test()
