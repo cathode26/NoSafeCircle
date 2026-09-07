@@ -316,7 +316,7 @@ class SessionCompatibility:
             self.capability_class, CAPABILITY_CLASSES, field="capability_class"
         )
         if session_class == "worker":
-            if role not in CREW_SESSION_ROLES:
+            if role not in (*CREW_SESSION_ROLES, "lead_developer"):
                 raise SessionPoolError(f"unsupported ExecutionCrew pool role: {role}")
         else:
             if role != ARCHITECT_SESSION_ROLE:

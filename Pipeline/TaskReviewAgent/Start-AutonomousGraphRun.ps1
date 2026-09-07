@@ -32,6 +32,10 @@ param(
     [ValidatePattern('^(claude|codex|claude,codex)$')]
     [string]$ProviderAllowlist,
 
+    # Python owns the canonical enum and expands it once during the probe.
+    [string]$ProviderProfile,
+    [string[]]$ProviderTokenBudget,
+
     [string]$Model,
 
     [string]$ArchitectModel,
@@ -110,6 +114,12 @@ if ($PSBoundParameters.ContainsKey('SupervisorProvider')) {
 if ($PSBoundParameters.ContainsKey('ProviderAllowlist')) {
     $Arguments += @('--provider-allowlist', $ProviderAllowlist)
 }
+if ($PSBoundParameters.ContainsKey('ProviderProfile')) {
+    $Arguments += @('--provider-profile', $ProviderProfile)
+}
+foreach ($Budget in $ProviderTokenBudget) {
+    $Arguments += @('--provider-token-budget', $Budget)
+}
 if ($PSBoundParameters.ContainsKey('Model')) {
     $Arguments += @('--model', $Model)
 }
@@ -142,7 +152,9 @@ if ($PSBoundParameters.ContainsKey('EnableSyntheticEvidence')) {
         $Arguments += '--disable-synthetic-evidence'
     }
 }
-$CompletionProbeArguments = @($Arguments) + '--completion-probe'
+$ProbePath = Join-Path ([System.IO.Path]::GetTempPath()) ('nsc-provider-probe-' + [Guid]::NewGuid().ToString('N') + '.json')
+try {
+$CompletionProbeArguments = @($Arguments) + @('--completion-probe', '--completion-probe-output', $ProbePath)
 $CompletionProbe = Invoke-NscNativeCommand `
     -FilePath 'python' `
     -ArgumentList $CompletionProbeArguments `
@@ -152,6 +164,17 @@ if ($CompletionProbe.ExitCode -eq 0) {
 }
 if ($CompletionProbe.ExitCode -ne 10) {
     exit $CompletionProbe.ExitCode
+}
+$ResolvedProbe = $null
+if (Test-Path -LiteralPath $ProbePath -PathType Leaf) {
+    $ResolvedProbe = [System.IO.File]::ReadAllText($ProbePath) | ConvertFrom-Json
+}
+$ResolvedTopology = $ResolvedProbe.provider_topology
+if ($PSBoundParameters.ContainsKey('ProviderProfile') -and $null -eq $ResolvedTopology) {
+    throw 'Profile preflight omitted the canonical resolved topology.'
+}
+if ($null -ne $ResolvedTopology) {
+    $Arguments += @('--resolved-provider-topology-file', $ProbePath)
 }
 
 foreach ($CommandName in @('gh', 'docker')) {
@@ -177,7 +200,10 @@ if ($ComposeVersion.ExitCode -ne 0) {
 }
 
 $RequiredProviderNames = @()
-if ($PSBoundParameters.ContainsKey('ProviderAllowlist')) {
+if ($null -ne $ResolvedTopology) {
+    $RequiredProviderNames = @($ResolvedTopology.provider_allowlist)
+}
+elseif ($PSBoundParameters.ContainsKey('ProviderAllowlist')) {
     $RequiredProviderNames = @($ProviderAllowlist -split ',')
 }
 else {
@@ -212,3 +238,9 @@ $Run = Invoke-NscNativeCommand `
     -ArgumentList $Arguments `
     -StreamOutput
 exit $Run.ExitCode
+}
+finally {
+    if (Test-Path -LiteralPath $ProbePath -PathType Leaf) {
+        Remove-Item -LiteralPath $ProbePath -Force
+    }
+}

@@ -42,6 +42,10 @@ from Pipeline.TaskReviewAgent.provider_policy import (
     SUPERVISOR_PROVIDERS,
     parse_provider_allowlist,
 )  # noqa: E402
+from Pipeline.TaskReviewAgent.provider_profiles import (
+    PROVIDER_PROFILES, ProviderTopology, expand_profile, validate_legacy_agreement,
+    preflight_topology, routing_table,
+)
 from Pipeline.TaskReviewAgent.run_timeline import RunTimelineJournal  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_queue import repo_root  # noqa: E402
 from Pipeline.TaskReviewAgent.issue_workflow import WorkflowState  # noqa: E402
@@ -206,6 +210,44 @@ def _runtime_configuration(
         "fallback_seconds": args.fallback_seconds,
         "synthetic_evidence_enabled": args.synthetic_evidence_enabled,
     }
+    profile = getattr(args, "provider_profile", None)
+    resolved = getattr(args, "resolved_provider_topology", None)
+    resolved_file = getattr(args, "resolved_provider_topology_file", None)
+    if resolved_file is not None:
+        if resolved is not None:
+            raise AutonomousGraphRunError("supply only one resolved topology channel")
+        probe = json.loads(resolved_file.read_text(encoding="utf-8"))
+        if (type(probe) is not dict or set(probe) != {"status", "run_id", "provider_topology", "routing_table"}
+                or probe["status"] != "work_remains" or probe["run_id"] != args.run_id):
+            raise AutonomousGraphRunError("resolved topology probe names a different run")
+        resolved = ProviderTopology.from_dict(probe["provider_topology"])
+        if probe["routing_table"] != routing_table(resolved):
+            raise AutonomousGraphRunError("resolved routing table differs from the canonical topology")
+    budgets = {}
+    for raw in getattr(args, "provider_token_budget", None) or ():
+        provider, separator, number = raw.partition("=")
+        if separator != "=" or provider not in {"claude", "codex"} or provider in budgets:
+            raise AutonomousGraphRunError("token budgets require unique provider=positive-integer values")
+        budgets[provider] = _positive_int(number)
+    topology = resolved
+    if topology is None and existing is not None:
+        topology = existing.provider_topology
+    if topology is None and profile is not None:
+        topology = expand_profile(profile, token_budgets=budgets)
+    if topology is not None:
+        if profile is not None and profile != topology.profile:
+            raise AutonomousGraphRunError("provider profile differs from the resolved topology")
+        if any(dict(topology.token_budgets).get(p) != quota for p, quota in budgets.items()):
+            raise AutonomousGraphRunError("token budgets differ from the resolved topology")
+        validate_legacy_agreement(topology, execution_provider=args.execution_provider,
+            architect_provider=args.architect_provider, supervisor_provider=args.supervisor_provider,
+            provider_allowlist=args.provider_allowlist, execution_model=args.model, architect_model=args.architect_model)
+        arguments.update(provider_topology=topology, architect_provider=topology.architect,
+            supervisor_provider=topology.architect, provider_allowlist=topology.provider_allowlist,
+            execution_provider=None if topology.mixed else topology.architect)
+        defaults.update(provider_topology=topology)
+    elif budgets:
+        raise AutonomousGraphRunError("token budgets require an explicit provider profile")
     if existing is not None:
         for field, requested in arguments.items():
             if requested is not None and requested != getattr(existing, field):
@@ -232,6 +274,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-workers", type=_capacity)
     parser.add_argument("--execution-provider", choices=("claude", "codex"))
     parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
+    parser.add_argument("--provider-profile", choices=PROVIDER_PROFILES)
+    parser.add_argument("--provider-token-budget", action="append")
+    parser.add_argument("--resolved-provider-topology", type=ProviderTopology.from_json,
+                        help=argparse.SUPPRESS)
+    parser.add_argument("--resolved-provider-topology-file", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--completion-probe-output", type=Path, help=argparse.SUPPRESS)
     parser.add_argument(
         "--supervisor-provider",
         choices=SUPERVISOR_PROVIDERS,
@@ -507,9 +555,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return EXIT_COMPLETE
 
+        if runtime.provider_topology is not None:
+            preflight_topology(runtime.provider_topology)
         if args.completion_probe:
-            _write_result({"status": "work_remains", "run_id": args.run_id})
+            result = {"status": "work_remains", "run_id": args.run_id}
+            if runtime.provider_topology is not None:
+                result["provider_topology"] = runtime.provider_topology.to_dict()
+                result["routing_table"] = routing_table(runtime.provider_topology)
+            _write_result(result)
+            if args.completion_probe_output is not None:
+                with args.completion_probe_output.open("x", encoding="utf-8", newline="\n") as stream:
+                    json.dump(result, stream, sort_keys=True)
+                    stream.write("\n")
             return EXIT_WORK_REMAINS
+        if runtime.provider_topology is not None:
+            print("Resolved provider routing: " + json.dumps(routing_table(runtime.provider_topology), sort_keys=True))
 
         if manifest is None:
             manifest_lock = SchedulerLock(
@@ -539,6 +599,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             scheduler_id=_scheduler_id(repository, args.run_id),
             execution_provider=runtime.execution_provider,
             provider_allowlist=runtime.provider_allowlist,
+            provider_topology=runtime.provider_topology,
             supervisor_provider=runtime.supervisor_provider,
             model=runtime.execution_model,
             max_turns=runtime.execution_max_turns,

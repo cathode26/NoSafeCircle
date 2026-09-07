@@ -106,7 +106,7 @@ POOL_LEASE_MOUNT = "/nsc-pool/decomposition-leases.json"
 def decomposition_provider_order(providers: str, permitted: tuple[str, ...] | None = None) -> tuple[str, ...]:
     values = tuple(providers.split(","))
     if not values or any(value not in {"claude", "codex"} for value in values) or (
-        len(set(values)) != len(values) and values != ("codex", "codex")
+        len(set(values)) != len(values) and values not in (("codex", "codex"), ("claude", "claude"))
     ):
         raise RuntimeError("decomposition providers must be unique claude/codex values or the bounded codex,codex role pair")
     for provider in values:
@@ -117,8 +117,8 @@ def decomposition_provider_order(providers: str, permitted: tuple[str, ...] | No
 def _require_bounded_codex_roles(
     provider_order: tuple[str, ...], *, max_calls: int, pooled: bool,
 ) -> None:
-    if provider_order == ("codex", "codex") and (type(max_calls) is not int or max_calls != 2 or not pooled):
-        raise RuntimeError("all-Codex decomposition requires exactly two calls and independent pooled author/reviewer sessions")
+    if provider_order in (("codex", "codex"), ("claude", "claude")) and (type(max_calls) is not int or max_calls != 2 or not pooled):
+        raise RuntimeError("same-provider decomposition requires exactly two calls and independent pooled author/reviewer sessions")
 
 
 def build_compose_command(
@@ -145,6 +145,11 @@ def build_compose_command(
     if pool_assignment is not None:
         if not run_id:
             raise RuntimeError("pooled decomposition sessions require an explicit run id")
+        if not isinstance(pool_assignment, dict) or any(
+            type(pool_assignment.get(field)) is not str or not pool_assignment[field].strip()
+            for field in ("lease_bundle_path", "repository_identity")
+        ):
+            raise RuntimeError("pooled decomposition requires exact lease-bundle and repository identities")
         # The lease bundle is the only new mount, and it is read-only. The
         # provider models the leases were reserved for are pinned into the
         # container so the round's resolved route cannot silently differ from
@@ -168,7 +173,7 @@ def build_compose_command(
                 # The two-role circuit still uses D1B.2, but only needs the
                 # Codex service's credential volume. The mixed service would
                 # unnecessarily mount Claude's configuration on this route.
-                "codex-decompose" if provider_order == ("codex", "codex") else "round-robin-decompose",
+                f"{provider_order[0]}-decompose" if len(set(provider_order)) == 1 else "round-robin-decompose",
                 "python3",
                 "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
                 "--task-id",
@@ -223,7 +228,7 @@ def _decomposition_pool_owner(*, workspace: Path, compose_project: str,
         checkout=workspace,
         repository_identity=_git(workspace, "remote", "get-url", "origin"),
         provider_models=provider_models,
-        codex_resume_activation=codex_resume_activation_from_environment(),
+        codex_resume_activation=(codex_resume_activation_from_environment() if "codex" in providers else None),
         compose_project=compose_project,
         context_window_tokens=int(raw_window) if raw_window else None,
     )
@@ -641,6 +646,9 @@ def _run_proposal(
         # Settle from the run's durable artifacts whatever the exit code says:
         # the artifacts, not the process, decide what each conversation proved.
         _settle_decomposition_pool(pool_owner, run_id=requested_run_id, run_dir=after[0])
+        if getattr(args, "provider_budget_state", None) is not None:
+            from Pipeline.TaskReviewAgent.provider_budget import observe_decomposition_result
+            observe_decomposition_result(after[0])
     elif pool_owner is not None:
         pool_owner.close()
     if completed.returncode != 0 or len(after) != 1:
@@ -1132,6 +1140,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--compose-project", default="nosafecircle-m2a")
     parser.add_argument("--providers", default="codex,claude")
     parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
+    parser.add_argument("--provider-budget-state", type=Path)
     parser.add_argument("--max-calls", type=int, default=4)
     parser.add_argument("--scheduler-output-root", type=Path)
     parser.add_argument("--run-id")
@@ -1192,6 +1201,10 @@ def main(argv: list[str] | None = None) -> int:
             provider_order, max_calls=args.max_calls, pooled=args.enable_decomposition_session_pool,
         )
         task_id = validate_task_id(args.task_id)
+        if args.provider_budget_state is not None:
+            from Pipeline.TaskReviewAgent.provider_budget import bind_decomposition_budget
+            bind_decomposition_budget(args.provider_budget_state,task_id=task_id,run_id=args.run_id,
+                contract_sha256=args.task_contract_sha256,provider_order=provider_order,permitted=args.provider_allowlist)
         if args.admission_issue_number is not None and not any(
             value is not None for value in scheduler_fields
         ):

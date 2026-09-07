@@ -138,6 +138,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--unity-executable")
     parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
+    parser.add_argument("--provider-assignment-path", type=Path)
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--run-id")
     parser.add_argument("--admission-source-head")
@@ -441,12 +442,20 @@ def main(argv: list[str] | None = None) -> int:
             supervisor_provider, args.provider_allowlist, role="supervisor"
         )
         scheduler_result = _scheduler_result_enabled(args)
+        provider_profile = None
+        if args.provider_assignment_path is not None:
+            from Pipeline.TaskReviewAgent.provider_budget import load_worker_profile
+            provider_profile = load_worker_profile(args.provider_assignment_path, task_id=args.task_id,
+                worker_run_id=args.run_id, contract_sha256=args.task_contract_sha256,
+                provider=args.execution_provider, model=args.execution_model, supervisor=supervisor_provider, bind=True)
+            if tuple(provider_profile["topology"]["provider_allowlist"]) != args.provider_allowlist:
+                raise GenericSelectionError("worker allowlist differs from resolved profile")
         if args.enable_execution_session_pool and not scheduler_result:
             raise GenericSelectionError(
                 "ExecutionCrew session pooling requires scheduler-owned run identity"
             )
         if args.enable_execution_session_pool and (
-            args.execution_provider != "claude" or args.execution_model is None
+            (args.execution_provider != "claude" and provider_profile is None) or args.execution_model is None
         ):
             raise GenericSelectionError(
                 "ExecutionCrew session pooling requires a routed Claude model"
@@ -635,7 +644,7 @@ def main(argv: list[str] | None = None) -> int:
                 controller_options["execution_model"] = args.execution_model
             if args.provider_allowlist is not None:
                 controller_options["provider_allowlist"] = args.provider_allowlist
-                if args.execution_provider == "claude" and "codex" in args.provider_allowlist:
+                if provider_profile is None and args.execution_provider == "claude" and "codex" in args.provider_allowlist:
                     controller_options["quota_fallback_provider"] = "codex"
             if args.execution_reasoning_effort is not None:
                 controller_options["execution_reasoning_effort"] = (
@@ -645,6 +654,8 @@ def main(argv: list[str] | None = None) -> int:
                 controller_options["crew_profile"] = args.crew_profile
             if args.validation_profile is not None:
                 controller_options["validation_profile"] = args.validation_profile
+            if provider_profile is not None:
+                controller_options["provider_profile"] = provider_profile
             controller = ProductionTaskController(**controller_options)
             authority = "read_only_production_pipeline_observation"
 

@@ -1,4 +1,4 @@
-"""Bounded cross-provider D1B.2 decomposition verification and refinement."""
+"""Bounded D1B.2 review: cross-provider, or explicit separate pooled role sessions."""
 
 from __future__ import annotations
 
@@ -150,7 +150,8 @@ def _validate_run_id(run_id: str) -> str:
 
 def validate_provider_order(providers: Iterable[str], *, independent_codex_roles: bool = False) -> tuple[str, ...]:
     order = tuple(providers)
-    if independent_codex_roles and order == ("codex", "codex"):
+    # Retain the historical keyword for callers; both identity-bound role pairs qualify.
+    if independent_codex_roles and order in (("codex", "codex"), ("claude", "claude")):
         return order
     if len(order) < 2:
         raise DecompositionPreflightError(
@@ -457,14 +458,14 @@ def run_round_robin_decomposition(
     if type(task_id) is not str or TASK_ID_RE.fullmatch(task_id) is None:
         raise DecompositionPreflightError("task ID must match NSC-###")
     requested_order = tuple(provider_order)
-    independent_codex_roles = requested_order == ("codex", "codex") and lease_bundle is not None
+    independent_codex_roles = requested_order in (("codex", "codex"), ("claude", "claude")) and lease_bundle is not None
     order = validate_provider_order(requested_order, independent_codex_roles=independent_codex_roles)
     call_limit = round_robin_call_limit(max_calls)
     if independent_codex_roles:
-        if call_limit != 2 or any(lease_bundle.lease_for("codex", role) is None
+        if call_limit != 2 or any(lease_bundle.lease_for(order[0], role) is None
                                   for role in ("task_decomposer", "decomposition_reviewer")):
             raise DecompositionPreflightError(
-                "all-Codex review requires exactly two calls and separate pooled author/reviewer leases"
+                "same-provider review requires exactly two calls and separate pooled author/reviewer leases"
             )
     if (lease_bundle is None) != (scheduler_repository_identity is None):
         raise DecompositionPreflightError(
@@ -987,10 +988,10 @@ def run_round_robin_decomposition(
 
     if independent_codex_roles and run_status == "review_ready":
         confirmations = pooled_sessions.confirmations if pooled_sessions is not None else {}
-        identities = [confirmations.get(lease_key("codex", role))
+        identities = [confirmations.get(lease_key(order[0], role))
                       for role in ("task_decomposer", "decomposition_reviewer")]
         if any(identity is None for identity in identities) or len({identity.session_id for identity in identities if identity}) != 2:
-            rejection_reasons.append("all-Codex author and reviewer must prove distinct conversations")
+            rejection_reasons.append("same-provider author and reviewer must prove distinct conversations")
             run_status = "rejected"
             independent_approver = None
     decomposition_result_path: str | None = None
@@ -1042,6 +1043,7 @@ def run_round_robin_decomposition(
         "decision": candidate.result.decision if candidate is not None else None,
         "latest_candidate": candidate.summary() if candidate is not None else None,
         "independent_approver_provider": independent_approver,
+        "review_independence": "same_provider_separate_sessions" if independent_codex_roles else "cross_provider",
         "decomposition_result_path": decomposition_result_path,
         "graph_delta_path": graph_delta_path,
         "rounds": round_summaries,

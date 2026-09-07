@@ -536,6 +536,11 @@ class SupervisorDockerDecisionProvider:
             # returned uncharged rather than left active or retired.
             self._cancel(pooled)
             raise
+        from .provider_budget import observe_supervisor_turn
+
+        def record_budget(usage=None, status="uncertain"):
+            observe_supervisor_turn(turn=turn, usage=usage, provider=self.supervisor_provider, status=status)
+
         try:
             completed = self.command_runner(
                 command,
@@ -548,10 +553,12 @@ class SupervisorDockerDecisionProvider:
         except BaseException as exc:
             # The Docker turn did not return a result: the provider may or may
             # not have received the turn, so the conversation is uncertain.
+            record_budget()
             self._settle(pooled, outcome="uncertain", confirmation=None, usage=None,
                          detail=f"Docker turn did not complete: {type(exc).__name__}")
             raise
         if completed.returncode != 0:
+            record_budget(status="failed")
             stderr = completed.stderr.decode("utf-8", errors="replace").strip()
             stdout = completed.stdout.decode("utf-8", errors="replace").strip()
             failure = _failure_envelope(completed.stdout)
@@ -577,6 +584,7 @@ class SupervisorDockerDecisionProvider:
         try:
             response = json.loads(completed.stdout.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            record_budget()
             self._settle(pooled, outcome="uncertain", confirmation=None, usage=None,
                          detail="response was not valid JSON")
             raise CodexSupervisorError("Codex supervisor response was not valid JSON") from exc
@@ -586,6 +594,7 @@ class SupervisorDockerDecisionProvider:
             else (_RESPONSE_FIELDS, _POOLED_RESPONSE_FIELDS)
         )
         if not isinstance(response, Mapping) or set(response) not in accepted_fields:
+            record_budget()
             self._settle(pooled, outcome="output_failure", confirmation=None, usage=None,
                          detail="response envelope fields are invalid")
             raise CodexSupervisorError("Codex supervisor response envelope is invalid")
@@ -593,11 +602,14 @@ class SupervisorDockerDecisionProvider:
         if version not in {SUPERVISOR_TURN_SCHEMA_VERSION, POOLED_SUPERVISOR_TURN_SCHEMA_VERSION} or (
             pooled is not None and version != POOLED_SUPERVISOR_TURN_SCHEMA_VERSION
         ):
+            record_budget()
             self._settle(pooled, outcome="output_failure", confirmation=None, usage=None,
                          detail="response envelope version is invalid")
             raise CodexSupervisorError("Codex supervisor response version is invalid")
         usage = response.get("usage")
         usage_value = dict(usage) if isinstance(usage, Mapping) else None
+        # Returned provider usage counts even when host decision/session validation rejects the output.
+        record_budget(usage_value, "succeeded")
         try:
             decision = SupervisorDecision.from_dict(
                 response.get("structured_output"),

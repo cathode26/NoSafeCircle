@@ -63,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--enable-execution-session-pool", action="store_true")
     parser.add_argument("--provider-allowlist", type=parse_provider_allowlist)
+    parser.add_argument("--provider-assignment-path", type=Path)
     parser.add_argument(
         "--supervisor-provider",
         choices=SUPERVISOR_PROVIDERS,
@@ -82,6 +83,14 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
     )
     require_permitted_provider(args.execution_provider, permitted, role="execution")
     require_permitted_provider(supervisor_provider, permitted, role="supervisor")
+    profile_path = getattr(args, "provider_assignment_path", None)
+    if profile_path is not None:
+        from Pipeline.TaskReviewAgent.provider_budget import load_worker_profile
+        profile = load_worker_profile(profile_path, task_id=args.task_id, worker_run_id=args.run_id,
+            contract_sha256=args.task_contract_sha256, provider=args.execution_provider,
+            model=args.execution_model, supervisor=supervisor_provider)
+        if tuple(profile["topology"]["provider_allowlist"]) != permitted:
+            raise ValueError("worker allowlist differs from profile")
     if (args.crew_profile is None) != (args.validation_profile is None):
         raise ValueError(
             "crew profile and validation profile must be supplied together"
@@ -159,6 +168,8 @@ def build_powershell_command(args: argparse.Namespace) -> tuple[str, ...]:
         command.append("-EnableExecutionSessionPool")
     if permitted is not None:
         command.extend(("-ProviderAllowlist", ",".join(permitted)))
+    if profile_path is not None:
+        command.extend(("-ProviderAssignmentPath", str(profile_path.resolve())))
     return tuple(command)
 
 

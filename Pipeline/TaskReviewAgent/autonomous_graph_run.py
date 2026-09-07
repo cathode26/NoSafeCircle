@@ -164,8 +164,21 @@ class AutonomousRuntimeConfiguration:
     # execution_provider. A run persisted before this field existed loads as the
     # historical Codex supervisor rather than being rewritten.
     supervisor_provider: str = DEFAULT_SUPERVISOR_PROVIDER
+    provider_topology: Any = None
 
     def __post_init__(self) -> None:
+        from .provider_profiles import ProviderTopology
+        from .provider_policy import provider_allowlist, resolve_supervisor_provider
+        object.__setattr__(self, "provider_allowlist", provider_allowlist(self.provider_allowlist))
+        object.__setattr__(self, "supervisor_provider", resolve_supervisor_provider(self.supervisor_provider))
+        if self.provider_topology is not None:
+            if type(self.provider_topology) is not ProviderTopology:
+                raise AutonomousGraphRunError("provider_topology must be a frozen resolved topology")
+            topology = self.provider_topology
+            if (self.architect_provider != topology.architect or self.provider_allowlist != topology.provider_allowlist
+                    or self.execution_provider != (None if topology.mixed else topology.architect)
+                    or self.supervisor_provider != topology.architect):
+                raise AutonomousGraphRunError("runtime flags disagree with the resolved provider topology")
         from Pipeline.TaskReviewAgent.provider_policy import (
             provider_allowlist,
             require_permitted_provider,
@@ -223,7 +236,7 @@ class AutonomousRuntimeConfiguration:
         value = {
             field: getattr(self, field)
             for field in self.__dataclass_fields__
-            if field not in ("provider_allowlist", "supervisor_provider")
+            if field not in ("provider_allowlist", "supervisor_provider", "provider_topology")
         }
         if self.provider_allowlist is not None:
             value["provider_allowlist"] = list(self.provider_allowlist)
@@ -234,6 +247,8 @@ class AutonomousRuntimeConfiguration:
         # non-default selection is always recorded.
         if self.supervisor_provider != DEFAULT_SUPERVISOR_PROVIDER:
             value["supervisor_provider"] = self.supervisor_provider
+        if self.provider_topology is not None:
+            value["provider_topology"] = self.provider_topology.to_dict()
         return value
 
     @classmethod
@@ -241,6 +256,7 @@ class AutonomousRuntimeConfiguration:
         fields = set(cls.__dataclass_fields__) - {
             "provider_allowlist",
             "supervisor_provider",
+            "provider_topology",
         }
         if type(value) is dict and "provider_allowlist" in value:
             fields.add("provider_allowlist")
@@ -251,11 +267,16 @@ class AutonomousRuntimeConfiguration:
         # under; it is never rewritten to something it did not choose.
         if type(value) is dict and "supervisor_provider" in value:
             fields.add("supervisor_provider")
+        if type(value) is dict and "provider_topology" in value:
+            fields.add("provider_topology")
         item = _exact_object(
             value,
             fields,
             label="autonomous runtime configuration",
         )
+        if "provider_topology" in item:
+            from .provider_profiles import ProviderTopology
+            item = {**item, "provider_topology": ProviderTopology.from_dict(item["provider_topology"])}
         return cls(**item)
 
 
@@ -1509,6 +1530,8 @@ class AutonomousGraphController:
         self.progress = progress
 
     def _validate_scheduler_binding(self, scheduler: SchedulerPort) -> None:
+        if getattr(scheduler, "provider_topology", None) != self.manifest.runtime_configuration.provider_topology:
+            raise AutonomousGraphRunError("scheduler topology differs from the exact run manifest")
         if getattr(scheduler, "provider_allowlist", None) != self.manifest.runtime_configuration.provider_allowlist:
             raise AutonomousGraphRunError("scheduler provider_allowlist differs from the exact run manifest")
         if getattr(scheduler, "max_workers", None) != self.manifest.max_capacity:

@@ -240,8 +240,10 @@ class ExecutionCrewBridge:
         enable_session_pool: bool = False,
         provider_allowlist: tuple[str, ...] | None = None,
         quota_fallback_provider: str | None = None,
+        provider_profile: dict | None = None,
     ) -> None:
         self.checkout = Path(checkout).resolve()
+        self.provider_profile = provider_profile
         self.provider_allowlist = provider_allowlist
         self.quota_fallback_provider = quota_fallback_provider
         self.scope = scope
@@ -284,6 +286,14 @@ class ExecutionCrewBridge:
         self.compose_project = str(compose_project).strip()
         if not self.compose_project:
             raise ExecutionBridgeError("Docker Compose project name must be non-empty")
+        self.runtime_binding = None
+        if self.provider_profile is not None:
+            from .provider_profiles import ProviderTopology, validate_crew_routes, profile_runtime_binding
+            topology = ProviderTopology.from_dict(provider_profile["topology"])
+            validate_crew_routes(topology, provider_profile["provider"], provider_profile["role_routes"])
+            if tuple(self.provider_allowlist or ()) != topology.provider_allowlist:
+                raise ExecutionBridgeError("bridge provider allowlist differs from its profile")
+            self.runtime_binding = profile_runtime_binding(topology, self.compose_project)
         self.worker_slot_id = str(worker_slot_id).strip() if worker_slot_id else None
         self.enable_session_pool = bool(enable_session_pool)
         self.session_pool_owner = session_pool_owner
@@ -357,6 +367,19 @@ class ExecutionCrewBridge:
                     f"{pool_assignment['lease_bundle_path']}:/nsc-pool/leases.json:ro",
                 )
             )
+        if self.provider_profile is not None:
+            if pool_assignment is None:
+                raise ExecutionBridgeError("profile crew requires pooled role sessions")
+            from .provider_profiles import ProviderTopology
+            topology = ProviderTopology.from_dict(self.provider_profile["topology"])
+            for other in topology.provider_allowlist:
+                if other != provider:
+                    target = "/home/agent/.codex" if other == "codex" else "/home/agent/.claude"
+                    command.extend(("--volume", f"{self.compose_project}_{other}-config:{target}"))
+                    command.extend(("--env", ("CODEX_HOME" if other == "codex" else "CLAUDE_CONFIG_DIR") + "=" + target))
+            if topology.codex_resume_required:
+                command.extend(("--env", "NSC_CODEX_RESUME_SANDBOX_ARGUMENT=" + json.dumps(self.runtime_binding["codex_resume_control"])))
+            command.extend(("--volume", f"{pool_assignment['profile_path']}:/nsc-pool/profile.json:ro"))
         command.extend([
             service,
             "python3",
@@ -368,6 +391,8 @@ class ExecutionCrewBridge:
         ])
         if self.provider_allowlist is not None:
             command.extend(("--provider-allowlist", ",".join(self.provider_allowlist)))
+        if self.provider_profile is not None:
+            command.extend(("--provider-role-profile", "/nsc-pool/profile.json"))
         if self.quota_fallback_provider is not None:
             command.extend(("--quota-fallback-provider", self.quota_fallback_provider))
         if pool_assignment is not None:
@@ -431,6 +456,8 @@ class ExecutionCrewBridge:
         provider = str(provider).strip().casefold()
         if provider not in _PROVIDER:
             raise ExecutionBridgeError("ExecutionCrew provider must be claude or codex")
+        if self.provider_profile is not None and provider != self.provider_profile["provider"]:
+            raise ExecutionBridgeError("ExecutionCrew provider differs from its committed profile assignment")
         try:
             validate_quota_route(provider, self.provider_allowlist, self.quota_fallback_provider)
         except ValueError as exc:
@@ -457,7 +484,7 @@ class ExecutionCrewBridge:
         self.output_root.mkdir(parents=True, exist_ok=True)
         pool_owner: ExecutionCrewSessionPoolOwner | None = None
         pool_assignment: Mapping[str, Any] | None = None
-        if self.enable_session_pool and provider == "claude":
+        if self.enable_session_pool and (provider == "claude" or self.provider_profile is not None):
             if self.execution_model is None:
                 raise ExecutionBridgeError(
                     "production Claude session pooling requires the exact routed model"
@@ -469,6 +496,7 @@ class ExecutionCrewBridge:
             pool_owner = self.session_pool_owner or ExecutionCrewSessionPoolOwner(
                 checkout=self.checkout,
                 output_root=self.output_root,
+                **({"runtime_binding": self.runtime_binding} if self.runtime_binding is not None else {}),
             )
             requested_run_id = (
                 f"{accepted.task_id.lower()}-pooled-{uuid.uuid4().hex[:16]}"
@@ -481,8 +509,17 @@ class ExecutionCrewBridge:
                     source_commit=accepted.source_head,
                     task_contract_sha256=accepted.task_contract_sha256,
                     model=self.execution_model,
-                    reasoning_effort=None,
+                    reasoning_effort=self.execution_reasoning_effort,
+                    **({"role_routes": self.provider_profile["role_routes"]} if self.provider_profile is not None else {}),
                 )
+                if self.provider_profile is not None:
+                    profile_path = Path(pool_assignment["lease_bundle_path"]).with_suffix(".profile.json")
+                    from .execution_session_pool import _write_verified
+                    value = dict(topology=self.provider_profile["topology"], role_routes=self.provider_profile["role_routes"],
+                                 runtime_binding=self.runtime_binding, run_id=requested_run_id,
+                                 task_id=accepted.task_id, task_contract_sha256=accepted.task_contract_sha256)
+                    _write_verified(profile_path, (json.dumps(value, sort_keys=True)+"\n").encode())
+                    pool_assignment["profile_path"] = str(profile_path)
             except ExecutionCrewSessionPoolError as exc:
                 raise ExecutionBridgeError(
                     f"ExecutionCrew session pool could not reserve roles: {exc}"
@@ -582,6 +619,12 @@ class ExecutionCrewBridge:
             )
         try:
             self._validate_result(persisted, accepted=accepted, provider=provider)
+            if self.provider_profile is not None:
+                if (persisted.get("provider_topology") != self.provider_profile["topology"]
+                        or persisted.get("role_routes") != self.provider_profile["role_routes"]):
+                    raise ExecutionBridgeError("crew result changed the resolved provider profile")
+                from .provider_budget import observe_crew_result
+                observe_crew_result(result_path)
         except ExecutionBridgeError as exc:
             self._quarantine_terminal_pool(pool_owner, pool_assignment, str(exc))
             raise

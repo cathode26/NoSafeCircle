@@ -57,8 +57,10 @@ class ProductionTaskController:
         enable_execution_session_pool: bool = False,
         provider_allowlist: tuple[str, ...] | None = None,
         quota_fallback_provider: str | None = None,
+        provider_profile: dict | None = None,
     ) -> None:
         self.workflow = workflow
+        self.provider_profile = provider_profile
         self.task_id = workflow.task_id
         self.execution_provider = str(execution_provider).strip().casefold()
         if self.execution_provider not in ("claude", "codex"):
@@ -131,6 +133,8 @@ class ProductionTaskController:
                 expected_branch=branch,
             )
             execution_options: dict[str, Any] = {}
+            if self.provider_profile is not None:
+                execution_options["provider_profile"] = self.provider_profile
             if self.provider_allowlist is not None:
                 execution_options["provider_allowlist"] = self.provider_allowlist
             if self.quota_fallback_provider is not None:

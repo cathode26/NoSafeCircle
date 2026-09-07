@@ -760,25 +760,27 @@ def _independent_codex_roles(run: Mapping[str, Any]) -> bool:
     The containing run and invocation artifacts remain hash-bound by the normal
     authorization binder. A provider name alone never establishes independence.
     """
-    if run.get("provider_order") != ["codex", "codex"] or run.get("max_calls") != 2 or run.get("calls_used") != 2:
+    if run.get("provider_order") not in (["codex", "codex"], ["claude", "claude"]) or run.get("max_calls") != 2 or run.get("calls_used") != 2:
         return False
+    provider = run["provider_order"][0]
+    identifier = "openai-codex" if provider == "codex" else "claude-code"
     try:
         from Pipeline.AgentRuntime.provider_sessions import ProviderSessionConfirmation
         from uuid import UUID
         sessions = run["pooled_sessions"]
         roles = ("task_decomposer", "decomposition_reviewer")
-        if set(sessions) != {f"codex:{role}" for role in roles}:
+        if set(sessions) != {f"{provider}:{role}" for role in roles}:
             return False
         identities = []
         leases = []
         for index, role in enumerate(roles, 1):
-            session = sessions[f"codex:{role}"]
+            session = sessions[f"{provider}:{role}"]
             if any(str(UUID(session[key])) != session[key] for key in ("lease_id", "record_id")):
                 return False
             confirmation = session["confirmed_session"]
             parsed = ProviderSessionConfirmation(**{key: confirmation[key] for key in
                 ("provider_identifier", "role", "mode", "session_id")})
-            if confirmation != parsed.to_dict() or parsed.role != role or parsed.provider_identifier != "openai-codex":
+            if confirmation != parsed.to_dict() or parsed.role != role or parsed.provider_identifier != identifier:
                 return False
             if session["identity_unproven"] is not None or session["invoked"] is not True or session["role"] != role:
                 return False
@@ -789,7 +791,7 @@ def _independent_codex_roles(run: Mapping[str, Any]) -> bool:
                 "run_id": run["run_id"], "task_id": run["task_id"], "role": role,
                 "round_number": index, "confirmed_session": confirmation,
                 "lease_id": session["lease_id"], "record_id": session["record_id"],
-                "provider_identifier": "openai-codex", "agent_status": "succeeded",
+                "provider_identifier": identifier, "agent_status": "succeeded",
                 "invocation_id": Path(run["rounds"][index - 1]["task_execution_request_path"]).parent.name,
             }.items()):
                 return False

@@ -4,7 +4,14 @@ This public integration preserves the production task graph and Unity validation
 policy. Private synthetic approval is disabled; automated evidence contracts are
 exercised only by deterministic tests with explicit fixture authority.
 
-TaskReviewAgent is the goal-oriented OpenAI supervisor around the existing No Safe Circle pipeline.
+TaskReviewAgent is the goal-oriented provider supervisor around the existing No Safe Circle pipeline.
+
+Both canonical launchers accept `-ProviderProfile` with `all-claude`,
+`all-codex`, `claude-architect-balanced`, or `codex-architect-balanced`.
+The [provider profile and budget-routing guide](../../Docs/AI-Pipeline/PROVIDER_PROFILES_AND_BUDGET_ROUTING.md)
+defines the immutable manifest schema, token allocations, role relationships,
+pooled session requirements, and exact resume behavior. Omit the option to keep
+the legacy provider-selector behavior described below.
 
 Autonomous runs can pin `-ProviderAllowlist codex` together with
 `-ExecutionProvider codex -ArchitectProvider codex`. Both canonical PowerShell
@@ -14,7 +21,8 @@ the sorted, unique comma-list `claude,codex`; omitting the setting preserves
 existing unrestricted runs and their manifest hashes. An existing run cannot
 change its permitted providers. Tier environment settings may further restrict
 execution, but neither an ambient Claude default nor an architect preference
-can escape the run's allowlist. The supervisor always requires Codex.
+can escape the run's allowlist. The selected supervisor must also be allowed;
+the historical default supervisor is Codex.
 
 An explicit Codex execution route uses two bounded decomposition calls with
 different, identity-bound pooled author/reviewer conversations. It remains

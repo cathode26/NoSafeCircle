@@ -1207,6 +1207,7 @@ def resolve_role_session(role_session_bindings: Mapping[str, Any]|None, role: st
 
 
 ROLE_EVIDENCE_OBLIGATIONS = {
+    "lead_developer": ("Diagnose unresolved review disagreement; write nothing and grant no acceptance authority.",),
     "contract_locality_auditor": (
         "Classify every current AC-### and VAL-### exactly once; write nothing.",
     ),
@@ -1233,6 +1234,7 @@ ROLE_CAPABILITY_CLASSES = {
     "test_author": "low_cost",
     "validator": "high_reasoning",
 }
+PROFILE_ROLE_CAPABILITY_CLASSES = {**ROLE_CAPABILITY_CLASSES, "lead_developer": "high_reasoning"}
 # AgentRuntime failure classifications, expressed in the committed session
 # lifecycle's assignment-outcome vocabulary so the retirement policy stays in
 # one module. A transport/timeout/permission failure is a provider failure; a
@@ -1313,7 +1315,7 @@ def load_role_session_lease_bundle(path: Path, *, run_id: str) -> dict[str, Assi
     if value["run_id"] != run_id:
         raise CrewBlocked("role-session lease bundle names a different run")
     leases = value["leases"]
-    if type(leases) is not dict or set(leases) != set(ROLE_CAPABILITY_CLASSES):
+    if type(leases) is not dict or set(leases) not in (set(ROLE_CAPABILITY_CLASSES), set(PROFILE_ROLE_CAPABILITY_CLASSES)):
         raise CrewBlocked("role-session lease bundle must carry all four crew roles")
     try:
         return {role: AssignmentLease.from_dict(leases[role]) for role in leases}
@@ -1381,6 +1383,7 @@ def validate_role_session_leases(role_session_leases: Mapping[str, Any]|None, *,
                                  checkout_identity: str, repository_identity: str,
                                  role_capability_classes: Mapping[str, str]|None=None,
                                  protocol_version: str=CREW_SESSION_PROTOCOL_VERSION,
+                                 role_routes: Mapping[str, Any]|None=None,
                                  ) -> dict[str, AssignmentLease]:
     """Bind every supplied lease to this exact execution before any provider work.
 
@@ -1396,9 +1399,13 @@ def validate_role_session_leases(role_session_leases: Mapping[str, Any]|None, *,
 
     if not role_session_leases:
         return {}
-    classes = ROLE_CAPABILITY_CLASSES if role_capability_classes is None else role_capability_classes
+    classes = (PROFILE_ROLE_CAPABILITY_CLASSES if role_routes else ROLE_CAPABILITY_CLASSES) if role_capability_classes is None else role_capability_classes
     leases: dict[str, AssignmentLease] = {}
     for role, lease in role_session_leases.items():
+        if role_routes is not None:
+            route = role_routes[role]
+            provider_identifier = crew_provider_identifier(route["provider"])
+            model, reasoning_effort = route["model"], route["reasoning_effort"]
         if type(lease) is not AssignmentLease:
             raise CrewBlocked("role session lease must be an exact AssignmentLease")
         if lease.pool_schema_version != POOL_SCHEMA_VERSION:
@@ -1683,6 +1690,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
              codex_resume_sandbox_argument: tuple[str,...]|None=None,
              provider_allowlist: tuple[str,...]|None=None,
              quota_fallback_provider: str|None=None,
+             provider_topology: Mapping[str, Any]|None=None,
+             role_routes: Mapping[str, Any]|None=None,
              _persistent_work_graph_loader: Callable[[Path], PersistentWorkGraph]|None=None):
     started=time.monotonic()
     host_root_path = validate_host_output_root(host_output_root) if host_output_root is not None else None
@@ -1762,6 +1771,29 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
     assert task_id is not None
     if not TASK_ID_RE.fullmatch(task_id): raise CrewBlocked("task ID must match NSC-###")
     if not isinstance(provider_name, str): raise CrewBlocked("provider is required")
+    if (provider_topology is None) != (role_routes is None):
+        raise CrewBlocked("profile crew routing requires both topology and role routes")
+    if provider_topology is not None:
+        from Pipeline.TaskReviewAgent.provider_profiles import ProviderTopology, validate_crew_routes, preflight_topology
+        topology = ProviderTopology.from_dict(provider_topology)
+        validate_crew_routes(topology, provider_name, role_routes)
+        if tuple(provider_allowlist or ()) != topology.provider_allowlist or quota_fallback_provider is not None:
+            raise CrewBlocked("crew allowlist or quota handoff differs from profile")
+        if not role_session_leases or set(role_session_leases) != set(role_routes):
+            raise CrewBlocked("profile roles require distinct host-issued pooled leases")
+        if role_routes["implementer"]["model"] != execution_model or role_routes["implementer"]["reasoning_effort"] != openai_reasoning_effort:
+            raise CrewBlocked("implementer route differs from its host profile")
+        preflight_topology(topology)
+        if topology.codex_resume_required:
+            from Pipeline.TaskReviewAgent.supervisor_session_pool import codex_resume_activation_from_environment
+            verified_control = codex_resume_activation_from_environment().argument
+            if codex_resume_sandbox_argument is not None and codex_resume_sandbox_argument != verified_control:
+                raise CrewBlocked("crew Codex resume control differs from the verified profile control")
+            codex_resume_sandbox_argument = verified_control
+        if retry_mode:
+            prior, _ = _strict_json_file(output_root/retry_run_id/"crew_result.json", label="prior profile result")
+            if prior.get("provider_topology") != provider_topology or prior.get("role_routes") != role_routes:
+                raise CrewBlocked("retry provider topology or role map changed")
     try:
         validate_quota_route(provider_name, provider_allowlist, quota_fallback_provider)
     except ValueError as exc:
@@ -1888,6 +1920,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         model=execution_model, reasoning_effort=execution_reasoning_effort,
         source_commit=identity.head, checkout_identity=pooled_checkout_identity,
         repository_identity=pooled_repository_identity or "",
+        role_routes=role_routes,
     ) if role_session_leases else {}
     role_durable_results: dict[str, DurableAssignmentResult] = {}
     role_confirmations: dict[str, ProviderSessionConfirmation] = {}
@@ -2008,6 +2041,10 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         switched = role in role_provider_overrides
         routed_model=None if switched else execution_model
         routed_effort=None if switched else execution_reasoning_effort
+        if role_routes is not None:
+            routed_provider = role_routes[role]["provider"]
+            routed_model = role_routes[role]["model"]
+            routed_effort = role_routes[role]["reasoning_effort"]
         lease=None if switched else pooled_leases.get(role)
         if lease is not None:
             # This is the real invocation boundary: the capability class is only
@@ -2015,8 +2052,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             # exact routed values this role is about to be invoked with.
             assert_lease_invocation_identity(
                 lease, role=role, capability_class=capability_class, task_id=task_id,
-                run_id=run_id, provider_identifier=crew_provider_identifier(provider_name),
-                model=execution_model, reasoning_effort=execution_reasoning_effort,
+                run_id=run_id, provider_identifier=crew_provider_identifier(routed_provider),
+                model=routed_model, reasoning_effort=routed_effort,
                 source_commit=identity.head, checkout_identity=pooled_checkout_identity,
                 repository_identity=pooled_repository_identity or "",
             )
@@ -2024,7 +2061,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
             session_binding = role_sessions.get(role) or ProviderSessionBinding("openai-codex", role, "start")
         elif pooled_leases or role_session_bindings:
             session_binding=role_sessions.get(role) or resolve_role_session(
-                role_session_bindings,role,crew_provider_identifier(provider_name)
+                role_session_bindings,role,crew_provider_identifier(routed_provider)
             )
         if session_binding is not None:
             session_ledger=ProviderSessionLedger()
@@ -2450,6 +2487,30 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 progress.emit("validator_completed",f"Validator {attempt} completed: {validator_status or res.status}",role="validator",attempt=attempt,status=validator_status or res.status)
                 if scope: reasons+=scope; crew_status="rejected"; stop=True; break
                 if validator_status=="pass": crew_status="review_ready"; accepted_candidate=candidate; stop=True; break
+                if role_routes is not None and (validator_status == "blocked_by_design" or attempt == 2):
+                    # One pooled, read-only diagnosis. It cannot override the validator
+                    # or grant acceptance, graph, Issue, or checkout authority.
+                    lead_prompt = "Act as the Lead Developer. Diagnose the unresolved review disagreement. Write nothing. " + validator_prompt(
+                        task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,
+                        candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,
+                        implementer_output=latest_impl,test_author_output=latest_test,
+                        human_review_feedback=json.dumps(output))
+                    _, lead_result = invoke("lead_developer",1,source_root,False,lead_prompt,
+                        VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
+                    lead_scope = source_revalidation(source_root,identity)
+                    lead_output = thaw_json(lead_result.structured_output) if lead_result.status == "succeeded" else {}
+                    lead_semantic = validator_semantic_reasons(lead_output, expected_requirement_ids) if lead_result.status == "succeeded" else []
+                    record_role_result("lead_developer",1,dict(role="lead_developer",attempt=1,
+                        agent_status=lead_result.status,failure_classification=lead_result.failure_classification,
+                        structured_output=lead_output,scope_check_reasons=lead_scope,
+                        deterministic_changed_path_validation="rejected" if lead_scope else "accepted",
+                        semantic_validation="rejected" if lead_semantic else "accepted",
+                        model=lead_result.model,provider=lead_result.provider),
+                        agent_status=lead_result.status,failure_classification=lead_result.failure_classification,
+                        semantic_rejected=bool(lead_semantic),changed_paths_rejected=bool(lead_scope))
+                    role_records.append("role_results/lead_developer_1.json")
+                    if lead_scope:
+                        reasons += lead_scope; crew_status="rejected"; stop=True; break
                 if validator_status=="blocked_by_design":
                     reasons.append("validator blocked_by_design")
                     crew_status="contract_review_required" if validator_requires_contract_review(output) else "blocked"
@@ -2561,6 +2622,11 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
         if result_value.is_reusable
     }
     result={"schema_version":"1.0","run_id":run_id,"task_id":task_id,"task_contract_identity":contract_identity.to_dict(),"source_head":identity.head,"source_tree":identity.tree,"source_branch":identity.branch,"provider":provider_name,"execution_model":execution_model,"execution_reasoning_effort":execution_reasoning_effort,"crew_profile":crew_profile,"validation_profile":validation_profile,"required_roles":list(required_roles),"crew_status":crew_status,"attempts_used":attempts,"requested_implementation_paths":list(implementation_paths),"requested_test_paths":list(test_paths),"requested_existing_implementation_paths":list(impl_plan.existing_paths),"requested_new_implementation_paths":list(impl_plan.new_paths),"requested_existing_test_paths":list(test_plan.existing_paths),"requested_new_test_paths":list(test_plan.new_paths),"pipeline_generated_paths":sorted(pipeline_generated),"implementation_actual_changed_paths":sorted(impl_actual-pipeline_generated),"test_actual_changed_paths":sorted(test_actual-pipeline_generated),"final_actual_changed_paths":final_paths,"role_results":role_records,"token_usage":aggregate_token_usage(usage_invocations),"provider_sessions":provider_session_records,"pooled_role_leases":pooled_lease_records,"durable_assignment_results":durable_result_records,"reusable_role_sessions":reusable_role_sessions,"candidate_patch_path":candidate_path,"candidate_patch_sha256":(hashlib.sha256(accepted_candidate).hexdigest() if crew_status=="review_ready" and accepted_candidate is not None else None),"retry_seed_candidate_sha256":retry_seed_candidate_sha256,"retry_seed_mode":retry_seed_mode,"workspace_diagnostic_patch_path":diagnostic_path,"candidate_patch_host_path":host_candidate_path,"workspace_diagnostic_patch_host_path":host_diagnostic_path,"contract_locality_status":contract_locality_status,"contract_locality_audit_path":contract_locality_audit_path,"contract_locality_audit_host_path":contract_locality_audit_host_path,"rejection_reasons":reasons,"validator_status":validator_status,"review_origin":review_origin,"human_next_step":human_next_action,"human_result":human_result,"duration_seconds":time.monotonic()-started}
+    result["provider_invocation_artifacts"] = [dict(path=f"agent_runtime/{item['run_id']}/result.json",
+        sha256=hashlib.sha256((run_dir/"agent_runtime"/item["run_id"]/"result.json").read_bytes()).hexdigest()) for item in usage_invocations]
+    if provider_topology is not None:
+        result.update(provider_topology=provider_topology, role_routes=role_routes)
+
     result.update({"provider_allowlist": None if provider_allowlist is None else list(provider_allowlist),
                    "quota_fallback_provider": quota_fallback_provider,
                    "provider_handoffs": provider_handoffs, "provider_quota_failures": provider_quota_failures})
@@ -2638,6 +2704,7 @@ def main():
     parser.add_argument("--host-output-root",help="Human-facing HOST (e.g. Windows) absolute path mirroring --output-root, for display only")
     parser.add_argument("--run-id")
     parser.add_argument("--role-session-leases",type=Path)
+    parser.add_argument("--provider-role-profile",type=Path)
     parser.add_argument("--scheduler-repository-identity")
     parser.add_argument("--checkout-identity-manifest",type=Path)
     args=parser.parse_args()
@@ -2673,7 +2740,7 @@ def main():
     if any(value is not None for value in pooled_options):
         if not all(value is not None for value in pooled_options):
             parser.error("pooled execution requires --run-id, --role-session-leases, --scheduler-repository-identity, and --checkout-identity-manifest together")
-        if args.provider == "codex" or (args.retry_run and args.expected_provider == "codex"):
+        if args.provider_role_profile is None and (args.provider == "codex" or (args.retry_run and args.expected_provider == "codex")):
             parser.error("production session pooling currently supports Claude only")
     role_session_leases = None
     if args.role_session_leases is not None:
@@ -2683,7 +2750,23 @@ def main():
             )
         except CrewBlocked as exc:
             parser.error(str(exc))
-    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),run_id=args.run_id,retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root,execution_model=args.model,openai_reasoning_effort=args.openai_reasoning_effort,crew_profile=args.crew_profile,validation_profile=args.validation_profile,retry_expected_provider=args.expected_provider,role_session_leases=role_session_leases,scheduler_repository_identity=args.scheduler_repository_identity,checkout_identity_manifest=args.checkout_identity_manifest,provider_allowlist=None if args.provider_allowlist is None else tuple(args.provider_allowlist.split(",")),quota_fallback_provider=args.quota_fallback_provider)
+    profile_options = {}
+    if args.provider_role_profile is not None:
+        from Pipeline.TaskReviewAgent.provider_profiles import ProviderTopology, profile_runtime_binding
+        value, _ = _strict_json_file(args.provider_role_profile, label="host crew profile")
+        if set(value) != {"topology", "role_routes", "runtime_binding", "run_id", "task_id", "task_contract_sha256"} or value["run_id"] != args.run_id:
+            parser.error("host crew profile fields or run identity differ")
+        topology = ProviderTopology.from_dict(value["topology"])
+        stores = value["runtime_binding"]["conversation_stores"]
+        project = stores[0].removeprefix("compose:").split("/")[0]
+        if value["runtime_binding"] != profile_runtime_binding(topology, project):
+            parser.error("crew conversation store or resume control differs from host profile")
+        if args.task_id is not None and value["task_id"] != args.task_id:
+            parser.error("crew profile names a different task")
+        if hashlib.sha256((args.source / "Tasks" / (value["task_id"] + ".yaml")).read_bytes()).hexdigest() != value["task_contract_sha256"]:
+            parser.error("crew profile names a different committed contract")
+        profile_options = dict(provider_topology=value["topology"], role_routes=value["role_routes"])
+    try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),run_id=args.run_id,retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root,execution_model=args.model,openai_reasoning_effort=args.openai_reasoning_effort,crew_profile=args.crew_profile,validation_profile=args.validation_profile,retry_expected_provider=args.expected_provider,role_session_leases=role_session_leases,scheduler_repository_identity=args.scheduler_repository_identity,checkout_identity_manifest=args.checkout_identity_manifest,provider_allowlist=None if args.provider_allowlist is None else tuple(args.provider_allowlist.split(",")),quota_fallback_provider=args.quota_fallback_provider,**profile_options)
     except (CrewBlocked,ValueError,OSError,subprocess.CalledProcessError) as exc:
         reason=str(exc)
         print(f"ExecutionCrew blocked: {reason}",file=sys.stderr)

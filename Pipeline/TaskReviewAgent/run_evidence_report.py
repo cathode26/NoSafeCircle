@@ -113,6 +113,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass, field
 import datetime as dt
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -577,6 +578,22 @@ def supervisor_binding(
     the historical default rather than as a recorded selection.
     """
 
+    if runtime.get("provider_topology") is not None:
+        from .provider_profiles import ProviderTopology
+        topology = ProviderTopology.from_dict(runtime["provider_topology"])
+        if topology.mixed:
+            for launch in launches:
+                implementers = launch_flag_values([launch], _EXECUTION_PROVIDER_FLAG)
+                supervisors = launch_flag_values([launch], _SUPERVISOR_PROVIDER_FLAG)
+                if not implementers and not supervisors:
+                    continue  # A decomposition worker has no task-supervisor role.
+                if (len(implementers) != 1 or implementers != supervisors
+                        or implementers[0] not in topology.provider_allowlist):
+                    raise RunEvidenceError("profile worker supervisor differs from its assigned implementer")
+            launched = launch_flag_values(launches, _SUPERVISOR_PROVIDER_FLAG)
+            return dict(supervisor_provider="follow_implementer", supervisor_provider_source="run_manifest_provider_topology",
+                supervisor_provider_basis="immutable mixed profile; each exact launch must bind supervisor to its implementer",
+                supervisor_provider_confirmed_by_launch_argv=bool(launched), launched_supervisor_providers=launched)
     declared = runtime.get("supervisor_provider")
     if declared is not None and (
         type(declared) is not str or declared not in SUPERVISOR_PROVIDERS
@@ -1611,6 +1628,20 @@ def build_report(evidence: RunEvidence) -> dict[str, Any]:
         "max_capacity": max_capacity if isinstance(max_capacity, int) else UNAVAILABLE,
     }
     runtime_report.update(supervisor_binding(runtime, launches))
+    provider_budget_report = UNAVAILABLE
+    if runtime.get("provider_topology") is not None:
+        from .provider_profiles import ProviderTopology
+        from .provider_budget import read_budget_report
+        topology = ProviderTopology.from_dict(runtime["provider_topology"])
+        runtime_report["provider_topology"] = topology.to_dict()
+        scheduler_id = "autonomous-" + hashlib.sha256(
+            f"{manifest['github_repository'].casefold()}:{evidence.run_id}".encode("utf-8")
+        ).hexdigest()[:20]
+        try:
+            provider_budget_report = read_budget_report(evidence.run_root / "provider-budget.json",
+                topology=topology, scheduler_id=scheduler_id) or UNAVAILABLE
+        except (ValueError, KeyError, TypeError) as exc:
+            raise RunEvidenceError("provider budget is not valid evidence for this run") from exc
 
     return {
         "schema_version": RUN_EVIDENCE_REPORT_SCHEMA_VERSION,
@@ -1625,6 +1656,7 @@ def build_report(evidence: RunEvidence) -> dict[str, Any]:
         "resume_hint_telemetry": resume_hint_telemetry(events),
         "tasks": tasks,
         "provider_calls": provider_call_report,
+        "provider_budget": provider_budget_report,
         "utilization": utilization_report,
         "incidents": incidents,
         "human_action_stops": human_stops,
@@ -1700,6 +1732,18 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     lines.append(f"- Launched execution providers: {_join(runtime['launched_execution_providers'])}")
     lines.append(f"- Launched execution models: {_join(runtime['launched_execution_models'])}")
     lines.append(f"- Launched supervisor models: {_join(runtime['launched_supervisor_models'])}")
+    budget = report.get("provider_budget")
+    if isinstance(budget, dict):
+        lines.extend(("", "## Provider budget", "",
+            f"- Profile: {budget['identity']['topology']['profile']}",
+            f"- Scope: {budget['snapshot']['accounting_scope']}",
+            "- Metric: consumed total tokens / configured token budget; cached input is a subset of input.",
+            "", "| Provider | Input | Cached input | Output | Total | Budget | Normalized pressure |",
+            "| --- | --- | --- | --- | --- | --- | --- |"))
+        for provider, row in budget["snapshot"]["providers"].items():
+            columns = [provider] + [_value(row[key]) for key in ("input_tokens", "cached_input_tokens",
+                "output_tokens", "total_tokens", "configured_token_budget", "normalized_utilization")]
+            lines.append("| " + " | ".join(str(value) for value in columns) + " |")
     lines.append("")
     lines.append("## Tasks")
     lines.append("")

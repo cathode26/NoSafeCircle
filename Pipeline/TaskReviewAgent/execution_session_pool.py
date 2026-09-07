@@ -33,7 +33,7 @@ from typing import Any, BinaryIO, Iterable, Iterator, Mapping
 from Pipeline.AgentRuntime.session_lifecycle import SessionLifecycleTelemetry
 from Pipeline.AgentRuntime.contracts import AgentResult
 from Pipeline.TaskExecution.contracts import TaskExecutionRequest
-from Pipeline.ExecutionCrew.run_crew import ROLE_CAPABILITY_CLASSES
+from Pipeline.ExecutionCrew.run_crew import ROLE_CAPABILITY_CLASSES, PROFILE_ROLE_CAPABILITY_CLASSES
 from Pipeline.ExecutionCrew.session_pool import (
     CREW_SESSION_ROLES,
     AssignmentLease,
@@ -384,8 +384,11 @@ class ExecutionCrewSessionPoolOwner:
         checkout: Path | str,
         output_root: Path | str | None = None,
         manifest_path: Path | str | None = None,
+        runtime_binding: dict | None = None,
     ) -> None:
         self.checkout = Path(checkout).resolve()
+        self.runtime_binding = runtime_binding
+        self.pool_capacity = 50 if runtime_binding is not None else POOL_CAPACITY
         self.output_root = Path(
             output_root
             or self.checkout / "Pipeline" / "ExecutionCrew" / "outputs"
@@ -404,6 +407,8 @@ class ExecutionCrewSessionPoolOwner:
             / "session-pools"
             / repository_hash
         )
+        if runtime_binding is not None:
+            self.root = self.root / ("profile-crew-" + semantic_sha256(runtime_binding))
         self.state_path = self.root / "execution-crew.json"
         self.lock_path = self.root / "execution-crew.lock"
         self.assignment_root = self.root / "assignments"
@@ -549,6 +554,7 @@ class ExecutionCrewSessionPoolOwner:
         task_contract_sha256: str,
         model: str,
         reasoning_effort: str | None = None,
+        role_routes: dict | None = None,
     ) -> dict[str, Any]:
         """Durably reserve the four Claude role sessions for one exact run."""
 
@@ -567,10 +573,16 @@ class ExecutionCrewSessionPoolOwner:
             raise ExecutionCrewSessionPoolError("worker_slot_id must be non-empty")
         if type(model) is not str or not model.strip():
             raise ExecutionCrewSessionPoolError("pooled Claude model must be exact")
-        if reasoning_effort is not None:
+        if reasoning_effort is not None and role_routes is None:
             raise ExecutionCrewSessionPoolError(
                 "pooled Claude execution does not accept a reasoning effort"
             )
+        selected_routes = role_routes or {role: dict(provider="claude", model=model.strip(), reasoning_effort=None)
+                                          for role in CREW_SESSION_ROLES}
+        if role_routes is not None and self.runtime_binding is None:
+            raise ExecutionCrewSessionPoolError("profile pool requires exact conversation-store and resume-control binding")
+        if role_routes is not None and set(role_routes) != set(PROFILE_ROLE_CAPABILITY_CLASSES):
+            raise ExecutionCrewSessionPoolError("profile must carry exactly five distinct crew roles")
         checkout_identity = self.checkout_manifest_identity(
             task_id=task_id,
             worker_slot_id=worker_slot_id,
@@ -595,13 +607,13 @@ class ExecutionCrewSessionPoolOwner:
             # the next reservation.
             pool.expire_idle(now=moment)
             leases: dict[str, AssignmentLease] = {}
-            for role in CREW_SESSION_ROLES:
+            for role in selected_routes:
                 compatibility = SessionCompatibility(
-                    "claude-code",
-                    model.strip(),
-                    None,
+                    "claude-code" if selected_routes[role]["provider"] == "claude" else "openai-codex",
+                    selected_routes[role]["model"],
+                    selected_routes[role]["reasoning_effort"],
                     role,
-                    ROLE_CAPABILITY_CLASSES[role],
+                    PROFILE_ROLE_CAPABILITY_CLASSES[role],
                     self.repository_identity,
                 )
                 offerable = sorted(
@@ -654,7 +666,7 @@ class ExecutionCrewSessionPoolOwner:
             bundle = {
                 "schema_version": LEASE_BUNDLE_SCHEMA_VERSION,
                 "run_id": run_id,
-                "leases": {role: leases[role].to_dict() for role in CREW_SESSION_ROLES},
+                "leases": {role: leases[role].to_dict() for role in selected_routes},
             }
             _write_verified(bundle_path, _json_bytes(bundle))
             # Take the liveness lock before the assignment becomes durable, so
@@ -683,10 +695,11 @@ class ExecutionCrewSessionPoolOwner:
                 "task_contract_sha256": task_contract_sha256,
                 "checkout_identity": checkout_identity,
                 "repository_identity": self.repository_identity,
-                "provider_identifier": "claude-code",
+                "provider_identifier": "claude-code" if selected_routes["implementer"]["provider"] == "claude" else "openai-codex",
                 "model": model.strip(),
-                "reasoning_effort": None,
-                "leases": {role: leases[role].to_dict() for role in CREW_SESSION_ROLES},
+                "reasoning_effort": reasoning_effort,
+                **({"role_routes": role_routes} if role_routes is not None else {}),
+                "leases": {role: leases[role].to_dict() for role in selected_routes},
                 "lease_bundle_path": str(bundle_path),
                 "result_path": str(self.output_root / run_id / "crew_result.json"),
                 "status": "active",
@@ -715,7 +728,7 @@ class ExecutionCrewSessionPoolOwner:
             "checkout_identity": checkout_identity,
             "manifest_path": str(self.manifest_path),
             "lease_bundle_path": str(bundle_path),
-            "leases": {role: leases[role].to_dict() for role in CREW_SESSION_ROLES},
+            "leases": {role: leases[role].to_dict() for role in selected_routes},
         }
 
     def settle(self, *, run_id: str, result_path: Path | str) -> str:
@@ -756,7 +769,7 @@ class ExecutionCrewSessionPoolOwner:
             try:
                 self._settle_payload(pool, assignment, result, path.parent)
             except (ExecutionCrewSessionPoolError, SessionPoolError) as exc:
-                for role in CREW_SESSION_ROLES:
+                for role in assignment["leases"]:
                     lease = AssignmentLease.from_dict(assignment["leases"][role])
                     try:
                         pool.quarantine(
@@ -786,7 +799,7 @@ class ExecutionCrewSessionPoolOwner:
             if assignment is None or assignment["status"] != "active":
                 return
             refused: list[str] = []
-            for role in CREW_SESSION_ROLES:
+            for role in assignment["leases"]:
                 try:
                     pool.quarantine(
                         AssignmentLease.from_dict(assignment["leases"][role]),
@@ -815,7 +828,7 @@ class ExecutionCrewSessionPoolOwner:
             assignment = state["assignments"].get(run_id)
             if assignment is None or assignment["status"] != "active":
                 return
-            for role in CREW_SESSION_ROLES:
+            for role in assignment["leases"]:
                 pool.cancel(AssignmentLease.from_dict(assignment["leases"][role]))
             assignment["status"] = "cancelled"
             assignment["settled_generation"] = state["generation"] + 1
@@ -915,7 +928,7 @@ class ExecutionCrewSessionPoolOwner:
                 uncertain.append({"run_id": run_id, "blocker": detail})
                 continue
             quarantined: list[str] = []
-            for role in CREW_SESSION_ROLES:
+            for role in assignment["leases"]:
                 lease = AssignmentLease.from_dict(assignment["leases"][role])
                 try:
                     pool.quarantine(
@@ -963,7 +976,7 @@ class ExecutionCrewSessionPoolOwner:
                     )
                 self._settle_payload(pool, assignment, result, result_path.parent)
             except (ExecutionCrewSessionPoolError, SessionPoolError) as exc:
-                for role in CREW_SESSION_ROLES:
+                for role in assignment["leases"]:
                     lease = AssignmentLease.from_dict(assignment["leases"][role])
                     try:
                         pool.quarantine(
@@ -986,19 +999,22 @@ class ExecutionCrewSessionPoolOwner:
         result: Mapping[str, Any],
         evidence_root: Path,
     ) -> None:
+        primary_route = assignment.get("role_routes", {}).get("implementer")
         fixed = {
             "run_id": assignment["run_id"],
             "task_id": assignment["task_id"],
             "source_head": assignment["source_commit"],
-            "provider": "claude",
+            "provider": primary_route["provider"] if primary_route is not None else "claude",
             "execution_model": assignment["model"],
-            "execution_reasoning_effort": None,
+            "execution_reasoning_effort": primary_route["reasoning_effort"] if primary_route is not None else None,
         }
         for field, expected in fixed.items():
             if result.get(field) != expected:
                 raise ExecutionCrewSessionPoolError(
                     f"pooled crew result changed {field}"
                 )
+        if "role_routes" in assignment and result.get("role_routes") != assignment["role_routes"]:
+            raise ExecutionCrewSessionPoolError("pooled result changed the role routing plan")
         task_contract = result.get("task_contract_identity")
         if not isinstance(task_contract, Mapping) or (
             task_contract.get("path") != f"Tasks/{assignment['task_id']}.yaml"
@@ -1009,7 +1025,7 @@ class ExecutionCrewSessionPoolOwner:
             )
         records = result.get("pooled_role_leases")
         durable_records = result.get("durable_assignment_results")
-        if type(records) is not dict or set(records) != set(CREW_SESSION_ROLES):
+        if type(records) is not dict or set(records) != set(assignment["leases"]):
             raise ExecutionCrewSessionPoolError(
                 "pooled crew result did not echo all four exact leases"
             )
@@ -1019,9 +1035,9 @@ class ExecutionCrewSessionPoolOwner:
             )
         decisions: dict[str, tuple[AssignmentLease, DurableAssignmentResult | None]] = {}
         quota_failures = result.get("provider_quota_failures", {})
-        if type(quota_failures) is not dict or not set(quota_failures).issubset(CREW_SESSION_ROLES):
+        if type(quota_failures) is not dict or not set(quota_failures).issubset(assignment["leases"]):
             raise ExecutionCrewSessionPoolError("invalid provider quota failure role set")
-        for role in CREW_SESSION_ROLES:
+        for role in assignment["leases"]:
             lease = AssignmentLease.from_dict(assignment["leases"][role])
             record = records[role]
             if type(record) is not dict:
@@ -1105,12 +1121,12 @@ class ExecutionCrewSessionPoolOwner:
             durable = DurableAssignmentResult.from_dict(embedded)
             decisions[role] = (lease, durable)
         if set(durable_records) != {
-            role for role in CREW_SESSION_ROLES if records[role]["invoked"] and role not in quota_failures
+            role for role in assignment["leases"] if records[role]["invoked"] and role not in quota_failures
         }:
             raise ExecutionCrewSessionPoolError(
                 "pooled crew result durable role set is inconsistent"
             )
-        for role in CREW_SESSION_ROLES:
+        for role in assignment["leases"]:
             lease, durable = decisions[role]
             if role in quota_failures:
                 pool.quarantine(lease, "confirmed Claude account quota exhaustion; provider handoff never reuses this lease")
@@ -1123,7 +1139,7 @@ class ExecutionCrewSessionPoolOwner:
         body = {
             "schema_version": OWNER_SCHEMA_VERSION,
             "generation": 0,
-            "pool": SessionPool(max_concurrent_assignments=POOL_CAPACITY).to_dict(),
+            "pool": SessionPool(max_concurrent_assignments=self.pool_capacity).to_dict(),
             "assignments": {},
             "lifecycle_telemetry": [],
         }
@@ -1165,7 +1181,7 @@ class ExecutionCrewSessionPoolOwner:
                 # Pre-liveness assignment: no evidence, never reclaimable.
                 assignment["liveness"] = None
                 fields = set(assignment)
-            if fields != _ASSIGNMENT_FIELDS or assignment["run_id"] != run_id:
+            if fields not in (_ASSIGNMENT_FIELDS, _ASSIGNMENT_FIELDS | {"role_routes"}) or assignment["run_id"] != run_id:
                 raise ExecutionCrewSessionPoolError(
                     "pool assignment fields differ from schema"
                 )
@@ -1173,7 +1189,7 @@ class ExecutionCrewSessionPoolOwner:
                 raise ExecutionCrewSessionPoolError("pool assignment status is invalid")
             if type(assignment["leases"]) is not dict or set(
                 assignment["leases"]
-            ) != set(CREW_SESSION_ROLES):
+            ) != set(PROFILE_ROLE_CAPABILITY_CLASSES if "role_routes" in assignment else CREW_SESSION_ROLES):
                 raise ExecutionCrewSessionPoolError(
                     "pool assignment must carry four exact leases"
                 )
@@ -1208,7 +1224,7 @@ class ExecutionCrewSessionPoolOwner:
                 raise ExecutionCrewSessionPoolError(
                     "pool assignment result path is invalid"
                 )
-            for role in CREW_SESSION_ROLES:
+            for role in assignment["leases"]:
                 try:
                     lease = AssignmentLease.from_dict(assignment["leases"][role])
                 except SessionPoolError as exc:
@@ -1227,6 +1243,10 @@ class ExecutionCrewSessionPoolOwner:
                     "model": assignment["model"],
                     "reasoning_effort": assignment["reasoning_effort"],
                 }
+                if "role_routes" in assignment:
+                    route = assignment["role_routes"][role]
+                    expected.update(provider_identifier="claude-code" if route["provider"] == "claude" else "openai-codex",
+                                    model=route["model"], reasoning_effort=route["reasoning_effort"])
                 if any(getattr(lease, field) != value for field, value in expected.items()):
                     raise ExecutionCrewSessionPoolError(
                         "pool assignment metadata disagrees with its exact lease"

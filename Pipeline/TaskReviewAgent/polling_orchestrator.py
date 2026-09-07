@@ -1661,6 +1661,7 @@ def build_worker_command(
     admission_issue_number: int | None = None,
     provider_allowlist: tuple[str, ...] | None = None,
     supervisor_provider: str | None = None,
+    provider_assignment_path: Path | None = None,
 ) -> tuple[str, ...]:
     # The Game Task Agent controller owns Git/GitHub/claim/Issue/checkout
     # authority and therefore runs on the Windows host. Claude/Codex remain
@@ -1741,8 +1742,10 @@ def build_worker_command(
     if crew_profile is not None and validation_profile is not None:
         command.extend(("--crew-profile", crew_profile))
         command.extend(("--validation-profile", validation_profile))
-    if route is not None and provider == "claude" and execution_model:
+    if route is not None and (provider == "claude" or provider_assignment_path is not None) and execution_model:
         command.append("--enable-execution-session-pool")
+    if provider_assignment_path is not None:
+        command.extend(("--provider-assignment-path", str(provider_assignment_path)))
     selected_supervisor = resolve_supervisor_provider(supervisor_provider)
     # Every worker argv names the exact supervisor the scheduler selected, so a
     # worker can never resolve a different one from an ambient default.
@@ -1798,6 +1801,7 @@ def build_decomposition_worker_command(
     enable_session_pool: bool = False,
     provider_allowlist: tuple[str, ...] | None = None,
     all_codex: bool = False,
+    decomposition_strategy: str | None = None,
 ) -> tuple[str, ...]:
     """Build the distinct host boundary for review-only decomposition work."""
 
@@ -1832,7 +1836,18 @@ def build_decomposition_worker_command(
     permitted = validate_provider_allowlist(provider_allowlist)
     if permitted is not None:
         command.extend(("--provider-allowlist", ",".join(permitted)))
-    if all_codex:
+    if decomposition_strategy is not None:
+        orders = {"claude_role_pair": ("claude", "claude"), "codex_role_pair": ("codex", "codex"),
+                  "cross_provider_round_robin": ("codex", "claude")}
+        if decomposition_strategy not in orders or not enable_session_pool:
+            raise PollingOrchestratorError("profile decomposition requires a known strategy and pooled sessions")
+        order = orders[decomposition_strategy]
+        for provider in order:
+            require_permitted_provider(provider, permitted, role="decomposition")
+        command.extend(("--providers", ",".join(order)))
+        if len(set(order)) == 1:
+            command.extend(("--max-calls", "2"))
+    elif all_codex:
         require_permitted_provider("codex", permitted, role="decomposition")
         if not enable_session_pool:
             raise PollingOrchestratorError("all-Codex decomposition requires independent pooled role sessions")
@@ -1922,6 +1937,8 @@ class PollingOrchestrator:
         routing_policy_loader: Callable[[], ExecutionRoutingPolicy] | None = None,
         provider_allowlist: tuple[str, ...] | None = None,
         supervisor_provider: str | None = None,
+        provider_topology: Any = None,
+        provider_budget: Any = None,
         max_architect_invocations_per_poll: int = (
             DEFAULT_MAX_ARCHITECT_INVOCATIONS_PER_POLL
         ),
@@ -1958,6 +1975,10 @@ class PollingOrchestrator:
         self.max_workers = max_workers
         self.architect_min_confidence = architect_min_confidence
         self.architect_runner = architect_runner
+        self.provider_topology = provider_topology
+        self.provider_budget = provider_budget
+        if (provider_topology is None) != (provider_budget is None):
+            raise PollingOrchestratorError("profile routing requires its durable host budget ledger")
         self.provider_allowlist = validate_provider_allowlist(provider_allowlist)
         self.supervisor_provider = resolve_supervisor_provider(supervisor_provider)
         require_permitted_provider(
@@ -1977,6 +1998,8 @@ class PollingOrchestrator:
                 supervisor_model_override=self.model,
                 max_turns_override=self.max_turns,
                 supervisor_provider=self.supervisor_provider,
+                provider_allowlist=self.provider_allowlist,
+                resolve_only_permitted=self.provider_topology is not None,
             )
         )
         self.max_architect_invocations_per_poll = max_architect_invocations_per_poll
@@ -2892,6 +2915,14 @@ class PollingOrchestrator:
                 )
             return value
 
+        if self.provider_budget is not None:
+            from .provider_budget import PROVIDER_NAMES
+            actual_provider = PROVIDER_NAMES.get(text("provider"))
+            if actual_provider != self.provider_topology.architect:
+                raise ArchitectPreflightError("architect usage provider differs from immutable topology")
+            self.provider_budget.observe(invocation_id=text("agent_runtime_run_id") or analysis.analysis_id,
+                provider=actual_provider, role="polling_architect",
+                usage=metadata.get("usage"), evidence=str(analysis.artifact_path))
         self.events.emit(
             "architect_provider_call",
             analysis_id=analysis.analysis_id,
@@ -3459,6 +3490,9 @@ class PollingOrchestrator:
                     for observed, kind in self.capacity_health_failures
                     if 0 <= self.monotonic_clock() - observed <= 300],
             }
+            if self.provider_budget is not None:
+                capacity_context["provider_budget_snapshot"] = self._provider_snapshot()
+                capacity_context["provider_topology"] = self.provider_topology.to_dict()
             portfolio_request = [{**item[2], "capacity_context": capacity_context} for item in mixed_portfolio]
             admission_limit = min(
                 self.max_workers - len(self.active_assignments),
@@ -3477,6 +3511,7 @@ class PollingOrchestrator:
                 ],
             )
             self.architect_invocations_this_poll += 1
+            budget_recorded = False
             try:
                 portfolio_analysis = self.architect_runner(
                     candidates=portfolio_request,
@@ -3492,6 +3527,7 @@ class PollingOrchestrator:
                 self._emit_architect_provider_call(
                     portfolio_analysis, source_head=plan.source_commit
                 )
+                budget_recorded = True
                 desired = portfolio_analysis.batch.desired_active_capacity
                 if desired is not None:
                     if type(desired) is not int or not 0 <= desired <= self.max_workers:
@@ -3524,6 +3560,14 @@ class PollingOrchestrator:
                         )
                     ordered_admissions.append((*selected_entry, advisory))
             except Exception as exc:
+                if self.provider_budget is not None:
+                    from .provider_budget import ProviderBudgetError
+                    if isinstance(exc, ProviderBudgetError):
+                        raise
+                    if not budget_recorded:
+                        self.provider_budget.observe(invocation_id="architect-attempt:" + uuid.uuid4().hex,
+                            provider=self.provider_topology.architect, role="polling_architect", usage=None,
+                            status="uncertain", evidence="host architect attempt failed without usable invocation receipt")
                 self.events.emit(
                     "architect_wait",
                     analysis_id=None,
@@ -3947,7 +3991,9 @@ class PollingOrchestrator:
                     # does for the ExecutionCrew pool; direct launches stay ephemeral.
                     enable_session_pool=True,
                     provider_allowlist=self.provider_allowlist,
-                    all_codex=self.execution_provider == "codex",
+                    all_codex=self.provider_topology is None and self.execution_provider == "codex",
+                    decomposition_strategy=(self.provider_topology.decomposition_strategy
+                                            if self.provider_topology is not None else None),
                 )
                 route_event = {
                     "work_type": "decomposition",
@@ -3965,6 +4011,12 @@ class PollingOrchestrator:
                     "capability_tier": "deep",
                     "route_reason": "architect_selected_eligible_decomposition",
                 }
+                if self.provider_topology is not None:
+                    route_event.update(execution_provider=self.provider_topology.decomposition_strategy,
+                                       decomposition_mode="round_robin_d1b2")
+                    self.provider_budget.register_decomposition_worker(worker_run_id=worker_run_id,
+                        task_id=task_id,contract_sha256=task_contract_sha256)
+                    command = (*command,"--provider-budget-state",str(self.provider_budget.path))
             else:
                 if deterministic_resume is not None:
                     route = fresh_resume.route
@@ -3982,11 +4034,8 @@ class PollingOrchestrator:
                             predicted_change_surface=effective_surface,
                             committed_path_probe=admission_path_probe,
                         )
-                        route = resolve_execution_route(
-                            advisory.execution_recommendation,
-                            policy,
-                            rigor=rigor,
-                        )
+                        route = self.resolve_task_route(advisory.execution_recommendation, policy,
+                            rigor=rigor, task_id=task_id, contract_sha256=task_contract_sha256)
                     except (ExecutionRoutingError, TypeError, ValueError) as exc:
                         self.events.emit(
                             "execution_route_wait",
@@ -4005,6 +4054,13 @@ class PollingOrchestrator:
                         )
                         temporary_exclusions.add(task_id)
                         continue
+                profile_path = None
+                if self.provider_topology is not None:
+                    from .provider_profiles import crew_role_routes
+                    profile_path = self.provider_budget.worker_profile(worker_run_id=worker_run_id,
+                        task_id=task_id, contract_sha256=task_contract_sha256, provider=route.execution_provider,
+                        role_routes=crew_role_routes(self.provider_topology, route.execution_provider,
+                            self.routing_policy_loader().for_tier(route.capability_tier)))
                 command = build_worker_command(
                     task_id=task_id,
                     worker_id=worker_id,
@@ -4012,13 +4068,17 @@ class PollingOrchestrator:
                     checkout_root=self.checkout_root,
                     route=route,
                     provider_allowlist=self.provider_allowlist,
-                    supervisor_provider=self.supervisor_provider,
+                    supervisor_provider=(self.provider_topology.supervisor_for(route.execution_provider)
+                                         if self.provider_topology is not None else self.supervisor_provider),
+                    provider_assignment_path=profile_path,
                     run_id=worker_run_id,
                     admission_source_head=plan.source_commit,
                     task_contract_sha256=task_contract_sha256,
                     admission_issue_number=expected_issue_number,
                 )
                 route_event = {"work_type": "implementation", **route.to_event_dict()}
+            if self.provider_topology is not None:
+                route_event["provider_topology"] = self.provider_topology.to_dict()
             launch_started_utc = utc_now()
             if self.provider_allowlist is not None:
                 route_event["provider_allowlist"] = list(self.provider_allowlist)
@@ -4106,6 +4166,44 @@ class PollingOrchestrator:
             stage2_plan_count=1,
         )
         return PollCycleResult("idle")
+
+    def _provider_snapshot(self) -> dict:
+        with self.provider_budget._lock():
+            state = self.provider_budget._load()
+        active = {p: [] for p in self.provider_topology.provider_allowlist}
+        for task_id, worker in self.active_assignments.items():
+            registered = state["workers"].get(worker.run_id)
+            if registered is not None:
+                active[registered["provider"]].append(task_id)
+        warm = None
+        origin = _run_git(self.source,"remote","get-url","origin")
+        if origin.returncode == 0:
+            from .provider_budget import compatible_crew_sessions
+            repository = origin.stdout.decode("utf-8").strip() if isinstance(origin.stdout,bytes) else origin.stdout.strip()
+            warm = compatible_crew_sessions(checkout_root=self.checkout_root,repository=repository,
+                topology=self.provider_topology,policy=self.routing_policy_loader(),compose_project="nosafecircle")
+        return self.provider_budget.snapshot(active=active,warm=warm)
+
+    def resolve_task_route(self, recommendation, policy, *, rigor, task_id, contract_sha256):
+        if self.provider_topology is None:
+            return resolve_execution_route(recommendation, policy, rigor=rigor)
+        from dataclasses import replace
+        from .provider_profiles import crew_role_routes
+        tier = policy.for_tier(rigor.effective_capability_tier)
+        # Every required review role must pass the host safety allowlist before assignment.
+        for provider in self.provider_topology.provider_allowlist:
+            crew_role_routes(self.provider_topology, provider, tier)
+        snapshot = self._provider_snapshot()
+        if self.provider_topology.mixed and any(row["available"] is False for row in snapshot["providers"].values()):
+            raise ExecutionRoutingError("mixed profile requires an available implementer and independent reviewer")
+        assignment = self.provider_budget.assign(task_id=task_id, contract_sha256=contract_sha256,
+            recommendation=recommendation, snapshot=snapshot)
+        provider = assignment["provider"]
+        route = resolve_execution_route(replace(recommendation,
+            provider_preference="openai" if provider == "codex" else "claude"), policy, rigor=rigor)
+        return replace(route, provider_preference=recommendation.provider_preference,
+            preference_honored=recommendation.provider_preference in ("no_preference", "openai" if provider == "codex" else "claude"),
+            route_reason=assignment["reason"], supervisor_model=route.execution_model)
 
     def poll_capacity_batch(self) -> PollCycleResult:
         """Fill available local capacity within one bounded scheduling poll.
@@ -4510,6 +4608,7 @@ def build_production_orchestrator(
     execution_provider: str | None = None,
     provider_allowlist: tuple[str, ...] | None = None,
     supervisor_provider: str | None = None,
+    provider_topology: Any = None,
     model: str | None = None,
     max_turns: int | None = None,
     max_workers: int = DEFAULT_MAX_WORKERS,
@@ -4543,6 +4642,13 @@ def build_production_orchestrator(
     later construction can fail, preserving initialization-failure reporting.
     """
 
+    if provider_topology is not None:
+        from .provider_profiles import preflight_topology
+        preflight_topology(provider_topology)
+        if (architect_provider != provider_topology.architect or provider_allowlist != provider_topology.provider_allowlist
+                or supervisor_provider != provider_topology.architect
+                or execution_provider != (None if provider_topology.mixed else provider_topology.architect)):
+            raise PollingOrchestratorError("composition arguments differ from resolved topology")
     provider_allowlist = validate_provider_allowlist(provider_allowlist)
     selected_supervisor = resolve_supervisor_provider(supervisor_provider)
     require_permitted_provider(architect_provider, provider_allowlist, role="architect")
@@ -4624,6 +4730,7 @@ def build_production_orchestrator(
             ),
             compatibility=architect_transport.session_compatibility,
         )
+    from .provider_budget import ProviderBudgetLedger
     orchestrator = PollingOrchestrator(
         source=resolved_source,
         checkout_root=resolved_checkout_root,
@@ -4631,6 +4738,11 @@ def build_production_orchestrator(
         execution_provider=execution_provider,
         provider_allowlist=provider_allowlist,
         supervisor_provider=selected_supervisor,
+        provider_topology=provider_topology,
+        provider_budget=(ProviderBudgetLedger(
+            journal_path.parent / "provider-budget.json", topology=provider_topology,
+            repository=_repository_identity(resolved_source), run_id=resolved_scheduler_id)
+            if provider_topology is not None else None),
         model=model,
         max_turns=max_turns,
         max_workers=max_workers,

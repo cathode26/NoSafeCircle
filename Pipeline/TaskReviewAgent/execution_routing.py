@@ -499,8 +499,11 @@ class ExecutionRecommendation:
     capability_tier: str
     provider_preference: str
     rationale: str
+    preference_basis: str | None = None
 
     def __post_init__(self) -> None:
+        if self.preference_basis not in (None, "capability", "availability", "balance", "no_preference"):
+            raise ExecutionRoutingError("unsupported provider preference basis")
         if self.capability_tier not in CAPABILITY_TIERS:
             raise ExecutionRoutingError(
                 f"unsupported capability_tier: {self.capability_tier!r}"
@@ -525,7 +528,7 @@ class ExecutionRecommendation:
             raise ExecutionRoutingError("execution_recommendation must be an object")
         expected = {"capability_tier", "provider_preference", "rationale"}
         supplied = set(value)
-        if supplied != expected:
+        if supplied not in (expected, expected | {"preference_basis"}):
             raise ExecutionRoutingError(
                 "execution_recommendation fields must be exactly "
                 f"{sorted(expected)}; received {sorted(supplied)}"
@@ -534,6 +537,7 @@ class ExecutionRecommendation:
             capability_tier=value["capability_tier"],
             provider_preference=value["provider_preference"],
             rationale=value["rationale"],
+            preference_basis=value.get("preference_basis"),
         )
 
     def to_dict(self) -> dict[str, str]:
@@ -541,6 +545,7 @@ class ExecutionRecommendation:
             "capability_tier": self.capability_tier,
             "provider_preference": self.provider_preference,
             "rationale": self.rationale,
+            **({"preference_basis": self.preference_basis} if self.preference_basis is not None else {}),
         }
 
 
@@ -571,6 +576,9 @@ class TierExecutionRoutingPolicy:
                 "default execution provider must be included in allowed providers"
             )
         for field in ("claude_model", "openai_model", "supervisor_model"):
+            if getattr(self, field) is None and ((field == "claude_model" and "claude" not in allowed)
+                    or (field == "openai_model" and "codex" not in allowed)):
+                continue
             object.__setattr__(
                 self,
                 field,
@@ -582,6 +590,8 @@ class TierExecutionRoutingPolicy:
             )
         for field in ("openai_reasoning_effort", "supervisor_reasoning_effort"):
             effort = getattr(self, field)
+            if field == "openai_reasoning_effort" and "codex" not in allowed and effort is None:
+                continue
             if effort not in OPENAI_REASONING_EFFORTS:
                 raise ExecutionRoutingError(
                     f"{field} must use a supported OpenAI reasoning effort"
@@ -788,6 +798,7 @@ def load_execution_routing_policy(
     max_turns_override: int | None = None,
     provider_allowlist: tuple[str, ...] | None = None,
     supervisor_provider: str | None = None,
+    resolve_only_permitted: bool = False,
 ) -> ExecutionRoutingPolicy:
     """Load and validate all operational routing inputs as one frozen policy.
 
@@ -798,8 +809,11 @@ def load_execution_routing_policy(
     """
 
     env = os.environ if environment is None else environment
-    fallback_claude_model = env.get("NSC_CLAUDE_MODEL") or _DEFAULT_CLAUDE_MODEL
-    fallback_openai_model = env.get("NSC_OPENAI_CODEX_MODEL") or _DEFAULT_OPENAI_MODEL
+    permitted = validate_provider_allowlist(provider_allowlist)
+    resolve_claude = not resolve_only_permitted or permitted is None or "claude" in permitted
+    resolve_codex = not resolve_only_permitted or permitted is None or "codex" in permitted
+    fallback_claude_model = (env.get("NSC_CLAUDE_MODEL") or _DEFAULT_CLAUDE_MODEL) if resolve_claude else None
+    fallback_openai_model = (env.get("NSC_OPENAI_CODEX_MODEL") or _DEFAULT_OPENAI_MODEL) if resolve_codex else None
     # The supervisor model follows the selected supervisor provider. Before
     # this it always fell back to the OpenAI model, so an architect-managed
     # Claude run routed gpt-5.6-sol into a Claude supervisor, which the Claude
@@ -833,21 +847,26 @@ def load_execution_routing_policy(
             )
         reasoning = str(
             env.get(f"{prefix}_OPENAI_REASONING_EFFORT", defaults["reasoning"])
-        ).strip().casefold()
+        ).strip().casefold() if resolve_codex else None
         supervisor_reasoning = str(
             env.get(f"{prefix}_SUPERVISOR_REASONING_EFFORT", defaults["reasoning"])
         ).strip().casefold()
+        allowed = _allowed_providers(env, f"{prefix}_ALLOWED_PROVIDERS")
+        if resolve_only_permitted and permitted is not None:
+            allowed = allowed.intersection(permitted)
+            if not allowed:
+                raise ExecutionRoutingError("profile has no provider permitted by tier safety policy")
+            if _preference_to_execution_provider(default_name) not in allowed:
+                default_name = _execution_provider_to_preference(sorted(allowed)[0])
         tier_policy = TierExecutionRoutingPolicy(
             default_execution_provider=_preference_to_execution_provider(default_name),
-            allowed_execution_providers=_allowed_providers(
-                env, f"{prefix}_ALLOWED_PROVIDERS"
-            ),
+            allowed_execution_providers=allowed,
             claude_model=_environment_text(
                 env, f"{prefix}_CLAUDE_MODEL", fallback_claude_model
-            ),
+            ) if resolve_claude else None,
             openai_model=_environment_text(
                 env, f"{prefix}_OPENAI_MODEL", fallback_openai_model
-            ),
+            ) if resolve_codex else None,
             openai_reasoning_effort=reasoning,
             supervisor_model=(
                 _bounded_text(

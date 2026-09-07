@@ -4,6 +4,13 @@
 
 The Game Task Agent connects the durable GitHub Issue workflow to the existing real implementation pipeline:
 
+For explicit whole-run provider selection, use the canonical launcher's
+`-ProviderProfile` option. The [provider profiles and budget-routing guide](PROVIDER_PROFILES_AND_BUDGET_ROUTING.md)
+defines `all-claude`, `all-codex`, `claude-architect-balanced`, and
+`codex-architect-balanced`, including their immutable manifest fields,
+credential preflight, independent role review, and run-scoped token budgets.
+Existing commands without a profile preserve their documented routing.
+
 ```text
 explicit eligible task or validated agent-ready Issue
         ↓

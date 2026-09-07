@@ -504,4 +504,5 @@ def _normalize_usage(event: Mapping[str, Any], raw_log: str) -> Usage | None:
     reported_total = usage.get("total_tokens", total)
     if isinstance(reported_total, bool) or not isinstance(reported_total, int) or reported_total < 0:
         raise ProviderTransportError("Codex usage.total_tokens is invalid", raw_log=raw_log)
-    return Usage(input_tokens, output_tokens, total, None)
+    return Usage(input_tokens, output_tokens, total, None,
+                 cached_input_tokens=token("cached_input_tokens") if "cached_input_tokens" in usage else None)

@@ -805,6 +805,7 @@ def _normalize_usage(envelope: Mapping[str, Any]) -> Usage | None:
             raise ProviderTransportError("Claude Code modelUsage must not be empty")
         input_tokens = 0
         output_tokens = 0
+        cached_input_tokens = 0
         for model, entry in model_usage.items():
             if type(model) is not str or type(entry) is not dict:
                 raise ProviderTransportError(
@@ -827,11 +828,13 @@ def _normalize_usage(envelope: Mapping[str, Any]) -> Usage | None:
             )
             input_tokens += model_input
             output_tokens += model_output
+            cached_input_tokens += _token(entry, "cacheReadInputTokens", where=f"modelUsage.{model}")
         return Usage(
             input_tokens,
             output_tokens,
             input_tokens + output_tokens,
             _cost(envelope),
+            cached_input_tokens=cached_input_tokens,
         )
 
     top_level = envelope.get("usage", _MISSING)
@@ -861,6 +864,7 @@ def _normalize_usage(envelope: Mapping[str, Any]) -> Usage | None:
         output_tokens,
         input_tokens + output_tokens,
         _cost(envelope),
+        cached_input_tokens=_token(top_level, "cache_read_input_tokens", where="usage"),
     )
 
 

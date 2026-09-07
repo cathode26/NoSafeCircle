@@ -580,7 +580,7 @@ def test_success_raw_log_and_usage_normalization() -> None:
         response = provider.invoke(request(), MODEL)
     assert response.structured_output == {"message": "ok"}
     assert response.raw_log == raw.decode("utf-8")
-    assert response.usage == Usage(66, 9, 75, 0.125)
+    assert response.usage == Usage(66, 9, 75, 0.125, cached_input_tokens=22)
     assert response.claimed_changed_paths == ()
     assert response.claimed_test_commands == ()
     assert response.claims_execution_occurred is False
@@ -600,7 +600,7 @@ def test_success_raw_log_and_usage_normalization() -> None:
             process_runner=FakeProcessRunner(stdout=encoded(fallback)),
             temporary_directory_parent=Path(outer),
         ).invoke(request(), MODEL)
-    assert response.usage == Usage(31, 17, 48, 2)
+    assert response.usage == Usage(31, 17, 48, 2, cached_input_tokens=11)
 
 
 def invoke_with_stdout(stdout: bytes, **runner_changes: Any) -> Any:

@@ -79,6 +79,8 @@ def remember_route(scheduler: Any, *, task: dict, source_head: str, candidate: d
         surface=advisory.predicted_change_surface.to_dict(), route=asdict(route),
         supervisor_provider=scheduler.supervisor_provider,
         provider_allowlist=list(scheduler.provider_allowlist) if scheduler.provider_allowlist else None)
+    if getattr(scheduler, "provider_topology", None) is not None:
+        payload["provider_topology"] = scheduler.provider_topology.to_dict()
     payload["receipt_sha256"] = semantic_sha256(payload)
     path = route_path(scheduler, task["id"])
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -261,7 +263,8 @@ def _prove(admission: Any, entry: tuple, *, source_head: str, refresh: dict, res
              "route receipt is corrupt")
     _require(set(receipt) == {"schema_version", "task_id", "task_contract_sha256", "source_head",
         "repository", "checkout_path", "issue_number", "issue_event_id", "worker_id", "run_id",
-        "recommendation", "surface", "route", "supervisor_provider", "provider_allowlist"}
+        "recommendation", "surface", "route", "supervisor_provider", "provider_allowlist"}.union(
+            {"provider_topology"} if getattr(scheduler, "provider_topology", None) is not None else set())
         and re.fullmatch(r"[0-9a-f]{40}", receipt["source_head"]) is not None
         and re.fullmatch(r"[a-z0-9][a-z0-9-]{0,95}", receipt["run_id"]) is not None,
         "route receipt schema or exact source/run identity is invalid")
@@ -274,6 +277,9 @@ def _prove(admission: Any, entry: tuple, *, source_head: str, refresh: dict, res
              and receipt["supervisor_provider"] == scheduler.supervisor_provider
              and receipt["provider_allowlist"] == (list(scheduler.provider_allowlist) if scheduler.provider_allowlist else None),
              "prior route identity or provider restriction changed")
+    topology = getattr(scheduler, "provider_topology", None)
+    _require(receipt.get("provider_topology") == (topology.to_dict() if topology is not None else None),
+             "provider topology changed")
     snapshot, authority = _issue_proof(admission, entry, receipt, checkout)
     state = snapshot.state
     for root in (scheduler.source, checkout):
@@ -334,6 +340,16 @@ def _prove(admission: Any, entry: tuple, *, source_head: str, refresh: dict, res
             ),
             rigor=rigor,
         )
+        if topology is not None:
+            route = scheduler.resolve_task_route(
+                recommendation,
+                restrict_execution_routing_policy(
+                    scheduler.routing_policy_loader(), scheduler.provider_allowlist
+                ),
+                rigor=rigor,
+                task_id=task_id,
+                contract_sha256=task["task_contract_sha256"],
+            )
     except (KeyError, TypeError, ValueError, TaskReviewContractError) as exc:
         raise GateResumeUnavailable("saved execution route no longer resolves") from exc
     # JSON normalization compares tuple/list representations without relaxing fields.

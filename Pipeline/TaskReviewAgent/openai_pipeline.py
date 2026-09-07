@@ -786,7 +786,7 @@ def run_openai_production_pipeline(
                 bind_observation(observation)
             with active_progress.heartbeat(
                 "codex_supervisor",
-                f"Turn {turn}: Codex is choosing the next bounded action",
+                f"Turn {turn}: Supervisor is choosing the next bounded action",
                 turn=turn,
                 expected_next_action=observed.get("next_action"),
             ):
@@ -798,7 +798,7 @@ def run_openai_production_pipeline(
                 )
             active_progress.emit(
                 "supervisor_decision",
-                f"Turn {turn}: Codex selected {decision.action}",
+                f"Turn {turn}: Supervisor selected {decision.action}",
                 turn=turn,
                 action=decision.action,
                 rationale=" ".join(decision.rationale.split())[:500],

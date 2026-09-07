@@ -19,6 +19,10 @@ param(
     [ValidatePattern('^(claude|codex|claude,codex)$')]
     [string]$ProviderAllowlist,
 
+    [string]$ProviderProfile,
+    [string[]]$ProviderTokenBudget,
+    [string]$ProviderAssignmentPath,
+
     [ValidateSet('openai', 'observe')]
     [string]$Mode = 'openai',
 
@@ -135,7 +139,10 @@ function Test-NscCodexResumeControl {
 }
 
 if ($PSBoundParameters.ContainsKey('CodexResumeSandboxArgument')) {
-    Test-NscCodexResumeControl -Fragments $CodexResumeSandboxArgument -Source '-CodexResumeSandboxArgument'
+    if ([string]::IsNullOrWhiteSpace($ProviderProfile)) {
+        Test-NscCodexResumeControl -Fragments $CodexResumeSandboxArgument -Source '-CodexResumeSandboxArgument'
+    }
+    # A profile validates this control in Python only if Codex is permitted.
     # -InputObject keeps a single fragment as a JSON array; piping would
     # collapse it to a bare string the worker must refuse. The control travels
     # to every child only through this environment variable: Windows PowerShell
@@ -143,7 +150,8 @@ if ($PSBoundParameters.ContainsKey('CodexResumeSandboxArgument')) {
     # passed on python's command line would arrive corrupted.
     $env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT = ConvertTo-Json -InputObject @($CodexResumeSandboxArgument) -Compress
 }
-elseif (-not [string]::IsNullOrWhiteSpace($env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)) {
+elseif ([string]::IsNullOrWhiteSpace($ProviderProfile) -and $SupervisorProvider -ne 'claude' -and
+        -not [string]::IsNullOrWhiteSpace($env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)) {
     # An inherited control is validated exactly like a supplied one; the
     # launcher never reports ACTIVE for a value the worker would refuse.
     $InheritedControl = $null
@@ -181,7 +189,10 @@ $SelectedSupervisorProvider = if (
 else {
     'codex'
 }
-$SupervisorPoolActivation = if ($Mode -ne 'openai') {
+$SupervisorPoolActivation = if (-not [string]::IsNullOrWhiteSpace($ProviderProfile)) {
+    'resolved by the canonical profile preflight'
+}
+elseif ($Mode -ne 'openai') {
     'OFF (no supervisor turns run in this mode)'
 }
 elseif ($SelectedSupervisorProvider -ne 'codex') {
@@ -195,7 +206,10 @@ elseif ([string]::IsNullOrWhiteSpace($env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT)) {
 else {
     'ACTIVE (operator-verified Codex resume control: ' + $env:NSC_CODEX_RESUME_SANDBOX_ARGUMENT + ')'
 }
-$SupervisorPoolBanner = if ($Mode -eq 'openai' -and $SelectedSupervisorProvider -ne 'codex') {
+$SupervisorPoolBanner = if (-not [string]::IsNullOrWhiteSpace($ProviderProfile)) {
+    'Supervisor session controls: resolved by the canonical profile preflight'
+}
+elseif ($Mode -eq 'openai' -and $SelectedSupervisorProvider -ne 'codex') {
     "Supervisor session pool: warm $SelectedSupervisorProvider resume $SupervisorPoolActivation"
 }
 else {
@@ -219,6 +233,8 @@ if (
 # ---------------------------------------------------------------------------
 $IsSchedulerWorker = -not [string]::IsNullOrWhiteSpace($RunId)
 $ArchitectOptionNames = @(
+    'ProviderProfile',
+    'ProviderTokenBudget',
     'ArchitectProvider',
     'AutonomousRunId',
     'ConfirmRepository',
@@ -232,6 +248,9 @@ $SuppliedArchitectOptions = @(
 
 if ($IsSchedulerWorker -and $DirectManual) {
     throw 'DirectManual is an operator escape hatch and must not be combined with a scheduler RunId.'
+}
+if (-not $IsSchedulerWorker -and -not [string]::IsNullOrWhiteSpace($ProviderAssignmentPath)) {
+    throw 'ProviderAssignmentPath requires a scheduler worker identity.'
 }
 if ($IsSchedulerWorker -and $SuppliedArchitectOptions.Count -gt 0) {
     throw "A scheduler worker RunId cannot carry architect-managed options: $($SuppliedArchitectOptions -join ', ')."
@@ -254,7 +273,7 @@ if (-not $UseArchitectManaged -and $SuppliedArchitectOptions.Count -gt 0) {
 }
 if ($PSBoundParameters.ContainsKey('ProviderAllowlist')) {
     $AllowedProviders = @($ProviderAllowlist.Split(','))
-    if ($AllowedProviders -notcontains $SelectedSupervisorProvider) {
+    if ([string]::IsNullOrWhiteSpace($ProviderProfile) -and $AllowedProviders -notcontains $SelectedSupervisorProvider) {
         throw "The selected supervisor provider $SelectedSupervisorProvider must be in ProviderAllowlist."
     }
     if ((-not $UseArchitectManaged -or $PSBoundParameters.ContainsKey('ExecutionProvider')) -and
@@ -426,6 +445,12 @@ if ($UseArchitectManaged) {
     }
     if ($PSBoundParameters.ContainsKey('ProviderAllowlist')) {
         $ControllerArguments += @('-ProviderAllowlist', $ProviderAllowlist)
+    }
+    if ($PSBoundParameters.ContainsKey('ProviderProfile')) {
+        $ControllerArguments += @('-ProviderProfile', $ProviderProfile)
+    }
+    if ($PSBoundParameters.ContainsKey('ProviderTokenBudget')) {
+        $ControllerArguments += @('-ProviderTokenBudget', $ProviderTokenBudget)
     }
     if ($PSBoundParameters.ContainsKey('ExecutionModel')) {
         $ControllerArguments += @('-Model', $ExecutionModel)
@@ -732,6 +757,9 @@ if (-not [string]::IsNullOrWhiteSpace($ValidationProfile)) {
 }
 if ($EnableExecutionSessionPool) {
     $Arguments += '--enable-execution-session-pool'
+}
+if (-not [string]::IsNullOrWhiteSpace($ProviderAssignmentPath)) {
+    $Arguments += @('--provider-assignment-path', $ProviderAssignmentPath)
 }
 # The resume control is deliberately NOT forwarded as a native argument: the
 # worker reads NSC_CODEX_RESUME_SANDBOX_ARGUMENT, which this process exported

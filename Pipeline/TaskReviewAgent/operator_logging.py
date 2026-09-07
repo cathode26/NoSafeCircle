@@ -43,7 +43,7 @@ _ACTION_LABELS = {
     "read_repository_file": "Read a project file",
     "latest_human_feedback": "Read the latest human test feedback",
     "validate_execution_scope": "Confirm the exact implementation and test files",
-    "run_execution_crew": "Run the Claude implementation crew",
+    "run_execution_crew": "Run the implementation crew",
     "integrate_commit_push_and_handoff": "Commit and push the implementation for Unity testing",
     "record_pipeline_blocker": "Record a task blocker",
     "integrate_current_main": "Merge current main into the task branch",
