@@ -29,6 +29,9 @@ from typing import Any
 from urllib.parse import urlsplit
 
 HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+from pipeline_activity import build_pipeline_activity
 # Canonical bounded task-ID rule; an unbounded \d+ is rejected by
 # tests/task_id_width_smoke_test.py.
 TASK_FILE_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})\.yaml$")
@@ -1116,7 +1119,7 @@ class Snapshot:
                 activity.append(str(worker["provider"]))
             if worker.get("turn") is not None:
                 activity.append(f"turn {worker['turn']}")
-            if progress.get("attempt", 1) > 1:
+            if (progress.get("attempt") or 0) > 1:
                 activity.append(f"attempt {progress['attempt']}")
             if task["token_cost"].get("recorded_cost_usd") is not None:
                 activity.append(f"cost so far {task['token_cost']['cost_label']}")
@@ -1132,6 +1135,7 @@ class Snapshot:
         receipt = self.cache.get(run_dir / "graph-complete.json", read_json) if run_dir else None
         events = self.cache.get(run_dir / "events.jsonl", read_jsonl) if run_dir else None
         events = events or []
+        timeline = self.cache.get(run_dir / "run_timeline.jsonl", read_jsonl) if run_dir else []
 
         manifest = manifest if isinstance(manifest, dict) else {}
         repository = validated_repository_slug(manifest.get("github_repository"))
@@ -1298,8 +1302,32 @@ class Snapshot:
             if e.get("event") == "scheduler_blocked"
         ]
 
+        # Only this run's exact scheduler launches can supply global worker
+        # activity. Do not reuse the per-node newest-run/history heuristic here.
+        worker_events = []
+        launched_runs = set()
+        for event in events:
+            task_id, worker_run_id = event.get("task_id"), event.get("run_id")
+            if (event.get("event") != "worker_launched" or task_id not in scope
+                    or not isinstance(task_id, str) or not TASK_FILE_RE.fullmatch(task_id + ".yaml")
+                    or not isinstance(worker_run_id, str)
+                    or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", worker_run_id)):
+                continue
+            if (task_id, worker_run_id) in launched_runs:
+                continue
+            launched_runs.add((task_id, worker_run_id))
+            path = self.outputs / task_id / worker_run_id / "progress.jsonl"
+            for item in self.cache.get(path, read_jsonl_tail) or []:
+                worker_events.append({**item, "_task_id": task_id, "_worker_run_id": worker_run_id})
+
+        activity = build_pipeline_activity(
+            manifest=manifest, progress=progress, receipt=receipt, events=events,
+            timeline=timeline or [], worker_events=worker_events, tasks=tasks, now=time.time(),
+        )
+
         return {
             "generated_at": utc_now(),
+            "pipeline_activity": activity,
             "tasks_dir": str(self.tasks_dir),
             "state_root": str(self.state_root),
             "run": {
@@ -1339,7 +1367,7 @@ class Snapshot:
             pass
         run_dir = newest_autonomous_run(self.state_root)
         if run_dir:
-            for name in ("manifest.json", "progress.json", "events.jsonl", "graph-complete.json"):
+            for name in ("manifest.json", "progress.json", "events.jsonl", "run_timeline.jsonl", "graph-complete.json"):
                 try:
                     stat = (run_dir / name).stat()
                 except OSError:

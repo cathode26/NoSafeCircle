@@ -27,7 +27,27 @@
     font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
     color: var(--muted); margin: 18px 0 7px; font-weight: 600;
   }
-  #cy { width: 100%; height: 100vh; background: var(--bg); }
+  main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  #cy { width: 100%; flex: 1; min-height: 180px; background: var(--bg); }
+  #pipeline-activity {
+    margin: 12px 14px 0; padding: 14px 18px; border: 1px solid #38516c;
+    border-top: 3px solid var(--accent); border-radius: 8px;
+    background: var(--panel); max-height: 60vh; overflow-y: auto;
+  }
+  #pipeline-activity h2 { margin: 0 0 4px; color: var(--accent); }
+  #pipeline-headline { font-size: 20px; line-height: 1.3; margin: 3px 0 7px; font-weight: 650; }
+  .pipeline-note { font-size: 12px; color: #b8c4d1; margin: 5px 0; }
+  .pipeline-candidates { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+  .pipeline-candidates span { border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; font-size: 11px; }
+  .pipeline-counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 5px 16px; margin: 10px 0; }
+  .pipeline-counters span { display: block; color: var(--muted); font-size: 10px; }
+  .pipeline-counters b { font-size: 14px; font-variant-numeric: tabular-nums; }
+  #pipeline-elapsed { font-size: 14px; color: var(--text); }
+  #pipeline-freshness { font-size: 11px; color: #b8c4d1; }
+  #pipeline-freshness.stale { color: #ffd23f; }
+  .pipeline-timeline { padding: 0; margin: 6px 0 0; list-style: none; max-height: 90px; overflow-y: auto; }
+  .pipeline-timeline li { border-top: 1px solid var(--line); padding: 3px 0; font-size: 11px; }
+  .pipeline-timeline time { color: var(--muted); margin-right: 8px; }
   .sub { color: var(--muted); font-size: 11px; margin-bottom: 4px; word-break: break-all; }
 
   .stat { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
@@ -120,7 +140,14 @@
   <div id="legend"></div>
 </aside>
 
-<div id="cy"></div>
+<main>
+  <section id="pipeline-activity" aria-label="Pipeline Activity">
+    <h2>Pipeline Activity</h2>
+    <div id="pipeline-headline" role="status" aria-live="polite">Reading durable run artifacts…</div>
+    <div id="pipeline-body"></div>
+  </section>
+  <div id="cy"></div>
+</main>
 
 <aside class="right">
   <h2>Task detail</h2>
@@ -276,6 +303,8 @@ function layout() {
 }
 
 function render(snap, { relayout }) {
+  renderPipelineActivity(snap.pipeline_activity);
+  cy.resize();
   const { nodes, edges } = buildElements(snap.tasks);
   const wantNodes = new Set(nodes.map(n => n.data.id));
   const wantEdges = new Set(edges.map(e => e.data.id));
@@ -364,6 +393,66 @@ function esc(s) {
 function escAttr(s) {
   return esc(s).replace(/["']/g, c => ({ '"': '&quot;', "'": '&#39;' }[c]));
 }
+
+let pipelineSample = null;
+let pipelineReceivedAt = 0;
+
+function pipelineDuration(seconds) {
+  if (seconds == null) return 'unavailable';
+  const s = Math.max(0, Math.floor(seconds));
+  return s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`
+    : `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+function renderPipelineActivity(activity) {
+  if (!activity) return;
+  if (pipelineSample !== activity) {
+    pipelineSample = activity;
+    pipelineReceivedAt = performance.now();
+  }
+  document.getElementById('pipeline-headline').textContent = activity.headline;
+  const c = activity.counters;
+  const value = v => v == null ? 'unavailable' : esc(v);
+  const counters = [
+    ['Recorded active workers / capacity', `${value(c.active_workers)} / ${value(c.capacity)}`],
+    ['Ready or queued in scope', value(c.eligible_or_queued)],
+    ['Dependencies unmet in scope', value(c.dependency_blocked)],
+    ['Complete in scope', value(c.completed)],
+    ['Architect calls completed (recorded)', value(c.architect_calls_completed)],
+    ['Worker launches', value(c.worker_launches)],
+    ['Wakeups / pokes (saved counter)', value(c.wakeups)],
+    [activity.terminal ? 'Time since terminal record' : 'Current stage elapsed', '<span id="pipeline-elapsed"></span>'],
+  ];
+  const architect = activity.provider_call_open ?
+    `<p class="pipeline-note">${esc(activity.description)}</p>` +
+    `<div class="pipeline-note">Provider: <b>${esc(activity.provider)}</b> · Model: <b>${esc(activity.model)}</b> (${esc(activity.provider_source)}) · Candidates: ${value(activity.candidate_count)}</div>` +
+    `<p class="pipeline-note">${esc(activity.call_status)}</p>` +
+    `<div class="pipeline-candidates">${activity.candidates.map(item => `<span>${esc(item.task_id)} · ${item.work_types.length ? esc(item.work_types.join(', ')) : 'work types unavailable'}</span>`).join('')}</div>` :
+    (activity.description ? `<p class="pipeline-note">${esc(activity.description)}</p>` : '');
+  document.getElementById('pipeline-body').innerHTML =
+    '<div id="pipeline-freshness"></div>' +
+    `<div class="pipeline-note">${esc(activity.liveness)}</div>` + architect +
+    `<div class="pipeline-counters">${counters.map(([label, count]) => `<div><span>${label}</span><b>${count}</b></div>`).join('')}</div>` +
+    '<h2>Recent activity</h2>' +
+    `<ol class="pipeline-timeline">${activity.recent_activity.map(item => `<li><time>${esc(item.timestamp_utc || 'time unavailable')}</time>${esc(item.headline)}</li>`).join('') || '<li>No durable events available.</li>'}</ol>`;
+  updatePipelineTimers();
+}
+
+function updatePipelineTimers() {
+  if (!pipelineSample) return;
+  const delta = Math.max(0, performance.now() - pipelineReceivedAt) / 1000;
+  const elapsed = pipelineSample.stage_elapsed_seconds;
+  const age = pipelineSample.last_event_age_seconds;
+  document.getElementById('pipeline-elapsed').textContent = pipelineDuration(elapsed == null ? null : elapsed + delta);
+  const freshness = document.getElementById('pipeline-freshness');
+  freshness.textContent = age == null
+    ? 'Last durable event time unavailable; process status is unknown from artifacts.'
+    : `No new durable event for ${pipelineDuration(age + delta)}; process status is unknown from artifacts.`;
+  freshness.classList.toggle('stale', age == null || age + delta >= pipelineSample.stale_after_seconds);
+}
+// SSE sends only artifact changes. The local clock must keep advancing during
+// quiet provider calls and disconnected streams without claiming process life.
+setInterval(updatePipelineTimers, 1000);
 
 function githubIssueNavigation(task) {
   const w = task.worker;

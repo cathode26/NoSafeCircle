@@ -31,6 +31,7 @@ python Pipeline/TaskReviewAgent/GauntletView/server.py --tasks C:\Work\NoSafeCir
 | `.task-review-agent/autonomous-runs/<repo>/<run>/manifest.json` | run scope, capacity, excluded ids |
 | `.../progress.json` | poll cycles, worker launches, architect invocations |
 | `.../events.jsonl` | `worker_launched` / `worker_finished` → which tasks are active now |
+| `.../run_timeline.jsonl` | exact-run start, error, and graph-complete observations; participates in SSE fingerprinting |
 | `.../graph-complete.json` | terminal receipt |
 | `.task-review-agent/outputs/<TASK>/<run>/progress.jsonl` | per-task turn, action, phase, Issue/PR identity, provider-usage receipts, Issue state, terminal status |
 | `.task-review-agent/outputs/<TASK>/<run>/run_result.json` | durable fallback Issue number for the newest worker run |
@@ -145,6 +146,113 @@ from recorded cost and appears only after at least three comparable completed
 tasks have persisted costs. Local Unity execution time is never presented as
 model cost. No provider is contacted.
 
+## Pipeline Activity and artifact precedence
+
+The prominent panel above the graph explains global orchestration independently
+of task workflow state. An eligible task stays **Task Unstarted** while the
+Software Architect considers it. No task is marked working by the activity
+reducer. The existing graph orientation, colors, Issue links, compact progress,
+cost details, and default run-scope filter remain unchanged.
+
+`pipeline_activity.py` is a deterministic reducer with an injected clock and no
+file, process, provider, Docker, or GitHub access. `server.py` loads its inputs.
+The explicit `PRECEDENCE` table selects the first available class:
+
+| Priority | Durable evidence | Display |
+|---|---|---|
+| 1 | `autonomous_run_error`, fatal `poll_capacity_batch_completed`, `scheduler_stopped`, exact-run `graph_complete_receipt_written`, or `graph-complete.json` | Run failed/stopped or Graph complete |
+| 2 | `architect_started` with no subsequent matching return/failure/reconciliation | Software Architect reviewing the recorded eligible portfolio |
+| 3 | An in-scope `worker_launched` and that exact worker run's action journal | Starting work, checkout preparation, implementation, validation, integration, evidence, or CI inspection |
+| 4 | Latest recognized scheduler observation | Initialization, refresh boundary, portfolio boundary, cached decision, deliberate WAIT, fallback/event wait, integration gate, or scheduler idle |
+| 5 | No usable evidence | Pipeline activity unavailable |
+
+Records are ordered by timezone-aware durable timestamps, with journal order as
+the tie-breaker. Untimed records precede timed records and cannot supply elapsed
+time. Unknown event names remain in recent activity and do not replace a known
+stage. Exact duplicate records are ignored. The latest terminal observation wins,
+except a normal stop after fatal failure preserves **Run failed**. A completion
+receipt without a terminal timeline supplies **Graph complete** with unavailable
+timing; a later timestamped failure is not erased by an older receipt. Terminal
+observations always outrank nonterminal records, including later drain activity.
+`KeyboardInterrupt` is displayed as stopped, not failed. A task failure alone
+does not prove the entire run failed.
+
+The current scheduler serializes architect calls. `architect_provider_call` is a
+**return receipt**, emitted after the provider invocation, before per-task
+`architect_completed` records. Both can close the open call; capacity decisions,
+an unusable-call `architect_wait`, and session reconciliation also retire it.
+Different explicit source heads are not matched. Completed calls are deduplicated
+by invocation/analysis identity or their start record; per-task admissions are
+not counted as separate calls from one batch. The saved
+`architect_invocations_total` counts attempts and is not used as completed calls.
+
+`architect_wait_started` is a scheduler sleep, never a provider invocation.
+`wait_mode=fallback_timer` and `event_or_fallback` have separate headlines.
+`cached=true` identifies a cached verdict. **All-WAIT** requires noncached wait
+records for every task in the last recorded portfolio, linked to the same
+returned analysis, with no task admitted from that analysis. One task's WAIT or
+`plan_idle` alone cannot establish an all-WAIT decision. The wait headline carries
+the preceding decision as explanatory text when the scheduler enters its sleep.
+
+Worker action evidence is joined only through this autonomous run's
+`worker_launched.task_id` and `run_id`, using a bounded local path under
+`.task-review-agent/outputs`. No artifact-supplied absolute path is followed.
+Historical worker runs are excluded from global stage and freshness. Action
+completion removes its active headline; heartbeats advance freshness without
+resetting a known action start. Concurrent work is summarized by the most recent
+recorded worker stage; the active count still includes every recorded worker.
+
+Counters use manifest capacity and scope, current node dependency/completion
+projection, this run's launch/return records, deduplicated architect returns, and
+saved progress totals for launches and wakeups. Ready/queued counts describe
+workflow availability, not a promise that the scheduler will admit those tasks.
+Manifest candidates are shown separately during architect review. Zero recorded
+returns means zero observed returns, not proof that missing journals contain no
+calls. Saved progress counters can lag events until the controller saves them.
+
+### Exact honesty boundary
+
+The panel describes **recorded activity**, not live process inspection.
+For an open architect call it displays provider/model from the start event or
+the manifest's exact `runtime_configuration.architect_provider` and
+`architect_model`, explicitly labelled as configuration. It never substitutes
+the execution-worker model, infers a model from an all-Codex profile, or reuses
+an old call's model. Missing fields say **unavailable**. A recorded provider
+attempt does not prove billing success; the display says billing confirmation
+is unavailable until a receipt is written. No percentage or ETA is invented.
+
+Elapsed time uses durable timestamps, never artifact mtimes. After 60 seconds
+without a new event, the freshness line is highlighted:
+**No new durable event for X; process status is unknown from artifacts.**
+The same precise wording remains visible before that threshold. Without any
+timestamp it says the last event time is unavailable. An open call is described
+as **recorded as in progress**, alongside **Artifact-only liveness is not proof
+of process liveness.** No silence threshold means hung, alive, progressing, or
+failed. The browser clock advances the elapsed display between SSE changes and
+while disconnected; the stream indicator describes the visualizer connection.
+
+Current artifacts cannot distinguish every internal substep. After a source or
+reservation completion record, the panel names the next expected step as
+**next**, not as a proven start. A broad `run_execution_crew` action does not
+prove which internal crew role is currently running. Unity's broad validation
+action does not establish Edit Mode versus Play Mode; it says **Unity
+validation**. CI inspection does not prove Unity validation is running. A
+controller exit that has no stop/error/complete record remains **unknown from
+artifacts**. Existing node CI and Issue projections remain available in task
+details; the global reducer does not turn old snapshots into live activity.
+
+The reducer trusts local journal provenance and existing completion receipts as
+the visualizer already does; it is not a cryptographic run-audit verifier.
+
+### Focused validation
+
+`python Pipeline/TaskReviewAgent/GauntletView/tests/gauntlet_view_smoke_test.py`
+runs 100 pure/component regressions, including 25 Pipeline Activity cases. These
+use disposable synthetic artifacts and a fixed clock; they never run a gauntlet
+or Unity. The new cases also cover launch-before-progress-file compatibility,
+exact worker-run matching, and terminal precedence. Check the inline JavaScript
+with `node --check`, compile changed Python files, and run `git diff --check`.
+
 ## Live updates
 
 The page opens an SSE connection to `/api/stream`. The server fingerprints the
@@ -156,7 +264,7 @@ border, and the layout only re-runs when nodes or edges are added or removed.
 ## Controls
 
 - **Mouse wheel** zoom, **drag** to pan, or the **Zoom +/− / Fit** buttons.
-- **Dependencies** lays the graph out left-to-right along `depends_on`.
+- **Dependencies** lays the graph out top-to-bottom along `depends_on`.
   **Hierarchy** lays it top-down along `parent`.
 - **Click a node** to see its full contract and its worker's current turn,
   action, phase and issue state; its dependency neighbourhood is highlighted

@@ -1547,5 +1547,237 @@ class GauntletViewHtmlTests(unittest.TestCase):
         self.assertIn("Usage coverage", self.html)
 
 
+class PipelineActivityTests(unittest.TestCase):
+    """Pure/component acceptance regressions for request items 1–10.
+
+    Synthetic artifacts only; no Unity, provider, Docker, or GitHub execution.
+    Clock is fixed, and historical worker artifacts are intentionally present.
+    """
+
+    def setUp(self):
+        self.fixture = Fixture()
+        self.addCleanup(self.fixture.close)
+        self.ids = [f"NSC-{1000 + i}" for i in range(7)]
+        self.manifest = {
+            "run_id": "run-a", "github_repository": EXPECTED_REPOSITORY,
+            "target_task_ids": self.ids, "max_capacity": 3,
+            "runtime_configuration": {
+                "architect_provider": "codex", "architect_model": "gpt-5.4",
+                "provider_allowlist": ["codex"],
+                "provider_topology": {"profile": "all-codex", "architect": "codex"},
+            },
+        }
+        write_json(self.fixture.run / "manifest.json", self.manifest)
+        for task_id in self.ids:
+            _, progress_path = self.fixture.add_task(task_id)
+            # These tasks have never launched. The generic fixture normally
+            # creates run_started, which would correctly make a node active.
+            progress_path.unlink()
+        self.started = self.row("architect_started", portfolio_size=7,
+                                eligible_pairs=[{"task_id": task_id,
+                                                 "work_types": ["implementation", "decomposition"]}
+                                                for task_id in self.ids])
+
+    @staticmethod
+    def row(kind, second=0, **fields):
+        return {"event": kind, "timestamp_utc": f"2026-09-07T01:00:{second:02d}Z", **fields}
+
+    def build(self, events=None):
+        self.fixture.write_scheduler_events(events if events is not None else [self.started])
+        with mock.patch.object(server.time, "time", return_value=1788743100):
+            return self.fixture.snapshot().build()
+
+    def activity(self, events=None):
+        return self.build(events)["pipeline_activity"]
+
+    def test_open_architect_seven_candidates(self):
+        value = self.activity()
+        self.assertEqual(value["stage"], "architect")
+        self.assertEqual(value["headline"], "Software Architect is reviewing 7 eligible tasks")
+        self.assertEqual(value["candidate_count"], 7)
+        self.assertEqual(value["candidates"], self.started["eligible_pairs"])
+        self.assertEqual(value["stage_elapsed_seconds"], 300)
+        self.assertIn("safely in parallel", value["description"])
+        self.assertIn("recorded as in progress", value["call_status"])
+
+    def test_completion_followed_by_launch(self):
+        value = self.activity([self.started, self.row("architect_completed", 5, task_id=self.ids[0]),
+                               self.row("worker_launched", 6, task_id=self.ids[0], run_id="current")])
+        self.assertEqual(value["stage"], "worker_launch")
+        self.assertIn(self.ids[0], value["headline"])
+        self.assertFalse(value["provider_call_open"])
+
+    def test_provider_receipt_closes_call_before_per_task_completion(self):
+        value = self.activity([self.started, self.row("architect_provider_call", 5,
+                               analysis_id="a", agent_runtime_run_id="invocation-a", provider="codex", model="actual")])
+        self.assertFalse(value["provider_call_open"])
+        self.assertEqual(value["counters"]["architect_calls_completed"], 1)
+
+    def test_fallback_wait_is_not_provider_activity(self):
+        value = self.activity([self.row("architect_wait_started", wait_mode="fallback_timer")])
+        self.assertEqual(value["stage"], "fallback_wait")
+        self.assertFalse(value["provider_call_open"])
+        self.assertIn("fallback", value["headline"])
+
+    def test_event_wait_explains_poke(self):
+        value = self.activity([self.row("architect_wait_started", wait_mode="event_or_fallback")])
+        self.assertEqual(value["stage"], "event_wait")
+        self.assertIn("state-change poke", value["headline"])
+
+    def test_cached_wait_is_distinct(self):
+        value = self.activity([self.row("architect_wait", cached=True, task_id=self.ids[0])])
+        self.assertEqual(value["stage"], "architect_cached")
+        self.assertFalse(value["provider_call_open"])
+
+    def test_all_wait_requires_complete_portfolio_coverage(self):
+        receipt = self.row("architect_provider_call", 1, analysis_id="a")
+        waits = [self.row("architect_capacity_deferred", 2+i, analysis_id="a", task_id=task_id)
+                 for i, task_id in enumerate(self.ids)]
+        self.assertNotEqual(self.activity([self.started, receipt, waits[0]])["stage"], "all_wait")
+        value = self.activity([self.started, receipt, *waits, self.row("plan_idle", 12,
+                              decision="all_ordered_candidates_waited")])
+        self.assertEqual(value["stage"], "all_wait")
+        self.assertIn("all 7", value["headline"])
+
+    def test_failed_architect_is_wait_not_open_or_all_wait(self):
+        value = self.activity([self.started, self.row("architect_wait", 2, cached=False,
+                              analysis_id=None, error="unusable")])
+        self.assertEqual(value["stage"], "architect_unavailable")
+        self.assertFalse(value["provider_call_open"])
+
+    def test_staleness_and_absent_events_are_honest(self):
+        self.assertEqual(self.activity()["freshness"],
+                         "No new durable event for 5m 0s; process status is unknown from artifacts.")
+        value = self.activity([])
+        self.assertEqual(value["stage"], "unknown")
+        self.assertIsNone(value["last_event_age_seconds"])
+        self.assertIn("unavailable", value["freshness"])
+
+    def test_graph_complete_outranks_open_call(self):
+        write_json(self.fixture.run / "graph-complete.json", {"receipt_sha256": "a" * 64})
+        value = self.activity()
+        self.assertEqual(value["headline"], "Graph complete")
+        self.assertFalse(value["provider_call_open"])
+
+    def test_fatal_outranks_later_worker_and_stop(self):
+        value = self.activity([self.started, self.row("poll_capacity_batch_completed", 2, fatal=True),
+                              self.row("worker_launched", 3, task_id=self.ids[0]),
+                              self.row("scheduler_stopped", 4)])
+        self.assertEqual(value["headline"], "Run failed")
+        self.assertFalse(value["provider_call_open"])
+
+    def test_stopped_outranks_earlier_architect(self):
+        self.assertEqual(self.activity([self.started, self.row("scheduler_stopped", 2)])["headline"], "Run stopped")
+
+    def test_architect_does_not_change_node_truth(self):
+        value = self.build()
+        self.assertEqual(value["pipeline_activity"]["stage"], "architect")
+        self.assertTrue(all(task["state"] == "ready" for task in value["tasks"]))
+        self.assertEqual(value["scheduler"]["active"], [])
+
+    def test_all_codex_manifest_and_missing_model(self):
+        value = self.activity()
+        self.assertEqual(value["provider"], "codex")
+        self.assertEqual(value["model"], "gpt-5.4")
+        self.assertEqual(value["provider_source"], "manifest configuration")
+        self.manifest["runtime_configuration"].pop("architect_model")
+        write_json(self.fixture.run / "manifest.json", self.manifest)
+        self.assertEqual(self.activity()["model"], "unavailable")
+
+    def test_optional_fields_are_unavailable(self):
+        self.manifest.pop("runtime_configuration")
+        self.manifest.pop("max_capacity")
+        write_json(self.fixture.run / "manifest.json", self.manifest)
+        value = self.activity([self.row("architect_started")])
+        self.assertEqual(value["provider"], "unavailable")
+        self.assertEqual(value["model"], "unavailable")
+        self.assertIsNone(value["candidate_count"])
+        self.assertIsNone(value["counters"]["capacity"])
+        self.assertIsNone(value["counters"]["wakeups"])
+
+    def test_run_counters_exclude_history_and_deduplicate_calls(self):
+        self.fixture.add_task("NSC-999")
+        write_json(self.fixture.run / "progress.json", {"worker_launches_total": 2, "wakeups_total": 4})
+        receipt = self.row("architect_provider_call", 1, agent_runtime_run_id="invocation-a", analysis_id="a")
+        value = self.activity([self.started, receipt, receipt,
+                              self.row("architect_completed", 2, task_id=self.ids[0], analysis_id="a"),
+                              self.row("worker_launched", 3, task_id=self.ids[0], run_id="current")])
+        self.assertEqual(value["counters"], {"active_workers": 1, "capacity": 3,
+                         "eligible_or_queued": 6, "dependency_blocked": 0, "completed": 0,
+                         "architect_calls_completed": 1, "worker_launches": 2, "wakeups": 4})
+
+    def test_timeline_terminal_and_fingerprint(self):
+        before = self.fixture.snapshot().fingerprint()
+        write_jsonl(self.fixture.run / "run_timeline.jsonl", [
+            self.row("autonomous_run_error", 1, run_id="run-a", exception_type="RuntimeError")])
+        self.assertNotEqual(before, self.fixture.snapshot().fingerprint())
+        self.assertEqual(self.activity()["headline"], "Run failed")
+
+    def test_unknown_events_order_and_recent_timeline(self):
+        value = self.activity([self.row("future_event", 2), self.started])
+        self.assertEqual(value["stage"], "architect")
+        self.assertEqual(value["recent_activity"][0]["event"], "future_event")
+        self.assertEqual(value["last_event_age_seconds"], 298)
+
+    def test_worker_activity_requires_exact_run_launch(self):
+        self.fixture.add_worker_run(self.ids[0], "current", progress_events=[event(
+            "pipeline_action_started", {"action": "run_execution_crew"},
+            timestamp="2026-09-07T01:00:04Z")], mtime=1788742804)
+        rows = [self.row("worker_launched", 2, task_id=self.ids[0], run_id="current")]
+        self.assertEqual(self.activity(rows)["headline"], "ExecutionCrew is implementing NSC-1000")
+        self.assertEqual(self.activity()["stage"], "architect")
+
+    def test_open_architect_outranks_concurrent_worker_activity(self):
+        self.fixture.add_worker_run(self.ids[0], "current", progress_events=[event(
+            "pipeline_action_started", {"action": "run_execution_crew"},
+            timestamp="2026-09-07T01:00:04Z")], mtime=1788742804)
+        value = self.activity([self.row("worker_launched", task_id=self.ids[0], run_id="current"),
+                               {**self.started, "timestamp_utc": "2026-09-07T01:00:02Z"}])
+        self.assertEqual(value["stage"], "architect")
+        self.assertEqual(value["counters"]["active_workers"], 1)
+
+    def test_later_failure_wins_over_timestamped_completion_receipt(self):
+        write_json(self.fixture.run / "graph-complete.json", {"receipt_sha256": "a" * 64})
+        write_jsonl(self.fixture.run / "run_timeline.jsonl", [
+            self.row("graph_complete_receipt_written", 1, run_id="run-a"),
+            self.row("autonomous_run_error", 2, run_id="run-a", exception_type="RuntimeError")])
+        self.assertEqual(self.activity()["headline"], "Run failed")
+
+    def test_worker_heartbeat_keeps_start_and_advances_freshness(self):
+        self.fixture.add_worker_run(self.ids[0], "current", progress_events=[
+            event("pipeline_action_started", {"action": "prepare_task_checkout"}, timestamp="2026-09-07T01:00:02Z"),
+            event("pipeline_action_heartbeat", {"action": "prepare_task_checkout"}, timestamp="2026-09-07T01:00:12Z"),
+        ], mtime=1788742812)
+        value = self.activity([self.row("worker_launched", task_id=self.ids[0], run_id="current")])
+        self.assertEqual(value["stage"], "checkout")
+        self.assertEqual(value["stage_elapsed_seconds"], 298)
+        self.assertEqual(value["last_event_age_seconds"], 288)
+
+    def test_idle_and_foreign_timeline_are_not_live_or_terminal(self):
+        write_jsonl(self.fixture.run / "run_timeline.jsonl", [
+            self.row("autonomous_run_error", 2, run_id="another-run")])
+        value = self.activity([self.row("plan_idle", decision="no_safe_work")])
+        self.assertEqual(value["stage"], "idle")
+        self.assertFalse(value["terminal"])
+
+    def test_worker_action_completion_does_not_claim_action_still_running(self):
+        self.fixture.add_worker_run(self.ids[0], "current", progress_events=[
+            event("pipeline_action_started", {"action": "run_execution_crew"}, timestamp="2026-09-07T01:00:02Z"),
+            event("pipeline_action_completed", {"action": "run_execution_crew"}, timestamp="2026-09-07T01:00:12Z"),
+        ], mtime=1788742812)
+        value = self.activity([self.row("worker_launched", task_id=self.ids[0], run_id="current")])
+        self.assertNotEqual(value["stage"], "implementation")
+        self.assertIn("completed", value["headline"])
+
+    def test_panel_has_live_elapsed_and_safe_timeline_rendering(self):
+        html = INDEX_PATH.read_text(encoding="utf-8")
+        self.assertIn('id="pipeline-activity"', html)
+        self.assertLess(html.index('id="pipeline-activity"'), html.index('id="cy"'))
+        self.assertIn("renderPipelineActivity(snap.pipeline_activity)", html)
+        self.assertIn("updatePipelineTimers", html)
+        self.assertIn("esc(item.headline)", html)
+        self.assertIn("process status is unknown from artifacts", html)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
