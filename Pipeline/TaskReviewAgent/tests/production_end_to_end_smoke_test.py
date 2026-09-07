@@ -1454,17 +1454,31 @@ class DisposableGitHub:
     def _branch_head(self, branch: str) -> str:
         return self.fixture.remote_head(f"refs/heads/{branch}")
 
+    def _reconcile_reachability(self, pull_request: dict[str, Any]) -> None:
+        """Model GitHub settling a PR after its head becomes reachable on main."""
+
+        if pull_request["state"] != "OPEN":
+            return
+        head = self._branch_head(pull_request["branch"])
+        main_head = self.fixture.remote_head("refs/heads/main")
+        reachable = subprocess.run(
+            (
+                "git", "-C", str(self.fixture.remote), "merge-base", "--is-ancestor",
+                head, main_head,
+            ),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        require(reachable.returncode in (0, 1), "could not resolve pull-request reachability")
+        if reachable.returncode == 0:
+            pull_request.update(
+                state="MERGED",
+                merge_commit=main_head,
+                merged_head=head,
+            )
+
     def _view(self, pull_request: Mapping[str, Any]) -> dict[str, Any]:
-        if pull_request["state"] == "OPEN":
-            branch_head = self._branch_head(pull_request["branch"])
-            if self.fixture.remote_head("refs/heads/main") == branch_head:
-                # GitHub marks a pull request merged when its exact head becomes
-                # reachable as the target branch tip through the fenced Git push.
-                pull_request.update(
-                    state="MERGED",
-                    merge_commit=branch_head,
-                    merged_head=branch_head,
-                )
         merged = pull_request["state"] == "MERGED"
         head = pull_request["merged_head"] if merged else self._branch_head(pull_request["branch"])
         # Emulated CI: the deterministic workflow has already completed successfully
@@ -1538,6 +1552,7 @@ class DisposableGitHub:
             return self._completed(argv, stdout=self.pull_requests[number]["url"] + "\n")
         if (group, verb) == ("pr", "view"):
             pull_request = self.pull_requests[int(positional[0])]
+            self._reconcile_reachability(pull_request)
             return self._completed(argv, stdout=json.dumps(self._view(pull_request)))
         if (group, verb) == ("pr", "merge"):
             pull_request = self.pull_requests[int(positional[0])]
