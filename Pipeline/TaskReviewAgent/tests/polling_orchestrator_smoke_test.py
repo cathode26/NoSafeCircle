@@ -2092,6 +2092,45 @@ def test_architect_can_choose_decomposition_when_it_is_the_only_safe_work() -> N
         require('"work_type": "decomposition"' in stream.getvalue(), stream.getvalue())
 
 
+def test_target_scoped_decomposition_survives_unrelated_fresh_candidate() -> None:
+    """A target root must not disappear behind unrelated globally ranked work."""
+
+    with tempfile.TemporaryDirectory() as text:
+        source, head = create_source(Path(text))
+        planner = SequencePlanner([mixed_work_plan(head, TASK_A, TASK_B)])
+        architect = FakeArchitect(
+            {TASK_B: advisory(TASK_B, head, work_type="decomposition")}
+        )
+        processes = ProcessFactory()
+        orchestrator, stream = make_orchestrator(
+            source=source,
+            planner=planner,
+            architect=architect,
+            processes=processes,
+            tasks={TASK_A: task(TASK_A), TASK_B: decomposition_task(TASK_B)},
+        )
+        orchestrator.set_admission_allowlist((TASK_B,))
+
+        with patch.dict(os.environ, {"USERPROFILE": str(source.parent)}):
+            result = orchestrator.poll_once()
+
+        require(
+            result.status == "worker_launched" and result.task_id == TASK_B,
+            str(result),
+        )
+        require(architect.portfolio_calls == [(TASK_B,)], str(architect.portfolio_calls))
+        require(architect.calls == [TASK_B], str(architect.calls))
+        require(len(processes.calls) == 1, str(processes.calls))
+        require(
+            "host_decomposition_launcher.py" in " ".join(processes.calls[0][0]),
+            str(processes.calls[0][0]),
+        )
+        require(
+            '"decision": "no_candidate_inside_admission_scope"' not in stream.getvalue(),
+            stream.getvalue(),
+        )
+
+
 def test_excluded_skipped_decomposition_never_enters_architect_portfolio() -> None:
     with tempfile.TemporaryDirectory() as text:
         source, head = create_source(Path(text))
@@ -6419,6 +6458,7 @@ def main() -> int:
         test_ineligible_decomposition_pair_is_not_selected_or_launched,
         test_architect_can_choose_decomposition_while_implementation_exists,
         test_architect_can_choose_decomposition_when_it_is_the_only_safe_work,
+        test_target_scoped_decomposition_survives_unrelated_fresh_candidate,
         test_codex_restriction_applies_to_real_scheduler_routes,
         test_restricted_factory_rejects_claude_architect_before_any_construction,
         test_excluded_skipped_decomposition_never_enters_architect_portfolio,

@@ -3241,6 +3241,17 @@ class PollingOrchestrator:
                 for candidate in plan.skipped_candidates
             )
         )
+        target_scoped_decomposition_plan = (
+            self.admission_allowlist is not None
+            and any(
+                candidate.get("task_id") in self.admission_allowlist
+                and _stage2_skip_may_offer_decomposition(plan, candidate)
+                for candidate in plan.skipped_candidates
+            )
+        )
+        decomposition_fallback_plan = (
+            decomposition_only_plan or target_scoped_decomposition_plan
+        )
         if plan.decision == "no_safe_work" and not decomposition_only_plan:
             self.events.emit(
                 "plan_idle",
@@ -3299,7 +3310,7 @@ class PollingOrchestrator:
         if (
             not candidates
             and self.admission_allowlist is not None
-            and not decomposition_only_plan
+            and not decomposition_fallback_plan
         ):
             self.events.emit(
                 "plan_idle",
@@ -3308,7 +3319,7 @@ class PollingOrchestrator:
                 exclusions=sorted(temporary_exclusions),
             )
             return PollCycleResult("idle")
-        if not candidates and not decomposition_only_plan:
+        if not candidates and not decomposition_fallback_plan:
             self.events.emit(
                 "scheduler_blocked",
                 reason=(
@@ -3357,7 +3368,7 @@ class PollingOrchestrator:
                 for entry in mixed_portfolio
                 if entry[2]["task"]["id"] == local_ahead_recovery_task_id
             )
-        if not mixed_portfolio and decomposition_only_plan:
+        if not mixed_portfolio and decomposition_fallback_plan:
             self.events.emit(
                 "plan_idle",
                 decision="no_decomposition_candidate_inside_admission_scope",
