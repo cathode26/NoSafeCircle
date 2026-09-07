@@ -2784,6 +2784,67 @@ def test_single_muffcabbage_task_reaches_verified_completion() -> None:
     run_positive_scenario(FAST)
 
 
+def test_profile_routed_single_muffcabbage_task_enters_execution_crew() -> None:
+    """Pierce the fixture worker stand-in at the profile-bound crew CLI gate."""
+    from Pipeline.ExecutionCrew import run_crew as crew_cli
+    from Pipeline.TaskReviewAgent.provider_profiles import (
+        crew_role_routes,
+        expand_profile,
+        profile_runtime_binding,
+    )
+
+    with disposable_fixture(FAST) as fixture:
+        topology = expand_profile("all-claude")
+        tier = load_execution_routing_policy(
+            {},
+            provider_allowlist=topology.provider_allowlist,
+            supervisor_provider=topology.architect,
+            resolve_only_permitted=True,
+        ).fast
+        routes = crew_role_routes(topology, "claude", tier)
+        profile_path = fixture.root / "fast-provider-profile.json"
+        profile_path.write_text(
+            json.dumps(
+                {
+                    "topology": topology.to_dict(),
+                    "role_routes": routes,
+                    "runtime_binding": profile_runtime_binding(topology, "muffcabbage"),
+                    "run_id": "muffcabbage-fast-profile",
+                    "task_id": FAST.task_id,
+                    "task_contract_sha256": fixture.task["task_contract_sha256"],
+                }
+            ),
+            encoding="utf-8",
+        )
+        argv = [
+            "run_crew.py", "--source", str(fixture.source), "--task-id", FAST.task_id,
+            "--provider", "claude", "--new-implementation-path", FAST.file_pairs[0][0],
+            "--test-path", "Pipeline/Testing/run_unity_tests_clean.ps1",
+            "--crew-profile", "lean", "--validation-profile", "targeted",
+            "--provider-allowlist", "claude", "--run-id", "muffcabbage-fast-profile",
+            "--role-session-leases", str(fixture.root / "leases.json"),
+            "--scheduler-repository-identity", REPOSITORY,
+            "--checkout-identity-manifest", str(fixture.root / "manifest.json"),
+            "--provider-role-profile", str(profile_path),
+        ]
+        with patch.object(sys, "argv", argv), \
+                patch.object(crew_cli, "load_role_session_lease_bundle", return_value={}), \
+                patch.object(crew_cli, "run_crew", return_value={"crew_status": "review_ready"}) as invoked, \
+                patch.object(crew_cli, "print_human_summary"), \
+                patch.object(sys, "stdout", io.StringIO()), \
+                patch.object(sys, "stderr", io.StringIO()):
+            require(crew_cli.main() == 0, "profile-bound ExecutionCrew preflight failed")
+        invoked.assert_called_once()
+        call = invoked.call_args.kwargs
+        require(call["task_id"] == FAST.task_id, "ExecutionCrew received another task")
+        require(call["crew_profile"] == "lean" and call["validation_profile"] == "targeted",
+                "fast task lost its lean/targeted route at ExecutionCrew")
+        require(call["provider_topology"] == topology.to_dict(),
+                "ExecutionCrew did not receive the immutable provider topology")
+        require(call["role_routes"] == routes,
+                "ExecutionCrew did not receive the profile role routes")
+
+
 def test_standard_rigor_muffcabbage_task_reaches_verified_completion() -> None:
     report = run_positive_scenario(STANDARD)
     require(report["capability_tier"] == "standard", report["capability_tier"])
@@ -3119,6 +3180,7 @@ def test_pre_handoff_boundary_refuses_stale_evidence_human_results_and_hidden_re
 
 TESTS = (
     test_single_muffcabbage_task_reaches_verified_completion,
+    test_profile_routed_single_muffcabbage_task_enters_execution_crew,
     test_standard_rigor_muffcabbage_task_reaches_verified_completion,
     test_deep_rigor_muffcabbage_task_reaches_verified_completion,
     test_deep_serialized_surface_floor_and_load_bearing_guards,

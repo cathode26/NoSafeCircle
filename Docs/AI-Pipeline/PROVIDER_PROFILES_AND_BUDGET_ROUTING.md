@@ -140,6 +140,12 @@ Lead Developer. Profiles reuse the existing session pool and durable settlement
 guards, with a namespace bound to conversation stores and exact Codex resume
 controls. The per-profile capacity is fifty leases (five roles for ten workers).
 
+The assignment's `task_contract_sha256` is SHA-256 of the exact
+`Tasks/<TASK-ID>.yaml` Git blob bytes at the assignment's bound source commit.
+ExecutionCrew verifies that committed blob identity before accepting the profile;
+it never hashes working-tree bytes, which may have been transformed to CRLF by
+`core.autocrlf` or by another checkout filter.
+
 In mixed mode, the implementer and test author use provider A, the validator and
 contract locality auditor use B, ordinary repair stays with A, and revalidation
 stays with B. A design block or failed second repair may request one pooled B

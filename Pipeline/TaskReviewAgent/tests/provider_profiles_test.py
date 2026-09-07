@@ -4,9 +4,13 @@ These are orchestration regressions, not Unity acceptance evidence. Run with
 python -m unittest Pipeline.TaskReviewAgent.tests.provider_profiles_test -v.
 """
 from dataclasses import replace, FrozenInstanceError
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+import hashlib
+import io
 import json
 import os
+import subprocess
 import tempfile
 import sys
 import unittest
@@ -279,6 +283,124 @@ class SchedulerProfileTests(unittest.TestCase):
 
 
 class CrewProfileTests(unittest.TestCase):
+    def test_execution_crew_profile_preflight_uses_committed_blob_under_autocrlf(self):
+        """A real CRLF checkout must retain the LF Git-blob task identity."""
+        from Pipeline.ExecutionCrew import run_crew as crew_cli
+        from Pipeline.TaskReviewAgent.provider_profiles import (
+            crew_role_routes,
+            expand_profile,
+            profile_runtime_binding,
+        )
+
+        def git(root, *args):
+            completed = subprocess.run(
+                ("git", "-C", str(root), *args),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(
+                completed.returncode,
+                0,
+                completed.stderr.decode("utf-8", "replace"),
+            )
+            return completed.stdout
+
+        with tempfile.TemporaryDirectory(prefix="nsc-profile-autocrlf-") as directory:
+            root = Path(directory)
+            origin = root / "origin"
+            checkout = root / "checkout"
+            origin.mkdir()
+            git(origin, "init", "--quiet")
+            git(origin, "config", "user.name", "Provider Profile Regression")
+            git(origin, "config", "user.email", "provider-profile@example.invalid")
+            git(origin, "config", "core.autocrlf", "false")
+            (origin / "Tasks").mkdir()
+            task_id = "NSC-100"
+            contract = {
+                "schema_version": "2.0",
+                "id": task_id,
+                "title": "Profile CRLF regression",
+                "exclusive_resources": [],
+            }
+            lf_bytes = (json.dumps(contract, indent=2) + "\n").encode("utf-8")
+            (origin / "Tasks" / f"{task_id}.yaml").write_bytes(lf_bytes)
+            git(origin, "add", "Tasks")
+            git(origin, "commit", "--quiet", "-m", "Add LF task contract")
+            subprocess.run(
+                (
+                    "git", "-c", "core.autocrlf=true", "clone", "--quiet",
+                    str(origin), str(checkout),
+                ),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
+            worktree_bytes = (checkout / "Tasks" / f"{task_id}.yaml").read_bytes()
+            self.assertIn(b"\r\n", worktree_bytes)
+            self.assertNotEqual(worktree_bytes, lf_bytes)
+            committed_bytes = git(checkout, "show", f"HEAD:Tasks/{task_id}.yaml")
+            self.assertEqual(committed_bytes, lf_bytes)
+            committed_hash = hashlib.sha256(committed_bytes).hexdigest()
+            self.assertNotEqual(committed_hash, hashlib.sha256(worktree_bytes).hexdigest())
+
+            topology = expand_profile("all-claude")
+            tier = load_execution_routing_policy(
+                {},
+                provider_allowlist=topology.provider_allowlist,
+                supervisor_provider=topology.architect,
+                resolve_only_permitted=True,
+            ).standard
+            routes = crew_role_routes(topology, "claude", tier)
+            profile_path = root / "profile.json"
+            profile_path.write_text(
+                json.dumps(
+                    {
+                        "topology": topology.to_dict(),
+                        "role_routes": routes,
+                        "runtime_binding": profile_runtime_binding(topology, "fixture"),
+                        "run_id": "profile-autocrlf",
+                        "task_id": task_id,
+                        "task_contract_sha256": committed_hash,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            argv = [
+                "run_crew.py", "--source", str(checkout), "--task-id", task_id,
+                "--provider", "claude", "--implementation-path", "Fixture.cs",
+                "--test-path", "FixtureTests.cs", "--run-id", "profile-autocrlf",
+                "--role-session-leases", str(root / "leases.json"),
+                "--scheduler-repository-identity", "fixture/repo",
+                "--checkout-identity-manifest", str(root / "manifest.json"),
+                "--provider-role-profile", str(profile_path),
+            ]
+            fake_result = {"crew_status": "review_ready"}
+            with patch.object(sys, "argv", argv), \
+                    patch.object(crew_cli, "load_role_session_lease_bundle", return_value={}), \
+                    patch.object(crew_cli, "run_crew", return_value=fake_result) as invoked, \
+                    patch.object(crew_cli, "print_human_summary"), \
+                    redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                self.assertEqual(crew_cli.main(), 0)
+            invoked.assert_called_once()
+
+            changed = {**contract, "title": "Changed committed contract"}
+            (checkout / "Tasks" / f"{task_id}.yaml").write_text(
+                json.dumps(changed, indent=2) + "\n", encoding="utf-8", newline="\n"
+            )
+            git(checkout, "config", "user.name", "Provider Profile Regression")
+            git(checkout, "config", "user.email", "provider-profile@example.invalid")
+            git(checkout, "add", "Tasks")
+            git(checkout, "commit", "--quiet", "-m", "Alter committed task contract")
+            with patch.object(sys, "argv", argv), \
+                    patch.object(crew_cli, "load_role_session_lease_bundle", return_value={}), \
+                    patch.object(crew_cli, "run_crew", side_effect=AssertionError("stale profile reached crew")), \
+                    redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as stderr:
+                with self.assertRaises(SystemExit) as rejected:
+                    crew_cli.main()
+            self.assertEqual(rejected.exception.code, 2)
+            self.assertIn("different committed contract", stderr.getvalue())
+
     def exercise(self,profile,primary,scenario="repair"):
         from Pipeline.ExecutionCrew.tests import pooled_run_crew_smoke_test as f
         from Pipeline.ExecutionCrew.session_pool import SessionCompatibility,DurableAssignmentResult

@@ -36,6 +36,7 @@ from Pipeline.ExecutionCrew.session_pool import (
 from Pipeline.AgentRuntime.json_values import thaw_json
 from Pipeline.TaskExecution.contracts import TASK_EXECUTION_REQUEST_SCHEMA_VERSION, TaskContractIdentity, TaskExecutionRequest
 from Pipeline.TaskExecution.task_runner import TaskExecutionRunner
+from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.ExecutionCrew.contract_locality import (
     CONTRACT_LOCALITY_AUDIT_SCHEMA_VERSION,
     ContractLocalityError,
@@ -2763,7 +2764,17 @@ def main():
             parser.error("crew conversation store or resume control differs from host profile")
         if args.task_id is not None and value["task_id"] != args.task_id:
             parser.error("crew profile names a different task")
-        if hashlib.sha256((args.source / "Tasks" / (value["task_id"] + ".yaml")).read_bytes()).hexdigest() != value["task_contract_sha256"]:
+        try:
+            source_head = git(
+                args.source, "rev-parse", "--verify", "HEAD"
+            ).stdout.strip()
+            load_committed_task(
+                args.source,
+                value["task_id"],
+                expected_sha256=value["task_contract_sha256"],
+                commit=source_head,
+            )
+        except (OSError, subprocess.CalledProcessError, ValueError):
             parser.error("crew profile names a different committed contract")
         profile_options = dict(provider_topology=value["topology"], role_routes=value["role_routes"])
     try: result=run_crew(source=args.source,output_root=args.output_root,task_id=args.task_id,provider_name=args.provider,implementation_paths=tuple(args.implementation_path or ()),test_paths=tuple(args.test_path or ()),new_implementation_paths=tuple(args.new_implementation_path or ()),new_test_paths=tuple(args.new_test_path or ()),run_id=args.run_id,retry_run_id=args.retry_run,review_feedback_file=args.review_feedback_file,host_output_root=host_output_root,execution_model=args.model,openai_reasoning_effort=args.openai_reasoning_effort,crew_profile=args.crew_profile,validation_profile=args.validation_profile,retry_expected_provider=args.expected_provider,role_session_leases=role_session_leases,scheduler_repository_identity=args.scheduler_repository_identity,checkout_identity_manifest=args.checkout_identity_manifest,provider_allowlist=None if args.provider_allowlist is None else tuple(args.provider_allowlist.split(",")),quota_fallback_provider=args.quota_fallback_provider,**profile_options)
